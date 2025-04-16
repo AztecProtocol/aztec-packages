@@ -99,7 +99,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     }
     // The aggregation object
     for (size_t i = 0; i < AggregationObject::PUBLIC_INPUTS_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(2), proof_fields[offset].witness_index);
         offset++;
     }
 

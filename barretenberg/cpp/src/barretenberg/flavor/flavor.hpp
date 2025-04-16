@@ -171,7 +171,19 @@ class VerificationKey_ : public PrecomputedCommitments {
     bool contains_pairing_point_accumulator = false;
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
 
-    bool operator==(const VerificationKey_&) const = default;
+    bool operator==(const VerificationKey_& other) const
+    {
+        bool equal = true;
+        equal &= this->circuit_size == other.circuit_size;
+        equal &= this->log_circuit_size == other.log_circuit_size;
+        equal &= this->num_public_inputs == other.num_public_inputs;
+        equal &= this->pub_inputs_offset == other.pub_inputs_offset;
+        equal &= this->contains_pairing_point_accumulator == other.contains_pairing_point_accumulator;
+        for (auto [comm, other_comm] : zip_view(this->get_all(), other.get_all())) {
+            equal &= comm == other_comm;
+        }
+        return equal;
+    }
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {

@@ -43,7 +43,12 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         bool contains_ipa_claim;
         IPAClaimPubInputIndices ipa_claim_public_input_indices;
 
-        bool operator==(const VerificationKey&) const = default;
+        bool operator==(const VerificationKey& other) const
+        {
+            // call the parent one
+            return (VerificationKey_::operator==(other) && contains_ipa_claim == other.contains_ipa_claim &&
+                    ipa_claim_public_input_indices == other.ipa_claim_public_input_indices);
+        }
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)

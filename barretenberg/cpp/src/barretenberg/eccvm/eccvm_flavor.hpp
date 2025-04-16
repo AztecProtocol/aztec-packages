@@ -748,8 +748,6 @@ class ECCVMFlavor {
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        bool operator==(const VerificationKey&) const = default;
-
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()
             : VerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
