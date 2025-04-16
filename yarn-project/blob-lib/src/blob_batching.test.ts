@@ -1,19 +1,10 @@
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
-import { fromHex } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, randomBigInt, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
-import { fileURLToPath } from '@aztec/foundation/url';
 
 import cKzg from 'c-kzg';
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
 
 import { BatchedBlob, Blob } from './index.js';
-
-// TODO(MW): Remove below file and test? Only required to ensure commiting and compression are correct.
-const trustedSetup = JSON.parse(
-  readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'trusted_setup_bit_reversed.json')).toString(),
-);
 
 // Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 /* eslint-disable import/no-named-as-default-member */
@@ -33,28 +24,6 @@ try {
 }
 
 describe('blob', () => {
-  it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
-    const blobItems: Fr[] = Array(size).fill(new Fr(size + 1));
-    const ourBlob = await Blob.fromFields(blobItems);
-
-    const point = BLS12Point.decompress(ourBlob.commitment);
-
-    // Double check we correctly decompress the commitment
-    const recompressed = BLS12Point.compress(point);
-    expect(recompressed.equals(ourBlob.commitment)).toBeTruthy();
-
-    let commitment = BLS12Point.ZERO;
-    const setupG1Points: BLS12Point[] = trustedSetup['g1_lagrange_bit_reversed']
-      .slice(0, size)
-      .map((s: string) => BLS12Point.decompress(fromHex(s)));
-
-    setupG1Points.forEach((p, i) => {
-      commitment = commitment.add(p.mul(BLS12Fr.fromBN254Fr(blobItems[i])));
-    });
-
-    expect(commitment.equals(point)).toBeTruthy();
-  });
-
   it('should construct and verify a batched blob of 400 items', async () => {
     // Initialise 400 fields. This test shows that a single blob works with batching methods.
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_400_batched
