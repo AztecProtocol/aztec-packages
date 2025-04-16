@@ -1,8 +1,7 @@
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, randomBigInt, sha256ToField } from '@aztec/foundation/crypto';
-import { BLS12Fr, Fr } from '@aztec/foundation/fields';
-import { BLS12Point } from '@aztec/foundation/fields';
+import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import cKzg from 'c-kzg';
@@ -45,7 +44,7 @@ describe('blob', () => {
     expect(recompressed.equals(ourBlob.commitment)).toBeTruthy();
 
     let commitment = BLS12Point.ZERO;
-    let setupG1Points: BLS12Point[] = trustedSetup['g1_lagrange_bit_reversed']
+    const setupG1Points: BLS12Point[] = trustedSetup['g1_lagrange_bit_reversed']
       .slice(0, size)
       .map((s: string) => BLS12Point.decompress(fromHex(s)));
 

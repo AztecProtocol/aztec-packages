@@ -1,19 +1,14 @@
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 // Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 import cKzg from 'c-kzg';
-import type { Blob as BlobBuffer, ProofResult } from 'c-kzg';
 
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
-import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
-import { BlobDeserializationError } from './errors.js';
-import type { BlobJson } from './interface.js';
 
 /* eslint-disable import/no-named-as-default-member */
-const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
+const { computeKzgProof, verifyKzgProof } = cKzg;
 
 /**
  * A class to create, manage, and prove EVM blobs.

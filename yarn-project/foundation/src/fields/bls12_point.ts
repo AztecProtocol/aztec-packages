@@ -1,11 +1,12 @@
-import { type ProjPointType, weierstrass } from '@noble/curves/abstract/weierstrass';
+import type { ProjPointType } from '@noble/curves/abstract/weierstrass';
+
+/* eslint-disable camelcase */
 import { bls12_381 } from '@noble/curves/bls12-381';
 
-import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
-import { poseidon2Hash } from '../crypto/poseidon/index.js';
+import { toBufferBE } from '../bigint-buffer/index.js';
 import { randomBoolean } from '../crypto/random/index.js';
 import { hexSchemaFor } from '../schemas/utils.js';
-import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
+import { BufferReader, serializeToBuffer } from '../serialize/index.js';
 import { bufferToHex, hexToBuffer } from '../string/index.js';
 import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
 
@@ -109,7 +110,9 @@ export class BLS12Point {
    * @returns The buffer containing the x coordinate and the flags of the y coordinate.
    */
   static compress(point: BLS12Point): Buffer {
-    if (point.isZero()) return this.COMPRESSED_ZERO;
+    if (point.isZero()) {
+      return this.COMPRESSED_ZERO;
+    }
     const isGreater = Boolean((point.y.toBigInt() * 2n) / BLS12Fq.MODULUS);
     return setMask(toBufferBE(point.x.toBigInt(), BLS12Fq.SIZE_IN_BYTES), { compressed: true, sort: isGreater });
   }
@@ -126,12 +129,18 @@ export class BLS12Point {
     if (decompressed.length === BLS12Fq.SIZE_IN_BYTES && compressed) {
       const x = new BLS12Fq(decompressed);
       if (infinity) {
-        if (!x.isZero()) throw new Error('Non-empty compressed G1 point at infinity');
+        if (!x.isZero()) {
+          throw new Error('Non-empty compressed G1 point at infinity');
+        }
         return new BLS12Point(x, BLS12Fq.ZERO, true);
       }
       let y = this.YFromX(x);
-      if (!y) throw new BLSPointNotOnCurveError(x);
-      if ((y.toBigInt() * 2n) / BLS12Fq.MODULUS !== BigInt(sort)) y = y.negate();
+      if (!y) {
+        throw new BLSPointNotOnCurveError(x);
+      }
+      if ((y.toBigInt() * 2n) / BLS12Fq.MODULUS !== BigInt(sort)) {
+        y = y.negate();
+      }
       return new BLS12Point(x, y, infinity);
     } else {
       throw new Error('Invalid compressed G1 point of BLS12-381');
@@ -392,10 +401,18 @@ export class BLSPointNotOnCurveError extends Error {
  * @dev 'sort' refers to 'is_greater' i.e. y > (p - 1)/2
  */
 function setMask(bytes: Buffer, mask: { compressed?: boolean; infinity?: boolean; sort?: boolean }) {
-  if (bytes[0] & 0b1110_0000) throw new Error('setMask: non-empty mask');
-  if (mask.compressed) bytes[0] |= 0b1000_0000;
-  if (mask.infinity) bytes[0] |= 0b0100_0000;
-  if (mask.sort) bytes[0] |= 0b0010_0000;
+  if (bytes[0] & 0b1110_0000) {
+    throw new Error('setMask: non-empty mask');
+  }
+  if (mask.compressed) {
+    bytes[0] |= 0b1000_0000;
+  }
+  if (mask.infinity) {
+    bytes[0] |= 0b0100_0000;
+  }
+  if (mask.sort) {
+    bytes[0] |= 0b0010_0000;
+  }
   return bytes;
 }
 

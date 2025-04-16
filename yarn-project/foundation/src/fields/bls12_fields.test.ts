@@ -225,7 +225,7 @@ function testFn(Field: any, name: string) {
         [new Field(4), 2n],
         [new Field(9), 3n],
         [new Field(16), 4n],
-      ])('Should return the correct square root for %p', async (input, expected) => {
+      ])('Should return the correct square root for %p', (input, expected) => {
         const actual = input.sqrt()!.toBigInt();
 
         // The square root can be either the expected value or the modulus - expected value
@@ -234,7 +234,7 @@ function testFn(Field: any, name: string) {
         expect(isValid).toBeTruthy();
       });
 
-      it('Should return the correct square root for random value', async () => {
+      it('Should return the correct square root for random value', () => {
         const a = Field.random();
         const squared = a.mul(a);
 
@@ -249,7 +249,7 @@ function testFn(Field: any, name: string) {
         [new Field(2), 1n, 2n],
         [new Field(2), 2n, 4n],
         [new Field(10n), 8n, 100_000_000n],
-      ])('Should return the correct power for %p', async (input, pow, expected) => {
+      ])('Should return the correct power for %p', (input, pow, expected) => {
         const actual = input.pow(pow).toBigInt();
 
         // The square root can be either the expected value or the modulus - expected value
@@ -258,7 +258,7 @@ function testFn(Field: any, name: string) {
         expect(isValid).toBeTruthy();
       });
 
-      it('Should return the correct power for random value', async () => {
+      it('Should return the correct power for random value', () => {
         const a = Field.random();
         const power = 11n;
         let expected = a;
