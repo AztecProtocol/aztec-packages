@@ -26,14 +26,9 @@ import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import {
-  PublicContractsDB,
-  PublicProcessorFactory,
-  type PublicTreesDB,
-  type PublicTxResult,
-  TelemetryPublicTxSimulator,
-} from '@aztec/simulator/server';
+import { type PublicContractsDB, PublicProcessorFactory, TelemetryPublicTxSimulator } from '@aztec/simulator/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -631,19 +626,19 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
 const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
 
 class TestPublicTxSimulator extends TelemetryPublicTxSimulator {
-  public override async simulate(tx: Tx): Promise<PublicTxResult> {
+  public override async simulate(tx: Tx) {
     await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
     return super.simulate(tx);
   }
 }
 class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
-    treesDB: PublicTreesDB,
+    merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
   ) {
-    return new TestPublicTxSimulator(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
+    return new TestPublicTxSimulator(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
   }
 }

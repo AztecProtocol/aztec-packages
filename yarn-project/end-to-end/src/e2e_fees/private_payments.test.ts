@@ -109,6 +109,7 @@ describe('e2e_fees private_payment', () => {
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
     const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();
+    const { sequencerBlockRewards } = await t.getBlockRewards();
 
     const tx = localTx.send();
     await tx.wait({ timeout: 300, interval: 10 });
@@ -121,7 +122,7 @@ describe('e2e_fees private_payment', () => {
     // epoch and thereby pays out fees at the same time (when proven).
     const expectedProverFee = await t.getProverFee(receipt.blockNumber!);
     await expect(t.getCoinbaseSequencerRewards()).resolves.toEqual(
-      sequencerRewardsBefore + receipt.transactionFee! - expectedProverFee,
+      sequencerRewardsBefore + sequencerBlockRewards + receipt.transactionFee! - expectedProverFee,
     );
     const feeAmount = receipt.transactionFee!;
 
