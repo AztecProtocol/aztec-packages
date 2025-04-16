@@ -18,10 +18,6 @@ using field_t = stdlib::field_t<StandardCircuitBuilder>;
 using witness_t = stdlib::witness_t<StandardCircuitBuilder>;
 using pub_witness_t = stdlib::public_witness_t<StandardCircuitBuilder>;
 
-namespace {
-auto& engine = numeric::get_debug_randomness();
-}
-
 msgpack::sbuffer create_polynomial_evaluation_circuit(size_t n, bool pub_coeffs)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -79,7 +75,7 @@ void model_variables(StandardCircuit& c, Solver* s, STerm& evaluation)
     info("function_evaluation = ", values["evaluation"]);
 }
 
-TEST(polynomial_evaluation, public)
+TEST(Polynomial_evaluation, public)
 {
     size_t n = 40;
     auto buf = create_polynomial_evaluation_circuit(n, true);
@@ -94,7 +90,7 @@ TEST(polynomial_evaluation, public)
     ASSERT_FALSE(res);
 }
 
-TEST(polynomial_evaluation, private)
+TEST(Polynomial_evaluation, private)
 {
     size_t n = 40;
     auto buf = create_polynomial_evaluation_circuit(n, false);
