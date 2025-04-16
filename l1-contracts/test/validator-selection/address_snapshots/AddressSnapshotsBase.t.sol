@@ -10,12 +10,13 @@ import {
 import {Test} from "forge-std/Test.sol";
 import {TimeLib, TimeStorage, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
+import {TestConstants} from "../../harnesses/TestConstants.sol";
 
 contract AddressSnapshotsBase is Test {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
-  uint256 private constant SLOT_DURATION = 36;
-  uint256 private constant EPOCH_DURATION = 48;
+  uint256 private constant SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
+  uint256 private constant EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
   uint256 private immutable GENESIS_TIME = block.timestamp;
 
   SnapshottedAddressSet validatorSet;

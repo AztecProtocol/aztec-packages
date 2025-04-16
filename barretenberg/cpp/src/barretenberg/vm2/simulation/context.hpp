@@ -115,11 +115,13 @@ class BaseContext : public ContextInterface {
     {
         MemoryInterface& child_memory = get_child_context().get_memory();
         auto get_returndata_size = child_memory.get(last_child_rd_size);
-        uint32_t returndata_size = static_cast<uint32_t>(get_returndata_size.value);
+        uint32_t returndata_size = get_returndata_size.as<uint32_t>();
         uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
 
-        std::vector<FF> retrieved_returndata =
-            child_memory.get_slice(get_last_rd_offset() + rd_offset, write_size).first;
+        std::vector<FF> retrieved_returndata;
+        for (uint32_t i = 0; i < write_size; i++) {
+            retrieved_returndata.push_back(child_memory.get(get_last_rd_offset() + i));
+        }
         retrieved_returndata.resize(rd_size);
 
         return retrieved_returndata;
@@ -230,12 +232,15 @@ class NestedContext : public BaseContext {
     // Input / Output
     std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const override
     {
-        ValueRefAndTag get_calldata_size = parent_context.get_memory().get(parent_cd_size);
+        auto get_calldata_size = parent_context.get_memory().get(parent_cd_size);
         // TODO(ilyas): error if tag != U32
-        auto calldata_size = static_cast<uint32_t>(get_calldata_size.value);
+        auto calldata_size = get_calldata_size.as<uint32_t>();
         uint32_t read_size = std::min(cd_offset + cd_size, calldata_size);
 
-        auto retrieved_calldata = parent_context.get_memory().get_slice(parent_cd_offset + cd_offset, read_size).first;
+        std::vector<FF> retrieved_calldata;
+        for (uint32_t i = 0; i < read_size; i++) {
+            retrieved_calldata.push_back(parent_context.get_memory().get(parent_cd_offset + i));
+        }
 
         // Pad the calldata
         retrieved_calldata.resize(cd_size, 0);

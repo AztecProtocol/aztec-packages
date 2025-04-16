@@ -13,7 +13,7 @@ ExternalProject_Add(
     GIT_TAG main
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND ${SHELL} ./configure.sh production --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix=${CVC5_BUILD}
-    BUILD_COMMAND make -C build
+    BUILD_COMMAND make -C build -j8
     INSTALL_COMMAND make -C build install
     UPDATE_COMMAND ""     # No update step
     # needed by ninja

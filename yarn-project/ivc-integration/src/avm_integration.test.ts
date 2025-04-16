@@ -8,11 +8,10 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
-import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import {
   MockRollupBasePublicCircuit,
   generate3FunctionTestingIVCStack,
@@ -45,7 +44,7 @@ describe('AVM Integration', () => {
   let simTester: PublicTxSimulationTester;
 
   beforeAll(async () => {
-    const clientIVCProofPath = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-avm-integration-client-ivc-'));
+    const clientIVCProofPath = await getWorkingDirectory('bb-avm-integration-client-ivc-');
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
@@ -63,7 +62,7 @@ describe('AVM Integration', () => {
 
   beforeEach(async () => {
     //Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-avm-integration-'));
+    bbWorkingDirectory = await getWorkingDirectory('bb-avm-integration-');
 
     simTester = await PublicTxSimulationTester.create();
     avmTestContractInstance = await simTester.registerAndDeployContract(

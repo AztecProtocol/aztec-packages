@@ -52,10 +52,18 @@ export abstract class BaseBot {
       `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
       logCtx,
     );
+
+    await this.onTxMined(receipt, logCtx);
+
     return receipt;
   }
 
   protected abstract createAndSendTx(logCtx: object): Promise<SentTx>;
+
+  protected onTxMined(_receipt: TxReceipt, _logCtx: object): Promise<void> {
+    // no-op
+    return Promise.resolve();
+  }
 
   protected getSendMethodOpts(...authWitnesses: AuthWitness[]): SendMethodOptions {
     const sender = this.wallet.getAddress();

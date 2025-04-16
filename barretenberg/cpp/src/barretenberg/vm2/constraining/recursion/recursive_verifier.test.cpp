@@ -159,9 +159,6 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
  */
 TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
-    GTEST_SKIP(); // TODO: Fix this test. At the moment, we hit an assertion in the UltraProver.
-                  // Assertion `(proving_key->proving_key.ipa_proof.size() == IPA_PROOF_LENGTH)' failed.
-
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
@@ -204,9 +201,12 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_object);
     }();
 
+    verifier_output.ipa_claim.set_public();
+    outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
+
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
     bool agg_output_valid = verification_key->pcs_verification_key->pairing_check(
-        verifier_output.aggregation_object.P0.get_value(), verifier_output.aggregation_object.P1.get_value());
+        verifier_output.agg_obj.P0.get_value(), verifier_output.agg_obj.P1.get_value());
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 

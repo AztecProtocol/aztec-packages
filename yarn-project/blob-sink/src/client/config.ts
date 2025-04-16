@@ -69,3 +69,10 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
 export function getBlobSinkConfigFromEnv(): BlobSinkConfig {
   return getConfigFromMappings<BlobSinkConfig>(blobSinkConfigMapping);
 }
+
+/**
+ * Returns whether the given blob sink config has any remote sources defined.
+ */
+export function hasRemoteBlobSinkSources(config: BlobSinkConfig = {}): boolean {
+  return !!(config.blobSinkUrl || config.l1ConsensusHostUrls?.length || config.archiveApiUrl);
+}

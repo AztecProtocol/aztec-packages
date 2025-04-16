@@ -270,29 +270,4 @@ template <typename Builder> class GateCounter {
     size_t prev_gate_count{};
 };
 
-void process_plonk_recursion_constraints(Builder& builder,
-                                         AcirFormat& constraint_system,
-                                         bool has_valid_witness_assignments,
-                                         GateCounter<Builder>& gate_counter);
-void process_honk_recursion_constraints(Builder& builder,
-                                        AcirFormat& constraint_system,
-                                        bool has_valid_witness_assignments,
-                                        GateCounter<Builder>& gate_counter,
-                                        uint32_t honk_recursion);
-
-void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
-                                       AcirFormat& constraints,
-                                       ClientIVC* ivc,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<MegaCircuitBuilder>& gate_counter);
-
-#ifndef DISABLE_AZTEC_VM
-stdlib::recursion::aggregation_state<Builder> process_avm_recursion_constraints(
-    Builder& builder,
-    AcirFormat& constraint_system,
-    bool has_valid_witness_assignments,
-    GateCounter<Builder>& gate_counter,
-    stdlib::recursion::aggregation_state<Builder> current_aggregation_object);
-#endif
-
 } // namespace acir_format

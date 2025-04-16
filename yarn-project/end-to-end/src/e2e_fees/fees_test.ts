@@ -10,7 +10,13 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { type DeployL1ContractsArgs, RollupContract, createL1Clients, getPublicClient } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsArgs,
+  RollupContract,
+  createL1Clients,
+  getPublicClient,
+  l1Artifacts,
+} from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -138,6 +144,26 @@ export class FeesTest {
     while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
       await sleep(1000);
     }
+  }
+
+  async getBlockRewards() {
+    const rewardDistributor = getContract({
+      address: this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+      abi: l1Artifacts.rewardDistributor.contractAbi,
+      client: this.context.deployL1ContractsValues.publicClient,
+    });
+
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+
+    const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(
+      EthAddress.fromString(rewardDistributor.address),
+    );
+
+    const toDistribute = balance > blockReward ? blockReward : balance;
+    const sequencerBlockRewards = toDistribute / 2n;
+    const proverBlockRewards = toDistribute - sequencerBlockRewards;
+
+    return { sequencerBlockRewards, proverBlockRewards };
   }
 
   async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {

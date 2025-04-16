@@ -199,6 +199,7 @@ function build {
     playground
     # docs
     release-image
+    spartan
     aztec-up
   )
 
@@ -319,7 +320,6 @@ case "$cmd" in
   ;;
   "ci")
     build
-    ./spartan/bootstrap.sh lint
     if ! semver check $REF_NAME; then
       test
       bench

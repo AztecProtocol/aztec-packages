@@ -35,7 +35,7 @@ contract GovScript is Test {
   FeeAssetHandler public constant feeAssetHandler =
     FeeAssetHandler(0x80d848Dc9F52DF56789e2d62Ce66F19555FF1019);
   StakingAssetHandler public constant stakingAssetHandler =
-    StakingAssetHandler(0x36839412f13D5e9b7c2f83F0F35599fefBFA7984);
+    StakingAssetHandler(0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2);
   IRegistry public constant registry = IRegistry(0x4d2cC1d5fb6BE65240e0bFC8154243e69c0Fb19E);
 
   IRollup public rollup;

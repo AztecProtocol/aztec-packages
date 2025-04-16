@@ -11,8 +11,6 @@
     "build": "yarn clean && yarn generate",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src ./codegenCache.json",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "generate": "yarn generate:noir-contracts",
     "generate:noir-contracts": "./scripts/generate-types.sh"

@@ -13,8 +13,6 @@
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b &&  rm -rf dest && webpack",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
     "generate": "yarn generate:noir-circuits",
     "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader @swc-node/register/esm src/scripts/generate_ts_from_abi.ts",

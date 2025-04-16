@@ -264,14 +264,14 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
     HonkRecursionConstraintOutput<Builder> output;
-    UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 
     output.agg_obj = verifier_output.agg_obj;
     if constexpr (HasIPAAccumulator<Flavor>) {
         ASSERT(HasIPAAccumulator<Flavor>);
-        output.ipa_claim = verifier_output.ipa_opening_claim;
+        output.ipa_claim = verifier_output.ipa_claim;
         output.ipa_proof = verifier_output.ipa_proof;
     }
     return output;

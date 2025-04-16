@@ -159,7 +159,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
     std::shared_ptr<OuterVerificationKey> expected_vk;
     {
         AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
-        const ProgramMetadata metadata{ .honk_recursion = 1 };
+        const ProgramMetadata metadata{ .honk_recursion = 2 };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
@@ -182,7 +182,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         // Clear the program witness then construct the bberg circuit as normal
         avm_verifier_program.witness.clear();
-        const ProgramMetadata metadata{ .honk_recursion = 1 };
+        const ProgramMetadata metadata{ .honk_recursion = 2 };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());

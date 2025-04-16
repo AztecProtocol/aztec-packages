@@ -248,7 +248,7 @@ async function getBlockFromRollupTx(
 
   let blockFields: Fr[];
   try {
-    blockFields = Blob.toEncodedFields(blobBodies);
+    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);

@@ -25,7 +25,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     timeCheater.cheat__setEpochNow(2);
     assertEq(validatorSet.length(), 1);
 
-    // Epoch remains frozen, so this number should not update
+    // Epoch 0 remains frozen, so this number should not update
     assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(1)), address(0));
     assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(1));
   }

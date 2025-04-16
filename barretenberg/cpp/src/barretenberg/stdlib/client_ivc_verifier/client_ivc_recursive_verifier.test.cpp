@@ -136,11 +136,11 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto base_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, tube_vk);
     auto base_tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
-    UltraRecursiveVerifierOutput<RollupFlavor> output =
+    UltraRecursiveVerifierOutput<Builder> output =
         base_verifier.verify_proof(base_tube_proof, AggregationObject::construct_default(base_builder));
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     output.agg_obj.set_public();
-    output.ipa_opening_claim.set_public();
+    output.ipa_claim.set_public();
     base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
@@ -149,7 +149,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
     auto ipa_transcript = std::make_shared<NativeTranscript>(base_proving_key->proving_key.ipa_proof);
     IPA<curve::Grumpkin>::reduce_verify(
-        ipa_verification_key, output.ipa_opening_claim.get_native_opening_claim(), ipa_transcript);
+        ipa_verification_key, output.ipa_claim.get_native_opening_claim(), ipa_transcript);
 }
 
 // Ensure that the Client IVC Recursive Verifier Circuit does not depend on the Client IVC input

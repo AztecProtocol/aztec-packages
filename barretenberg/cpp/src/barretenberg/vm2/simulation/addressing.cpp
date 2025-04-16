@@ -33,8 +33,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         // However, we can't check the value and tag yet! This should be done only if it's used.
         // This is because the first few instructions might not YET have a valid stack pointer.
         auto base_address = memory.get(0);
-        event.base_address_tag = base_address.tag;
-        event.base_address_val = base_address.value;
+        event.base_address = base_address;
 
         // First process relative addressing for all the addresses.
         event.after_relative = instruction.operands;
@@ -44,9 +43,9 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                     throw AddressingException(AddressingEventError::BASE_ADDRESS_INVALID_ADDRESS, i);
                 }
 
-                MemoryValue offset(event.after_relative[i]);
-                offset += base_address.value;
-                event.after_relative[i] = Operand::ff(offset);
+                FF offset = event.after_relative[i];
+                offset = offset + base_address;
+                event.after_relative[i] = Operand::from(offset);
                 if (!memory.is_valid_address(offset)) {
                     throw AddressingException(AddressingEventError::RELATIVE_COMPUTATION_OOB, i);
                 }
@@ -57,12 +56,12 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         event.resolved_operands = event.after_relative;
         for (size_t i = 0; i < spec.num_addresses; ++i) {
             if ((instruction.indirect >> (i + spec.num_addresses)) & 1) {
-                MemoryValue offset(event.resolved_operands[i]);
+                FF offset = event.resolved_operands[i];
                 if (!memory.is_valid_address(offset)) {
                     throw AddressingException(AddressingEventError::INDIRECT_INVALID_ADDRESS, i);
                 }
-                auto new_address = memory.get(static_cast<MemoryAddress>(offset));
-                event.resolved_operands[i] = Operand::ff(new_address.value);
+                FF new_address = memory.get(static_cast<MemoryAddress>(offset));
+                event.resolved_operands[i] = Operand::from(new_address);
             }
         }
 
@@ -72,7 +71,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 throw AddressingException(AddressingEventError::FINAL_ADDRESS_INVALID, i);
             }
             event.resolved_operands[i] =
-                static_cast<Operand>(static_cast<MemoryAddress>(event.resolved_operands[i].operator FF()));
+                Operand::from<uint32_t>(static_cast<MemoryAddress>(event.resolved_operands[i].as_ff()));
         }
     } catch (const AddressingException& e) {
         event.error = e;

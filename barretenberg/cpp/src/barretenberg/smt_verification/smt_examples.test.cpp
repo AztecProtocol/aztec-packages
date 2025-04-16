@@ -11,10 +11,6 @@
 
 using namespace bb;
 
-namespace {
-auto& engine = numeric::get_debug_randomness();
-}
-
 using field_t = stdlib::field_t<StandardCircuitBuilder>;
 using witness_t = stdlib::witness_t<StandardCircuitBuilder>;
 using pub_witness_t = stdlib::public_witness_t<StandardCircuitBuilder>;

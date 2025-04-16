@@ -81,6 +81,15 @@ describe('Discv5Service', () => {
     await node.stop();
   });
 
+  it('should allow broadcast port to be set', async () => {
+    const broadcastPort = 7891;
+    const node = await createNode({ p2pBroadcastPort: broadcastPort });
+    const enr = node.getEnr();
+    expect(enr.ip).toEqual('127.0.0.1');
+    expect(enr.udp).toEqual(broadcastPort);
+    expect(enr.tcp).toEqual(broadcastPort);
+  });
+
   it('should discover & add a peer', async () => {
     const node1 = await createNode();
     const node2 = await createNode();
@@ -226,7 +235,114 @@ describe('Discv5Service', () => {
     await node2.stop();
   });
 
-  const createNode = async (overrides: Partial<P2PConfig & IDiscv5CreateOptions> = {}) => {
+  it('should use trusted peers for discovery', async () => {
+    const node1 = await createNode({}, false);
+    const trustedNode = await createNode({}, false);
+    const trustedEnr = trustedNode.getEnr().encodeTxt();
+
+    const node2 = await createNode(
+      {
+        trustedPeers: [trustedEnr],
+        privatePeers: [],
+      },
+      false,
+    );
+    const node3 = await createNode(
+      {
+        trustedPeers: [trustedEnr],
+        privatePeers: [],
+      },
+      false,
+    );
+
+    await startNodes(node1, node2, node3, trustedNode);
+
+    expect(node1.getAllPeers()).toHaveLength(0);
+    expect(trustedNode.getAllPeers()).toHaveLength(0);
+
+    // Verify node2 and node3 are connected to the trusted peer
+    expect(node2.getAllPeers().length).toBe(1);
+    expect(node3.getAllPeers().length).toBe(1);
+    expect(await getPeers(node2)).toContain(trustedNode.getPeerId().toString());
+    expect(await getPeers(node3)).toContain(trustedNode.getPeerId().toString());
+
+    await Promise.all([
+      waitForPeers(node2, 2),
+      waitForPeers(node3, 2),
+      (async () => {
+        await sleep(2000); // wait for peer discovery to be able to start
+        for (let i = 0; i < 5; i++) {
+          await node1.runRandomNodesQuery();
+          await node2.runRandomNodesQuery();
+          await node3.runRandomNodesQuery();
+          await trustedNode.runRandomNodesQuery();
+          await sleep(100);
+        }
+      })(),
+    ]);
+
+    expect(node1.getAllPeers()).toHaveLength(0);
+
+    // Verify node2 and node3 discovered each other through the trusted peer
+    const node2Peers = await getPeers(node2);
+    expect(node2Peers).toHaveLength(2);
+    expect(node2Peers).toContain(node3.getPeerId().toString());
+    const node3Peers = await getPeers(node3);
+    expect(node3Peers).toHaveLength(2);
+    expect(node3Peers).toContain(node2.getPeerId().toString());
+    const trustedNodePeers = await getPeers(trustedNode);
+    expect(trustedNodePeers).toHaveLength(2);
+    expect(trustedNodePeers).toContain(node2.getPeerId().toString());
+    expect(trustedNodePeers).toContain(node3.getPeerId().toString());
+
+    await stopNodes(node1, node2, node3, trustedNode);
+  });
+
+  it('should not use private peers or peers marked as both trusted and private for discovery', async () => {
+    const node1 = await createNode({}, false);
+    const privateNode = await createNode({}, false);
+    const privateEnr = privateNode.getEnr().encodeTxt();
+
+    const node2 = await createNode(
+      {
+        trustedPeers: [],
+        privatePeers: [privateEnr],
+      },
+      false,
+    );
+    const node3 = await createNode(
+      {
+        trustedPeers: [privateEnr],
+        privatePeers: [privateEnr],
+      },
+      false,
+    );
+
+    await startNodes(node1, node2, node3, privateNode);
+
+    expect(node1.getAllPeers()).toHaveLength(0);
+    expect(node2.getAllPeers()).toHaveLength(0);
+    expect(node3.getAllPeers()).toHaveLength(0);
+    expect(privateNode.getAllPeers()).toHaveLength(0);
+
+    await sleep(2000); // wait for peer discovery to be able to start
+    for (let i = 0; i < 3; i++) {
+      await node1.runRandomNodesQuery();
+      await node2.runRandomNodesQuery();
+      await node3.runRandomNodesQuery();
+      await privateNode.runRandomNodesQuery();
+      await sleep(100);
+    }
+
+    expect(node1.getAllPeers()).toHaveLength(0);
+    expect(node2.getAllPeers()).toHaveLength(0);
+    expect(node3.getAllPeers()).toHaveLength(0);
+    expect(privateNode.getAllPeers()).toHaveLength(0);
+
+    await stopNodes(node1, node2, node3, privateNode);
+  }, 30_000);
+
+  const createNode = async (overrides: Partial<P2PConfig & IDiscv5CreateOptions> = {}, useBootnode = true) => {
     const port = ++basePort;
     const bootnodeAddr = bootNode.getENR().encodeTxt();
     const peerId = await createSecp256k1PeerId();
@@ -235,7 +351,7 @@ describe('Discv5Service', () => {
       ...baseConfig,
       p2pIp: `127.0.0.1`,
       p2pPort: port,
-      bootstrapNodes: [bootnodeAddr],
+      bootstrapNodes: useBootnode ? [bootnodeAddr] : [],
       blockCheckIntervalMS: 50,
       peerCheckIntervalMS: 50,
       p2pEnabled: true,

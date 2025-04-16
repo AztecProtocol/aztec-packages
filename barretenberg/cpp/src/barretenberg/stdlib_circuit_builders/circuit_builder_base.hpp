@@ -264,7 +264,8 @@ template <typename FF> struct CircuitSchemaInternal {
                    real_variable_index,
                    lookup_tables,
                    real_variable_tags,
-                   range_tags);
+                   range_tags,
+                   circuit_finalized);
 };
 } // namespace bb
 

@@ -50,7 +50,23 @@ TEST(Solver, FFITerm_use_case)
     info("+");
     info(vvars["y"]);
     info("=");
-    info(s.getValue(STerm(a, &s, TermType::FFITerm).term));
+    info(s[STerm(a, &s, TermType::FFITerm)]);
+}
+
+TEST(Solver, single_value_model)
+{
+    Solver s("bce4e33b636e0cf38d13a55c3");
+    STerm x = FFIVar("x", &s);
+    STerm y = FFIVar("y", &s);
+    STerm z = x + y;
+    z == bb::fr(3);
+
+    bool res = s.check();
+    ASSERT_TRUE(res);
+
+    info("x: ", s[x]);
+    info("y: ", s[y]);
+    info("z: ", s[z]);
 }
 
 TEST(Solver, human_readable_constraints_FFTerm)

@@ -516,7 +516,7 @@ export async function setup(
     }
     config.l1PublishRetryIntervalMS = 100;
 
-    const blobSinkClient = createBlobSinkClient(config);
+    const blobSinkClient = createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
     const aztecNode = await AztecNodeService.createAndSync(
       config,
       { dateProvider, blobSinkClient, telemetry },
@@ -791,7 +791,9 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
-  const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
+  const blobSinkClient = createBlobSinkClient(aztecNodeConfig, {
+    logger: createLogger('prover-node:blob-sink:client'),
+  });
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
   const archiver = await createArchiver(archiverConfig, blobSinkClient, {

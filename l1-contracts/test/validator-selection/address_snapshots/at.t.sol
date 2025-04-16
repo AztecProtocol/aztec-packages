@@ -23,7 +23,7 @@ contract ExpectRevertWrapper {
     validatorSet.add(validator);
   }
 
-  function remove(uint256 index) public {
+  function remove(uint224 index) public {
     validatorSet.remove(index);
   }
 }

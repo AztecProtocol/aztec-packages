@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -25,6 +27,8 @@ class BytecodeTraceBuilder final {
     void process_instruction_fetching(
         const simulation::EventEmitterInterface<simulation::InstructionFetchingEvent>::Container& events,
         TraceContainer& trace);
+
+    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs();
 };
 
 } // namespace bb::avm2::tracegen
