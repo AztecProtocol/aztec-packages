@@ -1,86 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744815217475,
+  "lastUpdate": 1744825245173,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "73d6cf73d0ed63f25c86521cb3efb5afac53a385",
-          "message": "feat: Evolve nullifier read gadget into a read/write gadget (#13440)\n\n- Implement a write sidecar in the nullifier read gadget\n - Use it in tx level to insert the nonrevertible nullifiers\n - Use nullifier read to prove membership of the deployment nullifier",
-          "timestamp": "2025-04-11T13:25:40Z",
-          "tree_id": "b36e4297a709f5290a213c8a7e0e078356a555ad",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/73d6cf73d0ed63f25c86521cb3efb5afac53a385"
-        },
-        "date": 1744381517864,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20944.458966999948,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15585.771579 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 123253041988.09998,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2141389740,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 232021909,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 19812.256057000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16568.391741 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56747.248763999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56747243000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4043.395593000241,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3486.9049250000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11993.374708,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11993380000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2265.56",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3510,6 +3432,90 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
             "value": 1833,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "60e73f987f850ad0db8fcdce3e9e9d092f2fc0d0",
+          "message": "chore: Fetch rollup address using version as index (#13620)\n\nIf fetching the rollup address given a version identifier fails, it\ntries again using it as an index instead.",
+          "timestamp": "2025-04-16T16:43:39Z",
+          "tree_id": "c230c80adfb26d86a4c41c3d290518f687d5d1db",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/60e73f987f850ad0db8fcdce3e9e9d092f2fc0d0"
+        },
+        "date": 1744825236758,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
+            "value": 87673,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
+            "value": 2257,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
+            "value": 52475,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
+            "value": 1890,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm",
+            "value": 29530,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm-memory",
+            "value": 1829,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
+            "value": 33509,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
+            "value": 1800,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm",
+            "value": 42225,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
+            "value": 1728,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
