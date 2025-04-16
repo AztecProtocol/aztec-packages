@@ -5,11 +5,14 @@
 #include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <algorithm>
 
 namespace bb {
@@ -83,12 +86,37 @@ class ClientIVC {
             return buffer;
         }
 
+        /**
+         * @brief Very quirky method to convert a msgpack buffer to a "heap" buffer
+         * @details This method results in a buffer that is double-size-prefixed with the buffer size. This is to mimmic
+         * the original bb.js behavior which did a *out_proof = to_heap_buffer(to_buffer(proof));
+         *
+         * @return uint8_t* Double size-prefixed msgpack buffer
+         */
+        uint8_t* to_msgpack_heap_buffer() const
+        {
+            msgpack::sbuffer buffer = to_msgpack_buffer();
+
+            std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
+            return to_heap_buffer(buf);
+        }
+
         class DeserializationError : public std::runtime_error {
           public:
             DeserializationError(const std::string& msg)
                 : std::runtime_error(std::string("Client IVC Proof deserialization error: ") + msg)
             {}
         };
+
+        static Proof from_msgpack_buffer(uint8_t const*& buffer)
+        {
+            auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+
+            msgpack::sbuffer sbuf;
+            sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
+
+            return from_msgpack_buffer(sbuf);
+        }
 
         static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer)
         {
