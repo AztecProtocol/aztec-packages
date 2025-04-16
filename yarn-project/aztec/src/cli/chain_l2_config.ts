@@ -54,7 +54,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   registryAddress: '0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e',
-  slashFactoryAddress: '0xef057a24cb08c15321c7875f18e904e5131436aa',
+  slashFactoryAddress: '0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be',
   feeAssetHandlerAddress: '0x80d848dc9f52df56789e2d62ce66f19555ff1019',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 4,
