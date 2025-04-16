@@ -275,23 +275,34 @@ export class SequencerPublisher {
    * @param header - The block header to validate
    */
   public async validateBlockHeader(header: BlockHeader) {
+    const flags = { ignoreDA: true, ignoreSignatures: true };
+
     const args = [
       `0x${header.toBuffer().toString('hex')}`,
       [] as ViemSignature[],
-      `0x${Buffer.alloc(32).toString('hex')}`,
+      `0x${'0'.repeat(64)}`, // 32 empty bytes
       `0x${header.contentCommitment.blobsHash.toString('hex')}`,
-      { ignoreDA: true, ignoreSignatures: true },
+      flags,
     ] as const;
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+
+    // use sender balance to simulate
+    const balance = await this.l1TxUtils.getSenderBalance();
     await this.l1TxUtils.simulate(
       {
         to: this.rollupContract.address,
         data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeader', args }),
-        isViewFn: true,
+        from: this.getForwarderAddress().toString(),
       },
       {
         time: ts + 1n,
       },
+      [
+        {
+          address: this.getForwarderAddress().toString(),
+          balance,
+        },
+      ],
     );
   }
 

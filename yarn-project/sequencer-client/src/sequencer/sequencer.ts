@@ -586,7 +586,7 @@ export class Sequencer {
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
-      await this.publisher.validateBlockForSubmission(block);
+      await this.publisher.validateBlockHeader(proposalHeader);
 
       const blockStats: L2BlockBuiltStats = {
         eventName: 'l2-block-built',

@@ -9,6 +9,7 @@ import {
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import {
   type Abi,
@@ -23,6 +24,7 @@ import {
   MethodNotSupportedRpcError,
   type StateOverride,
   type TransactionReceipt,
+  decodeErrorResult,
   formatGwei,
   getContractError,
   hexToBytes,
@@ -741,7 +743,7 @@ export class L1TxUtils {
    * @returns The gas used and the result of the simulation
    */
   public async simulate(
-    request: L1TxRequest & { gas?: bigint; blockNumber?: bigint; isViewFn?: boolean },
+    request: L1TxRequest & { gas?: bigint; blockNumber?: bigint; from?: `0x${string}` },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
@@ -754,10 +756,10 @@ export class L1TxUtils {
       data: request.data,
     };
 
-    if (this.walletClient && !request.isViewFn) {
+    if (this.walletClient) {
       const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
       call.nonce = nonce;
-      call.from = this.walletClient.account.address;
+      call.from = request.from ?? this.walletClient.account.address;
       call.maxFeePerGas = gasPrice.maxFeePerGas;
       call.maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
       call.gas = request.gas ?? LARGE_GAS_LIMIT;
@@ -765,7 +767,7 @@ export class L1TxUtils {
 
     try {
       const result = await this.publicClient.simulateBlocks({
-        validation: true,
+        validation: false,
         ...(request.blockNumber && { blockNumber: request.blockNumber }),
         blocks: [
           {
@@ -783,6 +785,14 @@ export class L1TxUtils {
         this.logger?.error('L1 transaction Simulation failed', {
           error: result[0].calls[0].error,
         });
+
+        const decodedError = decodeErrorResult({
+          abi: RollupAbi,
+          data: result[0].calls[0].data,
+        });
+
+        console.log('decodedError', decodedError, decodedError.abiItem.inputs);
+
         throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
       }
       return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data };
