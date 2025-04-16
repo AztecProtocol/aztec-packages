@@ -311,6 +311,8 @@ export class Blob {
 
   // Returns as many blobs as we require to broadcast the given fields
   // Assumes we share the fields hash between all blobs
+  // TODO(MW): Rename to more accurate getBlobsPerBlock() - the items here share a fields hash,
+  // which can only be done for one block because the hash is calculated in block root.
   static async getBlobs(fields: Fr[]): Promise<Blob[]> {
     const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
     const multiBlobFieldsHash = await poseidon2Hash(fields);

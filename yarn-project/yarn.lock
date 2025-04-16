@@ -372,6 +372,7 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
+    "@noble/curves": "npm:1.8.1"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.14.6"
     c-kzg: "npm:4.0.0-alpha.1"

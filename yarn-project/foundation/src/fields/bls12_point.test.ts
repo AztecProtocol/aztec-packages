@@ -1,0 +1,340 @@
+import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
+// import { updateInlineTestData } from '../testing/files/index.js';
+import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
+import { BLS12Point } from './bls12_point.js';
+
+describe('BLS12Point', () => {
+  describe('Random', () => {
+    it('always returns a valid point', () => {
+      for (let i = 0; i < 100; ++i) {
+        const point = BLS12Point.random();
+        expect(point.isOnCurve()).toEqual(true);
+      }
+    });
+
+    it('returns different points on each call', () => {
+      const set = new Set();
+      for (let i = 0; i < 100; ++i) {
+        set.add(BLS12Point.random());
+      }
+
+      expect(set.size).toEqual(100);
+    });
+  });
+
+  describe('Failures', () => {
+    it('fails with invalid point', () => {
+      // Input a point not on the curve:
+      expect(() => new BLS12Point(BLS12Fq.ONE, BLS12Fq.ZERO, false)).toThrow('point is not on the BLS12-381 curve');
+    });
+
+    it('fails with invalid infinity', () => {
+      // Input a valid point with incorrect isInfinite flag:
+      expect(() => new BLS12Point(BLS12Fq.ZERO, new BLS12Fq(2n), true)).toThrow('is not infinite');
+    });
+  });
+
+  describe('Compression', () => {
+    it('converts to and from x and sign of y coordinate', () => {
+      const p = BLS12Point.random();
+
+      const [x, sign] = p.toXAndSign();
+      const p2 = BLS12Point.fromXAndSign(x, sign);
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('converts G to and from compressed point', () => {
+      const p = BLS12Point.ONE;
+      const compressedFirstByte = p.compress()[0].toString(2);
+      // BLS12-381 compression contains three flags:
+      // 1: is_compressed (expect true)
+      const isCompressed = compressedFirstByte[0];
+      expect(isCompressed).toEqual('1');
+      // 2: is_infinity (expect false for G)
+      const isInf = compressedFirstByte[1];
+      expect(isInf).toEqual('0');
+      // 3: is_greater (whether y > (p - 1)/ 2, expect false for G)
+      const isGreater = compressedFirstByte[2];
+      expect(isGreater).toEqual('0');
+      const p2 = BLS12Point.decompress(p.compress());
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('converts 0 to and from compressed point', () => {
+      const p = BLS12Point.ZERO;
+      const compressedFirstByte = p.compress()[0].toString(2);
+      // 1: is_compressed (expect true)
+      const isCompressed = compressedFirstByte[0];
+      expect(isCompressed).toEqual('1');
+      // 2: is_infinity (expect true for 0)
+      const isInf = compressedFirstByte[1];
+      expect(isInf).toEqual('1');
+      // 3: is_greater (whether y > (p - 1)/ 2, expect false for 0)
+      const isGreater = compressedFirstByte[2];
+      expect(isGreater).toEqual('0');
+      const p2 = BLS12Point.decompress(p.compress());
+
+      expect(p.equals(p2)).toBeTruthy();
+      expect(p.compress().equals(BLS12Point.COMPRESSED_ZERO)).toBeTruthy();
+    });
+
+    it('converts to and from random compressed point', () => {
+      const p = BLS12Point.random();
+      const compressedFirstByte = p.compress()[0].toString(2);
+      // 1: is_compressed (expect true)
+      const isCompressed = compressedFirstByte[0];
+      expect(isCompressed).toEqual('1');
+      // 2: is_infinity
+      const isInf = compressedFirstByte[1];
+      expect(isInf).toEqual(`${+p.isInfinite}`);
+      // 3: is_greater (whether y > (p - 1)/ 2))
+      // equivalently, whether y > -y in the field
+      const isGreater = compressedFirstByte[2];
+      expect(isGreater).toEqual(`${+(p.y.toBigInt() > p.y.negate().toBigInt())}`);
+      const p2 = BLS12Point.decompress(p.compress());
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('converts to and from static compressed point', () => {
+      const p = new BLS12Point(new BLS12Fq(0n), new BLS12Fq(2n), false);
+      const compressedFirstByte = p.compress()[0].toString(2);
+      // 1: is_compressed (expect true)
+      const isCompressed = compressedFirstByte[0];
+      expect(isCompressed).toEqual('1');
+      // 2: is_infinity (expect false)
+      const isInf = compressedFirstByte[1];
+      expect(isInf).toEqual('0');
+      // 3: is_greater (whether y > (p - 1)/ 2, expect false)
+      const isGreater = compressedFirstByte[2];
+      expect(isGreater).toEqual('0');
+      const p2 = BLS12Point.decompress(p.compress());
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('fails with invalid compression encoding', () => {
+      const p = BLS12Point.random();
+      const compressed = p.compress();
+      let test = Buffer.from(compressed);
+      // 1: flip is_compressed
+      test[0] ^= 0b1000_0000;
+      expect(() => BLS12Point.decompress(test)).toThrow('Invalid compressed G1 point');
+      // reset
+      test = Buffer.from(compressed);
+      // 2: flip is_infinity
+      test[0] ^= 0b0100_0000;
+      expect(() => BLS12Point.decompress(test)).toThrow('Non-empty compressed G1 point');
+    });
+
+    it('fails with invalid point', () => {
+      // Choose x such that x^3 + 4 = a quadratic non residue
+      // (=> x is not a valid x-coord)
+      let x;
+      while (!x) {
+        const candidate = BLS12Fq.random();
+        const res = candidate.pow(3n).add(new BLS12Fq(4n));
+        if (!res.sqrt() && !candidate.isZero()) {
+          x = candidate;
+        }
+      }
+      const compressed = x.toBuffer();
+      // Add the mask with compressed = 1, infinite = 0, sort = 1
+      compressed[0] |= 0b1010_0000;
+      expect(() => BLS12Point.decompress(compressed)).toThrow('point is not on the BLS12-381 curve');
+      expect(() => BLS12Point.fromXAndSign(x, true)).toThrow('point is not on the BLS12-381 curve');
+    });
+  });
+
+  // TODO(MW): Add fixture
+  // it('compressed point with + sign matches Noir', () => {
+  //   const p = new Point(
+  //     new Fr(0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73n),
+  //     new Fr(0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4an),
+  //     false,
+  //   );
+  //   expect(p.toXAndSign()[1]).toBe(true);
+
+  //   const compressed = p.toCompressedBuffer().toString('hex');
+  //   expect(compressed).toMatchInlineSnapshot(`"9af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73"`);
+
+  //   const byteArrayString = `[${compressed.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
+
+  //   // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+  //   updateInlineTestData(
+  //     'noir-projects/aztec-nr/aztec/src/utils/point.nr',
+  //     'expected_compressed_point_positive_sign',
+  //     byteArrayString,
+  //   );
+  // });
+
+  describe('Serialization', () => {
+    it('serializes to and from buffer', () => {
+      const p = BLS12Point.random();
+      const p2 = BLS12Point.fromBuffer(p.toBuffer());
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('serializes to and from string', () => {
+      const p = BLS12Point.random();
+      const p2 = BLS12Point.fromString(p.toString());
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('serializes to and from fields', () => {
+      const p = BLS12Point.random();
+      const p2 = BLS12Point.fromBLSFields(p.toBLSFields());
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('serializes to and from noble/curves projective point', () => {
+      const p = BLS12Point.random();
+      const p2 = BLS12Point.fromNobleProjectivePoint(p.toNobleProjectivePoint());
+
+      expect(p.equals(p2)).toBeTruthy();
+    });
+
+    it('serializes from and to JSON', async () => {
+      const p = BLS12Point.random();
+      const p2 = await jsonParseWithSchema(jsonStringify(p), BLS12Point.schema);
+      expect(p).toEqual(p2);
+      expect(p2).toBeInstanceOf(BLS12Point);
+    });
+  });
+
+  describe('Arithmetic', () => {
+    describe('Addition', () => {
+      it('Identity', () => {
+        const p = BLS12Point.random();
+        const p2 = p.add(BLS12Point.ZERO);
+
+        expect(p.equals(p2)).toBeTruthy();
+      });
+
+      it('Inverse', () => {
+        const p = BLS12Point.random();
+        const p2 = p.add(p.negate());
+
+        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
+      });
+    });
+
+    describe('Subtraction', () => {
+      it('Identity', () => {
+        const p = BLS12Point.random();
+        const p2 = p.sub(BLS12Point.ZERO);
+
+        expect(p.equals(p2)).toBeTruthy();
+      });
+
+      it('Inverse', () => {
+        const p = BLS12Point.random();
+        const p2 = p.sub(p);
+
+        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
+      });
+
+      it('Performs subtraction correctly', () => {
+        const p = BLS12Point.random();
+        const q = BLS12Point.random();
+        const p2 = p.sub(q);
+        const p3 = p.add(q.negate());
+
+        expect(p3.equals(p2)).toBeTruthy();
+      });
+    });
+
+    describe('Multiplication', () => {
+      it('Identity', () => {
+        const p = BLS12Point.random();
+        const p2 = p.mul(BLS12Fr.ONE);
+        const p2Unsafe = p.mulUnsafe(BLS12Fr.ONE);
+
+        expect(p.equals(p2)).toBeTruthy();
+        expect(p2Unsafe.equals(p2)).toBeTruthy();
+      });
+
+      it('Zero', () => {
+        const p = BLS12Point.random();
+        const p2 = p.mul(BLS12Fr.ZERO);
+        const p2Unsafe = p.mulUnsafe(BLS12Fr.ZERO);
+
+        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
+        expect(p2Unsafe.equals(p2)).toBeTruthy();
+      });
+
+      it('Inverse', () => {
+        const a = BLS12Fr.random();
+        const ag = BLS12Point.ONE.mul(a);
+        const minusag = BLS12Point.ONE.mul(a.negate());
+        const minusagUnsafe = BLS12Point.ONE.mulUnsafe(a.negate());
+        expect(ag.negate().equals(minusag)).toBeTruthy();
+        expect(minusagUnsafe.equals(minusag)).toBeTruthy();
+
+        const p2 = ag.add(minusag);
+        expect(BLS12Point.ZERO.equals(p2)).toBeTruthy();
+      });
+
+      it('Performs multiplication correctly', () => {
+        const p = BLS12Point.random();
+        const a = new BLS12Fr(3);
+        const p2 = p.mul(a);
+        const p2Unsafe = p.mulUnsafe(a);
+        const expected = p.add(p).add(p);
+
+        expect(expected.equals(p2)).toBeTruthy();
+        expect(p2Unsafe.equals(p2)).toBeTruthy();
+      });
+
+      it('Low Boundary', () => {
+        // (p - 1) * G = - G
+        const p = BLS12Point.ONE.mul(BLS12Fr.MAX_FIELD_VALUE);
+        const pUnsafe = BLS12Point.ONE.mulUnsafe(BLS12Fr.MAX_FIELD_VALUE);
+        const p2 = BLS12Point.ZERO.sub(BLS12Point.ONE);
+
+        expect(p.equals(p2)).toBeTruthy();
+        expect(pUnsafe.equals(p2)).toBeTruthy();
+      });
+
+      it('High Boundary', () => {
+        // b * ( - G ) = ( - b ) * G
+        const p = BLS12Point.ONE.mul(BLS12Fr.MAX_FIELD_VALUE);
+        const b = BLS12Fr.random();
+        const p2 = p.mul(b);
+        const p2Unsafe = p.mulUnsafe(b);
+        const expected = BLS12Point.ONE.mul(b.negate());
+
+        expect(expected.equals(p2)).toBeTruthy();
+        expect(p2Unsafe.equals(p2)).toBeTruthy();
+      });
+    });
+    describe('Multiply and Add', () => {
+      it('Performs simple multiplication and addition correctly', () => {
+        const p = BLS12Point.random();
+        const a = BLS12Fr.random();
+        const q = BLS12Point.random();
+        const b = BLS12Fr.random();
+        const p2 = p.mulAndAddUnsafe(a, b, q);
+        const expected = p.mul(a).add(q.mul(b));
+
+        expect(expected.equals(p2)).toBeTruthy();
+      });
+
+      it('Performs multiplication and addition correctly', () => {
+        // aP + -aQ = a(P - Q), for P, Q in group
+        const p = BLS12Point.ONE.mul(BLS12Fr.random());
+        const a = BLS12Fr.random();
+        const q = BLS12Point.ONE.mul(BLS12Fr.random());
+        const p2 = p.mulAndAddUnsafe(a, a.negate(), q);
+        const expected = p.sub(q).mul(a);
+
+        expect(expected.equals(p2)).toBeTruthy();
+      });
+    });
+  });
+});
