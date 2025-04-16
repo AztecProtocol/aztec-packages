@@ -247,7 +247,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   docs, playground => publish if dist tag is latest. TODO Link build in github release.
+  #   playground => publish if dist tag is latest. TODO Link build in github release.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -269,7 +269,7 @@ function release {
     boxes
     aztec-up
     playground
-    docs
+    # docs # released here /.github/workflows/docs-deploy.yml
     release-image
   )
   if [ $(arch) == arm64 ]; then
