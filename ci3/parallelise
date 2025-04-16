@@ -3,6 +3,8 @@
 # Commands are read from stdin.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
+[ "${STRICT_SCHEDULING:-0}" -eq 1 ] && exec parallelise_strict "$@"
+
 cd $root
 jobs=$(get_num_cpus_max ${1:-})
 parallel_args="-j$jobs --memsuspend $(memsuspend_limit) --line-buffer --joblog joblog.txt"

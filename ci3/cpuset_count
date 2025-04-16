@@ -1,0 +1,15 @@
+#!/bin/bash
+# Given a valid cpuset string, count the number of CPUs.
+
+count=0
+IFS=',' read -ra parts <<< "$1"
+for part in "${parts[@]}"; do
+    if [[ $part == *"-"* ]]; then
+        start=${part%-*}
+        end=${part#*-}
+        count=$((count + end - start + 1))
+    else
+        count=$((count + 1))
+    fi
+done
+echo "$count"

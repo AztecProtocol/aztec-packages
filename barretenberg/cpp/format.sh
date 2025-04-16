@@ -15,7 +15,7 @@ elif [ "$1" == "changed" ]; then
     sed -i.bak 's/\r$//' $FILE && rm ${FILE}.bak
   done
 elif [ "$1" == "check" ]; then
-  find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc | grep -v src/msgpack-c | \
+  find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc | grep -v src/msgpack-c | grep -v bb/deps  | \
     parallel -N10 clang-format-16 --dry-run --Werror
 elif [ -n "$1" ]; then
   for FILE in $(git diff-index --relative --name-only $1 | grep -e '\.\(cpp\|hpp\|tcc\)$'); do
