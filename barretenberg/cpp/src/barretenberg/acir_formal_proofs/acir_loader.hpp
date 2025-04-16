@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>
