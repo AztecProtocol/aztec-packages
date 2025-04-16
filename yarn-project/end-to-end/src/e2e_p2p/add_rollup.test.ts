@@ -58,9 +58,11 @@ const DATA_DIR_NEW = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-new-'));
 jest.setTimeout(1000 * 60 * 10);
 
 /**
- * This test emulates the addition of a new rollup to the registry
- * The sequencers proposer, the proposal is executed and the new rollup is added to the registry
- * The nodes are then updated to use the new rollup and a tx is sent to the new rollup to see that it builds a block.
+ * This test emulates the addition of a new rollup to the registry and tests that cross-chain messages work.
+ * Transactions are sent to the current rollup to check crosschain messages in both directions.
+ * The sequencers proposer a proposal, the proposal is executed and the new rollup is added to the registry
+ * The nodes are then updated to use the new rollup and we send transactions to try cross-chain in both directions
+ * ensuring that it also works on the new rollup.
  */
 describe('e2e_p2p_add_rollup', () => {
   let t: P2PNetworkTest;
@@ -205,7 +207,7 @@ describe('e2e_p2p_add_rollup', () => {
 
       const stakeNeeded = attesterInfos.reduce((acc, curr) => acc + curr.amount, 0n);
 
-      // I **LOVE** wrapping things like this because viem sometimes underpays otherwise.
+      // I **LOVE** wrapping things like this to avoid underpaying.
       await Promise.all([
         await l1TxUtils.sendAndMonitorTransaction({
           to: stakingAsset.address,
@@ -345,7 +347,6 @@ describe('e2e_p2p_add_rollup', () => {
       await makeMessageConsumable(message1Hash);
 
       // Then we finish up the L1 -> L2 message
-
       const [message1Index] = (await node.getL1ToL2MessageMembershipWitness('latest', message1Hash))!;
       expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
@@ -617,10 +618,13 @@ describe('e2e_p2p_add_rollup', () => {
       shouldCollectMetrics(),
     );
 
-    // Then we want to send a tx to the new rollup to just see that it can actually build a block!
     // wait a bit for peers to discover each other
     await sleep(4000);
 
+    // The new rollup should have no blocks
+    expect(await newRollup.getBlockNumber()).toBe(0n);
+
+    // Bridge into and out of the new rollup to ensure that it works.
     await briding(
       nodes[0],
       initialTestAccounts[0],
@@ -633,12 +637,9 @@ describe('e2e_p2p_add_rollup', () => {
       newConfig.l1RpcUrls,
     );
 
-    // @todo We should really have been doing a briding transaction before and after, but atm we just want to see any kind of tx work.
-    t.logger.info(`Old rollup block number: ${await rollup.getBlockNumber()}`);
-    t.logger.info(`New rollup block number: ${await newRollup.getBlockNumber()}`);
-
-    t.logger.info(`Attesters old: ${await rollup.getAttesters()}`);
-    t.logger.info(`Attesters new: ${await newRollup.getAttesters()}`);
+    // Both rollups should have a block number greater than 0
+    expect(await rollup.getBlockNumber()).toBeGreaterThan(0n);
+    expect(await newRollup.getBlockNumber()).toBeGreaterThan(0n);
 
     await blobSink.stop();
   }, 10_000_000);
