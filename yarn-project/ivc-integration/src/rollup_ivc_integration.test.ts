@@ -17,6 +17,7 @@ import {
   MockRollupBasePrivateCircuit,
   MockRollupBasePublicCircuit,
   MockRollupMergeCircuit,
+  MockRollupRootCircuit,
   generate3FunctionTestingIVCStack,
   mapAvmProofToNoir,
   mapAvmPublicInputsToNoir,
@@ -29,7 +30,7 @@ import {
   witnessGenMockRollupMergeCircuit,
   witnessGenMockRollupRootCircuit,
 } from './index.js';
-import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import { proveAvm, proveClientIVC, proveKeccakHonk, proveRollupHonk, proveTube } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 
 /* eslint-disable camelcase */
@@ -182,15 +183,16 @@ describe('Rollup IVC Integration', () => {
     // Three transactions are aggregated
     expect(rootWitnessResult.publicInputs.accumulated).toEqual('0x03');
 
-    // This step takes something like 4 minutes, since it needs to actually prove and remove the IPA claims.
-    // Commenting it out for now due to CI speed issues.
-    // await proveKeccakHonk(
-    //   'MockRollupRootCircuit',
-    //   bbBinaryPath,
-    //   workingDirectory,
-    //   MockRollupRootCircuit,
-    //   rootWitnessResult.witness,
-    //   logger,
-    // );
-  }, 300_000);
+    // This step takes something like 4 minutes, but is required to properly test the integration
+    // of the AVM recursive verifier in the protocol. Namely, the AVM recursive verifier and
+    // other circuits generate some IPA claims whose validation is deferred to the root rollup.
+    await proveKeccakHonk(
+      'MockRollupRootCircuit',
+      bbBinaryPath,
+      workingDirectory,
+      MockRollupRootCircuit,
+      rootWitnessResult.witness,
+      logger,
+    );
+  }, 400_000);
 });
