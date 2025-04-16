@@ -52,11 +52,7 @@ class AvmGoblinRecursiveVerifier {
 
     // The structure of the final output of the goblinized AVM2 recursive verifier. The IPA data comes from recursive
     // verification of the ECCVM proof as part of Goblin recursive verification.
-    struct RecursiveAvmGoblinOutput {
-        std::vector<UltraFF> ipa_proof;
-        OpeningClaim<stdlib::grumpkin<UltraBuilder>> ipa_claim;
-        stdlib::recursion::aggregation_state<UltraBuilder> aggregation_object;
-    };
+    using RecursiveAvmGoblinOutput = stdlib::recursion::honk::UltraRecursiveVerifierOutput<UltraBuilder>;
 
     // Output of prover for inner Mega-arithmetized AVM recursive verifier circuit; input to the outer verifier
     struct InnerProverOutput {
@@ -145,26 +141,17 @@ class AvmGoblinRecursiveVerifier {
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk };
         GoblinRecursiveVerifierOutput goblin_verifier_output = goblin_verifier.verify(inner_output.goblin_proof);
 
-        // Propagate the IPA claim via the public inputs of the outer circuit
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity to
-        // handle this IPA data propagation.
-
-        // TODO(jeamon): Restore ipa_claim and ipa_proof integration in the builder. While running ./bootstrap.sh,
-        // for the mock-protocol-circuits, we hit an assertion at circuit_builder_base_impl.hpp:262 ("added IPA claim
-        // when one already exists")
-        // ultra_builder.add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
-        // ultra_builder.ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
-        // ASSERT(ultra_builder.ipa_proof.size() && "IPA proof should not be empty");
-
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
         const FF ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, hash_buffer);
         mega_proof[inner_output.mega_hash_public_input_index].assert_equal(ultra_hash);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
-        return RecursiveAvmGoblinOutput{ .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
-                                         .ipa_claim = goblin_verifier_output.opening_claim,
-                                         .aggregation_object = mega_verifier_output.agg_obj };
+        return RecursiveAvmGoblinOutput{
+            .agg_obj = mega_verifier_output.agg_obj,
+            .ipa_claim = goblin_verifier_output.opening_claim,
+            .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
+        };
     }
 
     /**
