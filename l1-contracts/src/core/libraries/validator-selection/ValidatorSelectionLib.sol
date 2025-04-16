@@ -2,18 +2,23 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import { BlockHeaderValidationFlags } from '@aztec/core/interfaces/IRollup.sol';
-import { StakingStorage } from '@aztec/core/interfaces/IStaking.sol';
-import { EpochData, ValidatorSelectionStorage } from '@aztec/core/interfaces/IValidatorSelection.sol';
-import { SampleLib } from '@aztec/core/libraries/crypto/SampleLib.sol';
-import { SignatureLib, Signature } from '@aztec/core/libraries/crypto/SignatureLib.sol';
-import { Errors } from '@aztec/core/libraries/Errors.sol';
-import { AddressSnapshotLib, SnapshottedAddressSet } from '@aztec/core/libraries/staking/AddressSnapshotLib.sol';
-import { Timestamp, Slot, Epoch, TimeLib } from '@aztec/core/libraries/TimeLib.sol';
-import { MessageHashUtils } from '@oz/utils/cryptography/MessageHashUtils.sol';
-import { SafeCast } from '@oz/utils/math/SafeCast.sol';
-import { Checkpoints } from '@oz/utils/structs/Checkpoints.sol';
-import { EnumerableSet } from '@oz/utils/structs/EnumerableSet.sol';
+import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
+import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
+import {
+  EpochData, ValidatorSelectionStorage
+} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
+import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -209,25 +214,6 @@ library ValidatorSelectionLib {
     return epoch.committee;
   }
 
-  /**
-   * @notice  Get the sample seed for an epoch
-   *
-   * @dev     This should behave as walking past the line, but it does not currently do that.
-   *          If there are entire skips, e.g., 1, 2, 5 and we then go back and try executing
-   *          for 4 we will get an invalid value because we will read lastSeed which is from 5.
-   *
-   * @dev     The `_epoch` will never be 0 nor in the future
-   *
-   * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the last epoch
-   *          setup.
-   *
-   * @return The sample seed for the epoch
-   */
-  function getSampleSeed(Epoch _epoch) internal view returns (uint224) {
-    ValidatorSelectionStorage storage store = getStorage();
-    return store.seeds.upperLookup(Epoch.unwrap(_epoch).toUint32());
-  }
-
   function setSampleSeedForEpoch(Epoch _epoch) internal {
     ValidatorSelectionStorage storage store = getStorage();
     uint32 epoch = Epoch.unwrap(_epoch).toUint32();
@@ -248,6 +234,25 @@ library ValidatorSelectionLib {
       uint224 nextSeed = computeNextSeed(_epoch);
       store.seeds.push(epoch, nextSeed);
     }
+  }
+
+  /**
+   * @notice  Get the sample seed for an epoch
+   *
+   * @dev     This should behave as walking past the line, but it does not currently do that.
+   *          If there are entire skips, e.g., 1, 2, 5 and we then go back and try executing
+   *          for 4 we will get an invalid value because we will read lastSeed which is from 5.
+   *
+   * @dev     The `_epoch` will never be 0 nor in the future
+   *
+   * @dev     The return value will be equal to keccak256(n, block.prevrandao) for n being the last epoch
+   *          setup.
+   *
+   * @return The sample seed for the epoch
+   */
+  function getSampleSeed(Epoch _epoch) internal view returns (uint224) {
+    ValidatorSelectionStorage storage store = getStorage();
+    return store.seeds.upperLookup(Epoch.unwrap(_epoch).toUint32());
   }
 
   function getStorage() internal pure returns (ValidatorSelectionStorage storage storageStruct) {
