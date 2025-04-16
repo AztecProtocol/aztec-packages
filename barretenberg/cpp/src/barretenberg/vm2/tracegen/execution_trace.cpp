@@ -39,10 +39,10 @@ void ExecutionTraceBuilder::process(
 
         auto operands = ex_event.wire_instruction.operands;
         assert(operands.size() <= operand_columns);
-        operands.resize(operand_columns, simulation::Operand::ff(0));
+        operands.resize(operand_columns, simulation::Operand::from<FF>(0));
         auto resolved_operands = ex_event.resolved_operands;
         assert(resolved_operands.size() <= operand_columns);
-        resolved_operands.resize(operand_columns, simulation::Operand::ff(0));
+        resolved_operands.resize(operand_columns, simulation::Operand::from<FF>(0));
 
         trace.set(row,
                   { {
@@ -62,13 +62,13 @@ void ExecutionTraceBuilder::process(
 
         auto operands_after_relative = addr_event.after_relative;
         assert(operands_after_relative.size() <= operand_columns);
-        operands_after_relative.resize(operand_columns, simulation::Operand::ff(0));
+        operands_after_relative.resize(operand_columns, simulation::Operand::from<FF>(0));
 
         trace.set(
             row,
             { {
-                { C::execution_base_address_val, addr_event.base_address_val },
-                { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address_tag) },
+                { C::execution_base_address_val, addr_event.base_address.as_ff() },
+                { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address.get_tag()) },
                 { C::execution_sel_addressing_error, addr_event.error.has_value() ? 1 : 0 },
                 { C::execution_addressing_error_idx, addr_event.error.has_value() ? addr_event.error->operand_idx : 0 },
                 { C::execution_addressing_error_kind,

@@ -165,7 +165,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
-    const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
+    const blobSinkClient =
+      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
     // validate that the actual chain id matches that specified in configuration
