@@ -44,9 +44,8 @@ jobs:
 
       # Making the bash script here so we don't accidentally deploy
       - name: Deploy docs
-        working-directory: ./docs
         run: |
-          ./bootsrap.sh release
+          ./docs/bootstrap.sh release
 
       - name: Reindex with Typesense docsearch-scraper
         run: |
