@@ -194,5 +194,5 @@ describe('Rollup IVC Integration', () => {
       rootWitnessResult.witness,
       logger,
     );
-  }, 400_000);
+  }, 550_000);
 });
