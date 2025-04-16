@@ -317,7 +317,9 @@ describe('e2e_p2p_slashing', () => {
       // Check that status is Living
       expect(attesterInfo.status).toEqual(2);
     }
-    const committee = await rollup.getEpochCommittee(targetEpoch);
+
+    // Committee should only update in the next epoch
+    const committee = await rollup.getEpochCommittee(targetEpoch + 1n);
     expect(attestersPre.length).toBe(committee.length);
     expect(attestersPost.length).toBe(0);
   }, 1_000_000);
