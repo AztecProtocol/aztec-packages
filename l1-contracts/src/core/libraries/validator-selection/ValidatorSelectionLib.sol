@@ -2,24 +2,18 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
-import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
-import {
-  EpochData, ValidatorSelectionStorage
-} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
-
-import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
-import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import { BlockHeaderValidationFlags } from '@aztec/core/interfaces/IRollup.sol';
+import { StakingStorage } from '@aztec/core/interfaces/IStaking.sol';
+import { EpochData, ValidatorSelectionStorage } from '@aztec/core/interfaces/IValidatorSelection.sol';
+import { SampleLib } from '@aztec/core/libraries/crypto/SampleLib.sol';
+import { SignatureLib, Signature } from '@aztec/core/libraries/crypto/SignatureLib.sol';
+import { Errors } from '@aztec/core/libraries/Errors.sol';
+import { AddressSnapshotLib, SnapshottedAddressSet } from '@aztec/core/libraries/staking/AddressSnapshotLib.sol';
+import { Timestamp, Slot, Epoch, TimeLib } from '@aztec/core/libraries/TimeLib.sol';
+import { MessageHashUtils } from '@oz/utils/cryptography/MessageHashUtils.sol';
+import { SafeCast } from '@oz/utils/math/SafeCast.sol';
+import { Checkpoints } from '@oz/utils/structs/Checkpoints.sol';
+import { EnumerableSet } from '@oz/utils/structs/EnumerableSet.sol';
 
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -239,7 +233,7 @@ library ValidatorSelectionLib {
     uint32 epoch = Epoch.unwrap(_epoch).toUint32();
 
     // Check if the latest checkpoint is for the next epoch
-    (bool exists, uint32 key, ) = store.seeds.latestCheckpoint();
+    (bool exists, uint32 key,) = store.seeds.latestCheckpoint();
 
     // If the sample seed for the next epoch is already set, we can skip the computation
     // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed into the store
