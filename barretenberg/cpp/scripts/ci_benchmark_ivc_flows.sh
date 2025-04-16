@@ -125,7 +125,7 @@ function client_ivc_flow_wasm {
     {
       "name": "$flow-ivc-proof-wasm-memory",
       "time_unit": "MB",
-      "real_time": ${elapsed_ms}
+      "real_time": ${memory_taken_mb}
     }
     ]
   }

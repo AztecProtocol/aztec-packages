@@ -3,12 +3,14 @@ import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundatio
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
-import { type BlobSinkArchiveApiConfig, blobSinkArchiveApiConfigMappings } from '../archive/config.js';
+import {
+  type BlobSinkConfig as BlobSinkClientConfig,
+  blobSinkConfigMapping as blobSinkClientConfigMapping,
+} from '../client/config.js';
 
 export type BlobSinkConfig = {
   port?: number;
-  archiveApiUrl?: string;
-} & BlobSinkArchiveApiConfig &
+} & Omit<BlobSinkClientConfig, 'blobSinkUrl'> &
   Partial<DataStoreConfig> &
   Partial<L1ReaderConfig> &
   Partial<ChainConfig>;
@@ -18,8 +20,7 @@ export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
     env: 'BLOB_SINK_PORT',
     description: 'The port to run the blob sink server on',
   },
-
-  ...blobSinkArchiveApiConfigMappings,
+  ...blobSinkClientConfigMapping,
   ...dataConfigMappings,
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

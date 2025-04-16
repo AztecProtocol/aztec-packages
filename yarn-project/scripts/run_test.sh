@@ -34,6 +34,7 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
   wait $!
 else
   export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"
+  export LOG_LEVEL=${LOG_LEVEL:-info}
   cd ../$dir
   node ../node_modules/.bin/jest --forceExit --runInBand $test
 fi
