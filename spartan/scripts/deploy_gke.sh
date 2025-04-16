@@ -81,7 +81,7 @@ function generate_overrides {
 
 # Initialize Helm set arguments
 helm_set_args=(
-  --set images.aztec.image="philwindle/aztec:$aztec_docker_tag"
+  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
 )
 
 # Some configuration values are set in the eth-devnet/config/config.yaml file
