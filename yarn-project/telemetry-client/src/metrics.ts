@@ -7,7 +7,7 @@
  */
 
 export const BLOB_SINK_STORE_REQUESTS = 'aztec.blob_sink.store_request_count';
-export const BLOB_SINK_RETRIEVE_REQUESTS = 'aztec.blob_sink.store_request_count';
+export const BLOB_SINK_RETRIEVE_REQUESTS = 'aztec.blob_sink.retrieve_request_count';
 export const BLOB_SINK_OBJECTS_IN_BLOB_STORE = 'aztec.blob_sink.objects_in_blob_store';
 export const BLOB_SINK_BLOB_SIZE = 'aztec.blob_sink.blob_size';
 

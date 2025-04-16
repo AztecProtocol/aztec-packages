@@ -9,11 +9,10 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
-import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import {
   MockRollupBasePrivateCircuit,
   MockRollupBasePublicCircuit,
@@ -54,7 +53,7 @@ describe('Rollup IVC Integration', () => {
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
     // Create a client IVC proof
-    const clientIVCWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-client-ivc-'));
+    const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
@@ -71,7 +70,7 @@ describe('Rollup IVC Integration', () => {
     tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
 
     // Create an AVM proof
-    const avmWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-avm-'));
+    const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
     const simTester = await PublicTxSimulationTester.create();
     const avmTestContractInstance = await simTester.registerAndDeployContract(
@@ -90,7 +89,7 @@ describe('Rollup IVC Integration', () => {
   });
 
   beforeEach(async () => {
-    workingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-'));
+    workingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-');
   });
 
   it('Should be able to generate a proof of a 3 transaction rollup', async () => {

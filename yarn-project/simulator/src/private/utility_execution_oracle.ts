@@ -256,10 +256,6 @@ export class UtilityExecutionOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
-    // TODO(#10558) Remove this check once the debug log is fixed
-    if (message.startsWith('Context.note_hashes, after pushing new note hash:')) {
-      return;
-    }
     this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 

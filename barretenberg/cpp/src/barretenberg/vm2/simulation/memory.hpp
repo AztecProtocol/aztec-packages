@@ -9,27 +9,19 @@
 
 namespace bb::avm2::simulation {
 
-struct ValueRefAndTag {
-    const MemoryValue& value;
-    MemoryTag tag;
-
-    bool operator==(const ValueRefAndTag& other) const { return value == other.value && tag == other.tag; }
-};
-
-using SliceWithTags = std::pair<std::vector<MemoryValue>, std::vector<MemoryTag>>;
-
 class MemoryInterface {
   public:
     virtual ~MemoryInterface() = default;
 
-    virtual void set(MemoryAddress index, MemoryValue value, MemoryTag tag) = 0;
-    virtual ValueRefAndTag get(MemoryAddress index) const = 0;
-    virtual SliceWithTags get_slice(MemoryAddress start, size_t size) const = 0;
+    // Returned reference is only valid until the next call to set.
+    virtual const MemoryValue& get(MemoryAddress index) const = 0;
+    // Sets value. Invalidates all references to previous values.
+    virtual void set(MemoryAddress index, MemoryValue value) = 0;
 
     virtual uint32_t get_space_id() const = 0;
 
     static bool is_valid_address(const MemoryValue& address);
-    static bool is_valid_address(ValueRefAndTag address);
+    static bool is_valid_address(const FF& address);
 };
 
 class Memory : public MemoryInterface {
@@ -39,20 +31,14 @@ class Memory : public MemoryInterface {
         , events(event_emitter)
     {}
 
-    void set(MemoryAddress index, MemoryValue value, MemoryTag tag) override;
-    ValueRefAndTag get(MemoryAddress index) const override;
-    SliceWithTags get_slice(MemoryAddress start, size_t size) const override;
+    const MemoryValue& get(MemoryAddress index) const override;
+    void set(MemoryAddress index, MemoryValue value) override;
 
     uint32_t get_space_id() const override { return space_id; }
 
   private:
-    struct ValueAndTag {
-        MemoryValue value;
-        MemoryTag tag;
-    };
-
     uint32_t space_id;
-    unordered_flat_map<size_t, ValueAndTag> memory;
+    unordered_flat_map<size_t, MemoryValue> memory;
     EventEmitterInterface<MemoryEvent>& events;
 };
 
