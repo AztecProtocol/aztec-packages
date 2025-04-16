@@ -884,6 +884,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
     const severity = await this.blockProposalValidator.validate(block);
     if (severity) {
+      this.logger.debug(`Penalizing peer ${peerId} for block proposal validation failure`);
       this.peerManager.penalizePeer(peerId, severity);
       return false;
     }
