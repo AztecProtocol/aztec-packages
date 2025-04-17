@@ -61,7 +61,7 @@ def modify_benchmark_data(file_paths):
             prefix = "wasm"
         elif "release" in file_path:
             prefix = "native"
-        elif "-ivc.json" in file_path:
+        elif "ivc-" in file_path:
             prefix = "ivc-"
         if file_path.endswith(".txt"):
             # Process text files to extract memory data.
