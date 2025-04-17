@@ -8,49 +8,35 @@
 
 namespace bb::avm2::simulation {
 
+bool MemoryInterface::is_valid_address(const FF& address)
+{
+    // address fits in 32 bits
+    return FF(static_cast<uint32_t>(address)) == address;
+}
+
 bool MemoryInterface::is_valid_address(const MemoryValue& address)
 {
-    (void)address;
-    return true;
-    // This is failing and I don't know why.
-    // return address < static_cast<uint64_t>(0x100000000); // 2^32
+    return is_valid_address(address.as_ff()) && address.get_tag() == MemoryAddressTag;
 }
 
-bool MemoryInterface::is_valid_address(ValueRefAndTag address)
-{
-    return is_valid_address(address.value) && address.tag == MemoryAddressTag;
-}
-
-void Memory::set(MemoryAddress index, MemoryValue value, MemoryTag tag)
+void Memory::set(MemoryAddress index, MemoryValue value)
 {
     // TODO: validate tag-value makes sense.
-    memory[index] = { value, tag };
-    debug("Memory write: ", index, " <- ", value, " (tag: ", static_cast<int>(tag), ")");
-    events.emit({ .mode = MemoryMode::WRITE, .addr = index, .value = value, .tag = tag, .space_id = space_id });
+    memory[index] = value;
+    debug("Memory write: ", index, " <- ", value.to_string());
+    events.emit({ .mode = MemoryMode::WRITE, .addr = index, .value = value, .space_id = space_id });
 }
 
-ValueRefAndTag Memory::get(MemoryAddress index) const
+const MemoryValue& Memory::get(MemoryAddress index) const
 {
-    static const ValueAndTag default_value = { 0, MemoryTag::FF };
+    static const auto default_value = MemoryValue::from<FF>(0);
 
     auto it = memory.find(index);
     const auto& vt = it != memory.end() ? it->second : default_value;
-    events.emit({ .mode = MemoryMode::READ, .addr = index, .value = vt.value, .tag = vt.tag, .space_id = space_id });
+    events.emit({ .mode = MemoryMode::READ, .addr = index, .value = vt, .space_id = space_id });
 
-    debug("Memory read: ", index, " -> ", vt.value, " (tag: ", static_cast<int>(vt.tag), ")");
-    return { vt.value, vt.tag };
-}
-
-std::pair<std::vector<MemoryValue>, std::vector<MemoryTag>> Memory::get_slice(MemoryAddress start, size_t size) const
-{
-    std::vector<MemoryValue> values(size);
-    std::vector<MemoryTag> tags(size);
-    for (size_t i = 0; i < size; ++i) {
-        auto vt = get(static_cast<MemoryAddress>(start + i));
-        values[i] = vt.value;
-        tags[i] = vt.tag;
-    }
-    return { std::move(values), std::move(tags) };
+    debug("Memory read: ", index, " -> ", vt.to_string());
+    return vt;
 }
 
 } // namespace bb::avm2::simulation

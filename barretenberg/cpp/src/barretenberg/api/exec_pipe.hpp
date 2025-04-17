@@ -1,15 +1,19 @@
 #pragma once
+#include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
 
-inline std::vector<uint8_t> exec_pipe(std::string const& command)
+inline std::vector<uint8_t> exec_pipe([[maybe_unused]] std::string const& command)
 {
+#ifdef __wasm__
+    throw_or_abort("Can't use popen() in wasm! Implement this functionality natively.");
+#else
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
-        throw std::runtime_error("popen() failed! Can't run: " + command);
+        throw_or_abort("popen() failed! Can't run: " + command);
     }
 
     std::vector<uint8_t> result;
@@ -21,4 +25,5 @@ inline std::vector<uint8_t> exec_pipe(std::string const& command)
 
     pclose(pipe);
     return result;
+#endif
 }
