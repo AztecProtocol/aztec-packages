@@ -64,6 +64,17 @@ contract AddressSnapshotsBase is Test {
   AddressSetWrapper internal validatorSet;
   TimeCheater internal timeCheater;
 
+  function boundUnique(address[] memory _addrs) internal pure returns (address[] memory) {
+    // Ensure addresses within _addrSet1 are unique
+    vm.assume(_addrs.length > 0);
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      for (uint256 j = 0; j < i; j++) {
+        vm.assume(_addrs[i] != _addrs[j]);
+      }
+    }
+    return _addrs;
+  }
+
   function setUp() public {
     validatorSet = new AddressSetWrapper();
     timeCheater =

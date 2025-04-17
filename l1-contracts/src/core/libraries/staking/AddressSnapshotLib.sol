@@ -62,7 +62,6 @@ library AddressSnapshotLib {
     return true;
   }
 
-
   /**
    * @notice Removes a address from the set by address
    * @param _self The storage reference to the set
@@ -95,7 +94,10 @@ library AddressSnapshotLib {
    * @param _index The index of the validator to remove
    * @return bool True if the validator was removed, false otherwise
    */
-  function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address) private returns (bool) {
+  function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address)
+    private
+    returns (bool)
+  {
     uint224 size = _self.size.latest();
     if (_index >= size) {
       revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);

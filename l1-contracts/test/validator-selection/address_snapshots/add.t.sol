@@ -49,13 +49,8 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
   function test_WhenValidatorHasBeenRemovedFromTheSet(address[] memory _addrs) public {
     // It can be added again
 
-    // Ensure addresses within _addrSet1 are unique
-    vm.assume(_addrs.length > 0);
-    for (uint256 i = 0; i < _addrs.length; i++) {
-      for (uint256 j = 0; j < i; j++) {
-        vm.assume(_addrs[i] != _addrs[j]);
-      }
-    }
+    _addrs = boundUnique(_addrs);
+
     timeCheater.cheat__setEpochNow(1);
 
     // Add all of the addresses

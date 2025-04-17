@@ -11,57 +11,63 @@ import {TimeCheater} from "../../staking/TimeCheater.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 
 contract AddressSnapshotAtTest is AddressSnapshotsBase {
-  function test_WhenNoValidatorsAreRegistered() public {
+  function test_WhenNoValidatorsAreRegistered(uint256 _index) public {
     // It reverts
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 0)
     );
-    validatorSet.at(0);
+    validatorSet.at(_index);
   }
 
-  function test_WhenIndexIsOutOfBounds() public {
+  function test_WhenIndexIsOutOfBounds(uint256 _index) public {
     validatorSet.add(address(1));
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 1, 0)
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 0)
     );
-    validatorSet.at(1);
+    validatorSet.at(_index);
   }
 
-  function test_WhenIndexIsValid() public {
+  function test_WhenIndexIsValid(address[] memory _addrs) public {
+    vm.assume(_addrs.length > 2);
+    _addrs = boundUnique(_addrs);
+
     // it returns the current validator at that index
     timeCheater.cheat__setEpochNow(1);
-    validatorSet.add(address(1));
-    validatorSet.add(address(2));
-    validatorSet.add(address(3));
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      validatorSet.add(_addrs[i]);
+    }
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
-    validatorSet.at(0);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 1, 0)
-    );
-    validatorSet.at(1);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 2, 0)
-    );
-    validatorSet.at(2);
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
+      );
+      validatorSet.at(i);
+    }
 
     // it returns the correct validator after reordering
     timeCheater.cheat__setEpochNow(2);
-    assertEq(validatorSet.at(0), address(1));
-    assertEq(validatorSet.at(1), address(2));
-    assertEq(validatorSet.at(2), address(3));
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertEq(validatorSet.at(i), _addrs[i]);
+    }
 
-    validatorSet.remove(1);
+    // Remove a random index
+    // -1 to not remove the last item
+    uint224 randomIndex = uint224(
+      uint256(keccak256(abi.encodePacked(block.timestamp, _addrs.length))) % (_addrs.length - 1)
+    );
+    address removedAddr = _addrs[randomIndex];
+    validatorSet.remove(randomIndex);
 
-    assertEq(validatorSet.at(0), address(1));
-    assertEq(validatorSet.at(1), address(2));
-    assertEq(validatorSet.at(2), address(3));
+    // All still there
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertEq(validatorSet.at(i), _addrs[i]);
+    }
 
+    // Progress in time, the deletion should take place
     timeCheater.cheat__setEpochNow(3);
-    assertEq(validatorSet.at(0), address(1));
-    assertEq(validatorSet.at(1), address(3));
+
+    // The item at the random index should be different, as it has been replaced
+    assertNotEq(validatorSet.at(randomIndex), removedAddr);
   }
 }
