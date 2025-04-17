@@ -47,16 +47,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_syste
                                                  uint8_t const* witness_buf,
                                                  bool* result);
 
-WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_vec_vec_in_buf acir_stack,
-                                                    uint8_vec_vec_in_buf witness_stack,
-                                                    uint8_vec_vec_in_buf vk_stack,
-                                                    bool* result);
-
-WASM_EXPORT void acir_prove_aztec_client(uint8_vec_vec_in_buf acir_stack,
-                                         uint8_vec_vec_in_buf witness_stack,
-                                         uint8_vec_vec_in_buf vk_stack,
-                                         uint8_t** out_proof,
-                                         uint8_t** out_vk);
+WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk);
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 
@@ -100,4 +91,4 @@ WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out
 
 WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey);
 
-WASM_EXPORT void acir_gates_aztec_client(uint8_vec_vec_in_buf acir_stack, uint8_t** out);
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out);

@@ -2,6 +2,7 @@
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "acir_composer.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -181,106 +182,14 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
     write(out_key_hash, vk_hash);
 }
 
-// Open namespace local to this file.
-namespace {
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1162) this should have a common code path with
-// the WASM folding stack code.
-struct PrivateExecutionSteps {
-    std::vector<acir_format::AcirProgram> folding_stack;
-    std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>> precomputed_vks;
-
-    void parse(uint8_t const* acir_stack, uint8_t const* witness_stack, uint8_t const* vk_stack)
-    {
-        auto acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
-        auto witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
-        std::vector<acir_format::AcirProgram> folding_stack;
-
-        for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
-            info("acir_stack size: ", bincode.size());
-            info("witness_stack size: ", wit.size());
-            acir_format::AcirFormat constraints =
-                acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
-            acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
-            folding_stack.push_back({ constraints, witness });
-        }
-
-        auto vks = from_buffer<std::vector<std::vector<uint8_t>>>(vk_stack);
-        info("vk_stack size: ", vks.size());
-        for (auto& vk : vks) {
-            if (vk.empty()) {
-                // For backwards compatibility, but it affects performance and correctness.
-                precomputed_vks.emplace_back();
-            } else {
-                auto parsed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(vk);
-                precomputed_vks.push_back(parsed_vk);
-            }
-        }
-    }
-};
-} // namespace
-
-// TODO(#7371) dedupe this and the rest of similar code
-std::shared_ptr<ClientIVC> _accumulate(
-    std::vector<acir_format::AcirProgram>& folding_stack,
-    const std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>>& precomputed_vks)
+WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)
 {
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-
-    const acir_format::ProgramMetadata metadata{ ivc };
-
-    // Accumulate the entire program stack into the IVC
-    for (auto [program, precomputed_vk] : zip_view(folding_stack, precomputed_vks)) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-        // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit, precomputed_vk);
-    }
-
-    return ivc;
-}
-
-WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
-                                                    uint8_t const* witness_stack,
-                                                    uint8_t const* vk_stack,
-                                                    bool* verified)
-{
-    PrivateExecutionSteps steps;
-    steps.parse(acir_stack, witness_stack, vk_stack);
-
+    auto vk_data = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
     // Accumulate the entire program stack into the IVC
     auto start = std::chrono::steady_clock::now();
-    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
-    auto end = std::chrono::steady_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to construct and accumulate all circuits: ", diff.count());
-
-    vinfo("calling ivc.prove_and_verify...");
-    bool result = ivc->prove_and_verify();
-    info("verified?: ", result);
-
-    end = std::chrono::steady_clock::now();
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to construct, accumulate, prove and verify all circuits: ", diff.count());
-
-    *verified = result;
-}
-
-WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
-                                         uint8_t const* witness_stack,
-                                         uint8_t const* vk_stack,
-                                         uint8_t** out_proof,
-                                         uint8_t** out_vk)
-{
     PrivateExecutionSteps steps;
-    steps.parse(acir_stack, witness_stack, vk_stack);
-
-    // Accumulate the entire program stack into the IVC
-    auto start = std::chrono::steady_clock::now();
-    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
+    steps.parse(PrivateExecutionStepRaw::parse_uncompressed(vk_data));
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct and accumulate all circuits: ", diff.count());

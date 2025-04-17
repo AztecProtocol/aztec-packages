@@ -37,6 +37,7 @@ def process_files(files: List[str]) -> List[dict]:
             "-I./cpp/src",
             # HACK: this is a workaround for bindings gen finding tracy as it is referenced by the bb field header.
             "-I./cpp/build/_deps/tracy-src/public",
+            "-I./cpp/build/_deps/msgpack-c/src/msgpack-c/include",
             '-std=gnu++20', '-Wall', '-Wextra'])
         for diag in tu.diagnostics:
             print_diagnostic(diag, file=sys.stderr)

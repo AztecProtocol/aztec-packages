@@ -10,6 +10,7 @@ import {
   splitHonkProof,
   AGGREGATION_OBJECT_LENGTH,
 } from '../proof/index.js';
+import { Encoder } from 'msgpackr/pack';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
@@ -206,7 +207,7 @@ export class UltraHonkBackend {
     this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
   }
   /** @ignore */
-  async instantiate(): Promise<void> {
+  private async instantiate(): Promise<void> {
     if (!this.api) {
       const api = await Barretenberg.new(this.backendOptions);
       const honkRecursion = true;
@@ -314,6 +315,36 @@ export class UltraHonkBackend {
     await this.api.destroy();
   }
 }
+interface AztecClientExecutionStep {
+  functionName: string;
+  gateCount?: number;
+  // Note: not gzipped like in native code
+  bytecode: Uint8Array;
+  // Note: not gzipped like in native code. Already bincoded.
+  witness: Uint8Array;
+  /* TODO(https://github.com/AztecProtocol/barretenberg/issues/1328) this should get its own proper class. */
+  vk: Uint8Array;
+}
+
+function serializeAztecClientExecutionSteps(acirBuf: Uint8Array[], witnessBuf: Uint8Array[], vksBuf: Uint8Array[]): Uint8Array {
+  const stepToStruct = (bytecode: Uint8Array, witness: Uint8Array, vk: Uint8Array, functionName: string): AztecClientExecutionStep => {
+    return {
+      bytecode,
+      witness,
+      vk,
+      functionName,
+    };
+  };
+  const steps: AztecClientExecutionStep[] = [];
+  for (let i = 0; i < acirBuf.length; i++) {
+    const bytecode = acirBuf[i];
+    const witness = witnessBuf[i];
+    const vk = vksBuf[i];
+    const functionName = `unknown_wasm_${i}`;
+    steps.push(stepToStruct(bytecode, witness, vk, functionName));
+  }
+  return new Encoder({ useRecords: false }).pack(steps);
+}
 
 export class AztecClientBackend {
   // These type assertions are used so that we don't
@@ -326,7 +357,7 @@ export class AztecClientBackend {
   constructor(protected acirBuf: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
 
   /** @ignore */
-  async instantiate(): Promise<void> {
+  private async instantiate(): Promise<void> {
     if (!this.api) {
       const api = await Barretenberg.new(this.options);
       await api.initSRSClientIVC();
@@ -352,16 +383,6 @@ export class AztecClientBackend {
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
     return this.api.acirVerifyAztecClient(proof, vk);
-  }
-
-  async proveAndVerify(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<boolean> {
-    if (vksBuf.length === 0) {
-      vksBuf = witnessBuf.map(() => Uint8Array.from([]));
-    } else if (vksBuf.length !== witnessBuf.length) {
-      throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
-    }
-    await this.instantiate();
-    return this.api.acirProveAndVerifyAztecClient(this.acirBuf, witnessBuf, vksBuf);
   }
 
   async gates(): Promise<number[]> {

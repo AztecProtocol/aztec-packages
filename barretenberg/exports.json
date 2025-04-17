@@ -450,43 +450,11 @@
     "isAsync": false
   },
   {
-    "functionName": "acir_prove_and_verify_aztec_client",
-    "inArgs": [
-      {
-        "name": "acir_stack",
-        "type": "uint8_vec_vec_in_buf"
-      },
-      {
-        "name": "witness_stack",
-        "type": "uint8_vec_vec_in_buf"
-      },
-      {
-        "name": "vk_stack",
-        "type": "uint8_vec_vec_in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "bool *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
     "functionName": "acir_prove_aztec_client",
     "inArgs": [
       {
-        "name": "acir_stack",
-        "type": "uint8_vec_vec_in_buf"
-      },
-      {
-        "name": "witness_stack",
-        "type": "uint8_vec_vec_in_buf"
-      },
-      {
-        "name": "vk_stack",
-        "type": "uint8_vec_vec_in_buf"
+        "name": "ivc_inputs_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -851,8 +819,8 @@
     "functionName": "acir_gates_aztec_client",
     "inArgs": [
       {
-        "name": "acir_stack",
-        "type": "uint8_vec_vec_in_buf"
+        "name": "ivc_inputs_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
