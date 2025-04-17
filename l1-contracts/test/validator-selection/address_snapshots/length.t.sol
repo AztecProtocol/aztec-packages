@@ -8,6 +8,7 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AddressSnapshotLengthTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
@@ -40,6 +41,7 @@ contract AddressSnapshotLengthTest is AddressSnapshotsBase {
     assertEq(validatorSet.lengthAtEpoch(Epoch.wrap(2)), 2);
   }
 
+  // It decrease the length
   function test_WhenRemovingValidators() public {
     // It decrease the length
     // It maintains historical values correctly

@@ -1,4 +1,4 @@
-RemoveByNameTest
+RemoveTest
 ├── when address not in the set
 │   └── it returns false
 ├── when validator is in the set
@@ -6,6 +6,8 @@ RemoveByNameTest
 │   ├── it decreases the length
 │   ├── it updates the snapshot for that index
 │   └── it maintains historical values correctly
+├── when validator removing an index larger than the current length
+│   └── it reverts
 └── when removing multiple validators
     ├── it maintains correct order of remaining validators
     └── it updates snapshots correctly for each removal

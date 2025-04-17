@@ -1,6 +1,6 @@
 GetAddressFromIndexAtEpochTest
 ├── when no validators are registered
-│   └── it returns address(0)
+│   └── it throws out of bounds
 ├── when validators exist
 │   ├── when querying current epoch
 │   │   └── it returns the correct validator address
@@ -14,4 +14,4 @@ GetAddressFromIndexAtEpochTest
 │   └── when validator is removed and new one added at same position
 │       └── it maintains both current and historical values correctly
 └── when index is out of bounds
-    └── it returns address(0)
+    └── it throws out of bounds
