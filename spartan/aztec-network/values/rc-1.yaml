@@ -1,5 +1,6 @@
 network:
   public: true
+  mempoolLimitBytes: 1000000 # approx 1MB
 
 aztec:
   slotDuration: 36

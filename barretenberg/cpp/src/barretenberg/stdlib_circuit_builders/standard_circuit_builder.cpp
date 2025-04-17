@@ -519,8 +519,24 @@ void StandardCircuitBuilder_<FF>::assert_equal_constant(uint32_t const a_idx, FF
  */
 template <typename FF> msgpack::sbuffer StandardCircuitBuilder_<FF>::export_circuit()
 {
-    this->set_variable_name(this->zero_idx, "zero");
-    this->set_variable_name(this->one_idx, "one");
+    // You should not name `zero` by yourself
+    // but it will be rewritten anyway
+    auto first_zero_idx = this->get_first_variable_in_class(this->zero_idx);
+    if (!this->variable_names.contains(first_zero_idx)) {
+        this->set_variable_name(this->zero_idx, "zero");
+    } else {
+        this->variable_names[first_zero_idx] = "zero";
+    }
+
+    // You should not name `one` by yourself
+    // but it will be rewritten anyway
+    auto first_one_idx = this->get_first_variable_in_class(this->one_idx);
+    if (!this->variable_names.contains(first_one_idx)) {
+        this->set_variable_name(this->one_idx, "one");
+    } else {
+        this->variable_names[first_one_idx] = "one";
+    }
+
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 

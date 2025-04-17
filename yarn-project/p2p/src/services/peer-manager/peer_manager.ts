@@ -41,8 +41,10 @@ export class PeerManager {
   private heartbeatCounter: number = 0;
   private displayPeerCountsPeerHeartbeat: number = 0;
   private timedOutPeers: Map<string, TimedOutPeer> = new Map();
-  private trustedPeers: Set<PeerId> = new Set();
+  private trustedPeers: Set<string> = new Set();
   private trustedPeersInitialized: boolean = false;
+  private privatePeers: Set<string> = new Set();
+  private privatePeersInitialized: boolean = false;
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -87,14 +89,34 @@ export class PeerManager {
    *
    * This function is called when the peer manager is initialized.
    */
-  async initializeTrustedPeers() {
-    const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
-    await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
-      .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId)))
-      .finally(() => {
-        this.trustedPeersInitialized = true;
-      })
-      .catch(e => this.logger.error('Error initializing trusted peers', e));
+  async initializePeers() {
+    if (this.config.trustedPeers) {
+      const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
+      await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
+        .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId.toString())))
+        .finally(() => {
+          this.trustedPeersInitialized = true;
+        })
+        .catch(e => this.logger.error('Error initializing trusted peers', e));
+    }
+
+    if (this.config.privatePeers) {
+      const privatePeersEnrs: ENR[] = this.config.privatePeers.map(enr => ENR.decodeTxt(enr));
+      await Promise.all(privatePeersEnrs.map(enr => enr.peerId()))
+        .then(peerIds =>
+          peerIds.forEach(peerId => {
+            this.trustedPeers.add(peerId.toString());
+            this.privatePeers.add(peerId.toString());
+          }),
+        )
+        .finally(() => {
+          if (!this.config.trustedPeers) {
+            this.trustedPeersInitialized = true;
+          }
+          this.privatePeersInitialized = true;
+        })
+        .catch(e => this.logger.error('Error initializing private peers', e));
+    }
   }
 
   get tracer() {
@@ -165,7 +187,7 @@ export class PeerManager {
       this.logger.warn('Trusted peers not initialized, returning false');
       return false;
     }
-    return this.trustedPeers.has(peerId);
+    return this.trustedPeers.has(peerId.toString());
   }
 
   /**
@@ -173,9 +195,47 @@ export class PeerManager {
    * @param peerId - The peer ID to add to trusted peers.
    */
   public addTrustedPeer(peerId: PeerId): void {
-    this.trustedPeers.add(peerId);
+    const peerIdStr = peerId.toString();
+
+    this.trustedPeers.add(peerIdStr);
     this.trustedPeersInitialized = true;
-    this.logger.verbose(`Added trusted peer ${peerId.toString()}`);
+    this.logger.verbose(`Added trusted peer ${peerIdStr}`);
+  }
+
+  /**
+   * Adds a peer to the private peers set.
+   * @param peerId - The peer ID to add to private peers.
+   */
+  public addPrivatePeer(peerId: PeerId): void {
+    const peerIdStr = peerId.toString();
+
+    this.trustedPeers.add(peerIdStr);
+    this.privatePeers.add(peerIdStr);
+    this.trustedPeersInitialized = true;
+    this.privatePeersInitialized = true;
+    this.logger.verbose(`Added private peer ${peerIdStr}`);
+  }
+
+  /**
+   * Checks if a peer is private.
+   * @param peerId - The peer ID.
+   * @returns True if the peer is private, false otherwise.
+   */
+  private isPrivatePeer(peerId: PeerId): boolean {
+    if (!this.privatePeersInitialized) {
+      this.logger.warn('Private peers not initialized, returning false');
+      return false;
+    }
+    return this.privatePeers.has(peerId.toString());
+  }
+
+  /**
+   * Checks if a peer is protected (either trusted or private).
+   * @param peerId - The peer ID.
+   * @returns True if the peer is protected, false otherwise.
+   */
+  private isProtectedPeer(peerId: PeerId): boolean {
+    return this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
   }
 
   /**
@@ -241,15 +301,16 @@ export class PeerManager {
     const connections = this.libP2PNode.getConnections();
 
     const healthyConnections = this.prioritizePeers(
-      this.onlyNotTrustedPeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections))),
+      this.pruneUnhealthyPeers(this.getNonProtectedPeers(this.pruneDuplicatePeers(connections))),
     );
 
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length - this.trustedPeers.size;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
-    this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
-      connections: healthyConnections.length,
+    this.logger[logLevel](`Connected to ${healthyConnections.length + this.trustedPeers.size} peers`, {
+      discoveredConnections: healthyConnections.length,
+      protectedConnections: this.trustedPeers.size,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
@@ -302,18 +363,14 @@ export class PeerManager {
     }
   }
 
-  private onlyNotTrustedPeers(connections: Connection[]): Connection[] {
-    return connections.filter(conn => !this.isTrustedPeer(conn.remotePeer));
+  private getNonProtectedPeers(connections: Connection[]): Connection[] {
+    return connections.filter(conn => !this.isProtectedPeer(conn.remotePeer));
   }
 
   private pruneUnhealthyPeers(connections: Connection[]): Connection[] {
     const connectedHealthyPeers: Connection[] = [];
 
     for (const peer of connections) {
-      if (this.isTrustedPeer(peer.remotePeer)) {
-        this.logger.debug(`Not pruning trusted peer ${peer.remotePeer.toString()}`);
-        continue;
-      }
       const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
         case PeerScoreState.Banned:
@@ -526,7 +583,7 @@ export class PeerManager {
 
     // Remove the oldest peers
     for (const [key, value] of this.cachedPeers.entries()) {
-      if (this.isTrustedPeer(value.peerId)) {
+      if (this.isProtectedPeer(value.peerId)) {
         this.logger.debug(`Not pruning trusted peer ${key}`);
         continue;
       }

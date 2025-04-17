@@ -14,15 +14,15 @@ pub contract SimpleToken {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
-        encrypted_logs::log_assembly_strategies::default_aes128::{
-            event::encode_and_encrypt_event_unconstrained,
-            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        },
         event::event_interface::EventInterface,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
+        },
+        messages::logs::{
+            event::encode_and_encrypt_event_unconstrained,
+            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
         prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
         protocol_types::traits::Serialize,

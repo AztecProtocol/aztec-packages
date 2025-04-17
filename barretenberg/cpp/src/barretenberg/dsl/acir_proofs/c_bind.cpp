@@ -276,7 +276,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     vinfo("time to construct, accumulate, prove all circuits: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    *out_proof = to_heap_buffer(to_buffer(proof));
+    *out_proof = proof.to_msgpack_heap_buffer();
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to serialize proof: ", diff.count());
@@ -290,7 +290,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
-    const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    const auto proof = ClientIVC::Proof::from_msgpack_buffer(proof_buf);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.

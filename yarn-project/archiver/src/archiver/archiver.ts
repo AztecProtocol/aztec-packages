@@ -4,6 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts';
@@ -182,8 +183,13 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       throw new Error('Archiver is already running');
     }
 
+    await this.blobSinkClient.testSources();
+
     if (blockUntilSynced) {
-      await this.syncSafe(blockUntilSynced);
+      while (!(await this.syncSafe(true))) {
+        this.log.info(`Retrying initial archiver sync in ${this.config.pollingIntervalMs}ms`);
+        await sleep(this.config.pollingIntervalMs);
+      }
     }
 
     this.runningPromise = new RunningPromise(
@@ -201,11 +207,24 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     this.runningPromise.start();
   }
 
+  public syncImmediate() {
+    if (!this.runningPromise) {
+      throw new Error('Archiver is not running');
+    }
+    return this.runningPromise.trigger();
+  }
+
   private async syncSafe(initialRun: boolean) {
     try {
       await this.sync(initialRun);
+      return true;
     } catch (error) {
-      this.log.error('Error during sync', { error });
+      if (error instanceof NoBlobBodiesFoundError) {
+        this.log.error(`Error syncing archiver: ${error.message}`);
+      } else {
+        this.log.error('Error during archiver sync', error);
+      }
+      return false;
     }
   }
 

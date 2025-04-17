@@ -80,7 +80,6 @@ export function CreateAccountDialog({
         salt,
         signingKey,
       });
-      await walletDB.storeAccountMetadata(accountWallet.getAddress(), 'deployed', Buffer.from([0]));
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
       if (publiclyDeploy) {

@@ -34,17 +34,20 @@ export class WebLogger {
   private logs: Log[] = [];
 
   private static updateIntervalMs = 1000;
-  private static readonly MAX_LOGS_TO_KEEP = 200;
+  private static readonly MAX_LOGS_TO_KEEP = 1000;
+
+  public totalLogCount = 0;
 
   private constructor() {}
 
-  static create(setLogs: (logs: Log[]) => void) {
+  static create(setLogs: (logs: Log[]) => void, setTotalLogCount: (count: number) => void) {
     if (!WebLogger.instance) {
       WebLogger.instance = new WebLogger();
       setInterval(() => {
         const instance = WebLogger.getInstance();
         const newLogs = instance.logs.slice(0, WebLogger.MAX_LOGS_TO_KEEP).sort((a, b) => b.timestamp - a.timestamp);
         setLogs(newLogs);
+        setTotalLogCount(instance.totalLogCount);
       }, WebLogger.updateIntervalMs);
     }
   }
@@ -77,6 +80,7 @@ export class WebLogger {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any,
   ) {
+    this.totalLogCount++;
     this.logs.unshift({ id: this.randomId(), type, prefix, message, data, timestamp: Date.now() });
   }
 
@@ -101,6 +105,8 @@ export const AztecContext = createContext<{
   drawerOpen: boolean;
   showContractInterface: boolean;
   currentContractArtifact: ContractArtifact;
+  totalLogCount: number;
+  setTotalLogCount: (count: number) => void;
   setShowContractInterface: (showContractInterface: boolean) => void;
   setConnecting: (connecting: boolean) => void;
   setDrawerOpen: (drawerOpen: boolean) => void;
@@ -127,9 +133,11 @@ export const AztecContext = createContext<{
   currentContractAddress: null,
   currentTx: null,
   logs: [],
+  totalLogCount: 0,
   logsOpen: false,
   drawerOpen: false,
   showContractInterface: false,
+  setTotalLogCount: () => {},
   setShowContractInterface: () => {},
   setConnecting: () => {},
   setDrawerOpen: () => {},
@@ -166,8 +174,12 @@ export class AztecEnv {
     return aztecNode;
   }
 
-  static async initPXE(aztecNode: AztecNode, setLogs: (logs: Log[]) => void): Promise<PXE> {
-    WebLogger.create(setLogs);
+  static async initPXE(
+    aztecNode: AztecNode,
+    setLogs: (logs: Log[]) => void,
+    setTotalLogCount: (count: number) => void,
+  ): Promise<PXE> {
+    WebLogger.create(setLogs, setTotalLogCount);
 
     const config = getPXEServiceConfig();
     config.dataDirectory = 'pxe';

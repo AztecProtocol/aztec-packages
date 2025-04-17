@@ -197,8 +197,9 @@ function build {
     yarn-project
     boxes
     playground
-    docs
+    # docs
     release-image
+    spartan
     aztec-up
   )
 
@@ -269,7 +270,7 @@ function release {
     boxes
     aztec-up
     playground
-    docs
+    # docs
     release-image
   )
   if [ $(arch) == arm64 ]; then
@@ -319,7 +320,6 @@ case "$cmd" in
   ;;
   "ci")
     build
-    ./spartan/bootstrap.sh lint
     if ! semver check $REF_NAME; then
       test
       bench

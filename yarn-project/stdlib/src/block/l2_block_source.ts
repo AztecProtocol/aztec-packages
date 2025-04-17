@@ -118,6 +118,9 @@ export interface L2BlockSource {
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
+
+  /** Force a sync. */
+  syncImmediate(): Promise<void>;
 }
 
 /**

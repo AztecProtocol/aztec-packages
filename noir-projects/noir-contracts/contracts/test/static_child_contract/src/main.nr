@@ -6,8 +6,8 @@ pub contract StaticChild {
     use dep::aztec::prelude::{AztecAddress, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{private, public, view}, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
     };
