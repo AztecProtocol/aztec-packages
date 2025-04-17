@@ -109,7 +109,7 @@ void write_standalone_vk(const std::string& output_data_type,
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
+    Program program{ get_constraint_system(bytecode_path), /*witness=*/{} };
     auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
@@ -139,7 +139,7 @@ size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& bytec
 
     const std::string bincode = unpack_from_file<std::vector<std::string>>(bytecode_path).back();
     const std::vector<uint8_t> bincode_buf = decompress(bincode.data(), bincode.size());
-    const AcirFormat constraints = circuit_buf_to_acir_format(bincode_buf, /*honk_recursion=*/0);
+    const AcirFormat constraints = circuit_buf_to_acir_format(bincode_buf);
     return constraints.public_inputs.size();
 }
 
@@ -192,7 +192,7 @@ std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& in
     // really a single circuit IS a compiletime stack but we want the input type distinction since it is meaningful
     // for vk writing (maybe this is not ideal?)
     if (input_type == "single_circuit" || input_type == "compiletime_stack") {
-        auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/0);
+        auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path);
         // Accumulate the entire program stack into the IVC
         while (!program_stack.empty()) {
             auto stack_item = program_stack.back();
@@ -210,7 +210,7 @@ std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& in
             std::vector<uint8_t> constraint_buf = decompress(bincode.data(), bincode.size()); // NOLINT
             std::vector<uint8_t> witness_buf = decompress(wit.data(), wit.size());            // NOLINT
 
-            AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/0);
+            AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf);
             WitnessVector witness = witness_buf_to_witness_data(witness_buf);
 
             folding_stack.push_back(AcirProgram{ constraints, witness });
@@ -364,7 +364,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
-    auto constraint_systems = get_constraint_systems(bytecode_path, /*honk_recursion=*/0);
+    auto constraint_systems = get_constraint_systems(bytecode_path);
 
     // Initialize an SRS to make the ClientIVC constructor happy
     init_bn254_crs(1 << CONST_PG_LOG_N);
