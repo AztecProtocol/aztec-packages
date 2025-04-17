@@ -184,11 +184,11 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
 
 WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)
 {
-    auto vk_data = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
+    auto ivc_inputs_vec = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
     // Accumulate the entire program stack into the IVC
     auto start = std::chrono::steady_clock::now();
     PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::parse_uncompressed(vk_data));
+    steps.parse(PrivateExecutionStepRaw::parse_uncompressed(ivc_inputs_vec));
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -362,16 +362,18 @@ WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_
     *out_vkey = to_heap_buffer(vkey_as_fields);
 }
 
-WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** out)
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out)
 {
-
-    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    auto ivc_inputs_vec = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
+    // Note: we parse a stack, but only 'bytecode' needs to be set.
+    auto raw_steps = PrivateExecutionStepRaw::parse_uncompressed(ivc_inputs_vec);
     std::vector<uint32_t> totals;
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    for (auto& bincode : acirs) {
+    for (const PrivateExecutionStepRaw& step : raw_steps) {
+        std::vector<uint8_t> bytecode_vec(step.bytecode.begin(), step.bytecode.end());
         const acir_format::AcirFormat constraint_system =
-            acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
+            acir_format::circuit_buf_to_acir_format(bytecode_vec, /*honk_recursion=*/0);
 
         // Create an acir program from the constraint system
         acir_format::AcirProgram program{ constraint_system };
