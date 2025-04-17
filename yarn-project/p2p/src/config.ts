@@ -54,6 +54,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   p2pPort: number;
 
   /**
+   * The port to broadcast the P2P service on (included in the node's ENR).
+   */
+  p2pBroadcastPort?: number;
+
+  /**
    * The IP address for the P2P service.
    */
   p2pIp?: string;
@@ -194,6 +199,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   maxTxPoolSize: number;
 }
 
+export const DEFAULT_P2P_PORT = 40400;
+
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   p2pEnabled: {
     env: 'P2P_ENABLED',
@@ -227,8 +234,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   p2pPort: {
     env: 'P2P_PORT',
-    description: 'The port for the P2P service.',
-    ...numberConfigHelper(40400),
+    description: `The port for the P2P service. Defaults to ${DEFAULT_P2P_PORT}`,
+    ...numberConfigHelper(DEFAULT_P2P_PORT),
+  },
+  p2pBroadcastPort: {
+    env: 'P2P_BROADCAST_PORT',
+    description: `The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.`,
   },
   p2pIp: {
     env: 'P2P_IP',
@@ -410,7 +421,13 @@ export function getP2PDefaultConfig(): P2PConfig {
  */
 export type BootnodeConfig = Pick<
   P2PConfig,
-  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'peerIdPrivateKeyPath' | 'bootstrapNodes' | 'listenAddress'
+  | 'p2pIp'
+  | 'p2pPort'
+  | 'p2pBroadcastPort'
+  | 'peerIdPrivateKey'
+  | 'peerIdPrivateKeyPath'
+  | 'bootstrapNodes'
+  | 'listenAddress'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
@@ -419,6 +436,7 @@ export type BootnodeConfig = Pick<
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'p2pIp',
   'p2pPort',
+  'p2pBroadcastPort',
   'listenAddress',
   'peerIdPrivateKey',
   'peerIdPrivateKeyPath',

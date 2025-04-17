@@ -80,7 +80,7 @@ You'll know the sandbox is ready to go when you see something like this:
 
 ## Using the sandbox test accounts
 
-import { CLI_Add_Test_Accounts } from '/components/snippets';
+import { CLI_Add_Test_Accounts } from '@site/src/components/Snippets/snippets';
 
 <CLI_Add_Test_Accounts />
 
