@@ -31,14 +31,6 @@ export abstract class BLS12Field {
   private asBuffer?: Buffer;
   private asBigInt?: bigint;
 
-  /**
-   * Return bigint representation.
-   * @deprecated Just to get things compiling. Use toBigInt().
-   * */
-  get value(): bigint {
-    return this.toBigInt();
-  }
-
   protected constructor(value: number | bigint | Buffer) {
     if (Buffer.isBuffer(value)) {
       if (value.length > this.size()) {
@@ -130,10 +122,10 @@ function fromBuffer<T extends BLS12Field>(buffer: Buffer | BufferReader, f: BLS1
 }
 
 /**
- * TODO(MW): Check SIZE_IN_BYTES is sufficient for not skewing the result
+ * Returns a random field element.
  */
 function random<T extends BLS12Field>(f: BLS12DerivedField<T>): T {
-  return new f(toBigIntBE(randomBytes(f.SIZE_IN_BYTES)) % f.MODULUS);
+  return new f(toBigIntBE(randomBytes(f.SIZE_IN_BYTES * 2)) % f.MODULUS);
 }
 
 /**
@@ -241,7 +233,7 @@ export class BLS12Fr extends BLS12Field {
    * @returns the BN254 Fr instance
    */
   toBN254Fr() {
-    if (this.toBigInt() > Fr.MODULUS) {
+    if (this.toBigInt() >= Fr.MODULUS) {
       throw new Error(`BLS12-381 Fr field ${this} too large to be converted into a BN254 Fr field`);
     }
     return Fr.fromBuffer(this.toBuffer());

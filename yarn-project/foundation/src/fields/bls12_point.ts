@@ -151,7 +151,7 @@ export class BLS12Point {
    * Creates a point from an array of 2 fields.
    * @returns The point
    */
-  static fromBLSFields(fields: BLS12Fq[]) {
+  static fromBLS12FqFields(fields: BLS12Fq[]) {
     return new this(fields[0], fields[1], !fields[2].isEmpty());
   }
 
@@ -160,9 +160,10 @@ export class BLS12Point {
    * @returns The point
    */
   static fromNobleProjectivePoint(point: ProjPointType<bigint>) {
+    const affine = point.toAffine();
     return new BLS12Point(
-      new BLS12Fq(point.toAffine().x),
-      new BLS12Fq(point.toAffine().y),
+      new BLS12Fq(affine.x),
+      new BLS12Fq(affine.y),
       point.equals(bls12_381.G1.ProjectivePoint.ZERO),
     );
   }
@@ -231,7 +232,7 @@ export class BLS12Point {
    * Returns the contents of the point as an array of 2 fields.
    * @returns The point as an array of 2 fields
    */
-  toBLSFields() {
+  toBLS12FqFields() {
     return [this.x, this.y, new BLS12Fq(this.isInfinite ? 1 : 0)];
   }
 

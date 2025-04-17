@@ -92,6 +92,8 @@ function testFn(Field: any, name: string) {
       it('rejects fields too large for BN254', () => {
         const bls = Field.MAX_FIELD_VALUE;
         expect(() => bls.toBN254Fr()).toThrow('too large');
+        const zero = new Field(Fr.MODULUS);
+        expect(() => zero.toBN254Fr()).toThrow('too large');
       });
     }
   });

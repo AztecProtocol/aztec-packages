@@ -188,8 +188,7 @@ export class Point {
    */
   toBuffer() {
     if (this.isInfinite) {
-      // TODO(MW): Should this be "with isInfinite flag"?
-      throw new Error('Cannot serialize infinite point without isInfinite flag');
+      throw new Error('Cannot serialize infinite point with isInfinite flag');
     }
     const buf = serializeToBuffer([this.x, this.y]);
     if (buf.length !== Point.SIZE_IN_BYTES) {

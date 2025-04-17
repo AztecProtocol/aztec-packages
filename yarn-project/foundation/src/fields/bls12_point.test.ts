@@ -187,7 +187,7 @@ describe('BLS12Point', () => {
 
     it('serializes to and from fields', () => {
       const p = BLS12Point.random();
-      const p2 = BLS12Point.fromBLSFields(p.toBLSFields());
+      const p2 = BLS12Point.fromBLS12FqFields(p.toBLS12FqFields());
 
       expect(p.equals(p2)).toBeTruthy();
     });
