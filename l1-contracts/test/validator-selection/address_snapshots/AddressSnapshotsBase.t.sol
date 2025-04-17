@@ -66,6 +66,7 @@ contract AddressSnapshotsBase is Test {
 
   function setUp() public {
     validatorSet = new AddressSetWrapper();
-    timeCheater = new TimeCheater(address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
+    timeCheater =
+      new TimeCheater(address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
   }
 }

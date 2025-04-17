@@ -7,8 +7,6 @@ import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
-import "forge-std/console.sol";
-
 /**
  * @notice Structure to store a set of addresses with their historical snapshots
  * @param size The current number of addresses in the set

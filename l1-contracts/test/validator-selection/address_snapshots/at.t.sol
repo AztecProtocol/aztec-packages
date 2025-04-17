@@ -11,7 +11,6 @@ import {TimeCheater} from "../../staking/TimeCheater.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 
 contract AddressSnapshotAtTest is AddressSnapshotsBase {
-
   function test_WhenNoValidatorsAreRegistered() public {
     // It reverts
     vm.expectRevert(

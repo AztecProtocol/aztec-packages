@@ -9,8 +9,8 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-contract AddressSnapshotAddTest is AddressSnapshotsBase {
 
+contract AddressSnapshotAddTest is AddressSnapshotsBase {
   function test_WhenValidatorIsNotInTheSet() public {
     // It returns true
     // It increases the length
