@@ -3,21 +3,25 @@ title: Glossary
 tags: [protocol, glossary]
 ---
 
+### Aztec
+
+import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
+
 ### `aztec-nargo`
 
-The command line tool used to compile Aztec contracts. It gets its name from the Noir compiler, `nargo`. `aztec-nargo` is really just a specific version of `nargo`. You can read more about `nargo` [here](#nargo).
+<Glossary.CLI.aztec_nargo />
+
+You can read more about `nargo` [here](#nargo).
 
 ### Aztec.nr
 
-A [Noir](https://noir-lang.org) framework for writing smart contracts on Aztec.
+<Glossary.Libs.aztec_nr />
 
 Read more and review the source code [here](https://aztec.nr).
 
 ### Barretenberg
 
-Aztec's cryptography back-end. Refer to the graphic at the top of [this page](https://medium.com/aztec-protocol/explaining-the-network-in-aztec-network-166862b3ef7d) to see how it fits in the Aztec architecture.
-
-Barretenberg's source code can be found [here](https://github.com/AztecProtocol/barretenberg).
+<Glossary.Barretenberg />
 
 ### `nargo`
 
@@ -27,7 +31,7 @@ You can find more information in the nargo installation docs [here](https://noir
 
 ### Noir
 
-Noir is a Domain Specific Language for SNARK proving systems. It is used for writing smart contracts in Aztec because private functions on Aztec are implemented as SNARKs to support privacy-preserving operations.
+<Glossary.Noir />
 
 ### Provers
 
@@ -37,7 +41,7 @@ How this works will be discussed via a future RFP process on Discourse, similarl
 
 ### Private Execution Environment
 
-The Private eXecution Environment (PXE) is a client-side library for the execution of private operations. The PXE generates proofs of private function execution, and sends these proofs along with public function requests to the sequencer. Private inputs never leave the client-side PXE.
+<Glossary.PXE />
 
 Read more [here](./aztec/concepts/pxe/index.md).
 
