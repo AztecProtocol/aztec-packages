@@ -41,20 +41,6 @@ contract AddressSnapshotLengthTest is AddressSnapshotsBase {
     assertEq(validatorSet.lengthAtEpoch(Epoch.wrap(2)), 2);
   }
 
-  function test_WhenQueryingLengthForFutureEpoch() public {
-    // It reverts
-    timeCheater.cheat__setEpochNow(1);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch.selector,
-        Epoch.wrap(3),
-        Epoch.wrap(1)
-      )
-    );
-    validatorSet.lengthAtEpoch(Epoch.wrap(3));
-  }
-
   // It decrease the length
   function test_WhenRemovingValidators() public {
     // It decrease the length

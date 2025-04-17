@@ -62,19 +62,6 @@ contract AddressSnapshotValuesTest is AddressSnapshotsBase {
     assertEq(valsAtEpoch.length, 0);
   }
 
-  function test_WhenQueryingValuesForFutureEpoch() public {
-    // It reverts
-    timeCheater.cheat__setEpochNow(1);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch.selector,
-        Epoch.wrap(2),
-        Epoch.wrap(1)
-      )
-    );
-    validatorSet.valuesAtEpoch(Epoch.wrap(2));
-  }
-
   function test_WhenValidatorsAreRemoved() public {
     // It returns array of remaining validators
     timeCheater.cheat__setEpochNow(1);

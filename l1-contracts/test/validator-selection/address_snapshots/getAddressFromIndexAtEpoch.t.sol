@@ -81,13 +81,8 @@ contract GetAddressFromIndexAtEpochTest is AddressSnapshotsBase {
 
     validatorSet.remove( /* index */ 0);
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(3)), address(1));
-
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch.selector,
-        Epoch.wrap(4),
-        Epoch.wrap(3)
-      )
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
     );
     validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(4));
 
@@ -129,14 +124,6 @@ contract GetAddressFromIndexAtEpochTest is AddressSnapshotsBase {
       abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
     );
     validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(8));
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch.selector,
-        Epoch.wrap(9),
-        Epoch.wrap(8)
-      )
-    );
-    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(9));
 
     timeCheater.cheat__setEpochNow(9);
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(9)), address(4));

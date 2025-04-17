@@ -162,17 +162,13 @@ library AddressSnapshotLib {
    * @param _epoch The epoch number to query
    * @return uint256 The number of addresses in the set at the given epoch
    *
-   * @dev Throws if the epoch is in the future
+   * @dev Note, the values returned from this function are in flux if the epoch is in the future.
    */
   function lengthAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch)
     internal
     view
     returns (uint256)
   {
-    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-    if (_epoch > currentEpoch) {
-      revert Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch(_epoch, currentEpoch);
-    }
     return _self.size.upperLookup(Epoch.unwrap(_epoch).toUint32());
   }
 
@@ -191,6 +187,9 @@ library AddressSnapshotLib {
    * @param _self The storage reference to the set
    * @param _epoch The epoch number to query
    * @return address[] Array of all addresses in the set at the given epoch
+   *
+   * @dev Note, the values returned from this function are in flux if the epoch is in the future.
+   *
    */
   function valuesAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch)
     internal

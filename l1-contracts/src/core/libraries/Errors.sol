@@ -137,5 +137,4 @@ library Errors {
 
   // AddressSnapshotLib
   error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
-  error AddressSnapshotLib__RequestingLengthForFutureEpoch(Epoch requested, Epoch current); // 0x851b2370
 }
