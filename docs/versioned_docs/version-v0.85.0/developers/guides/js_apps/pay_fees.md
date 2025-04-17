@@ -63,17 +63,8 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
 Create a new fee juice portal manager and bridge fee juice publicly to Aztec:
 
 ```javascript title="bridge_fee_juice" showLineNumbers
-const portal = await L1FeeJuicePortalManager.new(
-  pxe,
-  publicClient,
-  walletClient,
-  log
-);
-const claim = await portal.bridgeTokensPublic(
-  recipient,
-  amount,
-  true /* mint */
-);
+const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
+const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 ```
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/end-to-end/src/spartan/setup_test_wallets.ts#L110-L113" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/spartan/setup_test_wallets.ts#L110-L113</a></sub></sup>
@@ -116,7 +107,7 @@ const { transactionFee } = await bananaCoin.methods
 
 **The equivalent to specify fees via CLI...**
 
-import { CLI_Fees } from '/components/snippets';
+import { CLI_Fees } from '@site/src/components/Snippets/snippets';
 
 <CLI_Fees />
 
@@ -305,7 +296,7 @@ export class GasSettings {
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20</a></sub></sup>
 
-import { Gas_Settings_Components, Gas_Settings } from '/components/snippets';
+import { Gas_Settings_Components, Gas_Settings } from '@site/src/components/Snippets/snippets';
 
 <Gas_Settings />
 
