@@ -25,6 +25,7 @@ function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): numb
 
   let offset = 0;
   let count = buffer.byteLength >>> 2; // default is entire buffer length / 4
+  console.log(buffer);
 
   if (hasSizePrefix) {
     // Read the first 4 bytes as the size (big-endian).
@@ -327,14 +328,6 @@ interface AztecClientExecutionStep {
 }
 
 function serializeAztecClientExecutionSteps(acirBuf: Uint8Array[], witnessBuf: Uint8Array[], vksBuf: Uint8Array[]): Uint8Array {
-  const stepToStruct = (bytecode: Uint8Array, witness: Uint8Array, vk: Uint8Array, functionName: string): AztecClientExecutionStep => {
-    return {
-      bytecode,
-      witness,
-      vk,
-      functionName,
-    };
-  };
   const steps: AztecClientExecutionStep[] = [];
   for (let i = 0; i < acirBuf.length; i++) {
     const bytecode = acirBuf[i];
@@ -343,7 +336,12 @@ function serializeAztecClientExecutionSteps(acirBuf: Uint8Array[], witnessBuf: U
     // VKs are optional for proving (deprecated feature) or not provided at all for gates info.
     const vk = vksBuf[i] || Buffer.from([]);
     const functionName = `unknown_wasm_${i}`;
-    steps.push(stepToStruct(bytecode, witness, vk, functionName));
+    steps.push({
+      bytecode,
+      witness,
+      vk,
+      functionName,
+    });
   }
   return new Encoder({ useRecords: false }).pack(steps);
 }

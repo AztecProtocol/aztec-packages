@@ -370,6 +370,9 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     std::vector<uint32_t> totals;
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+    const acir_format::ProgramMetadata metadata{ ivc };
+
     for (const PrivateExecutionStepRaw& step : raw_steps) {
         std::vector<uint8_t> bytecode_vec(step.bytecode.begin(), step.bytecode.end());
         const acir_format::AcirFormat constraint_system =
@@ -387,7 +390,5 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         totals.push_back(static_cast<uint32_t>(builder.num_gates));
     }
-    auto totalsBytes = to_buffer<false>(totals);
-
     *out = to_heap_buffer(totals);
 }
