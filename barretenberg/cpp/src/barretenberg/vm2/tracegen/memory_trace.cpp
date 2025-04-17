@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
