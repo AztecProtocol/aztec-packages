@@ -57,6 +57,10 @@ You can find more information in the nargo installation docs [here](https://noir
 
 The Noir Language Server can be used in vscode to facilitate writing programs in Noir. The Noir LSP addon allows the dev to choose their tool, nargo or aztec-nargo, when writing a pure Noir program or an Aztec smart conract.
 
+### Note
+
+In Aztec, a Note is encrypted information stored by nodes in the network. Data in a note (once decrypted) may represent some variable's state at a point in time.
+
 ### Provers
 
 Aztec will be launched with a fully permissionless proving network that anyone can participate in.
@@ -68,6 +72,10 @@ How this works will be discussed via a future RFP process on Discourse, similarl
 <Glossary.PXE />
 
 Read more [here](./aztec/concepts/pxe/index.md).
+
+### Sandbox
+
+<Glossary.AztecSandbox />
 
 ### Sequencer
 
