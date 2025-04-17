@@ -338,8 +338,10 @@ function serializeAztecClientExecutionSteps(acirBuf: Uint8Array[], witnessBuf: U
   const steps: AztecClientExecutionStep[] = [];
   for (let i = 0; i < acirBuf.length; i++) {
     const bytecode = acirBuf[i];
-    const witness = witnessBuf[i];
-    const vk = vksBuf[i];
+    // Witnesses are not provided at all for gates info.
+    const witness = witnessBuf[i] || Buffer.from([]);
+    // VKs are optional for proving (deprecated feature) or not provided at all for gates info.
+    const vk = vksBuf[i] || Buffer.from([]);
     const functionName = `unknown_wasm_${i}`;
     steps.push(stepToStruct(bytecode, witness, vk, functionName));
   }
@@ -366,13 +368,16 @@ export class AztecClientBackend {
   }
 
   async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array, Uint8Array]> {
-    if (vksBuf.length === 0) {
-      vksBuf = witnessBuf.map(() => Uint8Array.from([]));
-    } else if (vksBuf.length !== witnessBuf.length) {
+    if (vksBuf.length !== 0 && this.acirBuf.length !== witnessBuf.length) {
+      throw new AztecClientBackendError('Witness and bytecodes must have the same stack depth!');
+    }
+    if (vksBuf.length !== 0 && vksBuf.length !== witnessBuf.length) {
+      // NOTE: we allow 0 as an explicit 'I have no VKs'. This is a deprecated feature.
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
     await this.instantiate();
-    const proofAndVk = await this.api.acirProveAztecClient(this.acirBuf, witnessBuf, vksBuf);
+    const ivcInputsBuf = serializeAztecClientExecutionSteps(this.acirBuf, witnessBuf, vksBuf);
+    const proofAndVk = await this.api.acirProveAztecClient(ivcInputsBuf);
     const [proof, vk] = proofAndVk;
     if (!(await this.verify(proof, vk))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
@@ -388,7 +393,8 @@ export class AztecClientBackend {
   async gates(): Promise<number[]> {
     // call function on API
     await this.instantiate();
-    const resultBuffer = await this.api.acirGatesAztecClient(this.acirBuf);
+    const ivcInputsBuf = serializeAztecClientExecutionSteps(this.acirBuf, [], []);
+    const resultBuffer = await this.api.acirGatesAztecClient(ivcInputsBuf);
     return parseBigEndianU32Array(resultBuffer, /*hasSizePrefix=*/ true);
   }
 
