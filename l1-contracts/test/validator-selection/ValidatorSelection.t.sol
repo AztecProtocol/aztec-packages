@@ -20,7 +20,7 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {CheatDepositArgs, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Slot, Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -65,7 +65,7 @@ contract ValidatorSelectionTest is DecoderBase {
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
    */
-  modifier setup(uint256 _validatorCount) {
+  modifier setup(uint256 _validatorCount, uint256 _committeeSize) {
     string memory _name = "mixed_block_1";
     {
       DecoderBase.Full memory full = load(_name);
@@ -105,13 +105,18 @@ contract ValidatorSelectionTest is DecoderBase {
     testERC20 = new TestERC20("test", "TEST", address(this));
     Registry registry = new Registry(address(this), testERC20);
     rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
+
+    // Update committee size depending on the test
+    RollupConfigInput memory config = TestConstants.getRollupConfigInput();
+    config.committeeSize = _committeeSize;
+
     rollup = new Rollup({
       _feeAsset: testERC20,
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
       _governance: address(this),
       _genesisState: TestConstants.getGenesisState(),
-      _config: TestConstants.getRollupConfigInput()
+      _config: config
     });
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
@@ -130,7 +135,7 @@ contract ValidatorSelectionTest is DecoderBase {
     _;
   }
 
-  function testInitialCommitteeMatch() public setup(4) {
+  function testInitialCommitteeMatch() public setup(4, 4) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 1);
@@ -153,7 +158,7 @@ contract ValidatorSelectionTest is DecoderBase {
     assertTrue(_seenCommittee[proposerToAttester[proposer]]);
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -175,7 +180,7 @@ contract ValidatorSelectionTest is DecoderBase {
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -186,18 +191,17 @@ contract ValidatorSelectionTest is DecoderBase {
 
     uint256 validatorSetSize = rollup.getAttesters().length;
     uint256 committeeSize = rollup.getCommitteeSize();
-    uint256 expectedSize =
-      validatorSetSize > committeeSize ? committeeSize : validatorSetSize;
+    uint256 expectedSize = validatorSetSize > committeeSize ? committeeSize : validatorSetSize;
 
     assertEq(rollup.getEpochCommittee(pre).length, expectedSize, "Invalid committee size");
     assertEq(rollup.getEpochCommittee(post).length, expectedSize, "Invalid committee size");
   }
 
-  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100, 48) {
     assertGt(rollup.getAttesters().length, rollup.getCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
-    _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false);
+    _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false, false);
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
@@ -206,19 +210,19 @@ contract ValidatorSelectionTest is DecoderBase {
     );
   }
 
-  function testHappyPath() public setup(4) {
-    _testBlock("mixed_block_1", false, 3, false);
-    _testBlock("mixed_block_2", false, 3, false);
+  function testHappyPath() public setup(4, 4) {
+    _testBlock("mixed_block_1", false, 3, false, false);
+    _testBlock("mixed_block_2", false, 3, false, false);
   }
 
-  function testNukeFromOrbit() public setup(4) {
+  function testNukeFromOrbit() public setup(4, 4) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalised.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
-    _testBlock("mixed_block_1", false, 3, false);
-    _testBlock("mixed_block_2", false, 3, false);
+    _testBlock("mixed_block_1", false, 3, false, false);
+    _testBlock("mixed_block_2", false, 3, false, false);
 
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
@@ -245,19 +249,24 @@ contract ValidatorSelectionTest is DecoderBase {
     }
   }
 
-  function testInvalidProposer() public setup(4) {
-    _testBlock("mixed_block_1", true, 3, true);
+  function testInvalidProposer() public setup(4, 4) {
+    _testBlock("mixed_block_1", true, 3, true, false);
   }
 
-  function testInsufficientSigs() public setup(4) {
-    _testBlock("mixed_block_1", true, 2, false);
+  function testInsufficientSigs() public setup(4, 4) {
+    _testBlock("mixed_block_1", true, 2, false, false);
+  }
+
+  function testInsufficientCommitteeSize() public setup(4, 8) {
+    _testBlock("mixed_block_1", true, 3, false, true);
   }
 
   function _testBlock(
     string memory _name,
     bool _expectRevert,
     uint256 _signatureCount,
-    bool _invalidProposer
+    bool _invalidProposer,
+    bool _insufficientCommitteeSize
   ) internal {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
@@ -333,6 +342,16 @@ contract ValidatorSelectionTest is DecoderBase {
           )
         );
         ree.shouldRevert = true;
+      }
+
+      if (_insufficientCommitteeSize) {
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            Errors.ValidatorSelection__InsufficientCommitteeSize.selector,
+            validators.length,
+            rollup.getCommitteeSize()
+          )
+        );
       }
 
       emit log("Time to propose");

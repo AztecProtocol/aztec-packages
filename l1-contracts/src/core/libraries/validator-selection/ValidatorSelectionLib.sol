@@ -89,6 +89,14 @@ library ValidatorSelectionLib {
       )];
     address proposer = _stakingStore.info[attester].proposer;
 
+    ValidatorSelectionStorage storage store = getStorage();
+    uint256 requiredCommitteeSize = store.committeeSize;
+    if (committee.length < requiredCommitteeSize) {
+      revert Errors.ValidatorSelection__InsufficientCommitteeSize(
+        committee.length, requiredCommitteeSize
+      );
+    }
+
     // @todo Consider getting rid of this option.
     // If the proposer is open, we allow anyone to propose without needing any signatures
     if (proposer == address(0)) {
@@ -172,13 +180,12 @@ library ValidatorSelectionLib {
 
     uint256 committeeSize = store.committeeSize;
 
-    // If we have less validators than the target committee size, we just return the full set
+    // If we have less validators than the committee size, we just return the full set
     if (validatorSetSize <= committeeSize) {
       return _stakingStore.attesters.valuesAtEpoch(_epoch);
     }
 
-    uint256[] memory indices =
-      SampleLib.computeCommittee(committeeSize, validatorSetSize, _seed);
+    uint256[] memory indices = SampleLib.computeCommittee(committeeSize, validatorSetSize, _seed);
 
     address[] memory committee = new address[](committeeSize);
     for (uint256 i = 0; i < committeeSize; i++) {

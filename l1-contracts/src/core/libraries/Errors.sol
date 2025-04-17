@@ -107,6 +107,7 @@ library Errors {
   error ValidatorSelection__InsufficientAttestationsProvided(
     uint256 minimumNeeded, uint256 provided
   ); // 0x4d4f66ac
+  error ValidatorSelection__InsufficientCommitteeSize(uint256 provided, uint256 minimum); // todo
 
   // Staking
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
