@@ -125,7 +125,7 @@ import {
 } from "@aztec/aztec.js";
 ```
 
-The FPC contract must be registered in a users PXE before it can be used. This will automatically happen if you deploy the FPC to your sandbox, but must be added manually if you are using a standalone PXE.
+A FPC contract must be registered in a users PXE before it can be used. This will automatically happen if you deploy a FPC to your sandbox, but must be added manually if you are using a standalone PXE.
 
 ```ts
 import { FPCContract } from "@aztec/noir-contracts.js/FPC";
@@ -149,7 +149,7 @@ The fee payment method is created and used as follows, with similar syntax for p
 
 #include_code fpc yarn-project/end-to-end/src/e2e_fees/public_payments.test.ts javascript
 
-In this example, thanks to the FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
+In this example, thanks to this FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
 
 More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr)
 
@@ -174,7 +174,7 @@ const paymentMethod = new SponsoredFeePaymentMethod(deployedSponsoredFPC);
 
 #### Standalone PXE (e.g. Testnet)
 
-Register the SponsoredFPC in the PXE:
+Register the default SponsoredFPC in the PXE:
 
 ```ts
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
@@ -193,7 +193,7 @@ const paymentMethod = new SponsoredFeePaymentMethod(sponseredFPC.address);
 You can see an example implementation for `getSponsoredFPCInstance()` [here](https://github.com/AztecProtocol/aztec-packages/blob/360a5f628b4edaf1ea9b328d9e9231f60fdc81a0/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L5).
 
 Once this is set up, a transaction can specify this as the `paymentMethod` in the fee object.
-You can see an example of how to get a deployed instance of the sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
+You can see an example of how to get a deployed instance of a sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
 For example, a contract can be deployed with an fpc as follows:
 
 ```ts
