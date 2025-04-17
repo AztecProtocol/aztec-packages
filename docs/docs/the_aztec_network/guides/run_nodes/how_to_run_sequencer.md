@@ -24,9 +24,9 @@ tags:
 
 ## Background
 
-The Aztec sequencer is a critical piece of infrastructure responsible for ordering transactions and producing blocks. It operates through a collaborative system of components that work together to ensure reliable and secure block production.
+The Aztec sequencer node is critical infrastructure responsible for ordering transactions and producing blocks.
 
-When transactions enter the network, the sequencer node bundles them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of validators who re-execute the transactions to verify their correctness. These validators attest to the block's validity by signing it, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
+When transactions enter the network, the sequencer node bundles them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of other sequencer nodes (validators in this context) who re-execute the transactions to verify their correctness. These validators attest to the block's validity by signing it, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
 
 The archiver component complements this process by maintaining historical chain data. It continuously monitors L1 for new blocks, processes them, and maintains a synchronized view of the chain state. This includes managing contract data, transaction logs, and L1-to-L2 messages, making it essential for network synchronization and data availability.
 
@@ -64,7 +64,7 @@ The private key is needed as your validator will post blocks to Ethereum, and th
 
 You MUST forward your ports. Your router must send UDP and TCP traffic on port `40400` (unless you changed the default) to your IP address on your local network. Failure to do so may result in your sequencer not participating on the p2p network.
 
-As a tip, configure your router to give your MAC address the same ip every time it does a DHCP refresh.
+As a tip, configure your router to give your MAC address the same IP address every time it does a DHCP refresh.
 
 You also need to grab your external IP address and pass it along to the `--p2p.p2pIp` when using `aztec start`.
 
@@ -102,25 +102,17 @@ aztec add-l1-validator \
   --network alpha-testnet \
   --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key \
   --private-key your-private-key \
-  --validator your-validator-address \
-  --faucet your-faucet-address
+  --attester your-validator-address \
+  --proposer-eoa your-validator-address \
+  --staking-asset-handler 0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2 \
+  --l1-chain-id 11155111 \
 ```
-
-The key parameters are:
-
-| Flag                             | Env Var                        | Description                                                                 |
-| -------------------------------- | ------------------------------ | --------------------------------------------------------------------------- |
-| `--network <network>`            | `NETWORK`                      | Same network as your sequencer                                              |
-| `--l1-rpc-urls <execution-node>` | `ETHEREUM_HOSTS`               | L1 node endpoint (can be the same as used for the sequencer)                |
-| `--private-key` or `--mnemonic`  | `L1_PRIVATE_KEY` \| `MNEMONIC` | The private key or seed phrase to deploy your forwarder contract            |
-| `--validator <address>`          | n/a                            | Your validator address (derived from the `--sequencer.validatorPrivateKey`) |
-| `--faucet <address>`             | n/a                            | For alpha-testnet, this will mint and deposit funds on your behalf          |
 
 ## Advanced Configuration
 
 ### Using Environment Variables
 
-Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`. [A reference is provided](./cli_reference.md).
+Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`. A reference is provided [here](./cli_reference.md).
 
 For example:
 
