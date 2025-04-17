@@ -81,10 +81,10 @@ export interface PeerDiscoveryService extends EventEmitter {
   stop(): Promise<void>;
 
   /**
-   * Gets all peers.
-   * @returns An array of peer ENRs.
+   * Gets all KadValues.
+   * @returns An array of ENRs.
    */
-  getAllPeers(): ENR[];
+  getKadValues(): ENR[];
 
   /**
    * Runs findRandomNode query.
