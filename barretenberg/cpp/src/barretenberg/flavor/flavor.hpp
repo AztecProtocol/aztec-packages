@@ -170,7 +170,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     bool contains_pairing_point_accumulator = false;
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
 
-    bool operator==(const VerificationKey_& other) const = default;
+    bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
