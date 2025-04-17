@@ -268,8 +268,6 @@ describe('e2e_p2p_add_rollup', () => {
 
     await waitL1Block();
 
-    const govBefore = await govInfo();
-
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
@@ -288,7 +286,7 @@ describe('e2e_p2p_add_rollup', () => {
     const quorumSize = await governanceProposer.read.N();
     t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
 
-    const briding = async (
+    const bridging = async (
       node: AztecNodeService,
       aliceAccount: InitialAccountData,
       clients: {
@@ -432,7 +430,7 @@ describe('e2e_p2p_add_rollup', () => {
       }
     };
 
-    await briding(
+    await bridging(
       nodes[0],
       t.ctx.initialFundedAccounts[0],
       {
@@ -450,10 +448,8 @@ describe('e2e_p2p_add_rollup', () => {
       if (govData.leaderVotes >= quorumSize) {
         break;
       }
-      await sleep(12000);
+      await sleep(t.ctx.aztecNodeConfig.ethereumSlotDuration * t.ctx.aztecNodeConfig.aztecSlotDuration * 1000);
     }
-
-    expect(govData.leaderVotes).toBeGreaterThan(govBefore.leaderVotes);
 
     const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
       ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
@@ -542,7 +538,8 @@ describe('e2e_p2p_add_rollup', () => {
     const canonicalBefore = EthAddress.fromString(await registry.read.getCanonicalRollup());
     expect(canonicalBefore.equals(EthAddress.fromString(rollup.address))).toBe(true);
     t.logger.info(`Canonical rollup is correct`);
-    t.logger.info(`Number of versions listed: ${await registry.read.numberOfVersions()}`);
+    const numberOfVersionsBefore = await registry.read.numberOfVersions();
+    t.logger.info(`Number of versions listed: ${numberOfVersionsBefore}`);
 
     t.logger.info(`Executing proposal`);
     await l1TxUtils.sendAndMonitorTransaction({
@@ -557,8 +554,10 @@ describe('e2e_p2p_add_rollup', () => {
 
     const canonicalAfter = EthAddress.fromString(await registry.read.getCanonicalRollup());
     expect(canonicalAfter.equals(EthAddress.fromString(newRollup.address))).toBe(true);
+    const numberOfVersionsAfter = await registry.read.numberOfVersions();
+    expect(numberOfVersionsAfter).toBe(numberOfVersionsBefore + 1n);
     t.logger.info(`Canonical rollup is correct`);
-    t.logger.info(`Number of versions listed: ${await registry.read.numberOfVersions()}`);
+    t.logger.info(`Number of versions listed: ${numberOfVersionsAfter}`);
     t.logger.info(`Old rollup: ${rollup.address}. New Rollup: ${newRollup.address}`);
 
     // stop all nodes
@@ -625,7 +624,7 @@ describe('e2e_p2p_add_rollup', () => {
     expect(await newRollup.getBlockNumber()).toBe(0n);
 
     // Bridge into and out of the new rollup to ensure that it works.
-    await briding(
+    await bridging(
       nodes[0],
       initialTestAccounts[0],
       {
