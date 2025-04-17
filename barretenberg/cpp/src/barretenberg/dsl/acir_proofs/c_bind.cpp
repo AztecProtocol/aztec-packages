@@ -303,12 +303,10 @@ WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t
 WASM_EXPORT void acir_verify_ultra_starknet_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
     using Verifier = UltraVerifier_<UltraStarknetFlavor>;
 
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
     Verifier verifier{ verification_key };
 
