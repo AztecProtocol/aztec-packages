@@ -61,4 +61,9 @@ contract TimeCheater {
     currentEpoch++;
     vm.warp(genesisTime + 1 + currentEpoch * slotDuration * epochDuration);
   }
+
+  function cheat_jumpForwardEpochs(uint256 _epochs) public {
+    currentEpoch += _epochs;
+    vm.warp(genesisTime + 1 + currentEpoch * slotDuration * epochDuration);
+  }
 }

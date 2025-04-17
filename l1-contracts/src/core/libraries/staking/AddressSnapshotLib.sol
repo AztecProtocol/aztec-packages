@@ -62,6 +62,22 @@ library AddressSnapshotLib {
     return true;
   }
 
+
+  /**
+   * @notice Removes a address from the set by address
+   * @param _self The storage reference to the set
+   * @param _address The address of the address to remove
+   * @return bool True if the address was removed, false if it wasn't found
+   */
+  function remove(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
+    Index memory index = _self.addressToIndex[_address];
+    if (!index.exists) {
+      return false;
+    }
+
+    return _remove(_self, index.index, _address);
+  }
+
   /**
    * @notice Removes a validator from the set by index
    * @param _self The storage reference to the set
@@ -69,6 +85,17 @@ library AddressSnapshotLib {
    * @return bool True if the validator was removed, false otherwise
    */
   function remove(SnapshottedAddressSet storage _self, uint224 _index) internal returns (bool) {
+    address _address = address(_self.checkpoints[_index].latest().toUint160());
+    return _remove(_self, _index, _address);
+  }
+
+  /**
+   * @notice Removes a validator from the set by index
+   * @param _self The storage reference to the set
+   * @param _index The index of the validator to remove
+   * @return bool True if the validator was removed, false otherwise
+   */
+  function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address) private returns (bool) {
     uint224 size = _self.size.latest();
     if (_index >= size) {
       revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
@@ -84,8 +111,8 @@ library AddressSnapshotLib {
     // If we are removing the last item, we cannot swap it with anything
     // so we append a new address of zero for this epoch
     // And since we are removing it, we set the location to 0
+    _self.addressToIndex[_address] = Index({exists: false, index: 0});
     if (lastIndex == _index) {
-      _self.addressToIndex[lastValidator] = Index({exists: false, index: 0});
       _self.checkpoints[_index].push(nextEpoch.toUint32(), uint224(0));
     } else {
       // Otherwise, we swap the last item with the item we are removing
@@ -96,21 +123,6 @@ library AddressSnapshotLib {
 
     _self.size.push(nextEpoch.toUint32(), (lastIndex).toUint224());
     return true;
-  }
-
-  /**
-   * @notice Removes a address from the set by address
-   * @param _self The storage reference to the set
-   * @param _address The address of the address to remove
-   * @return bool True if the address was removed, false if it wasn't found
-   */
-  function remove(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
-    Index memory index = _self.addressToIndex[_address];
-    if (!index.exists) {
-      return false;
-    }
-
-    return remove(_self, index.index);
   }
 
   /**

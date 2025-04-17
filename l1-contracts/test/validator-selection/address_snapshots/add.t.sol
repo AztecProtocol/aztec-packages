@@ -11,64 +11,99 @@ import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AddressSnapshotAddTest is AddressSnapshotsBase {
-  function test_WhenValidatorIsNotInTheSet() public {
+  function test_WhenValidatorIsNotInTheSet(address _addr) public {
     // It returns true
     // It increases the length
     // It creates a checkpoint for the next epoch
     // It does not change the current epoch
 
     timeCheater.cheat__setEpochNow(1);
-    assertTrue(validatorSet.add(address(1)));
+    assertTrue(validatorSet.add(_addr));
     assertEq(validatorSet.length(), 0);
 
     timeCheater.cheat__setEpochNow(2);
     assertEq(validatorSet.length(), 1);
 
-    // Epoch 0 remains frozen, so this number should not update
     vm.expectRevert(
       abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
     );
     validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(1));
-    validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2));
+
+    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), _addr);
   }
 
-  function test_WhenValidatorIsAlreadyInTheSet() public {
+  function test_WhenValidatorIsAlreadyInTheSet(address _addr) public {
     // It returns false
 
     timeCheater.cheat__setEpochNow(1);
-    validatorSet.add(address(1));
-    assertFalse(validatorSet.add(address(1)));
+    validatorSet.add(_addr);
+
+    // Addition should fail, and no writes should be made
+    vm.record();
+    assertFalse(validatorSet.add(_addr));
+
+    (, bytes32[] memory writes) = vm.accesses(address(validatorSet));
+    assertEq(writes.length, 0);
   }
 
-  function test_WhenValidatorHasBeenRemovedFromTheSet() public {
+  function test_WhenValidatorHasBeenRemovedFromTheSet(address[] memory _addrs) public {
     // It can be added again
 
-    // Added and removed
+    // Ensure addresses within _addrSet1 are unique
+    vm.assume(_addrs.length > 0);
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      for (uint256 j = 0; j < i; j++) {
+        vm.assume(_addrs[i] != _addrs[j]);
+      }
+    }
     timeCheater.cheat__setEpochNow(1);
-    validatorSet.add(address(1));
+
+    // Add all of the addresses
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertTrue(validatorSet.add(_addrs[i]));
+    }
+
+    // Addresses should be empty for the current epoch
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
+      );
+      validatorSet.getAddressFromIndexAtEpoch(i, Epoch.wrap(1));
+    }
 
     timeCheater.cheat__setEpochNow(2);
-    validatorSet.remove(0);
+    // Addresses should now be added
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertEq(validatorSet.getAddressFromIndexAtEpoch(i, Epoch.wrap(2)), _addrs[i]);
+    }
+
+    // Remove all of the addresses
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertTrue(validatorSet.remove(_addrs[i]));
+    }
+
+    // Addresses should now remain during the current epoch after removal
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertEq(validatorSet.getAddressFromIndexAtEpoch(i, Epoch.wrap(2)), _addrs[i]);
+    }
 
     timeCheater.cheat__setEpochNow(3);
-    assertTrue(validatorSet.add(address(1)));
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
+      );
+      validatorSet.getAddressFromIndexAtEpoch(i, Epoch.wrap(1));
+    }
+
+    // Add all of the addresses again
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertTrue(validatorSet.add(_addrs[i]));
+    }
 
     timeCheater.cheat__setEpochNow(4);
-    validatorSet.remove(0);
-
-    // Added at the end of a clump
-    timeCheater.cheat__setEpochNow(5);
-    assertTrue(validatorSet.add(address(10)));
-    assertTrue(validatorSet.add(address(11)));
-    assertTrue(validatorSet.add(address(12)));
-    assertTrue(validatorSet.add(address(1)));
-
-    timeCheater.cheat__setEpochNow(6);
-    // assert they are in the set
-    assertEq(validatorSet.length(), 4);
-    assertEq(validatorSet.at(0), address(10));
-    assertEq(validatorSet.at(1), address(11));
-    assertEq(validatorSet.at(2), address(12));
-    assertEq(validatorSet.at(3), address(1));
+    // Assert both sets are in the set
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertEq(validatorSet.getAddressFromIndexAtEpoch(i, Epoch.wrap(4)), _addrs[i]);
+    }
   }
 }
