@@ -7,5 +7,7 @@ ValuesTest
 ├── when validators have not changed for some time
 │   └── it returns array with correct length
 │   └── it returns array with correct addresses in order
+├── when querying values for a future epoch
+│   └── it reverts
 └── when validators are removed
     └── it returns array with remaining validators

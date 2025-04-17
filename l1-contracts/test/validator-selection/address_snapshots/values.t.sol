@@ -8,6 +8,7 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AddressSnapshotValuesTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
@@ -59,6 +60,19 @@ contract AddressSnapshotValuesTest is AddressSnapshotsBase {
     // Values at epoch maintains historical values
     address[] memory valsAtEpoch = validatorSet.valuesAtEpoch(Epoch.wrap(1));
     assertEq(valsAtEpoch.length, 0);
+  }
+
+  function test_WhenQueryingValuesForFutureEpoch() public {
+    // It reverts
+    timeCheater.cheat__setEpochNow(1);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch.selector,
+        Epoch.wrap(2),
+        Epoch.wrap(1)
+      )
+    );
+    validatorSet.valuesAtEpoch(Epoch.wrap(2));
   }
 
   function test_WhenValidatorsAreRemoved() public {
