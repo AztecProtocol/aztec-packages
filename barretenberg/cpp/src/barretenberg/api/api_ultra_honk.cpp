@@ -13,7 +13,6 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 
 namespace bb {
 
