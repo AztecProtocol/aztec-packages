@@ -20,18 +20,12 @@ export class AztecClientBackendError extends Error {
 
 // Utility for parsing gate counts from buffer
 // TODO: Where should this logic live? Should go away with move to msgpack.
-function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): number[] {
+function parseBigEndianU32Array(buffer: Uint8Array): number[] {
   const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 
   let offset = 0;
-  let count = buffer.byteLength >>> 2; // default is entire buffer length / 4
+  const count = buffer.byteLength >>> 2; // default is entire buffer length / 4
   console.log(buffer);
-
-  if (hasSizePrefix) {
-    // Read the first 4 bytes as the size (big-endian).
-    count = dv.getUint32(0, /* littleEndian= */ false);
-    offset = 4;
-  }
 
   const out: number[] = new Array(count);
   for (let i = 0; i < count; i++) {
@@ -393,7 +387,7 @@ export class AztecClientBackend {
     await this.instantiate();
     const ivcInputsBuf = serializeAztecClientExecutionSteps(this.acirBuf, [], []);
     const resultBuffer = await this.api.acirGatesAztecClient(ivcInputsBuf);
-    return parseBigEndianU32Array(resultBuffer, /*hasSizePrefix=*/ true);
+    return parseBigEndianU32Array(resultBuffer);
   }
 
   async destroy(): Promise<void> {
