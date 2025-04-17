@@ -174,6 +174,12 @@ When docusaurus builds, it looks for the `versions.json` file, and builds the ve
 
 A new docs site is published on every merge to the master branch, if there are any changes in the docs folder. You can also manually trigger a new deployment by running the `docs-deploy` workflow in the [Github Actions tab](https://github.com/AztecProtocol/aztec-packages/actions/workflows/docs-deploy.yml). This can be triggered from a branch and does not have to wait for a PR to be merged, although merging a PR is recommended.
 
+## Viewing (outdated) protocol specs
+
+The protocol specs pages are outdated, but it may still be useful to view them in some cases.
+
+To view the protocol specs, you can run `yarn dev` or `yarn dev:local`. When viewing the protocol specs locally, versioning is disabled, so you can view the protocol specs in the browser. It would error otherwise because the protocol specs pages are not included in the pages in `versioned_docs` and `versioned_sidebars`.
+
 ## Contributing
 
 We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.

@@ -2321,7 +2321,7 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::create_RAM_array(const size_t array
 /**
  * @brief Initialize a RAM cell to equal `value_witness`
  *
- * @param ram_id The index of the ROM array, which cell we are initializing
+ * @param ram_id The index of the RAM array, which cell we are initializing
  * @param index_value The index of the cell within the array (an actual index, not a witness index)
  * @param value_witness The index of the witness with the value that should be in the
  */
@@ -2894,7 +2894,14 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
  */
 template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<ExecutionTrace>::export_circuit()
 {
-    this->set_variable_name(this->zero_idx, "zero");
+    // You should not name `zero` by yourself
+    // but it will be rewritten anyway
+    auto first_zero_idx = this->get_first_variable_in_class(this->zero_idx);
+    if (!this->variable_names.contains(first_zero_idx)) {
+        this->set_variable_name(this->zero_idx, "zero");
+    } else {
+        this->variable_names[first_zero_idx] = "zero";
+    }
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 
@@ -2946,7 +2953,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
             };
 
             if (idx < block.size() - 1) {
-                // TODO(alex): don't forget to handle memory_data later
                 tmp_w.push_back(block.w_l()[idx + 1]);
                 tmp_w.push_back(block.w_r()[idx + 1]);
                 tmp_w.push_back(block.w_o()[idx + 1]);

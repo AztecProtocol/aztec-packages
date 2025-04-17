@@ -43,7 +43,8 @@ struct CircuitSchema {
                    real_variable_index,
                    lookup_tables,
                    real_variable_tags,
-                   range_tags);
+                   range_tags,
+                   circuit_finalized);
 };
 
 CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf);
