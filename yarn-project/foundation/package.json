@@ -108,7 +108,6 @@
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
-    "c-kzg": "4.0.0-alpha.1",
     "colorette": "^2.0.20",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
