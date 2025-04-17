@@ -130,6 +130,7 @@ export const setupL1Contracts = async (
     initialValidators: args.initialValidators,
     ...getL1ContractsConfigEnvVars(),
     ...args,
+    aztecCommitteeSize: args.aztecCommitteeSize ?? 0, // Default to 0 in end to end tests
   });
 
   return l1Data;

@@ -25,8 +25,8 @@ library ExtRollupLib {
     ProposeLib.propose(_args, _signatures, _blobInput, _checkBlob);
   }
 
-  function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
-    ValidatorSelectionLib.initialize(_targetCommitteeSize);
+  function initializeValidatorSelection(uint256 _committeeSize) external {
+    ValidatorSelectionLib.initialize(_committeeSize);
   }
 
   function setupEpoch() external {

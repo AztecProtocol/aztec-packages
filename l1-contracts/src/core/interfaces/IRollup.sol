@@ -77,7 +77,7 @@ struct GenesisState {
 struct RollupConfigInput {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
-  uint256 targetCommitteeSize;
+  uint256 committeeSize;
   uint256 aztecProofSubmissionWindow;
   uint256 minimumStake;
   uint256 slashingQuorum;

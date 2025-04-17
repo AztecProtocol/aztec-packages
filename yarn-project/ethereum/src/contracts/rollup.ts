@@ -111,8 +111,8 @@ export class RollupContract {
   }
 
   @memoize
-  getTargetCommitteeSize() {
-    return this.rollup.read.getTargetCommitteeSize();
+  getCommitteeSize() {
+    return this.rollup.read.getCommitteeSize();
   }
 
   @memoize

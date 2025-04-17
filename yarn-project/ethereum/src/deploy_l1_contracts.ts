@@ -531,7 +531,7 @@ export const deployRollup = async (
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
-    targetCommitteeSize: args.aztecTargetCommitteeSize,
+    committeeSize: args.aztecCommitteeSize,
     aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,

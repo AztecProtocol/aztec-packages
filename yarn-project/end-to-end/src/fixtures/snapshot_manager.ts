@@ -355,6 +355,7 @@ async function setupFromFresh(
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
+    aztecCommitteeSize: 0, // For tests, we allow any committee size.
     genesisArchiveRoot,
     genesisBlockHash,
     feeJuicePortalInitialBalance: fundingNeeded,
