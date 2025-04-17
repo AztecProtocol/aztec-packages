@@ -434,7 +434,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[] | undefined> {
+  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
+    // TODO(md): allow for much more retries
     return this.reqresp.sendBatchRequest(protocol, requests);
   }
 

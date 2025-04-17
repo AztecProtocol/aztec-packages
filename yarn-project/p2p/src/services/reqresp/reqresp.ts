@@ -263,10 +263,10 @@ export class ReqResp {
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     timeoutMs = 10000,
     maxPeers = Math.min(10, requests.length),
-    maxRetryAttempts = 3,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
+    maxRetryAttempts = 10,
+  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
     const responseValidator = this.subProtocolValidators[subProtocol];
-    const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = new Array(requests.length);
+    const responses: (InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[] = new Array(requests.length);
     const requestBuffers = requests.map(req => req.toBuffer());
 
     const requestFunction = async () => {
@@ -378,7 +378,7 @@ export class ReqResp {
     };
 
     try {
-      return await executeTimeout<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>(
+      return await executeTimeout<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]>(
         requestFunction,
         timeoutMs,
         () => new CollectiveReqRespTimeoutError(),

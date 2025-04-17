@@ -18,7 +18,7 @@ export interface ProverCoordination {
    * @param txHashes - The hashes of the transactions, used as an ID.
    * @returns The transactions, if found, 'undefined' otherwise.
    */
-  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
+  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 }
 
 export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordination> = {

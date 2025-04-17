@@ -445,12 +445,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
-    await this.txPool.addTxs(txs);
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const txs = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
+
+    // Some transactions may return undefined, so we filter them out
+    const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
+    await this.txPool.addTxs(filteredTxs);
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
     this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
-    return txs as Tx[];
+
+    // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
+    return txs;
   }
 
   public getPendingTxs(): Promise<Tx[]> {
@@ -521,7 +526,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHashes - Hashes of the transactions to look for.
    * @returns The txs found, not necessarily on the same order as the hashes.
    */
-  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
     const missingTxHashes = txs
       .map((tx, index) => [tx, index] as const)
