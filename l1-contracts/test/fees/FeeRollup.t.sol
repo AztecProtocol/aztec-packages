@@ -113,7 +113,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       RollupConfigInput({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
-        committeeSize: 48,
+        committeeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
         aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
