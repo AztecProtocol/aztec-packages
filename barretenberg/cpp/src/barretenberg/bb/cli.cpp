@@ -695,7 +695,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     }
 
     // TODO(AD): it is inflexible that CIVC shares an API command (prove) with UH this way. The base API class is a
-    // poort fit. It would be better to have a separate handling for each scheme with subcommands to prove.
+    // poor fit. It would be better to have a separate handling for each scheme with subcommands to prove.
     const auto execute_non_prove_command = [&](API& api) {
         if (check->parsed()) {
             api.check(flags, bytecode_path, witness_path);
