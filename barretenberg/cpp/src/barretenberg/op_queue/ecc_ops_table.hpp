@@ -160,27 +160,35 @@ using EccvmOpsTable = EccOpsTable<ECCVMOperation>;
  * The table data is stored in the UltraOp tuple format but is converted to four columns of Fr scalars for use in the
  * polynomials in the proving system.
  */
-class UltraEccOpsTable : public EccOpsTable<UltraOp> {
+class UltraEccOpsTable {
   public:
     static constexpr size_t TABLE_WIDTH = 4;     // dictated by the number of wires in the Ultra arithmetization
     static constexpr size_t NUM_ROWS_PER_OP = 2; // A single ECC op is split across two width-4 rows
+
   private:
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
+    using UltraOpsTable = EccOpsTable<UltraOp>;
     using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
     using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
+    UltraOpsTable table;
+
   public:
-    size_t ultra_table_size() const { return size() * NUM_ROWS_PER_OP; }
-    size_t current_ultra_subtable_size() const { return get()[0].size() * NUM_ROWS_PER_OP; }
+    size_t size() const { return table.size(); }
+    size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
+    size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
+    void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
+    void push(const UltraOp& op) { table.push(op); }
+    std::vector<UltraOp> get_reconstructed() const { return table.get_reconstructed(); }
 
     // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
     {
         const size_t poly_size = ultra_table_size();
         const size_t subtable_start_idx = 0; // include all subtables
-        const size_t subtable_end_idx = num_subtables();
+        const size_t subtable_end_idx = table.num_subtables();
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
@@ -190,7 +198,7 @@ class UltraEccOpsTable : public EccOpsTable<UltraOp> {
     {
         const size_t poly_size = previous_ultra_table_size();
         const size_t subtable_start_idx = 1; // exclude the 0th subtable
-        const size_t subtable_end_idx = num_subtables();
+        const size_t subtable_end_idx = table.num_subtables();
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
@@ -223,7 +231,7 @@ class UltraEccOpsTable : public EccOpsTable<UltraOp> {
 
         size_t i = 0;
         for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
-            const auto& subtable = get()[subtable_idx];
+            const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
                 column_polynomials[0].at(i) = op.op_code.value();
                 column_polynomials[1].at(i) = op.x_lo;
