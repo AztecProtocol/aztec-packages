@@ -35,6 +35,9 @@ inline std::string to_string(AddressingEventError e)
     case AddressingEventError::INDIRECT_INVALID_ADDRESS:
         return "INDIRECT_INVALID_ADDRESS";
     }
+
+    // Only to please the compiler.
+    return "UNKNOWN_ADDRESSING_ERROR";
 }
 
 struct AddressingException : public std::runtime_error {
