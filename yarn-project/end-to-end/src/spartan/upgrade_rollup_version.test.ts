@@ -101,7 +101,7 @@ describe('spartan_upgrade_rollup_version', () => {
           ethereumSlotDuration: 12,
           aztecSlotDuration: 24,
           aztecEpochDuration: 4,
-          aztecTargetCommitteeSize: 48,
+          aztecCommitteeSize: 48,
           aztecProofSubmissionWindow: 8,
           minimumStake: BigInt(100e18),
           slashingQuorum: 6,
