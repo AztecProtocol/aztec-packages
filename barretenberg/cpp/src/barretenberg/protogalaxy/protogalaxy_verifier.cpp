@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Barretenberg Audit Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    .legend-container {
+      margin-bottom: 2rem;
+    }
+    .chart-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+    .module-section {
+      width: calc(50% - 1rem);
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .role-charts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+    }
+    canvas {
+      width: 180px !important;
+      height: 180px !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Barretenberg Audit Dashboard</h1>
+  <div id="legend" class="legend-container"></div>
+  <div id="charts" class="chart-grid"></div>
+
+  <script>
+    fetch('audit_summary.json')
+      .then(res => res.json())
+      .then(auditSummary => {
+        const chartsContainer = document.getElementById("charts");
+        const legendContainer = document.getElementById("legend");
+
+        const roleColors = {
+          "not started": "#bdc3c7",
+          "in progress": "#f1c40f",
+          "complete": "#2ecc71",
+          "unknown": "#e74c3c"
+        };
+
+        // Create shared legend
+        const legendItems = Object.entries(roleColors).map(([status, color]) => {
+          return `<span style="display: inline-block; margin-right: 1rem;">
+            <span style="display:inline-block; width: 12px; height: 12px; background:${color}; margin-right: 5px; border-radius: 2px;"></span>
+            ${status}
+          </span>`;
+        }).join('');
+        legendContainer.innerHTML = `<strong>Legend:</strong><br>${legendItems}`;
+
+        // Summary chart data by role
+        const summaryByRole = {};
+        const moduleFileCounts = {};
+
+        for (const [module, roles] of Object.entries(auditSummary)) {
+          const uniqueFiles = new Set();
+          const moduleDiv = document.createElement("div");
+          moduleDiv.className = "module-section";
+
+          const roleChartRow = document.createElement("div");
+          roleChartRow.className = "role-charts";
+
+          for (const [role, statuses] of Object.entries(roles)) {
+            const canvas = document.createElement("canvas");
+            const chartId = `${module}-${role}`;
+            canvas.id = chartId;
+            roleChartRow.appendChild(canvas);
+
+            const labels = Object.keys(statuses);
+            const data = Object.values(statuses);
+
+            labels.forEach((label, i) => {
+              summaryByRole[role] = summaryByRole[role] || {};
+              summaryByRole[role][label] = (summaryByRole[role][label] || 0) + data[i];
+            });
+
+            const backgroundColors = labels.map(label => roleColors[label] || "#95a5a6");
+
+            new Chart(canvas.getContext("2d"), {
+              type: "pie",
+              data: {
+                labels: labels,
+                datasets: [{
+                  data: data,
+                  backgroundColor: backgroundColors
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  title: {
+                    display: true,
+                    text: role
+                  }
+                }
+              }
+            });
+          }
+
+          const fileCount = Object.values(roles)[0] ? Object.values(Object.values(roles)[0]).reduce((a, b) => a + b, 0) : 0;
+          moduleFileCounts[module] = fileCount;
+
+          moduleDiv.innerHTML = `<h3>${module} (${fileCount} files)</h3>`;
+          moduleDiv.appendChild(roleChartRow);
+          chartsContainer.appendChild(moduleDiv);
+        }
+
+        // Create summary module
+        const totalFiles = Object.values(moduleFileCounts).reduce((a, b) => a + b, 0);
+        const summaryDiv = document.createElement("div");
+        summaryDiv.className = "module-section";
+        summaryDiv.innerHTML = `<h3>Summary (${totalFiles} files)</h3>`;
+        const summaryChartRow = document.createElement("div");
+        summaryChartRow.className = "role-charts";
+
+        for (const [role, statuses] of Object.entries(summaryByRole)) {
+          const canvas = document.createElement("canvas");
+          summaryChartRow.appendChild(canvas);
+
+          const labels = Object.keys(statuses);
+          const data = Object.values(statuses);
+          const colors = labels.map(label => roleColors[label] || "#95a5a6");
+
+          new Chart(canvas.getContext("2d"), {
+            type: "pie",
+            data: {
+              labels: labels,
+              datasets: [{
+                data: data,
+                backgroundColor: colors
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: {
+                  display: false
+                },
+                title: {
+                  display: true,
+                  text: role
+                }
+              }
+            }
+          });
+        }
+
+        summaryDiv.appendChild(summaryChartRow);
+        chartsContainer.prepend(summaryDiv);
+      })
+      .catch(err => {
+        document.body.innerHTML += `<p style=\"color:red\">Failed to load audit_summary.json</p>`;
+        console.error(err);
+      });
+  </script>
+</body>
+</html>

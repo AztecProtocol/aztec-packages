@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "ecdsa.hpp"
 #include <barretenberg/ecc/curves/secp256k1/secp256k1.hpp>
 #include <barretenberg/ecc/curves/secp256r1/secp256r1.hpp>

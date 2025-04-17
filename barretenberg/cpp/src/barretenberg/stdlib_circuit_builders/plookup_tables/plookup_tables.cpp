@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "plookup_tables.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/aes128.hpp"

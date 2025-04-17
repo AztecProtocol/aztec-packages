@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "prover.hpp"
 #include "../public_inputs/public_inputs.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
