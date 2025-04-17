@@ -267,7 +267,7 @@ contract ValidatorSelectionTest is DecoderBase {
 
     {
       uint256 version = rollup.getVersion();
-      uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      uint256 manaBaseFee = rollup.getManaBaseFee(true);
       bytes32 inHash = inbox.getRoot(full.block.decodedHeader.globalVariables.blockNumber);
       assembly {
         mstore(add(add(header, 0x20), 0x0064), inHash)

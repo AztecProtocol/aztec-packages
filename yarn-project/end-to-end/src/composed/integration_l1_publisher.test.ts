@@ -545,7 +545,7 @@ describe('L1Publisher integration', () => {
   describe('error handling', () => {
     let loggerErrorSpy: ReturnType<(typeof jest)['spyOn']>;
 
-    it.skip(`shows propose custom errors if tx reverts`, async () => {
+    it(`shows propose custom errors if tx reverts`, async () => {
       // REFACTOR: code below is duplicated from "builds blocks of 2 empty txs building on each other"
       const archiveInRollup_ = await rollup.archive();
       expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
@@ -576,48 +576,37 @@ describe('L1Publisher integration', () => {
       // Inspect logger
       loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
 
-      // Expect the tx to revert
-      expect(await publisher.enqueueProposeL2Block(block)).toEqual(true);
-
-      await expect(publisher.sendRequests()).resolves.toMatchObject({
-        errorMsg: expect.stringContaining('Rollup__InvalidInHash'),
+      // Expect block validation to fail
+      await expect(publisher.enqueueProposeL2Block(block)).rejects.toMatchObject({
+        message: expect.stringContaining('Rollup__InvalidInHash'),
       });
 
-      // Test for both calls
-      // NOTE: First error is from the simulate fn, which isn't supported by anvil
-      expect(loggerErrorSpy).toHaveBeenCalledTimes(3);
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(2);
 
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         1,
-        'Forwarder transaction failed',
-        undefined,
+        expect.stringMatching(/^Failed to simulate propose tx/i),
         expect.objectContaining({
-          receipt: expect.objectContaining({
-            type: 'eip4844',
-            blockHash: expect.any(String),
-            blockNumber: expect.any(BigInt),
-            transactionHash: expect.any(String),
-          }),
+          name: 'Error',
+          message: expect.stringContaining('Rollup__InvalidInHash'),
         }),
-      );
-      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        2,
-        expect.stringContaining('Bundled [propose] transaction [failed]'),
       );
 
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        3,
+        2,
         expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "forward" reverted\. Error: Rollup__InvalidInHash/i,
+          /^Block validation failed\. Error: L1 transaction simulation failed with error: Rollup__InvalidInHash/i,
         ),
         undefined,
         expect.objectContaining({
-          blockHash: expect.any(Fr),
           blockNumber: expect.any(Number),
-          slotNumber: expect.any(BigInt),
-          txHash: expect.any(String),
-          txCount: expect.any(Number),
           blockTimestamp: expect.any(Number),
+          contractClassLogCount: expect.any(Number),
+          contractClassLogSize: expect.any(Number),
+          privateLogCount: expect.any(Number),
+          publicLogCount: expect.any(Number),
+          slotNumber: expect.any(BigInt),
+          txCount: expect.any(Number),
         }),
       );
     });

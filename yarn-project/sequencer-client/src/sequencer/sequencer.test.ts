@@ -338,7 +338,7 @@ describe('sequencer', () => {
 
     // Not your turn!
     publisher.canProposeAtNextEthBlock.mockReturnValue(Promise.resolve(undefined));
-    publisher.validateBlockForSubmission.mockRejectedValue(new Error());
+    publisher.validateBlockHeader.mockRejectedValue(new Error());
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
@@ -353,8 +353,8 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
 
     // Now it is!
-    publisher.validateBlockForSubmission.mockClear();
-    publisher.validateBlockForSubmission.mockResolvedValue(1n);
+    publisher.validateBlockHeader.mockClear();
+    publisher.validateBlockHeader.mockResolvedValue();
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -547,7 +547,7 @@ describe('sequencer', () => {
     block = await makeBlock([tx]);
 
     // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-    publisher.validateBlockForSubmission.mockResolvedValueOnce(1n).mockRejectedValueOnce(new Error('No block for you'));
+    publisher.validateBlockHeader.mockResolvedValueOnce().mockRejectedValueOnce(new Error('No block for you'));
 
     await sequencer.doRealWork();
 

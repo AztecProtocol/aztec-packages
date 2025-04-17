@@ -5,6 +5,10 @@ export class DelayedTxUtils extends L1TxUtilsWithBlobs {
   public delayer: Delayer | undefined;
 
   public static fromL1TxUtils(l1TxUtils: L1TxUtilsWithBlobs, ethereumSlotDuration: number) {
+    if (!l1TxUtils.walletClient) {
+      throw new Error('You need to initialise L1 tx utils with a wallet client to use the delayer.');
+    }
+
     const { client, delayer } = withDelayer(l1TxUtils.walletClient, {
       ethereumSlotDuration,
     });
@@ -15,6 +19,10 @@ export class DelayedTxUtils extends L1TxUtilsWithBlobs {
   }
 
   public enableDelayer(ethereumSlotDuration: number) {
+    if (!this.walletClient) {
+      throw new Error('You need to initialise L1 tx utils with a wallet client to use the delayer.');
+    }
+
     const { client, delayer } = withDelayer(this.walletClient, {
       ethereumSlotDuration,
     });

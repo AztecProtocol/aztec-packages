@@ -41,7 +41,6 @@ struct InterimProposeValues {
  * @param header - The proposed block header
  * @param attestations - The signatures for the attestations
  * @param digest - The digest that signatures signed
- * @param currentTime - The time of execution
  * @param blobsHashesCommitment - The blobs hash for this block, provided for simpler future simulation
  * @param flags - Flags specific to the execution, whether certain checks should be skipped
  */
@@ -49,7 +48,6 @@ struct ValidateHeaderArgs {
   Header header;
   Signature[] attestations;
   bytes32 digest;
-  Timestamp currentTime;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
   BlockHeaderValidationFlags flags;
@@ -97,7 +95,6 @@ library ProposeLib {
         header: header,
         attestations: _signatures,
         digest: digest(_args),
-        currentTime: Timestamp.wrap(block.timestamp),
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: BlockHeaderValidationFlags({ignoreDA: false, ignoreSignatures: false})
@@ -142,6 +139,7 @@ library ProposeLib {
 
   // @note: not view as sampling validators uses tstore
   function validateHeader(ValidateHeaderArgs memory _args) internal {
+    Timestamp currentTime = Timestamp.wrap(block.timestamp);
     require(
       block.chainid == _args.header.globalVariables.chainId,
       Errors.Rollup__InvalidChainId(block.chainid, _args.header.globalVariables.chainId)
@@ -158,7 +156,7 @@ library ProposeLib {
       )
     );
 
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_args.currentTime);
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
 
     require(
       _args.header.globalVariables.blockNumber == pendingBlockNumber + 1,
@@ -177,7 +175,7 @@ library ProposeLib {
     Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    Slot currentSlot = _args.currentTime.slotFromTimestamp();
+    Slot currentSlot = currentTime.slotFromTimestamp();
     require(slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot));
 
     Timestamp timestamp = TimeLib.toTimestamp(slot);
@@ -186,9 +184,7 @@ library ProposeLib {
       Errors.Rollup__InvalidTimestamp(timestamp, _args.header.globalVariables.timestamp)
     );
 
-    require(
-      timestamp <= _args.currentTime, Errors.Rollup__TimestampInFuture(_args.currentTime, timestamp)
-    );
+    require(timestamp <= currentTime, Errors.Rollup__TimestampInFuture(currentTime, timestamp));
 
     require(
       _args.flags.ignoreDA

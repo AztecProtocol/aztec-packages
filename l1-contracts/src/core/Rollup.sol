@@ -78,13 +78,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Validate a header for submission
    *
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
-   *          without having to deal with viem or anvil for simulating timestamps in the future.
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
    *
    * @param _header - The header to validate
    * @param _signatures - The signatures to validate
    * @param _digest - The digest to validate
-   * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
    * @param _flags - The flags to validate
    */
@@ -92,7 +90,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes calldata _header,
     Signature[] memory _signatures,
     bytes32 _digest,
-    Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external override(IRollup) {
@@ -101,8 +98,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
         header: HeaderLib.decode(_header),
         attestations: _signatures,
         digest: _digest,
-        currentTime: _currentTime,
-        manaBaseFee: getManaBaseFeeAt(_currentTime, true),
+        manaBaseFee: getManaBaseFee(true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       })
@@ -141,16 +137,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Get the committee for a given timestamp
    *
-   * @param _ts - The timestamp to get the committee for
-   *
    * @return The committee for the given timestamp
    */
-  function getCommitteeAt(Timestamp _ts)
-    external
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
+  function getCurrentCommittee() external override(IValidatorSelection) returns (address[] memory) {
+    Timestamp ts = Timestamp.wrap(block.timestamp);
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(ts));
   }
 
   /**
@@ -399,22 +390,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
-   * @notice  Get the sample seed for a given timestamp
-   *
-   * @param _ts - The timestamp to get the sample seed for
-   *
-   * @return The sample seed for the given timestamp
-   */
-  function getSampleSeedAt(Timestamp _ts)
-    external
-    view
-    override(IValidatorSelection)
-    returns (uint256)
-  {
-    return ValidatorSelectionLib.getSampleSeed(getEpochAt(_ts));
-  }
-
-  /**
    * @notice  Get the sample seed for the current epoch
    *
    * @return The sample seed for the current epoch
@@ -585,17 +560,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().config.rewardDistributor;
   }
 
-  function getL1FeesAt(Timestamp _timestamp)
-    external
-    view
-    override(IRollup)
-    returns (L1FeeData memory)
-  {
-    return FeeLib.getL1FeesAt(_timestamp);
+  function getL1Fees() external view override(IRollup) returns (L1FeeData memory) {
+    Timestamp timestamp = Timestamp.wrap(block.timestamp);
+    return FeeLib.getL1FeesAt(timestamp);
   }
 
-  function canPruneAtTime(Timestamp _ts) external view override(IRollup) returns (bool) {
-    return STFLib.canPruneAtTime(_ts);
+  function canPrune() external view override(IRollup) returns (bool) {
+    Timestamp timestamp = Timestamp.wrap(block.timestamp);
+    return STFLib.canPruneAtTime(timestamp);
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
@@ -636,22 +608,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The mana base fee
    */
-  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset)
-    public
-    view
-    override(IRollup)
-    returns (uint256)
-  {
-    return FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
+  function getManaBaseFee(bool _inFeeAsset) public view override(IRollup) returns (uint256) {
+    return FeeLib.summedBaseFee(getManaBaseFeeComponents(_inFeeAsset));
   }
 
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+  function getManaBaseFeeComponents(bool _inFeeAsset)
     public
     view
     override(IRollup)
     returns (ManaBaseFeeComponents memory)
   {
-    return ProposeLib.getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset);
+    Timestamp timestamp = Timestamp.wrap(block.timestamp);
+    return ProposeLib.getManaBaseFeeComponentsAt(timestamp, _inFeeAsset);
   }
 
   /**

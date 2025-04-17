@@ -9,6 +9,7 @@ import {
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import {
   type Abi,
@@ -23,6 +24,7 @@ import {
   MethodNotSupportedRpcError,
   type StateOverride,
   type TransactionReceipt,
+  decodeErrorResult,
   formatGwei,
   getContractError,
   hexToBytes,
@@ -200,7 +202,7 @@ export class L1TxUtils {
 
   constructor(
     public publicClient: ViemPublicClient,
-    public walletClient: ViemWalletClient,
+    public walletClient?: ViemWalletClient,
     protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
     private debugMaxGasLimit: boolean = false,
@@ -220,6 +222,9 @@ export class L1TxUtils {
   }
 
   public getSenderAddress() {
+    if (!this.walletClient) {
+      throw new Error('Wallet client not set');
+    }
     return this.walletClient.account.address;
   }
 
@@ -248,6 +253,9 @@ export class L1TxUtils {
     _gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils not initialized with wallet client');
+    }
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
       const account = this.walletClient.account;
@@ -317,6 +325,9 @@ export class L1TxUtils {
     _blobInputs?: L1BlobInputs,
     isCancelTx: boolean = false,
   ): Promise<TransactionReceipt> {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils not initialized with wallet client');
+    }
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
@@ -671,6 +682,9 @@ export class L1TxUtils {
     blobInputs: (L1BlobInputs & { maxFeePerBlobGas: bigint }) | undefined,
     stateOverride: StateOverride = [],
   ) {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils not initialized with wallet client');
+    }
     try {
       await this.publicClient.simulateContract({
         ...args,
@@ -720,35 +734,47 @@ export class L1TxUtils {
     }
   }
 
-  public async simulateGasUsed(
-    request: L1TxRequest & { gas?: bigint },
+  /**
+   * Simulates an L1 transaction against a local node using eth_simulateV1
+   * @param request - The transaction request (to, data, value) + gas and blockNumber as optional parameters
+   * @param blockOverrides - The block overrides
+   * @param stateOverrides - The state overrides
+   * @param gasConfig - The gas configuration
+   * @returns The gas used and the result of the simulation
+   */
+  public async simulate(
+    request: L1TxRequest & { gas?: bigint; blockNumber?: bigint; from?: `0x${string}` },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
+    abi: Abi = RollupAbi,
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
-  ): Promise<bigint> {
+  ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
 
-    const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
+    const call: any = {
+      to: request.to!,
+      data: request.data,
+    };
+
+    if (this.walletClient) {
+      const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
+      call.nonce = nonce;
+      call.from = request.from ?? this.walletClient.account.address;
+      call.maxFeePerGas = gasPrice.maxFeePerGas;
+      call.maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
+      call.gas = request.gas ?? LARGE_GAS_LIMIT;
+    }
 
     try {
-      const result = await this.publicClient.simulate({
-        validation: true,
+      const result = await this.publicClient.simulateBlocks({
+        validation: false,
+        ...(request.blockNumber && { blockNumber: request.blockNumber }),
         blocks: [
           {
             blockOverrides,
             stateOverrides,
-            calls: [
-              {
-                from: this.walletClient.account.address,
-                to: request.to!,
-                data: request.data,
-                maxFeePerGas: gasPrice.maxFeePerGas,
-                maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-                gas: request.gas ?? LARGE_GAS_LIMIT,
-                nonce,
-              },
-            ],
+            calls: [call],
           },
         ],
       });
@@ -760,16 +786,22 @@ export class L1TxUtils {
         this.logger?.error('L1 transaction Simulation failed', {
           error: result[0].calls[0].error,
         });
-        throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
+
+        const decodedError = decodeErrorResult({
+          abi,
+          data: result[0].calls[0].data,
+        });
+
+        throw new Error(`L1 transaction simulation failed with error: ${decodedError.errorName}`);
       }
-      return result[0].gasUsed;
+      return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data };
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
             `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
           );
-          return gasConfig.fallbackGasEstimate;
+          return { gasUsed: gasConfig.fallbackGasEstimate, result: '0x' };
         }
         this.logger?.error('Node does not support eth_simulateV1 API');
       }
@@ -790,6 +822,9 @@ export class L1TxUtils {
    * @returns The hash of the cancellation transaction
    */
   protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils not initialized with wallet client');
+    }
     if (isBlobTx) {
       throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
     }
