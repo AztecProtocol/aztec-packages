@@ -163,7 +163,6 @@ class VerificationKey_ : public PrecomputedCommitments {
   public:
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     FF_ circuit_size;
     FF_ log_circuit_size;
     FF_ num_public_inputs;

@@ -469,10 +469,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
                                                      const Fq previous_accumulator,
                                                      const Fq batching_challenge_v,
                                                      const Fq evaluation_input_x);
-    static AccumulationInput compute_witness_values_for_one_ecc_op(const ECCVMOperation& ecc_op,
-                                                                   const Fq previous_accumulator,
-                                                                   const Fq batching_challenge_v,
-                                                                   const Fq evaluation_input_x);
 };
 
 } // namespace bb
