@@ -57,12 +57,10 @@ function test_cmds {
     # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
     return
   fi
-  # Note: commands that start with 'timeout ...' override the default timeout.
-  # TODO figure out why these take long sometimes.
-  echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
     # TODO(#12791) re-enable
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
