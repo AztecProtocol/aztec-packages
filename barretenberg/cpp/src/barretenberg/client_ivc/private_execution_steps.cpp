@@ -96,7 +96,6 @@ void PrivateExecutionSteps::parse(const std::vector<PrivateExecutionStepRaw>& st
     }
 }
 
-// TODO(#7371) dedupe this and the rest of similar code
 std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
 {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };

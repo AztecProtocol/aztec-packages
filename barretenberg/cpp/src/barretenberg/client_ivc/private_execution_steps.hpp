@@ -43,7 +43,6 @@ struct PrivateExecutionSteps {
     std::vector<std::string> function_names;
     std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>> precomputed_vks;
 
-    // TODO(#7371) dedupe this and the rest of similar code
     std::shared_ptr<ClientIVC> accumulate();
     void parse(const std::vector<PrivateExecutionStepRaw>& steps);
 };
