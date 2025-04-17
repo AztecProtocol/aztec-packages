@@ -1,8 +1,14 @@
 import React from "react";
 
 export const Glossary = {
-  CLI: {
-    aztec: () => <p></p>,
+  Tools: {
+    aztec: () => (
+      <p>
+        The CLI tool (with an extensive set of parameters) that enables users to
+        perform a wide range of tasks. It can: run a node, run a sandbox,
+        execute tests, generate contract interfaces for javascript...
+      </p>
+    ),
     aztec_nargo: () => (
       <p>
         The command line tool used to compile Aztec contracts. It gets its name
@@ -11,15 +17,26 @@ export const Glossary = {
         version of <code>nargo</code>.
       </p>
     ),
-    aztec_wallet: () => <p></p>,
+    aztec_up: () => (
+      <p>
+        This tool updates the local aztec executables to the latest version
+        (default behaviour) or to a specified version.
+      </p>
+    ),
+    aztec_wallet: () => (
+      <p>
+        The Aztec Wallet is a CLI wallet, <code>aztec-wallet</code>, that allows
+        a user to manage accounts and interact with an Aztec network. It
+        includes a PXE.
+      </p>
+    ),
   },
 
   Libs: {
     aztec_nr: () => (
       <p>
         A <a href="https://noir-lang.org">Noir</a> framework for writing smart
-        contracts on Aztec. Read more and review the source code{" "}
-        <a href="https://aztec.nr">here</a>
+        contracts on Aztec.
       </p>
     ),
     noir_contracts: () => (
@@ -29,7 +46,13 @@ export const Glossary = {
         functions.
       </p>
     ),
-    aztec_js: () => <p></p>,
+    aztec_js: () => (
+      <p>
+        A{" "}
+        <a href="https://www.npmjs.com/package/@aztec/aztec.js">Node package</a>{" "}
+        to help make Aztec dApps.
+      </p>
+    ),
   },
 
   Noir: () => (
@@ -59,14 +82,6 @@ export const Glossary = {
     <p>
       The Aztec Sandbox runs a set of Aztec tools for convenient local
       development, it includes: an Ethereum node, an Aztec node, and PXE.
-    </p>
-  ),
-
-  AztecWalletCLI: () => (
-    <p>
-      The Aztec Wallet is a CLI wallet, <code>aztec-wallet</code>, that allows a
-      user to manage accounts and interact with an Aztec network. It includes a
-      PXE.
     </p>
   ),
 

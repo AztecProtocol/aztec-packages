@@ -3,15 +3,31 @@ title: Glossary
 tags: [protocol, glossary]
 ---
 
+import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
+
 ### Aztec
 
-import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
+<Glossary.Tools.aztec />
+
+### Aztec Wallet
+
+<Glossary.Tools.aztec_wallet />
 
 ### `aztec-nargo`
 
-<Glossary.CLI.aztec_nargo />
+<Glossary.Tools.aztec_nargo />
 
 You can read more about `nargo` [here](#nargo).
+
+### `aztec-up`
+
+<Glossary.Tools.aztec_up />
+
+### Aztec.js
+
+<Glossary.Libs.aztec_js />
+
+Read more and review the source code [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js).
 
 ### Aztec.nr
 
@@ -23,9 +39,13 @@ Read more and review the source code [here](https://aztec.nr).
 
 <Glossary.Barretenberg />
 
+### bb / bb.js
+
+`bb` (CLI) and its corresponding `bb.js` (node module) are tools that prove and verify circuits. It also has helpful functions such as: writing solidity verifier contracts, checking a witness, and viewing a circuit's gate count.
+
 ### `nargo`
 
-With `nargo`, you can start new projects, compile, execute, prove, verify, test, generate solidity contracts, and do pretty much all that is available in Noir.
+With `nargo`, you can start new projects, compile, execute, and test your Noir programs.
 
 You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/installation/) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
 
@@ -33,13 +53,17 @@ You can find more information in the nargo installation docs [here](https://noir
 
 <Glossary.Noir />
 
+### Noir Language Server
+
+The Noir Language Server can be used in vscode to facilitate writing programs in Noir. The Noir LSP addon allows the dev to choose their tool, nargo or aztec-nargo, when writing a pure Noir program or an Aztec smart conract.
+
 ### Provers
 
 Aztec will be launched with a fully permissionless proving network that anyone can participate in.
 
 How this works will be discussed via a future RFP process on Discourse, similarly to the Sequencer RFP.
 
-### Private Execution Environment
+### Private Execution Environment (PXE)
 
 <Glossary.PXE />
 
@@ -70,6 +94,10 @@ Previously in [Aztec Connect](https://medium.com/aztec-protocol/sunsetting-aztec
 Programs that run on the Aztec network are called smart contracts, similar to [programs](https://ethereum.org/en/developers/docs/smart-contracts/) that run on Ethereum.
 
 However, these will be written in the [Noir](https://noir-lang.org/index.html) programming language, and may optionally include private state and private functions.
+
+### Testing eXecution Environment (TXE)
+
+<Glossary.TXE />
 
 ### Proving Key
 
