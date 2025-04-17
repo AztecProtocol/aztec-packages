@@ -13,7 +13,7 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
-import { getContract } from 'viem';
+import { type PublicClient, type WalletClient, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
@@ -232,13 +232,7 @@ export class P2PNetworkTest {
         }
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-          hash: await deployL1ContractsValues.walletClient.sendTransaction({
-            to: this.baseAccount.address,
-            value: 1n,
-            account: this.baseAccount,
-          }),
-        });
+        await this._sendDummyTx(deployL1ContractsValues.publicClient, deployL1ContractsValues.walletClient);
 
         // Set the system time in the node, only after we have warped the time and waited for a block
         // Time is only set in the NEXT block
@@ -284,13 +278,10 @@ export class P2PNetworkTest {
       'remove-inital-validator',
       async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        const receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-          hash: await deployL1ContractsValues.walletClient.sendTransaction({
-            to: this.baseAccount.address,
-            value: 1n,
-            account: this.baseAccount,
-          }),
-        });
+        const receipt = await this._sendDummyTx(
+          deployL1ContractsValues.publicClient,
+          deployL1ContractsValues.walletClient,
+        );
         const block = await deployL1ContractsValues.publicClient.getBlock({
           blockNumber: receipt.blockNumber,
         });
@@ -299,6 +290,24 @@ export class P2PNetworkTest {
         await aztecNode.stop();
       },
     );
+  }
+
+  async sendDummyTx() {
+    return await this._sendDummyTx(
+      this.ctx.deployL1ContractsValues.publicClient,
+      this.ctx.deployL1ContractsValues.walletClient,
+    );
+  }
+
+  private async _sendDummyTx(publicClient: PublicClient, walletClient: WalletClient) {
+    return await publicClient.waitForTransactionReceipt({
+      hash: await walletClient.sendTransaction({
+        to: walletClient.account!.address,
+        value: 1n,
+        account: walletClient.account!,
+        chain: publicClient.chain,
+      }),
+    });
   }
 
   async setup() {
