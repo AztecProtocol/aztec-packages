@@ -164,7 +164,7 @@ Collisions and other hash-related attacks might be possible in the Sandbox. Obvi
 
 ### `msg_sender` is leaked when making a private -> public call
 
-There are [ongoing discussions](https://discourse.aztec.network/t/who-is-msg-sender-when-making-private-public-function-calls/242) around how to address this.
+There are [ongoing discussions](https://forum.aztec.network/t/who-is-msg-sender-when-making-private-public-function-calls/242) around how to address this.
 
 #### What are the consequences?
 
