@@ -38,7 +38,7 @@ import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
-import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { PublicContractsDB } from '../public_db_sources.js';
 import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
@@ -60,7 +60,6 @@ describe('public_tx_simulator', () => {
 
   let merkleTrees: MerkleTreeWriteOperations;
   let merkleTreesCopy: MerkleTreeWriteOperations;
-  let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
 
   let publicDataTree: AppendOnlyTree<Fr>;
@@ -243,7 +242,7 @@ describe('public_tx_simulator', () => {
     skipFeeEnforcement?: boolean;
   }) => {
     const simulator = new PublicTxSimulator(
-      treesDB,
+      merkleTrees,
       contractsDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       doMerkleOperations,
@@ -279,7 +278,6 @@ describe('public_tx_simulator', () => {
   beforeEach(async () => {
     merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     merkleTreesCopy = await (await NativeWorldStateService.tmp()).fork();
-    treesDB = new PublicTreesDB(merkleTrees);
     contractsDB = new PublicContractsDB(mock<ContractDataSource>());
 
     treeStore = openTmpStore();
