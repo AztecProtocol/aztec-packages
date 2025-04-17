@@ -54,8 +54,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     super();
     const { p2pIp, p2pPort, p2pBroadcastPort, bootstrapNodes, trustedPeers, privatePeers } = config;
 
-    this.logger.info('DEBUGGING | Creating DiscV5Service', config);
-
     this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
     const privatePeerEnrs = new Set(privatePeers);
     this.trustedPeerEnrs = trustedPeers.filter(x => !privatePeerEnrs.has(x)).map(x => ENR.decodeTxt(x));

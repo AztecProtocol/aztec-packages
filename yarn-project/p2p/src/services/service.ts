@@ -82,7 +82,7 @@ export interface PeerDiscoveryService extends EventEmitter {
 
   /**
    * Gets all KadValues.
-   * @returns An array of KadValues.
+   * @returns An array of ENRs.
    */
   getKadValues(): ENR[];
 
