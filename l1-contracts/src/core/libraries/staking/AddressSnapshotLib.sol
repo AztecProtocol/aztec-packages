@@ -95,7 +95,7 @@ library AddressSnapshotLib {
    * @return bool True if the validator was removed, false otherwise
    */
   function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address)
-    private
+    internal
     returns (bool)
   {
     uint224 size = _self.size.latest();
