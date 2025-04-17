@@ -86,8 +86,8 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
     auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
-    auto pcs_vkey = std::make_shared<VerifierCommitmentKey>();
-    auto verified = pcs_vkey->pairing_check(pairing_points[0], pairing_points[1]);
+    VerifierCommitmentKey pcs_vkey{};
+    auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
     return identity_checked && verified;
 }
 } // namespace bb

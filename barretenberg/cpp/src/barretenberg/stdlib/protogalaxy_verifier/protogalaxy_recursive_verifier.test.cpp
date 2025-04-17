@@ -269,6 +269,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
      */
     static void test_full_protogalaxy_recursive()
     {
+        using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
         // Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
         create_function_circuit(builder1);
@@ -335,8 +336,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // check that the result agrees.
         InnerDeciderVerifier native_decider_verifier(verifier_accumulator);
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
-        auto pcs_vkey = std::make_shared<typename InnerFlavor::VerifierCommitmentKey>();
-        auto recursive_result = pcs_vkey->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+        NativeVerifierCommitmentKey pcs_vkey{};
+        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(native_result, recursive_result);
 
         if constexpr (!IsSimulator<OuterBuilder>) {

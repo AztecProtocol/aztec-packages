@@ -92,7 +92,6 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     class VerificationKey
         : public VerificationKey_<FF, ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        // IPA verification key requires one more point.
         std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
 
         /**

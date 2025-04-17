@@ -40,6 +40,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
@@ -81,8 +82,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    auto pcs_vkey = std::make_shared<typename Flavor::VerifierCommitmentKey>();
-    bool verified = pcs_vkey->pairing_check(pairing_points[0], pairing_points[1]);
+    VerifierCommitmentKey pcs_vkey{};
+    bool verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
     return sumcheck_output.verified && verified && consistency_checked;
 }
 
