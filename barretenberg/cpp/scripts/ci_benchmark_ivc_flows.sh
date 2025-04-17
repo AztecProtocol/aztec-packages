@@ -22,9 +22,6 @@ export native_build_dir=$(scripts/cmake/preset-build-dir $native_preset)
 mkdir -p bench-out
 rm -rf bench-out/ivc-*
 
-# Needed for WASM benching.
-mkdir -p $HOME/.bb-crs/monomial
-
 function verify_ivc_flow {
   local flow="$1"
   local proof="$2"
