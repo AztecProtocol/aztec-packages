@@ -96,8 +96,8 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
         auto agg_object = AggregationObject::construct_default(outer_circuit);
         auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, agg_object);
 
-        bool agg_output_valid =
-            verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
+        auto pcs_vkey = std::make_shared<typename RecursiveFlavor::VerifierCommitmentKey>();
+        bool agg_output_valid = pcs_vkey->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
 
         // Check that the output of the recursive verifier is well-formed for aggregation as this pair of points will
         // be aggregated with others.
@@ -205,8 +205,9 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
-    bool agg_output_valid = verification_key->pcs_verification_key->pairing_check(
-        verifier_output.agg_obj.P0.get_value(), verifier_output.agg_obj.P1.get_value());
+    auto pcs_vkey = std::make_shared<typename RecursiveFlavor::VerifierCommitmentKey>();
+    bool agg_output_valid =
+        pcs_vkey->pairing_check(verifier_output.agg_obj.P0.get_value(), verifier_output.agg_obj.P1.get_value());
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 

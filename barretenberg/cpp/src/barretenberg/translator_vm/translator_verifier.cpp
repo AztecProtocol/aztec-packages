@@ -133,7 +133,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                                sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto pcs_vkey = std::make_shared<typename Flavor::VerifierCommitmentKey>();
+    auto verified = pcs_vkey->pairing_check(pairing_points[0], pairing_points[1]);
 
     return verified && consistency_checked;
 }
