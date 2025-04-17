@@ -353,6 +353,30 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
+    .command('trigger-seed-snapshot')
+    .description('Triggers a seed snapshot for the next epoch.')
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .addOption(l1RpcUrlsOption)
+    .addOption(l1ChainIdOption)
+    .action(async options => {
+      const { triggerSeedSnapshot } = await import('./trigger_seed_snapshot.js');
+      await triggerSeedSnapshot({
+        rollupAddress: options.rollup,
+        rpcUrls: options.l1RpcUrls,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        log,
+      });
+    });
+
+  program
     .command('debug-rollup')
     .description('Debugs the rollup contract.')
     .addOption(l1RpcUrlsOption)
