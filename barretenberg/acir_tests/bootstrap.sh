@@ -215,9 +215,6 @@ function run_benchmark {
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
-  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1265) fix acir benchmarking
-  # LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
-
   export HARDWARE_CONCURRENCY=16
 
   rm -rf bench-out && mkdir -p bench-out

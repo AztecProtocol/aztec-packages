@@ -2,14 +2,17 @@
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "acir_composer.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "honk_contract.hpp"
 #include <cstdint>
@@ -119,7 +122,7 @@ WASM_EXPORT void acir_init_verification_key(in_ptr acir_composer_ptr)
 
 WASM_EXPORT void acir_get_verification_key(in_ptr acir_composer_ptr, uint8_t** out)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto* acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto vk = acir_composer->init_verification_key();
     // We flatten to a vector<uint8_t> first, as that's how we treat it on the calling side.
     *out = to_heap_buffer(to_buffer(*vk));
@@ -130,7 +133,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr,
                                       bool const* recursive,
                                       uint8_t** out)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto* acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/0);
     acir_composer->create_finalized_circuit(constraint_system, *recursive);
@@ -141,14 +144,14 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr,
 
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto* acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto proof = from_buffer<std::vector<uint8_t>>(proof_buf);
     *result = acir_composer->verify_proof(proof);
 }
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto* acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto str = acir_composer->get_solidity_verifier();
     *out = to_heap_buffer(str);
 }
@@ -158,7 +161,7 @@ WASM_EXPORT void acir_serialize_proof_into_fields(in_ptr acir_composer_ptr,
                                                   uint32_t const* num_inner_public_inputs,
                                                   fr::vec_out_buf out)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto* acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto proof = from_buffer<std::vector<uint8_t>>(proof_buf);
     auto proof_as_fields = acir_composer->serialize_proof_into_fields(proof, ntohl(*num_inner_public_inputs));
 
@@ -169,7 +172,7 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
                                                              fr::vec_out_buf out_vkey,
                                                              fr::out_buf out_key_hash)
 {
-    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto* acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
 
     auto vkey_as_fields = acir_composer->serialize_verification_key_into_fields();
     auto vk_hash = vkey_as_fields.back();
@@ -179,92 +182,14 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
     write(out_key_hash, vk_hash);
 }
 
-WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
-                                                    uint8_t const* witness_stack,
-                                                    bool* verified)
+WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)
 {
-    using Program = acir_format::AcirProgram;
-
-    std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
-    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
-    std::vector<Program> folding_stack;
-
-    for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
-        folding_stack.push_back(Program{ constraints, witness });
-    }
-    // TODO(#7371) dedupe this with the rest of the similar code
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-
-    const acir_format::ProgramMetadata metadata{ ivc };
-
-    // Accumulate the entire program stack into the IVC
-    bool is_kernel = false;
-    auto start = std::chrono::steady_clock::now();
-    for (Program& program : folding_stack) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        vinfo("constructing circuit...");
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
-        if (!circuit.databus_propagation_data.is_kernel) {
-            circuit.databus_propagation_data.is_kernel = is_kernel;
-        }
-        is_kernel = !is_kernel;
-
-        vinfo("done constructing circuit. calling ivc.accumulate...");
-        ivc->accumulate(circuit);
-        vinfo("done accumulating.");
-    }
-    auto end = std::chrono::steady_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to construct and accumulate all circuits: ", diff.count());
-
-    vinfo("calling ivc.prove_and_verify...");
-    bool result = ivc->prove_and_verify();
-    info("verified?: ", result);
-
-    end = std::chrono::steady_clock::now();
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to construct, accumulate, prove and verify all circuits: ", diff.count());
-
-    *verified = result;
-}
-
-WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
-                                         uint8_t const* witness_stack,
-                                         uint8_t** out_proof,
-                                         uint8_t** out_vk)
-{
-    using Program = acir_format::AcirProgram;
-
-    std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
-    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
-    std::vector<Program> folding_stack;
-
-    for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
-        folding_stack.push_back(Program{ constraints, witness });
-    }
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-
-    const acir_format::ProgramMetadata metadata{ ivc };
-
+    auto ivc_inputs_vec = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
     // Accumulate the entire program stack into the IVC
     auto start = std::chrono::steady_clock::now();
-    for (Program& program : folding_stack) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        vinfo("constructing circuit...");
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        vinfo("done constructing circuit. calling ivc.accumulate...");
-        ivc->accumulate(circuit);
-        vinfo("done accumulating.");
-    }
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::parse_uncompressed(ivc_inputs_vec));
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct and accumulate all circuits: ", diff.count());
@@ -272,6 +197,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     vinfo("calling ivc.prove ...");
     ClientIVC::Proof proof = ivc->prove();
     end = std::chrono::steady_clock::now();
+
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct, accumulate, prove all circuits: ", diff.count());
 
@@ -427,16 +353,21 @@ WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_
     *out_vkey = to_heap_buffer(vkey_as_fields);
 }
 
-WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** out)
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out)
 {
-
-    std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    auto ivc_inputs_vec = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
+    // Note: we parse a stack, but only 'bytecode' needs to be set.
+    auto raw_steps = PrivateExecutionStepRaw::parse_uncompressed(ivc_inputs_vec);
     std::vector<uint32_t> totals;
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    for (auto& bincode : acirs) {
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+    const acir_format::ProgramMetadata metadata{ ivc };
+
+    for (const PrivateExecutionStepRaw& step : raw_steps) {
+        std::vector<uint8_t> bytecode_vec(step.bytecode.begin(), step.bytecode.end());
         const acir_format::AcirFormat constraint_system =
-            acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
+            acir_format::circuit_buf_to_acir_format(bytecode_vec, /*honk_recursion=*/0);
 
         // Create an acir program from the constraint system
         acir_format::AcirProgram program{ constraint_system };
@@ -450,7 +381,6 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** ou
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         totals.push_back(static_cast<uint32_t>(builder.num_gates));
     }
-    auto totalsBytes = to_buffer<false>(totals);
 
-    *out = to_heap_buffer(totals);
+    *out = to_heap_buffer(to_buffer(totals));
 }
