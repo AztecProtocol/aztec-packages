@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "circuit_builder_base.hpp"
 
 namespace bb {
