@@ -310,17 +310,33 @@ export class FeesTest {
         };
 
         this.getProverFee = async (blockNumber: number) => {
+          const block = await this.pxe.getBlock(blockNumber);
+
           const publicClient = getPublicClient({
             l1RpcUrls: context.aztecNodeConfig.l1RpcUrls,
             l1ChainId: context.aztecNodeConfig.l1ChainId,
           });
           const rollup = new RollupContract(publicClient, data.rollupAddress);
 
-          const provingCostPerMana = await rollup.getProvingCostPerManaInFeeAsset();
+          // @todo @lherskind As we deal with #13601
+          // Right now the value is from `FeeLib.sol`
+          const L1_GAS_PER_EPOCH_VERIFIED = 1000000n;
 
-          const block = await this.pxe.getBlock(blockNumber);
+          // We round up
+          const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
+
+          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp.toBigInt());
+          const proverCost =
+            mulDiv(
+              mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await rollup.getEpochDuration()),
+              1n,
+              await rollup.getManaTarget(),
+            ) + (await rollup.getProvingCostPerMana());
+
+          const price = await rollup.getFeeAssetPerEth();
+
           const mana = block!.header.totalManaUsed.toBigInt();
-          return mana * provingCostPerMana;
+          return mulDiv(mana * proverCost, price, 10n ** 9n);
         };
       },
     );
