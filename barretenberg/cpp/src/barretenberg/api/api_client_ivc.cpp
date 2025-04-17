@@ -87,7 +87,8 @@ size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input
     using namespace acir_format;
     auto steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
     const PrivateExecutionStepRaw& last_step = steps.back();
-    const AcirFormat constraints = circuit_buf_to_acir_format(last_step.bytecode, /*honk_recursion=*/0);
+    std::vector<uint8_t> bytecode_buf(last_step.bytecode.begin(), last_step.bytecode.end());
+    const AcirFormat constraints = circuit_buf_to_acir_format(bytecode_buf, /*honk_recursion=*/0);
     return constraints.public_inputs.size();
 }
 
@@ -133,7 +134,7 @@ std::shared_ptr<ClientIVC> _accumulate(
     const std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>>& precomputed_vks)
 {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = make_shared<ClientIVC>(trace_settings);
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
 
@@ -168,7 +169,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     // and it is mysterious if this transaction fails later in the lifecycle.
     // The files are still written in case they are needed to investigate this failure.
     if (!ivc->verify(proof)) {
-        THROW runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+        THROW std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
     }
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
@@ -220,7 +221,7 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load(input_path));
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
     const bool verified = ivc->prove_and_verify();
@@ -268,7 +269,7 @@ bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
 void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode)
 {
     // All circuit reports will be built into the std::string below
-    std::string functions_std::string = "{\"functions\": [\n  ";
+    std::string functions_string = "{\"functions\": [\n  ";
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
     auto constraint_systems = get_constraint_systems(bytecode_path, /*honk_recursion=*/0);
 
@@ -297,13 +298,13 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
         // Build individual circuit report
         std::string gates_per_opcode_str;
         for (size_t j = 0; j < program.constraints.gates_per_opcode.size(); j++) {
-            gates_per_opcode_str += to_std::string(program.constraints.gates_per_opcode[j]);
+            gates_per_opcode_str += std::to_string(program.constraints.gates_per_opcode[j]);
             if (j != program.constraints.gates_per_opcode.size() - 1) {
                 gates_per_opcode_str += ",";
             }
         }
 
-        auto result_std::string = format(
+        auto result_string = format(
             "{\n        \"acir_opcodes\": ",
             program.constraints.num_acir_opcodes,
             ",\n        \"circuit_size\": ",
@@ -313,14 +314,14 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 
         // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
-            result_std::string = format(result_std::string, ",");
+            result_string = format(result_string, ",");
         }
 
-        functions_std::string = format(functions_std::string, result_std::string);
+        functions_string = format(functions_string, result_string);
 
         i++;
     }
-    cout << format(functions_std::string, "\n]}");
+    std::cout << format(functions_string, "\n]}");
 }
 
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
