@@ -129,28 +129,6 @@ void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path
     }
 }
 
-std::shared_ptr<ClientIVC> _accumulate(
-    std::vector<acir_format::AcirProgram>& folding_stack,
-    const std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>>& precomputed_vks)
-{
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-
-    const acir_format::ProgramMetadata metadata{ ivc };
-
-    // Accumulate the entire program stack into the IVC
-    for (auto [program, precomputed_vk] : zip_view(folding_stack, precomputed_vks)) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
-        // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit, precomputed_vk);
-    }
-
-    return ivc;
-}
-
 void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
                          const std::filesystem::path& output_dir)
@@ -162,7 +140,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     ClientIVC::Proof proof = ivc->prove();
 
     // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
@@ -223,8 +201,7 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
-    const bool verified = ivc->prove_and_verify();
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate() const bool verified = ivc->prove_and_verify();
     return verified;
 }
 
