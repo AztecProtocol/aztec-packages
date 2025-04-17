@@ -44,9 +44,6 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     VerificationKey original_vkey{ proving_key->proving_key };
 
-    // Set the pcs ptr to null since this will not be reconstructed correctly from buffer
-    original_vkey.pcs_verification_key = nullptr;
-
     // Populate some non-zero values in the databus_propagation_data to ensure its being handled
     if constexpr (IsMegaBuilder<Builder>) {
         original_vkey.databus_propagation_data.app_return_data_commitment_pub_input_key =
