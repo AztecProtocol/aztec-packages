@@ -39,4 +39,36 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     validatorSet.add(address(1));
     assertFalse(validatorSet.add(address(1)));
   }
+
+  function test_WhenValidatorHasBeenRemovedFromTheSet() public {
+    // It can be added again
+
+    // Added and removed
+    timeCheater.cheat__setEpochNow(1);
+    validatorSet.add(address(1));
+
+    timeCheater.cheat__setEpochNow(2);
+    validatorSet.remove(0);
+
+    timeCheater.cheat__setEpochNow(3);
+    assertTrue(validatorSet.add(address(1)));
+
+    timeCheater.cheat__setEpochNow(4);
+    validatorSet.remove(0);
+
+    // Added at the end of a clump
+    timeCheater.cheat__setEpochNow(5);
+    assertTrue(validatorSet.add(address(10)));
+    assertTrue(validatorSet.add(address(11)));
+    assertTrue(validatorSet.add(address(12)));
+    assertTrue(validatorSet.add(address(1)));
+
+    timeCheater.cheat__setEpochNow(6);
+    // assert they are in the set
+    assertEq(validatorSet.length(), 4);
+    assertEq(validatorSet.at(0), address(10));
+    assertEq(validatorSet.at(1), address(11));
+    assertEq(validatorSet.at(2), address(12));
+    assertEq(validatorSet.at(3), address(1));
+  }
 }
