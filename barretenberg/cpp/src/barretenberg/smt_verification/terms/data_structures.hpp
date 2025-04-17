@@ -32,12 +32,14 @@ class STuple {
      * @brief Construct a new STuple object
      *
      * @param terms vector of terms to store in tuple
-     * @param s pointer to solver
      */
-    STuple(const std::vector<STerm>& terms, Solver* s)
-        : solver(s)
+    STuple(const std::vector<STerm>& terms)
     {
-        ASSERT(terms.size() > 0);
+        if (terms.size() == 0) {
+            throw std::invalid_argument("Empty vector occured during STuple initialization");
+        }
+        this->solver = terms[0].solver;
+
         std::vector<cvc5::Term> terms_;
         terms_.reserve(terms.size());
         auto map = [](const STerm& t) -> cvc5::Term { return t.term; };
@@ -105,7 +107,9 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
         , term(term)
         , type(type)
     {
-        ASSERT(this->solver->lookup_enabled);
+        if (!this->solver->lookup_enabled) {
+            throw std::logic_error("You have to enable lookups during Solver initialization");
+        }
     };
 
     /**
@@ -128,6 +132,10 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
         , ind_type(index_type)
         , entry_type(entry_type)
     {
+        if (!this->solver->lookup_enabled) {
+            throw std::logic_error("You have to enable lookups during Solver initialization");
+        }
+
         cvc5::Sort Array = this->solver->term_manager.mkArraySort(index_sort, entry_sort);
         if (name.empty()) {
             this->term = this->solver->term_manager.mkConst(Array);
@@ -141,18 +149,25 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
      *
      * @param indicies vector of symbolic objects
      * @param entries vector of symbolic objects
-     * @param s pointer to solver
      * @param name name of the resulting symbolic variable, defaults to var_{i}
      */
     SymArray(const std::vector<sym_index>& indicies,
              const std::vector<sym_entry>& entries,
-             Solver* s,
              const std::string& name = "")
-        : solver(s)
     {
-        ASSERT(this->solver->lookup_enabled);
-        ASSERT(entries.size() > 0);
-        ASSERT(indicies.size() == entries.size());
+        if (entries.size() == 0 || indicies.size() == 0) {
+            throw std::invalid_argument("Empty vector occured during SymArray initialization");
+        }
+
+        if (entries.size() != indicies.size()) {
+            throw std::invalid_argument("Indicies must have the same dimension as entries.");
+        }
+
+        this->solver = entries[0].solver;
+
+        if (!this->solver->lookup_enabled) {
+            throw std::logic_error("You have to enable lookups during Solver initialization");
+        }
 
         this->ind_type = indicies[0].type;
         this->entry_type = entries[0].type;
@@ -179,15 +194,19 @@ template <typename sym_index, ConstructibleFromTerm sym_entry> class SymArray {
      *
      * @param entries vector of symbolic entries
      * @param index_base example of an index. Needed to extract the sort out of STerm
-     * @param s pointer to solver
      * @param name name of the resulting symbolic variable, defaults to var_{i}
      */
-    SymArray(const std::vector<sym_entry>& entries, const STerm& index_base, Solver* s, const std::string& name = "")
-        : solver(s)
-        , ind_type(index_base.type)
+    SymArray(const std::vector<sym_entry>& entries, const STerm& index_base, const std::string& name = "")
+        : ind_type(index_base.type)
     {
-        ASSERT(this->solver->lookup_enabled);
-        ASSERT(entries.size() > 0);
+        if (entries.size() == 0) {
+            throw std::invalid_argument("Empty vector occured during SymArray initialization");
+        }
+        this->solver = entries[0].solver;
+
+        if (!this->solver->lookup_enabled) {
+            throw std::logic_error("You have to enable lookups during Solver initialization");
+        }
 
         this->entry_type = entries[0].type;
 
@@ -279,6 +298,10 @@ template <ConstructibleFromTerm sym_entry> class SymSet {
         : solver(s)
         , entry_type(entry_type)
     {
+        if (!this->solver->lookup_enabled) {
+            throw std::logic_error("You have to enable lookups during Solver initialization");
+        }
+
         cvc5::Sort Array = this->solver->term_manager.mkSetSort(entry_sort);
         if (name.empty()) {
             this->term = this->solver->term_manager.mkConst(Array);
@@ -291,14 +314,18 @@ template <ConstructibleFromTerm sym_entry> class SymSet {
      * @brief Construct a new Symbolic Set object
      *
      * @param entries vector of symbolic entries
-     * @param s  pointer to solver
      * @param name name of the resulting symbolic variable, defaults to var_{i}
      */
-    SymSet(const std::vector<sym_entry>& entries, Solver* s, const std::string& name = "")
-        : solver(s)
+    SymSet(const std::vector<sym_entry>& entries, const std::string& name = "")
     {
-        ASSERT(this->solver->lookup_enabled);
-        ASSERT(entries.size() > 0);
+        if (entries.size() == 0) {
+            throw std::invalid_argument("Empty vector occured during SymSet initialization");
+        }
+
+        this->solver = entries[0].solver;
+        if (!this->solver->lookup_enabled) {
+            throw std::logic_error("You have to enable lookups during Solver initialization");
+        }
 
         this->entry_type = entries[0].type;
 

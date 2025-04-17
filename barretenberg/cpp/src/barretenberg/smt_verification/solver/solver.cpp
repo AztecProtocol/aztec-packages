@@ -115,7 +115,12 @@ std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Ter
  */
 std::pair<std::string, size_t> Solver::print_array_trace(const cvc5::Term& term, bool is_head)
 {
-    ASSERT(term.getKind() == cvc5::Kind::STORE || (term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT));
+    bool is_store = term.getKind() == cvc5::Kind::STORE;
+    bool is_array = term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_store && !is_array) {
+        throw std::invalid_argument("Expected ARRAY or STORE. Got: " + term.toString());
+    };
+
     if (term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT) {
         std::string arr_name = term.toString();
         if (!this->cached_array_traces.contains(arr_name)) {
@@ -141,7 +146,12 @@ std::pair<std::string, size_t> Solver::print_array_trace(const cvc5::Term& term,
  */
 std::string Solver::get_array_name(const cvc5::Term& term)
 {
-    ASSERT(term.getKind() == cvc5::Kind::STORE || (term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT));
+    bool is_store = term.getKind() == cvc5::Kind::STORE;
+    bool is_array = term.getSort().isArray() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_store && !is_array) {
+        throw std::invalid_argument("Expected ARRAY or STORE. Got: " + term.toString());
+    };
+
     if (term.getKind() == cvc5::Kind::STORE) {
         return get_array_name(term[0]);
     }
@@ -157,8 +167,12 @@ std::string Solver::get_array_name(const cvc5::Term& term)
  */
 std::pair<std::string, size_t> Solver::print_set_trace(const cvc5::Term& term, bool is_head)
 {
-    ASSERT(term.getKind() == cvc5::Kind::SET_INSERT ||
-           (term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT));
+    bool is_insert = term.getKind() == cvc5::Kind::SET_INSERT;
+    bool is_set = term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_insert && !is_set) {
+        throw std::invalid_argument("Expected ARRAY or STORE. Got: " + term.toString());
+    };
+
     if (term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT) {
         std::string set_name = term.toString();
         if (!this->cached_set_traces.contains(set_name)) {
@@ -195,9 +209,9 @@ std::pair<std::string, size_t> Solver::print_set_trace(const cvc5::Term& term, b
  */
 std::string Solver::get_set_name(const cvc5::Term& term)
 {
-    ASSERT(term.getKind() == cvc5::Kind::SET_INSERT ||
-           (term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT));
-    if (term.getKind() == cvc5::Kind::SET_INSERT) {
+    bool is_insert = term.getKind() == cvc5::Kind::SET_INSERT;
+    bool is_set = term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT;
+    if (!is_insert && !is_set) {
         return get_set_name(term[term.getNumChildren() - 1]);
     }
     return term.toString();
@@ -347,7 +361,9 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
     case cvc5::Kind::SET_MEMBER: {
         // On the other hand, here I'll be printing the whole trace of the set
         // initializations up to the previous print
-        ASSERT(term.getNumChildren() == 2);
+        if (term.getNumChildren() != 2) {
+            throw std::runtime_error("Expected set_member op. Got: " + term.toString());
+        }
         std::string set_name = get_set_name(term[term.getNumChildren() - 1]);
         print_set_trace(term[term.getNumChildren() - 1]);
         std::string res = stringify_term(term[1], /*parenthesis=*/true) + " in " + set_name;
@@ -362,7 +378,9 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
     case cvc5::Kind::SELECT: {
         // On the other hand, here I'll be printing the whole trace of the array
         // initializations up to the previous print
-        ASSERT(term.getNumChildren() == 2);
+        if (term.getNumChildren() != 2) {
+            throw std::runtime_error("Expected SELECT op. Got: " + term.toString());
+        }
         std::string res = get_array_name(term[0]);
         print_array_trace(term[0]);
         res += "[" + stringify_term(term[1]) + "]";

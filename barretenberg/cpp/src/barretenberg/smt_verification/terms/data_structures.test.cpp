@@ -19,7 +19,7 @@ TEST(SymbolicTuple, Initialization)
     STerm x = FFVar("x", &s);
     STerm y = FFVar("y", &s);
     STerm z = x + y;
-    STuple tup({ x, y, z }, &s);
+    STuple tup({ x, y, z });
     info(tup);
     info(tup.get_sort());
 }
@@ -35,7 +35,7 @@ TEST(SymbolicArray, InitMapSTermSTerm)
 
     std::vector<STerm> indicies = { x, q };
     std::vector<STerm> entries = { q, y };
-    SymArray<STerm, STerm> arr(indicies, entries, &s, "Array");
+    SymArray<STerm, STerm> arr(indicies, entries, "Array");
     info(arr);
     arr.print_trace();
 }
@@ -50,7 +50,7 @@ TEST(SymbolicArray, InitVecSTerm)
     STerm q = x * y;
 
     std::vector<STerm> entries = { q, y };
-    SymArray<STerm, STerm> arr(entries, FFConst(1, &s), &s, "Array");
+    SymArray<STerm, STerm> arr(entries, FFConst(1, &s), "Array");
     info(arr);
     arr.print_trace();
 }
@@ -64,14 +64,14 @@ TEST(SymbolicArray, InitMapSTupleSTuple)
     STerm z = x + y;
     STerm q = x * y;
 
-    STuple t1({ x, y }, &s);
-    STuple t2({ z, x }, &s);
-    STuple t3({ q, z }, &s);
-    STuple t4({ q + z, x }, &s);
+    STuple t1({ x, y });
+    STuple t2({ z, x });
+    STuple t3({ q, z });
+    STuple t4({ q + z, x });
 
     std::vector<STuple> indicies = { t1, t2 };
     std::vector<STuple> entries = { t3, t4 };
-    SymArray<STuple, STuple> arr(indicies, entries, &s, /*name=*/"Array");
+    SymArray<STuple, STuple> arr(indicies, entries, /*name=*/"Array");
     info(arr);
     arr.print_trace();
 }
@@ -85,13 +85,13 @@ TEST(SymbolicArray, InitVecSTuple)
     STerm z = x + y;
     STerm q = x * y;
 
-    STuple t1({ x, y }, &s);
-    STuple t2({ z, x }, &s);
-    STuple t3({ q, z }, &s);
-    STuple t4({ q + z, x }, &s);
+    STuple t1({ x, y });
+    STuple t2({ z, x });
+    STuple t3({ q, z });
+    STuple t4({ q + z, x });
 
     std::vector<STuple> entries = { t3, t4 };
-    SymArray<STerm, STuple> arr(entries, IConst(1, &s), &s, "Array");
+    SymArray<STerm, STuple> arr(entries, IConst(1, &s), "Array");
     info(arr);
     arr.print_trace();
 }
@@ -105,14 +105,14 @@ TEST(SymbolicArray, InitMapSTupleSTerm)
     STerm z = x + y;
     STerm q = x * y;
 
-    STuple t1({ x, y }, &s);
-    STuple t2({ z, x }, &s);
-    STuple t3({ q, z }, &s);
-    STuple t4({ q + z, x }, &s);
+    STuple t1({ x, y });
+    STuple t2({ z, x });
+    STuple t3({ q, z });
+    STuple t4({ q + z, x });
 
     std::vector<STuple> indicies = { t3, t4 };
     std::vector<STerm> entries = { q, z };
-    SymArray<STuple, STerm> arr(indicies, entries, &s, "Array");
+    SymArray<STuple, STerm> arr(indicies, entries, "Array");
     info(arr);
     arr.print_trace();
 }
@@ -126,7 +126,7 @@ TEST(SymbolicSet, InitVecSTerm)
     STerm z = x + y;
     STerm q = x * y;
 
-    SymSet<STerm> set({ x, y, z, q }, &s, "Set");
+    SymSet<STerm> set({ x, y, z, q }, "Set");
     info(set);
     set.print_trace();
 }
@@ -140,12 +140,12 @@ TEST(SymbolicSet, InitVecSTuple)
     STerm z = x + y;
     STerm q = x * y;
 
-    STuple t1({ x, y }, &s);
-    STuple t2({ z, x }, &s);
-    STuple t3({ q, z }, &s);
-    STuple t4({ q + z, x }, &s);
+    STuple t1({ x, y });
+    STuple t2({ z, x });
+    STuple t3({ q, z });
+    STuple t4({ q + z, x });
 
-    SymSet<STuple> arr({ t1, t2, t3, t4 }, &s, "Set");
+    SymSet<STuple> arr({ t1, t2, t3, t4 }, "Set");
     info(arr);
     arr.print_trace();
 }
@@ -190,14 +190,14 @@ TEST(SymbolicArray, InitSymArraySTerm)
     STerm z = x + y;
     STerm q = x * y;
 
-    STuple t1({ x, y }, &s);
-    STuple t2({ z, x }, &s);
-    STuple t3({ q, z }, &s);
-    STuple t4({ q + z, x }, &s);
+    STuple t1({ x, y });
+    STuple t2({ z, x });
+    STuple t3({ q, z });
+    STuple t4({ q + z, x });
 
     std::vector<STuple> indicies = { t1, t2, t3 };
     std::vector<STerm> entries = { x, z, q };
-    SymArray<STuple, STerm> arr(indicies, entries, &s, "mini_arr");
+    SymArray<STuple, STerm> arr(indicies, entries, "mini_arr");
 
     cvc5::Sort ind_sort = arr.term.getSort();
     TermType ind_type = arr.type;
@@ -301,17 +301,17 @@ TEST(SymbolicArray, LookupTable)
 {
     Solver slv("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
 
-    STuple table_idx1({ FFConst("1", &slv), FFConst("2", &slv) }, &slv);
+    STuple table_idx1({ FFConst("1", &slv), FFConst("2", &slv) });
     STerm table_entry1 = FFConst("3", &slv);
 
-    STuple table_idx2({ FFConst("4", &slv), FFConst("5", &slv) }, &slv);
+    STuple table_idx2({ FFConst("4", &slv), FFConst("5", &slv) });
     STerm table_entry2 = FFConst("6", &slv);
 
-    SymArray<STuple, STerm> stable({ table_idx1, table_idx2 }, { table_entry1, table_entry2 }, &slv, "guess_next");
+    SymArray<STuple, STerm> stable({ table_idx1, table_idx2 }, { table_entry1, table_entry2 }, "guess_next");
 
     STerm x = FFVar("x", &slv);
     STerm y = FFVar("y", &slv);
-    STuple entry({ x, y }, &slv);
+    STuple entry({ x, y });
 
     STerm z = stable[entry];
     y - x == 1;
@@ -332,14 +332,14 @@ TEST(SymbolicSet, LookupTable)
 {
     Solver slv("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
 
-    STuple table_entry1({ FFConst("1", &slv), FFConst("2", &slv), FFConst("3", &slv) }, &slv);
-    STuple table_entry2({ FFConst("4", &slv), FFConst("5", &slv), FFConst("6", &slv) }, &slv);
-    SymSet<STuple> stable({ table_entry1, table_entry2 }, &slv, "guess_next");
+    STuple table_entry1({ FFConst("1", &slv), FFConst("2", &slv), FFConst("3", &slv) });
+    STuple table_entry2({ FFConst("4", &slv), FFConst("5", &slv), FFConst("6", &slv) });
+    SymSet<STuple> stable({ table_entry1, table_entry2 }, "guess_next");
 
     STerm x = FFVar("x", &slv);
     STerm y = FFVar("y", &slv);
     STerm z = FFVar("z", &slv);
-    STuple entry({ x, y, z }, &slv);
+    STuple entry({ x, y, z });
 
     stable.contains(entry);
     x != 4;

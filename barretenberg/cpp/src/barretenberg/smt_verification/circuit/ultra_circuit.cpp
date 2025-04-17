@@ -145,13 +145,11 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
     bool is_and = true;
 
     for (auto table_entry : this->lookup_tables[table_idx]) {
-        STuple tmp_entry(
-            {
-                STerm(table_entry[0], this->solver, this->type),
-                STerm(table_entry[1], this->solver, this->type),
-                STerm(table_entry[2], this->solver, this->type),
-            },
-            this->solver);
+        STuple tmp_entry({
+            STerm(table_entry[0], this->solver, this->type),
+            STerm(table_entry[1], this->solver, this->type),
+            STerm(table_entry[2], this->solver, this->type),
+        });
         new_table.push_back(tmp_entry);
 
         is_xor &= (static_cast<uint256_t>(table_entry[0]) ^ static_cast<uint256_t>(table_entry[1])) ==
@@ -172,7 +170,7 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
         this->tables_types.insert({ table_idx, TableType::UNKNOWN });
     }
     info(table_name);
-    SymSet<STuple> new_stable(new_table, this->solver, this->tag + table_name);
+    SymSet<STuple> new_stable(new_table, this->tag + table_name);
     this->cached_symbolic_tables.insert({ table_idx, new_stable });
 }
 
@@ -242,7 +240,7 @@ size_t UltraCircuit::handle_lookup_relation(size_t cursor, size_t idx)
         }
     }
     info("Unknown Table");
-    STuple entries({ first_entry, second_entry, third_entry }, this->solver);
+    STuple entries({ first_entry, second_entry, third_entry });
     this->cached_symbolic_tables[table_idx].contains(entries);
     return cursor + 1;
 }
@@ -391,7 +389,7 @@ void UltraCircuit::handle_range_constraints()
                         new_range_table.push_back(STerm(entry, this->solver, this->type));
                     }
                     std::string table_name = this->tag + "RANGE_" + std::to_string(range);
-                    SymSet<STerm> new_range_stable(new_range_table, this->solver, table_name);
+                    SymSet<STerm> new_range_stable(new_range_table, table_name);
                     info("Initialized new range: ", table_name);
                     this->cached_range_tables.insert({ range, new_range_stable });
                 }

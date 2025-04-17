@@ -201,7 +201,9 @@ class STerm {
 
     static STerm batch_add(const std::vector<STerm>& children)
     {
-        ASSERT(children.size() > 0);
+        if (children.size() == 0) {
+            throw std::invalid_argument("Can't use batch_add on empty vector");
+        }
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::ADD), terms);
@@ -210,7 +212,9 @@ class STerm {
 
     static STerm batch_mul(const std::vector<STerm>& children)
     {
-        ASSERT(children.size() > 0);
+        if (children.size() == 0) {
+            throw std::invalid_argument("Can't use batch_mul on empty vector");
+        }
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::MUL), terms);

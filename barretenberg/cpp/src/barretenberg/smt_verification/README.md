@@ -208,10 +208,10 @@ To store it on the disk just do the following
     ***!Note passing cvc5 native types directly is a little bit advanced compared to the ordinary usage of this module. See the tests***
 
     Create an array from indicies and entrys:
-    `SymArray SymArray<sym_index, sym_entry>(vector<sym_index> indicies, vec<sym_entry> entries, Solver* s, str name = "")`
+    `SymArray SymArray<sym_index, sym_entry>(vector<sym_index> indicies, vec<sym_entry> entries, str name = "")`
 
     Create an integer indexed array from entries:
-    `SymArray SymArray<sym_index, sym_entry>(vec<sym_entry> entries, STerm index_base, Solver* s, str name = "")`
+    `SymArray SymArray<sym_index, sym_entry>(vec<sym_entry> entries, STerm index_base, str name = "")`
 
     **!Note you need to provide an example for the integer like index entry. Most of the time you'll be fine using: `index_base` = `FFConst(1, &slv)`| `FFIConst(1, &slv)`| `IConst(1, &slv)`| `BVConst(1, &slv)`**
 
@@ -240,7 +240,7 @@ To store it on the disk just do the following
     ***!Note passing cvc5 native types directly is a little bit advanced compared to the ordinary usage of this module. See the tests***
 
     Create a set from vector of values:
-    `SymSet SymSet<sym_entry>(vec<sym_entry> entries, Solver* s, str name = "")`
+    `SymSet SymSet<sym_entry>(vec<sym_entry> entries, str name = "")`
 
     After you've created a set you can put elements in it by:
 
