@@ -189,7 +189,7 @@ To store it on the disk just do the following
 
     Symbolic Tuple type. 
     You can group several items in one term. 
-    **!Note Only compatible with `STerm` class
+    **!Note Only compatible with `STerm` class**
 
     `STuple STuple(vec<STerm>, Solver* slv)`
 
