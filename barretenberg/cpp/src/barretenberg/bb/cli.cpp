@@ -116,7 +116,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Some paths, with defaults, that may or may not be set by commands
     std::filesystem::path bytecode_path{ "./target/program.json" };
     std::filesystem::path witness_path{ "./target/witness.gz" };
-    std::filesystem::path ivc_inputs_path{ "./target/ivc-inputs.msgpack" };
+    std::filesystem::path ivc_inputs_path;
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
