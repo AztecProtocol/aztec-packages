@@ -1,7 +1,6 @@
 #pragma once
 #include <fstream>
 
-#include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace smt_circuit_schema {

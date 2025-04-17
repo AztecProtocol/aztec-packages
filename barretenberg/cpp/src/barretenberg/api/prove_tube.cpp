@@ -74,7 +74,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
         if (data.empty()) {
             return std::string("[]");
         }
-        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
     auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
     auto proof_data = to_json(public_inputs_and_proof.proof);

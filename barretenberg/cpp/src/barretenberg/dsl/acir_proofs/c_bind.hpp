@@ -47,14 +47,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_syste
                                                  uint8_t const* witness_buf,
                                                  bool* result);
 
-WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* constraint_system_buf,
-                                                    uint8_t const* witness_buf,
-                                                    bool* result);
-
-WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
-                                         uint8_t const* witness_stack,
-                                         uint8_t** out_proof,
-                                         uint8_t** out_vk);
+WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk);
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 
@@ -72,7 +65,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr,
 WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result);
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out);
-WASM_EXPORT void acir_honk_solidity_verifier(uint8_t const* proof_buf, uint8_t const* vk_buf, uint8_t** out);
+WASM_EXPORT void acir_honk_solidity_verifier(uint8_t const* proof_buf, uint8_t const* vk_buf, out_str_buf out);
 
 WASM_EXPORT void acir_serialize_proof_into_fields(in_ptr acir_composer_ptr,
                                                   uint8_t const* proof_buf,
@@ -98,4 +91,4 @@ WASM_EXPORT void acir_vk_as_fields_ultra_honk(uint8_t const* vk_buf, fr::vec_out
 
 WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_buf out_vkey);
 
-WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** out);
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out);

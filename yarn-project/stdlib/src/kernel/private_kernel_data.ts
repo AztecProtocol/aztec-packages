@@ -1,10 +1,10 @@
-import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
+import { VK_TREE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { UInt32 } from '../types/shared.js';
-import { VerificationKeyAsFields } from '../vks/verification_key.js';
+import { VerificationKeyData } from '../vks/verification_key.js';
 import { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
 
 /**
@@ -21,7 +21,7 @@ export class PrivateKernelData {
     /**
      * Verification key of the previous kernel.
      */
-    public vk: VerificationKeyAsFields,
+    public verificationKey: VerificationKeyData,
     /**
      * Index of the previous kernel's vk in a tree of vks.
      */
@@ -37,14 +37,14 @@ export class PrivateKernelData {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.publicInputs, this.vk, this.vkIndex, this.vkPath);
+    return serializeToBuffer(this.publicInputs, this.verificationKey, this.vkIndex, this.vkPath);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelData {
     const reader = BufferReader.asReader(buffer);
     return new this(
       reader.readObject(PrivateKernelCircuitPublicInputs),
-      reader.readObject(VerificationKeyAsFields),
+      reader.readObject(VerificationKeyData),
       reader.readNumber(),
       reader.readArray(VK_TREE_HEIGHT, Fr),
     );
@@ -53,7 +53,7 @@ export class PrivateKernelData {
   static empty(): PrivateKernelData {
     return new PrivateKernelData(
       PrivateKernelCircuitPublicInputs.empty(),
-      VerificationKeyAsFields.makeFake(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+      VerificationKeyData.empty(),
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
     );
