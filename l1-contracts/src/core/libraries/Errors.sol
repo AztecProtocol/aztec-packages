@@ -136,5 +136,6 @@ library Errors {
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
 
   // AddressSnapshotLib
-  error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
+  error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); //
+  error AddressSnapshotLib__RequestingLengthForFutureEpoch(Epoch requested, Epoch current); //
 }

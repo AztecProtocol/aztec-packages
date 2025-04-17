@@ -12,6 +12,48 @@ import {TimeLib, TimeStorage, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 
+contract AddressSetWrapper {
+  using AddressSnapshotLib for SnapshottedAddressSet;
+
+  SnapshottedAddressSet validatorSet;
+
+  function add(address _address) public returns (bool) {
+    return validatorSet.add(_address);
+  }
+
+  function remove(uint224 _index) public returns (bool) {
+    return validatorSet.remove(_index);
+  }
+
+  function remove(address _address) public returns (bool) {
+    return validatorSet.remove(_address);
+  }
+
+  function at(uint256 _index) public view returns (address) {
+    return validatorSet.at(_index);
+  }
+
+  function getAddressFromIndexAtEpoch(uint256 _index, Epoch _epoch) public view returns (address) {
+    return validatorSet.getAddressFromIndexAtEpoch(_index, _epoch);
+  }
+
+  function length() public view returns (uint256) {
+    return validatorSet.length();
+  }
+
+  function lengthAtEpoch(Epoch _epoch) public view returns (uint256) {
+    return validatorSet.lengthAtEpoch(_epoch);
+  }
+
+  function values() public view returns (address[] memory) {
+    return validatorSet.values();
+  }
+
+  function valuesAtEpoch(Epoch _epoch) public view returns (address[] memory) {
+    return validatorSet.valuesAtEpoch(_epoch);
+  }
+}
+
 contract AddressSnapshotsBase is Test {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
@@ -19,10 +61,11 @@ contract AddressSnapshotsBase is Test {
   uint256 private constant EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
   uint256 private immutable GENESIS_TIME = block.timestamp;
 
-  SnapshottedAddressSet validatorSet;
+  AddressSetWrapper validatorSet;
   TimeCheater timeCheater;
 
   function setUp() public {
-    timeCheater = new TimeCheater(address(this), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
+    validatorSet = new AddressSetWrapper();
+    timeCheater = new TimeCheater(address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
   }
 }

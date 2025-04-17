@@ -8,13 +8,17 @@ import {
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract GetAddressFromIndexAtEpochTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
-  function test_WhenNoValidatorsAreRegistered() public view {
-    // It should return address(0)
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(0)), address(0));
+  function test_WhenNoValidatorsAreRegistered() public {
+    // It throws out of bounds
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(0));
   }
 
   modifier whenValidatorsExist() {
@@ -40,7 +44,12 @@ contract GetAddressFromIndexAtEpochTest is AddressSnapshotsBase {
 
     // It should return the validator address from the snapshot
     assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(1)), address(0));
+
+    // In a past epoch, it is out of bounds
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 1, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(1));
   }
 
   function test_WhenValidatorsExist_WhenValidatorWasRemoved() public whenValidatorsExist {
@@ -50,12 +59,18 @@ contract GetAddressFromIndexAtEpochTest is AddressSnapshotsBase {
 
     // It should return address(0) in the next epoch
     timeCheater.cheat__setEpochNow(3);
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(3)), address(0));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(3));
   }
 
   function test_WhenIndexIsOutOfBounds() public whenValidatorsExist {
-    // It should return address(0)
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(1)), address(0));
+    // It should throw out of bounds
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 1, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(1));
   }
 
   function test_WhenValidatorIsRemovedAndNewOneAddedAtSamePosition() public whenValidatorsExist {
@@ -66,38 +81,77 @@ contract GetAddressFromIndexAtEpochTest is AddressSnapshotsBase {
 
     validatorSet.remove( /* index */ 0);
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(3)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(4)), address(0));
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch.selector, Epoch.wrap(4), Epoch.wrap(3))
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(4));
 
     // Add validator 2 to the first index in the set
     timeCheater.cheat__setEpochNow(4);
     validatorSet.add(address(2));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(4)), address(0));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(5)), address(2));
+
+    // Length is zero
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(4));
 
     // Setup and remove the last item in the set alot of times
     timeCheater.cheat__setEpochNow(5);
+    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(5)), address(2));
+
     validatorSet.remove( /* index */ 0);
 
     timeCheater.cheat__setEpochNow(6);
     validatorSet.add(address(3));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(6)), address(0));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(7)), address(3));
+
+    // Length is zero
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(6));
 
     timeCheater.cheat__setEpochNow(7);
+    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(7)), address(3));
+
     validatorSet.remove( /* index */ 0);
 
     timeCheater.cheat__setEpochNow(8);
     validatorSet.add(address(4));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(8)), address(0));
+
+    // Length is zero
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(8));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch.selector, Epoch.wrap(9), Epoch.wrap(8))
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(9));
+
+    timeCheater.cheat__setEpochNow(9);
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(9)), address(4));
 
     // Expect past values to be maintained
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(2)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(4)), address(0));
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(4));
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(5)), address(2));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(6)), address(0));
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(6));
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(7)), address(3));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(8)), address(0));
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(8));
     assertEq(validatorSet.getAddressFromIndexAtEpoch( /* index */ 0, Epoch.wrap(9)), address(4));
   }
 }

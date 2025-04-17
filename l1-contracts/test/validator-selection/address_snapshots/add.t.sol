@@ -8,9 +8,8 @@ import {
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 contract AddressSnapshotAddTest is AddressSnapshotsBase {
-  using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenValidatorIsNotInTheSet() public {
     // It returns true
@@ -26,8 +25,11 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     assertEq(validatorSet.length(), 1);
 
     // Epoch 0 remains frozen, so this number should not update
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(1)), address(0));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(1));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
+    );
+    validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(1));
+    validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2));
   }
 
   function test_WhenValidatorIsAlreadyInTheSet() public {

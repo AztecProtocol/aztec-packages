@@ -7,6 +7,8 @@ import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
+import "forge-std/console.sol";
+
 /**
  * @notice Structure to store a set of addresses with their historical snapshots
  * @param size The current number of addresses in the set
@@ -37,14 +39,9 @@ library AddressSnapshotLib {
   using Checkpoints for Checkpoints.Trace224;
 
   /**
-   * @notice Bit mask used to indicate presence of a validator in the set
-   */
-  uint256 internal constant PRESENCE_BIT = 1 << 255;
-
-  /**
    * @notice Adds a validator to the set
    * @param _self The storage reference to the set
-   * @param _address The address of the address to add
+   * @param _address The address to add
    * @return bool True if the address was added, false if it was already present
    */
   function add(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
@@ -58,10 +55,7 @@ library AddressSnapshotLib {
 
     uint224 index = _self.size.latest();
 
-    // Include max bit to indicate that the validator is in the set - means 0 index is not 0
-    Index memory storedIndex = Index({exists: true, index: index});
-
-    _self.addressToIndex[_address] = storedIndex;
+    _self.addressToIndex[_address] = Index({exists: true, index: index});
     _self.checkpoints[index].push(
       Epoch.unwrap(_nextEpoch).toUint32(), uint160(_address).toUint224()
     );
@@ -77,28 +71,28 @@ library AddressSnapshotLib {
    * @return bool True if the validator was removed, false otherwise
    */
   function remove(SnapshottedAddressSet storage _self, uint224 _index) internal returns (bool) {
+    uint224 size = _self.size.latest();
+    if (_index >= size) {
+      revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
+    }
+
     // To remove from the list, we push the last item into the index and reduce the size
-    uint224 lastIndex = _self.size.latest() - 1;
+    uint224 lastIndex = size - 1;
     uint256 nextEpoch =
       Epoch.unwrap(TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)) + Epoch.wrap(1));
 
     address lastValidator = address(_self.checkpoints[lastIndex].latest().toUint160());
 
-    Index memory newLocation = Index({exists: true, index: _index.toUint224()});
-
     // If we are removing the last item, we cannot swap it with anything
     // so we append a new address of zero for this epoch
     // And since we are removing it, we set the location to 0
     if (lastIndex == _index) {
-      newLocation.exists = false;
-      newLocation.index = 0;
-      _self.addressToIndex[lastValidator] = newLocation;
-
-      _self.checkpoints[_index].push(nextEpoch.toUint32(), uint160(0).toUint224());
+      _self.addressToIndex[lastValidator] = Index({exists: false, index: 0});
+      _self.checkpoints[_index].push(nextEpoch.toUint32(), uint224(0));
     } else {
       // Otherwise, we swap the last item with the item we are removing
       // and update the location of the last item
-      _self.addressToIndex[lastValidator] = newLocation;
+      _self.addressToIndex[lastValidator] = Index({exists: true, index: _index.toUint224()});
       _self.checkpoints[_index].push(nextEpoch.toUint32(), uint160(lastValidator).toUint224());
     }
 
@@ -129,13 +123,6 @@ library AddressSnapshotLib {
    */
   function at(SnapshottedAddressSet storage _self, uint256 _index) internal view returns (address) {
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-
-    uint256 size = lengthAtEpoch(_self, currentEpoch);
-    if (_index >= size) {
-      revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
-    }
-
-    // Otherwise, we must perform a search
     return getAddressFromIndexAtEpoch(_self, _index, currentEpoch);
   }
 
@@ -151,9 +138,13 @@ library AddressSnapshotLib {
     uint256 _index,
     Epoch _epoch
   ) internal view returns (address) {
-    uint96 epoch = Epoch.unwrap(_epoch).toUint96();
+    uint256 size = lengthAtEpoch(_self, _epoch);
 
-    uint224 addr = _self.checkpoints[_index].upperLookup(epoch.toUint32());
+    if (_index >= size) {
+      revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
+    }
+
+    uint224 addr = _self.checkpoints[_index].upperLookup(Epoch.unwrap(_epoch).toUint32());
     return address(addr.toUint160());
   }
 
@@ -172,12 +163,18 @@ library AddressSnapshotLib {
    * @param _self The storage reference to the set
    * @param _epoch The epoch number to query
    * @return uint256 The number of addresses in the set at the given epoch
+   *
+   * @dev Throws if the epoch is in the future
    */
   function lengthAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch)
     internal
     view
     returns (uint256)
   {
+    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
+    if (_epoch > currentEpoch) {
+      revert Errors.AddressSnapshotLib__RequestingLengthForFutureEpoch(_epoch, currentEpoch);
+    }
     return _self.size.upperLookup(Epoch.unwrap(_epoch).toUint32());
   }
 
@@ -187,16 +184,8 @@ library AddressSnapshotLib {
    * @return address[] Array of all current addresses in the set
    */
   function values(SnapshottedAddressSet storage _self) internal view returns (address[] memory) {
-    uint256 size = length(_self);
-    address[] memory vals = new address[](size);
-    for (uint256 i; i < size;) {
-      vals[i] = at(_self, i);
-
-      unchecked {
-        i++;
-      }
-    }
-    return vals;
+    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
+    return valuesAtEpoch(_self, currentEpoch);
   }
 
   /**
