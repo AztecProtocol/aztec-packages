@@ -201,7 +201,8 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate() const bool verified = ivc->prove_and_verify();
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    const bool verified = ivc->prove_and_verify();
     return verified;
 }
 
