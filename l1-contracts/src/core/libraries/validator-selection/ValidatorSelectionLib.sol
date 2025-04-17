@@ -28,9 +28,9 @@ library ValidatorSelectionLib {
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
     keccak256("aztec.validator_selection.storage");
 
-  function initialize(uint256 _targetCommitteeSize) internal {
+  function initialize(uint256 _committeeSize) internal {
     ValidatorSelectionStorage storage store = getStorage();
-    store.targetCommitteeSize = _targetCommitteeSize;
+    store.committeeSize = _committeeSize;
   }
 
   /**
@@ -170,18 +170,18 @@ library ValidatorSelectionLib {
       return new address[](0);
     }
 
-    uint256 targetCommitteeSize = store.targetCommitteeSize;
+    uint256 committeeSize = store.committeeSize;
 
     // If we have less validators than the target committee size, we just return the full set
-    if (validatorSetSize <= targetCommitteeSize) {
+    if (validatorSetSize <= committeeSize) {
       return _stakingStore.attesters.valuesAtEpoch(_epoch);
     }
 
     uint256[] memory indices =
-      SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
+      SampleLib.computeCommittee(committeeSize, validatorSetSize, _seed);
 
-    address[] memory committee = new address[](targetCommitteeSize);
-    for (uint256 i = 0; i < targetCommitteeSize; i++) {
+    address[] memory committee = new address[](committeeSize);
+    for (uint256 i = 0; i < committeeSize; i++) {
       committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
     }
     return committee;

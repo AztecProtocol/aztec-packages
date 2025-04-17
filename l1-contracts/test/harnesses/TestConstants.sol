@@ -37,7 +37,7 @@ library TestConstants {
     return RollupConfigInput({
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
-      targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
+      committeeSize: AZTEC_TARGET_COMMITTEE_SIZE,
       aztecProofSubmissionWindow: AZTEC_PROOF_SUBMISSION_WINDOW,
       minimumStake: AZTEC_MINIMUM_STAKE,
       slashingQuorum: AZTEC_SLASHING_QUORUM,

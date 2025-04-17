@@ -204,8 +204,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return (slot, pendingBlockNumber + 1);
   }
 
-  function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
-    return ValidatorSelectionLib.getStorage().targetCommitteeSize;
+  function getCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
+    return ValidatorSelectionLib.getStorage().committeeSize;
   }
 
   function getGenesisTime() external view override(IValidatorSelection) returns (Timestamp) {

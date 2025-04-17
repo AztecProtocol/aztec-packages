@@ -77,7 +77,7 @@ contract RollupCore is
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _config.minimumStake, exitDelay, address(slasher));
-    ExtRollupLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    ExtRollupLib.initializeValidatorSelection(_config.committeeSize);
 
     L1_BLOCK_AT_GENESIS = block.number;
 

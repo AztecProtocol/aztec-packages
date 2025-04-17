@@ -146,7 +146,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       RollupConfigInput({
         aztecSlotDuration: SLOT_DURATION,
         aztecEpochDuration: EPOCH_DURATION,
-        targetCommitteeSize: 48,
+        committeeSize: 48,
         aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,

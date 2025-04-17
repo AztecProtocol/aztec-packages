@@ -22,7 +22,7 @@ struct ValidatorSelectionStorage {
   mapping(Epoch => EpochData) epochs;
   // The last stored randao value, same value as `seed` in the last inserted epoch
   uint256 lastSeed;
-  uint256 targetCommitteeSize;
+  uint256 committeeSize;
 }
 
 interface IValidatorSelectionCore {
@@ -60,5 +60,5 @@ interface IValidatorSelection is IValidatorSelectionCore {
   function getGenesisTime() external view returns (Timestamp);
   function getSlotDuration() external view returns (uint256);
   function getEpochDuration() external view returns (uint256);
-  function getTargetCommitteeSize() external view returns (uint256);
+  function getCommitteeSize() external view returns (uint256);
 }

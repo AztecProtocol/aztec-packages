@@ -185,23 +185,23 @@ contract ValidatorSelectionTest is DecoderBase {
     Epoch post = rollup.getCurrentEpoch();
 
     uint256 validatorSetSize = rollup.getAttesters().length;
-    uint256 targetCommitteeSize = rollup.getTargetCommitteeSize();
+    uint256 committeeSize = rollup.getCommitteeSize();
     uint256 expectedSize =
-      validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
+      validatorSetSize > committeeSize ? committeeSize : validatorSetSize;
 
     assertEq(rollup.getEpochCommittee(pre).length, expectedSize, "Invalid committee size");
     assertEq(rollup.getEpochCommittee(post).length, expectedSize, "Invalid committee size");
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
-    assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
-    uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
+    assertGt(rollup.getAttesters().length, rollup.getCommitteeSize(), "Not enough validators");
+    uint256 committeeSize = rollup.getCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
     _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false);
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
-      rollup.getTargetCommitteeSize(),
+      rollup.getCommitteeSize(),
       "Invalid committee size"
     );
   }
