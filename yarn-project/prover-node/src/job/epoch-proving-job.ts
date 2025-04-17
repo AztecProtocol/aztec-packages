@@ -15,7 +15,7 @@ import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telem
 
 import * as crypto from 'node:crypto';
 
-import type { ProverNodeMetrics } from '../metrics.js';
+import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';
 
@@ -42,13 +42,13 @@ export class EpochProvingJob implements Traceable {
     private publicProcessorFactory: PublicProcessorFactory,
     private publisher: Pick<ProverNodePublisher, 'submitEpochProof'>,
     private l2BlockSource: L2BlockSource | undefined,
-    private metrics: ProverNodeMetrics,
+    private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: { parallelBlockLimit: number } = { parallelBlockLimit: 32 },
   ) {
     validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
-    this.tracer = metrics.client.getTracer('EpochProvingJob');
+    this.tracer = metrics.tracer;
   }
 
   public getId(): string {
