@@ -316,10 +316,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         kernel_vk = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
     }
 
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
-
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }
 
@@ -357,10 +353,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
-
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
@@ -410,10 +402,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
-
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
@@ -471,10 +459,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
-
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());

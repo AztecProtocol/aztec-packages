@@ -314,9 +314,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.mega->pcs_verification_key = nullptr;
         ivc_vk.eccvm->pcs_verification_key = nullptr;
-        ivc_vk.translator->pcs_verification_key = nullptr;
 
         return ivc_vk;
     };

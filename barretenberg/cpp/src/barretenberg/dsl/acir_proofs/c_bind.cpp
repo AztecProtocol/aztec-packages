@@ -293,9 +293,6 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     const auto proof = ClientIVC::Proof::from_msgpack_buffer(proof_buf);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.
-    vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
     *result = ClientIVC::verify(proof, vk);
 }
 
@@ -337,12 +334,10 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t c
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraFlavor::VerificationKey;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
     using Verifier = UltraVerifier_<UltraFlavor>;
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
     Verifier verifier{ verification_key };
 
@@ -352,12 +347,10 @@ WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const*
 WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
 {
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
     using Verifier = UltraVerifier_<UltraKeccakFlavor>;
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
-    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
     Verifier verifier{ verification_key };
 
@@ -402,11 +395,9 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_
 WASM_EXPORT void acir_honk_solidity_verifier(uint8_t const* proof_buf, uint8_t const* vk_buf, uint8_t** out)
 {
     using VerificationKey = UltraKeccakFlavor::VerificationKey;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = from_buffer<VerificationKey>(vk_buf);
-    verification_key.pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
     auto str = get_honk_solidity_verifier(&verification_key);
     *out = to_heap_buffer(str);

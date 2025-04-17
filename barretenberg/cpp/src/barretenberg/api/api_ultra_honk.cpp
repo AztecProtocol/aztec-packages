@@ -110,7 +110,6 @@ bool _verify(const bool ipa_accumulation,
     srs::init_crs_factory({}, g2_data);
 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
     auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
     // concatenate public inputs and proof

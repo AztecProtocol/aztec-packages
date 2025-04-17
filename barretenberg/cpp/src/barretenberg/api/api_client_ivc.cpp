@@ -301,9 +301,6 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.
-    vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-
     const bool verified = ClientIVC::verify(proof, vk);
     return verified;
 }
