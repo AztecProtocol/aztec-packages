@@ -61,7 +61,7 @@ function run_bb_cli_bench {
     }
   else # wasm
     mkdir -p $HOME/.bb-crs/monomial
-    export WASMTIME_ALLOWED_DIRS="--dir="$flow_folder" --dir=$output"
+    export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
     # TODO support wasm op count time preset
     memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
       --benchmark_out=$output/op-counts.json \
@@ -84,7 +84,7 @@ function client_ivc_flow {
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-$runtime-mb.txt"
 
-  run_bb_cli_bench "$runtime" "$output" "prove -o $output -b $flow_folder/acir.msgpack -w $flow_folder/witnesses.msgpack --scheme client_ivc"
+  run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc"
 
   if [ -f "$output/op-counts.json" ]; then
     scripts/google-bench/summarize-op-counts "$output/op-counts.json"

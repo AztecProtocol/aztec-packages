@@ -9,7 +9,7 @@ exec wasmtime run \
   --env HARDWARE_CONCURRENCY \
   --env WASM_BACKTRACE_DETAILS=1 \
   --env HOME \
-  --env MAIN_ARGS \
+  ${MAIN_ARGS:+--env MAIN_ARGS} \
   --env IGNITION_CRS_PATH \
   --env GRUMPKIN_CRS_PATH \
   --dir=$HOME/.bb-crs \
