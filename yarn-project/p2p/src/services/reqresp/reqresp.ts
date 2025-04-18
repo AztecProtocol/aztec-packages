@@ -196,7 +196,7 @@ export class ReqResp {
         this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
-        if (response && response.status !== ReqRespStatus.SUCCESS) {
+        if (response.status !== ReqRespStatus.SUCCESS) {
           this.logger.debug(
             `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(response.status)}`,
           );
@@ -442,7 +442,7 @@ export class ReqResp {
 
       // If there is an exception, we return an unknown response
       return {
-        status: ReqRespStatus.UNKNOWN,
+        status: ReqRespStatus.FAILURE,
         data: Buffer.from([]),
       };
     } finally {
