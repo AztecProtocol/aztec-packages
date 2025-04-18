@@ -14,14 +14,9 @@ import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
-import {
-  AvmExecutionError,
-  AvmRevertReason,
-  InvalidProgramCounterError,
-  revertReasonFromExceptionalHalt,
-  revertReasonFromExplicitRevert,
-} from './errors.js';
+import { AvmExecutionError, AvmRevertReason, InvalidProgramCounterError } from './errors.js';
 import type { Instruction } from './opcodes/instruction.js';
+import { revertReasonFromExceptionalHalt, revertReasonFromExplicitRevert } from './revert_reason.js';
 import {
   INSTRUCTION_SET,
   type InstructionSet,
