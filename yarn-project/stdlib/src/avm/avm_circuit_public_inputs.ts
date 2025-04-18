@@ -24,6 +24,8 @@ import { serializeWithMessagePack } from './message_pack.js';
 // At some point it might be worth writing Zod schemas for all dependent types and get rid of that.
 export class AvmCircuitPublicInputs {
   constructor(
+    ///////////////////////////////////
+    // Inputs.
     public globalVariables: GlobalVariables,
     public startTreeSnapshots: TreeSnapshots,
     public startGasUsed: Gas,
@@ -36,6 +38,8 @@ export class AvmCircuitPublicInputs {
     public previousRevertibleAccumulatedDataArrayLengths: PrivateToAvmAccumulatedDataArrayLengths,
     public previousNonRevertibleAccumulatedData: PrivateToAvmAccumulatedData,
     public previousRevertibleAccumulatedData: PrivateToAvmAccumulatedData,
+    ///////////////////////////////////
+    // Outputs.
     public endTreeSnapshots: TreeSnapshots,
     public endGasUsed: Gas,
     public accumulatedData: AvmAccumulatedData,
