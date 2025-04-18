@@ -58,28 +58,29 @@ export function ContractUpload() {
         </Typography>
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
 
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ my: 3 }} onClick={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          <Box sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px' }}>
-            <Box>
-              <a href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract" target="_blank" rel="noopener noreferrer">Learn</a>
-              <span> to write your own Aztec smart contracts and upload them here when ready.</span>
-            </Box>
 
-            <Box sx={{ mt: 2 }}>
+        <Box sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px', my: 3 }}>
+          <Box>
+            <a href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract" target="_blank" rel="noopener noreferrer">Learn</a>
+            <span> to write your own Aztec smart contracts and upload them here when ready.</span>
+          </Box>
+
+          <Box sx={{ mt: 2 }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
               1. Install Aztec CLI by running `aztec-up {VERSION}`
               <br />
               2. Run `aztec-nargo compile` in your project directory
               <br />
               3. Look for `{'<your-project-name>'}.json` file in the ./target directory
-            </Box>
+            </Typography>
           </Box>
-        </Typography>
+        </Box>
 
         <Button
           variant="contained"
