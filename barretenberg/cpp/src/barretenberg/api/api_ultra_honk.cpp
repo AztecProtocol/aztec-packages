@@ -32,7 +32,7 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
-    acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
+    acir_format::AcirProgram program{ get_constraint_system(bytecode_path) };
 
     if (!witness_path.empty()) {
         program.witness = get_witness(witness_path);
@@ -270,7 +270,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
     const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
 
     acir_format::AcirProgram program;
-    program.constraints = get_constraint_system(bytecode_path, metadata.honk_recursion);
+    program.constraints = get_constraint_system(bytecode_path);
     program.witness = get_witness(witness_path);
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
 

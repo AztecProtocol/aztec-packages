@@ -25,7 +25,7 @@ WASM_EXPORT void acir_get_circuit_sizes(
                                                  .honk_recursion = *honk_recursion,
                                                  .size_hint = 1 << 19 };
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-        from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion) };
+        from_buffer<std::vector<uint8_t>>(acir_vec)) };
     auto builder = acir_format::create_circuit(program, metadata);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
     *total = htonl((uint32_t)builder.get_finalized_total_circuit_size());
@@ -45,8 +45,7 @@ WASM_EXPORT void acir_delete_acir_composer(in_ptr acir_composer_ptr)
 WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* acir_vec, bool const* recursive)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
-    auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/0);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     acir_composer->create_finalized_circuit(constraint_system, *recursive);
 
     acir_composer->init_proving_key();
@@ -56,8 +55,7 @@ WASM_EXPORT void acir_create_proof(
     in_ptr acir_composer_ptr, uint8_t const* acir_vec, bool const* recursive, uint8_t const* witness_vec, uint8_t** out)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
-    auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/0);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     acir_composer->create_finalized_circuit(constraint_system, *recursive, witness);
@@ -71,7 +69,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
 {
     const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
     acir_format::AcirProgram program{
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
         acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
     };
 
@@ -92,7 +90,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
     const acir_format::ProgramMetadata metadata{ .honk_recursion = 0 };
 
     acir_format::AcirProgram program{
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
         acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
     };
 
@@ -134,8 +132,7 @@ WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr,
                                       uint8_t** out)
 {
     auto* acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
-    auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/0);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     acir_composer->create_finalized_circuit(constraint_system, *recursive);
     auto pk = acir_composer->init_proving_key();
     // We flatten to a vector<uint8_t> first, as that's how we treat it on the calling side.
@@ -227,10 +224,10 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
     // Lambda function to ensure things get freed before proving.
     UltraProver prover = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-                                              from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
-                                          acir_format::witness_buf_to_witness_data(
-                                              from_buffer<std::vector<uint8_t>>(witness_vec)) };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
         return UltraProver(builder);
@@ -245,10 +242,10 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t c
     // Lambda function to ensure things get freed before proving.
     UltraKeccakProver prover = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-                                              from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
-                                          acir_format::witness_buf_to_witness_data(
-                                              from_buffer<std::vector<uint8_t>>(witness_vec)) };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
         return UltraKeccakProver(builder);
@@ -291,7 +288,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     DeciderProvingKey proving_key = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
+            from_buffer<std::vector<uint8_t>>(acir_vec)) };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
@@ -309,7 +306,7 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_
     DeciderProvingKey proving_key = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
+            from_buffer<std::vector<uint8_t>>(acir_vec)) };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
@@ -366,8 +363,7 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
 
     for (const PrivateExecutionStepRaw& step : raw_steps) {
         std::vector<uint8_t> bytecode_vec(step.bytecode.begin(), step.bytecode.end());
-        const acir_format::AcirFormat constraint_system =
-            acir_format::circuit_buf_to_acir_format(bytecode_vec, /*honk_recursion=*/0);
+        const acir_format::AcirFormat constraint_system = acir_format::circuit_buf_to_acir_format(bytecode_vec);
 
         // Create an acir program from the constraint system
         acir_format::AcirProgram program{ constraint_system };
