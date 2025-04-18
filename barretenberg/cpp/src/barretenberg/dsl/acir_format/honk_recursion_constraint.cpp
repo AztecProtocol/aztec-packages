@@ -97,9 +97,12 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Using SMALL_DUMMY_VALUE might resolve this
+    // issue.
+    fr SMALL_DUMMY_VALUE(2); // arbtirary small value that shouldn't cause builder problems.
     // The aggregation object
     for (size_t i = 0; i < AggregationObject::PUBLIC_INPUTS_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(SMALL_DUMMY_VALUE), proof_fields[offset].witness_index);
         offset++;
     }
 

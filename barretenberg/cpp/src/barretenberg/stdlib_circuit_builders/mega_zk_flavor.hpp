@@ -17,8 +17,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
     /**
      * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
      * Note: Made generic for use in MegaRecursive.
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
-     */
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
+i     */
     class Transcript : public MegaFlavor::Transcript {
       public:
         // Note: we have a different vector of univariates because the degree for ZK flavors differs

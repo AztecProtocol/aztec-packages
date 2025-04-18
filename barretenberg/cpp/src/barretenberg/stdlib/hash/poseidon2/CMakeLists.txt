@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_poseidon2 stdlib_primitives crypto_poseidon2)
+barretenberg_module(stdlib_poseidon2 stdlib_primitives crypto_poseidon2 ext_starknet_crypto_poseidon)

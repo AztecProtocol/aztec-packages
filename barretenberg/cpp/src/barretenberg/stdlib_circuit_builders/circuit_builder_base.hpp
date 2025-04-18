@@ -4,8 +4,8 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
-#include <msgpack/sbuffer_decl.hpp>
 #include <utility>
 
 #include <unordered_map>
@@ -264,7 +264,8 @@ template <typename FF> struct CircuitSchemaInternal {
                    real_variable_index,
                    lookup_tables,
                    real_variable_tags,
-                   range_tags);
+                   range_tags,
+                   circuit_finalized);
 };
 } // namespace bb
 
