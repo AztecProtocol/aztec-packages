@@ -58,9 +58,9 @@ import type {
   AvmAccumulatedData as AvmAccumulatedDataNoir,
   AvmCircuitPublicInputs as AvmCircuitPublicInputsNoir,
   AvmProofData as AvmProofDataNoir,
-  BLS12_381_Fr,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
+  BLS12_381_Fr as BigNum,
   BlobCommitment as BlobCommitmentNoir,
   BlobPublicInputs as BlobPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
@@ -160,7 +160,7 @@ export function mapBLS12BigNumFromNoir(bignum: BLS12_381_Fr): bigint {
   return BigInt(paddedLimbs[0].concat(paddedLimbs[1], paddedLimbs[2]));
 }
 
-export function mapBLS12BigNumToNoir(number: bigint): BLS12_381_Fr {
+export function mapBLS12BigNumToNoir(number: bigint): BigNum {
   const hex = toHex(number, true);
   return {
     limbs: ['0x' + hex.substring(36), '0x' + hex.substring(6, 36), hex.substring(0, 6)],
