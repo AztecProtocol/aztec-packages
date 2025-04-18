@@ -16,7 +16,7 @@ export interface ProverCoordination {
   /**
    * Returns a set of transactions given their hashes if available.
    * @param txHashes - The hashes of the transactions, used as an ID.
-   * @returns The transactions, if found, 'undefined' otherwise.
+   * @returns The transactions found, no necessarily in the same order as the hashes.
    */
   getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
 }
