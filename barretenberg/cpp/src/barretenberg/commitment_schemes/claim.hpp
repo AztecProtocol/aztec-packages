@@ -80,7 +80,6 @@ template <typename Curve> class OpeningClaim {
         for (uint32_t& idx : ctx->ipa_claim_public_input_indices) {
             idx = pub_idx++;
         }
-        ctx->contains_ipa_claim = true;
 
         return start_idx;
     }
