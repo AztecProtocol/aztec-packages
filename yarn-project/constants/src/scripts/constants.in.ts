@@ -534,7 +534,7 @@ function main(): void {
   generateSolidityConstants(parsedContent, solidityTargetPath);
 
   // JavaScript AVM gas constants
-  const jsAvmGasConstantsPath = join(__dirname, '../avm_gas_constants.js');
+  const jsAvmGasConstantsPath = join(__dirname, JS_AVM_GAS_CONSTANTS_FILE);
   generateJsAvmGasConstants(parsedContent, jsAvmGasConstantsPath);
 }
 

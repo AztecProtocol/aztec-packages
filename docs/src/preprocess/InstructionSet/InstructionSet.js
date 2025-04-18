@@ -1,4 +1,5 @@
 const { instructionSize } = require("./InstructionSize");
+const gasConstants = require("./avm_gas_constants");
 
 // TODO: mode: offset
 const TOPICS_IN_TABLE = ["Name", "Summary", "Expression"];
@@ -18,6 +19,8 @@ const TOPICS_IN_SECTIONS = [
   "Triggers downstream circuit operations",
   "Tag checks",
   "Tag updates",
+  "Base Gas",
+  "Dynamic Gas",
   "Bit-size",
 ];
 
@@ -95,6 +98,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "Wraps on overflow",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Base Gas": `L2: ${gasConstants.AVM_ADD_BASE_L2_GAS}`,
   },
   {
     id: "sub",
@@ -127,6 +131,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "Wraps on underflow",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Base Gas": `L2: ${gasConstants.AVM_SUB_BASE_L2_GAS}`,
   },
   {
     id: "mul",
@@ -159,6 +164,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "Wraps on overflow",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Base Gas": `L2: ${gasConstants.AVM_MUL_BASE_L2_GAS}`,
   },
   {
     id: "div",
@@ -192,6 +198,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset] != field`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Base Gas": `L2: ${gasConstants.AVM_DIV_BASE_L2_GAS}`,
   },
   {
     id: "fdiv",
@@ -222,6 +229,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset] == field`",
     "Tag updates": "`T[dstOffset] = field`",
+    "Base Gas": `L2: ${gasConstants.AVM_FDIV_BASE_L2_GAS}`,
   },
   {
     id: "eq",
@@ -255,6 +263,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = u1`",
+    "Base Gas": `L2: ${gasConstants.AVM_EQ_BASE_L2_GAS}`,
   },
   {
     id: "lt",
@@ -288,6 +297,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = u1`",
+    "Base Gas": `L2: ${gasConstants.AVM_LT_BASE_L2_GAS}`,
   },
   {
     id: "lte",
@@ -321,6 +331,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = u1`",
+    "Base Gas": `L2: ${gasConstants.AVM_LTE_BASE_L2_GAS}`,
   },
   {
     id: "and",
@@ -354,6 +365,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Base Gas": `L2: ${gasConstants.AVM_AND_BASE_L2_GAS}`,
   },
   {
     id: "or",
@@ -387,6 +399,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Base Gas": `L2: ${gasConstants.AVM_OR_BASE_L2_GAS}`,
   },
   {
     id: "xor",
@@ -420,6 +433,7 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Base Gas": `L2: ${gasConstants.AVM_XOR_BASE_L2_GAS}`,
   },
   {
     id: "not",
@@ -591,6 +605,8 @@ const INSTRUCTION_SET_RAW = [
     Details: "If the copy would surpass the bounds of calldata, the result is zero-padded to copySizeOffset.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset+M[copySizeOffset]] = field`",
+    "Base Gas": `L2: ${gasConstants.AVM_CALLDATACOPY_BASE_L2_GAS}`,
+    "Dynamic Gas": `L2: ${gasConstants.AVM_CALLDATACOPY_DYN_L2_GAS} per word`,
   },
   {
     id: "successcopy",
@@ -651,6 +667,8 @@ const INSTRUCTION_SET_RAW = [
     Details: "The returndata buffer holds the returndata from only the latest nested call. If the copy would surpass the bounds of returndata, the result is zero-padded to copySizeOffset.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset+M[copySizeOffset]] = field`",
+    "Base Gas": `L2: ${gasConstants.AVM_RETURNDATACOPY_BASE_L2_GAS}`,
+    "Dynamic Gas": `L2: ${gasConstants.AVM_RETURNDATACOPY_DYN_L2_GAS} per word`,
   },
   {
     id: "jump",
@@ -837,6 +855,7 @@ S[M[slotOffset]] = M[srcOffset]
     Details: "Silo the storage slot (hash with contract address), and perform a merkle insertion in the public data tree.",
     "Tag checks": "",
     "Tag updates": "",
+    "Base Gas": `L2: ${gasConstants.AVM_SSTORE_BASE_L2_GAS}, DA: ${gasConstants.AVM_SSTORE_BASE_DA_GAS}`,
   },
   {
     id: "notehashexists",
@@ -885,6 +904,7 @@ context.worldState.noteHashes.append(
     Details: "Silo the note hash (hash with contract address), make it unique (hash with nonce) and insert into note hash tree",
     "Tag checks": "`T[nullifierOffset] == field`",
     "Tag updates": "",
+    "Base Gas": `L2: ${gasConstants.AVM_EMITNOTEHASH_BASE_L2_GAS}, DA: ${gasConstants.AVM_EMITNOTEHASH_BASE_DA_GAS}`,
   },
   {
     id: "nullifierexists",
@@ -1022,6 +1042,8 @@ context.worldState.publicLogs.append(
     Summary: "Emit a public log",
     "Tag checks": "`T[logSizeOffset] == u32 && T[logOffset:logOffset+M[logSizeOffset]] == field`",
     "Tag updates": "",
+    "Base Gas": `L2: ${gasConstants.AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS}`,
+    "Dynamic Gas": `L2: ${gasConstants.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS} per word, DA: ${gasConstants.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS} per word`,
   },
   {
     id: "sendl2tol1msg",
@@ -1079,6 +1101,8 @@ T[addrOffset] == field
 T[argsSizeOffset] == u32
 `,
     "Tag updates": "`T[successOffset] = u1`",
+    "Base Gas": `L2: ${gasConstants.AVM_CALL_BASE_L2_GAS}`,
+    "Dynamic Gas": `L2: ${gasConstants.AVM_CALL_DYN_L2_GAS} per word`,
   },
   {
     id: "staticcall",
