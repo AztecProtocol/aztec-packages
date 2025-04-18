@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744950248952,
+  "lastUpdate": 1744961549399,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b49184f21cc3e9fa25af4b2df4d5765ac9865113",
-          "message": "fix: Block stream fails when pruning to a block before its start (#13473)\n\nFixes #13471\n\nI moved the `L2MemoryTipsStore` from kv-store to stdlib to be able to\ntest this. Since I was at it, I also deleted the old L2BlockDownloader\n(no longer in use). Most of the changes in this PR are related to moving\nthings around.",
-          "timestamp": "2025-04-11T18:16:58Z",
-          "tree_id": "18a4f716eee3b8355608070ab0bf069fcb492a88",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b49184f21cc3e9fa25af4b2df4d5765ac9865113"
-        },
-        "date": 1744399265094,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9508,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2566158122557659,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 142297,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 150516,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "96737978+feltroidprime@users.noreply.github.com",
+            "name": "feltroid Prime",
+            "username": "feltroidprime"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6bc34a1089ccd507f61fa10c6fbd4cbcbe0cfda6",
+          "message": "feat: Garaga UltraStarknet[Zk]Honk flavours (#11489)\n\nAdds a `ultra_starknet_flavour` and `ultra_starknet_zk_flavour`, forked\nfrom the ultra_keccak_(zk)_flavour.\n\n\nThis was tested with bb 0.82.2 with a reference corresponding\nimplementation of the transcript in python similar to the keccak one.\n\n\nSee generic proof -> Transcript implementation\nhttps://github.com/keep-starknet-strange/garaga/blob/f5921e0f7e69f474ee0a88b6ecfb52252fc7cc3d/hydra/garaga/precompiled_circuits/honk.py#L526\n\n\nhttps://github.com/keep-starknet-strange/garaga/blob/f5921e0f7e69f474ee0a88b6ecfb52252fc7cc3d/hydra/garaga/precompiled_circuits/honk.py#L448-L501\n\n\n~The Starknet poseidon hash was imported from the reference\nimplementation from CryptoExperts (used in production in Starkware STONE\nprover) https://github.com/CryptoExperts/poseidon~\n\nStarknet field is defined using existing templates and poseidon\nimplementation re-uses Sponge from poseidon2\n\n---------\n\nCo-authored-by: Rodrigo Ferreira <rodrigo.ferreira@aya.yale.edu>\nCo-authored-by: raugfer <admin@raugfer.com>\nCo-authored-by: ludamad <adam.domurad@gmail.com>\nCo-authored-by: ludamad <domuradical@gmail.com>",
+          "timestamp": "2025-04-18T06:12:55Z",
+          "tree_id": "95303ddf1d6833cd25072ba78e11fb41633518c7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6bc34a1089ccd507f61fa10c6fbd4cbcbe0cfda6"
+        },
+        "date": 1744961541405,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9755,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26212202986251437,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 156807,
             "unit": "us"
           }
         ]
