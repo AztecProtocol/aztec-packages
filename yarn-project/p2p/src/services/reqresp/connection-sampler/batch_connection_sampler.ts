@@ -50,9 +50,6 @@ export class BatchConnectionSampler {
 
     // Calculate which peer bucket this index belongs to
     const peerIndex = Math.floor(index / this.requestsPerPeer) % this.batch.length;
-
-    this.logger.debug('Peer index', { peerIndex, index, requestsPerPeer: this.requestsPerPeer });
-    this.logger.debug('Batch', { batch: this.batch });
     return this.batch[peerIndex];
   }
 
