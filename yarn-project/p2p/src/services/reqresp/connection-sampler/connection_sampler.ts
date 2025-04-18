@@ -141,6 +141,9 @@ export class ConnectionSampler {
     const peers = this.libp2p.getPeers();
     this.logger.debug('Sampling peers batch', { numberToSample, peers });
 
+    // Only sample as many peers as we have available
+    numberToSample = Math.min(numberToSample, peers.length);
+
     const batch: PeerId[] = [];
     const withActiveConnections: Set<PeerId> = new Set();
     for (let i = 0; i < numberToSample; i++) {

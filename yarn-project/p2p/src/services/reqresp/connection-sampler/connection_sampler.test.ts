@@ -205,6 +205,12 @@ describe('ConnectionSampler', () => {
       sampler = new ConnectionSampler(mockLibp2p, 1000, mockRandomSampler);
     });
 
+    it('should only return samples as many peers as available', () => {
+      const sampledPeers = sampler.samplePeersBatch(100);
+
+      expect(sampledPeers).toHaveLength(peers.length);
+    });
+
     it('prioritizes peers without active connections', () => {
       mockRandomSampler.random
         // Will pick the peers with active connections
