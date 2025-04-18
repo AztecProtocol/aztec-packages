@@ -1,0 +1,50 @@
+namespace public_logs;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0;
+
+    // If the current row is not active, then there are no more active rows after that.
+    // Note that sel cannot be activated in the first row as sel' is defined.
+    // As a consequence, if a row is activated (sel == 1) somewhere in this sub-trace, then
+    // the activated rows start from the second row and are contiguous.
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+    // Index of the public log in the public inputs
+    pol commit public_log_counter; // index of the current log in the vector of public logs
+    pol commit public_log_word_idx; // index of the current wordwithin the log
+
+    pol commit public_log_start_row_idx;
+    sel * (public_log_start_row_idx - (AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + (public_log_counter * PUBLIC_LOG_DATA_SIZE_IN_FIELDS))) = 0;
+
+    pol commit public_log_word_row_idx; // absolute row index of the word within the public inputs columns
+    sel * (public_log_word_row_idx - (public_log_start_row_idx + public_log_counter)) = 0;
+
+    pol commit public_logs_word_row_idx;
+    public_logs_word_row_idx - public_logs_start_row_idx + public_log_counter = 0;
+
+    // look up the word from the public inputs columns
+    pol commit public_log_word;
+    #[PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_WORD]
+    sel { public_log_word_row_idx, public_log_word }
+    in { clk, public_inputs.col1 }
+    // TODO(dbanks12): do i NEED a selector on both ends?
+
+
+    // when word idx is 0, this is the very first word in the log
+    // so, col0 must contain the contract address associated with the public log
+    pol commit public_log_contract_address;
+    // TODO(dbanks12): use a selector that means "only on first word of log"
+    #[PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_CONTRACT_ADDRESS]
+    sel { public_log_word_row_idx, public_log_contract_address }
+    in { clk, public_inputs.col0 }
+    // TODO(dbanks12): do i NEED a selector on both ends?
+
+
+    // TODO(dbanks12): ensure that counter resets to 0 after it reaches log size
+    // Note: don't need to do this for every log. Only logs that are actually emitted by the execution trace.
+    // What will the log look like in the execution trace? There will be a sequence of words from memory that execution wishes to emit.
+    // Will this file basically be a gadget that does 1 memory read and 1 lookup into public inputs per row?

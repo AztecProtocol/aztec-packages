@@ -69,9 +69,9 @@ impl Deserialize<PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH> for PrivateToAvmAccumul
 }
 
 pub struct PrivateToAvmAccumulatedDataArrayLengths {
-    note_hashes: u32,
-    nullifiers: u32,
-    l2_to_l1_msgs: u32,
+    pub note_hashes: u32,
+    pub nullifiers: u32,
+    pub l2_to_l1_msgs: u32,
 }
 
 impl PrivateToAvmAccumulatedDataArrayLengths {

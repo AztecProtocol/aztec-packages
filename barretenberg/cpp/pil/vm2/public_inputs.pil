@@ -1,0 +1,6 @@
+namespace public_inputs;
+
+pol public col0;
+pol public col1;
+pol public col2;
+pol public col3;

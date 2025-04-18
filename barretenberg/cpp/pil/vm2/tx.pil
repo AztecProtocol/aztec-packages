@@ -1,0 +1,31 @@
+namespace tx;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0;
+
+    // If the current row is not active, then there are no more active rows after that.
+    // Note that sel cannot be activated in the first row as sel' is defined.
+    // As a consequence, if a row is activated (sel == 1) somewhere in this sub-trace, then
+    // the activated rows start from the second row and are contiguous.
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+    pol commit start;
+    start * (1 - start) = 0;
+    // TODO(dbanks12): constrain that is 1 only the first time sel goes high and never after
+
+
+    // On start, look up start_gas_used from the public inputs
+    pol commit da_gas_used;
+    pol commit l2_gas_used;
+
+    pol commit start_gas_used_row_idx; // TODO: remove when constants are supported in lookups
+    start_gas_used_row_idx - AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_START_GAS_USED_ROW_IDX = 0;
+
+    #[PUBLIC_INPUTS_START_GAS_USED]
+    start { start_gas_used_row_idx, da_gas_used, l2_gas_used }
+    in { clk, public_inputs.col0, public_inputs.col1 }
+    // TODO(dbanks12): do i NEED a selector on both ends?
