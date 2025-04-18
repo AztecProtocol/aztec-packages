@@ -50,12 +50,9 @@ import {
 } from '../opcodes/index.js';
 import { BufferCursor } from './buffer_cursor.js';
 import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
+import type { Serializable } from './serializable.js';
 
 export type InstructionDeserializer = (buf: BufferCursor | Buffer) => Instruction;
-
-export interface Serializable {
-  serialize(): Buffer;
-}
 
 export interface Deserializable {
   deserialize: InstructionDeserializer;
