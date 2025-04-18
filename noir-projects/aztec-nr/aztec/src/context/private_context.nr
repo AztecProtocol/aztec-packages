@@ -45,7 +45,6 @@ use dep::protocol_types::{
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Empty, Hash, ToField},
-    utils::arrays::array_concat,
 };
 
 // When finished, one can call .finish() to convert back to the abi
@@ -441,7 +440,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
@@ -453,7 +452,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
@@ -510,7 +509,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)
