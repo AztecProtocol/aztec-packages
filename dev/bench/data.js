@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744945387167,
+  "lastUpdate": 1744950238426,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a7cfbbe8595ae3bdc4c7dd204dac524c03bbb358",
-          "message": "fix: cpp bench ci (#13565)",
-          "timestamp": "2025-04-15T10:10:17-04:00",
-          "tree_id": "8d40dee5b283e69d03eb5715cdbc408c7d6be5ab",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a7cfbbe8595ae3bdc4c7dd204dac524c03bbb358"
-        },
-        "date": 1744729039361,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17369.478817000072,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13671.656391 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2227216851,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 199190559,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20117.108548000033,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17068.405635000003 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55765.127112,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55765128000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4250.779878999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3649.4973249999994 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11652.293496,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11652297000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2215.75",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4170,6 +4098,78 @@ window.BENCHMARK_DATA = {
             "value": 1808,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff29d8668fcad9001f701144918346849174fea1",
+          "message": "chore: remove msm sorter (#13668)\n\nThe `MsmSorter` class contained logic to sort the inputs to an MSM\n{scalars, points} by scalar, sum the points sharing a scalar, then\nperform the MSM on the reduced result. This was motivated by the need to\ncommit to z_perm in the structured setting where the coefficients are\nconstant over large ranges. Turns out though that since our polys have a\nwell defined structure, its much better to simply provide the constant\nranges explicitly rather than sorting then adding. Much of the logic of\nthis class was repurposed into `BatchedAffineAddition` which is what\nsupports our `commit_structured_with_nonzero_complement` method (used\nfor `z_perm`).",
+          "timestamp": "2025-04-18T03:30:02Z",
+          "tree_id": "4a8c32ee1582651f4cbb043e49320477688d01b8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ff29d8668fcad9001f701144918346849174fea1"
+        },
+        "date": 1744950227522,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17223.11388100002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13578.593235000002 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2266459460,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 206129797,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19880.44844299998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16729.324527 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56264.38486,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56264386000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4319.112354999788,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3803.0096720000006 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11945.283787999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11945288000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2263.75",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
