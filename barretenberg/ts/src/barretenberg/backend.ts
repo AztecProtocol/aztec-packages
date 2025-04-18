@@ -178,12 +178,12 @@ export class UltraPlonkBackend {
  * Options for the UltraHonkBackend.
  */
 export type UltraHonkBackendOptions = {
-  /** Selecting this option will use the keccak hash function instead of poseidon
+  /**Selecting this option will use the keccak hash function instead of poseidon
    * when generating challenges in the proof.
    * Use this when you want to verify the created proof on an EVM chain.
    */
   keccak?: boolean;
-  /**S electing this option will use the poseidon/stark252 hash function instead of poseidon
+  /**Selecting this option will use the poseidon/stark252 hash function instead of poseidon
    * when generating challenges in the proof.
    * Use this when you want to verify the created proof on an Starknet chain with Garaga.
    */
