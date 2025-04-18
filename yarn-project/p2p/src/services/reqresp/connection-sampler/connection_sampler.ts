@@ -17,7 +17,7 @@ export class RandomSampler {
 }
 
 /**
- * A class that samples peers from the libp2p node and returns a peer that we don't already have a connection open to.
+ * A class that samples peers from the libp2p node and returns a peer that we don't already have a reqresp connection open to.
  * If we already have a connection open, we try to sample a different peer.
  * We do this MAX_SAMPLE_ATTEMPTS times, if we still don't find a peer we just go for it.
  *
@@ -74,7 +74,7 @@ export class ConnectionSampler {
   }
 
   /**
-   * Samples a peer from a list of peers, excluding those that have active connections or are in the exclusion list
+   * Samples a peer from a list of peers, excluding those that have active (reqresp) connections or are in the exclusion list
    *
    * @param peers - The list of peers to sample from
    * @param excluding - The peers to exclude from the sampling
@@ -108,7 +108,6 @@ export class ConnectionSampler {
       peers.splice(randomIndex, 1);
 
       // If peer is suitable (no active connections and not excluded), return it
-      // If we don't retry active connections, we only respect the not excluded condition
       if (!hasActiveConnections && !isExcluded) {
         this.logger.trace('Sampled peer', {
           attempts,
@@ -117,7 +116,7 @@ export class ConnectionSampler {
         return { peer, sampledPeers };
       }
 
-      // Keep track of peers that have active connections
+      // Keep track of peers that have active reqresp channels, batch sampling will use these to resample
       sampledPeers.push(peer);
     }
 
