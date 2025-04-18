@@ -125,6 +125,7 @@ where
     length
 }
 
+#[deprecated(note = "Use array.concat() method instead")]
 pub fn array_concat<T, let N: u32, let M: u32>(array1: [T; N], array2: [T; M]) -> [T; N + M] {
     let mut result = [array1[0]; N + M];
     for i in 1..N {
@@ -372,8 +373,29 @@ unconstrained fn find_index_not_found() {
 fn test_array_concat() {
     let array0 = [1, 2, 3];
     let array1 = [4, 5];
+    // Test old function
     let concatenated = array_concat(array0, array1);
     assert_eq(concatenated, [1, 2, 3, 4, 5]);
+    
+    // Test new method
+    let concatenated_method = array0.concat(array1);
+    assert_eq(concatenated_method, [1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn test_array_concat_method() {
+    let array0 = [1, 2, 3];
+    let array1 = [4, 5];
+    let concatenated = array0.concat(array1);
+    assert_eq(concatenated, [1, 2, 3, 4, 5]);
+    
+    // Test empty array concat
+    let empty: [Field; 0] = [];
+    let with_empty = array0.concat(empty);
+    assert_eq(with_empty, array0);
+    
+    let empty_first = empty.concat(array0);
+    assert_eq(empty_first, array0);
 }
 
 #[test]
