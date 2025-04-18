@@ -825,10 +825,6 @@ stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const ui
         return output;
     };
 
-    if constexpr (IsSimulator<Builder>) {
-        return constant_case();
-    }
-
     if (ctx == nullptr) {
         return constant_case();
     }
@@ -915,7 +911,6 @@ template <typename Builder> void generate_keccak_test_circuit(Builder& builder, 
     }
 }
 
-template class keccak<bb::CircuitSimulatorBN254>;
 template class keccak<bb::UltraCircuitBuilder>;
 template class keccak<bb::MegaCircuitBuilder>;
 template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);

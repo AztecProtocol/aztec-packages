@@ -3,7 +3,6 @@
  * instantiate templates.
  */
 #pragma once
-#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -19,6 +18,3 @@ template <typename T>
 concept IsMegaBuilder = bb::IsAnyOf<T, bb::MegaCircuitBuilder>;
 template <typename T>
 concept IsNotMegaBuilder = !IsMegaBuilder<T>;
-
-template <typename T>
-concept IsSimulator = bb::IsAnyOf<T, bb::CircuitSimulatorBN254>;
