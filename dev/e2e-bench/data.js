@@ -1,45 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745012869265,
+  "lastUpdate": 1745015795589,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "committer": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "distinct": true,
-          "id": "b855fcd2e3f7cd8eeac984de2b167dbc34254173",
-          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"e90f27d7b2\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"e90f27d7b2\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
-          "timestamp": "2025-04-12T02:29:02Z",
-          "tree_id": "8b4bbfe86141d13323e4ee7991a16efac49b7e73",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b855fcd2e3f7cd8eeac984de2b167dbc34254173"
-        },
-        "date": 1744426876269,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9448,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2549869714406942,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 146278,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 157115,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "90033f2d5e05966af0dd29179762d3f38e9154b5",
+          "message": "feat(contracts): static + snapshotted validator set (#13046)\n\nfixes: https://github.com/AztecProtocol/aztec-packages/issues/8761\n\nThis version stores a history of the validator set, without changing any\nof the apis. Follow up will include commitments to the committee\n\nThis Pr adds a SnappshottedAddressLib that ensures the validator set\nsize and members cannot change during an epoch.\n\nIn its current form, calculations that rely on attesters.size can be\nincorrect as it's size can change during the life time of an epoch. This\ncode snapshots the validator set such that queries to the attestor set\nwill remain fixed during the current epoch, and changes to the set will\nonly occur over the epoch boundary.",
+          "timestamp": "2025-04-18T21:32:04Z",
+          "tree_id": "297c460f17f2953f9fbe6b3ad2d2091ba236bd33",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/90033f2d5e05966af0dd29179762d3f38e9154b5"
+        },
+        "date": 1745015787774,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9655,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.25941205295845177,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 147381,
             "unit": "us"
           }
         ]
