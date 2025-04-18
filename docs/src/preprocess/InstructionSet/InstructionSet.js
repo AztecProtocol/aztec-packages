@@ -6,6 +6,7 @@ const TOPICS_IN_SECTIONS = [
   "Name",
   "Summary",
   "Category",
+  "Opcode",
   "Variants",
   "Flags",
   "Args",
@@ -544,8 +545,8 @@ const INSTRUCTION_SET_RAW = [
     "Tag updates": "`T[dstOffset] = dstTag`",
   },
   {
-    id: "getenv",
-    Name: "`GETENVVAR_16`",
+    id: "getenvvar",
+    Name: "`GETENVVAR`",
     Category: "Execution Environment",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
@@ -592,6 +593,24 @@ const INSTRUCTION_SET_RAW = [
     "Tag updates": "`T[dstOffset+M[copySizeOffset]] = field`",
   },
   {
+    id: "successcopy",
+    Name: "`SUCCESSCOPY`",
+    Category: "Memory - Calldata & Returndata",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "dstOffset",
+        description: "memory offset specifying where to store the success flag of the most recent nested call",
+        type: "u1",
+      },
+    ],
+    Expression: "`M[dstOffset] = context.machineState.nestedCallSuccess ? 1 : 0`",
+    Summary: "Copy the success status of the most recent nested call",
+    Details: "Copies the success status of the most recent nested call to the specified memory location. The value is 1 for success or 0 for failure.",
+    "Tag checks": "",
+    "Tag updates": "`T[dstOffset] = u1`",
+  },
+  {
     id: "returndatasize",
     Name: "`RETURNDATASIZE`",
     Category: "Memory - Calldata & Returndata",
@@ -635,7 +654,7 @@ const INSTRUCTION_SET_RAW = [
   },
   {
     id: "jump",
-    Name: "`JUMP_32`",
+    Name: "`JUMP`",
     Category: "Machine State - Control Flow",
     Flags: [],
     Args: [
@@ -654,7 +673,7 @@ const INSTRUCTION_SET_RAW = [
   },
   {
     id: "jumpi",
-    Name: "`JUMPI_32`",
+    Name: "`JUMPI`",
     Category: "Machine State - Control Flow",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
@@ -845,7 +864,7 @@ M[existsOffset] = exists
     Summary:
       "Check whether a note hash exists in the note hash tree",
     Details: "Silo the note hash (hash with storage contract address), and perform a membership check of the note hash tree",
-    "Tag checks": "T[noteHashOffset] == T[leafIndexOffset] == field",
+    "Tag checks": "`T[noteHashOffset] == T[leafIndexOffset] == field`",
     "Tag updates": "`T[existsOffset] = u1`",
   },
   {
@@ -864,7 +883,7 @@ context.worldState.noteHashes.append(
     Summary: "Insert a new note hash into the note hash tree",
     Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
     Details: "Silo the note hash (hash with contract address), make it unique (hash with nonce) and insert into note hash tree",
-    "Tag checks": "T[nullifierOffset] == field",
+    "Tag checks": "`T[nullifierOffset] == field`",
     "Tag updates": "",
   },
   {
@@ -895,7 +914,7 @@ M[existsOffset] = exists
 `,
     Summary: "Check whether a nullifier exists in the nullifier tree",
     Details: "Silo nullifier (hash with storage contract address), check membership in the nullifier tree",
-    "Tag checks": "T[nullifierOffset] == T[addressOffset] == field",
+    "Tag checks": "`T[nullifierOffset] == T[addressOffset] == field`",
     "Tag updates": "`T[existsOffset] = u1`",
   },
   {
@@ -914,7 +933,7 @@ context.worldState.nullifiers.append(
     Summary: "Insert a new nullifier into the nullifier tree",
     Exceptions: "Exceptional halt if the specified nullifier already exists or if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
     Details: "Silo nullifier (hash with contract address), assert non-membership and insert into nullifier tree",
-    "Tag checks": "T[nullifierOffset] == field",
+    "Tag checks": "`T[nullifierOffset] == field`",
     "Tag updates": "",
   },
   {
@@ -945,8 +964,8 @@ exists = context.worldState.l1ToL2Messages.has({
 M[existsOffset] = exists
 `,
     Summary: "Check if a message exists in the L1-to-L2 message tree",
-    "Tag checks": "T[msgHashOffset] == T[msgLeafIndexOffset] == field",
-    "Tag updates": "T[existsOffset] = u1",
+    "Tag checks": "`T[msgHashOffset] == T[msgLeafIndexOffset] == field`",
+    "Tag updates": "`T[existsOffset] = u1`",
   },
   {
     id: "getcontractinstance",
@@ -977,8 +996,8 @@ M[existsOffset] = exists
     Expression: "`M[dstOffset] = context.worldState.contracts.get(M[addressOffset])[memberEnum]`",
     Summary: "Get a member from the contract instance at the specified address",
     Details: "M[dstOffset] will be assigned zero if the contract instance does not exist or if memberEnum is invalid",
-    "Tag checks": "T[addressOffset] == field",
-    "Tag updates": "T[dstOffset] = field; T[existsOffset] = u1",
+    "Tag checks": "`T[addressOffset] == field`",
+    "Tag updates": "`T[dstOffset] = field; T[existsOffset] = u1`",
   },
   {
     id: "emitpubliclog",
@@ -1001,7 +1020,7 @@ context.worldState.publicLogs.append(
 )
 `,
     Summary: "Emit a public log",
-    "Tag checks": "T[logSizeOffset] == u32 && T[logOffset:logOffset+M[logSizeOffset]] == field",
+    "Tag checks": "`T[logSizeOffset] == u32 && T[logOffset:logOffset+M[logSizeOffset]] == field`",
     "Tag updates": "",
   },
   {
@@ -1029,7 +1048,7 @@ context.worldState.l2ToL1Messages.append(
 `,
     Summary: "Send an L2-to-L1 message",
     Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
-    "Tag checks": "T[recipientOffset] == T[contentOffset] == field",
+    "Tag checks": "`T[recipientOffset] == T[contentOffset] == field`",
     "Tag updates": "",
   },
   {
@@ -1059,9 +1078,7 @@ T[gasOffset] == T[gasOffset+1] == field
 T[addrOffset] == field
 T[argsSizeOffset] == u32
 `,
-    "Tag updates": `
-T[successOffset] = u1
-`,
+    "Tag updates": "`T[successOffset] = u1`",
   },
   {
     id: "staticcall",
@@ -1088,9 +1105,7 @@ T[gasOffset] == T[gasOffset+1] == field
 T[addrOffset] == field
 T[argsSizeOffset] == u32
 `,
-    "Tag updates": `
-T[successOffset] = u1
-`,
+    "Tag updates": "`T[successOffset] = u1`",
   },
   {
     id: "return",
@@ -1189,53 +1204,135 @@ T[fieldsOffset:fieldsOffset+fieldsSizeOffset] == field
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
-        name: "srcOffset",
-        description: "memory offset of word to convert.",
+        name: "inputStateOffset",
+        description: "memory offset of the input state (4 contiguous field elements).",
       },
       {
-        name: "radixOffset",
-        description: "memory offset to the radix (maximum bit-size of each limb).",
-      },
-      {
-        name: "numLimbsOffset",
-        description: "memory offset to the number of limbs the word will be converted into.",
-      },
-      {
-        name: "outputBitsOffset",
-        description:
-          "memory offset to the a boolean whether the output should be in bits format (1 bit per memory word)",
-      },
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where the first limb of the radix-conversion result is stored.",
+        name: "outputStateOffset",
+        description: "memory offset specifying where to store operation's result (4 contiguous field elements).",
       },
     ],
     Expression: `
-M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBe<M[radixOffset], M[numLimbsOffset], M[outputBitsOffset]>(M[srcOffset])
+M[outputStateOffset:outputStateOffset+4] = poseidon2Permutation(M[inputStateOffset:inputStateOffset+4])
 `,
-    Summary: "Convert a word to an array of limbs in little-endian radix form",
-    Exceptions: "Exceptional halt if radix < 2 or radix > 256, if numLimbs < 1 but M[srcOffset] is nonzero, if outputBits is true but radix is not 2",
-    Details: `
-value = M[srcOffset]
-radix = M[radixOffset]
-numLimbs = M[numLimbsOffset]
-for (let i = numLimbs - 1; i >= 0; i--) {
-  const limb = value % radix;
-  M[dstOffset+i] = limb;
-  value /= radix;
-}
-`,
-    "Tag checks": `
-T[srcOffset] == field
-T[radixOffset] == u32
-T[numLimbsOffset] == u32
-T[outputBitsOffset] == u1
-`,
-    "Tag updates": `T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? u1 : u8`,
+    Summary: "Apply the Poseidon2 permutation function",
+    Details: "Applies the Poseidon2 permutation to 4 fields. Used as part of Poseidon2 hashes.",
+    "Tag checks": "`T[inputStateOffset:inputStateOffset+4] == field`",
+    "Tag updates": "`T[outputStateOffset:outputStateOffset+4] = field`",
   },
   {
-    id: "to_radix_be",
+    id: "sha256compression",
+    Name: "`SHA256COMPRESSION`",
+    Category: "Hashing",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "outputOffset",
+        description: "memory offset specifying where to store the compressed state (8 contiguous u32 words)",
+      },
+      {
+        name: "stateOffset",
+        description: "memory offset of the input state (8 contiguous u32 words)",
+      },
+      {
+        name: "inputsOffset",
+        description: "memory offset of the message block (16 contiguous u32 words)",
+      },
+    ],
+    Expression: `
+M[outputOffset:outputOffset+8] = sha256Compression(
+    state: M[stateOffset:stateOffset+8],
+    inputs: M[inputsOffset:inputsOffset+16]
+)
+`,
+    Summary: "Apply the SHA-256 compression function",
+    Details: "Applies a single round of the SHA-256 compression function to an 8-word state and a 16-word message block. This instruction is used as part of SHA-256 hash computation.",
+    "Tag checks": "`T[stateOffset:stateOffset+8] == T[inputsOffset:inputsOffset+16] == u32`",
+    "Tag updates": "`T[outputOffset:outputOffset+8] = u32`",
+  },
+  {
+    id: "keccakf1600",
+    Name: "`KECCAKF1600`",
+    Category: "Hashing",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "dstOffset",
+        description: "memory offset specifying where to store operation's result (25 contiguous u64 words)",
+      },
+      {
+        name: "inputOffset",
+        description: "memory offset of the input state (25 contiguous u64 words)",
+      },
+    ],
+    Expression: `
+M[dstOffset:dstOffset+25] = keccakf1600(M[inputOffset:inputOffset+25])
+`,
+    Summary: "Apply the Keccakf1600 permutation",
+    Details: "Applies the Keccak-f[1600] permutation to a 1600-bit (25 uint64 words) input state. This is the core permutation used in SHA-3 and Keccak hash functions.",
+    "Tag checks": "`T[inputOffset:inputOffset+25] == u64`",
+    "Tag updates": "`T[dstOffset:dstOffset+25] = u64`",
+  },
+  {
+    id: "ecadd",
+    Name: "`ECADD`",
+    Category: "Elliptic Curve Operations",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "p1XOffset",
+        description: "memory offset of the x-coordinate of the first point",
+      },
+      {
+        name: "p1YOffset",
+        description: "memory offset of the y-coordinate of the first point",
+      },
+      {
+        name: "p1IsInfiniteOffset",
+        description: "memory offset of the infinity flag of the first point",
+        type: "u1",
+      },
+      {
+        name: "p2XOffset",
+        description: "memory offset of the x-coordinate of the second point",
+      },
+      {
+        name: "p2YOffset",
+        description: "memory offset of the y-coordinate of the second point",
+      },
+      {
+        name: "p2IsInfiniteOffset",
+        description: "memory offset of the infinity flag of the second point",
+        type: "u1",
+      },
+      {
+        name: "dstOffset",
+        description: "memory offset specifying where to store operation's result (three contiguous words: x, y, isInfinite)",
+      },
+    ],
+    Expression: `
+{
+    x: M[dstOffset],
+    y: M[dstOffset+1],
+    isInfinite: M[dstOffset+2],
+} = ecAdd(
+    M[p1XOffset], M[p1YOffset], M[p1IsInfiniteOffset],
+    M[p2XOffset], M[p2YOffset], M[p2IsInfiniteOffset],
+)
+`,
+    Summary: "Add two points on the Grumpkin elliptic curve",
+    "Tag checks": `
+T[p1XOffset] == T[p1YOffset] == T[p2XOffset] == T[p2YOffset] == field
+T[p1IsInfiniteOffset] == T[p2IsInfiniteOffset] == u1
+`,
+    "Tag updates": `
+T[dstOffset] = field
+T[dstOffset+1] = field
+T[dstOffset+2] = u1
+`,
+  },
+  {
+    id: "toradixbe",
     Name: "`TORADIXBE`",
     Category: "Conversions",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
@@ -1287,10 +1384,38 @@ T[outputBitsOffset] == u1
     "Tag updates": `T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? u1 : u8`,
   },
 ];
-const INSTRUCTION_SET = INSTRUCTION_SET_RAW.map((instr) => {
-  instr["Bit-size"] = instructionSize(instr);
-  return instr;
-});
+
+/**
+ * Instructions with only one/no variant use 1 opcode.
+ * Instructions with multiple variants use 1 opcode per variant.
+ * Add `opcode: <opcode>` to each variant-less opcode.
+ * Add `opcode: <opcode>` to each variant.
+ */
+function addOpcodes() {
+  let opcode = 0;
+  for (let i = 0; i < INSTRUCTION_SET_RAW.length; i++) {
+    const instr = INSTRUCTION_SET_RAW[i];
+    if (instr.Variants) {
+      for (let v = 0; v < instr.Variants.length; v++) {
+        instr.Variants[v].Opcode = `\`${opcode}\``;
+        opcode += 1;
+      }
+    } else {
+      instr.Opcode = `\`${opcode}\``;
+      opcode += 1;
+    }
+  }
+}
+
+function modifiedInstructionSet() {
+  addOpcodes();
+  return INSTRUCTION_SET_RAW.map((instr) => {
+    instr["Bit-size"] = instructionSize(instr);
+    return instr;
+  });
+}
+
+const INSTRUCTION_SET = modifiedInstructionSet();
 
 module.exports = {
   TOPICS_IN_TABLE,
