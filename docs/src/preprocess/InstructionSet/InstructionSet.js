@@ -19,8 +19,7 @@ const TOPICS_IN_SECTIONS = [
   "Triggers downstream circuit operations",
   "Tag checks",
   "Tag updates",
-  "Base Gas",
-  "Dynamic Gas",
+  "Gas cost",
   "Bit-size",
 ];
 
@@ -98,7 +97,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "Wraps on overflow",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
-    "Base Gas": { L2: gasConstants.AVM_ADD_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_ADD_BASE_L2_GAS }
+    ],
   },
   {
     id: "sub",
@@ -131,7 +132,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "Wraps on underflow",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
-    "Base Gas": { L2: gasConstants.AVM_SUB_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SUB_BASE_L2_GAS }
+    ],
   },
   {
     id: "mul",
@@ -164,7 +167,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "Wraps on overflow",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
-    "Base Gas": { L2: gasConstants.AVM_MUL_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_MUL_BASE_L2_GAS }
+    ],
   },
   {
     id: "div",
@@ -198,7 +203,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset] != field`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
-    "Base Gas": { L2: gasConstants.AVM_DIV_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_DIV_BASE_L2_GAS }
+    ],
   },
   {
     id: "fdiv",
@@ -229,7 +236,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset] == field`",
     "Tag updates": "`T[dstOffset] = field`",
-    "Base Gas": { L2: gasConstants.AVM_FDIV_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_FDIV_BASE_L2_GAS }
+    ],
   },
   {
     id: "eq",
@@ -263,7 +272,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = u1`",
-    "Base Gas": { L2: gasConstants.AVM_EQ_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_EQ_BASE_L2_GAS }
+    ],
   },
   {
     id: "lt",
@@ -297,7 +308,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = u1`",
-    "Base Gas": { L2: gasConstants.AVM_LT_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_LT_BASE_L2_GAS }
+    ],
   },
   {
     id: "lte",
@@ -331,7 +344,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = u1`",
-    "Base Gas": { L2: gasConstants.AVM_LTE_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_LTE_BASE_L2_GAS }
+    ],
   },
   {
     id: "and",
@@ -365,7 +380,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
-    "Base Gas": { L2: gasConstants.AVM_AND_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_AND_BASE_L2_GAS }
+    ],
   },
   {
     id: "or",
@@ -399,7 +416,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
-    "Base Gas": { L2: gasConstants.AVM_OR_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_OR_BASE_L2_GAS }
+    ],
   },
   {
     id: "xor",
@@ -433,7 +452,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset] == T[bOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
-    "Base Gas": { L2: gasConstants.AVM_XOR_BASE_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_XOR_BASE_L2_GAS }
+    ],
   },
   {
     id: "not",
@@ -463,6 +484,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset]`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_NOT_BASE_L2_GAS }
+    ],
   },
   {
     id: "shl",
@@ -497,6 +521,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset]`, `T[bOffset] == u8`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SHL_BASE_L2_GAS }
+    ],
   },
   {
     id: "shr",
@@ -531,6 +558,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "`T[aOffset]`, `T[bOffset] == u8`",
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SHR_BASE_L2_GAS }
+    ],
   },
   {
     id: "cast",
@@ -557,6 +587,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./memory-model#cast-and-tag-conversions) for more details.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = dstTag`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_CAST_BASE_L2_GAS }
+    ],
   },
   {
     id: "getenvvar",
@@ -580,6 +613,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "`Enum: [ ADDRESS, SENDER, TRANSACTIONFEE, CHAINID, VERSION, BLOCKNUMBER, TIMESTAMP, FEEPERL2GAS, FEEPERDAGAS, ISSTATICCALL, L2GASLEFT, DAGASLEFT ]`",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = varEnum == TIMESTAMP ? u64 : field`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_GETENVVAR_BASE_L2_GAS }
+    ],
   },
   {
     id: "calldatacopy",
@@ -605,8 +641,10 @@ const INSTRUCTION_SET_RAW = [
     Details: "If the copy would surpass the bounds of calldata, the result is zero-padded to copySizeOffset.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset+M[copySizeOffset]] = field`",
-    "Base Gas": { L2: gasConstants.AVM_CALLDATACOPY_BASE_L2_GAS },
-    "Dynamic Gas": { L2: gasConstants.AVM_CALLDATACOPY_DYN_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_CALLDATACOPY_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_CALLDATACOPY_DYN_L2_GAS }
+    ],
   },
   {
     id: "successcopy",
@@ -625,6 +663,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "Copies the success status of the most recent nested call to the specified memory location. The value is 1 for success or 0 for failure.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = u1`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SUCCESSCOPY_BASE_L2_GAS }
+    ],
   },
   {
     id: "returndatasize",
@@ -642,6 +683,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "The returndata buffer holds the returndata from only the latest nested call. If no nested call has been made yet from this context, size zero.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset+M[copySizeOffset]] = u32`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_RETURNDATASIZE_BASE_L2_GAS }
+    ],
   },
   {
     id: "returndatacopy",
@@ -667,8 +711,10 @@ const INSTRUCTION_SET_RAW = [
     Details: "The returndata buffer holds the returndata from only the latest nested call. If the copy would surpass the bounds of returndata, the result is zero-padded to copySizeOffset.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset+M[copySizeOffset]] = field`",
-    "Base Gas": { L2: gasConstants.AVM_RETURNDATACOPY_BASE_L2_GAS },
-    "Dynamic Gas": { L2: gasConstants.AVM_RETURNDATACOPY_DYN_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_RETURNDATACOPY_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_RETURNDATACOPY_DYN_L2_GAS }
+    ],
   },
   {
     id: "jump",
@@ -688,6 +734,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "Target location is an immediate value (a constant in the bytecode).",
     "Tag checks": "",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_JUMP_BASE_L2_GAS }
+    ],
   },
   {
     id: "jumpi",
@@ -711,6 +760,9 @@ const INSTRUCTION_SET_RAW = [
     Details: "Target location is an immediate value (a constant in the bytecode). `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
     "Tag checks": "",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_JUMPI_BASE_L2_GAS }
+    ],
   },
   {
     id: "internalcall",
@@ -735,6 +787,9 @@ context.machineState.pc = loc
       "Target location is an immediate value (a constant in the bytecode).",
     "Tag checks": "",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_INTERNALCALL_BASE_L2_GAS }
+    ],
   },
   {
     id: "internalreturn",
@@ -749,6 +804,9 @@ context.machineState.pc = loc
     Details: "",
     "Tag checks": "",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_INTERNALRETURN_BASE_L2_GAS }
+    ],
   },
   {
     id: "set",
@@ -787,6 +845,9 @@ context.machineState.pc = loc
     Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = inTag`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SET_BASE_L2_GAS }
+    ],
   },
   {
     id: "mov",
@@ -809,6 +870,9 @@ context.machineState.pc = loc
     Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = T[srcOffset]`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_MOV_BASE_L2_GAS }
+    ],
   },
   {
     id: "sload",
@@ -834,6 +898,9 @@ M[dstOffset] = S[M[slotOffset]]
     Details: "Silo the storage slot (hash with contract address), and perform a membership check in the public data tree.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = field`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SLOAD_BASE_L2_GAS }
+    ],
   },
   {
     id: "sstore",
@@ -855,10 +922,10 @@ S[M[slotOffset]] = M[srcOffset]
     Details: "Silo the storage slot (hash with contract address), and perform a merkle insertion in the public data tree.",
     "Tag checks": "",
     "Tag updates": "",
-    "Base Gas": {
-      L2: gasConstants.AVM_SSTORE_BASE_L2_GAS,
-      DA: gasConstants.AVM_SSTORE_BASE_DA_GAS
-    },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SSTORE_BASE_L2_GAS },
+      { name: "Base DA Gas", description: gasConstants.AVM_SSTORE_BASE_DA_GAS }
+    ],
   },
   {
     id: "notehashexists",
@@ -888,6 +955,9 @@ M[existsOffset] = exists
     Details: "Silo the note hash (hash with storage contract address), and perform a membership check of the note hash tree",
     "Tag checks": "`T[noteHashOffset] == T[leafIndexOffset] == field`",
     "Tag updates": "`T[existsOffset] = u1`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_NOTEHASHEXISTS_BASE_L2_GAS }
+    ],
   },
   {
     id: "emitnotehash",
@@ -907,10 +977,10 @@ context.worldState.noteHashes.append(
     Details: "Silo the note hash (hash with contract address), make it unique (hash with nonce) and insert into note hash tree",
     "Tag checks": "`T[nullifierOffset] == field`",
     "Tag updates": "",
-    "Base Gas": {
-      L2: gasConstants.AVM_EMITNOTEHASH_BASE_L2_GAS,
-      DA: gasConstants.AVM_EMITNOTEHASH_BASE_DA_GAS
-    },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_EMITNOTEHASH_BASE_L2_GAS },
+      { name: "Base DA Gas", description: gasConstants.AVM_EMITNOTEHASH_BASE_DA_GAS }
+    ],
   },
   {
     id: "nullifierexists",
@@ -942,6 +1012,9 @@ M[existsOffset] = exists
     Details: "Silo nullifier (hash with storage contract address), check membership in the nullifier tree",
     "Tag checks": "`T[nullifierOffset] == T[addressOffset] == field`",
     "Tag updates": "`T[existsOffset] = u1`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_NULLIFIEREXISTS_BASE_L2_GAS }
+    ],
   },
   {
     id: "emitnullifier",
@@ -961,6 +1034,10 @@ context.worldState.nullifiers.append(
     Details: "Silo nullifier (hash with contract address), assert non-membership and insert into nullifier tree",
     "Tag checks": "`T[nullifierOffset] == field`",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_EMITNULLIFIER_BASE_L2_GAS },
+      { name: "Base DA Gas", description: gasConstants.AVM_EMITNULLIFIER_BASE_DA_GAS }
+    ],
   },
   {
     id: "l1tol2msgexists",
@@ -992,6 +1069,9 @@ M[existsOffset] = exists
     Summary: "Check if a message exists in the L1-to-L2 message tree",
     "Tag checks": "`T[msgHashOffset] == T[msgLeafIndexOffset] == field`",
     "Tag updates": "`T[existsOffset] = u1`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_L1TOL2MSGEXISTS_BASE_L2_GAS }
+    ],
   },
   {
     id: "getcontractinstance",
@@ -1024,6 +1104,9 @@ M[existsOffset] = exists
     Details: "M[dstOffset] will be assigned zero if the contract instance does not exist or if memberEnum is invalid",
     "Tag checks": "`T[addressOffset] == field`",
     "Tag updates": "`T[dstOffset] = field; T[existsOffset] = u1`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_GETCONTRACTINSTANCE_BASE_L2_GAS }
+    ],
   },
   {
     id: "emitpubliclog",
@@ -1048,8 +1131,11 @@ context.worldState.publicLogs.append(
     Summary: "Emit a public log",
     "Tag checks": "`T[logSizeOffset] == u32 && T[logOffset:logOffset+M[logSizeOffset]] == field`",
     "Tag updates": "",
-    "Base Gas": { L2: gasConstants.AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS },
-    "Dynamic Gas": { L2: gasConstants.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS, DA: gasConstants.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS },
+      { name: "Dynamic DA Gas", description: gasConstants.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS }
+    ],
   },
   {
     id: "sendl2tol1msg",
@@ -1078,6 +1164,10 @@ context.worldState.l2ToL1Messages.append(
     Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
     "Tag checks": "`T[recipientOffset] == T[contentOffset] == field`",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SENDL2TOL1MSG_BASE_L2_GAS },
+      { name: "Base DA Gas", description: gasConstants.AVM_SENDL2TOL1MSG_BASE_DA_GAS }
+    ],
   },
   {
     id: "call",
@@ -1107,8 +1197,10 @@ T[addrOffset] == field
 T[argsSizeOffset] == u32
 `,
     "Tag updates": "`T[successOffset] = u1`",
-    "Base Gas": { L2: gasConstants.AVM_CALL_BASE_L2_GAS },
-    "Dynamic Gas": { L2: gasConstants.AVM_CALL_DYN_L2_GAS },
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_CALL_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_CALL_DYN_L2_GAS }
+    ],
   },
   {
     id: "staticcall",
@@ -1136,6 +1228,10 @@ T[addrOffset] == field
 T[argsSizeOffset] == u32
 `,
     "Tag updates": "`T[successOffset] = u1`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_STATICCALL_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_STATICCALL_DYN_L2_GAS }
+    ],
   },
   {
     id: "return",
@@ -1160,6 +1256,10 @@ halt
     Details: 'Return control flow to the calling context/contract. Caller will accept World State modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
     "Tag checks": "`T[returnSizeOffset] == u32`",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_RETURN_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_RETURN_DYN_L2_GAS }
+    ],
   },
   {
     id: "revert",
@@ -1187,6 +1287,10 @@ halt
       'Return control flow to the calling context/contract. Caller will reject World State modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
     "Tag checks": "`T[returnSizeOffset] == u32`",
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_REVERT_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_REVERT_DYN_L2_GAS }
+    ],
   },
   {
     id: "debuglog",
@@ -1222,6 +1326,10 @@ T[messageOffset:messageOffset+messageSize] == u8
 T[fieldsOffset:fieldsOffset+fieldsSizeOffset] == field
 `,
     "Tag updates": "",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_DEBUGLOG_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_DEBUGLOG_DYN_L2_GAS }
+    ],
   },
   {
     id: "poseidon2permutation",
@@ -1245,6 +1353,9 @@ M[outputStateOffset:outputStateOffset+4] = poseidon2Permutation(M[inputStateOffs
     Details: "Applies the Poseidon2 permutation to 4 fields. Used as part of Poseidon2 hashes.",
     "Tag checks": "`T[inputStateOffset:inputStateOffset+4] == field`",
     "Tag updates": "`T[outputStateOffset:outputStateOffset+4] = field`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_POSEIDON2_BASE_L2_GAS }
+    ],
   },
   {
     id: "sha256compression",
@@ -1275,6 +1386,9 @@ M[outputOffset:outputOffset+8] = sha256Compression(
     Details: "Applies a single round of the SHA-256 compression function to an 8-word state and a 16-word message block. This instruction is used as part of SHA-256 hash computation.",
     "Tag checks": "`T[stateOffset:stateOffset+8] == T[inputsOffset:inputsOffset+16] == u32`",
     "Tag updates": "`T[outputOffset:outputOffset+8] = u32`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_SHA256COMPRESSION_BASE_L2_GAS }
+    ],
   },
   {
     id: "keccakf1600",
@@ -1298,6 +1412,9 @@ M[dstOffset:dstOffset+25] = keccakf1600(M[inputOffset:inputOffset+25])
     Details: "Applies the Keccak-f[1600] permutation to a 1600-bit (25 uint64 words) input state. This is the core permutation used in SHA-3 and Keccak hash functions.",
     "Tag checks": "`T[inputOffset:inputOffset+25] == u64`",
     "Tag updates": "`T[dstOffset:dstOffset+25] = u64`",
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_KECCAKF1600_BASE_L2_GAS }
+    ],
   },
   {
     id: "ecadd",
@@ -1356,6 +1473,9 @@ T[dstOffset] = field
 T[dstOffset+1] = field
 T[dstOffset+2] = u1
 `,
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_ECADD_BASE_L2_GAS }
+    ],
   },
   {
     id: "toradixbe",
@@ -1408,6 +1528,10 @@ T[numLimbsOffset] == u32
 T[outputBitsOffset] == u1
 `,
     "Tag updates": `T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? u1 : u8`,
+    "Gas cost": [
+      { name: "Base L2 Gas", description: gasConstants.AVM_TORADIXBE_BASE_L2_GAS },
+      { name: "Dynamic L2 Gas", description: gasConstants.AVM_TORADIXBE_DYN_L2_GAS }
+    ],
   },
 ];
 
