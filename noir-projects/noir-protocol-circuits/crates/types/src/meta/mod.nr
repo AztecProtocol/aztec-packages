@@ -411,8 +411,9 @@ pub comptime fn generate_serialize_to_fields(
                 // We add the new auxiliary variable to the aux_vars array
                 aux_vars = aux_vars.push_back(serialized_struct);
             } else {
-                println(f"no serialize for {name}");
-                // panic("argh");
+                panic(
+                    f"Unsupported type for serialization of argument {name} and type {typ}",
+                )
             }
         } else if typ.as_array().is_some() {
             // For array we recursively call `generate_serialize_to_fields(...)` for each element
