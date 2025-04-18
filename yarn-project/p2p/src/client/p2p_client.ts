@@ -332,7 +332,18 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
   public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const txs = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
+    // Set collective timeout based on the number of txs we are requesting
+    const timeoutMs = Math.min(8000, txHashes.length * 100);
+    const maxPeers = Math.min(Math.ceil(txHashes.length / 3), 10);
+    const maxRetryAttempts = 10; // Keep retrying within the timeout
+
+    const txs = await this.p2pService.sendBatchRequest(
+      ReqRespSubProtocol.TX,
+      txHashes,
+      timeoutMs,
+      maxPeers,
+      maxRetryAttempts,
+    );
 
     // Some transactions may return undefined, so we filter them out
     const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
