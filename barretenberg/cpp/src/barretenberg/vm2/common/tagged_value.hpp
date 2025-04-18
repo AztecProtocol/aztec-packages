@@ -41,6 +41,8 @@ template <typename T> ValueTag tag_for_type()
     }
 }
 
+uint8_t get_tag_bits(ValueTag tag);
+
 class TaggedValue {
   public:
     // We are using variant to avoid heap allocations at the cost of a bigger memory footprint.
