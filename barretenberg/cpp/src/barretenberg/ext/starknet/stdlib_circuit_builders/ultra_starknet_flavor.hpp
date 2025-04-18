@@ -7,7 +7,7 @@ namespace bb {
 
 class UltraStarknetFlavor : public UltraKeccakFlavor {
   public:
-    using Transcript = UltraStarknetFlavor::Transcript_<starknet::StarknetTranscriptParams>;
+    using Transcript = Transcript_<starknet::StarknetTranscriptParams>;
 };
 
 } // namespace bb

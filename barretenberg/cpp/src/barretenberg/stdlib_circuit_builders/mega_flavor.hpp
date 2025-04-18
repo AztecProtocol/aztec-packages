@@ -755,7 +755,6 @@ class MegaFlavor {
     /**
      * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
      * Note: Made generic for use in MegaRecursive.
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
      */
     class Transcript : public NativeTranscript {
       public:
