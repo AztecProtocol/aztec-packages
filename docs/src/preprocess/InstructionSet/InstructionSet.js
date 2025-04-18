@@ -1183,16 +1183,12 @@ halt
         type: "u16",
       },
     ],
-    Expression: `
-context.contractCallResults.output = M[retOffset:retOffset+retSize]
-context.contractCallResults.reverted = true
-halt
-`,
+    Expression: `debug log`,
     Summary: "Print a debug logging message",
     Details: "Each memory word in 'message' is interpreted as a character code. The message string is then interpreted as a formattable string like 'My debug string with some fields: {0} {1}', where '{0}' will be filled in with the 0th field referenced by fieldsOffset.",
     "Tag checks": `
-T[messageOffset:messageOffset+messageSize] == u8
 T[fieldsSizeOffset] == u32
+T[messageOffset:messageOffset+messageSize] == u8
 T[fieldsOffset:fieldsOffset+fieldsSizeOffset] == field
 `,
     "Tag updates": "",
