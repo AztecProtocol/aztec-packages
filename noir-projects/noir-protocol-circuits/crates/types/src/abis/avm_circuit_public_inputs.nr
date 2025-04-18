@@ -22,7 +22,7 @@ use crate::{
     utils::reader::Reader,
 };
 
-use std::hash::{poseidon2, poseidon2_permutation};
+use std::hash::poseidon2_permutation;
 
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
@@ -208,7 +208,7 @@ pub global DUMMY_AVM_VERIFIER_NUM_ITERATIONS: u32 = DUMMY_AVM_VERIFIER_NUM_COLUM
 // TODO(#8470): Replace with the real AVM recursive verifier
 impl AvmProofData {
     pub fn fake_verify(self) {
-        let mut input_hash = poseidon2::Poseidon2::hash(
+        let mut input_hash = poseidon::poseidon2::Poseidon2::hash(
             [self.public_inputs.transaction_fee, self.proof.fields[0], self.vk_data.vk.key[0]],
             3,
         );
