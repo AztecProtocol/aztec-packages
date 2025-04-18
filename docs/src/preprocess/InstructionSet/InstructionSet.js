@@ -60,10 +60,10 @@ const CALL_INSTRUCTION_DETAILS = `
     nested context derivation, world state, and updating the parent context
     after the nested call halts.`;
 
-const VARIANT_8 = "Memory offset operands are 8 bits wide. Note that this does not mean that the resolved memory value is u8.";
-const VARIANT_16 = "Memory offset operands are 16 bits wide. Note that this does not mean that the resolved memory value is u16.";
-const getSetVariant = (size) => `Imemediate 'value' operand is ${size} bits wide. Note that this does not mean that the destination type/tag will necessarily be 'u${size}'.`;
-const SET_VARIANT_FF = "Imemediate 'value' operand is a full 254-bit field (FF).  Note that this does not mean that the destination type/tag will necessarily be 'field'.";
+const VARIANT_8 = "Memory offset operands are 8 bits wide. Note that this does not mean that the resolved memory value (read or written) is u8.";
+const VARIANT_16 = "Memory offset operands are 16 bits wide. Note that this does not mean that the resolved memory value (read or written) is u16.";
+const getSetVariant = (size) => `Immediate 'value' operand is ${size} bits wide. Note that this does not mean that the destination type/tag will necessarily be 'u${size}'.`;
+const SET_VARIANT_FF = "Immediate 'value' operand is a full 254-bit field (FF).  Note that this does not mean that the destination type/tag will necessarily be 'field'.";
 
 const INSTRUCTION_SET_RAW = [
   {
@@ -498,7 +498,6 @@ const INSTRUCTION_SET_RAW = [
     ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
     ],
     Args: [
       {
@@ -519,7 +518,10 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] << M[bOffset]`",
     Summary: "Bitwise leftward shift (a << b)",
     Details: "",
-    "Tag checks": "`T[aOffset]`, `T[bOffset] == u8`",
+    "Tag checks": `
+T[aOffset] != field // is integral
+T[bOffset] == u8
+`,
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
     "Gas cost": [
       { name: "Base L2 Gas", description: gasConstants.AVM_SHL_BASE_L2_GAS }
@@ -535,7 +537,6 @@ const INSTRUCTION_SET_RAW = [
     ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
     ],
     Args: [
       {
@@ -556,7 +557,10 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] >> M[bOffset]`",
     Summary: "Bitwise rightward shift (a >> b)",
     Details: "",
-    "Tag checks": "`T[aOffset]`, `T[bOffset] == u8`",
+    "Tag checks": `
+T[aOffset] != field // is integral
+T[bOffset] == u8
+`,
     "Tag updates": "`T[dstOffset] = T[aOffset]`",
     "Gas cost": [
       { name: "Base L2 Gas", description: gasConstants.AVM_SHR_BASE_L2_GAS }
@@ -1253,7 +1257,7 @@ T[argsSizeOffset] == u32
       },
       {
         name: "retSizeOffset",
-        description: "meomry offset for the number of words to return",
+        description: "memory offset for the number of words to return",
       },
     ],
     Expression: `
@@ -1273,6 +1277,10 @@ halt
     id: "revert",
     Name: "`REVERT`",
     Category: "Control Flow - Contract Calls",
+    Variants: [
+      { name: "REVERT_8", description: VARIANT_8 },
+      { name: "REVERT_16", description: VARIANT_16 },
+    ],
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
@@ -1281,7 +1289,7 @@ halt
       },
       {
         name: "retSize",
-        description: "meomry offset for the number of words to return",
+        description: "memory offset for the number of words to return",
       },
     ],
     Expression: `
