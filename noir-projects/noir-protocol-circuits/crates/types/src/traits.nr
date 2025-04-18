@@ -217,6 +217,17 @@ impl<let N: u32> Serialize<N> for str<N> {
     }
 }
 
+impl<let N: u32> Serialize<N + 1> for BoundedVec<Field, N> {
+    fn serialize(self) -> [Field; N + 1] {
+        let mut fields = [0; N + 1];
+        for i in 0..N {
+            fields[i] = self.get_unchecked(i);
+        }
+        fields[N] = self.len() as Field;
+        fields
+    }
+}
+
 // docs:start:deserialize
 /// Trait for deserializing Noir types from arrays of Fields.
 ///
@@ -245,6 +256,19 @@ pub trait Deserialize<let N: u32> {
 impl<let N: u32> Deserialize<N> for str<N> {
     fn deserialize(fields: [Field; N]) -> Self {
         str<N>::from(fields.map(|value| value as u8))
+    }
+}
+
+impl<let N: u32> Deserialize<N + 1> for BoundedVec<Field, N> {
+    fn deserialize(fields: [Field; N + 1]) -> Self {
+        let mut storage = [0; N];
+        for i in 0..N {
+            storage[i] = fields[i];
+        }
+
+        let len = fields[N];
+        len.assert_max_bit_size::<32>();
+        BoundedVec::from_parts_unchecked(storage, len as u32)
     }
 }
 

@@ -323,35 +323,7 @@ pub comptime fn generate_serialize_to_fields(
         let packable_constraint =
             quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
 
-        if (should_pack & typ.implements(packable_constraint)) {
-            // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
-            // method, add the resulting field array to `aux_vars` and each field to `fields`.
-            let packed_len = maybe_packed_len_typ.as_constant().unwrap();
-
-            // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
-            let name_at_one_token = collapse_to_one_token(name);
-            let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
-
-            // We add the individual fields to the fields array
-            let pack_method = get_trait_impl_method(
-                typ,
-                quote { crate::traits::Packable<$packed_len> },
-                quote { pack },
-            );
-            let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
-            for i in 0..packed_len {
-                fields = fields.push_back(quote { $packed_struct_name[$i] });
-            }
-
-            // We add the new auxiliary variable to the aux_vars array
-            aux_vars = aux_vars.push_back(packed_struct);
-        } else if typ.is_field() {
-            // For field we just add the value to fields
-            fields = fields.push_back(name);
-        } else if typ.as_integer().is_some() | typ.is_bool() {
-            // For integer and bool we just cast to Field and add the value to fields
-            fields = fields.push_back(quote { $name as Field });
-        } else if typ.as_data_type().is_some() {
+        if name == quote { self } {
             // For struct we pref
             let nested_struct = typ.as_data_type().unwrap();
             let params = nested_struct.0.fields(nested_struct.1);
@@ -382,6 +354,66 @@ pub comptime fn generate_serialize_to_fields(
             );
             fields = fields.append(struct_flattened_fields);
             aux_vars = aux_vars.append(struct_flattened_aux_vars);
+        } else if (should_pack & typ.implements(packable_constraint)) {
+            // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
+            // method, add the resulting field array to `aux_vars` and each field to `fields`.
+            let packed_len = maybe_packed_len_typ.as_constant().unwrap();
+
+            // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
+            let name_at_one_token = collapse_to_one_token(name);
+            let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
+
+            // We add the individual fields to the fields array
+            let pack_method = get_trait_impl_method(
+                typ,
+                quote { crate::traits::Packable<$packed_len> },
+                quote { pack },
+            );
+            let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
+            for i in 0..packed_len {
+                fields = fields.push_back(quote { $packed_struct_name[$i] });
+            }
+
+            // We add the new auxiliary variable to the aux_vars array
+            aux_vars = aux_vars.push_back(packed_struct);
+        } else if typ.is_field() {
+            // For field we just add the value to fields
+            fields = fields.push_back(name);
+        } else if typ.as_integer().is_some() | typ.is_bool() {
+            // For integer and bool we just cast to Field and add the value to fields
+            fields = fields.push_back(quote { $name as Field });
+        } else if typ.as_data_type().is_some() {
+            let maybe_serialized_len_typ = std::meta::typ::fresh_type_variable();
+            let serialized =
+                quote { crate::traits::Serialize<$maybe_serialized_len_typ> }.as_trait_constraint();
+
+            if typ.implements(serialized) {
+                // The given type implements the `Serialize` trait so we call the `serialize()`
+                // method, add the resulting field array to `aux_vars` and each field to `fields`.
+                let serialized_len = maybe_serialized_len_typ.as_constant().unwrap();
+
+                // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
+                let name_at_one_token = collapse_to_one_token(name);
+                let serialized_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
+
+                // We add the individual fields to the fields array
+                let serialize_method = get_trait_impl_method(
+                    typ,
+                    quote { crate::traits::Serialize<$serialized_len> },
+                    quote { serialize },
+                );
+                let serialized_struct =
+                    quote { let $serialized_struct_name = $serialize_method($name) };
+                for i in 0..serialized_len {
+                    fields = fields.push_back(quote { $serialized_struct_name[$i] });
+                }
+
+                // We add the new auxiliary variable to the aux_vars array
+                aux_vars = aux_vars.push_back(serialized_struct);
+            } else {
+                println(f"no serialize for {name}");
+                // panic("argh");
+            }
         } else if typ.as_array().is_some() {
             // For array we recursively call `generate_serialize_to_fields(...)` for each element
             let (element_type, array_len) = typ.as_array().unwrap();
