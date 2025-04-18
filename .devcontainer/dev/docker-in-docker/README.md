@@ -1,4 +1,4 @@
-# Docker (Docker-in-Docker) (docker-in-docker)
+# Docker (Docker-in-Docker)
 
 **FORKED HERE TO SUPPORT NOBLE**
 
@@ -23,7 +23,7 @@ Create child containers _inside_ a container, independent from the host's docker
 | azureDnsAutoDetection      | Allow automatically setting the dockerd DNS server when the installation script detects it is running in Azure                                                                                                                 | boolean | true          |
 | dockerDefaultAddressPool   | Define default address pools for Docker networks. e.g. base=192.168.0.0/16,size=24                                                                                                                                             | string  | -             |
 | installDockerBuildx        | Install Docker Buildx                                                                                                                                                                                                          | boolean | true          |
-| installDockerComposeSwitch | Install Compose Switch (provided docker compose is available) which is a replacement to the Compose V1 docker-compose (python) executable. It translates the command line into Compose V2 docker compose then runs the latter. | boolean | true          |
+| installDockerComposeSwitch | Install Compose Switch (provided docker compose is available) which is a replacement for the Compose V1 docker-compose (python) executable. It translates the command line into Compose V2 docker compose then runs the latter. | boolean | true          |
 
 ## Customizations
 
