@@ -918,7 +918,7 @@ M[dstOffset] = S[M[slotOffset]]
 S[M[slotOffset]] = M[srcOffset]
 `,
     Summary: "Write a word to this contract's persistent public storage",
-    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
+    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`). Exceptional halt if the transaction has reached the limit on the number of storage writes per transaction.",
     Details: "Silo the storage slot (hash with contract address), and perform a merkle insertion in the public data tree.",
     "Tag checks": "",
     "Tag updates": "",
@@ -973,8 +973,8 @@ context.worldState.noteHashes.append(
 )
 `,
     Summary: "Insert a new note hash into the note hash tree",
-    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
-    Details: "Silo the note hash (hash with contract address), make it unique (hash with nonce) and insert into note hash tree",
+    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`). Exceptional halt if the transaction has reached the limit on the number of note hashes per transaction.",
+    Details: "Silo the note hash (hash with contract address), make it unique (hash with nonce) and insert into note hash tree.",
     "Tag checks": "`T[nullifierOffset] == field`",
     "Tag updates": "",
     "Gas cost": [
@@ -1030,8 +1030,8 @@ context.worldState.nullifiers.append(
 )
 `,
     Summary: "Insert a new nullifier into the nullifier tree",
-    Exceptions: "Exceptional halt if the specified nullifier already exists or if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
-    Details: "Silo nullifier (hash with contract address), assert non-membership and insert into nullifier tree",
+    Exceptions: "Exceptional halt if the specified nullifier already exists or if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`). Exceptional halt if the transaction has reached the limit on the number of nullifiers per transaction.",
+    Details: "Silo nullifier (hash with contract address), assert non-membership and insert into nullifier tree.",
     "Tag checks": "`T[nullifierOffset] == field`",
     "Tag updates": "",
     "Gas cost": [
@@ -1101,7 +1101,8 @@ M[existsOffset] = exists
     ],
     Expression: "`M[dstOffset] = context.worldState.contracts.get(M[addressOffset])[memberEnum]`",
     Summary: "Get a member from the contract instance at the specified address",
-    Details: "M[dstOffset] will be assigned zero if the contract instance does not exist or if memberEnum is invalid",
+    Exceptions: "Exceptional halt if the transaction has reached the limit on the number of unique contract class IDs that can be accessed per transaction.",
+    Details: "M[dstOffset] will be assigned zero if the contract instance does not exist or if memberEnum is invalid.",
     "Tag checks": "`T[addressOffset] == field`",
     "Tag updates": "`T[dstOffset] = field; T[existsOffset] = u1`",
     "Gas cost": [
@@ -1129,6 +1130,8 @@ context.worldState.publicLogs.append(
 )
 `,
     Summary: "Emit a public log",
+    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`). Exceptional halt if the transaction has reached the limit on the number of public logs per transaction, or if the log size exceeds the maximum allowed size per log.",
+    Details: "",
     "Tag checks": "`T[logSizeOffset] == u32 && T[logOffset:logOffset+M[logSizeOffset]] == field`",
     "Tag updates": "",
     "Gas cost": [
@@ -1161,7 +1164,7 @@ context.worldState.l2ToL1Messages.append(
 )
 `,
     Summary: "Send an L2-to-L1 message",
-    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
+    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`). Exceptional halt if the transaction has reached the limit on the number of L2 to L1 messages per transaction.",
     "Tag checks": "`T[recipientOffset] == T[contentOffset] == field`",
     "Tag updates": "",
     "Gas cost": [
@@ -1181,15 +1184,20 @@ allocatedGas = { l2Gas: M[gasOffset], daGas: M[gasOffset+1] }
 calldata = M[argsOffset:argsOffset+M[argsSizeOffset]]
 isStaticCall = context.environment.isStaticCall
 nestedContext = context.createNestedContractCallContext(contractAddress, calldata, allocatedGas, isStaticCall)
-output = execute(nestedContext)
-context.machineState.nestedReturndata = output
+results = execute(nestedContext)
+context.machineState.nestedCallSuccess = !results.reverted
+context.machineState.nestedReturndata = results.output
 `,
     Summary: "Call into another contract",
     Details:
       `Creates a new (nested) execution context and triggers execution within that context.
                     Execution proceeds in the nested context until it reaches a halt at which point
                     execution resumes in the current/calling context.
-                    A non-existent contract or one with no code will exceptionally halt when called. ` +
+                    A subsequent SUCCESSCOPY can be used to check if the contract call succeeded or reverted.
+                    When either a non-existent contract, or one with no code is called,
+                    the nested call itself will exceptionally halt, but importantly THIS call instruction will NOT exceptionally halt.
+                    In that case, a subsequent SUCCESSCOPY will return 0 (failure).
+                    ` +
       CALL_INSTRUCTION_DETAILS,
     "Tag checks": `
 T[gasOffset] == T[gasOffset+1] == field
@@ -1454,25 +1462,25 @@ M[dstOffset:dstOffset+25] = keccakf1600(M[inputOffset:inputOffset+25])
       },
     ],
     Expression: `
-{
-    x: M[dstOffset],
-    y: M[dstOffset+1],
-    isInfinite: M[dstOffset+2],
-} = ecAdd(
-    M[p1XOffset], M[p1YOffset], M[p1IsInfiniteOffset],
-    M[p2XOffset], M[p2YOffset], M[p2IsInfiniteOffset],
-)
-`,
+ {
+     x: M[dstOffset],
+     y: M[dstOffset+1],
+     isInfinite: M[dstOffset+2],
+ } = ecAdd(
+     M[p1XOffset], M[p1YOffset], M[p1IsInfiniteOffset],
+     M[p2XOffset], M[p2YOffset], M[p2IsInfiniteOffset],
+ )
+ `,
     Summary: "Add two points on the Grumpkin elliptic curve",
     "Tag checks": `
-T[p1XOffset] == T[p1YOffset] == T[p2XOffset] == T[p2YOffset] == field
-T[p1IsInfiniteOffset] == T[p2IsInfiniteOffset] == u1
-`,
+ T[p1XOffset] == T[p1YOffset] == T[p2XOffset] == T[p2YOffset] == field
+ T[p1IsInfiniteOffset] == T[p2IsInfiniteOffset] == u1
+ `,
     "Tag updates": `
-T[dstOffset] = field
-T[dstOffset+1] = field
-T[dstOffset+2] = u1
-`,
+ T[dstOffset] = field
+ T[dstOffset+1] = field
+ T[dstOffset+2] = u1
+ `,
     "Gas cost": [
       { name: "Base L2 Gas", description: gasConstants.AVM_ECADD_BASE_L2_GAS }
     ],
@@ -1507,26 +1515,26 @@ T[dstOffset+2] = u1
       },
     ],
     Expression: `
-M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBe<M[radixOffset], M[numLimbsOffset], M[outputBitsOffset]>(M[srcOffset])
-`,
+ M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBe<M[radixOffset], M[numLimbsOffset], M[outputBitsOffset]>(M[srcOffset])
+ `,
     Summary: "Convert a word to an array of limbs in little-endian radix form",
     Exceptions: "Exceptional halt if radix < 2 or radix > 256, if numLimbs < 1 but M[srcOffset] is nonzero, if outputBits is true but radix is not 2",
     Details: `
-value = M[srcOffset]
-radix = M[radixOffset]
-numLimbs = M[numLimbsOffset]
-for (let i = numLimbs - 1; i >= 0; i--) {
-  const limb = value % radix;
-  M[dstOffset+i] = limb;
-  value /= radix;
-}
-`,
+ value = M[srcOffset]
+ radix = M[radixOffset]
+ numLimbs = M[numLimbsOffset]
+ for (let i = numLimbs - 1; i >= 0; i--) {
+   const limb = value % radix;
+   M[dstOffset+i] = limb;
+   value /= radix;
+ }
+ `,
     "Tag checks": `
-T[srcOffset] == field
-T[radixOffset] == u32
-T[numLimbsOffset] == u32
-T[outputBitsOffset] == u1
-`,
+ T[srcOffset] == field
+ T[radixOffset] == u32
+ T[numLimbsOffset] == u32
+ T[outputBitsOffset] == u1
+ `,
     "Tag updates": `T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? u1 : u8`,
     "Gas cost": [
       { name: "Base L2 Gas", description: gasConstants.AVM_TORADIXBE_BASE_L2_GAS },
