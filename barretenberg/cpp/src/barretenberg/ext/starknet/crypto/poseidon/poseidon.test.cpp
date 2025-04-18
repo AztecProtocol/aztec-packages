@@ -1,14 +1,13 @@
-#ifdef STARKNET_GARAGA_FLAVORS
 #include "poseidon.hpp"
 #include "barretenberg/ext/starknet/ecc/curves/stark252/stark252.hpp"
 #include "poseidon_params.hpp"
 #include <gtest/gtest.h>
 
-using namespace bb::starknet;
-
+#ifdef STARKNET_GARAGA_FLAVORS
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
 }
+using namespace bb::starknet;
 
 TEST(Poseidon, HashBasicTests)
 {
@@ -47,8 +46,6 @@ TEST(Poseidon, HashConsistencyCheck)
     EXPECT_EQ(result, expected);
 }
 #else
-// avoid linker issues by having a symbol in this library
-namespace bb::starknet::test {
-void garbage_extensions_disabled() {}
-} // namespace bb::starknet::test
+
+TEST(Poseidon, DisabledTests) {}
 #endif
