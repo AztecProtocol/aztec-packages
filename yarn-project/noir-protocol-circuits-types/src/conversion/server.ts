@@ -150,7 +150,7 @@ import {
  * @param number - The BigNum representing the number.
  * @returns The number
  */
-export function mapBLS12BigNumFromNoir(bignum: BLS12_381_Fr): bigint {
+export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
   // TODO(Miranda): there's gotta be a better way to convert this
   const paddedLimbs = [
     `0x` + bignum.limbs[2].substring(2).padStart(4, '0'),
