@@ -354,7 +354,7 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_honk(uint8_t const* acir_vec, uint
     DeciderProvingKey proving_key = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-            from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion) };
+            from_buffer<std::vector<uint8_t>>(acir_vec)) };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
