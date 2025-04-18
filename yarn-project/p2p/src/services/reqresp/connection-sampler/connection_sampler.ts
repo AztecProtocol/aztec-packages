@@ -69,7 +69,7 @@ export class ConnectionSampler {
   getPeer(excluding?: Map<string, boolean>): PeerId | undefined {
     // In libp2p getPeers performs a shallow copy, so this array can be sliced from safetly
     const peers = this.libp2p.getPeers();
-    const [peer] = this.getPeerFromList(peers, excluding);
+    const { peer } = this.getPeerFromList(peers, excluding);
     return peer;
   }
 
@@ -78,16 +78,25 @@ export class ConnectionSampler {
    *
    * @param peers - The list of peers to sample from
    * @param excluding - The peers to exclude from the sampling
-   * @returns A peer from the list, or undefined if no peers are available, and a boolean indicating if the peer has active connections
+   * @returns - A peer from the list, or undefined if no peers are available,
+   *          - a boolean indicating if the peer has active connections, and
+   *          - all sampled peers - to enable optional resampling
    *
    * @dev The provided list peers, should be mutated by this function. This allows batch sampling
    *      to be performed without making extra copies of the list.
    */
-  getPeerFromList(peers: PeerId[], excluding?: Map<string, boolean>): [PeerId | undefined, boolean] {
+  getPeerFromList(
+    peers: PeerId[],
+    excluding?: Map<string, boolean>,
+  ): {
+    peer: PeerId | undefined;
+    sampledPeers: PeerId[];
+  } {
     if (peers.length === 0) {
-      return [undefined, false];
+      return { peer: undefined, sampledPeers: [] };
     }
 
+    const sampledPeers: PeerId[] = [];
     // Try to find a peer that has no active connections and is not in the exclusion list
     for (let attempts = 0; attempts < MAX_SAMPLE_ATTEMPTS && peers.length > 0; attempts++) {
       const randomIndex = this.sampler.random(peers.length);
@@ -95,28 +104,31 @@ export class ConnectionSampler {
       const hasActiveConnections = (this.activeConnectionsCount.get(peer) ?? 0) > 0;
       const isExcluded = excluding?.get(peer.toString()) ?? false;
 
-      // Remove this peer from consideration and try again
+      // Remove this peer from consideration
       peers.splice(randomIndex, 1);
 
       // If peer is suitable (no active connections and not excluded), return it
+      // If we don't retry active connections, we only respect the not excluded condition
       if (!hasActiveConnections && !isExcluded) {
         this.logger.trace('Sampled peer', {
           attempts,
-          peer: peer.toString(),
+          peer,
         });
-        return [peer, hasActiveConnections];
+        return { peer, sampledPeers };
       }
+
+      // Keep track of peers that have active connections
+      sampledPeers.push(peer);
     }
 
     // If we've exhausted our attempts or peers list is empty, return the last peer if available
     const lastPeer = peers.length > 0 ? peers[this.sampler.random(peers.length)] : undefined;
-    const hasActiveConnections = lastPeer ? (this.activeConnectionsCount.get(lastPeer) ?? 0) > 0 : false;
 
     this.logger.trace('Sampled peer', {
       attempts: MAX_SAMPLE_ATTEMPTS,
       peer: lastPeer?.toString(),
     });
-    return [lastPeer, hasActiveConnections];
+    return { peer: lastPeer, sampledPeers };
   }
 
   /**
@@ -129,34 +141,36 @@ export class ConnectionSampler {
     const peers = this.libp2p.getPeers();
     this.logger.debug('Sampling peers batch', { numberToSample, peers });
 
-    const sampledPeers: PeerId[] = [];
-    const peersWithConnections: PeerId[] = []; // Hold onto peers with active connections incase we need to sample more
+    const batch: PeerId[] = [];
+    const withActiveConnections: Set<PeerId> = new Set();
     for (let i = 0; i < numberToSample; i++) {
-      const [peer, hasActiveConnections] = this.getPeerFromList(peers);
+      const { peer, sampledPeers } = this.getPeerFromList(peers, undefined);
       if (peer) {
-        if (!hasActiveConnections) {
-          sampledPeers.push(peer);
-        } else {
-          peersWithConnections.push(peer);
-        }
+        batch.push(peer);
+      }
+      if (sampledPeers.length > 0) {
+        sampledPeers.forEach(peer => withActiveConnections.add(peer));
       }
     }
+    const lengthWithoutConnections = batch.length;
 
     // If we still need more peers, sample from those with connections
-    while (sampledPeers.length < numberToSample && peersWithConnections.length > 0) {
-      const randomIndex = this.sampler.random(peersWithConnections.length);
-      const [peer] = peersWithConnections.splice(randomIndex, 1);
-      sampledPeers.push(peer);
+    while (batch.length < numberToSample && withActiveConnections.size > 0) {
+      const randomIndex = this.sampler.random(withActiveConnections.size);
+
+      const peer = Array.from(withActiveConnections)[randomIndex];
+      withActiveConnections.delete(peer);
+      batch.push(peer);
     }
 
     this.logger.trace('Batch sampled peers', {
-      length: sampledPeers.length,
-      peers: sampledPeers,
-      withoutConnections: sampledPeers.length - peersWithConnections.length,
-      withConnections: peersWithConnections.length,
+      length: batch.length,
+      peers: batch,
+      withoutConnections: lengthWithoutConnections,
+      withConnections: numberToSample - lengthWithoutConnections,
     });
 
-    return sampledPeers;
+    return batch;
   }
 
   // Set of passthrough functions to keep track of active connections
