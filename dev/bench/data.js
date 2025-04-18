@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744937523347,
+  "lastUpdate": 1744938454302,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f7fb5e651f2f73bdd224b3a4d2e5b742bbe4ca47",
-          "message": "chore: use heap buffer methods for civc proof in bbjs (#13541)\n\nAdd \"heap buffer\" serialization for CIVC Proof type and use in bbjs\nmethods",
-          "timestamp": "2025-04-14T22:07:25Z",
-          "tree_id": "8dd4fb88b6d5b3b427ef618506a650fd6dff2a22",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f7fb5e651f2f73bdd224b3a4d2e5b742bbe4ca47"
-        },
-        "date": 1744672899104,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 30731,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 17951,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9162,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10799,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12709,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3938,6 +3884,78 @@ window.BENCHMARK_DATA = {
             "value": 1804,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ae578a28d7b50bf7a388af58e3cd24c90dbf315c",
+          "message": "chore: delete Ultra Vanilla CIVC (#13669)\n\nThis was an experimental class introduced by Cody for doing \"vanilla\" UH\nrecursion with an interface similar to CIVC. Aside from the fact that we\nhave no need for something like this, it has no hope of being useful\nbecause it relies on the mechanism of appending recursive verifiers to\ninput circuits, similar to our original design for CIVC. This isn't\nsound because there's no way for the verifier to know that the recursive\nverifications were performed. This is precisely why Aztec has kernel\ncircuits which are specifically designed to perform recursion and are\nfixed by the protocol.",
+          "timestamp": "2025-04-17T23:52:35Z",
+          "tree_id": "2650a4cc2dda03eee53e7dd543888d0ad4f190ed",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ae578a28d7b50bf7a388af58e3cd24c90dbf315c"
+        },
+        "date": 1744938446588,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17450.653348000287,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13667.627040000001 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2227764007,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 189780097,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19934.52844500007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16915.311427 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56512.981077,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56512979000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4275.240779999422,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3660.2270139999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12109.321742999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12109324000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2263.75",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
