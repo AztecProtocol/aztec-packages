@@ -55,6 +55,7 @@ def modify_benchmark_data(file_paths):
     combined_results = {"benchmarks": []}
 
     for file_path in file_paths:
+        print("!")
         prefix = ""
         # Historical name compatibility:
         if "wasm" in file_path:
@@ -83,6 +84,7 @@ def modify_benchmark_data(file_paths):
 
 def main():
     file_paths = sys.argv[1::]
+    print(file_paths)
     final_data = modify_benchmark_data(file_paths)
 
     # Output the combined benchmark data as formatted JSON.
