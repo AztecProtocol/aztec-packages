@@ -58,7 +58,7 @@ void write_standalone_vk(const std::string& output_data_type,
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
+    Program program{ get_constraint_system(bytecode_path), /*witness=*/{} };
     auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
@@ -88,7 +88,7 @@ size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input
     auto steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
     const PrivateExecutionStepRaw& last_step = steps.back();
     std::vector<uint8_t> bytecode_buf(last_step.bytecode.begin(), last_step.bytecode.end());
-    const AcirFormat constraints = circuit_buf_to_acir_format(bytecode_buf, /*honk_recursion=*/0);
+    const AcirFormat constraints = circuit_buf_to_acir_format(bytecode_buf);
     return constraints.public_inputs.size();
 }
 
@@ -246,7 +246,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
-    auto constraint_systems = get_constraint_systems(bytecode_path, /*honk_recursion=*/0);
+    auto constraint_systems = get_constraint_systems(bytecode_path);
 
     // Initialize an SRS to make the ClientIVC constructor happy
     init_bn254_crs(1 << CONST_PG_LOG_N);

@@ -1,5 +1,7 @@
 #pragma once
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
