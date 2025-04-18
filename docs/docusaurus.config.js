@@ -62,6 +62,7 @@ const config = {
             );
           },
           routeBasePath: "/",
+          disableVersioning: process.env.ENV === "dev",
           include: process.env.SHOW_PROTOCOL_SPECS
             ? ["**/*.{md,mdx}"]
             : ["**/*.{md,mdx}", "!protocol-specs/**"],
@@ -79,6 +80,9 @@ const config = {
           ],
           versions: (() => {
             const versionObject = {};
+            if (process.env.ENV === "dev") {
+              return versionObject;
+            }
             versions.map((version) => {
               versionObject[version] = {
                 banner: "none",
