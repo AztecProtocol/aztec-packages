@@ -259,10 +259,10 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk(uint8_t const* acir_vec, uint8_t
     // Lambda function to ensure things get freed before proving.
     UltraStarknetProver prover = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
-        acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
-                                              from_buffer<std::vector<uint8_t>>(acir_vec), metadata.honk_recursion),
-                                          acir_format::witness_buf_to_witness_data(
-                                              from_buffer<std::vector<uint8_t>>(witness_vec)) };
+        acir_format::AcirProgram program{
+            acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
+            acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
+        };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
         return UltraStarknetProver(builder);
