@@ -548,10 +548,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
     return result;
 }
 
-void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg,
-                               AcirFormat& af,
-                               uint32_t honk_recursion,
-                               size_t opcode_index)
+void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFormat& af, size_t opcode_index)
 {
     std::visit(
         [&](auto&& arg) {
@@ -722,17 +719,6 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg,
                 auto input_key = get_witness_from_function_input(arg.key_hash);
 
                 auto proof_type_in = arg.proof_type;
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will
-                // be the only means for setting the proof type. use of honk_recursion flag in this context can go
-                // away once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
-                if (proof_type_in != HONK && proof_type_in != AVM && proof_type_in != ROLLUP_HONK &&
-                    proof_type_in != ROOT_ROLLUP_HONK) {
-                    if (honk_recursion == 1) {
-                        proof_type_in = HONK;
-                    } else if (honk_recursion == 2) {
-                        proof_type_in = ROLLUP_HONK;
-                    }
-                }
 
                 auto c = RecursionConstraint{
                     .key = transform::map(arg.verification_key,
@@ -888,7 +874,7 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
     block.trace.push_back(acir_mem_op);
 }
 
-AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t honk_recursion)
+AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
 {
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
@@ -907,7 +893,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t h
                 if constexpr (std::is_same_v<T, Acir::Opcode::AssertZero>) {
                     handle_arithmetic(arg, af, i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::BlackBoxFuncCall>) {
-                    handle_blackbox_func_call(arg, af, honk_recursion, i);
+                    handle_blackbox_func_call(arg, af, i);
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
                     auto block = handle_memory_init(arg);
                     uint32_t block_id = arg.block_id.value;
@@ -934,7 +920,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t h
     return af;
 }
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
@@ -942,7 +928,7 @@ AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t 
     auto program = deserialize_program(buf);
     auto circuit = program.functions[0];
 
-    return circuit_serde_to_acir_format(circuit, honk_recursion);
+    return circuit_serde_to_acir_format(circuit);
 }
 
 /**
@@ -982,14 +968,14 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     return witness_map_to_witness_vector(w);
 }
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf)
 {
     auto program = deserialize_program(buf);
 
     std::vector<AcirFormat> constraint_systems;
     constraint_systems.reserve(program.functions.size());
     for (auto const& function : program.functions) {
-        constraint_systems.emplace_back(circuit_serde_to_acir_format(function, honk_recursion));
+        constraint_systems.emplace_back(circuit_serde_to_acir_format(function));
     }
 
     return constraint_systems;
@@ -1006,16 +992,11 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
     return witness_vector_stack;
 }
 
-AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
-                                        std::string const& witness_path,
-                                        uint32_t honk_recursion)
+AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
 {
     vinfo("in get_acir_program_stack; witness path is ", witness_path);
     std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
-    std::vector<AcirFormat> constraint_systems =
-        program_buf_to_acir_format(bytecode,
-                                   honk_recursion); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                                    // Remove honk recursion flag
+    std::vector<AcirFormat> constraint_systems = program_buf_to_acir_format(bytecode);
     WitnessVectorStack witness_stack = [&]() {
         if (witness_path.empty()) {
             info("producing a stack of empties");
