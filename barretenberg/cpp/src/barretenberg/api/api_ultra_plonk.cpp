@@ -24,7 +24,7 @@ acir_proofs::AcirComposer verifier_init()
 
 std::string to_json(const std::vector<bb::fr>& data)
 {
-    return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+    return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
 std::string vk_to_json(std::vector<bb::fr> const& data)
@@ -33,7 +33,7 @@ std::string vk_to_json(std::vector<bb::fr> const& data)
     std::vector<bb::fr> rotated(data.begin(), data.end() - 1);
     rotated.insert(rotated.begin(), data.at(data.size() - 1));
 
-    return format("[", join(map(rotated, [](auto fr) { return format("\"", fr, "\""); })), "]");
+    return format("[", join(transform::map(rotated, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
 /**
@@ -48,12 +48,13 @@ std::string vk_to_json(std::vector<bb::fr> const& data)
  * @param output_path Path to write the proof to
  * @param recursive Whether to use recursive proof generation or non-recursive
  */
+
 void prove_ultra_plonk(const std::string& bytecode_path,
                        const std::string& witness_path,
                        const std::string& output_path,
                        const bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
+    auto constraint_system = get_constraint_system(bytecode_path);
     auto witness = get_witness(witness_path);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -87,7 +88,7 @@ void prove_output_all_ultra_plonk(const std::string& bytecode_path,
                                   const std::string& output_path,
                                   const bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
+    auto constraint_system = get_constraint_system(bytecode_path);
     auto witness = get_witness(witness_path);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -171,7 +172,7 @@ bool prove_and_verify_ultra_plonk(const std::string& bytecode_path,
                                   const bool recursive,
                                   const std::string& witness_path)
 {
-    auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
+    auto constraint_system = get_constraint_system(bytecode_path);
     auto witness = get_witness(witness_path);
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
@@ -233,7 +234,7 @@ void contract_ultra_plonk(const std::string& output_path, const std::string& vk_
  */
 void write_vk_ultra_plonk(const std::string& bytecode_path, const std::string& output_path, const bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecode_path, false);
+    auto constraint_system = get_constraint_system(bytecode_path);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive);
     acir_composer.finalize_circuit();
@@ -252,7 +253,7 @@ void write_vk_ultra_plonk(const std::string& bytecode_path, const std::string& o
 
 void write_pk_ultra_plonk(const std::string& bytecode_path, const std::string& output_path, const bool recursive)
 {
-    auto constraint_system = get_constraint_system(bytecode_path, /*honk_recursion=*/0);
+    auto constraint_system = get_constraint_system(bytecode_path);
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive);
     acir_composer.finalize_circuit();

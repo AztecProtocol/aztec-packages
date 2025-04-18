@@ -27,7 +27,7 @@ void write(const ProverOutput& prover_output,
         if (data.empty()) {
             return std::string("[]");
         }
-        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
 
     const auto write_bytes = [&](const ObjectToWrite& obj) {

@@ -92,6 +92,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     class VerificationKey
         : public VerificationKey_<FF, ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
          * key
@@ -99,10 +101,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
+            pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
                 builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
             // `log_circuit_size` from MSGPACK and the verification key.

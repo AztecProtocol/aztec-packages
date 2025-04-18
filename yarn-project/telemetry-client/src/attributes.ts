@@ -64,6 +64,8 @@ export const ERROR_TYPE = 'aztec.error_type';
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */
 export const L1_SENDER = 'aztec.l1.sender';
+/** The L1 address receiving rewards */
+export const COINBASE = 'aztec.coinbase';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
 /** The reason for disconnecting a peer */

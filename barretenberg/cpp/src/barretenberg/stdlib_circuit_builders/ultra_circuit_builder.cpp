@@ -7,7 +7,8 @@
  */
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include <barretenberg/plonk/proof_system/constants.hpp>
+#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>
 #include <unordered_set>

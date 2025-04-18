@@ -31,6 +31,7 @@ import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js
 import type { WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateConfig } from './config.js';
+import { WorldStateSynchronizerError } from './errors.js';
 
 export type { SnapshotDataKeys };
 
@@ -202,7 +203,17 @@ export class ServerWorldStateSynchronizer
     // If we have been given a block number to sync to and we have not reached that number then fail
     const updatedBlockNumber = await this.getLatestBlockNumber();
     if (!skipThrowIfTargetNotReached && targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
-      throw new Error(`Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`);
+      throw new WorldStateSynchronizerError(
+        `Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`,
+        {
+          cause: {
+            reason: 'block_not_available',
+            previousBlockNumber: currentBlockNumber,
+            updatedBlockNumber,
+            targetBlockNumber,
+          },
+        },
+      );
     }
 
     return updatedBlockNumber;

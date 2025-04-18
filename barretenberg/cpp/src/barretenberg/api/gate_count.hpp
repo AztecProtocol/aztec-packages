@@ -25,7 +25,7 @@ void gate_count(const std::string& bytecode_path,
 
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
-    auto constraint_systems = get_constraint_systems(bytecode_path, honk_recursion);
+    auto constraint_systems = get_constraint_systems(bytecode_path);
 
     const acir_format::ProgramMetadata metadata{ .recursive = recursive,
                                                  .honk_recursion = honk_recursion,

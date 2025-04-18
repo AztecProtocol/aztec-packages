@@ -1,10 +1,11 @@
 #pragma once
-// Meant to be the main header included by translation units that use msgpack.
+// Meant to be the main header included by *.cpp files* that use msgpack.
 // Note: heavy header due to serialization logic, don't include if msgpack.hpp will do
 // CBinding helpers that take a function or a lambda and
 // - bind the input as a coded msgpack array of all the arguments (using template metamagic)
 // - bind the return value to an out buffer, where the caller must free the memory
 
+#define MSGPACK_NO_BOOST
 #include "barretenberg/common/try_catch_shim.hpp"
 #include "msgpack_impl/check_memory_span.hpp"
 #include "msgpack_impl/concepts.hpp"
@@ -29,7 +30,7 @@ inline std::pair<uint8_t*, size_t> msgpack_encode_buffer(auto&& obj)
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, obj);
 
-    uint8_t* output = (uint8_t*)aligned_alloc(64, buffer.size());
+    uint8_t* output = static_cast<uint8_t*>(aligned_alloc(64, buffer.size()));
     memcpy(output, buffer.data(), buffer.size());
     // Convert the buffer data to a string and return it
     return { output, buffer.size() };
@@ -60,7 +61,7 @@ inline void msgpack_cbind_impl(auto func,               // The function to be ap
     // msgpack::unpack takes a buffer and its size, and returns an object_handle.
     // Calling .get() on that handle yields an object, and calling .convert on that
     // object converts it into the given type, in this case, the parameter tuple for func.
-    msgpack::unpack((const char*)input_in, input_len_in).get().convert(params);
+    msgpack::unpack(reinterpret_cast<const char*>(input_in), input_len_in).get().convert(params);
 
     // Apply the function to the parameters, then encode the result into a MessagePack buffer.
     // std::apply takes a function and a tuple, and applies the function to the tuple's elements.
@@ -80,7 +81,7 @@ inline void msgpack_cbind_schema_impl(auto func, uint8_t** output_out, size_t* o
     // Object representation of the cbind
     auto cbind_obj = get_func_traits<decltype(func)>();
     std::string schema = msgpack_schema_to_string(cbind_obj);
-    *output_out = (uint8_t*)aligned_alloc(64, schema.size() + 1);
+    *output_out = static_cast<uint8_t*>(aligned_alloc(64, schema.size() + 1));
     memcpy(*output_out, schema.c_str(), schema.size() + 1);
     *output_len_out = schema.size();
 }

@@ -11,7 +11,6 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/ecc/scalar_multiplication/sorted_msm.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"

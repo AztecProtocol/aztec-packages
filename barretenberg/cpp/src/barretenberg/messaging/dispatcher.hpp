@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/messaging/header.hpp"
-#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <atomic>
 #include <cstdint>
 #include <functional>

@@ -14,13 +14,11 @@ namespace acir_format {
  */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf);
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf);
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf);
 
 WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf);
 
-AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
-                                        std::string const& witness_path,
-                                        uint32_t honk_recursion);
+AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path);
 } // namespace acir_format

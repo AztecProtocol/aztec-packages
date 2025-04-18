@@ -2,7 +2,14 @@ import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import {
+  L1TxUtils,
+  RollupContract,
+  type ViemPublicClient,
+  type ViemWalletClient,
+  getExpectedAddress,
+  getL1ContractsConfigEnvVars,
+} from '@aztec/ethereum';
 import { ChainMonitor, EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -13,7 +20,7 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
-import { type PublicClient, type WalletClient, getContract } from 'viem';
+import { getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
@@ -278,7 +285,7 @@ export class P2PNetworkTest {
       'remove-inital-validator',
       async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        const receipt = await this._sendDummyTx(
+        const { receipt } = await this._sendDummyTx(
           deployL1ContractsValues.publicClient,
           deployL1ContractsValues.walletClient,
         );
@@ -299,14 +306,11 @@ export class P2PNetworkTest {
     );
   }
 
-  private async _sendDummyTx(publicClient: PublicClient, walletClient: WalletClient) {
-    return await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.sendTransaction({
-        to: walletClient.account!.address,
-        value: 1n,
-        account: walletClient.account!,
-        chain: publicClient.chain,
-      }),
+  private async _sendDummyTx(publicClient: ViemPublicClient, walletClient: ViemWalletClient) {
+    const l1TxUtils = new L1TxUtils(publicClient, walletClient);
+    return await l1TxUtils.sendAndMonitorTransaction({
+      to: walletClient.account!.address,
+      value: 1n,
     });
   }
 

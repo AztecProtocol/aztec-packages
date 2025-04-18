@@ -106,8 +106,10 @@ to the object itself, do break up the above to keep a reference to the handle, f
     }
 ```
 */
+// For sbuffer forward declaration:
 #include "msgpack_impl/concepts.hpp"
 #include "msgpack_impl/name_value_pair_macro.hpp"
+#include <msgpack/sbuffer_decl.hpp>
 #include <type_traits>
 
 // Helper for above documented syntax

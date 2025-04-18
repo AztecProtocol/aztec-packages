@@ -19,43 +19,42 @@ contract AddressSnapshotValuesTest is AddressSnapshotsBase {
     assertEq(vals.length, 0);
   }
 
-  function test_WhenValidatorsExist() public {
+  function test_WhenValidatorsExist(address[] memory _addrs) public {
+    _addrs = boundUnique(_addrs);
     // It returns array with correct length
     // It returns array with addresses in order
 
     timeCheater.cheat__setEpochNow(1);
-    validatorSet.add(address(1));
-    validatorSet.add(address(2));
-    validatorSet.add(address(3));
-
-    // Length remains 0 within this epoch
-    address[] memory vals = validatorSet.values();
-    assertEq(vals.length, 0);
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      validatorSet.add(_addrs[i]);
+    }
 
     // Move to next epoch for changes to take effect
     timeCheater.cheat__setEpochNow(2);
-    vals = validatorSet.values();
-    assertEq(vals.length, 3);
-    assertEq(vals[0], address(1));
-    assertEq(vals[1], address(2));
-    assertEq(vals[2], address(3));
+    address[] memory vals = validatorSet.values();
+    assertEq(vals.length, _addrs.length);
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertEq(vals[i], _addrs[i]);
+    }
   }
 
-  function test_WhenValidatorsHaveNotChangedForSomeTime() public {
+  function test_WhenValidatorsHaveNotChangedForSomeTime(address[] memory _addrs) public {
+    _addrs = boundUnique(_addrs);
+
     // It returns array with correct length
     // It returns array with correct addresses in order
 
     timeCheater.cheat__setEpochNow(1);
-    validatorSet.add(address(1));
-    validatorSet.add(address(2));
-    validatorSet.add(address(3));
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      validatorSet.add(_addrs[i]);
+    }
 
     timeCheater.cheat__setEpochNow(100);
     address[] memory vals = validatorSet.values();
-    assertEq(vals.length, 3);
-    assertEq(vals[0], address(1));
-    assertEq(vals[1], address(2));
-    assertEq(vals[2], address(3));
+    assertEq(vals.length, _addrs.length);
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      assertEq(vals[i], _addrs[i]);
+    }
 
     // Values at epoch maintains historical values
     address[] memory valsAtEpoch = validatorSet.valuesAtEpoch(Epoch.wrap(1));

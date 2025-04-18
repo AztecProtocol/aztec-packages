@@ -22,7 +22,7 @@ const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 15_0
     }, timeout);
 
     node.on('peer:discovered', () => {
-      if (node.getAllPeers().length >= expectedCount) {
+      if (node.getKadValues().length >= expectedCount) {
         clearTimeout(timeoutId);
         resolve();
       }
@@ -38,7 +38,7 @@ describe('Discv5Service', () => {
   let bootNodePeerId: PeerId;
   let basePort = 7890;
 
-  const baseConfig: BootnodeConfig = {
+  const bootnodeConfig: BootnodeConfig = {
     p2pIp: '127.0.0.1',
     p2pPort: basePort + 100,
     listenAddress: '127.0.0.1',
@@ -56,7 +56,7 @@ describe('Discv5Service', () => {
     const telemetryClient = getTelemetryClient();
     store = await openTmpStore('test');
     bootNode = new BootstrapNode(store, telemetryClient);
-    await bootNode.start(baseConfig);
+    await bootNode.start(bootnodeConfig);
     bootNodePeerId = bootNode.getPeerId();
   });
 
@@ -68,15 +68,15 @@ describe('Discv5Service', () => {
   const startNodes = (...nodes: { start: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.start()));
   const stopNodes = (...nodes: { stop: () => Promise<void> }[]) => Promise.all(nodes.map(node => node.stop()));
   const getPeers = (node: DiscV5Service) =>
-    Promise.all(node.getAllPeers().map(async peer => (await peer.peerId()).toString()));
+    Promise.all(node.getKadValues().map(async peer => (await peer.peerId()).toString()));
 
   it('should initialize with default values', async () => {
     const node = await createNode();
     expect(node.getStatus()).toEqual(PeerDiscoveryState.STOPPED); // not started yet
     await node.start();
     expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
-    const peers = node.getAllPeers();
-    const bootnode = peers[0];
+    const kadValues = node.getKadValues();
+    const bootnode = kadValues[0];
     expect((await bootnode.peerId()).toString()).toEqual(bootNodePeerId.toString());
     await node.stop();
   });
@@ -96,8 +96,8 @@ describe('Discv5Service', () => {
     await startNodes(node1, node2);
 
     // nodes should be connected to boostrap
-    expect(node1.getAllPeers()).toHaveLength(1);
-    expect(node2.getAllPeers()).toHaveLength(1);
+    expect(node1.getKadValues()).toHaveLength(1);
+    expect(node2.getKadValues()).toHaveLength(1);
 
     await Promise.all([
       waitForPeers(node2, 2),
@@ -170,8 +170,8 @@ describe('Discv5Service', () => {
     const node1 = await createNode({ l1ChainId: 13, bootstrapNodeEnrVersionCheck: true });
     const node2 = await createNode({ l1ChainId: 14, bootstrapNodeEnrVersionCheck: false });
     await startNodes(node1, node2);
-    expect(node1.getAllPeers()).toHaveLength(0);
-    expect(node2.getAllPeers()).toHaveLength(1);
+    expect(node1.getKadValues()).toHaveLength(0);
+    expect(node2.getKadValues()).toHaveLength(1);
     await stopNodes(node1, node2);
   });
 
@@ -226,7 +226,7 @@ describe('Discv5Service', () => {
     await node2.start();
     await waitForPeers(node2, 1);
 
-    const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
+    const node2Peers = await Promise.all(node2.getKadValues().map(async peer => (await peer.peerId()).toString()));
     // NOTE: bootnode seems to still be present in list of peers sometimes, will investigate
     // expect(node2Peers).toHaveLength(1);
     expect(node2Peers).toContain(node1.getPeerId().toString());
@@ -257,12 +257,12 @@ describe('Discv5Service', () => {
 
     await startNodes(node1, node2, node3, trustedNode);
 
-    expect(node1.getAllPeers()).toHaveLength(0);
-    expect(trustedNode.getAllPeers()).toHaveLength(0);
+    expect(node1.getKadValues()).toHaveLength(0);
+    expect(trustedNode.getKadValues()).toHaveLength(0);
 
     // Verify node2 and node3 are connected to the trusted peer
-    expect(node2.getAllPeers().length).toBe(1);
-    expect(node3.getAllPeers().length).toBe(1);
+    expect(node2.getKadValues().length).toBe(1);
+    expect(node3.getKadValues().length).toBe(1);
     expect(await getPeers(node2)).toContain(trustedNode.getPeerId().toString());
     expect(await getPeers(node3)).toContain(trustedNode.getPeerId().toString());
 
@@ -281,7 +281,7 @@ describe('Discv5Service', () => {
       })(),
     ]);
 
-    expect(node1.getAllPeers()).toHaveLength(0);
+    expect(node1.getKadValues()).toHaveLength(0);
 
     // Verify node2 and node3 discovered each other through the trusted peer
     const node2Peers = await getPeers(node2);
@@ -320,10 +320,10 @@ describe('Discv5Service', () => {
 
     await startNodes(node1, node2, node3, privateNode);
 
-    expect(node1.getAllPeers()).toHaveLength(0);
-    expect(node2.getAllPeers()).toHaveLength(0);
-    expect(node3.getAllPeers()).toHaveLength(0);
-    expect(privateNode.getAllPeers()).toHaveLength(0);
+    expect(node1.getKadValues()).toHaveLength(0);
+    expect(node2.getKadValues()).toHaveLength(0);
+    expect(node3.getKadValues()).toHaveLength(0);
+    expect(privateNode.getKadValues()).toHaveLength(0);
 
     await sleep(2000); // wait for peer discovery to be able to start
     for (let i = 0; i < 3; i++) {
@@ -334,10 +334,10 @@ describe('Discv5Service', () => {
       await sleep(100);
     }
 
-    expect(node1.getAllPeers()).toHaveLength(0);
-    expect(node2.getAllPeers()).toHaveLength(0);
-    expect(node3.getAllPeers()).toHaveLength(0);
-    expect(privateNode.getAllPeers()).toHaveLength(0);
+    expect(node1.getKadValues()).toHaveLength(0);
+    expect(node2.getKadValues()).toHaveLength(0);
+    expect(node3.getKadValues()).toHaveLength(0);
+    expect(privateNode.getKadValues()).toHaveLength(0);
 
     await stopNodes(node1, node2, node3, privateNode);
   }, 30_000);
@@ -348,8 +348,9 @@ describe('Discv5Service', () => {
     const peerId = await createSecp256k1PeerId();
     const config: P2PConfig = {
       ...getP2PDefaultConfig(),
-      ...baseConfig,
+      ...emptyChainConfig,
       p2pIp: `127.0.0.1`,
+      listenAddress: `127.0.0.1`,
       p2pPort: port,
       bootstrapNodes: useBootnode ? [bootnodeAddr] : [],
       blockCheckIntervalMS: 50,

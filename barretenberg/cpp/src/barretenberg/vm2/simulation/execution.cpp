@@ -196,7 +196,8 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
     assert(resolved_operands.size() == sizeof...(Ts));
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
     [f, this, &context, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (this->*f)(context, resolved_operands.at(Is).template as<Ts>()...);
+        // FIXME(fcarreiro): we go through FF here.
+        (this->*f)(context, static_cast<Ts>(resolved_operands.at(Is).as_ff())...);
     }(operand_indices);
 }
 

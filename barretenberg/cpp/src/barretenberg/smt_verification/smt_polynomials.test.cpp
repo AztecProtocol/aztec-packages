@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 

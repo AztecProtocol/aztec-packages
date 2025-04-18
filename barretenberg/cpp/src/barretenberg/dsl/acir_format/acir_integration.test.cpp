@@ -29,26 +29,24 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
     // Function to check if a file exists
-    bool file_exists(const std::string& path)
+    static bool file_exists(const std::string& path)
     {
         std::ifstream file(path);
         return file.good();
     }
 
-    acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name,
-                                                                        uint32_t honk_recursion = 0)
+    static acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name)
     {
         std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
         std::string bytecode_path = base_path + "/program.json";
         std::string witness_path = base_path + "/witness.gz";
 
-        return acir_format::get_acir_program_stack(bytecode_path, witness_path, honk_recursion);
+        return acir_format::get_acir_program_stack(bytecode_path, witness_path);
     }
 
-    acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name,
-                                                             uint32_t honk_recursion = 0)
+    static acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
     {
-        auto program_stack = get_program_stack_data_from_test_file(test_program_name, honk_recursion);
+        auto program_stack = get_program_stack_data_from_test_file(test_program_name);
         ASSERT(program_stack.size() == 1); // Otherwise this method will not return full stack data
 
         return program_stack.back();
@@ -148,10 +146,7 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 
     std::string test_name = GetParam();
     info("Test: ", test_name);
-    acir_format::AcirProgram acir_program = get_program_data_from_test_file(
-        test_name,
-        /*honk_recursion=*/0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                               // Assumes Flavor is not UltraHonk
+    acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder builder = acir_format::create_circuit<Builder>(acir_program);
@@ -371,9 +366,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
     std::string test_name = GetParam();
     info("Test: ", test_name);
 
-    auto program_stack = get_program_stack_data_from_test_file(
-        test_name, /*honk_recursion=*/0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                          // Assumes Flavor is not UltraHonk
+    auto program_stack = get_program_stack_data_from_test_file(test_name);
 
     while (!program_stack.empty()) {
         auto program = program_stack.back();
@@ -479,9 +472,7 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = "6_array"; // arbitrary program with RAM gates
-    auto acir_program = get_program_data_from_test_file(
-        test_name, /*honk_recursion=*/0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                          // Assumes Flavor is not UltraHonk
+    auto acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder circuit = acir_format::create_circuit<Builder>(acir_program);
@@ -514,12 +505,8 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     using Flavor = UltraFlavor;
     using Builder = Flavor::CircuitBuilder;
 
-    std::string test_name = "verify_honk_proof"; // arbitrary program with RAM gates
-    // Note: honk_recursion set to 1 here we are using the UltraFlavor.
-    // The honk_recursion flag determines whether a noir program will be recursively verified via Honk in a Noir
-    // program.
-    auto acir_program = get_program_data_from_test_file(test_name,
-                                                        /*honk_recursion=*/1);
+    std::string test_name = "verify_honk_proof"; // program that recursively verifies a honk proof
+    auto acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
     Builder circuit = acir_format::create_circuit<Builder>(acir_program);

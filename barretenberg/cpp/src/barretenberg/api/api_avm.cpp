@@ -46,7 +46,7 @@ void avm_prove(const std::filesystem::path&, const std::filesystem::path&, const
     vinfo("num of pub inputs: ", static_cast<uint64_t>(vk_as_fields[1]));
 
     const auto to_json = [](const std::vector<bb::fr>& data) {
-        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
     std::string vk_json = to_json(vk_as_fields);
     const auto proof_path = output_path / "proof";

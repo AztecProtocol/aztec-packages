@@ -134,6 +134,60 @@ describe('In-Memory P2P Client', () => {
     await client.stop();
   });
 
+  it('request transactions handles missing items', async () => {
+    // Mock a batch response that returns undefined items
+    const mockTx1 = await mockTx();
+    const mockTx2 = await mockTx();
+    p2pService.sendBatchRequest.mockResolvedValue([mockTx1, undefined, mockTx2]);
+
+    // Spy on the tx pool addTxs method, it should not be called for the missing tx
+    const addTxsSpy = jest.spyOn(txPool, 'addTxs');
+
+    await client.start();
+
+    const missingTxHash = (await mockTx()).getTxHash();
+    const query = await Promise.all([mockTx1.getTxHash(), missingTxHash, mockTx2.getTxHash()]);
+    const results = await client.requestTxsByHash(query);
+
+    expect(results).toEqual([mockTx1, undefined, mockTx2]);
+
+    expect(addTxsSpy).toHaveBeenCalledTimes(1);
+    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx2]);
+  });
+
+  it('getTxsByHash handles missing items', async () => {
+    // We expect the node to fetch this item from their local p2p pool
+    const txInMempool = await mockTx();
+    // We expect this transaction to be requested from the network
+    const txToBeRequested = await mockTx();
+    // We expect this transaction to not be found
+    const txToNotBeFound = await mockTx();
+
+    txPool.getTxByHash.mockImplementation(async txHash => {
+      if (txHash === (await txInMempool.getTxHash())) {
+        return txInMempool;
+      }
+      return undefined;
+    });
+
+    const addTxsSpy = jest.spyOn(txPool, 'addTxs');
+    const requestTxsSpy = jest.spyOn(client, 'requestTxsByHash');
+
+    p2pService.sendBatchRequest.mockResolvedValue([txToBeRequested, undefined]);
+
+    await client.start();
+
+    const query = await Promise.all([txInMempool.getTxHash(), txToBeRequested.getTxHash(), txToNotBeFound.getTxHash()]);
+    const results = await client.getTxsByHash(query);
+
+    // We should return the resolved transactions
+    expect(results).toEqual([txInMempool, txToBeRequested]);
+    // We should add the found requested transactions to the pool
+    expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested]);
+    // We should request the missing transactions from the network, but only find one of them
+    expect(requestTxsSpy).toHaveBeenCalledWith([await txToBeRequested.getTxHash(), await txToNotBeFound.getTxHash()]);
+  });
+
   describe('Chain prunes', () => {
     it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);

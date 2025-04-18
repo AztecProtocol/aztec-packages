@@ -15,7 +15,7 @@ import {TestConstants} from "../../harnesses/TestConstants.sol";
 contract AddressSetWrapper {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
-  SnapshottedAddressSet validatorSet;
+  SnapshottedAddressSet private validatorSet;
 
   function add(address _address) public returns (bool) {
     return validatorSet.add(_address);
@@ -61,8 +61,19 @@ contract AddressSnapshotsBase is Test {
   uint256 private constant EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
   uint256 private immutable GENESIS_TIME = block.timestamp;
 
-  AddressSetWrapper validatorSet;
-  TimeCheater timeCheater;
+  AddressSetWrapper internal validatorSet;
+  TimeCheater internal timeCheater;
+
+  function boundUnique(address[] memory _addrs) internal pure returns (address[] memory) {
+    // Ensure addresses within _addrSet1 are unique
+    vm.assume(_addrs.length > 0);
+    for (uint256 i = 0; i < _addrs.length; i++) {
+      for (uint256 j = 0; j < i; j++) {
+        vm.assume(_addrs[i] != _addrs[j]);
+      }
+    }
+    return _addrs;
+  }
 
   function setUp() public {
     validatorSet = new AddressSetWrapper();

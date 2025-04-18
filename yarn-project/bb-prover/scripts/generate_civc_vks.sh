@@ -11,9 +11,9 @@ cd ..
 # and for purposes of VK generation, stale inputs work just fine.
 # IF NEW INPUTS SUDDENLY DO NOT VERIFY IN THE IVC BENCH - we need to redo this:
 # - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-# - Upload the compressed results: aws s3 cp ./bb-civc-inputs-v2.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
+# - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
 
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v2.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v3.tar.gz"
 hash=$(hash_str $(../bootstrap.sh hash) "$pinned_civc_inputs_url")
 
 if cache_download bb-prover-vks-$hash.tar.gz; then

@@ -29,8 +29,8 @@ import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import { encode } from '@msgpack/msgpack';
 import * as fs from 'fs/promises';
+import { Encoder } from 'msgpackr';
 import * as path from 'path';
 
 export async function proveClientIVC(
@@ -40,17 +40,22 @@ export async function proveClientIVC(
   bytecodes: string[],
   logger: Logger,
 ): Promise<ClientIvcProof> {
-  await fs.writeFile(
-    path.join(bbWorkingDirectory, 'acir.msgpack'),
-    encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
-  );
+  const stepToStruct = (bytecode: string, index: number) => {
+    return {
+      bytecode: Buffer.from(bytecode, 'base64'),
+      witness: witnessStack[index],
+      vk: Buffer.from([]),
+      functionName: `unknown_${index}`,
+    };
+  };
+  const encoded = new Encoder({ useRecords: false }).pack(bytecodes.map(stepToStruct));
+  const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
+  await fs.writeFile(ivcInputsPath, encoded);
 
-  await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
   const provingResult = await executeBbClientIvcProof(
     bbBinaryPath,
     bbWorkingDirectory,
-    path.join(bbWorkingDirectory, 'acir.msgpack'),
-    path.join(bbWorkingDirectory, 'witnesses.msgpack'),
+    ivcInputsPath,
     logger.info,
     true,
   );

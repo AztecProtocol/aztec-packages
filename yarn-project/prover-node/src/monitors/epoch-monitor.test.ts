@@ -26,6 +26,9 @@ describe('EpochMonitor', () => {
     provenBlockNumber = 0;
 
     handler = mock<EpochMonitorHandler>();
+    // Default triggering proving jobs is successful
+    handler.handleEpochReadyToProve.mockResolvedValue(true);
+
     l2BlockSource = mock<L2BlockSource>({
       isEpochComplete(epochNumber) {
         return Promise.resolve(epochNumber <= lastEpochComplete);
@@ -85,6 +88,23 @@ describe('EpochMonitor', () => {
     await epochMonitor.work();
 
     expect(handler.handleEpochReadyToProve).not.toHaveBeenCalled();
+  });
+
+  it('does not update the latest epoch number if proving was unable to start', async () => {
+    provenBlockNumber = 4;
+    blockToSlot[5] = 32n;
+    lastEpochComplete = 3n;
+
+    handler.handleEpochReadyToProve.mockResolvedValue(false);
+
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
+
+    // It will be called again with the same epoch number
+    await epochMonitor.work();
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
+    expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(2);
   });
 
   it('does not trigger epoch sync if epoch is already processed', async () => {
