@@ -50,6 +50,9 @@ export class BatchConnectionSampler {
 
     // Calculate which peer bucket this index belongs to
     const peerIndex = Math.floor(index / this.requestsPerPeer) % this.batch.length;
+
+    this.logger.debug('Peer index', { peerIndex, index, requestsPerPeer: this.requestsPerPeer });
+    this.logger.debug('Batch', { batch: this.batch });
     return this.batch[peerIndex];
   }
 
@@ -70,11 +73,11 @@ export class BatchConnectionSampler {
 
     if (newPeer) {
       this.batch[index] = newPeer;
-      this.logger.trace(`Replaced peer ${peerId} with ${newPeer}`, { peerId, newPeer });
+      this.logger.trace('Replaced peer', { peerId, newPeer });
     } else {
       // If we couldn't get a replacement, remove the peer and compact the array
       this.batch.splice(index, 1);
-      this.logger.trace(`Removed peer ${peerId}`, { peerId });
+      this.logger.trace('Removed peer', { peerId });
     }
   }
 

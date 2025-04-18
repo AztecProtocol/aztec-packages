@@ -325,7 +325,7 @@ export class ReqResp {
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer
-                if (response && response.status !== ReqRespStatus.SUCCESS) {
+                if (response.status !== ReqRespStatus.SUCCESS) {
                   this.logger.debug(
                     `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(
                       response.status,
@@ -421,7 +421,7 @@ export class ReqResp {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
-  ): Promise<ReqRespResponse | undefined> {
+  ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
@@ -439,6 +439,12 @@ export class ReqResp {
     } catch (e: any) {
       this.metrics.recordRequestError(subProtocol);
       this.handleResponseError(e, peerId, subProtocol);
+
+      // If there is an exception, we return an unknown response
+      return {
+        status: ReqRespStatus.UNKNOWN,
+        data: Buffer.from([]),
+      };
     } finally {
       // Only close the stream if we created it
       if (stream) {
