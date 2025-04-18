@@ -67,7 +67,7 @@ export function ContractUpload() {
         >
           <Box sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px' }}>
             <Box>
-              <a href="https://docs.aztec.network/developers" target="_blank" rel="noopener noreferrer">Learn</a>
+              <a href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract" target="_blank" rel="noopener noreferrer">Learn</a>
               <span> to write your own Aztec smart contracts and upload them here when ready.</span>
             </Box>
 
