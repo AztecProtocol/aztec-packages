@@ -101,6 +101,7 @@ describe('EpochMonitor', () => {
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(1);
 
+    // It will be called again with the same epoch number
     await epochMonitor.work();
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledWith(3n);
     expect(handler.handleEpochReadyToProve).toHaveBeenCalledTimes(2);
