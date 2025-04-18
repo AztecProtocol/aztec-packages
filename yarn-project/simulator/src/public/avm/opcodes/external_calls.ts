@@ -31,8 +31,10 @@ abstract class ExternalCall extends Instruction {
     const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [gasOffset, addrOffset, argsOffset, argsSizeOffset] = addressing.resolve(operands, memory);
+    // TODO: why is gas field and not u32? (update docs if switched)
     memory.checkTags(TypeTag.FIELD, gasOffset, gasOffset + 1);
     memory.checkTag(TypeTag.FIELD, addrOffset);
+    // TODO: does args need to be u32 or could it be u16?
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();

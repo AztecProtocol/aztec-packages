@@ -1,14 +1,17 @@
 const { instructionSize } = require("./InstructionSize");
 
+// TODO: mode: offset
 const TOPICS_IN_TABLE = ["Name", "Summary", "Expression"];
 const TOPICS_IN_SECTIONS = [
   "Name",
   "Summary",
   "Category",
+  "Variants",
   "Flags",
   "Args",
   "Expression",
   "Details",
+  "Exceptions",
   "World State access tracing",
   "Additional AVM circuit checks",
   "Triggers downstream circuit operations",
@@ -21,8 +24,6 @@ const IN_TAG_DESCRIPTION =
   "The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with.";
 const IN_TAG_DESCRIPTION_NO_FIELD =
   IN_TAG_DESCRIPTION + " `field` type is NOT supported for this instruction.";
-const DST_TAG_DESCRIPTION =
-  "The [tag/size](./memory-model#tags-and-tagged-memory) to tag the destination with but not to check inputs against.";
 const INDIRECT_FLAG_DESCRIPTION =
   "Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.";
 
@@ -43,38 +44,35 @@ const CALL_INSTRUCTION_ARGS = [
       "memory offset for the number of words to pass via callee's calldata",
   },
   {
-    name: "retOffset",
-    description:
-      "destination memory offset specifying where to store the data returned from the callee",
-  },
-  {
-    name: "retSize",
-    description: "number of words to copy from data returned by callee",
-    mode: "immediate",
-    type: "u32",
-  },
-  {
     name: "successOffset",
     description:
       "destination memory offset specifying where to store the call's success (0: failure, 1: success)",
-    type: "u8",
+    type: "u1",
   },
 ];
 const CALL_INSTRUCTION_DETAILS = `
     ["Nested contract calls"](./nested-calls) provides a full explanation of this
     instruction along with the shorthand used in the expression above.
     The explanation includes details on charging gas for nested calls,
-    nested context derivation, world state tracing, and updating the parent context
+    nested context derivation, world state, and updating the parent context
     after the nested call halts.`;
+
+const VARIANT_8 = "Memory offset operands are 8 bits wide. Note that this does not mean that the resolved memory value is u8.";
+const VARIANT_16 = "Memory offset operands are 16 bits wide. Note that this does not mean that the resolved memory value is u16.";
+const getSetVariant = (size) => `Imemediate 'value' operand is ${size} bits wide. Note that this does not mean that the destination type/tag will necessarily be 'u${size}'.`;
+const SET_VARIANT_FF = "Imemediate 'value' operand is a full 254-bit field (FF).  Note that this does not mean that the destination type/tag will necessarily be 'field'.";
 
 const INSTRUCTION_SET_RAW = [
   {
     id: "add",
     Name: "`ADD`",
     Category: "Compute - Arithmetic",
+    Variants: [
+      { name: "ADD_8", description: VARIANT_8 },
+      { name: "ADD_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION },
     ],
     Args: [
       {
@@ -94,16 +92,19 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] + M[bOffset] mod 2^k`",
     Summary: "Addition (a + b)",
     Details: "Wraps on overflow",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "sub",
     Name: "`SUB`",
     Category: "Compute - Arithmetic",
+    Variants: [
+      { name: "SUB_8", description: VARIANT_8 },
+      { name: "SUB_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION },
     ],
     Args: [
       {
@@ -122,17 +123,20 @@ const INSTRUCTION_SET_RAW = [
     ],
     Expression: "`M[dstOffset] = M[aOffset] - M[bOffset] mod 2^k`",
     Summary: "Subtraction (a - b)",
-    Details: "Wraps on undeflow",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    Details: "Wraps on underflow",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "mul",
     Name: "`MUL`",
     Category: "Compute - Arithmetic",
+    Variants: [
+      { name: "MUL_8", description: VARIANT_8 },
+      { name: "MUL_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION },
     ],
     Args: [
       {
@@ -152,16 +156,19 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] * M[bOffset] mod 2^k`",
     Summary: "Multiplication (a * b)",
     Details: "Wraps on overflow",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "div",
     Name: "`DIV`",
     Category: "Compute - Arithmetic",
+    Variants: [
+      { name: "DIV_8", description: VARIANT_8 },
+      { name: "DIV_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION },
     ],
     Args: [
       {
@@ -180,14 +187,19 @@ const INSTRUCTION_SET_RAW = [
     ],
     Expression: "`M[dstOffset] = M[aOffset] / M[bOffset]`",
     Summary: "Unsigned integer division (a / b)",
-    Details: "If the input is a field, it will be interpreted as an integer",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    Exceptions: "Exceptional halt if the input is field (is not integral)",
+    Details: "",
+    "Tag checks": "`T[aOffset] == T[bOffset] != field`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "fdiv",
     Name: "`FDIV`",
     Category: "Compute - Arithmetic",
+    Variants: [
+      { name: "FDIV_8", description: VARIANT_8 },
+      { name: "FDIV_16", description: VARIANT_16 },
+    ],
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
@@ -214,9 +226,12 @@ const INSTRUCTION_SET_RAW = [
     id: "eq",
     Name: "`EQ`",
     Category: "Compute - Comparators",
+    Variants: [
+      { name: "EQ_8", description: VARIANT_8 },
+      { name: "EQ_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION },
     ],
     Args: [
       {
@@ -231,22 +246,25 @@ const INSTRUCTION_SET_RAW = [
         name: "dstOffset",
         description:
           "memory offset specifying where to store operation's result",
-        type: "u8",
+        type: "u1",
       },
     ],
     Expression: "`M[dstOffset] = M[aOffset] == M[bOffset] ? 1 : 0`",
     Summary: "Equality check (a == b)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = u8`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = u1`",
   },
   {
     id: "lt",
     Name: "`LT`",
     Category: "Compute - Comparators",
+    Variants: [
+      { name: "LT_8", description: VARIANT_8 },
+      { name: "LT_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION },
     ],
     Args: [
       {
@@ -261,22 +279,25 @@ const INSTRUCTION_SET_RAW = [
         name: "dstOffset",
         description:
           "memory offset specifying where to store operation's result",
-        type: "u8",
+        type: "u1",
       },
     ],
     Expression: "`M[dstOffset] = M[aOffset] < M[bOffset] ? 1 : 0`",
     Summary: "Less-than check (a < b)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = u8`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = u1`",
   },
   {
     id: "lte",
     Name: "`LTE`",
     Category: "Compute - Comparators",
+    Variants: [
+      { name: "LTE_8", description: VARIANT_8 },
+      { name: "LTE_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION },
     ],
     Args: [
       {
@@ -291,22 +312,25 @@ const INSTRUCTION_SET_RAW = [
         name: "dstOffset",
         description:
           "memory offset specifying where to store operation's result",
-        type: "u8",
+        type: "u1",
       },
     ],
     Expression: "`M[dstOffset] = M[aOffset] <= M[bOffset] ? 1 : 0`",
     Summary: "Less-than-or-equals check (a <= b)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = u8`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = u1`",
   },
   {
     id: "and",
     Name: "`AND`",
     Category: "Compute - Bitwise",
+    Variants: [
+      { name: "AND_8", description: VARIANT_8 },
+      { name: "AND_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
     ],
     Args: [
       {
@@ -325,17 +349,21 @@ const INSTRUCTION_SET_RAW = [
     ],
     Expression: "`M[dstOffset] = M[aOffset] AND M[bOffset]`",
     Summary: "Bitwise AND (a & b)",
+    Exceptions: "Exceptional halt if the input is field (is not integral)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "or",
     Name: "`OR`",
     Category: "Compute - Bitwise",
+    Variants: [
+      { name: "OR_8", description: VARIANT_8 },
+      { name: "OR_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
     ],
     Args: [
       {
@@ -354,17 +382,21 @@ const INSTRUCTION_SET_RAW = [
     ],
     Expression: "`M[dstOffset] = M[aOffset] OR M[bOffset]`",
     Summary: "Bitwise OR (a | b)",
+    Exceptions: "Exceptional halt if the input is field (is not integral)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "xor",
     Name: "`XOR`",
     Category: "Compute - Bitwise",
+    Variants: [
+      { name: "XOR_8", description: VARIANT_8 },
+      { name: "XOR_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
     ],
     Args: [
       {
@@ -383,17 +415,21 @@ const INSTRUCTION_SET_RAW = [
     ],
     Expression: "`M[dstOffset] = M[aOffset] XOR M[bOffset]`",
     Summary: "Bitwise XOR (a ^ b)",
+    Exceptions: "Exceptional halt if the input is field (is not integral)",
     Details: "",
-    "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset] == T[bOffset]`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "not",
     Name: "`NOT`",
     Category: "Compute - Bitwise",
+    Variants: [
+      { name: "NOT_8", description: VARIANT_8 },
+      { name: "NOT_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
     ],
     Args: [
       {
@@ -408,14 +444,19 @@ const INSTRUCTION_SET_RAW = [
     ],
     Expression: "`M[dstOffset] = NOT M[aOffset]`",
     Summary: "Bitwise NOT (inversion)",
+    Exceptions: "Exceptional halt if the input is field (is not integral)",
     Details: "",
-    "Tag checks": "`T[aOffset] == inTag`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset]`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "shl",
     Name: "`SHL`",
     Category: "Compute - Bitwise",
+    Variants: [
+      { name: "SHL_8", description: VARIANT_8 },
+      { name: "SHL_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
       { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
@@ -439,13 +480,17 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] << M[bOffset]`",
     Summary: "Bitwise leftward shift (a << b)",
     Details: "",
-    "Tag checks": "`T[aOffset] == inTag`, `T[bOffset] == u8`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset]`, `T[bOffset] == u8`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "shr",
     Name: "`SHR`",
     Category: "Compute - Bitwise",
+    Variants: [
+      { name: "SHR_8", description: VARIANT_8 },
+      { name: "SHR_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
       { name: "inTag", description: IN_TAG_DESCRIPTION_NO_FIELD },
@@ -469,262 +514,128 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = M[aOffset] >> M[bOffset]`",
     Summary: "Bitwise rightward shift (a >> b)",
     Details: "",
-    "Tag checks": "`T[aOffset] == inTag`, `T[bOffset] == u8`",
-    "Tag updates": "`T[dstOffset] = inTag`",
+    "Tag checks": "`T[aOffset]`, `T[bOffset] == u8`",
+    "Tag updates": "`T[dstOffset] = T[aOffset]`",
   },
   {
     id: "cast",
     Name: "`CAST`",
     Category: "Type Conversions",
+    Variants: [
+      { name: "CAST_8", description: VARIANT_8 },
+      { name: "CAST_16", description: VARIANT_16 },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      { name: "dstTag", description: DST_TAG_DESCRIPTION },
     ],
     Args: [
-      { name: "aOffset", description: "memory offset of word to cast" },
+      { name: "srcOffset", description: "memory offset of word to cast" },
       {
         name: "dstOffset",
         description:
           "memory offset specifying where to store operation's result",
       },
+      { name: "dstTag", description: "The [tag/type](./memory-model#tags-and-tagged-memory) to tag the destination with." },
     ],
-    Expression: "`M[dstOffset] = cast<dstTag>(M[aOffset])`",
+    Expression: "`M[dstOffset] = cast<dstTag>(M[srcOffset])`",
     Summary: "Type cast",
-    Details:
-      "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./memory-model#cast-and-tag-conversions) for more details.",
+    Details: "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./memory-model#cast-and-tag-conversions) for more details.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = dstTag`",
   },
   {
-    id: "address",
-    Name: "`ADDRESS`",
+    id: "getenv",
+    Name: "`GETENVVAR_16`",
     Category: "Execution Environment",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
         name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
+        description: "memory offset specifying where to store operation's result",
       },
-    ],
-    Expression: "`M[dstOffset] = context.environment.address`",
-    Summary: "Get the address of the currently executing l2 contract",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "sender",
-    Name: "`SENDER`",
-    Category: "Execution Environment",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
       {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
+        name: "varEnum",
+        description: "enum value specifying which item to get from the execution environment",
+        mode: "immediate",
+        type: "u8",
       },
     ],
-    Expression: "`M[dstOffset] = context.environment.sender`",
-    Summary: "Get the address of the sender (caller of the current context)",
-    Details: "",
+    Expression: "`M[dstOffset] = context.environment[varEnum]`",
+    Summary: "Get an entry from the context's execution environment",
+    Details: "`Enum: [ ADDRESS, SENDER, TRANSACTIONFEE, CHAINID, VERSION, BLOCKNUMBER, TIMESTAMP, FEEPERL2GAS, FEEPERDAGAS, ISSTATICCALL, L2GASLEFT, DAGASLEFT ]`",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "transactionfee",
-    Name: "`TRANSACTIONFEE`",
-    Category: "Execution Environment",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.transactionFee`",
-    Summary:
-      "Get the computed transaction fee during teardown phase, zero otherwise",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "chainid",
-    Name: "`CHAINID`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.chainId`",
-    Summary: "Get this rollup's L1 chain ID",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "version",
-    Name: "`VERSION`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.version`",
-    Summary: "Get this rollup's L2 version ID",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "blocknumber",
-    Name: "`BLOCKNUMBER`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.blocknumber`",
-    Summary: "Get this L2 block's number",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "timestamp",
-    Name: "`TIMESTAMP`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.timestamp`",
-    Summary: "Get this L2 block's timestamp",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u64`",
-  },
-  {
-    id: "feeperl2gas",
-    Name: "`FEEPERL2GAS`",
-    Category: "Execution Environment - Globals - Gas",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.feePerL2Gas`",
-    Summary:
-      'Get the fee to be paid per "L2 gas" - constant for entire transaction',
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "feeperdagas",
-    Name: "`FEEPERDAGAS`",
-    Category: "Execution Environment - Globals - Gas",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.feePerDaGas`",
-    Summary:
-      'Get the fee to be paid per "DA gas" - constant for entire transaction',
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
+    "Tag updates": "`T[dstOffset] = varEnum == TIMESTAMP ? u64 : field`",
   },
   {
     id: "calldatacopy",
     Name: "`CALLDATACOPY`",
-    Category: "Execution Environment - Calldata",
+    Category: "Memory - Calldata & Returndata",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
-      { name: "cdOffset", description: "offset into calldata to copy from" },
       {
-        name: "copySize",
-        description: "number of words to copy",
-        mode: "immediate",
-        type: "u32",
+        name: "cdStartOffset",
+        description: "calldata offset specifying the first word to copy to memory",
+      },
+      {
+        name: "copySizeOffset",
+        description: "number of words to copy to memory",
       },
       {
         name: "dstOffset",
-        description: "memory offset specifying where to copy the first word to",
+        description: "memory offset specifying where to store the first copied word",
       },
     ],
-    Expression:
-      "`M[dstOffset:dstOffset+copySize] = context.environment.calldata[cdOffset:cdOffset+copySize]`",
-    Summary: "Copy calldata into memory",
-    Details:
-      "Calldata is read-only and cannot be directly operated on by other instructions. This instruction moves words from calldata into memory so they can be operated on normally.",
+    Expression: "`M[dstOffset+M[copySizeOffset]] = context.environment.calldata[cdStartOffset+M[copySizeOffset]]`",
+    Summary: "Copy a range of words from calldata to memory",
+    Details: "If the copy would surpass the bounds of calldata, the result is zero-padded to copySizeOffset.",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset:dstOffset+copySize] = field`",
+    "Tag updates": "`T[dstOffset+M[copySizeOffset]] = field`",
   },
   {
-    id: "l2gasleft",
-    Name: "`L2GASLEFT`",
-    Category: "Machine State - Gas",
+    id: "returndatasize",
+    Name: "`RETURNDATASIZE`",
+    Category: "Memory - Calldata & Returndata",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
         name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
+        description: "memory offset specifying where to store the first copied word",
       },
     ],
-    Expression: "`M[dstOffset] = context.MachineState.l2GasLeft`",
-    Summary: 'Remaining "L2 gas" for this call (after this instruction)',
-    Details: "",
+    Expression: "`M[dstOffset] = context.machineState.nestedReturndata.length`",
+    Summary: "Get the size of the returndata buffer",
+    Details: "The returndata buffer holds the returndata from only the latest nested call. If no nested call has been made yet from this context, size zero.",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset+M[copySizeOffset]] = u32`",
   },
   {
-    id: "dagasleft",
-    Name: "`DAGASLEFT`",
-    Category: "Machine State - Gas",
+    id: "returndatacopy",
+    Name: "`RETURNDATACOPY`",
+    Category: "Memory - Calldata & Returndata",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
+        name: "rdStartOffset",
+        description: "returndata offset specifying the first word to copy to memory",
+      },
+      {
+        name: "copySizeOffset",
+        description: "number of words to copy to memory",
+      },
+      {
         name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
+        description: "memory offset specifying where to store the first copied word",
       },
     ],
-    Expression: "`M[dstOffset] = context.machineState.daGasLeft`",
-    Summary: 'Remaining "DA gas" for this call (after this instruction)',
-    Details: "",
+    Expression: "`M[dstOffset+M[copySizeOffset]] = context.machineState.nestedReturndata[rdStartOffset+M[copySizeOffset]]`",
+    Summary: "Copy a range of words from returndata to memory",
+    Details: "The returndata buffer holds the returndata from only the latest nested call. If the copy would surpass the bounds of returndata, the result is zero-padded to copySizeOffset.",
     "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
+    "Tag updates": "`T[dstOffset+M[copySizeOffset]] = field`",
   },
   {
     id: "jump",
-    Name: "`JUMP`",
+    Name: "`JUMP_32`",
     Category: "Machine State - Control Flow",
     Flags: [],
     Args: [
@@ -735,22 +646,21 @@ const INSTRUCTION_SET_RAW = [
         type: "u32",
       },
     ],
-    Expression: "`context.machineState.pc = loc`",
+    Expression: "`context.machineState.pc = M[jumpOffset]`",
     Summary: "Jump to a location in the bytecode",
-    Details:
-      "Target location is an immediate value (a constant in the bytecode).",
+    Details: "Target location is an immediate value (a constant in the bytecode).",
     "Tag checks": "",
     "Tag updates": "",
   },
   {
     id: "jumpi",
-    Name: "`JUMPI`",
+    Name: "`JUMPI_32`",
     Category: "Machine State - Control Flow",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
         name: "loc",
-        description: "target location conditionally jump to",
+        description: "target location to conditionally jump to",
         mode: "immediate",
         type: "u32",
       },
@@ -759,11 +669,9 @@ const INSTRUCTION_SET_RAW = [
         description: "memory offset of the operations 'conditional' input",
       },
     ],
-    Expression:
-      "`context.machineState.pc = M[condOffset] > 0 ? loc : context.machineState.pc`",
+    Expression: "`if M[condOffset] > 0: context.machineState.pc = loc`",
     Summary: "Conditionally jump to a location in the bytecode",
-    Details:
-      "Target location is an immediate value (a constant in the bytecode). `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
+    Details: "Target location is an immediate value (a constant in the bytecode). `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
     "Tag checks": "",
     "Tag updates": "",
   },
@@ -781,11 +689,11 @@ const INSTRUCTION_SET_RAW = [
       },
     ],
     Expression: `
-context.machineState.internalCallStack.push(context.machineState.pc)
+context.machineState.internalCallStack.push(context.machineState.nextPc)
 context.machineState.pc = loc
 `,
     Summary:
-      "Make an internal call. Push the current PC to the internal call stack and jump to the target location.",
+      "Make an internal call. Push the next PC to the internal call stack and jump to the target location.",
     Details:
       "Target location is an immediate value (a constant in the bytecode).",
     "Tag checks": "",
@@ -809,30 +717,37 @@ context.machineState.pc = loc
     id: "set",
     Name: "`SET`",
     Category: "Machine State - Memory",
+    Variants: [
+      { name: "SET_8", description: getSetVariant(8) },
+      { name: "SET_16", description: getSetVariant(16) },
+      { name: "SET_32", description: getSetVariant(32) },
+      { name: "SET_64", description: getSetVariant(64) },
+      { name: "SET_128", description: getSetVariant(128) },
+      { name: "SET_FF", description: SET_VARIANT_FF },
+    ],
     Flags: [
       { name: "indirect", description: INDIRECT_FLAG_DESCRIPTION },
-      {
-        name: "inTag",
-        description:
-          "The [type/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with. `field` type is NOT supported for SET.",
-      },
     ],
     Args: [
       {
-        name: "const",
-        description:
-          "an N-bit constant value from the bytecode to store in memory (any type except `field`)",
-        mode: "immediate",
+        name: "dstOffset",
+        description: "memory offset specifying where to store `value`",
       },
       {
-        name: "dstOffset",
-        description: "memory offset specifying where to store the constant",
+        name: "inTag",
+        description:
+          "The [type/size](./memory-model#tags-and-tagged-memory) to cast `value` to and to tag the destination with.",
+      },
+      {
+        name: "value",
+        description:
+          "an constant value from the bytecode to store in memory",
+        mode: "immediate",
       },
     ],
-    Expression: "`M[dstOffset] = const`",
-    Summary: "Set a memory word from a constant in the bytecode",
-    Details:
-      "Set memory word at `dstOffset` to `const`'s immediate value. `const`'s bit-size (N) can be 8, 16, 32, 64, or 128 based on `inTag`. It _cannot be 254 (`field` type)_!",
+    Expression: "`M[dstOffset] = cast<inTag>(value)`",
+    Summary: "Set a word in memory from a constant in the bytecode",
+    Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = inTag`",
   },
@@ -840,9 +755,13 @@ context.machineState.pc = loc
     id: "mov",
     Name: "`MOV`",
     Category: "Machine State - Memory",
+    Variants: [
+      { name: "MOV_8", description: VARIANT_8 },
+      { name: "MOV_16", description: VARIANT_16 },
+    ],
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
-      { name: "srcOffset", description: "memory offset of word to move" },
+      { name: "srcOffset", description: "memory offset of the word to move" },
       {
         name: "dstOffset",
         description: "memory offset specifying where to store that word",
@@ -853,39 +772,6 @@ context.machineState.pc = loc
     Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = T[srcOffset]`",
-  },
-  {
-    id: "cmov",
-    Name: "`CMOV`",
-    Category: "Machine State - Memory",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "aOffset",
-        description: "memory offset of word 'a' to conditionally move",
-      },
-      {
-        name: "bOffset",
-        description: "memory offset of word 'b' to conditionally move",
-      },
-      {
-        name: "condOffset",
-        description: "memory offset of the operations 'conditional' input",
-      },
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = M[condOffset] > 0 ? M[aOffset] : M[bOffset]`",
-    Summary:
-      "Move a word (conditionally chosen) from one memory location to another (`d = cond > 0 ? a : b`)",
-    Details:
-      "One of two source memory locations is chosen based on the condition. `T[condOffset]` is not checked because the greater-than-zero suboperation is the same regardless of type.",
-    "Tag checks": "",
-    "Tag updates":
-      "`T[dstOffset] = M[condOffset] > 0 ? T[aOffset] : T[bOffset]`",
   },
   {
     id: "sload",
@@ -907,30 +793,8 @@ context.machineState.pc = loc
 M[dstOffset] = S[M[slotOffset]]
 `,
     Summary:
-      "Load a word from this contract's persistent public storage. Zero is loaded for unwritten slots.",
-    Details: `
-// Expression is shorthand for
-leafIndex = hash(context.environment.address, M[slotOffset])
-exists = context.worldState.publicStorage.has(leafIndex) // exists == previously-written
-if exists:
-    value = context.worldState.publicStorage.get(leafIndex: leafIndex)
-else:
-    value = 0
-M[dstOffset] = value
-`,
-    "World State access tracing": `
-context.worldStateAccessTrace.publicStorageReads.append(
-    TracedStorageRead {
-        callPointer: context.environment.callPointer,
-        slot: M[slotOffset],
-        exists: exists, // defined above
-        value: value, // defined above
-        counter: ++context.worldStateAccessTrace.accessCounter,
-    }
-)
-`,
-    "Triggers downstream circuit operations":
-      "Storage slot siloing (hash with contract address), public data tree membership check",
+      "Load a word from this contract's persistent public storage. If this slot has never been written before, the value zero is loaded.",
+    Details: "Silo the storage slot (hash with contract address), and perform a membership check in the public data tree.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = field`",
   },
@@ -950,25 +814,8 @@ context.worldStateAccessTrace.publicStorageReads.append(
 S[M[slotOffset]] = M[srcOffset]
 `,
     Summary: "Write a word to this contract's persistent public storage",
-    Details: `
-// Expression is shorthand for
-context.worldState.publicStorage.set({
-    leafIndex: hash(context.environment.address, M[slotOffset]),
-    leaf: M[srcOffset],
-})
-`,
-    "World State access tracing": `
-context.worldStateAccessTrace.publicStorageWrites.append(
-    TracedStorageWrite {
-        callPointer: context.environment.callPointer,
-        slot: M[slotOffset],
-        value: M[srcOffset],
-        counter: ++context.worldStateAccessTrace.accessCounter,
-    }
-)
-`,
-    "Triggers downstream circuit operations":
-      "Storage slot siloing (hash with contract address), public data tree update",
+    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
+    Details: "Silo the storage slot (hash with contract address), and perform a merkle insertion in the public data tree.",
     "Tag checks": "",
     "Tag updates": "",
   },
@@ -990,29 +837,16 @@ context.worldStateAccessTrace.publicStorageWrites.append(
       },
     ],
     Expression: `
-exists = context.worldState.noteHashes.has({
-    leafIndex: M[leafIndexOffset]
-    leaf: hash(context.environment.address, M[noteHashOffset]),
-})
+siloedNoteHash = hash(context.environment.address, M[noteHashOffset])
+gotSiloedNoteHash = context.worldState.noteHashes.get(/*leafIndex=*/ M[leafIndexOffset])
+exists = siloedNoteHash == gotSiloedNoteHash
 M[existsOffset] = exists
 `,
     Summary:
-      "Check whether a note hash exists in the note hash tree (as of the start of the current block)",
-    "World State access tracing": `
-context.worldStateAccessTrace.noteHashChecks.append(
-    TracedNoteHashCheck {
-        callPointer: context.environment.callPointer,
-        leafIndex: M[leafIndexOffset]
-        noteHash: M[noteHashOffset],
-        exists: exists, // defined above
-        counter: ++context.worldStateAccessTrace.accessCounter,
-    }
-)
-`,
-    "Triggers downstream circuit operations":
-      "Note hash siloing (hash with storage contract address), note hash tree membership check",
-    "Tag checks": "",
-    "Tag updates": "`T[existsOffset] = u8`",
+      "Check whether a note hash exists in the note hash tree",
+    Details: "Silo the note hash (hash with storage contract address), and perform a membership check of the note hash tree",
+    "Tag checks": "T[noteHashOffset] == T[leafIndexOffset] == field",
+    "Tag updates": "`T[existsOffset] = u1`",
   },
   {
     id: "emitnotehash",
@@ -1027,19 +861,10 @@ context.worldState.noteHashes.append(
     hash(context.environment.address, M[noteHashOffset])
 )
 `,
-    Summary: "Emit a new note hash to be inserted into the note hash tree",
-    "World State access tracing": `
-context.worldStateAccessTrace.noteHashes.append(
-    TracedNoteHash {
-        callPointer: context.environment.callPointer,
-        noteHash: M[noteHashOffset], // unsiloed note hash
-        counter: ++context.worldStateAccessTrace.accessCounter,
-    }
-)
-`,
-    "Triggers downstream circuit operations":
-      "Note hash siloing (hash with contract address), note hash tree insertion.",
-    "Tag checks": "",
+    Summary: "Insert a new note hash into the note hash tree",
+    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
+    Details: "Silo the note hash (hash with contract address), make it unique (hash with nonce) and insert into note hash tree",
+    "Tag checks": "T[nullifierOffset] == field",
     "Tag updates": "",
   },
   {
@@ -1063,28 +888,15 @@ context.worldStateAccessTrace.noteHashes.append(
       },
     ],
     Expression: `
-exists = pendingNullifiers.has(M[addressOffset], M[nullifierOffset]) || context.worldState.nullifiers.has(
+exists = context.worldState.nullifiers.has(
     hash(M[addressOffset], M[nullifierOffset])
 )
 M[existsOffset] = exists
 `,
-    Summary:
-      "Check whether a nullifier exists in the nullifier tree (including nullifiers from earlier in the current transaction or from earlier in the current block)",
-    "World State access tracing": `
-context.worldStateAccessTrace.nullifierChecks.append(
-    TracedNullifierCheck {
-        callPointer: context.environment.callPointer,
-        nullifier: M[nullifierOffset],
-        address: M[addressOffset],
-        exists: exists, // defined above
-        counter: ++context.worldStateAccessTrace.accessCounter,
-    }
-)
-`,
-    "Triggers downstream circuit operations":
-      "Nullifier siloing (hash with storage contract address), nullifier tree membership check",
-    "Tag checks": "",
-    "Tag updates": "`T[existsOffset] = u8`",
+    Summary: "Check whether a nullifier exists in the nullifier tree",
+    Details: "Silo nullifier (hash with storage contract address), check membership in the nullifier tree",
+    "Tag checks": "T[nullifierOffset] == T[addressOffset] == field",
+    "Tag updates": "`T[existsOffset] = u1`",
   },
   {
     id: "emitnullifier",
@@ -1099,19 +911,10 @@ context.worldState.nullifiers.append(
     hash(context.environment.address, M[nullifierOffset])
 )
 `,
-    Summary: "Emit a new nullifier to be inserted into the nullifier tree",
-    "World State access tracing": `
-context.worldStateAccessTrace.nullifiers.append(
-    TracedNullifier {
-        callPointer: context.environment.callPointer,
-        nullifier: M[nullifierOffset], // unsiloed nullifier
-        counter: ++context.worldStateAccessTrace.accessCounter,
-    }
-)
-`,
-    "Triggers downstream circuit operations":
-      "Nullifier siloing (hash with contract address), nullifier tree non-membership-check and insertion.",
-    "Tag checks": "",
+    Summary: "Insert a new nullifier into the nullifier tree",
+    Exceptions: "Exceptional halt if the specified nullifier already exists or if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
+    Details: "Silo nullifier (hash with contract address), assert non-membership and insert into nullifier tree",
+    "Tag checks": "T[nullifierOffset] == field",
     "Tag updates": "",
   },
   {
@@ -1142,22 +945,8 @@ exists = context.worldState.l1ToL2Messages.has({
 M[existsOffset] = exists
 `,
     Summary: "Check if a message exists in the L1-to-L2 message tree",
-    "World State access tracing": `
-context.worldStateAccessTrace.l1ToL2MessagesChecks.append(
-    L1ToL2Message {
-        callPointer: context.environment.callPointer,
-        leafIndex: M[msgLeafIndexOffset],
-        msgHash: M[msgHashOffset],
-        exists: exists, // defined above
-    }
-)
-`,
-    "Triggers downstream circuit operations":
-      "L1-to-L2 message tree membership check",
-    "Tag checks": "",
-    "Tag updates": `
-T[existsOffset] = u8,
-`,
+    "Tag checks": "T[msgHashOffset] == T[msgLeafIndexOffset] == field",
+    "Tag updates": "T[existsOffset] = u1",
   },
   {
     id: "getcontractinstance",
@@ -1171,30 +960,30 @@ T[existsOffset] = u8,
       },
       {
         name: "dstOffset",
-        description: "location to write the contract instance information to",
+        description: "location to write the contract instance member to",
+      },
+      {
+        name: "existsOffset",
+        description:
+          "memory offset specifying where to store whether the contract instance exists",
+      },
+      {
+        name: "memberEnum",
+        description: "enum value specifying which item to get from the specified contract instance (DEPLOYER, CLASS_ID, INIT_HASH)",
+        mode: "immediate",
+        type: "u8",
       },
     ],
-    Expression: `
-M[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE+1] = [
-    instance_found_in_address,
-    instance.salt ?? 0,
-    instance.deployer ?? 0,
-    instance.contractClassId ?? 0,
-    instance.initializationHash ?? 0,
-    instance.portalContractAddress ?? 0,
-    instance.publicKeysHash ?? 0,
-]
-`,
-    Summary: "Copies contract instance data to memory",
-    "Tag checks": "",
-    "Tag updates": "T[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE+1] = field",
-    "Additional AVM circuit checks": "TO-DO",
-    "Triggers downstream circuit operations": "TO-DO",
+    Expression: "`M[dstOffset] = context.worldState.contracts.get(M[addressOffset])[memberEnum]`",
+    Summary: "Get a member from the contract instance at the specified address",
+    Details: "M[dstOffset] will be assigned zero if the contract instance does not exist or if memberEnum is invalid",
+    "Tag checks": "T[addressOffset] == field",
+    "Tag updates": "T[dstOffset] = field; T[existsOffset] = u1",
   },
   {
-    id: "emitunencryptedlog",
-    Name: "`EMITUNENCRYPTEDLOG`",
-    Category: "Accrued Substate - Logging",
+    id: "emitpubliclog",
+    Name: "`EMITPUBLICLOG`",
+    Category: "World state - Logs",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       { name: "logOffset", description: "memory offset of the data to log" },
@@ -1204,21 +993,21 @@ M[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE+1] = [
       },
     ],
     Expression: `
-context.accruedSubstate.unencryptedLogs.append(
-    UnencryptedLog {
+context.worldState.publicLogs.append(
+    PublicLog {
         address: context.environment.address,
         log: M[logOffset:logOffset+M[logSizeOffset]],
     }
 )
 `,
-    Summary: "Emit an unencrypted log",
-    "Tag checks": "",
+    Summary: "Emit a public log",
+    "Tag checks": "T[logSizeOffset] == u32 && T[logOffset:logOffset+M[logSizeOffset]] == field",
     "Tag updates": "",
   },
   {
     id: "sendl2tol1msg",
     Name: "`SENDL2TOL1MSG`",
-    Category: "Accrued Substate - Messaging",
+    Category: "World state - Messaging",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
       {
@@ -1231,72 +1020,76 @@ context.accruedSubstate.unencryptedLogs.append(
       },
     ],
     Expression: `
-context.accruedSubstate.sentL2ToL1Messages.append(
-    SentL2ToL1Message {
-        address: context.environment.address,
-        recipient: M[recipientOffset],
-        message: M[contentOffset]
-    }
+context.worldState.l2ToL1Messages.append(
+    L2ToL1Message {
+        recipientAddress: M[recipientOffset],
+        content: M[contentOffset]
+    }.scope(context.environment.address)
 )
 `,
     Summary: "Send an L2-to-L1 message",
-    "Tag checks": "",
+    Exceptions: "Exceptional halt if this instruction occurs during a static call's execution (`context.environment.isStaticCall == true`).",
+    "Tag checks": "T[recipientOffset] == T[contentOffset] == field",
     "Tag updates": "",
   },
   {
     id: "call",
     Name: "`CALL`",
-    Category: "Control Flow - Contract Calls",
+    Category: "Control Flow - External Contract Calls",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: CALL_INSTRUCTION_ARGS,
     Expression: `
-// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
-chargeGas(context,
-          l2GasCost=M[instr.args.gasOffset],
-          daGasCost=M[instr.args.gasOffset+1])
-traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false)
-execute(nestedContext)
-updateContextAfterNestedCall(context, instr.args, nestedContext)
+contractAddress = M[addrOffset]
+allocatedGas = { l2Gas: M[gasOffset], daGas: M[gasOffset+1] }
+calldata = M[argsOffset:argsOffset+M[argsSizeOffset]]
+isStaticCall = context.environment.isStaticCall
+nestedContext = context.createNestedContractCallContext(contractAddress, calldata, allocatedGas, isStaticCall)
+output = execute(nestedContext)
+context.machineState.nestedReturndata = output
 `,
     Summary: "Call into another contract",
     Details:
       `Creates a new (nested) execution context and triggers execution within that context.
                     Execution proceeds in the nested context until it reaches a halt at which point
                     execution resumes in the current/calling context.
-                    A non-existent contract or one with no code will return success. ` +
+                    A non-existent contract or one with no code will exceptionally halt when called. ` +
       CALL_INSTRUCTION_DETAILS,
-    "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
+    "Tag checks": `
+T[gasOffset] == T[gasOffset+1] == field
+T[addrOffset] == field
+T[argsSizeOffset] == u32
+`,
     "Tag updates": `
-T[successOffset] = u8
-T[retOffset:retOffset+retSize] = field
+T[successOffset] = u1
 `,
   },
   {
     id: "staticcall",
     Name: "`STATICCALL`",
-    Category: "Control Flow - Contract Calls",
+    Category: "Control Flow - External Contract Calls",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: CALL_INSTRUCTION_ARGS,
     Expression: `
-// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
-chargeGas(context,
-          l2GasCost=M[instr.args.gasOffset],
-          daGasCost=M[instr.args.gasOffset+1])
-traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=true
-execute(nestedContext)
-updateContextAfterNestedCall(context, instr.args, nestedContext)
+contractAddress = M[addrOffset]
+allocatedGas = { l2Gas: M[gasOffset], daGas: M[gasOffset+1] }
+calldata = M[argsOffset:argsOffset+M[argsSizeOffset]]
+isStaticCall = true
+nestedContext = context.createNestedContractCallContext(contractAddress, calldata, allocatedGas, isStaticCall)
+output = execute(nestedContext)
+context.machineState.nestedReturndata = output
 `,
     Summary:
-      "Call into another contract, disallowing World State and Accrued Substate modifications",
+      "Call into another contract, disallowing World State modifications",
     Details:
-      `Same as \`CALL\`, but disallows World State and Accrued Substate modifications. ` +
+      `Same as \`CALL\`, but disallows World State modifications. ` +
       CALL_INSTRUCTION_DETAILS,
-    "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
+    "Tag checks": `
+T[gasOffset] == T[gasOffset+1] == field
+T[addrOffset] == field
+T[argsSizeOffset] == u32
+`,
     "Tag updates": `
-T[successOffset] = u8
-T[retOffset:retOffset+retSize] = field
+T[successOffset] = u1
 `,
   },
   {
@@ -1310,21 +1103,17 @@ T[retOffset:retOffset+retSize] = field
         description: "memory offset of first word to return",
       },
       {
-        name: "retSize",
-        description: "number of words to return",
-        mode: "immediate",
-        type: "u32",
+        name: "retSizeOffset",
+        description: "meomry offset for the number of words to return",
       },
     ],
     Expression: `
 context.contractCallResults.output = M[retOffset:retOffset+retSize]
 halt
 `,
-    Summary:
-      "Halt execution within this context (without revert), optionally returning some data",
-    Details:
-      'Return control flow to the calling context/contract. Caller will accept World State and Accrued Substate modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
-    "Tag checks": "",
+    Summary: "Halt execution within this context (without revert), optionally returning some data",
+    Details: 'Return control flow to the calling context/contract. Caller will accept World State modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
+    "Tag checks": "`T[returnSizeOffset] == u32`",
     "Tag updates": "",
   },
   {
@@ -1339,9 +1128,7 @@ halt
       },
       {
         name: "retSize",
-        description: "number of words to return",
-        mode: "immediate",
-        type: "u32",
+        description: "meomry offset for the number of words to return",
       },
     ],
     Expression: `
@@ -1352,13 +1139,52 @@ halt
     Summary:
       "Halt execution within this context as `reverted`, optionally returning some data",
     Details:
-      'Return control flow to the calling context/contract. Caller will reject World State and Accrued Substate modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
-    "Tag checks": "",
+      'Return control flow to the calling context/contract. Caller will reject World State modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
+    "Tag checks": "`T[returnSizeOffset] == u32`",
     "Tag updates": "",
   },
   {
-    id: "to_radix_le",
-    Name: "`TORADIXLE`",
+    id: "debuglog",
+    Name: "`DEBUGLOG`",
+    Category: "Debugging",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
+      {
+        name: "messageOffset",
+        description: "memory offset of first word in the debug message",
+      },
+      {
+        name: "fieldsOffset",
+        description: "memory offset of first field to format into the debug message",
+      },
+      {
+        name: "fieldsSizeOffset",
+        description: "memory offset of number of fields to be formatted into the debug message",
+      },
+      {
+        name: "messageSize",
+        description: "number of characters in the debug message at messageOffset",
+        mode: "immediate",
+        type: "u16",
+      },
+    ],
+    Expression: `
+context.contractCallResults.output = M[retOffset:retOffset+retSize]
+context.contractCallResults.reverted = true
+halt
+`,
+    Summary: "Print a debug logging message",
+    Details: "Each memory word in 'message' is interpreted as a character code. The message string is then interpreted as a formattable string like 'My debug string with some fields: {0} {1}', where '{0}' will be filled in with the 0th field referenced by fieldsOffset.",
+    "Tag checks": `
+T[messageOffset:messageOffset+messageSize] == u8
+T[fieldsSizeOffset] == u32
+T[fieldsOffset:fieldsOffset+fieldsSizeOffset] == field
+`,
+    "Tag updates": "",
+  },
+  {
+    id: "poseidon2permutation",
+    Name: "`POSEIDON2PERMUTATION`",
     Category: "Conversions",
     Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
     Args: [
@@ -1367,29 +1193,98 @@ halt
         description: "memory offset of word to convert.",
       },
       {
+        name: "radixOffset",
+        description: "memory offset to the radix (maximum bit-size of each limb).",
+      },
+      {
+        name: "numLimbsOffset",
+        description: "memory offset to the number of limbs the word will be converted into.",
+      },
+      {
+        name: "outputBitsOffset",
+        description:
+          "memory offset to the a boolean whether the output should be in bits format (1 bit per memory word)",
+      },
+      {
         name: "dstOffset",
         description:
           "memory offset specifying where the first limb of the radix-conversion result is stored.",
       },
+    ],
+    Expression: `
+M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBe<M[radixOffset], M[numLimbsOffset], M[outputBitsOffset]>(M[srcOffset])
+`,
+    Summary: "Convert a word to an array of limbs in little-endian radix form",
+    Exceptions: "Exceptional halt if radix < 2 or radix > 256, if numLimbs < 1 but M[srcOffset] is nonzero, if outputBits is true but radix is not 2",
+    Details: `
+value = M[srcOffset]
+radix = M[radixOffset]
+numLimbs = M[numLimbsOffset]
+for (let i = numLimbs - 1; i >= 0; i--) {
+  const limb = value % radix;
+  M[dstOffset+i] = limb;
+  value /= radix;
+}
+`,
+    "Tag checks": `
+T[srcOffset] == field
+T[radixOffset] == u32
+T[numLimbsOffset] == u32
+T[outputBitsOffset] == u1
+`,
+    "Tag updates": `T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? u1 : u8`,
+  },
+  {
+    id: "to_radix_be",
+    Name: "`TORADIXBE`",
+    Category: "Conversions",
+    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
+    Args: [
       {
-        name: "radix",
-        description: "the maximum bit-size of each limb.",
-        mode: "immediate",
-        type: "u32",
+        name: "srcOffset",
+        description: "memory offset of word to convert.",
       },
       {
-        name: "numLimbs",
-        description: "the number of limbs the word will be converted into.",
-        type: "u32",
-        mode: "immediate",
+        name: "radixOffset",
+        description: "memory offset to the radix (maximum bit-size of each limb).",
+      },
+      {
+        name: "numLimbsOffset",
+        description: "memory offset to the number of limbs the word will be converted into.",
+      },
+      {
+        name: "outputBitsOffset",
+        description:
+          "memory offset to the a boolean whether the output should be in bits format (1 bit per memory word)",
+      },
+      {
+        name: "dstOffset",
+        description:
+          "memory offset specifying where the first limb of the radix-conversion result is stored.",
       },
     ],
-
-    Expression: `TBD: Storage of limbs and if T[dstOffset] is constrained to U8`,
+    Expression: `
+M[dstOffset:dstOffset+M[numLimbsOffset]] = toRadixBe<M[radixOffset], M[numLimbsOffset], M[outputBitsOffset]>(M[srcOffset])
+`,
     Summary: "Convert a word to an array of limbs in little-endian radix form",
-    Details:
-      "The limbs will be stored in a contiguous memory block starting at `dstOffset`.",
-    "Tag checks": "`T[srcOffset] == field`",
+    Exceptions: "Exceptional halt if radix < 2 or radix > 256, if numLimbs < 1 but M[srcOffset] is nonzero, if outputBits is true but radix is not 2",
+    Details: `
+value = M[srcOffset]
+radix = M[radixOffset]
+numLimbs = M[numLimbsOffset]
+for (let i = numLimbs - 1; i >= 0; i--) {
+  const limb = value % radix;
+  M[dstOffset+i] = limb;
+  value /= radix;
+}
+`,
+    "Tag checks": `
+T[srcOffset] == field
+T[radixOffset] == u32
+T[numLimbsOffset] == u32
+T[outputBitsOffset] == u1
+`,
+    "Tag updates": `T[dstOffset:dstOffset+M[numLimbsOffset]] = M[outputBitsOffset] ? u1 : u8`,
   },
 ];
 const INSTRUCTION_SET = INSTRUCTION_SET_RAW.map((instr) => {

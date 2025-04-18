@@ -11,14 +11,14 @@ export class Jump extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
-  constructor(private jumpOffset: number) {
+  constructor(private loc: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    context.machineState.pc = this.jumpOffset;
+    context.machineState.pc = this.loc;
   }
 
   public override handlesPC(): boolean {
@@ -49,6 +49,8 @@ export class JumpI extends Instruction {
     const operands = [this.condOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [condOffset] = addressing.resolve(operands, memory);
+    // TODO: does circuit check whether this is field?
+    // What happens if this is a field > max u128? could it be read as 0?
     const condition = memory.getAs<IntegralValue>(condOffset);
 
     if (condition.toBigInt() == 0n) {

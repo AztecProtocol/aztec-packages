@@ -60,6 +60,7 @@ export class ToRadixBE extends Instruction {
       );
     }
 
+    // TODO: why even have outputBitsOffset instead of just acting differently when radix == 2?
     if (outputBits != 0 && radix != BigInt(2n)) {
       throw new InvalidToRadixInputsError(`Radix ${radix} is not equal to 2 and bit mode is activated.`);
     }
