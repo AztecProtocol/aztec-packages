@@ -10,7 +10,7 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'http://104.198.9.75:8080',
+    nodeURL: 'http://34.169.170.55:8080',
     name: 'Aztec Devnet',
     description: 'Public development network',
     hasTestAccounts: false,
