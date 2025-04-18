@@ -11,7 +11,7 @@ import {
 } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
-  handleEpochReadyToProve(epochNumber: bigint): Promise<void>;
+  handleEpochReadyToProve(epochNumber: bigint): Promise<boolean>;
 }
 
 /**
@@ -87,8 +87,9 @@ export class EpochMonitor implements Traceable {
     }
 
     this.log.debug(`Epoch ${epochToProve} is ready to be proven`);
-    await this.handler?.handleEpochReadyToProve(epochToProve);
-    this.latestEpochNumber = epochToProve;
+    if (await this.handler?.handleEpochReadyToProve(epochToProve)) {
+      this.latestEpochNumber = epochToProve;
+    }
   }
 
   private async getEpochNumberToProve() {
