@@ -367,13 +367,14 @@ ${processConstantsSolidity(constants)}
  * @returns A string containing JavaScript code that exports the AVM gas constants.
  */
 function processAvmGasConstantsJS(constants: { [key: string]: string }): string {
-  const code: string[] = [];
+  const code: string[] = ['module.exports = {'];
   // Filter for AVM gas constants (both BASE and DYN, for both L2 and DA)
   Object.entries(constants)
     .filter(([key, _]) => /^AVM_.*_(BASE|DYN)_(L2|DA)_GAS$/.test(key))
     .forEach(([key, value]) => {
-      code.push(`const ${key} = ${value};`);
+      code.push(`  ${key}: ${value},`);
     });
+  code.push('};');
   return code.join('\n');
 }
 
