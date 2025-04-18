@@ -7,6 +7,7 @@ import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
 import { LoadingModal } from '../common/LoadingModal';
+import { Button } from '@mui/material';
 
 const layout = css({
   display: 'flex',
@@ -167,7 +168,11 @@ export default function Home() {
   return (
     <div css={layout}>
       <div css={headerFrame}>
-        <img css={logo} src={logoURL} alt="Aztec Logo" />
+        <div role="button" style={{ cursor: 'pointer' }} onClick={() => {
+          setShowContractInterface(false);
+        }}>
+          <img css={logo} src={logoURL} alt="Aztec Logo" />
+        </div>
         <div css={headerTitle}>PLAYGROUND</div>
         <a
           href="https://docs.aztec.network/"
