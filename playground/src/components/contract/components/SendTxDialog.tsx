@@ -13,8 +13,9 @@ import Autocomplete from '@mui/material/Autocomplete';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import Divider from '@mui/material/Divider';
-import { DialogContent } from '@mui/material';
+import { DialogContent, DialogContentText } from '@mui/material';
 import { Box, DialogActions } from '@mui/material';
+import { INFO_TEXT } from '../../../constants';
 
 interface SendTxDialogProps {
   name: string;
@@ -62,7 +63,9 @@ export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogP
         <FormControl css={form}>
           <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />
         </FormControl>
-        <Divider sx={{ marginBottom: '0.5rem', width: '100%' }} />
+
+        <Divider sx={{ margin: '1rem 0', width: '100%' }} />
+
         {loading ? (
           <div css={progressIndicator}>
             <Typography variant="body2" sx={{ mr: 1 }}>
@@ -75,6 +78,8 @@ export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogP
             <Typography variant="subtitle1" sx={{ alignSelf: 'flex-start', mb: 1 }}>
               Include autwitnesses
             </Typography>
+            <Typography variant="caption">{INFO_TEXT.AUTHWITS}</Typography>
+
             <Autocomplete
               disablePortal
               multiple

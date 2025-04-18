@@ -24,6 +24,10 @@ import { ContractUpload } from './components/ContractUpload';
 import { ContractFilter } from './components/ContractFilter';
 import { FunctionCard } from './components/FunctionCard';
 import { useTransaction } from '../../hooks/useTransaction';
+import { ContractDescriptions, ContractDocumentationLinks, ContractMethodOrder } from '../../utils/constants';
+import Box from '@mui/material/Box';
+import CardContent from '@mui/material/CardContent';
+import Card from '@mui/material/Card';
 
 const container = css({
   display: 'flex',
@@ -57,7 +61,7 @@ const headerContainer = css({
 const header = css({
   display: 'flex',
   width: '100%',
-  alignItems: 'center',
+  alignItems: 'flex-start',
   justifyContent: 'space-between',
 });
 
@@ -180,9 +184,18 @@ export function ContractComponent() {
         <div css={contractFnContainer}>
           <div css={headerContainer}>
             <div css={header}>
-              <Typography variant="h3" css={contractName}>
-                {currentContractArtifact.name}
-              </Typography>
+              <Box sx={{ marginBottom: '2rem' }}>
+                <Typography variant="h3" css={contractName}>
+                  {currentContractArtifact.name}
+                </Typography>
+
+                {!!ContractDescriptions[currentContractArtifact.name] && (
+                  <Typography variant="body1">
+                    {ContractDescriptions[currentContractArtifact.name]}
+                  </Typography>
+                )}
+              </Box>
+
               {!currentContractAddress && wallet && (
                 <div css={contractActions}>
                   <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
@@ -197,6 +210,7 @@ export function ContractComponent() {
                   )}
                 </div>
               )}
+
               {currentContractAddress && (
                 <div css={contractActions}>
                   <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
@@ -213,6 +227,7 @@ export function ContractComponent() {
                 </div>
               )}
             </div>
+
             <ContractFilter filters={filters} onFilterChange={setFilters} />
           </div>
           {functionAbis
@@ -225,9 +240,26 @@ export function ContractComponent() {
                   (filters.utility && fn.functionType === FunctionType.UTILITY)) &&
                 (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
             )
+            .sort((a, b) => {
+              if (ContractMethodOrder[currentContractArtifact.name]) {
+                return ContractMethodOrder[currentContractArtifact.name]?.indexOf(a.name) - ContractMethodOrder[currentContractArtifact.name]?.indexOf(b.name)
+              }
+              return 0;
+            })
             .map(fn => (
-              <FunctionCard fn={fn} key={fn.name} contract={currentContract} onSendTxRequested={sendTx} />
+              <FunctionCard fn={fn} key={fn.name} contract={currentContract} contractArtifact={currentContractArtifact} onSendTxRequested={sendTx} />
             ))}
+
+          {!!ContractDocumentationLinks[currentContractArtifact.name] && (
+            <Card sx={{ margin: '2rem 0' }}>
+              <CardContent>
+                <Typography variant="body1">
+                  <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
+                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>

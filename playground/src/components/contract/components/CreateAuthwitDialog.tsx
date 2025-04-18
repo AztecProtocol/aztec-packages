@@ -20,12 +20,9 @@ import { AztecAddressTypeLike } from '../../../utils/types';
 import { Box, DialogActions, DialogContent, DialogContentText } from '@mui/material';
 
 const fixedText = css({
-  fontSize: '0.8rem',
+  fontSize: '1rem',
   fontStyle: 'italic',
-  color: 'rgba(0, 0, 0, 0.75)',
-  fontWeight: 200,
-  margin: 0,
-  padding: 0,
+  fontWeight: 'light',
 });
 
 const authwitData = css({
@@ -125,6 +122,26 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
           )}
         </FormGroup>
 
+        <Box css={{ marginTop: '1rem' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
+            <Typography css={fixedText}>Allow </Typography>{' '}
+            <Typography css={authwitData}>{caller !== '' ? formatFrAsString(caller) : '<caller>'}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
+            <Typography css={fixedText}>to call</Typography>
+            <Typography css={authwitData}>
+            {fnName}(
+            {args.map(arg => (arg.toString().length > 31 ? formatFrAsString(arg.toString()) : arg)).join(', ')})
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
+            <Typography css={fixedText}>on contract</Typography>
+            <Typography css={authwitData}>
+              {contract.artifact.name}@{formatFrAsString(contract.address.toString())}
+            </Typography>
+          </Box>
+        </Box>
+
         <Box sx={{ flexGrow: 1 }} />
 
         <DialogActions>
@@ -132,7 +149,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
             creating ? (
               <div css={progressIndicator}>
                 <Typography variant="body2" sx={{ mr: 1 }}>
-                  Creating authwitness...
+                  Creating authwit...
                 </Typography>
                 <CircularProgress size={20} />
               </div>

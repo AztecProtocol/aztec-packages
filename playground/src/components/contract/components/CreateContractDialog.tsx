@@ -140,7 +140,7 @@ export function CreateContractDialog({
       <div css={{ display: 'flex', padding: '1rem', flexDirection: 'column' }}>
         <FormControlLabel
           control={<Switch value={registerExisting} onChange={(_event, checked) => setRegisterExisting(checked)} />}
-          label={registerExisting ? 'Register existing contract' : 'Click here to load a pre-deployed contract'}
+          label={'Load an already deployed version of this contract'}
         />
         <InfoText>{INFO_TEXT.CREATE_CONTRACT}</InfoText>
       </div>

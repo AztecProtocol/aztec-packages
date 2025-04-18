@@ -31,7 +31,6 @@ const featureCard = css({
   background: '#CDD1D5',
   borderRadius: '20px',
   padding: '25px',
-  height: '250px',
   display: 'flex',
   flexDirection: 'column',
 });
@@ -349,11 +348,11 @@ export function Landing() {
       <div css={contentFrame}>
         <div css={welcomeSection}>
           <div css={welcomeContent}>
-            <div css={welcomeTitle}>Welcome to the Playground</div>
+            <div css={welcomeTitle}>Deploy Privacy-Preserving Smart Contracts</div>
             <div css={welcomeText}>
-              Playground is a web-app for interacting with Aztec. Create an aztec account, try one of our default
-              contracts or upload your own and interact with it while creating client side proofs in the browser! It is
-              a minimalistic remix.ethereum.org but for Aztec
+              Get started deploying and interacting with smart contracts on Aztec.
+              Create an aztec account, try one of our default contracts or upload your own and interact with
+              public and private functions made possible by client-side ZK proofs created in your browser.
             </div>
           </div>
           <div style={{ width: '40%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -367,7 +366,9 @@ export function Landing() {
               <AccountAbstractionIcon />
             </div>
             <div css={cardTitle}>Account Abstraction</div>
-            <div css={cardDescription}>Short description of what account abstraction is and how it's being used</div>
+            <div css={cardDescription}>Aztec’s native account abstraction turns every account into a smart contract, enabling
+              highly flexible and programmable user identities that unlock features like gas sponsorship, nonce abstraction
+              (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
           </div>
 
           <div css={featureCard}>
@@ -375,7 +376,9 @@ export function Landing() {
               <PrivateVotingIcon />
             </div>
             <div css={cardTitle}>Private Voting</div>
-            <div css={cardDescription}>Short description of how a user could setup private voting</div>
+            <div css={cardDescription}>Developers can seamlessly integrate public and private functions to unlock use cases like
+              private voting. Voters can hide their address and cast their votes privately through a private function, which internally
+              calls a public function to update the vote count transparently. </div>
           </div>
 
           <div css={featureCard}>
@@ -383,10 +386,19 @@ export function Landing() {
               <PrivateTokensIcon />
             </div>
             <div css={cardTitle}>Private Tokens</div>
-            <div css={cardDescription}>Short description of what is possible with private tokens</div>
+            <div css={cardDescription}>Accounts, transactions, and execution on Aztec can be done privately using client-side proofs, enabling you
+              to private mint or transfer tokens, move public tokens into private domain or the reverse - transfer tokens from private to public,
+              all without revealing your address or even the amount and recipient (in case of private transfer), all the while maintaining the
+              total supply of tokens publicly.</div>
           </div>
         </div>
 
+        <div css={{ marginTop: '3rem' }}>
+          <span>Go ahead and select a network and create an account.
+            If testnet is down, you can also download our sandbox </span>
+          <a href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener noreferrer">here</a>
+          <span> and connect playground to it</span>
+        </div>
         <div css={getStartedButton}>Get Started</div>
       </div>
     </div>

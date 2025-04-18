@@ -10,6 +10,7 @@ import {
   type SendMethodOptions,
   AuthWitness,
   AztecAddress,
+  type ContractArtifact,
 } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -31,7 +32,8 @@ import TableBody from '@mui/material/TableBody';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
-import { Box, Paper, Tooltip } from '@mui/material';
+import { Badge, Box, Paper, Tooltip } from '@mui/material';
+import { ContractMethodDescriptions } from '../../../utils/constants';
 
 type SimulationResult = {
   success: boolean;
@@ -47,7 +49,6 @@ const simulationContainer = css({
 });
 
 const functionName = css({
-  marginBottom: '1rem',
   '@media (max-width: 1200px)': {
     fontSize: '1.2rem',
   },
@@ -56,6 +57,7 @@ const functionName = css({
 interface FunctionCardProps {
   fn: FunctionAbi;
   contract?: Contract;
+  contractArtifact: ContractArtifact;
   onSendTxRequested: (
     name?: string,
     interaction?: ContractFunctionInteraction,
@@ -64,7 +66,7 @@ interface FunctionCardProps {
   ) => void;
 }
 
-export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardProps) {
+export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested }: FunctionCardProps) {
   const [isWorking, setIsWorking] = useState(false);
   const [parameters, setParameters] = useState<any[]>([]);
   const [simulationResults, setSimulationResults] = useState<SimulationResult>();
@@ -151,12 +153,16 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
       }}
     >
       <CardContent sx={{ textAlign: 'left' }}>
-        <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
-          {fn.functionType}
-        </Typography>
         <Typography variant="h5" css={functionName}>
           {fn.name}
+          <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}>
+          </Badge>
         </Typography>
+
+        <Typography variant="caption" sx={{ marginBottom: '1rem' }}>
+          {ContractMethodDescriptions[contractArtifact.name]?.[fn.name]}
+        </Typography>
+
         {fn.parameters.length > 0 && (
           <>
             <Typography
@@ -235,7 +241,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
         {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
       </CardContent>
       <CardActions sx={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-        <Tooltip title="Simulate this function call and see the return value. Can be used to query the state of the contract.">
+        <Tooltip title="Run a local simulation of function execution.">
           <Button
             disabled={!wallet || !contract || isWorking}
             color="primary"
@@ -248,7 +254,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           </Button>
         </Tooltip>
 
-        <Tooltip title="Execute this function and send a transaction to the blockchain.">
+        <Tooltip title="Simulate and send the transaction to the Aztec network by creating a client side proof.">
           <Button
             disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
             size="small"
@@ -261,7 +267,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           </Button>
         </Tooltip>
 
-        <Tooltip title="Create an authwit to allow other contracts to execute this function on your behalf.">
+        <Tooltip title="Authorization witnesses (AuthWits) work similarly to permit/approval on Ethereum. They allow execution of functions on behalf of other contracts or addresses.">
           <Button
             disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
             size="small"
