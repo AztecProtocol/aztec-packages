@@ -251,7 +251,7 @@ export function ContractComponent() {
             ))}
 
           {!!ContractDocumentationLinks[currentContractArtifact.name] && (
-            <Card sx={{ margin: '2rem 0' }}>
+            <Card sx={{ margin: '3rem 0.5rem' }}>
               <CardContent>
                 <Typography variant="body1">
                   <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>

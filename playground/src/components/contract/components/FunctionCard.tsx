@@ -8,7 +8,6 @@ import {
   ContractFunctionInteraction,
   Contract,
   type SendMethodOptions,
-  AuthWitness,
   AztecAddress,
   type ContractArtifact,
 } from '@aztec/aztec.js';
