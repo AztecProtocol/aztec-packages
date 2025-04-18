@@ -3,15 +3,18 @@
 pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingLib} from "./../staking/StakingLib.sol";
 import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {ProposeLib, ProposeArgs, Signature} from "./ProposeLib.sol";
-
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
+
 library ExtRollupLib {
+  using TimeLib for Timestamp;
+
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external {
     EpochProofLib.submitEpochRootProof(_args);
   }
@@ -30,7 +33,8 @@ library ExtRollupLib {
   }
 
   function setupEpoch() external {
-    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage(), currentEpoch);
   }
 
   function getEpochProofPublicInputs(
