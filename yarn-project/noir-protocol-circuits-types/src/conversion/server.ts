@@ -58,9 +58,9 @@ import type {
   AvmAccumulatedData as AvmAccumulatedDataNoir,
   AvmCircuitPublicInputs as AvmCircuitPublicInputsNoir,
   AvmProofData as AvmProofDataNoir,
+  BLS12_381_Fr,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
-  BigNum,
   BlobCommitment as BlobCommitmentNoir,
   BlobPublicInputs as BlobPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
@@ -150,7 +150,7 @@ import {
  * @param number - The BigNum representing the number.
  * @returns The number
  */
-export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
+export function mapBLS12BigNumFromNoir(bignum: BLS12_381_Fr): bigint {
   // TODO(Miranda): there's gotta be a better way to convert this
   const paddedLimbs = [
     `0x` + bignum.limbs[2].substring(2).padStart(4, '0'),
@@ -160,7 +160,7 @@ export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
   return BigInt(paddedLimbs[0].concat(paddedLimbs[1], paddedLimbs[2]));
 }
 
-export function mapBLS12BigNumToNoir(number: bigint): BigNum {
+export function mapBLS12BigNumToNoir(number: bigint): BLS12_381_Fr {
   const hex = toHex(number, true);
   return {
     limbs: ['0x' + hex.substring(36), '0x' + hex.substring(6, 36), hex.substring(0, 6)],
