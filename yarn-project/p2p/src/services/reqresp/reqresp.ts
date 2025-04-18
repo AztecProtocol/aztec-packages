@@ -263,7 +263,7 @@ export class ReqResp {
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     timeoutMs = 10000,
     maxPeers = Math.min(10, requests.length),
-    maxRetryAttempts = 10,
+    maxRetryAttempts = 3,
   ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
     const responseValidator = this.subProtocolValidators[subProtocol];
     const responses: (InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[] = new Array(requests.length);

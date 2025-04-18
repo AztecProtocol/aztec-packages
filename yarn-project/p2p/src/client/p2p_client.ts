@@ -526,7 +526,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHashes - Hashes of the transactions to look for.
    * @returns The txs found, not necessarily on the same order as the hashes.
    */
-  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
     const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
     const missingTxHashes = txs
       .map((tx, index) => [tx, index] as const)
@@ -538,7 +538,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes);
-    return txs.filter((tx): tx is Tx => !!tx).concat(missingTxs);
+    const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
+    return txs.filter((tx): tx is Tx => !!tx).concat(fetchedMissingTxs);
   }
 
   /**
