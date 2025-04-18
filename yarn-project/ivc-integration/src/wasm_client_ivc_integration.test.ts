@@ -85,7 +85,10 @@ describe('Client IVC Integration', () => {
     ];
 
     // Initialize AztecClientBackend with the given bytecodes
-    const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
+    const backend = new AztecClientBackend(
+      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
+      { threads: 1, logger: logger.info },
+    );
 
     // Compute the numbers of gates in each circuit
     const gateNumbers = await backend.gates();

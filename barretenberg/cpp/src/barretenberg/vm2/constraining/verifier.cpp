@@ -47,6 +47,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
     RelationParameters<FF> relation_parameters;
 
@@ -111,7 +112,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         log_circuit_size, claim_batcher, output.challenge, Commitment::one(), transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    const auto shplemini_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    VerifierCommitmentKey pcs_vkey{};
+    const auto shplemini_verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
 
     if (!shplemini_verified) {
         vinfo("Shplemini verification failed");

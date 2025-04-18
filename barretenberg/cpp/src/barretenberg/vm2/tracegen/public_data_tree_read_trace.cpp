@@ -1,6 +1,12 @@
 #include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
 
+#include <memory>
+
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_public_data_read.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -42,6 +48,17 @@ void PublicDataTreeReadTraceBuilder::process(
                       { C::public_data_read_next_slot_inv, next_slot_inv } } });
         row++;
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> PublicDataTreeReadTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_membership_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_slot_validation_settings>>(),
+        std::make_unique<
+            LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_next_slot_validation_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

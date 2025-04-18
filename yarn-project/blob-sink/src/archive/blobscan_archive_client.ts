@@ -68,22 +68,30 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     );
   };
 
-  private readonly baseUrl;
+  private readonly baseUrl: URL;
 
   private instrumentation: BlobArchiveClientInstrumentation;
 
   constructor(baseUrl: string, telemetry: TelemetryClient = getTelemetryClient()) {
-    this.baseUrl = baseUrl.replace(/^https?:\/\//, '');
+    this.baseUrl = new URL(baseUrl);
+    if (this.baseUrl.protocol !== 'https:') {
+      throw new TypeError('BaseURL must be secure: ' + baseUrl);
+    }
     this.instrumentation = new BlobArchiveClientInstrumentation(
       telemetry,
-      new URL(baseUrl).host,
+      this.baseUrl.origin,
       'BlobscanArchiveClient',
     );
   }
 
   public async getLatestBlock(): Promise<{ hash: string; number: number; slot: number }> {
-    const url = `https://${this.baseUrl}/blocks?sort=desc&type=canonical&p=1&ps=1`;
-    this.logger.trace(`Fetching latest block from ${url}`);
+    const url = new URL('blocks', this.baseUrl);
+    url.searchParams.set('sort', 'desc');
+    url.searchParams.set('type', 'canonical');
+    url.searchParams.set('p', '1');
+    url.searchParams.set('ps', '1');
+
+    this.logger.trace(`Fetching latest block from ${url.href}`);
     const response = await this.fetch(url, this.fetchOpts);
 
     if (response.status !== 200) {
@@ -106,12 +114,15 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
   }
 
   public getBaseUrl(): string {
-    return this.baseUrl;
+    return this.baseUrl.href;
   }
 
   public async getBlobsFromBlock(blockId: string): Promise<BlobJson[] | undefined> {
-    const url = `https://${this.baseUrl}/blocks/${blockId}?type=canonical&expand=blob%2Cblob_data`;
-    this.logger.trace(`Fetching blobs for block ${blockId} from ${url}`);
+    const url = new URL(`blocks/${blockId}`, this.baseUrl);
+    url.searchParams.set('type', 'canonical');
+    url.searchParams.set('expand', 'blob,blob_data');
+
+    this.logger.trace(`Fetching blobs for block ${blockId} from ${url.href}`);
     const response = await this.fetch(url, this.fetchOpts);
 
     this.instrumentation.incRequest('blocks', response.status);
@@ -137,7 +148,9 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
   }
 
   public async getBlobData(id: string): Promise<Buffer | undefined> {
-    const response = await this.fetch(`https://${this.baseUrl}/blobs/${id}/data`, this.fetchOpts);
+    const url = new URL(`blobs/${id}/data`, this.baseUrl);
+
+    const response = await this.fetch(url, this.fetchOpts);
     this.instrumentation.incRequest('blobs', response.status);
     if (response.status === 404) {
       return undefined;

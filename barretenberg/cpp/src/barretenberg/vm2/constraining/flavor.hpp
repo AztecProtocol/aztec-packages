@@ -243,7 +243,6 @@ class AvmFlavor {
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
-            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
 
         VerificationKey(const size_t circuit_size,
@@ -254,7 +253,6 @@ class AvmFlavor {
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }
-            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
 
         std::vector<FF> to_field_elements() const;

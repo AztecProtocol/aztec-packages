@@ -250,7 +250,7 @@ std::string TaggedValue::to_string() const
                    [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
                    [](auto&& val) -> std::string { return std::to_string(val); } },
         value);
-    return "TaggedValue(" + v + ", " + std::to_string(get_tag()) + ")";
+    return std::to_string(get_tag()) + "(" + v + ")";
 }
 
 } // namespace bb::avm2

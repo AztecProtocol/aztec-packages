@@ -1,11 +1,16 @@
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 
 #include <cstdint>
+#include <memory>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 using Poseidon2Perm = bb::crypto::Poseidon2Permutation<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
@@ -423,6 +428,12 @@ void Poseidon2TraceBuilder::process_permutation(
                   } });
         row++;
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> Poseidon2TraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_poseidon2_hash_poseidon2_perm_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

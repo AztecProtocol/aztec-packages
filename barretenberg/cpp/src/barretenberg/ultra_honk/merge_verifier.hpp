@@ -29,7 +29,6 @@ class MergeVerifier {
     bool verify_proof(const HonkProof& proof);
 
   private:
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;

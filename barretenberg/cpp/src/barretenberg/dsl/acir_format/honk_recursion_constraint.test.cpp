@@ -155,7 +155,8 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
      * @param inner_circuits
      * @return Composer
      */
-    template <typename BuilderType> BuilderType create_outer_circuit(std::vector<InnerBuilder>& inner_circuits)
+    template <typename BuilderType>
+    BuilderType create_outer_circuit(std::vector<InnerBuilder>& inner_circuits, bool dummy_witnesses = false)
     {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 
@@ -208,6 +209,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             honk_recursion = 2;
         }
         ProgramMetadata metadata{ .honk_recursion = honk_recursion };
+        if (dummy_witnesses) {
+            witness = {}; // set it all to 0
+        }
         AcirProgram program{ constraint_system, witness };
         BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
 
@@ -228,6 +232,30 @@ using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
 
 TYPED_TEST_SUITE(AcirHonkRecursionConstraint, Flavors);
 
+TYPED_TEST(AcirHonkRecursionConstraint, TestHonkRecursionConstraintVKGeneration)
+{
+    std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
+    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
+
+    auto layer_2_circuit =
+        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits);
+
+    auto layer_2_circuit_with_dummy_witnesses =
+        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
+                                                                                       /*dummy_witnesses=*/true);
+
+    auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
+    auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+
+    auto proving_key_dummy =
+        std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit_with_dummy_witnesses);
+    auto verification_key_dummy =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key_dummy->proving_key);
+
+    // Compare the two vks
+    EXPECT_EQ(*verification_key_dummy, *verification_key);
+}
+
 TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 {
     std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
@@ -243,7 +271,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
-    info(HasIPAAccumulator<TypeParam>);
+
     if constexpr (HasIPAAccumulator<TypeParam>) {
         auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);

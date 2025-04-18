@@ -80,7 +80,12 @@ export async function configureP2PClientAddresses(
   _config: P2PConfig & DataStoreConfig,
 ): Promise<P2PConfig & DataStoreConfig> {
   const config = { ..._config };
-  const { p2pIp, queryForIp } = config;
+  const { p2pIp, queryForIp, p2pBroadcastPort, p2pPort } = config;
+
+  // If no broadcast port is provided, use the given p2p port as the broadcast port
+  if (!p2pBroadcastPort) {
+    config.p2pBroadcastPort = p2pPort;
+  }
 
   // check if no announce IP was provided
   if (!p2pIp) {

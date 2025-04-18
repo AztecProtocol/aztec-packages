@@ -111,9 +111,9 @@ export class DummyPeerDiscoveryService extends EventEmitter implements PeerDisco
   }
   /**
    * Called to discover peers in the network.
-   * @returns An array of discovered peer addresses.
+   * @returns An array of Enrs.
    */
-  public getAllPeers() {
+  public getKadValues() {
     return [];
   }
 

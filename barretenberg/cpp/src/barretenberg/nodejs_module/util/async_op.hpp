@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <memory>
 #include <napi.h>
 #include <utility>

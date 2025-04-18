@@ -22,6 +22,51 @@ bool Solver::check()
 }
 
 /**
+ * @brief Returns
+ * - string value, if term is constant
+ * - string value, if term is a variable and the model is ready
+ *
+ * @param term
+ * @return string value of the term
+ */
+std::string Solver::get(const cvc5::Term& term) const
+{
+    if (term.getKind() == cvc5::Kind::CONST_FINITE_FIELD) {
+        return term.getFiniteFieldValue();
+    }
+    if (term.getKind() == cvc5::Kind::CONST_INTEGER) {
+        return term.getIntegerValue();
+    }
+    if (term.getKind() == cvc5::Kind::CONST_BITVECTOR) {
+        return term.getBitVectorValue();
+    }
+    if (term.getKind() == cvc5::Kind::CONST_BOOLEAN) {
+        std::vector<std::string> bool_res = { "false", "true" };
+        return bool_res[static_cast<size_t>(term.getBooleanValue())];
+    }
+
+    if (!this->checked) {
+        throw std::length_error("Haven't checked yet");
+    }
+    if (!this->res) {
+        throw std::length_error("There's no solution");
+    }
+
+    cvc5::Term val = this->solver.getValue(term);
+    std::string str_val;
+    if (val.isIntegerValue()) {
+        str_val = val.getIntegerValue();
+    } else if (val.isFiniteFieldValue()) {
+        str_val = val.getFiniteFieldValue();
+    } else if (val.isBitVectorValue()) {
+        str_val = val.getBitVectorValue();
+    } else {
+        throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
+    }
+    return str_val;
+}
+
+/**
  * If the system is solvable, extract the values for the given symbolic variables.
  * Specify the map to retrieve the values you need using the keys that are convenient for you.
  *
@@ -33,26 +78,9 @@ bool Solver::check()
  * */
 std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<std::string, cvc5::Term>& terms) const
 {
-    if (!this->checked) {
-        throw std::length_error("Haven't checked yet");
-    }
-    if (!this->res) {
-        throw std::length_error("There's no solution");
-    }
     std::unordered_map<std::string, std::string> resulting_model;
     for (auto& term : terms) {
-        cvc5::Term val = this->solver.getValue(term.second);
-        std::string str_val;
-        if (val.isIntegerValue()) {
-            str_val = val.getIntegerValue();
-        } else if (val.isFiniteFieldValue()) {
-            str_val = val.getFiniteFieldValue();
-        } else if (val.isBitVectorValue()) {
-            str_val = val.getBitVectorValue();
-        } else {
-            throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
-        }
-        resulting_model.insert({ term.first, str_val });
+        resulting_model.insert({ term.first, this->get(term.second) });
     }
     return resulting_model;
 }
@@ -62,7 +90,7 @@ std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<st
  * The return map will contain the resulting values, which are available by the
  * names of the corresponding symbolic variable.
  *
- * e.g. if the input vector is {a} and a is a term with name var78,
+ * e.g. if the input vector is {a} and a it is a term with name var78,
  * it will return {"var78": value_of_var78}
  *
  * @param terms A vector containing symbolic terms.
@@ -70,26 +98,9 @@ std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<st
  * */
 std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Term>& terms) const
 {
-    if (!this->checked) {
-        throw std::length_error("Haven't checked yet");
-    }
-    if (!this->res) {
-        throw std::length_error("There's no solution");
-    }
     std::unordered_map<std::string, std::string> resulting_model;
     for (auto& term : terms) {
-        cvc5::Term val = this->solver.getValue(term);
-        std::string str_val;
-        if (val.isIntegerValue()) {
-            str_val = val.getIntegerValue();
-        } else if (val.isFiniteFieldValue()) {
-            str_val = val.getFiniteFieldValue();
-        } else if (val.isBitVectorValue()) {
-            str_val = val.getBitVectorValue();
-        } else {
-            throw std::invalid_argument("Expected Integer or FiniteField sorts. Got: " + val.getSort().toString());
-        }
-        resulting_model.insert({ term.toString(), str_val });
+        resulting_model.insert({ term.toString(), this->get(term) });
     }
     return resulting_model;
 }
@@ -172,9 +183,6 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
         child_parenthesis = false;
         break;
     case cvc5::Kind::LT:
-    case cvc5::Kind::BITVECTOR_UDIV:
-        op = " / ";
-        break;
     case cvc5::Kind::BITVECTOR_ULT:
         op = " < ";
         break;
@@ -192,6 +200,9 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
         break;
     case cvc5::Kind::BITVECTOR_UREM:
         op = " % ";
+        break;
+    case cvc5::Kind::BITVECTOR_UDIV:
+        op = " / ";
         break;
     case cvc5::Kind::XOR:
     case cvc5::Kind::BITVECTOR_XOR:

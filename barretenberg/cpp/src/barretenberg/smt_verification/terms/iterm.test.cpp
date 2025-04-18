@@ -1,22 +1,20 @@
 #include <unordered_map>
 
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "term.hpp"
 
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_randomness();
 }
 
 using namespace bb;
-using witness_ct = stdlib::witness_t<StandardCircuitBuilder>;
-
 using namespace smt_terms;
 
 TEST(ITerm, addition)
 {
-    StandardCircuitBuilder builder;
     uint64_t a = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t c = a + b;
@@ -31,16 +29,12 @@ TEST(ITerm, addition)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getIntegerValue();
-
-    STerm bval = STerm(b, &s, TermType::ITerm);
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(bb::fr(b), yvals);
 }
 
 TEST(ITerm, subtraction)
 {
-    StandardCircuitBuilder builder;
     uint64_t c = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t a = c + b;
@@ -55,16 +49,12 @@ TEST(ITerm, subtraction)
     z == c;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getIntegerValue();
-
-    STerm bval = STerm(b, &s, TermType::ITerm);
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(bb::fr(b), yvals);
 }
 
-TEST(ITerm, mul)
+TEST(ITerm, multiplication)
 {
-    StandardCircuitBuilder builder;
     uint64_t a = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t c = a * b;
@@ -80,15 +70,12 @@ TEST(ITerm, mul)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(z.term).getIntegerValue();
-    STerm bval = STerm(c, &s, TermType::ITerm);
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr yvals = string_to_fr(s[z], /*base=*/10);
+    ASSERT_EQ(bb::fr(c), yvals);
 }
 
 TEST(ITerm, div)
 {
-    StandardCircuitBuilder builder;
     uint64_t a = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31) + 1;
     uint64_t c = a / b;
@@ -104,10 +91,8 @@ TEST(ITerm, div)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(z.term).getIntegerValue();
-    STerm bval = STerm(c, &s, TermType::ITerm);
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr yvals = string_to_fr(s[z], /*base=*/10);
+    ASSERT_EQ(bb::fr(c), yvals);
 }
 
 // This test aims to check for the absence of unintended

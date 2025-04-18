@@ -4,6 +4,7 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -314,9 +315,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.mega->pcs_verification_key = nullptr;
         ivc_vk.eccvm->pcs_verification_key = nullptr;
-        ivc_vk.translator->pcs_verification_key = nullptr;
 
         return ivc_vk;
     };

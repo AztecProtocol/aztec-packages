@@ -12,7 +12,7 @@ Then just build with `smt-verification` preset.
 
 - ```set_variable_name(u32 index, str name)``` - assignes a name to a variable. Specifically, binds a name with the first index of an equivalence class.
 
-**!Note that you don't have to name a zero or one(in standard). It has the name `zero` by default.**
+**!NOTE that somtimes you may encounter variables that are set to be `assert_equal` to `zero`. Their name will be erased no matter what first variable in class says.**
 
 - ```update_variable_names(u32 idx)``` - in case you've called ```assert_equal``` and ```update_real_variable_indices``` somewhere and you know that two or more variables from the equivalence class have separate names, call this method. Idx is the index of one of the variables of this class. The name of the first variable in class will remain.
 
@@ -179,8 +179,14 @@ To store it on the disk just do the following
 After generating all the constrains you should call `bool res = solver.check()` and depending on your goal it could be `true` or `false`.
 
 In case you expected `false` but `true` was returned you can then check what went wrong.
-You should generate an unordered map with `str->term` values and ask the solver to obtain `unoredered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`.
-   Or you can provide a vector of terms that you want to check and the return map will contain their symbolic names that are given during initialization. Specifically either it's the name that you set or `var_{i}`.
+You have three choices:
+- You can access each of the terms directly by calling `solver[term]`, or `solver.get(term)`
+- You can generate an unordered map with `str->term` values and ask the solver to obtain `unordered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`.
+- You can generate a vector of terms and pass them to `unordered_map<str, str> res = solver.model(vector<FFTerm> terms)`. In this case the mapping name will be taken directly from solver. Specifically either it's the name that you have set or `var_{i}`.
+
+**!Note that the resulting values are strings and you can't use them to generate further constraints.**
+In case you want such a behavior use `sym_val = solver.get_value(term)`
+You can then create `STerm(sym_val, &solver, Type)` and use it in operations as a constant
 
 Now you have the values of the specified terms, which resulted into `true` result.
 **!Note that the return values are decimal strings/binary strings**, so if you want to use them later you should use `FFConst` with base 10, etc.
@@ -246,7 +252,28 @@ Besides already mentioned `smt_timer`, `default_model` and `default_model_single
 ```
 Where `add_unique_output` is a witness obtained by the solver.
 
-## 6. Simple examples
+## 6. Tests
+
+Avalaible test suits in `smt_verification_tests`:
+
+- `Solver*`
+---
+
+- `FFTerm*`
+- `FFITerm*`
+- `ITerm*`
+- `BVTerm*`
+---
+
+- `Subcircuits*`
+- `Standard_circuit*`
+- `Ultra_circuit*`
+---
+
+- `SMT_Example*`
+- `Polynomial_evaluation*`
+
+## 7. Simple examples
 
 ### Function Equality
 ```cpp

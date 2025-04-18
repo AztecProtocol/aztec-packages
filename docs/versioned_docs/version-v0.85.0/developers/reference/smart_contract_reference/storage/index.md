@@ -26,28 +26,13 @@ On this and the following pages in this section, you’ll learn:
 
 Aztec contracts have three different modes of execution: private, public, and utility. How storage is accessed depends on the execution mode: for example, `PublicImmutable` can be read in all execution modes but only initialized in public, while `PrivateMutable` is entirely unavailable in public.
 
-Aztec.nr prevents developers from calling functions unavailable in the current execution mode via the `context` variable that is injected into all contract functions. Its type indicates the current execution mode:
+Aztec.nr prevents developers from calling functions unavailable in the current execution mode via the `Context` variable that is injected into all contract functions. Its type indicates the current execution mode:
 
 - `&mut PrivateContext` for private execution
 - `&mut PublicContext` for public execution
 - `UtilityContext` for utility execution
 
-All state variables are generic over this `Context` type, and expose different methods in each execution mode. In the example above, `PublicImmutable`'s `initialize` function is only available with a public execution context, and so the following code results in a compilation error:
-
-```rust
-#[storage]
-struct Storage {
-  variable: PublicImmutable<Field>,
-}
-
-#[private]
-fn some_private_function() {
-  storage.variable.initialize(0);
-  // ^ ERROR: Expected type PublicImmutable<_, &mut PublicContext>, found type PublicImmutable<Field, &mut PrivateContext>
-}
-```
-
-The `Context` generic type parameter is not visible in the code above as it is automatically injected by the `#[storage]` macro, in order to reduce boilerplate. Similarly, all state variables in that struct (e.g. `PublicImmutable`) similarly have that same type parameter automatically passed to them.
+All state variables are generic over this `Context` type, and expose different methods in each execution mode.
 
 ## Map
 
@@ -77,11 +62,11 @@ numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
 
 When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
 
-```rust title="storage_minters" showLineNumbers 
+```rust title="storage_minters" showLineNumbers
 minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L74-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L74-L76</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L74-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L74-L76</a></sub></sup>
 
 ### `at`
 
@@ -89,11 +74,11 @@ When dealing with a Map, we can access the value at a given key using the `::at`
 
 This function behaves similarly for both private and public maps. An example could be if we have a map with `minters`, which is mapping addresses to a flag for whether they are allowed to mint tokens or not.
 
-```rust title="read_minter" showLineNumbers 
+```rust title="read_minter" showLineNumbers
 assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L198-L200" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L198-L200</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L198-L200" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L198-L200</a></sub></sup>
 
 Above, we are specifying that we want to get the storage in the Map `at` the `msg_sender()`, read the value stored and check that `msg_sender()` is indeed a minter. Doing a similar operation in Solidity code would look like:
 

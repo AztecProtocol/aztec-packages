@@ -193,10 +193,6 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         actual_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
     }
 
-    // PCS verification key adresses will in general not match so set to null before comparing
-    expected_vk->pcs_verification_key = nullptr;
-    actual_vk->pcs_verification_key = nullptr;
-
     // Compare the VK constructed via running the IVC with the one constructed via mocking
     EXPECT_EQ(*actual_vk.get(), *expected_vk.get());
 }

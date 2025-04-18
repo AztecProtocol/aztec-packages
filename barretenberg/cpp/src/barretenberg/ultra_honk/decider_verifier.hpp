@@ -33,7 +33,6 @@ template <typename Flavor> class DeciderVerifier_ {
     bool verify();                          // used when transcript that has been initialized with a proof
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<DeciderVerificationKey> accumulator;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
 };
 

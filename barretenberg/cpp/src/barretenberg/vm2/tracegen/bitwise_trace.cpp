@@ -2,12 +2,18 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <stdexcept>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -58,6 +64,13 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
             row++;
         }
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> BitwiseTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoBitwise<lookup_bitwise_byte_operations_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

@@ -1,5 +1,6 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -67,7 +68,9 @@ describe('prover-node', () => {
     );
 
   beforeEach(async () => {
-    prover = mock<EpochProverManager>();
+    prover = mock<EpochProverManager>({
+      getProverId: () => Fr.random(),
+    });
     publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();

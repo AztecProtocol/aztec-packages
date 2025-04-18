@@ -39,7 +39,7 @@ describe('blobscan_archive_client', () => {
   });
 
   describe('getBlobData', () => {
-    const expectedUrl = `https://api.blobscan.dev/blobs/${blobId}/data`;
+    const expectedUrl = new URL(`https://api.blobscan.dev/blobs/${blobId}/data`);
 
     it('fetches blob data', async () => {
       await loadResponse('blobscan_get_blob_data.json');
@@ -60,7 +60,7 @@ describe('blobscan_archive_client', () => {
   });
 
   describe('getBlobsFromBlock', () => {
-    const expectedUrl = `https://api.blobscan.dev/blocks/${blockId}?type=canonical&expand=blob%2Cblob_data`;
+    const expectedUrl = new URL(`https://api.blobscan.dev/blocks/${blockId}?type=canonical&expand=blob%2Cblob_data`);
 
     it('fetches blobs from block', async () => {
       await loadResponse('blobscan_get_block.json');

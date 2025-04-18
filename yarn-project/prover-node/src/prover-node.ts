@@ -1,5 +1,6 @@
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -33,7 +34,7 @@ import {
 } from '@aztec/telemetry-client';
 
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
-import { ProverNodeMetrics } from './metrics.js';
+import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
 
@@ -58,7 +59,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   private jobs: Map<string, EpochProvingJob> = new Map();
   private options: ProverNodeOptions;
-  private metrics: ProverNodeMetrics;
+  private jobMetrics: ProverNodeJobMetrics;
+  private rewardsMetrics: ProverNodeRewardsMetrics;
   private l1Metrics: L1Metrics;
 
   private txFetcher: RunningPromise;
@@ -92,8 +94,17 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       ...compact(options),
     };
 
-    this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+    const meter = telemetryClient.getMeter('ProverNode');
     this.tracer = telemetryClient.getTracer('ProverNode');
+
+    this.jobMetrics = new ProverNodeJobMetrics(meter, telemetryClient.getTracer('EpochProvingJob'));
+
+    this.rewardsMetrics = new ProverNodeRewardsMetrics(
+      meter,
+      EthAddress.fromField(this.prover.getProverId()),
+      this.publisher.getRollupContract(),
+    );
+
     this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
@@ -139,10 +150,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
    * starts proving jobs for them.
    */
-  start() {
+  async start() {
     this.txFetcher.start();
     this.epochsMonitor.start(this);
     this.l1Metrics.start();
+    await this.rewardsMetrics.start();
     this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.options);
   }
 
@@ -160,13 +172,15 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await this.worldState.stop();
     await tryStop(this.coordination);
     this.l1Metrics.stop();
+    this.rewardsMetrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }
 
   /** Returns world state status. */
-  public getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
-    return this.worldState.status().then(s => s.syncSummary);
+  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    const { syncSummary } = await this.worldState.status();
+    return syncSummary;
   }
 
   /** Returns archiver status. */
@@ -336,7 +350,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.metrics,
+      this.jobMetrics,
       deadline,
       { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
     );
