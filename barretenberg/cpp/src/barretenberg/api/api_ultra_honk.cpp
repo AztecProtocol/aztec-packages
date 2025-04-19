@@ -62,6 +62,7 @@ UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std
     if constexpr (Flavor::HasZK) {
         required_crs_size = std::max(required_crs_size, curve::BN254::SUBGROUP_SIZE * 2);
     }
+    plookup::MULTI_TABLES.reset();
     init_bn254_crs(required_crs_size);
     return prover;
 }
