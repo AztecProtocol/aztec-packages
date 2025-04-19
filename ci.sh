@@ -49,7 +49,7 @@ instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${a
 function get_ip_for_instance {
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" \
+    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
     --query "Reservations[].Instances[0].PublicIpAddress" \
     --output text)
 }
