@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/ext/starknet/ecc/curves/stark252/stark252.hpp"
 
 namespace bb::starknet::crypto {
@@ -507,3 +508,4 @@ struct PoseidonStark252BaseFieldParams {
 };
 
 } // namespace bb::starknet::crypto
+#endif

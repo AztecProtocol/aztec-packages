@@ -13,7 +13,9 @@ namespace bb {
 class StandardFlavor;
 class UltraFlavor;
 class UltraKeccakFlavor;
+#ifdef STARKNET_GARAGA_FLAVORS
 class UltraStarknetFlavor;
+#endif
 
 class Bn254FrParams;
 class Bn254FqParams;

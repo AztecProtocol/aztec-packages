@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef STARKNET_GARAGA_FLAVORS
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -86,3 +87,4 @@ template <typename Params> class PoseidonPermutation {
 };
 
 } // namespace bb::starknet::crypto
+#endif

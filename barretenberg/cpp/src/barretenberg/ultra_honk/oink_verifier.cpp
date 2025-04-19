@@ -158,9 +158,11 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 template class OinkVerifier<UltraFlavor>;
 template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 template class OinkVerifier<UltraStarknetFlavor>;
-template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<UltraStarknetZKFlavor>;
+#endif
+template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;

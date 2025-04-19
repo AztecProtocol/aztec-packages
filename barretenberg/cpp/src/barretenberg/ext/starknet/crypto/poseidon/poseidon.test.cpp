@@ -3,11 +3,11 @@
 #include "poseidon_params.hpp"
 #include <gtest/gtest.h>
 
-using namespace bb::starknet;
-
+#ifdef STARKNET_GARAGA_FLAVORS
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
 }
+using namespace bb::starknet;
 
 TEST(Poseidon, HashBasicTests)
 {
@@ -45,3 +45,7 @@ TEST(Poseidon, HashConsistencyCheck)
 
     EXPECT_EQ(result, expected);
 }
+#else
+
+TEST(Poseidon, DisabledTests) {}
+#endif

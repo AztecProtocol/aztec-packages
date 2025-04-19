@@ -26,7 +26,11 @@ template <typename Flavor> class FlavorSerializationTests : public ::testing::Te
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
+#ifdef STARKNET_GARAGA_FLAVORS
 using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, MegaFlavor>;
+#else
+using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+#endif
 TYPED_TEST_SUITE(FlavorSerializationTests, FlavorTypes);
 
 // Test msgpack serialization/deserialization of verification keys
