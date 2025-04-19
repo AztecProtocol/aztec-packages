@@ -58,7 +58,6 @@ TEST_F(ExecutionSimulationTest, Add)
 
 TEST_F(ExecutionSimulationTest, Call)
 {
-
     AztecAddress parent_address = 1;
     AztecAddress nested_address = 2;
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);

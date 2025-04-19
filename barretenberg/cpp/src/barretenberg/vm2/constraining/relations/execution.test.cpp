@@ -21,8 +21,8 @@ TEST(ExecutionConstrainingTest, Basic)
 {
     // clang-format off
     TestTraceContainer trace({
-         {{ C::execution_sel, 1 }, {C::execution_clk, 0}, { C::execution_pc, 0 }},
-         {{ C::execution_sel, 1 }, {C::execution_clk, 1}, { C::execution_pc, 20 }, { C::execution_last, 1 }}
+         {{ C::execution_sel, 1 }, { C::execution_pc, 0 }},
+         {{ C::execution_sel, 1 }, { C::execution_pc, 20 }, { C::execution_last, 1 }}
     });
     // clang-format on
 
