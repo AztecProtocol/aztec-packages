@@ -1,0 +1,14 @@
+bot:
+  enabled: true
+  replicas: 4
+  nodeUrl: "http://alpha-testnet-aztec-network-full-node.alpha-testnet.svc.cluster.local:8080"
+  ammTxs: false
+  followChain: "PENDING"
+  enabled: true
+  storageSize: "2Gi"
+  txIntervalSeconds: 1
+  txMinedWaitSeconds: "3600"
+  resources:
+    requests:
+      memory: 12Gi
+      cpu: 7

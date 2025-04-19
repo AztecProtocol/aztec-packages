@@ -157,6 +157,8 @@ spec:
               value: "{{ .Values.bot.publicTransfersPerTx }}"
             - name: BOT_FOLLOW_CHAIN
               value: "{{ .Values.bot.followChain }}"
+            - name: BOT_TX_MINED_WAIT_SECONDS
+              value: "{{ .Values.bot.txMinedWaitSeconds }}"
             - name: BOT_NO_START
               value: "{{ .Values.bot.botNoStart }}"
             - name: BOT_FEE_PAYMENT_METHOD

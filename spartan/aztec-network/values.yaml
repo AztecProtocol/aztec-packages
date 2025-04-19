@@ -239,6 +239,7 @@ bot:
   publicTransfersPerTx: 1
   # Do not wait for transactions
   followChain: "NONE"
+  txMinedWaitSeconds: 180
   botNoStart: false
   feePaymentMethod: "fee_juice"
   ammTxs: false
