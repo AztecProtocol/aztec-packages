@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745031657268,
+  "lastUpdate": 1745077121726,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3a337b4ab6792b1aafe0001d92f0aac89c4b92c",
-          "message": "chore(txe): no custom public merkle db (#13508)\n\nThe TXE does not need a custom db because it already gets the net public\ndata writes from the public \"outputs\" of the simulation.",
-          "timestamp": "2025-04-14T10:30:28Z",
-          "tree_id": "ca5cc2faef24b5165862a0a7243da2a56e175820",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e3a337b4ab6792b1aafe0001d92f0aac89c4b92c"
-        },
-        "date": 1744629757557,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9862,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2649158905293364,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 150333,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 137392,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76cab3fbe46226a66ec969d9a2a5348e1056e68b",
+          "message": "fix: retry deploy npm (#13691)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
+          "timestamp": "2025-04-19T14:38:56Z",
+          "tree_id": "194b963dac2d67503cc46f6c23422cb81538109e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/76cab3fbe46226a66ec969d9a2a5348e1056e68b"
+        },
+        "date": 1745077113095,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9882,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26551969240074674,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 153381,
             "unit": "us"
           }
         ]
