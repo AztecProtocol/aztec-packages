@@ -24,19 +24,18 @@ class EcOperations : public ::testing::Test {
 
 size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witness_values)
 {
-    using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
     witness_values.push_back(0);
     auto g1 = grumpkin::g1::affine_one;
-    cycle_group_ct input_point(g1);
-    // Doubling
-    cycle_group_ct result = input_point.dbl();
+    auto g2 = g1 + g1;
+    auto affine_result = g1 + g2;
+
     // add: x,y,x2,y2
     witness_values.push_back(g1.x);
     witness_values.push_back(g1.y);
-    witness_values.push_back(g1.x);
-    witness_values.push_back(g1.y);
-    witness_values.push_back(result.x.get_value());
-    witness_values.push_back(result.y.get_value());
+    witness_values.push_back(g2.x);
+    witness_values.push_back(g2.y);
+    witness_values.push_back(affine_result.x);
+    witness_values.push_back(affine_result.y);
     witness_values.push_back(fr(0));
     witness_values.push_back(fr(0));
     ec_add_constraint = EcAdd{
