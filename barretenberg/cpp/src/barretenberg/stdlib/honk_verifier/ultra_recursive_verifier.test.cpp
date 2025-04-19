@@ -239,7 +239,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
-        if constexpr (!IsSimulator<OuterBuilder>) {
+        {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
@@ -307,8 +307,6 @@ using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                               MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 

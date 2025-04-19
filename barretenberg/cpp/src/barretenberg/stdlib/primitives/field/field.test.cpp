@@ -163,81 +163,61 @@ template <typename Builder> class stdlib_field : public testing::Test {
      */
     static void test_assert_equal()
     {
-        if constexpr (IsSimulator<Builder>) {
-            auto run_test = [](bool expect_failure) {
-                Builder simulator;
-                auto lhs = bb::fr::random_element();
-                auto rhs = lhs;
-                if (expect_failure) {
-                    lhs++;
-                }
-                simulator.assert_equal(lhs, rhs, "testing assert equal");
-                if (expect_failure) {
-                    ASSERT_TRUE(simulator.failed());
+        auto run_test = [](bool constrain, bool true_when_y_val_zero = true) {
+            Builder builder = Builder();
+            field_ct x = witness_ct(&builder, 1);
+            field_ct y = witness_ct(&builder, 0);
+
+            // With no constraints, the proof verification will pass even though
+            // we assert x and y are equal.
+            bool expected_result = true;
+
+            if (constrain) {
+                /* The fact that we have a passing test in both cases that follow tells us
+                 * that the failure in the first case comes from the additive constraint,
+                 * not from a copy constraint. That failure is because the assert_equal
+                 * below says that 'the value of y was always x'--the value 1 is substituted
+                 * for x when evaluating the gate identity.
+                 */
+                if (true_when_y_val_zero) {
+                    // constraint: 0*x + 1*y + 0*0 + 0 == 0
+
+                    builder.create_add_gate({ .a = x.witness_index,
+                                              .b = y.witness_index,
+                                              .c = builder.zero_idx,
+                                              .a_scaling = 0,
+                                              .b_scaling = 1,
+                                              .c_scaling = 0,
+                                              .const_scaling = 0 });
+                    expected_result = false;
                 } else {
-                    ASSERT_FALSE(simulator.failed());
+                    // constraint: 0*x + 1*y + 0*0 - 1 == 0
+
+                    builder.create_add_gate({ .a = x.witness_index,
+                                              .b = y.witness_index,
+                                              .c = builder.zero_idx,
+                                              .a_scaling = 0,
+                                              .b_scaling = 1,
+                                              .c_scaling = 0,
+                                              .const_scaling = -1 });
+                    expected_result = true;
                 }
-            };
-            run_test(true);
-            run_test(false);
-        } else {
+            }
 
-            auto run_test = [](bool constrain, bool true_when_y_val_zero = true) {
-                Builder builder = Builder();
-                field_ct x = witness_ct(&builder, 1);
-                field_ct y = witness_ct(&builder, 0);
+            x.assert_equal(y);
 
-                // With no constraints, the proof verification will pass even though
-                // we assert x and y are equal.
-                bool expected_result = true;
+            // both field elements have real value 1 now
+            EXPECT_EQ(x.get_value(), 1);
+            EXPECT_EQ(y.get_value(), 1);
 
-                if (constrain) {
-                    /* The fact that we have a passing test in both cases that follow tells us
-                     * that the failure in the first case comes from the additive constraint,
-                     * not from a copy constraint. That failure is because the assert_equal
-                     * below says that 'the value of y was always x'--the value 1 is substituted
-                     * for x when evaluating the gate identity.
-                     */
-                    if (true_when_y_val_zero) {
-                        // constraint: 0*x + 1*y + 0*0 + 0 == 0
+            bool result = CircuitChecker::check(builder);
 
-                        builder.create_add_gate({ .a = x.witness_index,
-                                                  .b = y.witness_index,
-                                                  .c = builder.zero_idx,
-                                                  .a_scaling = 0,
-                                                  .b_scaling = 1,
-                                                  .c_scaling = 0,
-                                                  .const_scaling = 0 });
-                        expected_result = false;
-                    } else {
-                        // constraint: 0*x + 1*y + 0*0 - 1 == 0
+            EXPECT_EQ(result, expected_result);
+        };
 
-                        builder.create_add_gate({ .a = x.witness_index,
-                                                  .b = y.witness_index,
-                                                  .c = builder.zero_idx,
-                                                  .a_scaling = 0,
-                                                  .b_scaling = 1,
-                                                  .c_scaling = 0,
-                                                  .const_scaling = -1 });
-                        expected_result = true;
-                    }
-                }
-
-                x.assert_equal(y);
-
-                // both field elements have real value 1 now
-                EXPECT_EQ(x.get_value(), 1);
-                EXPECT_EQ(y.get_value(), 1);
-
-                bool result = CircuitChecker::check(builder);
-
-                EXPECT_EQ(result, expected_result);
-            };
-
-            run_test(false);
-            run_test(true, true);
-            run_test(true, false);
-        }
+        run_test(false);
+        run_test(true, true);
+        run_test(true, false);
     }
 
     static void test_add_mul_with_constants()
@@ -245,12 +225,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
         Builder builder = Builder();
         auto gates_before = builder.get_estimated_num_finalized_gates();
         uint64_t expected = fidget(builder);
-        if constexpr (!IsSimulator<Builder>) {
-            auto gates_after = builder.get_estimated_num_finalized_gates();
-            auto& block = builder.blocks.arithmetic;
-            EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
-            info("Number of gates added", gates_after - gates_before);
-        }
+        auto gates_after = builder.get_estimated_num_finalized_gates();
+        auto& block = builder.blocks.arithmetic;
+        EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
+        info("Number of gates added", gates_after - gates_before);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -925,11 +903,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(first_copy.get_value(), value);
         EXPECT_EQ(second_copy.get_value(), value);
 
-        if (!IsSimulator<Builder>) {
-            EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
-            EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
-            info("num gates = ", builder.get_estimated_num_finalized_gates());
-        }
+        EXPECT_EQ(value_ct.get_witness_index() + 1, first_copy.get_witness_index());
+        EXPECT_EQ(value_ct.get_witness_index() + 2, second_copy.get_witness_index());
+        info("num gates = ", builder.get_estimated_num_finalized_gates());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -1133,7 +1109,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     }
 };
 
-using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_field, CircuitTypes);
 
