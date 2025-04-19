@@ -121,12 +121,10 @@ impl BlockRootRollupOutputComposer {
         };
 
         let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
-        if accumulated_fees != 0 {
-            fees[0] = FeeRecipient {
-                recipient: constants.global_variables.coinbase,
-                value: accumulated_fees,
-            };
-        }
+        fees[0] = FeeRecipient {
+            recipient: constants.global_variables.coinbase,
+            value: accumulated_fees,
+        };
 
         let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
         blob_public_inputs[0] = block_blob_public_inputs;
