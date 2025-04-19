@@ -4,6 +4,25 @@ tags: [sandbox]
 sidebar_position: 2
 ---
 
+This reference guide provides documentation for the Aztec CLI commands (`aztec`) and their options. The CLI is a powerful tool for interacting with the Aztec network, managing accounts, deploying contracts, and more.
+
+## Overview
+
+The Aztec CLI provides commands for:
+
+- **Starting and Testing**: Starting the Aztec Sandbox and running tests
+- **Account Management**: Creating, deploying, and managing Aztec accounts
+- **Contract Operations**: Deploying, interacting with, and managing smart contracts
+- **Network Information**: Querying node and network status
+- **Transaction Management**: Sending, canceling, and querying transactions
+- **Data Retrieval**: Accessing logs and contract data
+- **Development Tools**: Profiling, debugging, and code generation
+- **L1 Integration**: Managing L1 contracts and bridges
+- **Governance**: Participating in protocol governance
+- **P2P Network**: Managing peer-to-peer network configuration
+- **Utilities**: Various helper commands for development
+
+Each command section includes detailed options and examples of usage. The documentation is organized to help you quickly find the commands you need for your specific use case.
 
 - [Start](#starting)
 - [Accounts](#account-management)
