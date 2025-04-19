@@ -69,4 +69,7 @@ export interface AttestationPool {
    * @return BlockAttestations
    */
   getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+
+  /** Returns whether the pool is empty. */
+  isEmpty(): Promise<boolean>;
 }
