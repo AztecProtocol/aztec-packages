@@ -96,6 +96,7 @@ function test_cmds {
   echo "$prefix simple e2e_p2p/reex"
   echo "$prefix simple e2e_p2p/slashing"
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
+  echo "$prefix simple e2e_p2p/add_rollup"
   echo "$prefix simple e2e_p2p/validators_sentinel"
 
   echo "$prefix simple e2e_private_voting_contract"
