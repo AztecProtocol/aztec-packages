@@ -113,6 +113,8 @@ spec:
               value: "{{ .Values.aztec.realProofs }}"
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
+            - name: GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS
+              value: "{{ .Values.aztec.governanceProposalPayloadAddress }}"
             - name: AZTEC_PORT
               value: "{{ .Values.validator.service.nodePort }}"
             - name: LOG_LEVEL
