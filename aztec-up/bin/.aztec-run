@@ -82,6 +82,13 @@ done
 # Volume mounts. We always mount in users home dir and cache volume.
 arg_volume_mounts="-v $HOME:$HOME -v cache:/cache"
 
+# Additional volume mounts requested
+if [ -n "${VOLUMES_TO_MOUNT:-}" ]; then
+  for volume in ${VOLUMES_TO_MOUNT}; do
+    arg_volume_mounts+=" -v $volume "
+  done
+fi
+
 # If we have an ssh agent running, mount it into container, or if on mac, forward it with socat.
 if [ -n "${SSH_AUTH_SOCK:-}" ]; then
   # warn "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Attempting to enable SSH agent forwarding..."
