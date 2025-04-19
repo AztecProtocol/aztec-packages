@@ -59,7 +59,7 @@ mod tests {
         },
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
-    use std::hash::poseidon2::Poseidon2;
+    use poseidon::poseidon2::Poseidon2;
     use types::{abis::sponge_blob::SpongeBlob, tests::utils::assert_array_eq};
 
     pub struct TestBuilder {
