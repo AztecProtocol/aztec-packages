@@ -15,7 +15,7 @@ import type { ScopedLogHash } from '../kernel/log_hash.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
 import { Gossipable } from '../p2p/gossipable.js';
-import { TopicType, createTopicString } from '../p2p/topic_type.js';
+import { TopicType } from '../p2p/topic_type.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { TxStats } from '../stats/stats.js';
 import { HashedValues } from './hashed_values.js';
@@ -26,7 +26,7 @@ import { TxHash } from './tx_hash.js';
  * The interface of an L2 transaction.
  */
 export class Tx extends Gossipable {
-  static override p2pTopic: string;
+  static override p2pTopic = TopicType.tx;
   // For memoization
   private txHash: TxHash | undefined;
   private calldataMap: Map<string, Fr[]> | undefined;
@@ -51,11 +51,6 @@ export class Tx extends Gossipable {
     public publicFunctionCalldata: HashedValues[],
   ) {
     super();
-  }
-
-  // Gossipable method
-  static {
-    this.p2pTopic = createTopicString(TopicType.tx);
   }
 
   // Gossipable method

@@ -1,5 +1,7 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
 
+import type { TopicType } from './topic_type.js';
+
 /**
  * Gossipable
  *
@@ -10,7 +12,7 @@ export abstract class Gossipable {
    *
    * - The p2p topic identifier, this determines how the message is handled
    */
-  static p2pTopic: string;
+  static p2pTopic: TopicType;
 
   /** p2p Message Identifier
    *

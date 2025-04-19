@@ -6,8 +6,8 @@ import { P2PClientType } from './client_type.js';
  * @param topicType
  * @returns
  */
-export function createTopicString(topicType: TopicType) {
-  return '/aztec/' + topicType + '/0.1.0';
+export function createTopicString(topicType: TopicType, protocolVersion: string) {
+  return `/aztec/${TopicType[topicType]}/${protocolVersion}`;
 }
 
 /**
@@ -35,10 +35,10 @@ export function getTopicTypeForClientType(clientType: P2PClientType) {
  *  ...
  * }
  */
-export function metricsTopicStrToLabels() {
+export function metricsTopicStrToLabels(protocolVersion: string) {
   const topicStrToLabel = new Map<string, string>();
   for (const topic in TopicType) {
-    topicStrToLabel.set(createTopicString(TopicType[topic as keyof typeof TopicType]), topic);
+    topicStrToLabel.set(createTopicString(TopicType[topic as keyof typeof TopicType], protocolVersion), topic);
   }
 
   return topicStrToLabel;

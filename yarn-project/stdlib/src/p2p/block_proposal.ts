@@ -12,7 +12,7 @@ import {
   getHashedSignaturePayload,
   getHashedSignaturePayloadEthSignedMessage,
 } from './signature_utils.js';
-import { TopicType, createTopicString } from './topic_type.js';
+import { TopicType } from './topic_type.js';
 
 export class BlockProposalHash extends Buffer32 {
   constructor(hash: Buffer) {
@@ -27,7 +27,7 @@ export class BlockProposalHash extends Buffer32 {
  * be included in the head of the chain
  */
 export class BlockProposal extends Gossipable {
-  static override p2pTopic = createTopicString(TopicType.block_proposal);
+  static override p2pTopic = TopicType.block_proposal;
 
   private sender: EthAddress | undefined;
 
