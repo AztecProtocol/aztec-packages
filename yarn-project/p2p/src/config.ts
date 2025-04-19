@@ -5,6 +5,7 @@ import {
   getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
+  secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
@@ -248,6 +249,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   peerIdPrivateKey: {
     env: 'PEER_ID_PRIVATE_KEY',
     description: 'An optional peer id private key. If blank, will generate a random key.',
+    ...secretStringConfigHelper(),
   },
   peerIdPrivateKeyPath: {
     env: 'PEER_ID_PRIVATE_KEY_PATH',

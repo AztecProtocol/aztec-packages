@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SecretValue } from '@aztec/foundation/config';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { TelemetryClient } from '@aztec/telemetry-client';
@@ -20,8 +21,8 @@ export function createValidatorClient(
   if (config.disableValidator) {
     return undefined;
   }
-  if (config.validatorPrivateKey === undefined || config.validatorPrivateKey === '') {
-    config.validatorPrivateKey = generatePrivateKey();
+  if (!config.validatorPrivateKey.getValue()) {
+    config.validatorPrivateKey = new SecretValue(generatePrivateKey());
   }
 
   return ValidatorClient.new(config, deps.epochCache, deps.p2pClient, deps.dateProvider, deps.telemetry);

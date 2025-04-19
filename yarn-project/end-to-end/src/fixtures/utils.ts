@@ -43,6 +43,7 @@ import {
   l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -403,15 +404,15 @@ export async function setup(
     let publisherPrivKey = undefined;
     let publisherHdAccount = undefined;
 
-    if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
+    if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+      config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
     }
 
     // Made as separate values such that keys can change, but for test they will be the same.
@@ -807,7 +808,7 @@ export async function createAndSyncProverNode(
     dataDirectory: undefined,
     realProofs: false,
     proverAgentCount: 2,
-    publisherPrivateKey: proverNodePrivateKey,
+    publisherPrivateKey: new SecretValue(proverNodePrivateKey),
     proverNodeMaxPendingJobs: 10,
     proverNodeMaxParallelBlocksPerEpoch: 32,
     proverNodePollingIntervalMs: 200,
