@@ -45,7 +45,6 @@ template <typename FF_> class CircuitBuilderBase {
 
     // Public input indices which contain the output IPA opening claim
     IPAClaimPubInputIndices ipa_claim_public_input_indices;
-    bool contains_ipa_claim = false;
 
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
     // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit

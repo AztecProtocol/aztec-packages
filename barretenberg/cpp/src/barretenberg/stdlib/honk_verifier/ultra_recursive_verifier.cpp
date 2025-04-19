@@ -140,11 +140,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (HasIPAAccumulator<Flavor>) {
         using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
 
-        if (verification_key->verification_key->contains_ipa_claim) {
-            PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0],
-                                              true };
-            output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
-        }
+        PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0], true };
+        output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
     }
 
     return output;
