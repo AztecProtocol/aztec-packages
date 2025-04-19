@@ -424,6 +424,17 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       await this.rollup.status(localPendingBlockNumber, { blockNumber: currentL1BlockNumber });
 
     const updateProvenBlock = async () => {
+      // Annoying edge case: if proven block is moved back to 0 due to a reorg at the beginning of the chain,
+      // we need to set it to zero. Note that this doesnt fall in the other branches, since the
+      // localBlockForDestinationProvenBlockNumber would not be found if proven is zero.
+      if (provenBlockNumber === 0n) {
+        const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
+        if (localProvenBlockNumber !== Number(provenBlockNumber)) {
+          await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+          this.log.info(`Rolled back proven chain to block ${provenBlockNumber}`, { provenBlockNumber });
+        }
+      }
+
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
 
       // Sanity check. I've hit what seems to be a state where the proven block is set to a value greater than the latest
@@ -876,9 +887,14 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       this.getProvenBlockNumber(),
     ] as const);
 
-    const [latestBlockHeader, provenBlockHeader] = await Promise.all([
+    // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+    // We just force it 2 epochs worth of proven data for now.
+    const finalizedBlockNumber = Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0);
+
+    const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([
       latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
       provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
+      finalizedBlockNumber > 0 ? this.getBlockHeader(finalizedBlockNumber) : undefined,
     ] as const);
 
     if (latestBlockNumber > 0 && !latestBlockHeader) {
@@ -891,9 +907,16 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       );
     }
 
+    if (finalizedBlockNumber > 0 && !finalizedBlockHeader) {
+      throw new Error(
+        `Failed to retrieve finalized block header for block ${finalizedBlockNumber} (latest block is ${latestBlockNumber})`,
+      );
+    }
+
     const latestBlockHeaderHash = await latestBlockHeader?.hash();
     const provenBlockHeaderHash = await provenBlockHeader?.hash();
-    const finalizedBlockHeaderHash = await provenBlockHeader?.hash();
+    const finalizedBlockHeaderHash = await finalizedBlockHeader?.hash();
+
     return {
       latest: {
         number: latestBlockNumber,
@@ -904,7 +927,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         hash: provenBlockHeaderHash?.toString(),
       } as L2BlockId,
       finalized: {
-        number: provenBlockNumber,
+        number: finalizedBlockNumber,
         hash: finalizedBlockHeaderHash?.toString(),
       } as L2BlockId,
     };
