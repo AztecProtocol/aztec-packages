@@ -6,18 +6,18 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 test=$1
+shift 1
 dir=${test%%/*}
 
-# Default to 2 CPUs and 4GB of memory when running with ISOLATE=1.
-CPUS=${CPUS:-2}
-MEM=${MEM:-4g}
+name=$test
+[ -n "${NAME_POSTFIX:-}" ] && name+=_$NAME_POSTFIX
 
 export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"
 cd ../$dir
 
 if [ "${ISOLATE:-0}" -eq 1 ]; then
   export ENV_VARS_TO_INJECT="NODE_OPTIONS LOG_LEVEL FAKE_PROOFS"
-  NAME=$test docker_isolate "node ../node_modules/.bin/jest --forceExit --runInBand $test"
+  NAME=$name docker_isolate "node ../node_modules/.bin/jest --forceExit --runInBand $test $@"
 else
-  node ../node_modules/.bin/jest --forceExit --runInBand $test
+  node ../node_modules/.bin/jest --forceExit --runInBand $test $@
 fi
