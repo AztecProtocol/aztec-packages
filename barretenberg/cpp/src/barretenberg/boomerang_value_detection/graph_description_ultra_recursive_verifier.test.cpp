@@ -117,6 +117,8 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
+        verifier.key->num_public_inputs.fix_witness();
+        verifier.key->pub_inputs_offset.fix_witness();
         auto agg_obj = AggState::construct_default(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
         AggState pairing_points = output.agg_obj;
