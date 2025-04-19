@@ -1881,7 +1881,7 @@ The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to
 
 ### [Aztec.nr] get_public_key oracle replaced with get_ivpk_m
 
-When implementing changes according to a [new key scheme](https://yp-aztec.netlify.app/docs/addresses-and-keys/keys) we had to change oracles.
+When implementing changes according to a new key scheme we had to change oracles.
 What used to be called encryption public key is now master incoming viewing public key.
 
 ```diff
@@ -2378,7 +2378,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-```rust title="prelude" showLineNumbers 
+```rust title="prelude" showLineNumbers
 pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
