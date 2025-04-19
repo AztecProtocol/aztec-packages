@@ -17,7 +17,7 @@ network:
   # If true then configured bootnodes are considered non-gossiping peers
   p2pBootstrapNodesAsFullPeers: true
 
-  mempoolLimitBytes: 100000000 # approx 100MB
+  mempoolLimitBytes: "100000000" # approx 100MB
 
 storage:
   localSsd: false
