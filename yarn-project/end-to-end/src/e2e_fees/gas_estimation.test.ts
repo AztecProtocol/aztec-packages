@@ -78,7 +78,7 @@ describe('e2e_fees gas_estimation', () => {
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
     // This is the interesting case, which we hit most of the time.
-    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const block = await t.pxe.node.getBlock(withEstimate.blockNumber!);
     expect(block!.header.totalManaUsed.toNumber()).toBe(estimatedGas.gasLimits.l2Gas * 2);
 
     // Tx has no teardown cost, so both fees should just reflect the actual gas cost.

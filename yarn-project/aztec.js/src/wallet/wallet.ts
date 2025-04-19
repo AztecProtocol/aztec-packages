@@ -1,5 +1,5 @@
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 
 import type { AccountInterface } from '../account/interface.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
@@ -21,14 +21,13 @@ export type Wallet = AccountInterface &
     | 'proveTx'
     | 'getNodeInfo'
     | 'getPXEInfo'
-    | 'getCurrentBaseFees'
     | 'updateContract'
     | 'registerSender'
     | 'getSenders'
     | 'removeSender'
-    | 'getTxReceipt'
     | 'getPrivateEvents'
     | 'getPublicEvents'
-  > & {
+  > &
+  Pick<AztecNode, 'getTxReceipt' | 'getCurrentBaseFees'> & {
     createAuthWit(intent: IntentInnerHash | IntentAction): Promise<AuthWitness>;
   };

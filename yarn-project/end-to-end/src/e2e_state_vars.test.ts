@@ -111,7 +111,7 @@ describe('e2e_state_vars', () => {
       // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
       const receipt = await contract.methods.initialize_private(RANDOMNESS, VALUE).send().wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await pxe.node.getTxEffect(receipt.txHash);
 
       // 1 for the tx, another for the initializer
       expect(txEffects?.data.nullifiers.length).toEqual(2);
@@ -136,7 +136,7 @@ describe('e2e_state_vars', () => {
       const noteBefore = await contract.methods.get_private_mutable().simulate();
       const receipt = await contract.methods.update_private_mutable(RANDOMNESS, VALUE).send().wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await pxe.node.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -155,7 +155,7 @@ describe('e2e_state_vars', () => {
         .send()
         .wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await pxe.node.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -171,7 +171,7 @@ describe('e2e_state_vars', () => {
       const noteBefore = await contract.methods.get_private_mutable().simulate();
       const receipt = await contract.methods.increase_private_value().send().wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await pxe.node.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -193,7 +193,7 @@ describe('e2e_state_vars', () => {
       expect(await contract.methods.is_priv_imm_initialized().simulate()).toEqual(false);
       const receipt = await contract.methods.initialize_private_immutable(RANDOMNESS, VALUE).send().wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await pxe.node.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the initializer
@@ -238,7 +238,7 @@ describe('e2e_state_vars', () => {
       // Note: Because we are decreasing the delay, we must first wait for the full previous delay - 1 (5 -1).
       await delay(4);
 
-      const expectedModifiedMaxBlockNumber = (await pxe.getBlockNumber()) + 2;
+      const expectedModifiedMaxBlockNumber = (await pxe.node.getBlockNumber()) + 2;
 
       // We now call our AuthContract to see if the change in max block number has reflected our delay change
       const tx = await authContract.methods.get_authorized_in_private().prove();

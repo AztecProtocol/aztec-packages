@@ -36,7 +36,10 @@ describe('proving test', () => {
   });
 
   it('advances the proven chain', async () => {
-    let [provenBlockNumber, blockNumber] = await Promise.all([pxe.getProvenBlockNumber(), pxe.getBlockNumber()]);
+    let [provenBlockNumber, blockNumber] = await Promise.all([
+      pxe.node.getProvenBlockNumber(),
+      pxe.node.getBlockNumber(),
+    ]);
     let ok: boolean;
 
     debugLogger.info(`Initial pending chain tip: ${blockNumber}`);
@@ -44,8 +47,8 @@ describe('proving test', () => {
 
     while (true) {
       const [newProvenBlockNumber, newBlockNumber] = await Promise.all([
-        pxe.getProvenBlockNumber(),
-        pxe.getBlockNumber(),
+        pxe.node.getProvenBlockNumber(),
+        pxe.node.getBlockNumber(),
       ]);
 
       if (newBlockNumber > blockNumber) {

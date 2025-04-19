@@ -36,7 +36,7 @@ export class AztecCheatCodes {
    * @returns The current block number
    */
   public async blockNumber(): Promise<number> {
-    return await this.pxe.getBlockNumber();
+    return await this.pxe.node.getBlockNumber();
   }
 
   /**
@@ -44,7 +44,7 @@ export class AztecCheatCodes {
    * @returns The current timestamp
    */
   public async timestamp(): Promise<number> {
-    const res = await this.pxe.getBlock(await this.blockNumber());
+    const res = await this.pxe.node.getBlock(await this.blockNumber());
     return res?.header.globalVariables.timestamp.toNumber() ?? 0;
   }
 
@@ -55,7 +55,7 @@ export class AztecCheatCodes {
    * @returns The value stored at the given slot
    */
   public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> {
-    const storageValue = await this.pxe.getPublicStorageAt(who, new Fr(slot));
+    const storageValue = await this.pxe.node.getPublicStorageAt('latest', who, new Fr(slot));
     return storageValue;
   }
 

@@ -3,7 +3,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 export async function blockNumber(rpcUrl: string, debugLogger: Logger, log: LogFn) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const [latestNum, provenNum] = await Promise.all([client.getBlockNumber(), client.getProvenBlockNumber()]);
+  const [latestNum, provenNum] = await Promise.all([client.node.getBlockNumber(), client.node.getProvenBlockNumber()]);
   log(`Latest block: ${latestNum}`);
   log(`Proven block: ${provenNum}`);
 }

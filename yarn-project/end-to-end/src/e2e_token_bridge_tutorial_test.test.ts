@@ -212,8 +212,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:l2-withdraw
 
     // docs:start:l1-withdraw
-    const [l2ToL1MessageIndex, siblingPath] = await pxe.getL2ToL1MembershipWitness(
-      await pxe.getBlockNumber(),
+    const [l2ToL1MessageIndex, siblingPath] = await pxe.node.getL2ToL1MessageMembershipWitness(
+      await pxe.node.getBlockNumber(),
       l2ToL1Message,
     );
     await l1PortalManager.withdrawFunds(

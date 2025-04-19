@@ -30,6 +30,14 @@ export const DefaultWaitOpts: WaitOpts = {
 export class SentTx {
   constructor(protected pxeWalletOrNode: Wallet | AztecNode | PXE, protected txHashPromise: Promise<TxHash>) {}
 
+  private getTxReceipt(txHash: TxHash) {
+    const isPXE = (value: Wallet | AztecNode | PXE): value is PXE =>
+      (value as PXE).node !== undefined && typeof (value as PXE).node.getTxReceipt === 'function';
+    return isPXE(this.pxeWalletOrNode)
+      ? this.pxeWalletOrNode.node.getTxReceipt(txHash)
+      : this.pxeWalletOrNode.getTxReceipt(txHash);
+  }
+
   /**
    * Retrieves the transaction hash of the SentTx instance.
    * The function internally awaits for the 'txHashPromise' to resolve, and then returns the resolved transaction hash.
@@ -50,7 +58,7 @@ export class SentTx {
    */
   public async getReceipt(): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
-    return await this.pxeWalletOrNode.getTxReceipt(txHash);
+    return await this.getTxReceipt(txHash);
   }
 
   /**
@@ -75,7 +83,7 @@ export class SentTx {
 
     return await retryUntil(
       async () => {
-        const txReceipt = await this.pxeWalletOrNode.getTxReceipt(txHash);
+        const txReceipt = await this.getTxReceipt(txHash);
         // If receipt is not yet available, try again
         if (txReceipt.status === TxStatus.PENDING) {
           return undefined;

@@ -28,7 +28,7 @@ export async function getLogs(
   const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress };
 
   const fetchLogs = async () => {
-    const response = await pxe.getPublicLogs(filter);
+    const response = await pxe.node.getPublicLogs(filter);
     const logs = response.logs;
 
     if (!logs.length) {

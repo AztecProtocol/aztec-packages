@@ -101,7 +101,7 @@ describe('e2e_2_pxes', () => {
   };
 
   const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
-    pxe.getPublicStorageAt(child.address, new Fr(1));
+    pxe.node.getPublicStorageAt('latest', child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();

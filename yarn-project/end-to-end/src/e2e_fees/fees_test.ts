@@ -322,7 +322,7 @@ export class FeesTest {
 
           const provingCostPerMana = await rollup.getProvingCostPerManaInFeeAsset();
 
-          const block = await this.pxe.getBlock(blockNumber);
+          const block = await this.aztecNode.getBlock(blockNumber);
           const mana = block!.header.totalManaUsed.toBigInt();
           return mana * provingCostPerMana;
         };

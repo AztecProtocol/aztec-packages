@@ -45,7 +45,7 @@ export abstract class BaseBot {
       timeout: txMinedWaitSeconds,
     });
     if (followChain === 'PROVEN') {
-      await waitForProven(this.pxe, receipt, { provenTimeout: txMinedWaitSeconds });
+      await waitForProven(this.pxe.node, receipt, { provenTimeout: txMinedWaitSeconds });
     }
     this.successes++;
     this.log.info(
