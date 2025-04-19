@@ -34,7 +34,8 @@ function htmlInstructionSetTable() {
   let table = "## Instructions Table\n";
   table += "\nClick on an instruction name to jump to its section.\n";
   table += "\n<table>\n";
-  let header = "<th>Opcode</th>";
+  let header = "";
+  //let header = "<th>Opcode</th>";
   for (let t = 0; t < TOPICS_IN_TABLE.length; t++) {
     header += `<th>${TOPICS_IN_TABLE[t]}</th>`;
   }
@@ -44,7 +45,7 @@ function htmlInstructionSetTable() {
     const instr = INSTRUCTION_SET[i];
     const name = instr["Name"];
     let row = `<tr>\n`;
-    row += `\t<td style={{'text-align': 'center'}}>${toOpcode(i)}</td>\n`;
+    //row += `\t<td style={{'text-align': 'center'}}>${toOpcode(i)}</td>\n`;
     row += `\t<td style={{'text-align': 'center'}}><a id='isa-table-${
       instr["id"]
     }'/><Markdown>\\[${escapeTicks(name)}\\](#isa-section-${
@@ -84,7 +85,11 @@ function markdownSublist(items) {
     if (typeof item === "string") {
       markdown += `\n\t- ${item}`;
     } else {
-      markdown += `\n\t- **${item["name"]}**: ${item["description"]}`;
+      markdown += `\n\t- **${item["name"]}**`;
+      if (item.Opcode) {
+        markdown += ` (**Opcode: ${item.Opcode}**)`;
+      }
+      markdown += `: ${item["description"]}`;
     }
   }
   return markdown;
@@ -98,7 +103,7 @@ function markdownInstructionSetSection(docsDir) {
     let subsection = `### <a id='isa-section-${instr["id"]}'/>${name}\n`;
     subsection += `${instr["Summary"].replace(/[<>=]/g, "\\$&")}\n\n`;
     subsection += `[See in table.](#isa-table-${instr["id"]})\n\n`;
-    subsection += `- **Opcode**: ${toOpcode(i)}\n`;
+    //subsection += `- **Opcode**: ${toOpcode(i)}\n`;
     for (let t = 0; t < TOPICS_IN_SECTIONS.length; t++) {
       const topic = TOPICS_IN_SECTIONS[t];
       let field = instr[topic];
