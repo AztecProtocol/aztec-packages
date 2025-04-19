@@ -242,7 +242,7 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(inputs: [Field; N], separato
 where
     T: ToField,
 {
-    let inputs_with_separator = array_concat([separator.to_field()], inputs);
+    let inputs_with_separator = [separator.to_field()].concat(inputs);
     poseidon2_hash(inputs_with_separator)
 }
 
