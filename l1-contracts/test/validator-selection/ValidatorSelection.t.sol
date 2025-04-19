@@ -290,7 +290,6 @@ contract ValidatorSelectionTest is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      blockHash: bytes32(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });

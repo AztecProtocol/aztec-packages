@@ -249,7 +249,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
-      blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
       txHashes: txHashes
     });
@@ -363,8 +362,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getBlock(start).archive,
           endArchive: rollup.getBlock(start + epochSize - 1).archive,
-          previousBlockHash: rollup.getBlock(start).blockHash,
-          endBlockHash: rollup.getBlock(start + epochSize - 1).blockHash,
           endTimestamp: Timestamp.wrap(0),
           outHash: bytes32(0),
           proverId: address(0)

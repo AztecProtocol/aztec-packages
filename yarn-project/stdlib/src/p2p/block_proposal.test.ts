@@ -10,25 +10,25 @@ describe('Block Proposal serialization / deserialization', () => {
     expect(deserialized).toEqual(serialized);
   };
 
-  it('Should serialize / deserialize', async () => {
-    const proposal = await makeBlockProposal();
+  it('Should serialize / deserialize', () => {
+    const proposal = makeBlockProposal();
 
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
     checkEquivalence(proposal, deserialized);
   });
 
-  it('Should serialize / deserialize + recover sender', async () => {
+  it('Should serialize / deserialize + recover sender', () => {
     const account = Secp256k1Signer.random();
 
-    const proposal = await makeBlockProposal({ signer: account });
+    const proposal = makeBlockProposal({ signer: account });
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
 
     checkEquivalence(proposal, deserialized);
 
     // Recover signature
-    const sender = await deserialized.getSender();
+    const sender = deserialized.getSender();
     expect(sender).toEqual(account.address);
   });
 });

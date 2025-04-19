@@ -173,7 +173,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     // or all attestations for all proposals in the slot if no block was mined.
     const archive = this.slotNumberToArchive.get(slot);
     const attested = await this.p2p.getAttestationsForSlot(slot, archive);
-    const attestors = new Set(await Promise.all(attested.map(a => a.getSender().then(a => a.toString()))));
+    const attestors = new Set(attested.map(a => a.getSender().toString()));
 
     // We assume that there was a block proposal if at least one of the validators attested to it.
     // It could be the case that every single validator failed, and we could differentiate it by having

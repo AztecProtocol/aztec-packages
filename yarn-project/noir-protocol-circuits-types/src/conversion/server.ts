@@ -382,8 +382,6 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
   return {
     previous_archive: mapAppendOnlyTreeSnapshotToNoir(blockRootOrBlockMergePublicInputs.previousArchive),
     new_archive: mapAppendOnlyTreeSnapshotToNoir(blockRootOrBlockMergePublicInputs.newArchive),
-    previous_block_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.previousBlockHash),
-    end_block_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.endBlockHash),
     start_global_variables: mapGlobalVariablesToNoir(blockRootOrBlockMergePublicInputs.startGlobalVariables),
     end_global_variables: mapGlobalVariablesToNoir(blockRootOrBlockMergePublicInputs.endGlobalVariables),
     out_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.outHash),
@@ -431,8 +429,6 @@ export function mapRootRollupPublicInputsFromNoir(
   return new RootRollupPublicInputs(
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.previous_archive),
     mapAppendOnlyTreeSnapshotFromNoir(rootRollupPublicInputs.end_archive),
-    mapFieldFromNoir(rootRollupPublicInputs.previous_block_hash),
-    mapFieldFromNoir(rootRollupPublicInputs.end_block_hash),
     mapFieldFromNoir(rootRollupPublicInputs.end_timestamp),
     mapFieldFromNoir(rootRollupPublicInputs.end_block_number),
     mapFieldFromNoir(rootRollupPublicInputs.out_hash),
@@ -596,8 +592,6 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
   return new BlockRootOrBlockMergePublicInputs(
     mapAppendOnlyTreeSnapshotFromNoir(blockRootOrBlockMergePublicInputs.previous_archive),
     mapAppendOnlyTreeSnapshotFromNoir(blockRootOrBlockMergePublicInputs.new_archive),
-    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.previous_block_hash),
-    mapFieldFromNoir(blockRootOrBlockMergePublicInputs.end_block_hash),
     mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.start_global_variables),
     mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.end_global_variables),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.out_hash),
@@ -668,6 +662,7 @@ function mapBlockRootRollupDataToNoir(data: BlockRootRollupData): BlockRootRollu
   return {
     l1_to_l2_roots: mapRootRollupParityInputToNoir(data.l1ToL2Roots),
     l1_to_l2_message_subtree_sibling_path: mapTuple(data.l1ToL2MessageSubtreeSiblingPath, mapFieldToNoir),
+    previous_archive_sibling_path: mapTuple(data.previousArchiveSiblingPath, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(data.newArchiveSiblingPath, mapFieldToNoir),
     previous_block_header: mapHeaderToNoir(data.previousBlockHeader),
     prover_id: mapFieldToNoir(data.proverId),

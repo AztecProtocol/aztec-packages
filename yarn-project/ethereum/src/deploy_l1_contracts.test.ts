@@ -18,7 +18,6 @@ describe('deploy_l1_contracts', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
   let genesisArchiveRoot: Fr;
-  let genesisBlockHash: Fr;
   let initialValidators: EthAddress[];
 
   // Use these environment variables to run against a live node. Eg to test against spartan's eth-devnet:
@@ -34,7 +33,6 @@ describe('deploy_l1_contracts', () => {
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
     genesisArchiveRoot = Fr.random();
-    genesisBlockHash = Fr.random();
     initialValidators = times(3, EthAddress.random);
 
     if (!rpcUrl) {
@@ -59,7 +57,6 @@ describe('deploy_l1_contracts', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot,
-      genesisBlockHash,
       l1TxConfig: { checkIntervalMs: 100 },
       ...args,
     });

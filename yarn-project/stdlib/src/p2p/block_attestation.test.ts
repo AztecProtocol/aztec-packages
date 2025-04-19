@@ -10,25 +10,25 @@ describe('Block Attestation serialization / deserialization', () => {
     expect(deserialized).toEqual(serialized);
   };
 
-  it('Should serialize / deserialize', async () => {
-    const attestation = await makeBlockAttestation();
+  it('Should serialize / deserialize', () => {
+    const attestation = makeBlockAttestation();
 
     const serialized = attestation.toBuffer();
     const deserialized = BlockAttestation.fromBuffer(serialized);
     checkEquivalence(attestation, deserialized);
   });
 
-  it('Should serialize / deserialize + recover sender', async () => {
+  it('Should serialize / deserialize + recover sender', () => {
     const account = Secp256k1Signer.random();
 
-    const attestation = await makeBlockAttestation({ signer: account });
+    const attestation = makeBlockAttestation({ signer: account });
     const serialized = attestation.toBuffer();
     const deserialized = BlockAttestation.fromBuffer(serialized);
 
     checkEquivalence(attestation, deserialized);
 
     // Recover signature
-    const sender = await deserialized.getSender();
+    const sender = deserialized.getSender();
     expect(sender).toEqual(account.address);
   });
 });

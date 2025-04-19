@@ -267,18 +267,18 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.log.verbose(`Transaction re-execution complete`);
 
     if (numFailedTxs > 0) {
-      await this.metrics.recordFailedReexecution(proposal);
+      this.metrics.recordFailedReexecution(proposal);
       throw new ReExFailedTxsError(numFailedTxs);
     }
 
     if (block.body.txEffects.length !== txHashes.length) {
-      await this.metrics.recordFailedReexecution(proposal);
+      this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
-      await this.metrics.recordFailedReexecution(proposal);
+      this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();
     }
   }
@@ -344,9 +344,9 @@ export class ValidatorClient extends WithTracer implements Validator {
     let attestations: BlockAttestation[] = [];
     while (true) {
       const collectedAttestations = await this.p2pClient.getAttestationsForSlot(slot, proposalId);
-      const oldSenders = await Promise.all(attestations.map(attestation => attestation.getSender()));
+      const oldSenders = attestations.map(attestation => attestation.getSender());
       for (const collected of collectedAttestations) {
-        const collectedSender = await collected.getSender();
+        const collectedSender = collected.getSender();
         if (!collectedSender.equals(me) && !oldSenders.some(sender => sender.equals(collectedSender))) {
           this.log.debug(`Received attestation for slot ${slot} from ${collectedSender.toString()}`);
         }
