@@ -9,9 +9,13 @@ import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
 
 <Glossary.Tools.aztec />
 
+Full reference [here](./developers/reference/environment_reference/cli_reference).
+
 ### Aztec Wallet
 
 <Glossary.Tools.aztec_wallet />
+
+Full reference [here](./developers/reference/environment_reference/cli_wallet_reference).
 
 ### `aztec-nargo`
 
@@ -55,7 +59,15 @@ You can find more information in the nargo installation docs [here](https://noir
 
 ### Noir Language Server
 
-The Noir Language Server can be used in vscode to facilitate writing programs in Noir. The Noir LSP addon allows the dev to choose their tool, nargo or aztec-nargo, when writing a pure Noir program or an Aztec smart conract.
+The Noir Language Server can be used in vscode to facilitate writing programs in Noir by providing syntax highlighting, circuit introspection and an execution interface. The Noir LSP addon allows the dev to choose their tool, nargo or aztec-nargo, when writing a pure Noir program or an Aztec smart contract.
+
+You can find more info about the LSP [in the Noir docs](https://noir-lang.org/docs/tooling/language_server).
+
+### Node
+
+<Glossary.AztecNode />
+
+To run your own node see [here](./run_node/index).
 
 ### Note
 

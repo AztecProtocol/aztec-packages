@@ -11,10 +11,10 @@ export const Glossary = {
     ),
     aztec_nargo: () => (
       <p>
-        The command line tool used to compile Aztec contracts. It gets its name
-        from the Noir compiler,
-        <code>nargo</code>. <code>aztec-nargo</code> is really just a specific
-        version of <code>nargo</code>.
+        The command line tool used to compile Aztec contracts. It is a specific
+        version of <code>nargo</code>, with additional transpiler for turning a
+        contract's public function code from Noir brillig bytecode into Aztec
+        Virtual Machine (AVM) bytecode.
       </p>
     ),
     aztec_up: () => (
