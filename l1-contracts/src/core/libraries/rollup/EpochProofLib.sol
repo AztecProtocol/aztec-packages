@@ -68,7 +68,7 @@ library EpochProofLib {
    *          - The archive root of the header does not match the archive root of the proposed block
    *          - The proof is invalid
    *
-   * @dev     We provide the `_archive`` even if it could be read from storage itself because it allow for better error
+   * @dev     We provide the `_archive` even if it could be read from storage itself because it allow for better error
    *          messages. Without passing it, we would just have a proof verification failure.
    *
    * @param _args - The arguments to submit the epoch root proof:
