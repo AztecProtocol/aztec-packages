@@ -53,7 +53,6 @@ export class GetContractInstance extends Instruction {
 
     let memberValue = new Field(0);
     if (exists) {
-      // TODO: should memberEnum exceptionally halt if it isn't a valid enum? What happens now?
       switch (this.memberEnum as ContractInstanceMember) {
         case ContractInstanceMember.DEPLOYER:
           memberValue = new Field(instance.deployer.toField());

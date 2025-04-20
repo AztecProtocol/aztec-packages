@@ -37,10 +37,7 @@ export class DebugLog extends Instruction {
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
-    // TODO: should debug log be able to fail? I think it should be unfailable,
-    // and it only runs when the PXE is running it. Update docs if changed!
     memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
-    // TODO: any reason this needs to be u32 and not u16 or u8?
     const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
 
     const rawMessage = memory.getSlice(messageOffset, this.messageSize);
