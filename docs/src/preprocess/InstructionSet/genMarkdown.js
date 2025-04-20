@@ -35,7 +35,6 @@ function htmlInstructionSetTable() {
   table += "\nClick on an instruction name to jump to its section.\n";
   table += "\n<table>\n";
   let header = "";
-  //let header = "<th>Opcode</th>";
   for (let t = 0; t < TOPICS_IN_TABLE.length; t++) {
     header += `<th>${TOPICS_IN_TABLE[t]}</th>`;
   }
@@ -45,7 +44,6 @@ function htmlInstructionSetTable() {
     const instr = INSTRUCTION_SET[i];
     const name = instr["Name"];
     let row = `<tr>\n`;
-    //row += `\t<td style={{'text-align': 'center'}}>${toOpcode(i)}</td>\n`;
     row += `\t<td style={{'text-align': 'center'}}><a id='isa-table-${
       instr["id"]
     }'/><Markdown>\\[${escapeTicks(name)}\\](#isa-section-${

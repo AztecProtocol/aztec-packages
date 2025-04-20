@@ -1551,6 +1551,10 @@ M[dstOffset:dstOffset+25] = keccakf1600(M[inputOffset:inputOffset+25])
   },
 ];
 
+function toOpcode(index) {
+  return "0x" + index.toString(16).padStart(2, "0");
+}
+
 /**
  * Instructions with only one/no variant use 1 opcode.
  * Instructions with multiple variants use 1 opcode per variant.
@@ -1563,11 +1567,11 @@ function addOpcodes() {
     const instr = INSTRUCTION_SET_RAW[i];
     if (instr.Variants) {
       for (let v = 0; v < instr.Variants.length; v++) {
-        instr.Variants[v].Opcode = `\`${opcode}\``;
+        instr.Variants[v].Opcode = `\`${toOpcode(opcode)}\``;
         opcode += 1;
       }
     } else {
-      instr.Opcode = `\`${opcode}\``;
+      instr.Opcode = `\`${toOpcode(opcode)}\``;
       opcode += 1;
     }
   }
