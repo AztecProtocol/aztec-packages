@@ -34,10 +34,35 @@ The CLI wallet supports several global options that can be used with any command
 
 - `-V, --version`: Output the version number
 - `-d, --data-dir <string>`: Storage directory for wallet data (default: "~/.aztec/wallet")
-- `-p, --prover <string>`: The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native")
-- `--remote-pxe`: Connect to an external PXE RPC server instead of the local one
-- `-n, --node-url <string>`: URL of the Aztec node to connect to (default: "http://host.docker.internal:8080")
+- `-p, --prover <string>`: The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native", env: `PXE_PROVER`)
+- `--remote-pxe`: Connect to an external PXE RPC server instead of the local one (env: `REMOTE_PXE`)
+- `-n, --node-url <string>`: URL of the Aztec node to connect to (default: "http://host.docker.internal:8080", env: `AZTEC_NODE_URL`)
 - `-h, --help`: Display help for command
+
+:::info
+Many options can be set using environment variables. For example:
+- `PXE_PROVER`: Set the prover type
+- `REMOTE_PXE`: Enable remote PXE connection
+- `AZTEC_NODE_URL`: Set the node URL
+- `SECRET_KEY`: Set the secret key for account operations
+:::
+
+### Connect to the Testnet
+
+To connect to the testnet, pass the `AZTEC_NODE_URL` to the wallet with the `--node-url` (`-n`) option.
+
+```bash
+export AZTEC_NODE_URL=<testnet-node-ip-address>
+aztec get-canonical-sponsored-fpc-address
+# Save the returned Sponsored FPC address
+# Register a new account
+aztec-wallet create-account --register-only -a main -n $AZTEC_NODE_URL
+
+# [22:50:24.286] ERROR: wallet Error: Contract address mismatch: expected 0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5, got 0x00b7a405f8b873dbdccb0bc6b7a209ae6b87c76ca4bc5cb75fea3027726f6fa0
+
+
+aztec-wallet create-account -n $AZTEC_NODE_URL --payment method=fpc-sponsored,fpc=<sponsored-fpc-address>
+```
 
 ### Payment Options
 
@@ -180,7 +205,7 @@ Generates a secret key and deploys an account contract. Uses a Schnorr single-ke
 - `--public-deploy`: Publicly deploys the account and registers the class if needed.
 - `-p, --public-key <string>`: Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
 - `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
-- `-sk, --secret-key <string>`: Secret key for account. Uses random by default.
+- `-sk, --secret-key <string>`: Secret key for account. Uses random by default. (env: `SECRET_KEY`)
 - `-a, --alias <string>`: Alias for the account. Used for easy reference in subsequent commands.
 - `-t, --type <string>`: Type of account to create (choices: "schnorr", "ecdsasecp256r1", "ecdsasecp256r1ssh", "ecdsasecp256k1", default: "schnorr")
 - `--register-only`: Just register the account on the PXE. Do not deploy or initialize the account contract.
@@ -278,7 +303,7 @@ Calls a function on an Aztec contract.
 - `--args [args...]`: Function arguments
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
-- `-sk, --secret-key <string>`: The sender's secret key
+- `-sk, --secret-key <string>`: The sender's secret key (env: `SECRET_KEY`)
 - `-f, --from <string>`: Alias or address of the account to send from
 - `--payment <options>`: Fee payment method and arguments (see Payment Options section)
 - `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>`: Gas limits for the tx
@@ -303,7 +328,7 @@ Simulates the execution of a function on an Aztec contract.
 - `--args [args...]`: Function arguments
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
-- `-sk, --secret-key <string>`: The sender's secret key
+- `-sk, --secret-key <string>`: The sender's secret key (env: `SECRET_KEY`)
 - `-f, --from <string>`: Alias or address of the account to simulate from
 
 #### Example
@@ -323,7 +348,7 @@ Profiles a private function by counting the unconditional operations in its exec
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
 - `--debug-execution-steps-dir <address>`: Directory to write execution step artifacts for bb profiling/debugging
-- `-sk, --secret-key <string>`: The sender's secret key
+- `-sk, --secret-key <string>`: The sender's secret key (env: `SECRET_KEY`)
 - `-aw, --auth-witness <string,...>`: Authorization witness to use for the simulation
 - `-f, --from <string>`: Alias or address of the account to simulate from
 
@@ -344,7 +369,7 @@ Creates an authorization witness that can be privately sent to a caller so they 
 - `--args [args...]`: Function arguments
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
-- `-sk, --secret-key <string>`: The sender's secret key
+- `-sk, --secret-key <string>`: The sender's secret key (env: `SECRET_KEY`)
 - `-f, --from <string>`: Alias or address of the account to simulate from
 - `-a, --alias <string>`: Alias for the authorization witness. Used for easy reference in subsequent commands.
 
@@ -372,7 +397,7 @@ Authorizes a public call on the caller, so they can perform an action on behalf 
 - `--args [args...]`: Function arguments
 - `-ca, --contract-address <address>`: Aztec address of the contract
 - `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
-- `-sk, --secret-key <string>`: The sender's secret key
+- `-sk, --secret-key <string>`: The sender's secret key (env: `SECRET_KEY`)
 - `-f, --from <string>`: Alias or address of the account to simulate from
 
 #### Public AuthWit Example
