@@ -6,6 +6,8 @@ sidebar_position: 2
 
 This reference guide provides documentation for the Aztec CLI commands (`aztec`) and their options. The CLI is a powerful tool for interacting with the Aztec network, managing accounts, deploying contracts, and more.
 
+Consider using the [`aztec-wallet`](./cli_wallet_reference.md) for account related or interacting with an existing network (e.g. testnet).
+
 ## Overview
 
 The Aztec CLI provides commands for:
@@ -67,7 +69,7 @@ Options:
 - `--l1-mnemonic <value>`: Mnemonic for L1 accounts. Will be used if no publisher private keys are provided (default: test test test test test test test test test test test junk).
 - `--l1-consensus-host-urls <value>`: List of URLs of the Ethereum consensus nodes that services will connect to (comma separated).
 - `--l1-consensus-host-api-keys <value>`: List of API keys for the corresponding Ethereum consensus nodes.
-- `--l1-consensus-host-api-key-headers <value>`: List of API key headers for the corresponding Ethereum consensus nodes. If not set, the api key for the corresponding node will be appended to the URL as ?key=<api-key>.
+- `--l1-consensus-host-api-key-headers <value>`: List of API key headers for the corresponding Ethereum consensus nodes. If not set, the api key for the corresponding node will be appended to the URL as `?key=<api-key>`.
 
 #### Storage Options
 - `--data-directory <value>`: Where to store data for services. If not set, will store temporarily.

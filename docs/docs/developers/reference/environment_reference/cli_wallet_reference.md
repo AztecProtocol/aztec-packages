@@ -5,7 +5,7 @@ keywords: [wallet, cli wallet]
 sidebar_position: 3
 ---
 
-For development, it may be useful to deploy, transact, or create notes in a non-programmatic way. You can use Aztec's CLI Wallet for thing such as:
+For development, it may be useful to deploy, transact, or create notes in a non-programmatic way. You can use the CLI wallet (`aztec-wallet`) for thing such as:
 
 - Deploying contracts
 - Sending transactions
@@ -14,6 +14,8 @@ For development, it may be useful to deploy, transact, or create notes in a non-
 - Creating [authwits](../../guides/smart_contracts/writing_contracts/authwit.md)
 - Aliasing info and secrets for further usage
 - Proving your transactions and profile gate counts
+
+`aztec-wallet` functions as a user wallet. It runs a PXE and has persistent storage to remember user accounts, notes and registered contracts.
 
 :::info
 
@@ -24,6 +26,48 @@ aztec-wallet create-account -h
 ```
 
 :::
+
+
+### Global Options
+
+The CLI wallet supports several global options that can be used with any command:
+
+- `-V, --version`: Output the version number
+- `-d, --data-dir <string>`: Storage directory for wallet data (default: "~/.aztec/wallet")
+- `-p, --prover <string>`: The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native")
+- `--remote-pxe`: Connect to an external PXE RPC server instead of the local one
+- `-n, --node-url <string>`: URL of the Aztec node to connect to (default: "http://host.docker.internal:8080")
+- `-h, --help`: Display help for command
+
+### Payment Options
+
+Many commands support payment options for transaction fees:
+
+```bash
+--payment method=<name>,feePayer=<address>,asset=<address>,fpc=<address>,claim=<bool>,claimSecret=<string>,claimAmount=<number>,messageLeafIndex=<number>,feeRecipient=<address>
+```
+
+Valid payment methods:
+- `fee_juice`: Pay with fee juice (default)
+- `fpc-public`: Pay with a public FPC
+- `fpc-private`: Pay with a private FPC
+- `fpc-sponsored`: Pay with a sponsored FPC
+
+### Gas Options
+
+Commands that send transactions support gas-related options:
+
+```bash
+--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>
+--max-fees-per-gas <da=100,l2=100>
+--max-priority-fees-per-gas <da=0,l2=0>
+--no-estimate-gas
+--estimate-gas-only
+```
+
+### Proving transactions
+
+You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox_proving.md#proving-with-aztec-wallet). Proving transactions is required when interacting with the testnet.
 
 ## Aliases
 
@@ -128,7 +172,26 @@ The wallet comes with some options for account deployment and management. You ca
 
 ### Create Account
 
-Generates a secret key and deploys an account contract.
+Generates a secret key and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).
+
+#### Options
+
+- `--skip-initialization`: Skip initializing the account contract. Useful for publicly deploying an existing account.
+- `--public-deploy`: Publicly deploys the account and registers the class if needed.
+- `-p, --public-key <string>`: Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `-sk, --secret-key <string>`: Secret key for account. Uses random by default.
+- `-a, --alias <string>`: Alias for the account. Used for easy reference in subsequent commands.
+- `-t, --type <string>`: Type of account to create (choices: "schnorr", "ecdsasecp256r1", "ecdsasecp256r1ssh", "ecdsasecp256k1", default: "schnorr")
+- `--register-only`: Just register the account on the PXE. Do not deploy or initialize the account contract.
+- `--json`: Emit output as json
+- `--no-wait`: Skip waiting for the contract to be deployed. Print the hash of deployment transaction
+- `--payment <options>`: Fee payment method and arguments (see Payment Options section)
+- `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>`: Gas limits for the tx
+- `--max-fees-per-gas <da=100,l2=100>`: Maximum fees per gas unit for DA and L2 computation
+- `--max-priority-fees-per-gas <da=0,l2=0>`: Maximum priority fees per gas unit for DA and L2 computation
+- `--no-estimate-gas`: Whether to automatically estimate gas limits for the tx
+- `--estimate-gas-only`: Only report gas estimation for the tx, do not send it
 
 #### Example
 
@@ -148,26 +211,81 @@ $ aztec-wallet create-account --register-only -a master_yoda
 $ aztec-wallet deploy-account -f master_yoda
 ```
 
-### Deploy
+## Contracts Actions
+
+### Deploy Contract
+
+Deploys a compiled Aztec.nr contract to Aztec.
 
 You can deploy a [compiled contract](../../guides/smart_contracts/how_to_compile_contract.md) to the network.
 
-You probably want to look at flags such as `--init` which allows you to specify the [initializer function](../../guides/smart_contracts/writing_contracts/initializers.md) to call, or `-k` for the [encryption public key](../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys) if the contract is expected to have notes being encrypted to it.
+#### Options
 
-You can pass arguments with the `--arg` flag.
+- `--init <string>`: The contract initializer function to call (default: "constructor")
+- `--no-init`: Leave the contract uninitialized
+- `-k, --public-key <string>`: Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes.
+- `-s, --salt <hex string>`: Optional deployment salt as a hex string for generating the deployment address.
+- `--universal`: Do not mix the sender address into the deployment.
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--args [args...]`: Constructor arguments
+- `-sk, --secret-key <string>`: The sender's secret key
+- `--json`: Emit output as json
+- `--no-wait`: Skip waiting for the contract to be deployed. Print the hash of deployment transaction
+- `--no-class-registration`: Don't register this contract class
+- `--no-public-deployment`: Don't emit this contract's public bytecode
+- `--payment <options>`: Fee payment method and arguments (see Payment Options section)
+- `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>`: Gas limits for the tx
+- `--max-fees-per-gas <da=100,l2=100>`: Maximum fees per gas unit for DA and L2 computation
+- `--max-priority-fees-per-gas <da=0,l2=0>`: Maximum priority fees per gas unit for DA and L2 computation
+- `--no-estimate-gas`: Whether to automatically estimate gas limits for the tx
+- `--estimate-gas-only`: Only report gas estimation for the tx, do not send it
 
 #### Example
 
-This example compiles the Jedi Code and deploys it from Master Yoda's account, initializing it with the parameter "Grand Master" and aliasing it to `jedi_order`. Notice how we can simply pass `master_yoda` in the `--from` flag (because `--from` always expects an account):
-
 ```bash
-aztec-nargo compile
 aztec-wallet deploy ./target/jedi_code.nr --arg accounts:master_yoda --from master_yoda --alias jedi_order
 ```
 
-### Send
+### Register Contract
 
-This command sends a transaction to the network by calling a contract's function. Just calling `aztec-wallet send` gives you a list of options, but you probably want to pass `--from` as the sender, `--contract-address` for your target's address, and `--args` if it requires arguments.
+Registers a contract in this wallet's PXE. A contract must be registered in the user's PXE in order to interact with it.
+
+#### Options
+
+- `--init <string>`: The contract initializer function to call (default: "constructor")
+- `-k, --public-key <string>`: Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes.
+- `-s, --salt <hex string>`: Optional deployment salt as a hex string for generating the deployment address.
+- `--deployer <string>`: The address of the account that deployed the contract
+- `--args [args...]`: Constructor arguments
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `-f, --from <string>`: Alias or address of the account to simulate from
+- `-a, --alias <string>`: Alias for the contact. Used for easy reference in subsequent commands.
+
+#### Example
+
+```bash
+aztec-wallet register-contract <address> <artifact> -a <alias>
+```
+
+
+### Send Transaction
+
+Calls a function on an Aztec contract.
+
+#### Options
+
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--args [args...]`: Function arguments
+- `-ca, --contract-address <address>`: Aztec address of the contract
+- `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
+- `-sk, --secret-key <string>`: The sender's secret key
+- `-f, --from <string>`: Alias or address of the account to send from
+- `--payment <options>`: Fee payment method and arguments (see Payment Options section)
+- `--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>`: Gas limits for the tx
+- `--max-fees-per-gas <da=100,l2=100>`: Maximum fees per gas unit for DA and L2 computation
+- `--max-priority-fees-per-gas <da=0,l2=0>`: Maximum priority fees per gas unit for DA and L2 computation
+- `--no-estimate-gas`: Whether to automatically estimate gas limits for the tx
+- `--estimate-gas-only`: Only report gas estimation for the tx, do not send it
 
 #### Example
 
@@ -175,37 +293,18 @@ This command sends a transaction to the network by calling a contract's function
 aztec-wallet send --from master_yoda --contract-address jedi_order --args "luke skywalker" train_jedi
 ```
 
-Again, notice how it's not necessary to pass `contracts:jedi_order` as the wallet already knows that the only available type for `--contract-address` is a contract.
+### Simulate Transaction
 
-### Manage authwits
+Simulates the execution of a function on an Aztec contract.
 
-You can use the CLI wallet to quickly generate [Authentication Witnesses](../../guides/smart_contracts/writing_contracts/authwit.md). These allow you to authorize the caller to execute an action on behalf of an account. They get aliased into the `authwits` type.
+#### Options
 
-### In private
-
-The authwit management in private is a two-step process: create and add. It's not too different from a `send` command, but providing the caller that can privately execute the action on behalf of the caller.
-
-#### Example
-
-An example for authorizing an operator (ex. a DeFi protocol) to call the transfer_in_private action (transfer on the user's behalf):
-
-```bash
-aztec-wallet create-authwit transfer_in_private accounts:coruscant_trader -ca contracts:token --args accounts:jedi_master accounts:coruscant_trader 20 secrets:auth_nonce -f accounts:jedi_master -a secret_trade
-
-aztec-wallet add-authwit authwits:secret_trade accounts:jedi_master -f accounts:coruscant_trader
-```
-
-### In public
-
-A similar call to the above, but in public:
-
-```bash
-aztec-wallet authorize-action transfer_in_public accounts:coruscant_trader -ca contracts:token --args accounts:jedi_master accounts:coruscant_trader 20 secrets:auth_nonce -f accounts:jedi_master
-```
-
-### Simulate
-
-Simulates a transaction instead of sending it. This allows you to obtain i.e. the return value before sending the transaction.
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--args [args...]`: Function arguments
+- `-ca, --contract-address <address>`: Aztec address of the contract
+- `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
+- `-sk, --secret-key <string>`: The sender's secret key
+- `-f, --from <string>`: Alias or address of the account to simulate from
 
 #### Example
 
@@ -213,9 +312,20 @@ Simulates a transaction instead of sending it. This allows you to obtain i.e. th
 aztec-wallet simulate --from master_yoda --contract-address jedi_order --args "luke_skywalker" train_jedi
 ```
 
-### Profile
+### Profile Transaction
 
-This allows you to get the gate count of each private function in the transaction. Read more about profiling [here](../../guides/smart_contracts/profiling_transactions.md).
+Profiles a private function by counting the unconditional operations in its execution steps.
+
+#### Options
+
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--args [args...]`: Function arguments
+- `-ca, --contract-address <address>`: Aztec address of the contract
+- `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
+- `--debug-execution-steps-dir <address>`: Directory to write execution step artifacts for bb profiling/debugging
+- `-sk, --secret-key <string>`: The sender's secret key
+- `-aw, --auth-witness <string,...>`: Authorization witness to use for the simulation
+- `-f, --from <string>`: Alias or address of the account to simulate from
 
 #### Example
 
@@ -223,11 +333,76 @@ This allows you to get the gate count of each private function in the transactio
 aztec-wallet profile --from master_yoda --contract-address jedi_order --args "luke_skywalker" train_jedi
 ```
 
+
+### Create AuthWit
+
+Creates an authorization witness that can be privately sent to a caller so they can perform an action on behalf of the provided account. These allow you to authorize the caller to execute an action on behalf of an account. They get aliased into the `authwits` type.
+
+#### Options
+
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--args [args...]`: Function arguments
+- `-ca, --contract-address <address>`: Aztec address of the contract
+- `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
+- `-sk, --secret-key <string>`: The sender's secret key
+- `-f, --from <string>`: Alias or address of the account to simulate from
+- `-a, --alias <string>`: Alias for the authorization witness. Used for easy reference in subsequent commands.
+
+#### Private AuthWit Example
+
+The authwit management in private is a two-step process: create and add. It's not too different from a `send` command, but providing the caller that can privately execute the action on behalf of the caller.
+
+An example for authorizing an operator (ex. a DeFi protocol) to call the transfer_in_private action (transfer on the user's behalf):
+
+```bash
+# Create the authorization witness
+aztec-wallet create-authwit transfer_in_private accounts:main -ca contracts:token --args accounts:jedi_master accounts:main 20 secrets:auth_nonce -f accounts:jedi_master
+
+# Add the authorization witness
+aztec-wallet add-authwit authwits:secret_trade accounts:jedi_master -f accounts:main
+```
+
+### Authorize Action
+
+Authorizes a public call on the caller, so they can perform an action on behalf of the provided account. This is the public equivalent of creating an authwit.
+
+#### Options
+
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--args [args...]`: Function arguments
+- `-ca, --contract-address <address>`: Aztec address of the contract
+- `-c, --contract-artifact <fileLocation>`: Path to a compiled Aztec contract's artifact in JSON format
+- `-sk, --secret-key <string>`: The sender's secret key
+- `-f, --from <string>`: Alias or address of the account to simulate from
+
+#### Public AuthWit Example
+
+A similar call to the above, but in public:
+
+```bash
+aztec-wallet authorize-action transfer_in_public accounts:coruscant_trader -ca contracts:token --args accounts:jedi_master accounts:coruscant_trader 20 secrets:auth_nonce -f accounts:jedi_master
+```
+
 ### Bridge Fee Juice
 
-The wallet provides an easy way to mint the fee-paying asset on L1 and bridging it to L2. Current placeholder-name "fee juice".
+The wallet provides an easy way to mint the fee-paying asset on L1 and
+bridging it to L2. Current placeholder-name "fee juice".
 
-Using the sandbox, there's already a Fee Juice contract that manages this enshrined asset. You can optionally mint more Juice before bridging it.
+Using the sandbox, there's already a Fee Juice contract that manages this
+enshrined asset. You can optionally mint more Juice before bridging it.
+Mints L1 Fee Juice and pushes them to L2.
+
+#### Options
+
+- `--l1-rpc-urls <string>`: List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated)
+- `-m, --mnemonic <string>`: The mnemonic to use for deriving the Ethereum address that will mint and bridge
+- `--mint`: Mint the tokens on L1 (default: false)
+- `--l1-private-key <string>`: The private key to the eth account bridging
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337)
+- `--json`: Output the claim in JSON format
+- `--no-wait`: Wait for the bridged funds to be available in L2, polling every 60 seconds
+- `--interval <number>`: The polling interval in seconds for the bridged funds (default: "60")
 
 #### Example
 
@@ -237,13 +412,14 @@ This example mints and bridges 1000 units of fee juice and bridges it to the `ma
 aztec-wallet bridge-fee-juice --mint 1000 master_yoda
 ```
 
-## Proving
-
-You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox_proving.md#proving-with-aztec-wallet)
-
 ### Get Transaction Status
 
 You can check the status of recent transactions or get detailed information about a specific transaction.
+
+#### Options
+
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--json`: Output the result in JSON format
 
 #### Example
 
@@ -259,6 +435,11 @@ aztec-wallet get-tx <txHash>
 
 You can cancel a pending transaction by reusing its nonce with a higher fee and an empty payload.
 
+#### Options
+
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `--json`: Output the result in JSON format
+
 #### Example
 
 ```bash
@@ -269,25 +450,25 @@ aztec-wallet cancel-tx <txHash>
 
 Registers a sender's address in the wallet, so the note synching process will look for notes sent by them. This is required to be able to receive on-chain encrypted notes from a sender.
 
+#### Options
+
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
+- `-f, --from <string>`: Alias or address of the account to simulate from
+- `-a, --alias <string>`: Alias for the sender. Used for easy reference in subsequent commands.
+
 #### Example
 
 ```bash
 aztec-wallet register-sender <address> -a <alias>
 ```
 
-### Register Contract
-
-Registers a contract in this wallet's PXE. A contract must be registered in the user's PXE in order to interact with it.
-
-#### Example
-
-```bash
-aztec-wallet register-contract <address> <artifact> -a <alias>
-```
-
 ### Create Secret
 
 Creates an aliased secret to use in other commands.
+
+#### Options
+
+- `-a, --alias <string>`: Key to alias the secret with
 
 #### Example
 
@@ -295,39 +476,3 @@ Creates an aliased secret to use in other commands.
 aztec-wallet create-secret -a <alias>
 ```
 
-### Global Options
-
-The CLI wallet supports several global options that can be used with any command:
-
-- `-V, --version`: Output the version number
-- `-d, --data-dir <string>`: Storage directory for wallet data (default: "~/.aztec/wallet")
-- `-p, --prover <string>`: The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native")
-- `--remote-pxe`: Connect to an external PXE RPC server instead of the local one
-- `-n, --node-url <string>`: URL of the Aztec node to connect to (default: "http://host.docker.internal:8080")
-- `-h, --help`: Display help for command
-
-### Payment Options
-
-Many commands support payment options for transaction fees:
-
-```bash
---payment method=<name>,feePayer=<address>,asset=<address>,fpc=<address>,claim=<bool>,claimSecret=<string>,claimAmount=<number>,messageLeafIndex=<number>,feeRecipient=<address>
-```
-
-Valid payment methods:
-- `fee_juice`: Pay with fee juice (default)
-- `fpc-public`: Pay with a public FPC
-- `fpc-private`: Pay with a private FPC
-- `fpc-sponsored`: Pay with a sponsored FPC
-
-### Gas Options
-
-Commands that send transactions support gas-related options:
-
-```bash
---gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>
---max-fees-per-gas <da=100,l2=100>
---max-priority-fees-per-gas <da=0,l2=0>
---no-estimate-gas
---estimate-gas-only
-```
