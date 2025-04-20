@@ -1,4 +1,7 @@
 #pragma once
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
@@ -11,6 +14,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
+#include <chrono>
 
 namespace bb {
 /**
@@ -67,7 +71,9 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
-                circuit.blocks.summarize();
+                if (verbose_logging) {
+                    circuit.blocks.summarize();
+                }
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 overflow_size = circuit.blocks.overflow.size();
                 dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
@@ -76,7 +82,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             }
         }
 
-        info("Finalized circuit size: ", circuit.num_gates);
         circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace

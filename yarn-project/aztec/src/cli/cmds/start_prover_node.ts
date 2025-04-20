@@ -119,6 +119,6 @@ export async function startProverNode(
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  proverNode.start();
+  await proverNode.start();
   return { config: proverConfig };
 }

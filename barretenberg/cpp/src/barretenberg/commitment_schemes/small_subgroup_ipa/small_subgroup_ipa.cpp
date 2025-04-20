@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -441,6 +442,7 @@ template class SmallSubgroupIPAProver<TranslatorFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;
+template class SmallSubgroupIPAProver<UltraStarknetZKFlavor>;
 
 // Instantiations used in tests
 template class SmallSubgroupIPAProver<BN254Settings>;

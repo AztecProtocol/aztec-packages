@@ -78,9 +78,10 @@ function inspect {
                 # Run forge inspect and capture output
                 methods_output=$(forge inspect "$full_path" methodIdentifiers 2>/dev/null)
                 errors_output=$(forge inspect "$full_path" errors 2>/dev/null)
+                events_output=$(forge inspect "$full_path" events 2>/dev/null)
 
-                # Only display if we have methods or errors (empty table output is 5 lines)
-                if [ $(echo "$methods_output" | wc -l) != 5 ] || [ $(echo "$errors_output" | wc -l) != 5 ]; then
+                # Only display if we have methods or errors or events (empty table output is 5 lines)
+                if [ $(echo "$methods_output" | wc -l) != 5 ] || [ $(echo "$errors_output" | wc -l) != 5 ] || [ $(echo "$events_output" | wc -l) != 5 ]; then
                     echo "----------------------------------------"
                     echo "Inspecting $full_path"
                     echo "----------------------------------------"
@@ -94,11 +95,17 @@ function inspect {
                         echo "$errors_output"
                         echo ""
                     fi
+
+                    if [ $(echo "$events_output" | wc -l) != 5 ]; then
+                        echo "$events_output"
+                        echo ""
+                    fi
                 fi
             fi
         done < <(grep -E "^[[:space:]]*(contract|library|interface)[[:space:]]+[a-zA-Z0-9_]+" "$file")
     done
 }
+
 
 function gas_report {
   check=${1:-"no"}

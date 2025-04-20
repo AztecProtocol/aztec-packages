@@ -197,6 +197,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
     if (invalidProposal) {
       this.log.verbose(`Proposal is not valid, skipping attestation`);
+      this.metrics.incFailedAttestations('invalid_proposal');
       return undefined;
     }
 
@@ -210,6 +211,12 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal);
       }
     } catch (error: any) {
+      if (error instanceof Error) {
+        this.metrics.incFailedAttestations(error.name);
+      } else {
+        this.metrics.incFailedAttestations('unknown');
+      }
+
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation`, error, proposalInfo);
@@ -223,6 +230,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Provided all of the above checks pass, we can attest to the proposal
     this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
+    this.metrics.incAttestations();
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.doAttestToProposal(proposal);
