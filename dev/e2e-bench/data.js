@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745118385140,
+  "lastUpdate": 1745170066225,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "89462d542f15f8f384b201338ff2c3e90d8ddba6",
-          "message": "chore: Less strict block proposal init deadline (#13522)\n\nInstead of using a fixed deadline of 3s for the start of building a\nblock, we derive it from the total aztec slot time, assuming we will\nallocate at least 1s to tx processing.\n\nFixes #13511",
-          "timestamp": "2025-04-14T13:19:06Z",
-          "tree_id": "f6a368efaef9ef69a9a591216eb69ca30e0c46b5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/89462d542f15f8f384b201338ff2c3e90d8ddba6"
-        },
-        "date": 1744639924698,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9476,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2545615520923305,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 137003,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1939,6 +1900,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 158796,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5d3e24c6652a2788cc78202028f2c642b36b498f",
+          "message": "fix: dependency cycles in public simulator part 2 (serializable bytecode) (#13680)\n\nDown to 1 cycle now: `private_execution.ts ->\nprivate_execution_oracle.ts`\n\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
+          "timestamp": "2025-04-20T16:35:35Z",
+          "tree_id": "3952fd18b522bd2322b9e4013618b9b78744b0bf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5d3e24c6652a2788cc78202028f2c642b36b498f"
+        },
+        "date": 1745170054552,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9732,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26149540330305304,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 154784,
             "unit": "us"
           }
         ]
