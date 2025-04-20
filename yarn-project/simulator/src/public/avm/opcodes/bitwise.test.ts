@@ -25,8 +25,8 @@ describe('Bitwise instructions', () => {
         And.wireFormat16,
       );
 
-      expect(And.as(And.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(And.as(And.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should AND correctly over integral types', async () => {
@@ -54,8 +54,8 @@ describe('Bitwise instructions', () => {
         Or.wireFormat16,
       );
 
-      expect(Or.as(Or.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Or.as(Or.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should OR correctly over integral types', async () => {
@@ -87,8 +87,8 @@ describe('Bitwise instructions', () => {
         Xor.wireFormat16,
       );
 
-      expect(Xor.as(Xor.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Xor.as(Xor.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should XOR correctly over integral types', async () => {
@@ -120,8 +120,8 @@ describe('Bitwise instructions', () => {
         Shr.wireFormat16,
       );
 
-      expect(Shr.as(Shr.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Shr.as(Shr.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should require shift amount to be U8', async () => {
@@ -193,8 +193,8 @@ describe('Bitwise instructions', () => {
         Shl.wireFormat16,
       );
 
-      expect(Shl.as(Shl.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Shl.as(Shl.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should require shift amount to be U8', async () => {
@@ -279,8 +279,8 @@ describe('Bitwise instructions', () => {
         Not.wireFormat16,
       );
 
-      expect(Not.as(Not.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Not.as(Not.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should NOT correctly over integral types', async () => {
