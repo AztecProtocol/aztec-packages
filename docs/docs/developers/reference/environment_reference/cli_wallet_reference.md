@@ -240,3 +240,94 @@ aztec-wallet bridge-fee-juice --mint 1000 master_yoda
 ## Proving
 
 You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox_proving.md#proving-with-aztec-wallet)
+
+### Get Transaction Status
+
+You can check the status of recent transactions or get detailed information about a specific transaction.
+
+#### Example
+
+```bash
+# Get status of recent transactions
+aztec-wallet get-tx
+
+# Get detailed view of a specific transaction
+aztec-wallet get-tx <txHash>
+```
+
+### Cancel Transaction
+
+You can cancel a pending transaction by reusing its nonce with a higher fee and an empty payload.
+
+#### Example
+
+```bash
+aztec-wallet cancel-tx <txHash>
+```
+
+### Register Sender
+
+Registers a sender's address in the wallet, so the note synching process will look for notes sent by them. This is required to be able to receive on-chain encrypted notes from a sender.
+
+#### Example
+
+```bash
+aztec-wallet register-sender <address> -a <alias>
+```
+
+### Register Contract
+
+Registers a contract in this wallet's PXE. A contract must be registered in the user's PXE in order to interact with it.
+
+#### Example
+
+```bash
+aztec-wallet register-contract <address> <artifact> -a <alias>
+```
+
+### Create Secret
+
+Creates an aliased secret to use in other commands.
+
+#### Example
+
+```bash
+aztec-wallet create-secret -a <alias>
+```
+
+### Global Options
+
+The CLI wallet supports several global options that can be used with any command:
+
+- `-V, --version`: Output the version number
+- `-d, --data-dir <string>`: Storage directory for wallet data (default: "~/.aztec/wallet")
+- `-p, --prover <string>`: The type of prover the wallet uses (choices: "wasm", "native", "none", default: "native")
+- `--remote-pxe`: Connect to an external PXE RPC server instead of the local one
+- `-n, --node-url <string>`: URL of the Aztec node to connect to (default: "http://host.docker.internal:8080")
+- `-h, --help`: Display help for command
+
+### Payment Options
+
+Many commands support payment options for transaction fees:
+
+```bash
+--payment method=<name>,feePayer=<address>,asset=<address>,fpc=<address>,claim=<bool>,claimSecret=<string>,claimAmount=<number>,messageLeafIndex=<number>,feeRecipient=<address>
+```
+
+Valid payment methods:
+- `fee_juice`: Pay with fee juice (default)
+- `fpc-public`: Pay with a public FPC
+- `fpc-private`: Pay with a private FPC
+- `fpc-sponsored`: Pay with a sponsored FPC
+
+### Gas Options
+
+Commands that send transactions support gas-related options:
+
+```bash
+--gas-limits <da=100,l2=100,teardownDA=10,teardownL2=10>
+--max-fees-per-gas <da=100,l2=100>
+--max-priority-fees-per-gas <da=0,l2=0>
+--no-estimate-gas
+--estimate-gas-only
+```
