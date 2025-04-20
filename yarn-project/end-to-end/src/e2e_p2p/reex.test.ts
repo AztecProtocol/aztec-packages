@@ -130,6 +130,7 @@ describe('e2e_p2p_reex', () => {
         // Abusing javascript to access the nodes signing key
         const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
         const newProposal = new BlockProposal(
+          proposal.blockNumber,
           proposal.payload,
           await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
         );

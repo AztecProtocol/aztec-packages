@@ -160,7 +160,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     TestPoint memory point = points[slotNumber.unwrap() - 1];
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
-    uint256 bn = rollup.getPendingBlockNumber() + 1;
 
     uint256 manaBaseFee = (
       point.outputs.mana_base_fee_components_in_fee_asset.data_cost
@@ -180,32 +179,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // Put coinbase onto the stack
     address cb = coinbase;
 
-    uint256 version = rollup.getVersion();
-
     // Updating the header with important information!
-    assembly {
-      let headerRef := add(header, 0x20)
-
-      mstore(add(headerRef, 0x0000), archiveRoot)
-      // Load the full word at 0x20 (which contains lastArchive.nextAvailableLeafIndex and start of numTxs)
-      let word := mload(add(headerRef, 0x20))
-      // Clear just the first 4 bytes from the left (most significant bytes)
-      word := and(word, 0x00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-      // Set the new value for nextAvailableLeafIndex (bn) in the first 4 bytes from left
-      word := or(word, shl(224, bn))
-      // Store the modified word back
-      mstore(add(headerRef, 0x20), word)
-
-      mstore(add(headerRef, 0x0154), version)
-      mstore(add(headerRef, 0x0174), bn)
-      mstore(add(headerRef, 0x0194), slotNumber)
-      mstore(add(headerRef, 0x01b4), ts)
-      mstore(add(headerRef, 0x01d4), cb) // coinbase
-      mstore(add(headerRef, 0x01e8), 0) // fee recipient
-      mstore(add(headerRef, 0x0208), 0) // fee per da gas
-      mstore(add(headerRef, 0x0228), manaBaseFee) // fee per l2 gas
-      mstore(add(headerRef, 0x0268), manaSpent) // total mana used
-    }
+    header = DecoderBase.updateHeaderArchive(header, archiveRoot);
+    header = DecoderBase.updateHeaderSlot(header, slotNumber);
+    header = DecoderBase.updateHeaderTimestamp(header, ts);
+    header = DecoderBase.updateHeaderCoinbase(header, cb);
+    header = DecoderBase.updateHeaderFeeRecipient(header, address(0));
+    header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
+    header = DecoderBase.updateHeaderManaUsed(header, manaSpent);
 
     return Block({
       archive: archiveRoot,
@@ -241,7 +222,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.blobInputs
+          b.blobInputs,
+          new bytes(0)
         );
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -343,7 +325,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.blobInputs
+          b.blobInputs,
+          new bytes(0)
         );
 
         FeeHeader memory feeHeader = rollup.getFeeHeader(nextSlot.unwrap());

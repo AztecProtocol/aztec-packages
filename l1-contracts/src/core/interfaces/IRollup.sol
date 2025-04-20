@@ -35,6 +35,7 @@ struct SubmitEpochRootProofArgs {
 
 struct BlockLog {
   bytes32 archive;
+  bytes32 headerHash; // hash of the proposed block header
   Slot slotNumber;
 }
 
@@ -146,7 +147,8 @@ interface IRollupCore {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _blobInput
+    bytes calldata _blobInput,
+    bytes calldata _stateReference
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;

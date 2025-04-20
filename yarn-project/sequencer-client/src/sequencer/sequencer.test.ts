@@ -85,13 +85,21 @@ describe('sequencer', () => {
   const getSignatures = () => [mockedSig];
 
   const getAttestations = () => {
-    const attestation = new BlockAttestation(new ConsensusPayload(block.header, archive, []), mockedSig);
+    const attestation = new BlockAttestation(
+      block.header.globalVariables.blockNumber,
+      new ConsensusPayload(block.header.toPropose(), archive, []),
+      mockedSig,
+    );
     (attestation as any).sender = committee[0];
     return [attestation];
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(new ConsensusPayload(block.header, archive, [TxHash.random()]), mockedSig);
+    return new BlockProposal(
+      block.header.globalVariables.blockNumber,
+      new ConsensusPayload(block.header.toPropose(), archive, [TxHash.random()]),
+      mockedSig,
+    );
   };
 
   const processTxs = async (txs: Tx[]) => {

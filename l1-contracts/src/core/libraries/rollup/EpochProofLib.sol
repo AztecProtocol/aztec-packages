@@ -116,12 +116,6 @@ library EpochProofLib {
     bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    // Args are defined as an array because Solidity complains with "stack too deep" otherwise
-    // 0 bytes32 _previousArchive,
-    // 1 bytes32 _endArchive,
-    // 2 bytes32 _endTimestamp,
-    // 3 bytes32 _outHash,
-    // 4 bytes32 _proverId,
 
     // TODO(#7373): Public inputs are not fully verified
 
@@ -154,6 +148,7 @@ library EpochProofLib {
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
+    //   proposedBlockHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
@@ -185,12 +180,18 @@ library EpochProofLib {
       publicInputs[6] = _args.outHash;
     }
 
-    uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
-    // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
-    for (uint256 i = 0; i < feesLength; i++) {
-      publicInputs[7 + i] = _fees[i];
+    for (uint256 i = 0; i < Constants.AZTEC_MAX_EPOCH_DURATION; i++) {
+      publicInputs[7 + i] = rollupStore.blocks[_start + i].headerHash;
     }
-    uint256 offset = 7 + feesLength;
+
+    uint256 offset = 7 + Constants.AZTEC_MAX_EPOCH_DURATION;
+
+    uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
+    // fees[2n to 2n + 1]: a fee element, which contains of a recipient and a value
+    for (uint256 i = 0; i < feesLength; i++) {
+      publicInputs[offset + i] = _fees[i];
+    }
+    offset += feesLength;
 
     // vk_tree_root
     publicInputs[offset] = rollupStore.config.vkTreeRoot;

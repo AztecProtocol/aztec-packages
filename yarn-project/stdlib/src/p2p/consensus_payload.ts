@@ -8,7 +8,7 @@ import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { L2Block } from '../block/l2_block.js';
-import { BlockHeader } from '../tx/block_header.js';
+import { ProposedBlockHeader } from '../tx/index.js';
 import { TxHash } from '../tx/tx_hash.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
 
@@ -16,8 +16,8 @@ export class ConsensusPayload implements Signable {
   private size: number | undefined;
 
   constructor(
-    /** The block header the attestation is made over */
-    public readonly header: BlockHeader,
+    /** The proposed block header the attestation is made over */
+    public readonly header: ProposedBlockHeader,
     // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
     public readonly archive: Fr,
     /** The sequence of transactions in the block */
@@ -27,7 +27,7 @@ export class ConsensusPayload implements Signable {
   static get schema() {
     return z
       .object({
-        header: BlockHeader.schema,
+        header: ProposedBlockHeader.schema,
         archive: schemas.Fr,
         txHashes: z.array(TxHash.schema),
       })
@@ -39,11 +39,12 @@ export class ConsensusPayload implements Signable {
   }
 
   getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    const abi = parseAbiParameters('uint8, (bytes32, (uint256), bytes, bytes32[])');
+    const abi = parseAbiParameters('uint8, (bytes32, (uint256), bytes32, bytes32[])');
+    const headerHash = this.header.hash().toString();
     const txArray = this.txHashes.map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
       domainSeparator,
-      [this.archive.toString(), [0n] /* @todo See #9963 */, this.header.toString(), txArray],
+      [this.archive.toString(), [0n] /* @todo See #9963 */, headerHash, txArray],
     ] as const);
 
     return hexToBuffer(encodedData);
@@ -58,7 +59,7 @@ export class ConsensusPayload implements Signable {
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
     const reader = BufferReader.asReader(buf);
     return new ConsensusPayload(
-      reader.readObject(BlockHeader),
+      reader.readObject(ProposedBlockHeader),
       reader.readObject(Fr),
       reader.readArray(reader.readNumber(), TxHash),
     );
@@ -70,14 +71,14 @@ export class ConsensusPayload implements Signable {
 
   static fromBlock(block: L2Block): ConsensusPayload {
     return new ConsensusPayload(
-      block.header,
+      block.header.toPropose(),
       block.archive.root,
       block.body.txEffects.map(tx => tx.txHash),
     );
   }
 
   static empty(): ConsensusPayload {
-    return new ConsensusPayload(BlockHeader.empty(), Fr.ZERO, []);
+    return new ConsensusPayload(ProposedBlockHeader.empty(), Fr.ZERO, []);
   }
 
   /**

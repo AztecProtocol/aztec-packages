@@ -57,7 +57,11 @@ import { type GetContractReturnType, createPublicClient, fallback, getContract, 
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';
-import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
+import {
+  retrieveBlocksFromRollup,
+  retrieveL1ToL2Messages,
+  retrievedBlockToPublishedL2Block,
+} from './data_retrieval.js';
 import { NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
@@ -551,7 +555,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         `Retrieved ${retrievedBlocks.length} new L2 blocks between L1 blocks ${searchStartBlock} and ${searchEndBlock} with last processed L1 block ${lastProcessedL1BlockNumber}.`,
       );
 
-      for (const block of retrievedBlocks) {
+      const publishedBlocks = retrievedBlocks.map(b => retrievedBlockToPublishedL2Block(b));
+
+      for (const block of publishedBlocks) {
         this.log.debug(`Ingesting new L2 block ${block.block.number} with ${block.block.body.txEffects.length} txs`, {
           blockHash: block.block.hash(),
           l1BlockNumber: block.l1.blockNumber,
@@ -560,13 +566,13 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         });
       }
 
-      const [processDuration] = await elapsed(() => this.store.addBlocks(retrievedBlocks));
+      const [processDuration] = await elapsed(() => this.store.addBlocks(publishedBlocks));
       this.instrumentation.processNewBlocks(
-        processDuration / retrievedBlocks.length,
-        retrievedBlocks.map(b => b.block),
+        processDuration / publishedBlocks.length,
+        publishedBlocks.map(b => b.block),
       );
 
-      for (const block of retrievedBlocks) {
+      for (const block of publishedBlocks) {
         this.log.info(`Downloaded L2 block ${block.block.number}`, {
           blockHash: block.block.hash(),
           blockNumber: block.block.number,

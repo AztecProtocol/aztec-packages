@@ -193,6 +193,8 @@ library Constants {
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
   uint256 internal constant BLOCK_HEADER_LENGTH_BYTES = 648;
+  uint256 internal constant PROPOSED_BLOCK_HEADER_LENGTH = 12;
+  uint256 internal constant PROPOSED_BLOCK_HEADER_LENGTH_BYTES = 348;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 724;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 908;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
@@ -214,8 +216,8 @@ library Constants {
   uint256 internal constant PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 782;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 984;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 970;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 1032;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 1018;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

@@ -233,7 +233,7 @@ const makeAndSignConsensusPayload = (
   } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
-    header,
+    header: header.toPropose(),
     archive,
     txHashes,
   });
@@ -241,16 +241,22 @@ const makeAndSignConsensusPayload = (
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
   const signature = signer.sign(hash);
 
-  return { payload, signature };
+  return { blockNumber: header.globalVariables.blockNumber, payload, signature };
 };
 
 export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
-  return new BlockProposal(payload, signature);
+  const { blockNumber, payload, signature } = makeAndSignConsensusPayload(
+    SignatureDomainSeparator.blockProposal,
+    options,
+  );
+  return new BlockProposal(blockNumber, payload, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeparator.blockAttestation, options);
-  return new BlockAttestation(payload, signature);
+  const { blockNumber, payload, signature } = makeAndSignConsensusPayload(
+    SignatureDomainSeparator.blockAttestation,
+    options,
+  );
+  return new BlockAttestation(blockNumber, payload, signature);
 };
