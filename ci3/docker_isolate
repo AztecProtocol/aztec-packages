@@ -5,29 +5,9 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=$1
 
-# function cleanup {
-#   if [ -n "${cid:-}" ]; then
-#     echo "REMOVING $cid: $cmd" >/dev/tty
-#     set -x
-#     docker rm -f $cid &>/dev/tty
-#     echo "REMOVED $cid: $cmd $?" >/dev/tty
-#   fi
-# }
 function cleanup {
   if [ -n "${cid:-}" ]; then
-    # echo "WAITING FOR $cid TO START OR EXIT" >/dev/tty
-    # SECONDS=0
-    # while [ $SECONDS -lt 15 ]; do
-    #   state=$(docker inspect --format '{{.State.Status}}' "$cid" 2>/dev/null || echo "notfound")
-    #   echo "STATE $cid: $state" >/dev/tty
-    #   if [ "$state" = "running" ] || [ "$state" = "exited" ]; then
-    #     break
-    #   fi
-    #   sleep 1
-    # done
-    # echo "REMOVING $cid: $cmd" >/dev/tty
     docker rm -f "$cid" &>/dev/null
-    # echo "REMOVED $cid: $cmd $?" >/dev/tty
   fi
 }
 trap cleanup EXIT
@@ -54,6 +34,7 @@ for env in ${ENV_VARS_TO_INJECT:-}; do
   fi
 done
 
+# Tests don't usually need network access, so disable it by default.
 network_arg="--net=none"
 [ "${NET:-}" -eq 1 ] && network_arg=""
 
@@ -64,9 +45,9 @@ set -x
 cid=$(docker run -d \
   ${name_arg:-} \
   ${network_arg:-} \
+  ${cpuset_arg:-} \
   --cpus=${CPUS:-2} \
   --memory=${MEM:-8g} \
-  ${cpuset_arg:-} \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
@@ -78,7 +59,6 @@ cid=$(docker run -d \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")
-# echo "$cid: $cmd" >/dev/tty
 set +x
 # At this point we know it's started, and can handle SIGTERM to kill the container.
 

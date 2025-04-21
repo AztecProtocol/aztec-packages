@@ -14,15 +14,6 @@ set -m
 
 cmd=$1
 
-# Defaults. Can be overridden.
-TIMEOUT=${TIMEOUT:-600s}
-# The following are exported as they maybe used in the test command.
-# We can schedule on all CPUs by default.
-export CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
-export CPUS=${CPUS:-2}
-# TODO: Only currently enforced by docker. Investigate ulimit.
-export MEM=${MEM:-$((CPUS * 4))g}
-
 # Extract the first token and export any variable assignments.
 hash_part="${cmd%% *}"
 if [[ "$hash_part" == *:* ]]; then
@@ -32,6 +23,15 @@ if [[ "$hash_part" == *:* ]]; then
     export "$var_assignment"
   done
 fi
+
+# Defaults, unless overridden above.
+TIMEOUT=${TIMEOUT:-600s}
+# The following are exported as they maybe used in the test command.
+# We can schedule on all CPUs by default.
+export CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
+export CPUS=${CPUS:-2}
+# TODO: Only currently enforced by docker. Investigate ulimit.
+export MEM=${MEM:-$((CPUS * 4))g}
 
 # Remove the rebuild hash (first field) that is in front of the test command.
 # Exported for use in yq.
