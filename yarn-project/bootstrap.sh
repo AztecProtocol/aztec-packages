@@ -111,7 +111,7 @@ function test_cmds {
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
     if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test)/ ]]; then
-      prefix+=":ISOLATE=1"
+      prefix+=":ISOLATE=1:NAME=$test"
     fi
 
     # Boost some tests resources.

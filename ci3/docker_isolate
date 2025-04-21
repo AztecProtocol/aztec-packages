@@ -54,13 +54,16 @@ for env in ${ENV_VARS_TO_INJECT:-}; do
   fi
 done
 
+network_arg="--net=none"
+[ "${NET:-}" -eq 1 ] && network_arg=""
+
 # Launch the container in the background.
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
 # Don't use & as we want to block, and be sure it starts before processing any signals.
 set -x
 cid=$(docker run -d \
   ${name_arg:-} \
-  --net=none \
+  ${network_arg:-} \
   --cpus=${CPUS:-2} \
   --memory=${MEM:-8g} \
   ${cpuset_arg:-} \
