@@ -33,6 +33,11 @@ function build_docs {
 }
 
 function release_docs {
+  echo "cutting a new docs version and opening a PR"
+  ./scripts/cut_version.sh
+}
+
+function publish_docs {
   echo "deploying docs to prod"
   yarn install
   yarn build
@@ -43,7 +48,6 @@ function release_docs {
     exit 1
   fi
 }
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -53,6 +57,9 @@ case "$cmd" in
     ;;
   "hash")
     echo "$hash"
+    ;;
+  "publish")
+    publish_docs
     ;;
   "release")
     release_docs
