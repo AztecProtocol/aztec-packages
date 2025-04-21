@@ -699,24 +699,24 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             // The recursive logic differs from the native one because of a hack making Sumcheck circuits in
             // Ultra, Mega, and their derivatives constant. Note that there's no artificial padding in
             // Translator
+            bool checked(true);
             if constexpr (IsRecursiveFlavor<Flavor> && Flavor::USE_PADDING) {
-                bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
-                // Only utilize the checked value if this is not a constant proof size padding round
-                if (round_idx < multivariate_d) {
-                    verified = verified && checked;
-                }
-
+                checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
                 round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
                 gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
 
             } else {
+                // This condition is needed to prevent updating the target total sum in dummy rounds when USE_PADDING =
+                // true. It is always satisfied when Sumcheck is instantiated with ECCVM or Translator
+                // Recursive Flavors.
                 if (round_idx < multivariate_d) {
-                    bool checked = round.check_sum(round_univariate);
-                    verified = verified && checked;
+                    checked = round.check_sum(round_univariate);
                     round.compute_next_target_sum(round_univariate, round_challenge);
                     gate_separators.partially_evaluate(round_challenge);
                 }
             }
+
+            verified = verified && checked;
         }
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
         // Final round

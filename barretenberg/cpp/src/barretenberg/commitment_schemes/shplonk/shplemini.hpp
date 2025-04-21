@@ -190,6 +190,11 @@ template <typename Curve> class ShpleminiVerifier_ {
     using ClaimBatcher = ClaimBatcher_<Curve>;
 
   public:
+    /**
+     * @brief Non-padding version of \ref compute_batch_opening_claim. Used by all native verifiers and by recursive
+     * Translator and ECCVM verifiers.
+     *
+     */
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
         const size_t log_n,
@@ -404,7 +409,12 @@ template <typename Curve> class ShpleminiVerifier_ {
         return { commitments, scalars, shplonk_evaluation_challenge };
     };
 
-    // padding enabled
+    /**
+     * @brief Padding version of \ref compute_batch_opening_claim. Used by recursive verifiers for the
+     * Flavors with USE_PADDING = true. Since ECCVM and Translator do not require padding, this method does not support
+     * interleaving or committed sumcheck logic.
+     *
+     */
     template <typename Transcript, size_t virtual_log_n>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
         const std::array<Fr, virtual_log_n>& padding_indicator_array,
@@ -418,6 +428,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                              // Shplemini Refactoring: Remove bool pointer
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 })
+        requires Curve::is_stdlib_type
 
     {
 
@@ -480,12 +491,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Initialize the vector of scalars placing the scalar 1 correposnding to Q_commitment
         std::vector<Fr> scalars;
-        if constexpr (Curve::is_stdlib_type) {
-            auto builder = shplonk_batching_challenge.get_context();
-            scalars.emplace_back(Fr(builder, 1));
-        } else {
-            scalars.emplace_back(Fr(1));
-        }
+        auto builder = shplonk_batching_challenge.get_context();
+        scalars.emplace_back(Fr(builder, 1));
 
         // Compute 1/(z − r), 1/(z + r), 1/(z - r²),  1/(z + r²), … , 1/(z - r^{2^{d-1}}), 1/(z + r^{2^{d-1}})
         // These represent the denominators of the summand terms in Shplonk partially evaluated polynomial Q_z
@@ -535,12 +542,6 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                  commitments,
                                                  scalars,
                                                  constant_term_accumulator);
-        // Add contributions from A₀₊(r) and  A₀₋(-r) to constant_term_accumulator:
-        //  Add  A₀₊(r)/(z−r) to the constant term accumulator
-        constant_term_accumulator += gemini_fold_pos_evaluations[0] * inverse_vanishing_evals[0];
-        // Add  A₀₋(-r)/(z+r) to the constant term accumulator
-        constant_term_accumulator +=
-            gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
         remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
 
@@ -644,6 +645,29 @@ template <typename Curve> class ShpleminiVerifier_ {
             commitments.emplace_back(std::move(fold_commitments[j - 1]));
         }
     }
+
+    /**
+     * @brief A method to compute the scalars to be multiplied against \f$ [A_i]\f$ for \f$ i = 1, \ldots,
+     * \text{virtual_log_n} \f$ and to update the Shplonk constant term accumulator. Required in the stdlib context by
+     * the Flavors with USE_PADDING = true.
+     *
+     * @details The main difference from the non-padding method is that instead of using `log_n`, this method uses
+     * `padding_indicator_array` of field elements computed in-circuit.
+     * Since i-th entry of this array is FF{1} if i < log_n and 0 otherwise, we ensure that dummy evaluations cannot be
+     * used to tamper with the final batch_mul result, by multiplying dummy positive evaluations by the entries of
+     * `padding_indicator_array`.
+     *
+     * @tparam virtual_log_n
+     * @param padding_indicator_array
+     * @param fold_commitments
+     * @param gemini_neg_evaluations
+     * @param gemini_pos_evaluations
+     * @param inverse_vanishing_evals
+     * @param shplonk_batching_challenge_powers
+     * @param commitments
+     * @param scalars
+     * @param constant_term_accumulator
+     */
     template <size_t virtual_log_n>
     static void batch_gemini_claims_received_from_prover(const std::array<Fr, virtual_log_n>& padding_indicator_array,
                                                          const std::vector<Commitment>& fold_commitments,
@@ -656,6 +680,12 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                          Fr& constant_term_accumulator)
         requires Curve::is_stdlib_type
     {
+        // Add contributions from A₀₊(r) and  A₀₋(-r) to constant_term_accumulator:
+        //  Add  A₀₊(r)/(z−r) to the constant term accumulator
+        constant_term_accumulator += gemini_pos_evaluations[0] * inverse_vanishing_evals[0];
+        // Add  A₀₋(-r)/(z+r) to the constant term accumulator
+        constant_term_accumulator +=
+            gemini_neg_evaluations[0] * shplonk_batching_challenge_powers[1] * inverse_vanishing_evals[1];
 
         // Start from 1, because the commitment to A_0 is reconstructed from the commitments to the multilinear
         // polynomials. The corresponding evaluations are also handled separately.

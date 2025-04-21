@@ -536,7 +536,7 @@ template <typename Curve> class GeminiVerifier_ {
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to CONST_PROOF_SIZE_LOG_N.
      * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
-     * @return Evaluation \f$ A_0(r) \f$.
+     * @return \f$ A_0(r), A_1(r^2), \ldots, A_{d-1}(r^{2^{d-1}})\f$.
      */
     static std::vector<Fr> compute_fold_pos_evaluations(
         const size_t log_n,
@@ -586,7 +586,29 @@ template <typename Curve> class GeminiVerifier_ {
 
         return fold_pos_evaluations;
     }
-
+    /**
+     * @brief A method to compute \f$ A_0(r), A_1(r^2), \ldots, A_{d-1}(r^{2^{d-1}})\f$ padded to `virtual_log_n` >= d.
+     * Required in the stdlib context by the Flavors with USE_PADDING = true.
+     *
+     * @details The main difference from the non-padding method is that instead of using `log_n`, this method uses
+     * `padding_indicator_array` of field elements computed in-circuit.
+     * Since i-th entry of this array is FF{1} if i < log_n and 0 otherwise, we use these entries to either assign
+     * `eval_pos_prev` the value `eval_pos` computed in the current iteration of the loop, or to propagate the batched
+     * evaluation of the multilinear polynomials to the next iteration. This ensures the correctnes of the computation
+     * of the required positive evaluations.
+     *
+     * To ensure that dummy evaluations cannot be used to tamper with the final batch_mul result, we multiply dummy
+     * positive evaluations by the entries of `padding_indicator_array`.
+     *
+     * @tparam virtual_log_n The fixed log circuit size determined by Flavor.
+     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
+     * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
+     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to `virtual_log_n` size.
+     * @param challenge_powers Powers of \f$ r^{2^i}\f$ for  \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
+     * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$ for \f$i = 0, \ldots,\text{virtual_log_n} - 1
+     * \f$.
+     * @return \f A_{i}}(r^{2^{i}})\f$ \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
+     */
     template <size_t virtual_log_n>
     static std::vector<Fr> compute_fold_pos_evaluations(
         const std::array<Fr, virtual_log_n>& padding_indicator_array,
@@ -624,8 +646,7 @@ template <typename Curve> class GeminiVerifier_ {
                 padding_indicator_array[l - 1] * eval_pos + (Fr{ 1 } - padding_indicator_array[l - 1]) * eval_pos_prev;
             // If current index is bigger than log_n, we emplace 0, which is later multiplied against
             // Commitment::one().
-            value_to_emplace = padding_indicator_array[l - 1] * eval_pos_prev;
-            fold_pos_evaluations.emplace_back(value_to_emplace);
+            fold_pos_evaluations.emplace_back(padding_indicator_array[l - 1] * eval_pos_prev);
         }
 
         std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
