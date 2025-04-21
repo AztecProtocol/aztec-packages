@@ -4,12 +4,21 @@ pragma solidity ^0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
+// Attestation Signature
 struct Signature {
-  bool isEmpty;
   uint8 v;
   bytes32 r;
   bytes32 s;
 }
+
+// A committee attestation can be made up of a signature of an address.
+// Committee members that have attested will produce a siganture, and the addr field will be empty.
+// If the addr field is NOT empty, it is assumed that the committee member did not attest.
+struct CommitteeAttestation {
+  address addr;
+  Signature signature;
+}
+
 
 library SignatureLib {
   /**
@@ -28,7 +37,6 @@ library SignatureLib {
    * @param _digest - The digest that was signed
    */
   function verify(Signature memory _signature, address _signer, bytes32 _digest) internal pure {
-    require(!_signature.isEmpty, Errors.SignatureLib__CannotVerifyEmpty());
     address recovered = ecrecover(_digest, _signature.v, _signature.r, _signature.s);
     require(_signer == recovered, Errors.SignatureLib__InvalidSignature(_signer, recovered));
   }

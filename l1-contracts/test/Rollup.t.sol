@@ -6,7 +6,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -217,7 +217,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -245,7 +245,7 @@ contract RollupTest is RollupBase {
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
-    rollup.propose(args, signatures, blobInput);
+    rollup.propose(args, attestations, blobInput);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -309,7 +309,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -339,7 +339,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs);
+    rollup.propose(args, attestations, data.blobInputs);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -416,8 +416,12 @@ contract RollupTest is RollupBase {
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, signatures, data.blobInputs);
-      assertEq(testERC20.balanceOf(data.decodedHeader.coinbase), 0, "invalid coinbase balance");
+      rollup.propose(args, attestations, data.blobInputs);
+      assertEq(
+        testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
+        0,
+        "invalid coinbase balance"
+      );
     }
 
     BlockLog memory blockLog = rollup.getBlock(0);
@@ -684,7 +688,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, new bytes(144));
+    rollup.propose(args, attestations, new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {

@@ -8,7 +8,7 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {SignatureLib, Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -113,7 +113,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   struct Block {
     ProposeArgs proposeArgs;
     bytes blobInputs;
-    Signature[] signatures;
+    CommitteeAttestation[] attestations;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -127,7 +127,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   TestERC20 internal asset;
   FakeCanonical internal fakeCanonical;
 
-  Signature internal emptySignature;
+  CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
   mapping(address proposer => address attester) internal proposerToAttester;
 
@@ -241,12 +241,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       txHashes: txHashes
     });
 
-    Signature[] memory signatures;
+    CommitteeAttestation[] memory attestations;
 
     {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       uint256 needed = validators.length * 2 / 3 + 1;
-      signatures = new Signature[](validators.length);
+      attestations = new CommitteeAttestation[](validators.length);
 
       bytes32 headerHash = HeaderLib.hash(proposeArgs.header);
 
@@ -262,28 +262,40 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       for (uint256 i = 0; i < validators.length; i++) {
         if (i < needed) {
-          signatures[i] = createSignature(validators[i], digest);
+          attestations[i] = createAttestation(validators[i], digest);
         } else {
-          signatures[i] = Signature({isEmpty: true, v: 0, r: 0, s: 0});
+          attestations[i] = createEmptyAttestation(validators[i]);
         }
       }
     }
 
     return
-      Block({proposeArgs: proposeArgs, blobInputs: full.block.blobInputs, signatures: signatures});
+      Block({proposeArgs: proposeArgs, blobInputs: full.block.blobInputs, attestations: attestations});
   }
 
-  function createSignature(address _signer, bytes32 _digest)
+  function createAttestation(address _signer, bytes32 _digest)
     internal
     view
-    returns (Signature memory)
+    returns (CommitteeAttestation memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-    return Signature({isEmpty: false, v: v, r: r, s: s});
+    Signature memory signature = Signature({v: v, r: r, s: s});
+    // Address can be zero for signed attestations
+    return CommitteeAttestation({addr: address(0), signature: signature});
+  }
+
+  // This is used for attestations that are not signed - we include their address to help reconstruct the committee commitment
+  function createEmptyAttestation(address _signer)
+    internal
+    view
+    returns (CommitteeAttestation memory)
+  {
+    Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
+    return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
 
   function test_Benchmarking() public {
@@ -321,7 +333,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         targets[0] = address(rollup);
 
         bytes[] memory data = new bytes[](1);
-        data[0] = abi.encodeCall(IRollupCore.propose, (b.proposeArgs, b.signatures, b.blobInputs));
+        data[0] = abi.encodeCall(IRollupCore.propose, (b.proposeArgs, b.attestations, b.blobInputs));
 
         address caller = proposerToAttester[proposer];
         vm.prank(caller);

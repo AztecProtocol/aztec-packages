@@ -41,7 +41,7 @@ import {
   Epoch,
   Timestamp,
   Errors,
-  Signature,
+  CommitteeAttestation,
   ExtRollupLib,
   EthValue,
   STFLib,
@@ -81,7 +81,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *          without having to deal with viem or anvil for simulating timestamps in the future.
    *
    * @param _header - The header to validate
-   * @param _signatures - The signatures to validate
+   * @param _attestations - The attestations to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
@@ -89,7 +89,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeader(
     bytes calldata _header,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
@@ -98,7 +98,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
         header: HeaderLib.decode(_header),
-        attestations: _signatures,
+        attestations: _attestations,
         digest: _digest,
         currentTime: _currentTime,
         manaBaseFee: getManaBaseFeeAt(_currentTime, true),
@@ -190,13 +190,13 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    Signature[] memory sigs = new Signature[](0);
+    CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
 
     ValidatorSelectionLib.verify(
       StakingLib.getStorage(),
       slot,
       slot.epochFromSlot(),
-      sigs,
+      attestations,
       _archive,
       BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
     );

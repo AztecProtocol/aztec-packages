@@ -6,7 +6,7 @@ import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -215,7 +215,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
-      Signature[] memory signatures = new Signature[](_signatureCount);
+      CommitteeAttestation[] memory attestations = new CommitteeAttestation[](_signatureCount);
 
       ProposePayload memory proposePayload = ProposePayload({
         archive: args.archive,
@@ -227,7 +227,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       bytes32 digest = ProposeLib.digest(proposePayload);
       for (uint256 i = 0; i < _signatureCount; i++) {
-        signatures[i] = createSignature(validators[i], digest);
+        attestations[i] = createAttestation(validators[i], digest);
       }
 
       if (_expectRevert) {
@@ -261,14 +261,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
-      Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.blobInputs);
+      CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
+      rollup.propose(args, attestations, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
@@ -324,16 +324,26 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function createSignature(address _signer, bytes32 _digest)
+  function createAttestation(address _signer, bytes32 _digest)
     internal
     view
-    returns (Signature memory)
+    returns (CommitteeAttestation memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-    return Signature({isEmpty: false, v: v, r: r, s: s});
+    Signature memory signature = Signature({v: v, r: r, s: s});
+    return CommitteeAttestation({addr: address(0), signature: signature});
+  }
+
+  function createEmptyAttestation(address _signer)
+    internal
+    view
+    returns (CommitteeAttestation memory)
+  {
+    Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
+    return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
 }

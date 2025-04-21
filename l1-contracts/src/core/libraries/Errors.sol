@@ -100,6 +100,7 @@ library Errors {
   error ValidatorSelection__InvalidProposer(address expected, address actual); // 0xa8843a68
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
+  error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0x10816cae
   error ValidatorSelection__InsufficientAttestationsProvided(
     uint256 minimumNeeded, uint256 provided
   ); // 0x4d4f66ac

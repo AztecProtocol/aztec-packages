@@ -8,7 +8,7 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {SignatureLib, Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -73,7 +73,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes body;
     bytes blobInputs;
     bytes32[] txHashes;
-    Signature[] signatures;
+    CommitteeAttestation[] attestations;
   }
 
   DecoderBase.Full full = load("empty_block_1");
@@ -151,7 +151,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
     bytes32[] memory txHashes = new bytes32[](0);
-    Signature[] memory signatures = new Signature[](0);
+    CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
 
     bytes memory body = full.block.body;
     bytes memory header = full.block.header;
@@ -194,7 +194,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       body: body,
       blobInputs: full.block.blobInputs,
       txHashes: txHashes,
-      signatures: signatures
+      attestations: attestations
     });
   }
 
@@ -222,7 +222,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.signatures,
+          b.attestations,
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -325,7 +325,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.signatures,
+          b.attestations,
           b.blobInputs
         );
 
