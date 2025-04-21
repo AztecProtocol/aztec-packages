@@ -3,7 +3,7 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     lifecycle::{create_note, destroy_note_unsafe},
     note_emission::NoteEmission,
@@ -137,7 +137,7 @@ where
     // docs:end:get_note
 }
 
-impl<Note> PrivateMutable<Note, UnconstrainedContext>
+impl<Note> PrivateMutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

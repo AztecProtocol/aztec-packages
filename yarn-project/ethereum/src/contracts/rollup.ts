@@ -145,6 +145,12 @@ export class RollupContract {
     return this.rollup.read.getVersion();
   }
 
+  @memoize
+  async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
+    const block = await this.rollup.read.getBlock([0n]);
+    return block.archive;
+  }
+
   getSlasher() {
     return this.rollup.read.getSlasher();
   }
@@ -188,6 +194,10 @@ export class RollupContract {
 
   getCurrentSampleSeed() {
     return this.rollup.read.getCurrentSampleSeed();
+  }
+
+  getCurrentEpoch() {
+    return this.rollup.read.getCurrentEpoch();
   }
 
   async getCurrentEpochCommittee() {
@@ -290,7 +300,7 @@ export class RollupContract {
   }
 
   getEpochProofPublicInputs(
-    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`, `0x${string}`],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }

@@ -16,7 +16,7 @@ import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telem
 
 import * as crypto from 'node:crypto';
 
-import type { ProverNodeMetrics } from '../metrics.js';
+import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 
 /**
@@ -45,12 +45,12 @@ export class EpochProvingJob implements Traceable {
     private publisher: ProverNodePublisher,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
-    private metrics: ProverNodeMetrics,
+    private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: { parallelBlockLimit: number } = { parallelBlockLimit: 32 },
   ) {
     this.uuid = crypto.randomUUID();
-    this.tracer = metrics.client.getTracer('EpochProvingJob');
+    this.tracer = metrics.tracer;
   }
 
   public getId(): string {
@@ -63,6 +63,10 @@ export class EpochProvingJob implements Traceable {
 
   public getEpochNumber(): bigint {
     return this.epochNumber;
+  }
+
+  public getDeadline(): Date | undefined {
+    return this.deadline;
   }
 
   /**
@@ -214,7 +218,7 @@ export class EpochProvingJob implements Traceable {
 
   /**
    * Kicks off a running promise that queries the archiver for the set of L2 blocks of the current epoch.
-   * If those changed, stops the proving job with a `rerun` state, so the node re-enqueues it.
+   * If those change, stops the proving job with a `rerun` state, so the node re-enqueues it.
    */
   private async scheduleEpochCheck() {
     const intervalMs = Math.ceil((await this.l2BlockSource.getL1Constants()).ethereumSlotDuration / 2) * 1000;

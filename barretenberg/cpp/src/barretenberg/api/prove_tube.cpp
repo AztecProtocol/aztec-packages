@@ -17,7 +17,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
-    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
     std::string proof_path = output_path + "/proof";
 
@@ -28,11 +28,6 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // Read the proof  and verification data from given files
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
-
-    // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
-    // verify IPA. The + 1 is to satisfy IPA verification key requirements.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
-    vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>(vk.eccvm->circuit_size + 1);
 
     auto builder = std::make_shared<Builder>();
 
@@ -50,15 +45,12 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    PairingPointAccumulatorIndices current_aggregation_object =
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
-    builder->add_pairing_point_accumulator(current_aggregation_object);
+    AggregationObject::add_default_pairing_points_to_public_inputs(*builder);
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-    builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
+    client_ivc_rec_verifier_output.opening_claim.set_public();
     builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
     ASSERT(builder->ipa_proof.size() && "IPA proof should not be empty");
 
@@ -73,8 +65,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
                            tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
         HonkProof(tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs), tube_proof.end())
     };
-    write_file(tubePublicInputsPath, to_buffer<true>(public_inputs_and_proof.public_inputs));
-    write_file(tubeProofPath, to_buffer<true>(public_inputs_and_proof.proof));
+    write_file(tubePublicInputsPath, to_buffer(public_inputs_and_proof.public_inputs));
+    write_file(tubeProofPath, to_buffer(public_inputs_and_proof.proof));
 
     std::string tubePublicInputsAsFieldsPath = output_path + "/public_inputs_fields.json";
     std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
@@ -82,7 +74,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
         if (data.empty()) {
             return std::string("[]");
         }
-        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
     auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
     auto proof_data = to_json(public_inputs_and_proof.proof);

@@ -11,11 +11,9 @@
 
 namespace bb::stdlib::recursion::honk {
 
-template <typename Flavor> struct UltraRecursiveVerifierOutput {
-    using AggregationObject = aggregation_state<typename Flavor::Curve>;
-    using Builder = typename Flavor::CircuitBuilder;
-    AggregationObject agg_obj;
-    OpeningClaim<grumpkin<Builder>> ipa_opening_claim;
+template <typename Builder> struct UltraRecursiveVerifierOutput {
+    aggregation_state<Builder> agg_obj;
+    OpeningClaim<grumpkin<Builder>> ipa_claim;
     StdlibProof<Builder> ipa_proof;
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {
@@ -29,10 +27,10 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using AggregationObject = aggregation_state<typename Flavor::Curve>;
+    using AggregationObject = aggregation_state<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
-    using Output = UltraRecursiveVerifierOutput<Flavor>;
+    using Output = UltraRecursiveVerifierOutput<Builder>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);

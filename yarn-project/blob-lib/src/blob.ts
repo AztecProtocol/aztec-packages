@@ -123,10 +123,10 @@ export class Blob {
    * @param index - optional - The index of the blob in the block.
    * @returns The JSON representation of the blob.
    */
-  toJson(index?: number): BlobJson {
+  toJson(index: number): BlobJson {
     return {
       blob: `0x${Buffer.from(this.data).toString('hex')}`,
-      index,
+      index: index.toString(),
       // eslint-disable-next-line camelcase
       kzg_commitment: `0x${this.commitment.toString('hex')}`,
       // eslint-disable-next-line camelcase

@@ -17,6 +17,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 
 namespace bb {
 
@@ -40,30 +41,26 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-
-    // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
-    // Lowest possible size for the translator circuit (this sets the mini_circuit_size)
-    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
+    // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
     // they become too small.
-    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-    static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 16384;
-    static_assert(TRANSLATOR_VM_FIXED_SIZE >= MINIMUM_MINI_CIRCUIT_SIZE);
 
-    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
-    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
-    // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = TRANSLATOR_VM_FIXED_SIZE;
+    // The log of the full Translator circuit size. It determines MINI_CIRCUIT_SIZE and, in the current design,
+    // is the only Translator-related constant that can be modified.
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
 
     // None of this parameters can be changed
 
     // How many mini_circuit_size polynomials are interleaved in one interleaved_*
     static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
+    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
+    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
+    // It is also the only parameter that can be changed without updating relations or structures in the flavor
+    static constexpr size_t MINI_CIRCUIT_SIZE = (1UL << CONST_TRANSLATOR_LOG_N) / INTERLEAVING_GROUP_SIZE;
 
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
-
-    // Actual circuit size
-    static constexpr size_t FULL_CIRCUIT_SIZE = MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE;
 
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
@@ -80,6 +77,10 @@ class TranslatorFlavor {
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
     static constexpr size_t NUM_LIMB_BITS = CircuitBuilder::NUM_LIMB_BITS;
+
+    // Lowest possible size of the Translator mini circuit due to the desing of range constraints.
+    static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
+    static_assert(MINI_CIRCUIT_SIZE > MINIMUM_MINI_CIRCUIT_SIZE);
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
@@ -608,8 +609,8 @@ class TranslatorFlavor {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1318)
         ProverPolynomials(size_t actual_mini_circuit_size)
         {
-            const size_t mini_circuit_size = TRANSLATOR_VM_FIXED_SIZE;
-            const size_t circuit_size = TRANSLATOR_VM_FIXED_SIZE * INTERLEAVING_GROUP_SIZE;
+            const size_t mini_circuit_size = MINI_CIRCUIT_SIZE;
+            const size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
 
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
@@ -718,15 +719,26 @@ class TranslatorFlavor {
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey() = default;
+        // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
+        VerificationKey()
+            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+
+            // Populate the commitments of the precomputed polynomials
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+            this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
@@ -735,7 +747,8 @@ class TranslatorFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
@@ -755,7 +768,6 @@ class TranslatorFlavor {
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
@@ -910,7 +922,7 @@ class TranslatorFlavor {
             this->lagrange_masking = verification_key->lagrange_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
-    };
+    }; // namespace bb
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     using Transcript = NativeTranscript;

@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -25,7 +24,7 @@ namespace {
 using ::testing::NiceMock;
 using ::testing::TestWithParam;
 
-using tracegen::LookupIntoDynamicTableSequential;
+using tracegen::LookupIntoDynamicTableGeneric;
 using tracegen::TestTraceContainer;
 
 using simulation::EventEmitter;
@@ -119,8 +118,8 @@ TEST_P(FieldGreaterThanInteractionsTests, InteractionsWithRangeCheck)
     builder.process(event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_a_hi_range::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_a_lo_range::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_a_hi_range::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_a_lo_range::Settings>().process(trace);
 
     check_relation<ff_gt>(trace);
 }

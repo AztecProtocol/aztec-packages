@@ -1,20 +1,20 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
-import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CallContext, HashedValues, PrivateExecutionResult, TxExecutionRequest, collectNested } from '@aztec/stdlib/tx';
 
-import { createSimulationError } from '../common/errors.js';
+import { ExecutionError, createSimulationError, resolveAssertionMessageFromError } from '../common/errors.js';
+import { Oracle, extractCallStack, toACVMWitness, witnessMapToFields } from './acvm/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import { PrivateExecutionOracle } from './private_execution_oracle.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
-import { executeUnconstrainedFunction } from './unconstrained_execution.js';
-import { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
  * The ACIR simulator.
@@ -115,47 +115,53 @@ export class AcirSimulator {
     }
   }
 
+  // docs:start:execute_utility_function
   /**
-   * Runs an unconstrained function.
-   * @param request - The transaction request.
-   * @param entryPointArtifact - The artifact of the entry point function.
-   * @param contractAddress - The address of the contract.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * Runs a utility function.
+   * @param call - The function call to execute.
+   * @param authwits - Authentication witnesses required for the function call.
+   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
+   * accounts if not specified.
+   * @returns A decoded ABI value containing the function's return data.
    */
-  public async runUnconstrained(
-    request: FunctionCall,
-    contractAddress: AztecAddress,
-    selector: FunctionSelector,
-    authwits: AuthWitness[],
-    scopes?: AztecAddress[],
-  ): Promise<AbiDecoded> {
-    await verifyCurrentClassId(contractAddress, this.executionDataProvider);
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
+  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<AbiDecoded> {
+    await verifyCurrentClassId(call.to, this.executionDataProvider);
+    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
 
-    if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
-      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
+    if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
     }
 
-    const context = new UnconstrainedExecutionOracle(
-      contractAddress,
-      authwits,
-      [],
-      this.executionDataProvider,
-      undefined,
-      scopes,
-    );
+    const oracle = new UtilityExecutionOracle(call.to, authwits, [], this.executionDataProvider, undefined, scopes);
 
     try {
-      return await executeUnconstrainedFunction(
-        this.simulationProvider,
-        context,
-        entryPointArtifact,
-        contractAddress,
-        request.selector,
-        request.args,
-      );
+      this.log.verbose(`Executing utility function ${entryPointArtifact.name}`, {
+        contract: call.to,
+        selector: call.selector,
+      });
+
+      const initialWitness = toACVMWitness(0, call.args);
+      const acirExecutionResult = await this.simulationProvider
+        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle))
+        .catch((err: Error) => {
+          err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
+          throw new ExecutionError(
+            err.message,
+            {
+              contractAddress: call.to,
+              functionSelector: call.selector,
+            },
+            extractCallStack(err, entryPointArtifact.debug),
+            { cause: err },
+          );
+        });
+
+      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
+      this.log.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
+      return decodeFromAbi(entryPointArtifact.returnTypes, returnWitness);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
   }
+  // docs:end:execute_utility_function
 }

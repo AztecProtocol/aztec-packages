@@ -15,7 +15,11 @@ const VERSION = 1 as const;
 export interface ContractClass {
   /** Version of the contract class. */
   version: typeof VERSION;
-  /** Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to unconstrained code and compilation metadata. Intended to be used by clients to verify that an off-chain fetched artifact matches a registered class. */
+  /**
+   * Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include
+   * commitments to code of utility functions and compilation metadata. Intended to be used by clients to verify that
+   * an off-chain fetched artifact matches a registered class.
+   */
   artifactHash: Fr;
   /** List of individual private functions, constructors included. */
   privateFunctions: PrivateFunction[];
@@ -46,25 +50,25 @@ const ExecutablePrivateFunctionSchema = PrivateFunctionSchema.and(
   z.object({ bytecode: schemas.Buffer }),
 ) satisfies ZodFor<ExecutablePrivateFunction>;
 
-/** Unconstrained function definition. */
-export interface UnconstrainedFunction {
+/** Utility function definition. */
+export interface UtilityFunction {
   /** Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. */
   selector: FunctionSelector;
   /** Brillig. */
   bytecode: Buffer;
 }
 
-const UnconstrainedFunctionSchema = z.object({
+const UtilityFunctionSchema = z.object({
   /** lala */
   selector: FunctionSelector.schema,
   bytecode: schemas.Buffer,
-}) satisfies ZodFor<UnconstrainedFunction>;
+}) satisfies ZodFor<UtilityFunction>;
 
 /** Sibling paths and sibling commitments for proving membership of a private function within a contract class. */
 export type PrivateFunctionMembershipProof = {
   artifactMetadataHash: Fr;
   functionMetadataHash: Fr;
-  unconstrainedFunctionsArtifactTreeRoot: Fr;
+  utilityFunctionsTreeRoot: Fr;
   privateFunctionTreeSiblingPath: Fr[];
   privateFunctionTreeLeafIndex: number;
   artifactTreeSiblingPath: Fr[];
@@ -74,18 +78,18 @@ export type PrivateFunctionMembershipProof = {
 const PrivateFunctionMembershipProofSchema = z.object({
   artifactMetadataHash: schemas.Fr,
   functionMetadataHash: schemas.Fr,
-  unconstrainedFunctionsArtifactTreeRoot: schemas.Fr,
+  utilityFunctionsTreeRoot: schemas.Fr,
   privateFunctionTreeSiblingPath: z.array(schemas.Fr),
   privateFunctionTreeLeafIndex: schemas.Integer,
   artifactTreeSiblingPath: z.array(schemas.Fr),
   artifactTreeLeafIndex: schemas.Integer,
 }) satisfies ZodFor<PrivateFunctionMembershipProof>;
 
-/** A private function with a memebership proof. */
+/** A private function with a membership proof. */
 export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;
 
-/** Sibling paths and commitments for proving membership of an unconstrained function within a contract class. */
-export type UnconstrainedFunctionMembershipProof = {
+/** Sibling paths and commitments for proving membership of a utility  function within a contract class. */
+export type UtilityFunctionMembershipProof = {
   artifactMetadataHash: Fr;
   functionMetadataHash: Fr;
   privateFunctionsArtifactTreeRoot: Fr;
@@ -93,16 +97,16 @@ export type UnconstrainedFunctionMembershipProof = {
   artifactTreeLeafIndex: number;
 };
 
-const UnconstrainedFunctionMembershipProofSchema = z.object({
+const UtilityFunctionMembershipProofSchema = z.object({
   artifactMetadataHash: schemas.Fr,
   functionMetadataHash: schemas.Fr,
   privateFunctionsArtifactTreeRoot: schemas.Fr,
   artifactTreeSiblingPath: z.array(schemas.Fr),
   artifactTreeLeafIndex: schemas.Integer,
-}) satisfies ZodFor<UnconstrainedFunctionMembershipProof>;
+}) satisfies ZodFor<UtilityFunctionMembershipProof>;
 
-/** An unconstrained function with a membership proof. */
-export type UnconstrainedFunctionWithMembershipProof = UnconstrainedFunction & UnconstrainedFunctionMembershipProof;
+/** A utility function with a membership proof. */
+export type UtilityFunctionWithMembershipProof = UtilityFunction & UtilityFunctionMembershipProof;
 
 export const ContractClassSchema = z.object({
   version: z.literal(VERSION),
@@ -128,10 +132,10 @@ export const ContractClassWithIdSchema = ContractClassSchema.extend({
   id: schemas.Fr,
 }) satisfies ZodFor<ContractClassWithId>;
 
-/** A contract class with public bytecode information, and optional private and unconstrained. */
+/** A contract class with public bytecode information, and optional private and utility functions. */
 export type ContractClassPublic = {
   privateFunctions: ExecutablePrivateFunctionWithMembershipProof[];
-  unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[];
+  utilityFunctions: UtilityFunctionWithMembershipProof[];
 } & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
   Omit<ContractClass, 'privateFunctions'>;
 
@@ -143,7 +147,7 @@ export const ContractClassPublicSchema = z
     id: schemas.Fr,
     privateFunctionsRoot: schemas.Fr,
     privateFunctions: z.array(ExecutablePrivateFunctionSchema.and(PrivateFunctionMembershipProofSchema)),
-    unconstrainedFunctions: z.array(UnconstrainedFunctionSchema.and(UnconstrainedFunctionMembershipProofSchema)),
+    utilityFunctions: z.array(UtilityFunctionSchema.and(UtilityFunctionMembershipProofSchema)),
   })
   .and(ContractClassSchema.omit({ privateFunctions: true })) satisfies ZodFor<ContractClassPublic>;
 
