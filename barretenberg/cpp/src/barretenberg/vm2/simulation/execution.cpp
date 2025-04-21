@@ -28,7 +28,9 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
 void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
 {
-    context.get_memory().set(dst_addr, MemoryValue::from_tag(static_cast<ValueTag>(tag), value));
+    TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
+    context.get_memory().set(dst_addr, tagged_value);
+    set_outputs({ tagged_value });
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
@@ -36,6 +38,9 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     auto& memory = context.get_memory();
     auto v = memory.get(src_addr);
     memory.set(dst_addr, v);
+
+    set_inputs({ v });
+    set_outputs({ v });
 }
 
 void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size)
@@ -92,6 +97,8 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     if (!resolved_cond.as_ff().is_zero()) {
         context.set_next_pc(loc);
     }
+
+    set_inputs({ resolved_cond });
 }
 
 // This context interface is an top-level enqueued one

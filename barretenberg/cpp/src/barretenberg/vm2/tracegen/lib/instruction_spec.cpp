@@ -72,8 +72,8 @@ const std::unordered_map<ExecutionOpCode, uint16_t> REGISTER_INFO_MAP = { {
     { ExecutionOpCode::ADD, RegisterMemInfo().has_inputs(2).has_outputs(1).encode() },
     { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1).encode() },
     { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1).encode() },
-    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(3).encode() },
-    { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(1).encode() },
+    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(0).encode() },
+    { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(0).encode() },
     { ExecutionOpCode::JUMP, RegisterMemInfo().encode() },
     { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1).encode() },
 } };
