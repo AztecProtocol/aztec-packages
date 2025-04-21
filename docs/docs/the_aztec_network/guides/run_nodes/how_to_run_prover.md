@@ -46,178 +46,181 @@ The Aztec prover involves three key components: the Prover Node, the Proving Bro
 
 The Prover Node is responsible for polling the L1 for unproven epochs and initiating the proof process. When an epoch is ready to be proven, the prover node creates proving jobs and distributes them to the broker. The Prover Node is also responsible for submitting the final rollup proof to the rollup contract.
 
-The Prover Node is relatively lightweight and is expected to use up to 8 cores and 16GB of memory. The Prover Node, like any other node, stores state so it would need some disk space. We recommend 1TB for the prover node.
+- **Resources**: Up to 8 cores, 16GB RAM, ~1TB disk for storing state.
 
 #### Proving Broker
 
-The Proving Broker acts as an intermediary, managing the queue of proving jobs and distributing them to available agents. The broker receives results from agents and sends them back to the prover node.
+Manages a queue of proving jobs, distributing them to available agents and forwarding results back to the node.
 
-The Proving Broker is relatively lightweight and is expected to use up to 4 cores and 16GB of memory. For alpha-testnet, the proving broker needs around 1GB of disk space.
+- **Resources**: Up to 4 cores, 16GB RAM, ~1GB disk.
 
 #### Proving Agents
 
-The Proving Agent is responsible for executing the proof for a given job. It requests jobs from the broker, and sends the result back to the broker.
+Executes the actual proof jobs. Agents are stateless, fetch work from the broker, and return the results.
 
-The Proving Agent is very resource intensive, with each agent using up to 16cores and 128GB of memory.
+- **Resources**: Each agent may use up to 16 cores and 128GB RAM.
 
 ## Setting Up Your Prover
 
-### L1 Access
+### Using Docker Compose
 
-Before running a prover, it’s important to understand that it must interface directly with Ethereum (Layer 1) to detect epochs ready to prove and to publish proofs. To do this, the prover requires access to both:
-
-- An L1 execution client (for reading transactions and state). It can be specified via the env var `ETHEREUM_HOSTS` or the `--l1-rpc-urls` flag when using `aztec start`.
-
-- An L1 consensus client (for blobs). It can be specified via the env var `L1_CONSENSUS_HOST_URLS` or the `--l1-consensus-host-urls` flag when using `aztec start`.
-
-These are typically provided via RPC endpoints — often from infrastructure providers like Alchemy, Infura, or your own hosted clients.
-
-:::tip
-If you're hosting your own Ethereum execution or consensus client locally (rather than using an external RPC like Alchemy), you need to ensure that the prover node inside Docker can reach it.
-
-By default, Docker runs containers on a bridge network that isolates them from the host machine’s network interfaces. This means localhost inside the container won’t point to the host’s localhost.
-
-To fix this:
-
-Option 1: Use the special hostname host.docker.internal
-This tells Docker to route traffic from the container to the host machine. For example:
-
-```bash
---l1-rpc-urls http://host.docker.internal:8545
-```
-
-Option 2: Add a host network entry to your Docker Compose file (advanced users)
-This gives your container direct access to the host’s network stack, but removes Docker’s network isolation. In your `docker-compose.yml`, add:
-
-```yaml
-network_mode: "host"
-```
-
-⚠️ Note: network_mode: "host" only works on Linux. On macOS and Windows, use `host.docker.internal`.
-:::
-
-:::info
-
-You can run your own Sepolia ETH Node. However, at the moment only [`geth`](https://github.com/ethereum/go-ethereum) and [`reth`](https://github.com/paradigmxyz/reth) nodes are confirmed to work reliably with Aztec.
-
-:::
-
-#### Get Some Sepolia ETH
-
-You'll need Sepolia ETH to post proofs to the L1. Here are some options:
-
-- Use a PoW faucet like [Sepolia PoW Faucet](https://sepolia-faucet.pk910.de/)
-- Ask in our Discord community (and remember to pay it forward when you can!)
-
-### Aztec CLI
-
-Aztec provides a modular CLI command, `aztec start`, which makes it easy to launch and configure the prover system. Each component can run independently or together on a single machine, depending on your architecture.
-
-Here are the main flags and what they control:
-
-| Flag                                             | Env Var                        | Description                                                             |
-| ------------------------------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
-| `--network <network>`                            | `NETWORK`                      | Selects the Docker image for the target network (e.g., `alpha-testnet`) |
-| `--archiver`                                     | n/a                            | Starts the archiver service to store synced data                        |
-| `--prover-node`                                  | n/a                            | Starts a prover node                                                    |
-| `--prover-broker`                                | n/a                            | Starts a prover broker                                                  |
-| `--prover-agent`                                 | n/a                            | Starts a proving agent                                                  |
-| `--l1-rpc-urls`                                  | `ETHEREUM_HOSTS`               | The URL(s) of your L1 execution node. Comma seperated string.           |
-| `--l1-consensus-host-urls`                       | `L1_CONSENSUS_HOST_URLS`       | The URL(s) of your L1 consensus node. Comma seperated string.           |
-| `--p2p.p2pIp <your-ip>`                          | `P2P_IP`                       | Your node's public IP                                                   |
-| `--proverNode.publisherPrivateKey <private-key>` | `PROVER_PUBLISHER_PRIVATE_KEY` | Your private key for submitting proofs to L1                            |
-
-You can run all components on the same machine. However, you can tweak the environment in many ways to achieve multi-machine proving clusters (ex. running just with `--prover-agent` and setting `--proverAgent.proverBrokerUrl` to a central broker).
-
-### Example Command
-
-Here's an example of a complete command to run a prover on the alpha-testnet.
-
-```bash
-aztec start \
-  --network alpha-testnet \
-  --l1-rpc-urls yourRPCUrl \
-  --l1-consensus-host-urls beaconChainEndpoint\
-  --prover-node \
-  --prover-broker \
-  --prover-agent \
-  --archiver \
-  --p2p.p2pIp your-ip \
-  --proverNode.publisherPrivateKey 0xyour-private-key
-```
-
-:::tip
-For production environments, consider distributing your prover agents across multiple machines to improve throughput and reliability.
-:::
-
-## Advanced Configuration
-
-### Using Environment Variables
-
-Each flag in the `aztec start` command corresponds to an environment variable. You can see their names by running `aztec start --help`. For example:
-
-- `--l1-rpc-urls` maps to `ETHEREUM_HOSTS`
-- `--proverNode.publisherPrivateKey` maps to `L1_PRIVATE_KEY`
-
-You can create a `.env` file with these variables:
-
-```bash
-ETHEREUM_HOSTS=https://eth-sepolia.g.alchemy.com/v2/your-key
-L1_PRIVATE_KEY=0xyour-private-key
-# Add other configuration variables as needed
-```
-
-Then source this file before running your command:
-
-```bash
-source .env
-aztec start --network alpha-testnet --prover-node --prover-broker --prover-agent --archiver
-```
-
-For a complete review of all environment variables, refer to the [reference](./cli_reference.md).
-
-### Running in a Docker Compose
-
-If you would like to run in a docker compose, you can use a configuration like the one below:
-
-```
-name: aztec-node
+```yml
+name: aztec-prover
 services:
-  network_mode: host # Optional, run with host networking
-  node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2
+  agent:
+    command:
+      - node
+      - --no-warnings
+      - /usr/src/yarn-project/aztec/dest/bin/index.js
+      - start
+      - --prover-agent
     environment:
-      ETHEREUM_HOSTS: ""
-      L1_CONSENSUS_HOST_URLS: ""
-      DATA_DIRECTORY: /var/lib/aztec
-      PROVER_PUBLISHER_PRIVATE_KEY: $PROVER_PUBLISHER_PRIVATE_KEY
-      P2P_IP: $P2P_IP
-    entrypoint: >
-      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet start --node --archiver --prover-node --prover-broker --prover-agent'
+      LOG_LEVEL: debug
+      PROVER_AGENT_COUNT: "1"
+      # PROVER_AGENT_POLL_INTERVAL_MS: "1000"
+      PROVER_AGENT_POLL_INTERVAL_MS: "10000" # Just to reduce the log spamming if you're using debug logging.
+      PROVER_BROKER_HOST: http://broker:8080
+      PROVER_ID: 0x4a3d0D04770A89D41EE3167C13E3D67E9b33358E # this should be the address corresponding to the PROVER_PUBLISHER_PRIVATE_KEY you set on the node.
+      PROVER_REAL_PROOFS: "true"
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: 100m
+        tag: '{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}'
+    networks:
+      default: null
+    pull_policy: always
+    restart: unless-stopped
+    stop_grace_period: 1m0s
+
+  broker:
+    command:
+      - node
+      - --no-warnings
+      - /usr/src/yarn-project/aztec/dest/bin/index.js
+      - start
+      - --prover-broker
+    environment:
+      AZTEC_PORT: "8080"
+      DATA_DIRECTORY: /data
+      DATA_STORE_MAP_SIZE_KB: "134217728"
+      ETHEREUM_HOSTS: # Your EL RPC endpoint
+      L1_CHAIN_ID: "11155111"
+      LOG_LEVEL: info
+      PROVER_BROKER_JOB_MAX_RETRIES: "3"
+      PROVER_BROKER_JOB_TIMEOUT_MS: "30000"
+      PROVER_BROKER_POLL_INTERVAL_MS: "1000"
+      REGISTRY_CONTRACT_ADDRESS: 0x12b3ebc176a1646b911391eab3760764f2e05fe3
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: 100m
+        tag: '{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}'
+    networks:
+      default: null
+    # ports:
+    #   - mode: ingress
+    #     host_ip: 192.168.0.1
+    #     target: 8080
+    #     published: "8080"
+    #     protocol: tcp
     ports:
-      - 40400:40400/tcp
-      - 40400:40400/udp
-      - 8080:8080
+      - "8084:80"
+    pull_policy: always
+    restart: unless-stopped
+    stop_grace_period: 1m0s
+    volumes:
+      - /home/phil/prover-node/broker:/data # Local directory
+      # - type: volume
+      #   source: aztec-broker-data
+      #   target: /data
+      #   volume: {}
 
-  volumes:
-    - aztec_data:/var/lib/aztec
+  node:
+    command:
+      - node
+      - --no-warnings
+      - /usr/src/yarn-project/aztec/dest/bin/index.js
+      - start
+      - --prover-node
+      - --archiver
+    depends_on:
+      broker:
+        condition: service_started
+        required: true
+    environment:
+      # PROVER_COORDINATION_NODE_URL: "http://192.168.0.80:8080" # this can point to your own validator - using this replaces the need for the prover node to be on the P2P network and uses your validator as a sentry node of some sort.
+      AZTEC_EPOCH_DURATION: "32"
+      AZTEC_PROOF_SUBMISSION_WINDOW: "64"
+      AZTEC_SLOT_DURATION: "36"
+      BOOTSTRAP_NODES: ## Refer to http://static.aztec.network/{networkName}/bootnodes.json for the latest bootnodes. networkName=alpha-testnet for example
+      enr:-LO4QLbJddVpePYjaiCftOBY-L7O6Mfj_43TAn5Q1Y-5qQ_OWmSFc7bTKWHzw5xmdVIqXUiizum_kIRniXdPnWHHcwEEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMTgwNmEwMjgtMWE1MzBmM2KCaWSCdjSCaXCEI8nh9YlzZWNwMjU2azGhA-_dX6aFcXP1DLk91negbXL2a0mNYGXH4hrMvb2i92I0g3VkcIKd0A, enr:-LO4QN4WF8kFyV3sQVX0C_y_03Eepxk5Wac70l9QJcIDRYwKS6aRst1YcfbTDdvovXdRfKf-WSXNVWViGLhDA-dUz2MEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMTgwNmEwMjgtMWE1MzBmM2KCaWSCdjSCaXCEIicTHolzZWNwMjU2azGhAsz7aFFYRnP5xjTux5UW-HyEQcW_EJrZMT1CNm79N4g-g3VkcIKd0A, enr:-LO4QFrGfkRaCk_iFTeUjR5ESwo45Eov9hx_T1-BLdoT-iHzFgCiHMT4V1KBtdFp8D0ajLSe5HcNYrhalmdJXgv6NTUEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMTgwNmEwMjgtMWE1MzBmM2KCaWSCdjSCaXCEIlICt4lzZWNwMjU2azGhAlC6nKB3iDtRFqWKWqxf_t-P9hc-SZ6VFBJV4y3bTZBQg3VkcIKd0A
+      DATA_DIRECTORY: /data
+      DATA_STORE_MAP_SIZE_KB: "134217728"
+      #ETHEREUM_HOSTS: https://sepolia-a.cryptomanufaktur.net,https://sepolia-c.cryptomanufaktur.net
+      L1_CHAIN_ID: "11155111"
+      L1_CONSENSUS_HOST_URL: # CL RPC endpoint
+      L1_FIXED_PRIORITY_FEE_PER_GAS: "3"
+      L1_GAS_LIMIT_BUFFER_PERCENTAGE: "15"
+      L1_GAS_PRICE_MAX: "500"
+      LOG_LEVEL: info
+      P2P_ENABLED: "true"
+      # P2P_ENABLED: "false" # Switch to false if you provide a PROVER_COORDINATION_NODE_URL
+      P2P_PORT: 40400 # the port you use to announce your node on the p2p network.
+      PROVER_BROKER_HOST: http://broker:8080
+      PROVER_PUBLISHER_PRIVATE_KEY:  # The node needs to publish proofs to L1. Replace with your private key
+      REGISTRY_CONTRACT_ADDRESS: 0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e # The address of the Registry contract. Refer to the docs website to make sure you're using the right address
+      TEST_ACCOUNTS: "false"
+      SPONSORED_FPC: "true"
+      PROVER_REAL_PROOFS: "true"
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: 100m
+        tag: '{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}'
+    networks:
+      default: null
+    ports:
+      - "8083:80"
+      - "40400:40400"
+      - "40400:40400/udp"
+    # ports:
+    #   - mode: ingress
+    #     target: 40400
+    #     published: "40400"
+    #     protocol: udp
+    #   - mode: ingress
+    #     target: 40400
+    #     published: "40400"
+    #     protocol: tcp
+    pull_policy: always
+    restart: unless-stopped
+    stop_grace_period: 1m0s
+    volumes:
+      - /home/my-node/node:/data # Local directory
+      # - type: volume
+      #   source: aztec-node-data
+      #   target: /data
+      #   volume: {}
+# networks:
+#   default:
+#     name: aztec-prover_default
+# volumes:
+#   aztec-broker-data:
+#     name: aztec-prover_aztec-broker-data
+#   aztec-node-data:
+#     name: aztec-prover_aztec-node-data
+# x-logging:
+#   logging:
+#     driver: json-file
+#     options:
+#       max-file: "3"
+#       max-size: 100m
+#       tag: '{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}'
 ```
-
-## Troubleshooting
-
-:::tip
-Please make sure you are in the Discord server and that you have been assigned one of the testnet roles. Turn on notifications for the announcements channel.
-:::
-
-If you encounter any errors or bugs, please try basic troubleshooting steps like restarting your node, checking ports and configs.
-
-If issues persist, please share on the discord channel you've been assigned to.
-
-Some issues are fairly light, the group and ourselves can help you within 60 minutes. If the issue isn't resolved, please send more information:
-
-- **Error Logs**: Attach any relevant error logs. If possible, note the timestamp when the issue began.
-- **Error Description**: Briefly describe the issue. Include details like what you were doing when it started, and any unusual behaviors observed.
-- **Steps to Reproduce (if known)**: If there's a clear way to reproduce the error, please describe it.
-- **System Information**: Share details like your system's operating system, hardware specs, and any other relevant environment information.
-
-That way we can dedicate more time to troubleshoot and open Github issues if no known fix is available.
