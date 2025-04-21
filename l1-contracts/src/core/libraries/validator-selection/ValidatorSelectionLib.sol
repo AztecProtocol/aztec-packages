@@ -18,6 +18,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
+
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
   using MessageHashUtils for bytes32;
@@ -58,7 +59,7 @@ library ValidatorSelectionLib {
     // If the committee is not set for this epoch, we need to sample it
     bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == bytes32(0)) {
-      committeeCommitment = computeCommitteeCommitment(sampleValidators(_stakingStore, _epochNumber, sampleSeed));
+      store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(sampleValidators(_stakingStore, _epochNumber, sampleSeed));
     }
   }
 
@@ -86,11 +87,13 @@ library ValidatorSelectionLib {
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
   ) internal {
+
     (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_stakingStore, _epochNumber);
 
     uint256 proposerIndex = computeProposerIndex(
       _epochNumber, _slot, getSampleSeed(_epochNumber), committeeSize
     );
+
 
     // TODO: add more checks here
     // Read the attester from the signatures
@@ -147,6 +150,7 @@ library ValidatorSelectionLib {
     );
   }
 
+  // Note: this resamples the validator set, Only call this from view functions
   function getProposerAt(StakingStorage storage _stakingStore, Slot _slot, Epoch _epochNumber)
     internal
     returns (address)
@@ -156,7 +160,6 @@ library ValidatorSelectionLib {
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
 
-    // Note: this resamples the validator set, Only call this from view functions
     address[] memory committee = sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber));
     if (committee.length == 0) {
       return address(0);
@@ -239,7 +242,13 @@ library ValidatorSelectionLib {
     }
 
     // TODO(md): calcaulte and store the size alongside the commitment
-    return (committeeCommitment, 48);
+    // We do not want to recalculate this each time
+    committeeSize = _stakingStore.attesters.lengthAtEpoch(_epochNumber);
+    if (committeeSize > store.targetCommitteeSize) {
+      committeeSize = store.targetCommitteeSize;
+    }
+
+    return (committeeCommitment, committeeSize);
   }
 
   /**
