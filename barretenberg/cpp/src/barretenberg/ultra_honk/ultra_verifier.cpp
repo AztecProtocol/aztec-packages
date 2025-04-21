@@ -38,23 +38,24 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         constexpr size_t NUM_LIMBS = 4;
         OpeningClaim<curve::Grumpkin> ipa_claim;
 
+        // Extract the public inputs containing the IPA claim
+        std::array<FF, IPA_CLAIM_SIZE> ipa_claim_limbs;
+        for (size_t k = 0; k < IPA_CLAIM_SIZE; k++) {
+            ipa_claim_limbs[k] =
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
+        }
+
         std::array<FF, NUM_LIMBS> challenge_bigfield_limbs;
         std::array<FF, NUM_LIMBS> evaluation_bigfield_limbs;
         for (size_t k = 0; k < NUM_LIMBS; k++) {
-            challenge_bigfield_limbs[k] =
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
+            challenge_bigfield_limbs[k] = ipa_claim_limbs[k];
         }
         for (size_t k = 0; k < NUM_LIMBS; k++) {
-            evaluation_bigfield_limbs[k] =
-                verification_key
-                    ->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[NUM_LIMBS + k]];
+            evaluation_bigfield_limbs[k] = ipa_claim_limbs[NUM_LIMBS + k];
         }
         ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
         ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
-        ipa_claim.commitment = {
-            verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[8]],
-            verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]]
-        };
+        ipa_claim.commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
 
         // verify the ipa_proof with this claim
         ipa_transcript = std::make_shared<Transcript>(ipa_proof);

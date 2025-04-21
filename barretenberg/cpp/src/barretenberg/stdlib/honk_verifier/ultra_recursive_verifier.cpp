@@ -80,8 +80,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually vk stores public input key directly.
-    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0],
-                                                             true };
+    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0] };
     AggregationObject nested_agg_obj =
         PublicAggState::reconstruct(verification_key->public_inputs, pairing_point_public_input_key);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
@@ -140,7 +139,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (HasIPAAccumulator<Flavor>) {
         using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
 
-        PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0], true };
+        PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0] };
         output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
     }
 

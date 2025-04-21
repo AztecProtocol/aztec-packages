@@ -6,11 +6,13 @@ namespace bb {
 
 // The data needed to reconstruct a public input component from its limbs stored in the public inputs
 struct PublicComponentKey {
-    uint32_t start_idx = 0;   // start index within public inputs array
-    bool exists_flag = false; // flag indicating exitence of component in the PI
+    constexpr static uint32_t DEFAULT_IDX = std::numeric_limits<uint32_t>::max();
+    uint32_t start_idx = DEFAULT_IDX; // start index within public inputs array
 
     bool operator==(const PublicComponentKey&) const = default;
 
-    MSGPACK_FIELDS(start_idx, exists_flag);
+    bool is_set() const { return start_idx != DEFAULT_IDX; }
+
+    MSGPACK_FIELDS(start_idx);
 };
 } // namespace bb
