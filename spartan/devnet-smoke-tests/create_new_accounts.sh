@@ -52,6 +52,7 @@ if [ "$total_account_count" -lt "$max_accounts" ]; then
     aztec-wallet $prover_to_use \
      deploy-account \
      -f accounts:main \
+     --register-class \
      --payment method=fee_juice,claim
 
     new_accounts=$(echo "$new_accounts" | jq --argjson acc "$new_account" '. += [$acc]')
