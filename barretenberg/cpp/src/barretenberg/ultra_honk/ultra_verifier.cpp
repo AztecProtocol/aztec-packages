@@ -32,7 +32,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         return fq(limb);
     };
 
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
+    // Parse out the nested IPA claim using key->ipa_claim_public_input_key and runs the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
 
         constexpr size_t NUM_LIMBS = 4;
@@ -40,9 +40,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
         // Extract the public inputs containing the IPA claim
         std::array<FF, IPA_CLAIM_SIZE> ipa_claim_limbs;
+        const uint32_t start_idx = verification_key->verification_key->ipa_claim_public_input_key.start_idx;
         for (size_t k = 0; k < IPA_CLAIM_SIZE; k++) {
-            ipa_claim_limbs[k] =
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
+            ipa_claim_limbs[k] = verification_key->public_inputs[start_idx + k];
         }
 
         std::array<FF, NUM_LIMBS> challenge_bigfield_limbs;

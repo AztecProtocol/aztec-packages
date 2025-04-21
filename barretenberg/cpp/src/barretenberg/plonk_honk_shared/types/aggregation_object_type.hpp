@@ -14,7 +14,5 @@ using PairingPointAccumulatorIndices = std::array<uint32_t, PAIRING_POINT_ACCUMU
 // of the nested aggregation object.
 using PairingPointAccumulatorPubInputIndices = std::array<uint32_t, PAIRING_POINT_ACCUMULATOR_SIZE>;
 
-static constexpr uint32_t IPA_CLAIM_SIZE = 10;
-using IPAClaimIndices = std::array<uint32_t, IPA_CLAIM_SIZE>;
-using IPAClaimPubInputIndices = std::array<uint32_t, IPA_CLAIM_SIZE>;
+static constexpr uint32_t IPA_CLAIM_SIZE = 10; // Size public inputs representaiton of a Grumpkin opening claim
 } // namespace bb

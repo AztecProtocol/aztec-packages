@@ -71,11 +71,9 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     if constexpr (HasIPAAccumulator<Flavor>) {
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE + i),
-                                 key_fields[offset].witness_index);
-            offset++;
-        }
+        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE),
+                             key_fields[offset].witness_index);
+        offset++;
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
