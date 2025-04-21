@@ -12,6 +12,7 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
                                  uint32_t maxNumDBs,
                                  uint32_t maxNumReaders)
     : _id(0)
+    , _directory(directory)
     , _readGuard(maxNumReaders)
     , _writeGuard(1) // LMDB only permits one write transaction at a time
 {

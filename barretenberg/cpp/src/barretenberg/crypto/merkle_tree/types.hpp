@@ -61,6 +61,7 @@ const std::string BLOCK_INDICES_DB = "block indices";
 
 struct TreeDBStats {
     uint64_t mapSize;
+    uint64_t physicalFileSize;
     DBStats blocksDBStats;
     DBStats nodesDBStats;
     DBStats leafPreimagesDBStats;
