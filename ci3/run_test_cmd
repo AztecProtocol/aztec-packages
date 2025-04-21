@@ -133,7 +133,8 @@ fi
 # Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
 SECONDS=0
 set +e
-taskset -c $CPU_LIST timeout --foreground -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
+[ "${ISOLATE:-0}" -eq 1 ] && fg_cmd="--foreground"
+taskset -c $CPU_LIST timeout ${fg_cmd:-} -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
 test_pid=$!
 # echo "RTC waiting on $test_pid" >/dev/tty
 wait $test_pid
