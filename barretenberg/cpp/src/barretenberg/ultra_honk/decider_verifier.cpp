@@ -36,7 +36,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 {
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;

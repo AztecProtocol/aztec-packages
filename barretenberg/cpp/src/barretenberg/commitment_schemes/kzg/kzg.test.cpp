@@ -10,7 +10,6 @@ using Curve = curve::BN254;
 
 class KZGTest : public CommitmentTest<Curve> {
   public:
-    static constexpr bool USE_PADDING = true;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using PCS = KZG<curve::BN254>;
@@ -19,7 +18,7 @@ class KZGTest : public CommitmentTest<Curve> {
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
 
     static constexpr size_t n = 16;
     static constexpr size_t log_n = 4;

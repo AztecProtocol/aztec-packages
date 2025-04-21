@@ -44,7 +44,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -97,10 +97,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     const auto padding_indicator_array =
         compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
-    size_t counter = 0;
-    for (auto indicator : padding_indicator_array) {
-        info(counter++, "   ", indicator);
-    }
+
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials

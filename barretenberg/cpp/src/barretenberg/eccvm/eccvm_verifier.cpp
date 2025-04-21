@@ -12,7 +12,7 @@ namespace bb {
 bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;

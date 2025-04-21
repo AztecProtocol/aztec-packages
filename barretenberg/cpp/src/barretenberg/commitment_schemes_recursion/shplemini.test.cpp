@@ -35,8 +35,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using NativePCS = std::conditional_t<std::same_as<NativeCurve, curve::BN254>, KZG<NativeCurve>, IPA<NativeCurve>>;
     using CommitmentKey = typename NativePCS::CK;
     using ShpleminiProver = ShpleminiProver_<NativeCurve>;
-    static constexpr bool USE_PADDING = true;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;

@@ -360,8 +360,6 @@ template <typename Curve> class GeminiVerifier_ {
     {
         const size_t log_n = multilinear_challenge.size();
         const bool has_interleaved = claim_batcher.interleaved.has_value();
-        // GeminiVerifier is only used in tests, so no padding required.
-        static constexpr bool use_padding = false;
 
         const Fr rho = transcript->template get_challenge<Fr>("rho");
 
@@ -446,7 +444,7 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
-        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations<use_padding>(
+        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
             log_n, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
         // Extract the evaluation A₀(r) = A₀₊(r) + P₊(r^s)
         auto full_a_0_pos = gemini_fold_pos_evaluations[0];
@@ -540,7 +538,6 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    template <bool use_padding>
     static std::vector<Fr> compute_fold_pos_evaluations(
         const size_t log_n,
         const Fr& batched_evaluation,
@@ -553,7 +550,6 @@ template <typename Curve> class GeminiVerifier_ {
 
         Fr eval_pos_prev = batched_evaluation;
         // Virtual size allows padding in Shplemini.
-        const size_t virtual_log_n = use_padding ? evaluation_point.size() : log_n;
 
         Fr zero{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -561,14 +557,14 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         std::vector<Fr> fold_pos_evaluations;
-        fold_pos_evaluations.reserve(virtual_log_n);
+        fold_pos_evaluations.reserve(log_n);
         // Either a computed eval of A_i at r^{2^i}, or 0
         Fr value_to_emplace;
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
         // Solve the sequence of linear equations
-        for (size_t l = virtual_log_n; l != 0; --l) {
+        for (size_t l = log_n; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾
             const Fr& challenge_power = challenge_powers[l - 1];
             // Get uₗ₋₁
@@ -579,17 +575,10 @@ template <typename Curve> class GeminiVerifier_ {
             Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
             // Divide by the denominator
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
-            if constexpr (use_padding) {
-                // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-                // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
-                bool dummy_round = l > log_n;
-                eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
-                value_to_emplace = dummy_round ? zero : eval_pos_prev;
 
-            } else {
-                eval_pos_prev = eval_pos;
-                value_to_emplace = eval_pos_prev;
-            }
+            eval_pos_prev = eval_pos;
+            value_to_emplace = eval_pos_prev;
+
             fold_pos_evaluations.emplace_back(value_to_emplace);
         }
 

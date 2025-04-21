@@ -738,9 +738,6 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             if constexpr (IsRecursiveFlavor<Flavor> && Flavor::USE_PADDING) {
                 correcting_factor =
                     RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
-            } else if constexpr (Flavor::USE_PADDING) {
-                correcting_factor =
-                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
             } else {
                 correcting_factor =
                     RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);

@@ -616,9 +616,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
-    template <typename Builder>
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
-                   const stdlib::field_t<Builder>& indicator)
+    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
     {
         FF total_sum =
             (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
@@ -657,10 +655,9 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param round_challenge \f$ u_i\f$
      *
      */
-    template <typename Builder>
     void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
                                  FF& round_challenge,
-                                 const stdlib::field_t<Builder>& indicator)
+                                 const FF& indicator)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
         target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);

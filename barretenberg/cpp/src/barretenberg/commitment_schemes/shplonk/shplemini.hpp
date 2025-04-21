@@ -180,7 +180,7 @@ template <typename Curve> class ShpleminiProver_ {
  *
  */
 
-template <typename Curve, bool use_padding> class ShpleminiVerifier_ {
+template <typename Curve> class ShpleminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -337,12 +337,12 @@ template <typename Curve, bool use_padding> class ShpleminiVerifier_ {
         // Reconstruct Aᵢ(r²ⁱ) for i=0, ..., d - 1 from the batched evaluation of the multilinear polynomials and
         // Aᵢ(−r²ⁱ) for i = 0, ..., d - 1. In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
         const std::vector<Fr> gemini_fold_pos_evaluations =
-            GeminiVerifier_<Curve>::template compute_fold_pos_evaluations<use_padding>(log_n,
-                                                                                       batched_evaluation,
-                                                                                       multivariate_challenge,
-                                                                                       gemini_eval_challenge_powers,
-                                                                                       gemini_fold_neg_evaluations,
-                                                                                       p_neg);
+            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(log_n,
+                                                                 batched_evaluation,
+                                                                 multivariate_challenge,
+                                                                 gemini_eval_challenge_powers,
+                                                                 gemini_fold_neg_evaluations,
+                                                                 p_neg);
 
         // Place the commitments to Gemini fold polynomials Aᵢ in the vector of batch_mul commitments, compute the
         // contributions from Aᵢ(−r²ⁱ) for i=1, … , d − 1 to the constant term accumulator, add corresponding scalars
@@ -620,10 +620,9 @@ template <typename Curve, bool use_padding> class ShpleminiVerifier_ {
                                                          std::vector<Fr>& scalars,
                                                          Fr& constant_term_accumulator)
     {
-        const size_t virtual_log_n = use_padding ? gemini_neg_evaluations.size() : log_n;
         // Start from 1, because the commitment to A_0 is reconstructed from the commitments to the multilinear
         // polynomials. The corresponding evaluations are also handled separately.
-        for (size_t j = 1; j < virtual_log_n; ++j) {
+        for (size_t j = 1; j < log_n; ++j) {
             // The index of 1/ (z - r^{2^{j}}) in the vector of inverted Gemini denominators
             const size_t pos_index = 2 * j;
             // The index of 1/ (z + r^{2^{j}}) in the vector of inverted Gemini denominators
@@ -639,12 +638,6 @@ template <typename Curve, bool use_padding> class ShpleminiVerifier_ {
             constant_term_accumulator +=
                 scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
 
-            if constexpr (use_padding) {
-                if (j >= log_n) {
-                    scaling_factor_neg = 0;
-                    scaling_factor_pos = 0;
-                }
-            }
             // Place the scaling factor to the 'scalars' vector
             scalars.emplace_back(-scaling_factor_neg - scaling_factor_pos);
             // Move com(Aᵢ) to the 'commitments' vector
