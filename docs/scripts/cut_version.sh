@@ -11,23 +11,17 @@
 
 # Exit on error
 set -e
-
-# Skip if this is a nightly build
-if [[ "$REF_NAME" == *"nightly"* ]]; then
-    echo "Skipping docs version cut for nightly build"
-    exit 0
-fi
-
 # Check if we're in the docs directory
 if [ ! -f "docusaurus.config.js" ]; then
     echo "Error: This script must be run from the docs directory"
     exit 1
 fi
 
-if semver check $REF_NAME; then
-  # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
-  hash+=$REF_NAME
-  export COMMIT_TAG=$REF_NAME
+# Skip if this is a nightly build
+# COMMIT_TAG is set in docs/bootstrap.sh
+if [[ "$COMMIT_TAG" == *"nightly"* ]]; then
+    echo "Skipping docs version cut for nightly build $COMMIT_TAG"
+    exit 0
 fi
 
 echo "Cutting new docs version: $COMMIT_TAG"
