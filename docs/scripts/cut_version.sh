@@ -12,6 +12,12 @@
 # Exit on error
 set -e
 
+# Skip if this is a nightly build
+if [[ "$REF_NAME" == *"nightly"* ]]; then
+    echo "Skipping docs version cut for nightly build"
+    exit 0
+fi
+
 # Check if we're in the docs directory
 if [ ! -f "docusaurus.config.js" ]; then
     echo "Error: This script must be run from the docs directory"

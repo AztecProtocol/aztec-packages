@@ -270,7 +270,7 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released here /.github/workflows/docs-deploy.yml
+    docs # only cuts a version, released here /.github/workflows/docs-deploy.yml
     release-image
   )
   if [ $(arch) == arm64 ]; then
