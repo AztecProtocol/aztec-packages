@@ -7,7 +7,7 @@ hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
 function build {
   echo_header "bb.js build"
-  npm_install_deps
+  yarn install
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
@@ -41,7 +41,7 @@ function test {
 }
 
 function release {
-  deploy_npm $(dist_tag) ${REF_NAME#v}
+  retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
 case "$cmd" in

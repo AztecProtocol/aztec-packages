@@ -6,13 +6,12 @@
  *
  * @param number string to be converted
  * @param base base representation of the string
+ * @param is_signed indicates whether we treat numbers in base 2 as signed or unsigned
  * @param step power n such that base^n <= 2^64. If base = 2, 10, 16. May remain undeclared.
  * @return bb::fr
  */
-bb::fr string_to_fr(const std::string& number, int base, size_t step)
+bb::fr string_to_fr(const std::string& number, int base, bool is_signed, size_t step)
 {
-    bb::fr res = 0;
-    char* ptr = nullptr;
     if (base == 2) {
         step = 64;
     } else if (base == 16) {
@@ -24,6 +23,9 @@ bb::fr string_to_fr(const std::string& number, int base, size_t step)
         return 0;
     }
 
+    char* ptr = nullptr;
+
+    bb::fr res = 0;
     size_t i = number[0] == '-' ? 1 : 0;
     bb::fr step_power = bb::fr(base).pow(step);
     for (; i < number.size(); i += step) {
@@ -34,7 +36,7 @@ bb::fr string_to_fr(const std::string& number, int base, size_t step)
     }
     res = number[0] == '-' ? -res : res;
 
-    if (base == 2 && number[0] == '1') {
+    if (base == 2 && number[0] == '1' && is_signed) {
         auto max = bb::fr(uint256_t(1) << number.length());
         res -= max;
     }

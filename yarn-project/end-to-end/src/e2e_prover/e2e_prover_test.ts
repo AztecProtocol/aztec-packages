@@ -308,7 +308,7 @@ export class FullProverTest {
       },
       { prefilledPublicData },
     );
-    this.proverNode.start();
+    await this.proverNode.start();
 
     this.logger.warn(`Proofs are now enabled`);
     return this;

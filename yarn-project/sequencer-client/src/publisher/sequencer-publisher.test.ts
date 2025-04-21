@@ -281,7 +281,7 @@ describe('SequencerPublisher', () => {
     expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
 
-    expect(result?.errorMsg).toEqual('Test error');
+    expect(result?.result?.errorMsg).toEqual('Test error');
   });
 
   it('does not send requests if interrupted', async () => {

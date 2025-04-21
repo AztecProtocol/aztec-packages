@@ -23,8 +23,6 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -73,10 +71,9 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
-    "@aztec/noir-noirc_abi": "workspace:^",
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@aztec/pxe": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "@msgpack/msgpack": "^3.0.0-beta2",
     "commander": "^12.1.0",
     "inquirer": "^10.1.8",
     "source-map-support": "^0.5.21",

@@ -1,8 +1,13 @@
 #include <cstdint>
+#include <memory>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 
 namespace bb::avm2::tracegen {
@@ -87,6 +92,13 @@ void MerkleCheckTraceBuilder::process(
         assert(read_node == root);
         assert(write_node == new_root);
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> MerkleCheckTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

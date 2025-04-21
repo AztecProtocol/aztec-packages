@@ -50,7 +50,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     AggregationObject::add_default_pairing_points_to_public_inputs(*builder);
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-    builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
+    client_ivc_rec_verifier_output.opening_claim.set_public();
     builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
     ASSERT(builder->ipa_proof.size() && "IPA proof should not be empty");
 
@@ -74,7 +74,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
         if (data.empty()) {
             return std::string("[]");
         }
-        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
     auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
     auto proof_data = to_json(public_inputs_and_proof.proof);
