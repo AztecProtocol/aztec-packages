@@ -96,7 +96,6 @@ TEST_F(TranslatorTests, FixedVK)
 
     // Generate the default fixed VK
     TranslatorFlavor::VerificationKey fixed_vk{};
-    fixed_vk.pcs_verification_key = nullptr;
 
     // Lambda for manually computing a verification key for a given circuit and comparing it to the fixed VK
     auto compare_computed_vk_against_fixed = [&](size_t circuit_size_parameter) {
@@ -105,7 +104,6 @@ TEST_F(TranslatorTests, FixedVK)
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
         TranslatorFlavor::VerificationKey computed_vk(proving_key->proving_key);
-        computed_vk.pcs_verification_key = nullptr;
 
         EXPECT_EQ(computed_vk, fixed_vk);
     };

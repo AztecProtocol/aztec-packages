@@ -471,7 +471,7 @@
     },
     {
       "name": "wasm-threads-assert",
-      "displayName": "Build for WASM with multithreading and  and asserts",
+      "displayName": "Build for WASM with multithreading and asserts",
       "binaryDir": "build-wasm-threads-assert",
       "description": "Build with wasi-sdk with asserts",
       "inherits": "wasm-threads",

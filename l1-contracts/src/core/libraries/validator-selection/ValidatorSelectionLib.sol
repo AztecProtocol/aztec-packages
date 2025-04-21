@@ -10,6 +10,10 @@ import {
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
@@ -19,6 +23,7 @@ library ValidatorSelectionLib {
   using MessageHashUtils for bytes32;
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
     keccak256("aztec.validator_selection.storage");
@@ -46,7 +51,7 @@ library ValidatorSelectionLib {
     if (epoch.sampleSeed == 0) {
       epoch.sampleSeed = getSampleSeed(epochNumber);
       epoch.nextSeed = store.lastSeed = computeNextSeed(epochNumber);
-      epoch.committee = sampleValidators(_stakingStore, epoch.sampleSeed);
+      epoch.committee = sampleValidators(_stakingStore, epochNumber, epoch.sampleSeed);
     }
   }
 
@@ -154,21 +159,22 @@ library ValidatorSelectionLib {
    *
    * @return The validators for the given epoch
    */
-  function sampleValidators(StakingStorage storage _stakingStore, uint256 _seed)
+  function sampleValidators(StakingStorage storage _stakingStore, Epoch _epoch, uint256 _seed)
     internal
     returns (address[] memory)
   {
-    uint256 validatorSetSize = _stakingStore.attesters.length();
+    ValidatorSelectionStorage storage store = getStorage();
+    uint256 validatorSetSize = _stakingStore.attesters.lengthAtEpoch(_epoch);
+
     if (validatorSetSize == 0) {
       return new address[](0);
     }
 
-    ValidatorSelectionStorage storage store = getStorage();
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
     // If we have less validators than the target committee size, we just return the full set
     if (validatorSetSize <= targetCommitteeSize) {
-      return _stakingStore.attesters.values();
+      return _stakingStore.attesters.valuesAtEpoch(_epoch);
     }
 
     uint256[] memory indices =
@@ -176,7 +182,7 @@ library ValidatorSelectionLib {
 
     address[] memory committee = new address[](targetCommitteeSize);
     for (uint256 i = 0; i < targetCommitteeSize; i++) {
-      committee[i] = _stakingStore.attesters.at(indices[i]);
+      committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
     }
     return committee;
   }
@@ -203,7 +209,8 @@ library ValidatorSelectionLib {
 
     // Emulate a sampling of the validators
     uint256 sampleSeed = getSampleSeed(_epochNumber);
-    return sampleValidators(_stakingStore, sampleSeed);
+
+    return sampleValidators(_stakingStore, _epochNumber, sampleSeed);
   }
 
   /**

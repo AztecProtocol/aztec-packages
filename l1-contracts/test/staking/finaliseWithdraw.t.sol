@@ -32,6 +32,9 @@ contract FinaliseWithdrawTest is StakingBase {
       _amount: MINIMUM_STAKE
     });
 
+    // Progress into the next epoch
+    staking.cheat__progressEpoch();
+
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
 

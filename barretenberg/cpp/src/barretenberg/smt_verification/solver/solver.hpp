@@ -117,8 +117,6 @@ class Solver {
 
     void assertFormula(const cvc5::Term& term) const { this->solver.assertFormula(term); }
 
-    cvc5::Term getValue(const cvc5::Term& term) const { return this->solver.getValue(term); }
-
     bool check();
 
     [[nodiscard]] const char* getResult() const
@@ -128,6 +126,11 @@ class Solver {
         }
         return res ? "SAT" : "UNSAT";
     }
+
+    cvc5::Term get_symbolic_value(const cvc5::Term& term) const { return this->solver.getValue(term); };
+
+    std::string get(const cvc5::Term& term) const;
+    std::string operator[](const cvc5::Term& term) const { return this->get(term); };
 
     std::unordered_map<std::string, std::string> model(std::unordered_map<std::string, cvc5::Term>& terms) const;
     std::unordered_map<std::string, std::string> model(std::vector<cvc5::Term>& terms) const;

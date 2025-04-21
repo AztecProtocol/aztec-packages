@@ -7,8 +7,8 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 
 flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
 
-function lint {
-  helm lint ./aztec-network/
+function build {
+  denoise "helm lint ./aztec-network/"
 }
 
 function network_shaping {
@@ -119,7 +119,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke|lint)
+  test|test_cmds|gke|build)
     $cmd
     ;;
   "test-kind-smoke")
