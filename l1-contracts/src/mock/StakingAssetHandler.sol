@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+
+import {IStaking} from "./../core/interfaces/IStaking.sol";
+import {IMintableERC20} from "./../governance/interfaces/IMintableERC20.sol";
 
 /**
  * @title StakingAssetHandler
  * @notice This contract is used as a faucet for creating validators.
  *
- * It allows anyone to add validator to the rollup, as long as the contract has enough balance.
- * With the caveat that the contract can mint itself funds to cover adding `depositsPerMint`
- * validators per `mintInterval` unit of time.
+ * It allows for anyone with the `canAddValidator` role to add validators to the rollup,
+ * caveat being that it controls the number of validators that can be added in a time period.
  *
  * @dev For example, if minMintInterval is 60*60 and maxDepositsPerMint is 3,
  *      then *generally* 3 validators can be added every hour.
@@ -20,64 +19,80 @@ import {Ownable} from "@oz/access/Ownable.sol";
  *      at the very end of the hour, then 3 validators at the top of the next hour
  *      so the maximum "burst" rate is effectively twice the maxDepositsPerMint.
  *
- * @dev This contract must be a minter of the staking asset - or have a big balance.
+ * @dev This contract must be a minter of the staking asset.
  *
- * @dev Only the owner can grant and revoke the `isUnhinged` role, and perform other administrative tasks
- *      such as setting the REGISTRY address, mint interval, deposits per mint, and withdrawer.
+ * @dev Only the owner can grant and revoke the `canAddValidator` role, and perform other administrative tasks
+ *      such as setting the rollup, deposit amount, min mint interval, max deposits per mint, and withdrawer.
+ *
  */
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
   event ValidatorAdded(
-    address indexed _rollup, address indexed _attester, address _proposer, address _withdrawer
+    address indexed _attester, address indexed _proposer, address indexed _withdrawer
   );
+  event RollupUpdated(address indexed _rollup);
+  event DepositAmountUpdated(uint256 _depositAmount);
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
   event WithdrawerUpdated(address indexed _withdrawer);
+  event AddValidatorPermissionGranted(address indexed _address);
+  event AddValidatorPermissionRevoked(address indexed _address);
 
-  event UnhingedAdded(address indexed _address);
-  event UnhingedRemoved(address indexed _address);
-
+  error NotCanAddValidator(address _caller);
+  error NotEnoughTimeSinceLastMint(uint256 _lastMintTimestamp, uint256 _minMintInterval);
   error CannotMintZeroAmount();
-  error ValidatorQuotaFilledUntil(uint256 _timestamp);
+  error MaxDepositsTooLarge(uint256 _depositAmount, uint256 _maxDepositsPerMint);
 
   function addValidator(address _attester, address _proposer) external;
+  function setRollup(address _rollup) external;
+  function setDepositAmount(uint256 _amount) external;
   function setMintInterval(uint256 _interval) external;
   function setDepositsPerMint(uint256 _depositsPerMint) external;
   function setWithdrawer(address _withdrawer) external;
-  function addUnhinged(address _address) external;
-  function removeUnhinged(address _address) external;
-
-  function getRollup() external view returns (address);
+  function grantAddValidatorPermission(address _address) external;
+  function revokeAddValidatorPermission(address _address) external;
 }
 
 contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   IMintableERC20 public immutable STAKING_ASSET;
-  IRegistry public immutable REGISTRY;
 
-  mapping(address => bool) public isUnhinged;
+  mapping(address => bool) public canAddValidator;
 
+  uint256 public depositAmount;
   uint256 public lastMintTimestamp;
   uint256 public mintInterval;
   uint256 public depositsPerMint;
 
+  IStaking public rollup;
   address public withdrawer;
+
+  modifier onlyCanAddValidator() {
+    require(canAddValidator[msg.sender], NotCanAddValidator(msg.sender));
+    _;
+  }
 
   constructor(
     address _owner,
     address _stakingAsset,
-    IRegistry _registry,
+    address _rollup,
     address _withdrawer,
+    uint256 _depositAmount,
     uint256 _mintInterval,
     uint256 _depositsPerMint,
-    address[] memory _unhinged
+    address[] memory _canAddValidator
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
 
     STAKING_ASSET = IMintableERC20(_stakingAsset);
-    REGISTRY = _registry;
+
+    rollup = IStaking(_rollup);
+    emit RollupUpdated(_rollup);
 
     withdrawer = _withdrawer;
     emit WithdrawerUpdated(_withdrawer);
+
+    depositAmount = _depositAmount;
+    emit DepositAmountUpdated(_depositAmount);
 
     mintInterval = _mintInterval;
     emit IntervalUpdated(_mintInterval);
@@ -85,45 +100,42 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     depositsPerMint = _depositsPerMint;
     emit DepositsPerMintUpdated(_depositsPerMint);
 
-    for (uint256 i = 0; i < _unhinged.length; i++) {
-      isUnhinged[_unhinged[i]] = true;
-      emit UnhingedAdded(_unhinged[i]);
+    for (uint256 i = 0; i < _canAddValidator.length; i++) {
+      canAddValidator[_canAddValidator[i]] = true;
+      emit AddValidatorPermissionGranted(_canAddValidator[i]);
     }
-    isUnhinged[_owner] = true;
-    emit UnhingedAdded(_owner);
+    canAddValidator[_owner] = true;
+    emit AddValidatorPermissionGranted(_owner);
   }
 
   function addValidator(address _attester, address _proposer)
     external
     override(IStakingAssetHandler)
+    onlyCanAddValidator
   {
-    IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getMinimumStake();
+    bool needsToMint = STAKING_ASSET.balanceOf(address(this)) < depositAmount;
+    bool canMint = block.timestamp - lastMintTimestamp >= mintInterval;
 
-    // If the sender is unhinged, will mint the required amount (to not impact other users).
-    // Otherwise we will see if the internal allows us to mint if needed.
-    if (isUnhinged[msg.sender]) {
-      STAKING_ASSET.mint(address(this), depositAmount);
-    } else {
-      if (STAKING_ASSET.balanceOf(address(this)) < depositAmount) {
-        require(
-          block.timestamp - lastMintTimestamp >= mintInterval,
-          ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
-        );
-        STAKING_ASSET.mint(address(this), depositAmount * depositsPerMint);
-        lastMintTimestamp = block.timestamp;
-        emit ToppedUp(depositAmount * depositsPerMint);
-      }
-    }
-
-    // If the attester is currently exiting, we finalize the exit for him.
-    if (rollup.getInfo(_attester).status == Status.EXITING) {
-      rollup.finaliseWithdraw(_attester);
+    require(!needsToMint || canMint, NotEnoughTimeSinceLastMint(lastMintTimestamp, mintInterval));
+    if (needsToMint) {
+      STAKING_ASSET.mint(address(this), depositAmount * depositsPerMint);
+      lastMintTimestamp = block.timestamp;
+      emit ToppedUp(depositAmount * depositsPerMint);
     }
 
     STAKING_ASSET.approve(address(rollup), depositAmount);
     rollup.deposit(_attester, _proposer, withdrawer, depositAmount);
-    emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
+    emit ValidatorAdded(_attester, _proposer, withdrawer);
+  }
+
+  function setRollup(address _rollup) external override(IStakingAssetHandler) onlyOwner {
+    rollup = IStaking(_rollup);
+    emit RollupUpdated(_rollup);
+  }
+
+  function setDepositAmount(uint256 _amount) external override(IStakingAssetHandler) onlyOwner {
+    depositAmount = _amount;
+    emit DepositAmountUpdated(_amount);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
@@ -146,17 +158,21 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit WithdrawerUpdated(_withdrawer);
   }
 
-  function addUnhinged(address _address) external override(IStakingAssetHandler) onlyOwner {
-    isUnhinged[_address] = true;
-    emit UnhingedAdded(_address);
+  function grantAddValidatorPermission(address _address)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
+    canAddValidator[_address] = true;
+    emit AddValidatorPermissionGranted(_address);
   }
 
-  function removeUnhinged(address _address) external override(IStakingAssetHandler) onlyOwner {
-    isUnhinged[_address] = false;
-    emit UnhingedRemoved(_address);
-  }
-
-  function getRollup() external view override(IStakingAssetHandler) returns (address) {
-    return address(REGISTRY.getCanonicalRollup());
+  function revokeAddValidatorPermission(address _address)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
+    canAddValidator[_address] = false;
+    emit AddValidatorPermissionRevoked(_address);
   }
 }

@@ -103,16 +103,13 @@ impl PrivateBaseRollupInputs {
         all_public_data_update_requests[0] = fee_public_data_write;
 
         // Append the tx effects for blob(s)
-        let siloed_l2_to_l1_msgs = self
-            .tube_data
-            .public_inputs
-            .end
-            .l2_to_l1_msgs
-            .map(|message: ScopedL2ToL1Message| silo_l2_to_l1_message(
+        let siloed_l2_to_l1_msgs = self.tube_data.public_inputs.end.l2_to_l1_msgs.map(
+            |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 message,
                 self.tube_data.public_inputs.constants.tx_context.version,
                 self.tube_data.public_inputs.constants.tx_context.chain_id,
-            ));
+            ),
+        );
 
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
 
@@ -436,11 +433,11 @@ mod tests {
             res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
                 nullifier.nullifier
             });
-            let all_public_data_update_requests = self
-                .pre_existing_public_data
-                .map(|leaf_preimage: PublicDataTreeLeafPreimage| {
+            let all_public_data_update_requests = self.pre_existing_public_data.map(
+                |leaf_preimage: PublicDataTreeLeafPreimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
-                });
+                },
+            );
             res.public_data_writes = array_concat(
                 all_public_data_update_requests,
                 [
@@ -1093,14 +1090,13 @@ mod tests {
         }
 
         let out_hash = builder.execute().out_hash;
-        let siloed_l2_to_l1_msgs = builder
-            .tube_data
-            .l2_to_l1_msgs
-            .map(|l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
+        let siloed_l2_to_l1_msgs = builder.tube_data.l2_to_l1_msgs.map(
+            |l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
                 l2_to_l1_message,
                 builder.constants.global_variables.version,
                 builder.constants.global_variables.chain_id,
-            ));
+            ),
+        );
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());

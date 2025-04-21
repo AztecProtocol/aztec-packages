@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -13,8 +14,9 @@ class MockMemory : public MemoryInterface {
     MockMemory();
     ~MockMemory() override;
 
-    MOCK_METHOD(void, set, (MemoryAddress index, MemoryValue value), (override));
-    MOCK_METHOD(const MemoryValue&, get, (MemoryAddress index), (const, override));
+    MOCK_METHOD(void, set, (MemoryAddress index, MemoryValue value, MemoryTag tag), (override));
+    MOCK_METHOD(ValueRefAndTag, get, (MemoryAddress index), (const, override));
+    MOCK_METHOD(SliceWithTags, get_slice, (MemoryAddress start, size_t size), (const, override));
     MOCK_METHOD(uint32_t, get_space_id, (), (const, override));
 };
 

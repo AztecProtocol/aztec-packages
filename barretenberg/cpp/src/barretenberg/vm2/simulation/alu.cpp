@@ -5,12 +5,15 @@
 
 namespace bb::avm2::simulation {
 
-MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
+FF Alu::add(const ValueRefAndTag& a, const ValueRefAndTag& b)
 {
     // TODO: check types and tags and propagate.
-    MemoryValue c = a + b;
+    // TODO(ilyas): need big switch here for different types, wrapping
+    // TODO(ilyas): come up with a better way than a big switch
+    FF c = a.value + b.value;
 
-    events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
+    // TODO: add tags to events.
+    events.emit({ .operation = AluOperation::ADD, .a = a.value, .b = b.value, .c = c });
     return c;
 }
 

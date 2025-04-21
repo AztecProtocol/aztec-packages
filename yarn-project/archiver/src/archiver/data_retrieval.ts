@@ -248,7 +248,7 @@ async function getBlockFromRollupTx(
 
   let blockFields: Fr[];
   try {
-    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
+    blockFields = Blob.toEncodedFields(blobBodies);
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -370,6 +370,7 @@ export async function retrieveL2ProofsFromRollup(
 export type SubmitBlockProof = {
   archiveRoot: Fr;
   proverId: Fr;
+  aggregationObject: Buffer;
   proof: Proof;
 };
 
@@ -392,6 +393,7 @@ export async function getProofFromSubmitProofTx(
 
   let proverId: Fr;
   let archiveRoot: Fr;
+  let aggregationObject: Buffer;
   let proof: Proof;
 
   if (functionName === 'submitEpochRootProof') {
@@ -401,10 +403,12 @@ export async function getProofFromSubmitProofTx(
         end: bigint;
         args: EpochProofPublicInputArgs;
         fees: readonly Hex[];
+        aggregationObject: Hex;
         proof: Hex;
       },
     ];
 
+    aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
     proverId = Fr.fromHexString(decodedArgs.args.proverId);
     archiveRoot = Fr.fromHexString(decodedArgs.args.endArchive);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
@@ -418,6 +422,7 @@ export async function getProofFromSubmitProofTx(
 
   return {
     proverId,
+    aggregationObject,
     archiveRoot,
     proof,
   };

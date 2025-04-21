@@ -1,6 +1,5 @@
 ---
 title: Contract Structure
-sidebar_position: 0
 tags: [contracts]
 ---
 

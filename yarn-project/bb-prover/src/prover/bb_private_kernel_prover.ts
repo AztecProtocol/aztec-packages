@@ -219,7 +219,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
 
-    const verificationKey = await this.artifactProvider.getCircuitVkByName(circuitType);
+    const verificationKey = (await this.artifactProvider.getCircuitVkByName(circuitType)).keyAsFields;
     const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
@@ -236,7 +236,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   >(publicInputs: PublicInputsType, circuitType: ClientProtocolArtifact) {
     const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
       publicInputs,
-      verificationKey: await this.artifactProvider.getCircuitVkByName(circuitType),
+      verificationKey: (await this.artifactProvider.getCircuitVkByName(circuitType)).keyAsFields,
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };

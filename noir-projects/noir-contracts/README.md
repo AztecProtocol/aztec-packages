@@ -1,3 +1,3 @@
-## Noir Contracts
+# Aztec Example Contracts
 
-A series of example aztec-nr smart contracts used in our end to end testing flow
+You're smart enough to figure it out.

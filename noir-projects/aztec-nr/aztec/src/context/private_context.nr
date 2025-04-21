@@ -1,3 +1,5 @@
+use dep::protocol_types::debug_log::debug_log_format;
+
 use crate::{
     context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
     hash::{ArgsHasher, hash_args_array, hash_calldata_array},
@@ -143,6 +145,12 @@ impl PrivateContext {
 
     pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
+
+        // WARNING(https://github.com/AztecProtocol/aztec-packages/issues/10558): if you delete this debug_log_format line, some tests fail.
+        debug_log_format(
+            "Context.note_hashes, after pushing new note hash: {0}",
+            self.note_hashes.storage().map(|nh: NoteHash| nh.value),
+        );
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
@@ -252,9 +260,8 @@ impl PrivateContext {
     }
 
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
-        let cached_request = self.last_key_validation_requests[key_index as u32].unwrap_or(
-            KeyValidationRequest::empty(),
-        );
+        let cached_request =
+            self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
         if cached_request.pk_m.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one
@@ -275,10 +282,10 @@ impl PrivateContext {
             self.key_validation_requests_and_generators.push(
                 KeyValidationRequestAndGenerator {
                     request,
-                    sk_app_generator: sk_generators[key_index as u32],
+                    sk_app_generator: sk_generators[key_index],
                 },
             );
-            self.last_key_validation_requests[key_index as u32] = Option::some(request);
+            self.last_key_validation_requests[key_index] = Option::some(request);
             request.sk_app
         }
     }

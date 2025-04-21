@@ -2,12 +2,11 @@ import type { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { type GlobalVariables, PublicCallRequestWithCalldata, Tx, TxExecutionPhase } from '@aztec/stdlib/tx';
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
-import type { PublicContractsDB } from '../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
 import { type ProcessedPhase, type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
@@ -17,14 +16,14 @@ import { type ProcessedPhase, type PublicTxResult, PublicTxSimulator } from './p
  */
 export class MeasuredPublicTxSimulator extends PublicTxSimulator {
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
+    treesDB: PublicTreesDB,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean = false,
     skipFeeEnforcement: boolean = false,
     protected readonly metrics: ExecutorMetricsInterface,
   ) {
-    super(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
+    super(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {

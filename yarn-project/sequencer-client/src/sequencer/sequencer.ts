@@ -1,4 +1,4 @@
-import { type L2Block, retryUntil } from '@aztec/aztec.js';
+import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -105,13 +105,7 @@ export class Sequencer {
     telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
-    this.metrics = new SequencerMetrics(
-      telemetry,
-      () => this.state,
-      this._coinbase,
-      this.publisher.getRollupContract(),
-      'Sequencer',
-    );
+    this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
     this.l1Metrics = new L1Metrics(telemetry.getMeter('SequencerL1Metrics'), publisher.l1TxUtils.publicClient, [
       publisher.getSenderAddress(),
     ]);
@@ -203,7 +197,6 @@ export class Sequencer {
    */
   public async start() {
     await this.updateConfig(this.config);
-    this.metrics.start();
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
@@ -216,7 +209,6 @@ export class Sequencer {
    */
   public async stop(): Promise<void> {
     this.log.debug(`Stopping sequencer`);
-    this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
     this.slasherClient.stop();
@@ -274,7 +266,6 @@ export class Sequencer {
     const chainTipArchive = chainTip.archive;
 
     const slot = await this.slotForProposal(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
-    this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
     if (!slot) {
       this.log.debug(`Cannot propose block ${newBlockNumber}`);
       return;
@@ -301,7 +292,7 @@ export class Sequencer {
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
-    this.log.debug(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+    this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       chainTipArchive,
       blockNumber: newBlockNumber,
       slot,
@@ -329,9 +320,8 @@ export class Sequencer {
       });
       finishedFlushing = true;
     } else {
-      this.log.verbose(
-        `Not enough txs to build block ${newBlockNumber} at slot ${slot} (got ${pendingTxCount} txs, need ${this.minTxsPerBlock})`,
-        { chainTipArchive, blockNumber: newBlockNumber, slot },
+      this.log.debug(
+        `Not enough txs to build block ${newBlockNumber} at slot ${slot}: got ${pendingTxCount} txs, need ${this.minTxsPerBlock}`,
       );
     }
 
@@ -342,13 +332,7 @@ export class Sequencer {
       this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
     });
 
-    const resp = await this.publisher.sendRequests();
-    if (resp) {
-      const proposedBlock = resp.validActions.find(a => a === 'propose');
-      if (proposedBlock) {
-        this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString());
-      }
-    }
+    await this.publisher.sendRequests();
 
     if (finishedFlushing) {
       this.isFlushing = false;
@@ -448,15 +432,8 @@ export class Sequencer {
       validator: opts.validateOnly,
     });
 
-    // Sync to the previous block at least. If we cannot sync to that block because the archiver hasn't caught up,
-    // we keep retrying until the reexecution deadline. Note that this could only happen when we are a validator,
-    // for if we are the proposer, then world-state should already be caught up, as we check this earlier.
-    await retryUntil(
-      () => this.worldState.syncImmediate(blockNumber - 1, true).then(syncedTo => syncedTo >= blockNumber - 1),
-      'sync to previous block',
-      this.timetable.getValidatorReexecTimeEnd(),
-      0.1,
-    );
+    // Sync to the previous block at least
+    await this.worldState.syncImmediate(blockNumber - 1);
     this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state

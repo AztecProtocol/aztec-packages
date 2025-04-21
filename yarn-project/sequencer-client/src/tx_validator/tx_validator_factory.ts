@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import {
   AggregateTxValidator,
-  ArchiveCache,
   BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
@@ -21,6 +20,7 @@ import type {
 import { DatabasePublicStateSource, type PublicStateSource } from '@aztec/stdlib/trees';
 import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
+import { ArchiveCache } from './archive_cache.js';
 import { NullifierCache } from './nullifier_cache.js';
 
 export function createValidatorForAcceptingTxs(

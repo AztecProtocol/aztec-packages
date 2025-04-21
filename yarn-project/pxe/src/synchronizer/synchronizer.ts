@@ -24,7 +24,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private noteDataProvider: NoteDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private l2TipsStore: L2TipsKVStore,
-    config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
+    config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
     loggerOrSuffix?: string | Logger,
   ) {
     this.log =
@@ -34,12 +34,9 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     this.blockStream = this.createBlockStream(config);
   }
 
-  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>>) {
+  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock'>>) {
     return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
-      batchSize: config.l2BlockBatchSize,
-      // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
-      // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
-      skipFinalized: true,
+      startingBlock: config.l2StartingBlock,
     });
   }
 

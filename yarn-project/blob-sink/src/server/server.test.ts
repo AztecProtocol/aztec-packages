@@ -11,8 +11,6 @@ import request from 'supertest';
 
 import { BlobscanBlockResponseSchema } from '../archive/blobscan_archive_client.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
-import { HttpBlobSinkClient } from '../client/http.js';
-import type { BlobSinkClientInterface } from '../client/interface.js';
 import { outboundTransform } from '../encoding/index.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
 import type { BlobSinkConfig } from './config.js';
@@ -22,9 +20,9 @@ describe('BlobSinkService', () => {
   let service: BlobSinkServer;
 
   const startServer = async (
-    config: Partial<BlobSinkConfig & { httpClient: BlobSinkClientInterface; l1Client: ViemPublicClient }> = {},
+    config: Partial<BlobSinkConfig & { blobArchiveClient: BlobArchiveClient; l1Client: ViemPublicClient }> = {},
   ) => {
-    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.httpClient, config.l1Client);
+    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.blobArchiveClient, config.l1Client);
     await service.start();
   };
 
@@ -230,8 +228,7 @@ describe('BlobSinkService', () => {
 
     beforeEach(async () => {
       archiveClient = mock<BlobArchiveClient>();
-      const httpClient = new HttpBlobSinkClient({}, { archiveClient });
-      await startServer({ httpClient });
+      await startServer({ blobArchiveClient: archiveClient });
     });
 
     it('should retrieve the blob from archive and store locally', async () => {
@@ -251,7 +248,7 @@ describe('BlobSinkService', () => {
         await Blob.fromEncodedBlobBuffer(hexToBuffer(getResponse.body.data[0].blob)),
         getResponse.body.data[0].index,
       );
-      expect(retrievedBlobWithIndex.toJSON()).toEqual(expectedBlobWithIndex.toJSON());
+      expect(expectedBlobWithIndex).toEqual(retrievedBlobWithIndex);
 
       // Re-fetching should not hit the archive client again
       const getResponse2 = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}`);

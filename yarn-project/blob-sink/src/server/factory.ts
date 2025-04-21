@@ -1,11 +1,9 @@
 import { getPublicClient } from '@aztec/ethereum';
-import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { hasRemoteBlobSinkSources } from '../client/config.js';
-import { HttpBlobSinkClient } from '../client/http.js';
+import { createBlobArchiveClient } from '../archive/factory.js';
 import type { BlobSinkConfig } from './config.js';
 import { BlobSinkServer } from './server.js';
 
@@ -31,14 +29,9 @@ export async function createBlobSinkServer(
   telemetry?: TelemetryClient,
 ): Promise<BlobSinkServer> {
   const store = await getDataStore(config);
-  const blobClient = hasRemoteBlobSinkSources(config)
-    ? new HttpBlobSinkClient(config, {
-        onBlobDeserializationError: 'trace',
-        logger: createLogger('blob-sink:server:http'),
-      })
-    : undefined;
+  const archiveClient = createBlobArchiveClient(config);
   const { l1ChainId, l1RpcUrls } = config;
   const l1PublicClient = l1ChainId && l1RpcUrls ? getPublicClient({ l1ChainId, l1RpcUrls }) : undefined;
 
-  return new BlobSinkServer(config, store, blobClient, l1PublicClient, telemetry);
+  return new BlobSinkServer(config, store, archiveClient, l1PublicClient, telemetry);
 }

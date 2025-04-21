@@ -357,14 +357,14 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
         .quoted_contents()
 }
 
-/// Injects a call to `aztec::messages::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
+/// Injects a call to `aztec::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
 /// available for the current execution.
 pub(crate) comptime fn create_message_discovery_call() -> Quoted {
     quote {
         /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore
         /// always safe to call.
         unsafe {
-            dep::aztec::messages::discovery::discover_new_messages(
+            dep::aztec::discovery::discover_new_messages(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
             );

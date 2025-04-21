@@ -161,7 +161,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
+            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
             builder.ipa_proof = ipa_proof;
         }
     }
@@ -177,19 +177,14 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
+            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
             builder.ipa_proof = ipa_proof;
         }
     }
 };
 
-using FlavorTypes = ::testing::Types<UltraFlavor,
-                                     UltraKeccakFlavor,
-                                     UltraStarknetFlavor,
-                                     UltraRollupFlavor,
-                                     UltraZKFlavor,
-                                     UltraKeccakZKFlavor,
-                                     UltraStarknetZKFlavor>;
+using FlavorTypes =
+    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
 
 /**

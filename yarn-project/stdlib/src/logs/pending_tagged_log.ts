@@ -16,7 +16,6 @@ export class PendingTaggedLog {
     public firstNullifierInTx: Fr,
     public recipient: AztecAddress,
     public logIndexInTx: number,
-    public txIndexInBlock: number,
   ) {}
 
   toFields(): Fr[] {
@@ -27,7 +26,6 @@ export class PendingTaggedLog {
       this.firstNullifierInTx,
       this.recipient.toField(),
       new Fr(this.logIndexInTx),
-      new Fr(this.txIndexInBlock),
     ];
   }
 }

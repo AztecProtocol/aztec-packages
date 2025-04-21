@@ -5,7 +5,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
-import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEServiceConfig } from '../../config/index.js';
@@ -26,8 +25,7 @@ export function createPXEService(
   useLogSuffix: string | boolean | undefined = undefined,
 ) {
   const simulationProvider = new WASMSimulator();
-  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
-  return createPXEServiceWithSimulationProvider(aztecNode, simulationProviderWithRecorder, config, useLogSuffix);
+  return createPXEServiceWithSimulationProvider(aztecNode, simulationProvider, config, useLogSuffix);
 }
 
 /**
@@ -52,7 +50,6 @@ export async function createPXEServiceWithSimulationProvider(
   const configWithContracts = {
     ...config,
     l1Contracts,
-    l2BlockBatchSize: 200,
   } as PXEServiceConfig;
 
   const store = await createStore(

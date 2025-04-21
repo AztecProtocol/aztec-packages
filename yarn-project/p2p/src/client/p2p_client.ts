@@ -372,11 +372,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info('P2P client stopped.');
   }
 
-  /** Triggers a sync to the archiver. Used for testing. */
-  public async sync() {
-    await this.blockStream.sync();
-  }
-
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
     [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
@@ -445,17 +440,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const txs = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
-
-    // Some transactions may return undefined, so we filter them out
-    const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
-    await this.txPool.addTxs(filteredTxs);
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
+    await this.txPool.addTxs(txs);
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
     this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
-
-    // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
-    return txs;
+    return txs as Tx[];
   }
 
   public getPendingTxs(): Promise<Tx[]> {
@@ -538,8 +528,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes);
-    const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
-    return txs.filter((tx): tx is Tx => !!tx).concat(fetchedMissingTxs);
+    return txs.filter((tx): tx is Tx => !!tx).concat(missingTxs);
   }
 
   /**
@@ -749,7 +738,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info(
       `Detected chain prune. Removing invalid txs count=${
         txsToDelete.length
-      } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
+      } newLatestBlock=${latestBlock} previousLatestBlock=${this.getSyncedLatestBlockNum()}`,
     );
 
     // delete invalid txs (both pending and mined)

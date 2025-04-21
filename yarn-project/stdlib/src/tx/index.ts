@@ -28,4 +28,3 @@ export * from './validator/error_texts.js';
 export * from './capsule.js';
 export * from './global_variable_builder.js';
 export * from './hashed_values.js';
-export * from './indexed_tx_effect.js';

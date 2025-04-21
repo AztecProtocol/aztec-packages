@@ -21,7 +21,6 @@ export class TxProfileResult {
         functionName: 'random',
         bytecode: Buffer.from('random'),
         witness: new Map([[1, 'random']]),
-        vk: Buffer.from('random'),
       },
     ]);
   }

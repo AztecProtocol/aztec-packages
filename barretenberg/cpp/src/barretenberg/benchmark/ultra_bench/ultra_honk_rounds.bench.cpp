@@ -18,7 +18,8 @@ enum {
     LOG_DERIVATIVE_INVERSE,
     GRAND_PRODUCT_COMPUTATION,
     GENERATE_ALPHAS,
-    RELATION_CHECK
+    RELATION_CHECK,
+    ZEROMORPH
 };
 
 /**
@@ -57,6 +58,7 @@ BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t
 
     DeciderProver_<MegaFlavor> decider_prover(prover.proving_key, prover.transcript);
     time_if_index(RELATION_CHECK, [&] { decider_prover.execute_relation_check_rounds(); });
+    time_if_index(ZEROMORPH, [&] { decider_prover.execute_pcs_rounds(); });
 }
 BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {
@@ -89,5 +91,6 @@ ROUND_BENCHMARK(LOG_DERIVATIVE_INVERSE)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
 ROUND_BENCHMARK(GENERATE_ALPHAS)->Iterations(1);
 ROUND_BENCHMARK(RELATION_CHECK);
+ROUND_BENCHMARK(ZEROMORPH);
 
 BENCHMARK_MAIN();

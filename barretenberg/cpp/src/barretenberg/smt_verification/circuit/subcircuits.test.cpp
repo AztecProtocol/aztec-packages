@@ -10,9 +10,13 @@
 
 using namespace bb;
 
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
+
 // Check that all the relative offsets are calculated correctly.
 // I.e. I can find an operand at the index, given by get_standard_range_constraint_circuit
-TEST(Subcircuits, range_circuit)
+TEST(subcircuits, range_circuit)
 {
     for (size_t i = 1; i < 255; i++) {
         smt_subcircuits::CircuitProps range_props = smt_subcircuits::get_standard_range_constraint_circuit(i);
@@ -38,7 +42,7 @@ TEST(Subcircuits, range_circuit)
 }
 // Check that all the relative offsets are calculated correctly.
 // I.e. I can find all three operands at the indices, given by get_standard_logic_circuit
-TEST(Subcircuits, logic_circuit)
+TEST(subcircuits, logic_circuit)
 {
     for (size_t i = 2; i < 256; i += 2) {
         smt_subcircuits::CircuitProps logic_props = smt_subcircuits::get_standard_logic_circuit(i, true);
@@ -67,7 +71,7 @@ TEST(Subcircuits, logic_circuit)
 
 // Check that all the relative offsets are calculated correctly.
 // I.e. I can find all three operands at the indices, given by get_standard_logic_circuit
-TEST(Subcircuits, ror_circuit)
+TEST(subcircuits, ror_circuit)
 {
     for (uint32_t r = 1; r < 8; r += 1) {
         unsigned char n = 8;
@@ -145,7 +149,7 @@ TEST(Subcircuits, ror_circuit)
 
 // Check that all the relative offsets are calculated correctly.
 // I.e. I can find all three operands at the indices, given by get_standard_logic_circuit
-TEST(Subcircuits, shl_circuit)
+TEST(subcircuits, shl_circuit)
 {
     for (uint32_t r = 1; r < 8; r += 1) {
         unsigned char n = 8;
@@ -226,7 +230,7 @@ TEST(Subcircuits, shl_circuit)
 // I can't check the position of the lhs here, since shr doesn't use the witness directly but
 // it's accumulators.
 // However, according to standard_circuit test they seem fine.
-TEST(Subcircuits, shr_circuit)
+TEST(subcircuits, shr_circuit)
 {
     for (uint32_t r = 1; r < 8; r += 2) {
         unsigned char n = 8;

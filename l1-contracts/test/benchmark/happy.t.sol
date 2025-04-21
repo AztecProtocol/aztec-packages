@@ -290,9 +290,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function test_Benchmarking() public {
-    // Do nothing for the first epoch
-    Slot nextSlot = Slot.wrap(EPOCH_DURATION + 1);
-    Epoch nextEpoch = Epoch.wrap(2);
+    Slot nextSlot = Slot.wrap(1);
+    Epoch nextEpoch = Epoch.wrap(1);
 
     rollup.setProvingCostPerMana(
       EthValue.wrap(points[0].outputs.mana_base_fee_components_in_wei.proving_cost)
@@ -386,6 +385,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
               args: args,
               fees: fees,
               blobPublicInputs: blobPublicInputs,
+              aggregationObject: "",
               proof: ""
             })
           );

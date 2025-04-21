@@ -7,13 +7,11 @@ import {
   AvmCircuitPublicInputs,
   AvmExecutionHints,
   type AvmProvingRequest,
-  AvmTxHint,
   type RevertCode,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
   NestedProcessReturnValues,
@@ -24,11 +22,10 @@ import {
 
 import { strict as assert } from 'assert';
 
+import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmSimulator } from '../avm/index.js';
-import { getPublicFunctionDebugName } from '../debug_fn_name.js';
-import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
-import { type PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { NullifierCollisionError } from '../state_manager/nullifiers.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
@@ -55,8 +52,8 @@ export class PublicTxSimulator {
   protected log: Logger;
 
   constructor(
-    private merkleTree: MerkleTreeWriteOperations,
-    private contractsDB: PublicContractsDB,
+    private treesDB: PublicTreesDB,
+    protected contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
@@ -74,15 +71,9 @@ export class PublicTxSimulator {
       const txHash = await this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
-      // Create hinting DBs.
-      const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
-      const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
-      const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
-      const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
-
       const context = await PublicTxContext.create(
-        hintingTreesDB,
-        hintingContractsDB,
+        this.treesDB,
+        this.contractsDB,
         tx,
         this.globalVariables,
         this.doMerkleOperations,
@@ -116,7 +107,7 @@ export class PublicTxSimulator {
       await this.payFee(context);
 
       const publicInputs = await context.generateAvmCircuitPublicInputs();
-      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, hints);
+      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, context.hints);
 
       const revertCode = context.getFinalRevertCode();
 
@@ -276,7 +267,7 @@ export class PublicTxSimulator {
     stateManager.traceEnqueuedCall(callRequest.request);
 
     const result = await this.simulateEnqueuedCallInternal(
-      stateManager,
+      context.state.getActiveStateManager(),
       callRequest,
       allocatedGas,
       /*transactionFee=*/ context.getTransactionFee(phase),
@@ -344,11 +335,7 @@ export class PublicTxSimulator {
   protected async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const stateManager = context.state.getActiveStateManager();
     try {
-      for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
-        n => !n.isEmpty(),
-      )) {
-        await stateManager.writeSiloedNullifier(siloedNullifier);
-      }
+      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
@@ -377,9 +364,7 @@ export class PublicTxSimulator {
     await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
-      for (const siloedNullifier of context.revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty())) {
-        await stateManager.writeSiloedNullifier(siloedNullifier);
-      }
+      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         // Instead of throwing, revert the app_logic phase

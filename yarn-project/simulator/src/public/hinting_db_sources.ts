@@ -24,11 +24,9 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import {
   AppendOnlyTreeSnapshot,
-  type BatchInsertionResult,
   type IndexedTreeId,
   MerkleTreeId,
   type MerkleTreeLeafType,
-  type MerkleTreeWriteOperations,
   NullifierLeaf,
   NullifierLeafPreimage,
   PublicDataTreeLeaf,
@@ -37,11 +35,11 @@ import {
   getTreeName,
   merkleTreeIds,
 } from '@aztec/stdlib/trees';
-import { TreeSnapshots } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
-import type { PublicContractsDBInterface } from './db_interfaces.js';
+import type { PublicContractsDBInterface } from '../common/db_interfaces.js';
+import { PublicTreesDB } from './public_db_sources.js';
 
 /**
  * A public contracts database that forwards requests and collects AVM hints.
@@ -103,10 +101,10 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
 }
 
 /**
- * A low-level merkle DB that collects hints.
+ * A public trees database that forwards requests and collects AVM hints.
  */
-export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
-  private static readonly log: Logger = createLogger('simulator:hinting-merkle-db');
+export class HintingPublicTreesDB extends PublicTreesDB {
+  private static readonly log: Logger = createLogger('HintingPublicTreesDB');
   // This stack is only for debugging purposes.
   // The top of the stack is the current checkpoint id.
   // We need the stack to be non-empty and use 0 as an arbitrary initial checkpoint id.
@@ -115,31 +113,19 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   private nextCheckpointId: number = 1;
   private checkpointActionCounter: number = 0; // yes, a side-effect counter.
 
-  public static async create(db: MerkleTreeWriteOperations, hints: AvmExecutionHints) {
-    const hintingTreesDB = new HintingMerkleWriteOperations(db, hints);
-    const startStateReference = await db.getStateReference();
-    hints.startingTreeRoots = new TreeSnapshots(
-      startStateReference.l1ToL2MessageTree,
-      startStateReference.partial.noteHashTree,
-      startStateReference.partial.nullifierTree,
-      startStateReference.partial.publicDataTree,
-    );
-
-    return hintingTreesDB;
+  constructor(db: PublicTreesDB, private hints: AvmExecutionHints) {
+    super(db);
   }
 
-  // Use create() to instantiate.
-  private constructor(private db: MerkleTreeWriteOperations, private hints: AvmExecutionHints) {}
-
   // Getters.
-  public async getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
-    const path = await this.db.getSiblingPath<N>(treeId, index);
+  public override async getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
+    const path = await super.getSiblingPath<N>(treeId, index);
     const key = await this.getHintKey(treeId);
     this.hints.getSiblingPathHints.push(new AvmGetSiblingPathHint(key, treeId, index, path.toFields()));
     return Promise.resolve(path);
   }
 
-  public async getPreviousValueIndex<ID extends IndexedTreeId>(
+  public override async getPreviousValueIndex<ID extends IndexedTreeId>(
     treeId: ID,
     value: bigint,
   ): Promise<
@@ -149,7 +135,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
       }
     | undefined
   > {
-    const result = await this.db.getPreviousValueIndex(treeId, value);
+    const result = await super.getPreviousValueIndex(treeId, value);
     if (result === undefined) {
       throw new Error(
         `getPreviousValueIndex(${getTreeName(
@@ -164,11 +150,11 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return result;
   }
 
-  public async getLeafPreimage<ID extends IndexedTreeId>(
+  public override async getLeafPreimage<ID extends IndexedTreeId>(
     treeId: ID,
     index: bigint,
   ): Promise<IndexedTreeLeafPreimage | undefined> {
-    const preimage = await this.db.getLeafPreimage<ID>(treeId, index);
+    const preimage = await super.getLeafPreimage<ID>(treeId, index);
     if (preimage) {
       const key = await this.getHintKey(treeId);
 
@@ -193,14 +179,14 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return preimage;
   }
 
-  public async getLeafValue<ID extends MerkleTreeId>(
+  public override async getLeafValue<ID extends MerkleTreeId>(
     treeId: ID,
     index: bigint,
   ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
     // Use getLeafPreimage for PublicDataTree and NullifierTree.
     assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
 
-    const value = await this.db.getLeafValue<ID>(treeId, index);
+    const value = await super.getLeafValue<ID>(treeId, index);
     if (value) {
       const key = await this.getHintKey(treeId);
       // We can cast to Fr because we know the type of the tree.
@@ -213,7 +199,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   // State modification.
   // FIXME(fcarreiro): This is a horrible interface (in the merkle ops). It's receiving the leaves as buffers,
   // from a leaf class that is NOT the one that will be used to write. Make this type safe.
-  public async sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
+  public override async sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
     treeId: ID,
     leaves: Buffer[],
   ): Promise<SequentialInsertionResult<TreeHeight>> {
@@ -224,10 +210,11 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     const beforeState = await this.getHintKey(treeId);
 
-    const result = await this.db.sequentialInsert<TreeHeight, ID>(treeId, leaves);
+    const result = await super.sequentialInsert<TreeHeight, ID>(treeId, leaves);
 
     const afterState = await this.getHintKey(treeId);
-    HintingMerkleWriteOperations.logTreeChange('sequentialInsert', beforeState, afterState, treeId);
+    HintingPublicTreesDB.log.debug('[sequentialInsert] Evolved tree state.');
+    HintingPublicTreesDB.logTreeChange(beforeState, afterState, treeId);
 
     switch (treeId) {
       case MerkleTreeId.PUBLIC_DATA_TREE:
@@ -278,50 +265,62 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return result;
   }
 
-  public async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
+  public override async appendLeaves<ID extends MerkleTreeId>(
+    treeId: ID,
+    leaves: MerkleTreeLeafType<ID>[],
+  ): Promise<void> {
     // Use sequentialInsert for PublicDataTree and NullifierTree.
     assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
 
-    // We need to process each leaf individually because we need the sibling path after insertion, to be able to constraint the insertion.
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13380): This can be changed if the world state appendLeaves returns the sibling paths.
-    for (const leaf of leaves) {
-      await this.appendLeafInternal(treeId, leaf);
+    if (leaves.length === 0) {
+      return;
     }
+
+    const beforeState = await this.getHintKey(treeId);
+
+    await super.appendLeaves<ID>(treeId, leaves);
+
+    const afterState = await this.getHintKey(treeId);
+
+    HintingPublicTreesDB.log.debug('[appendLeaves] Evolved tree state.');
+    HintingPublicTreesDB.logTreeChange(beforeState, afterState, treeId);
+
+    this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, leaves as Fr[]));
   }
 
-  public async createCheckpoint(): Promise<void> {
+  public override async createCheckpoint(): Promise<void> {
     const actionCounter = this.checkpointActionCounter++;
     const oldCheckpointId = this.getCurrentCheckpointId();
     const treesStateHash = await this.getTreesStateHash();
 
-    await this.db.createCheckpoint();
+    await super.createCheckpoint();
     this.checkpointStack.push(this.nextCheckpointId++);
     const newCheckpointId = this.getCurrentCheckpointId();
 
     this.hints.createCheckpointHints.push(new AvmCreateCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
-    HintingMerkleWriteOperations.log.trace(
+    HintingPublicTreesDB.log.debug(
       `[createCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
 
-  public async commitCheckpoint(): Promise<void> {
+  public override async commitCheckpoint(): Promise<void> {
     const actionCounter = this.checkpointActionCounter++;
     const oldCheckpointId = this.getCurrentCheckpointId();
     const treesStateHash = await this.getTreesStateHash();
 
-    await this.db.commitCheckpoint();
+    await super.commitCheckpoint();
     this.checkpointStack.pop();
     const newCheckpointId = this.getCurrentCheckpointId();
 
     this.hints.commitCheckpointHints.push(new AvmCommitCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
-    HintingMerkleWriteOperations.log.trace(
+    HintingPublicTreesDB.log.debug(
       `[commitCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
 
-  public async revertCheckpoint(): Promise<void> {
+  public override async revertCheckpoint(): Promise<void> {
     const actionCounter = this.checkpointActionCounter++;
     const oldCheckpointId = this.getCurrentCheckpointId();
     const treesStateHash = await this.getTreesStateHash();
@@ -334,7 +333,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
       [MerkleTreeId.ARCHIVE]: await this.getHintKey(MerkleTreeId.ARCHIVE),
     };
 
-    await this.db.revertCheckpoint();
+    await super.revertCheckpoint();
     this.checkpointStack.pop();
     const newCheckpointId = this.getCurrentCheckpointId();
 
@@ -350,17 +349,17 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
       AvmRevertCheckpointHint.create(actionCounter, oldCheckpointId, newCheckpointId, beforeState, afterState),
     );
 
-    HintingMerkleWriteOperations.log.trace(
+    HintingPublicTreesDB.log.debug(
       `[revertCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
     for (const treeId of merkleTreeIds()) {
-      HintingMerkleWriteOperations.logTreeChange('revertCheckpoint', beforeState[treeId], afterState[treeId], treeId);
+      HintingPublicTreesDB.logTreeChange(beforeState[treeId], afterState[treeId], treeId);
     }
   }
 
   // Private methods.
   private async getHintKey(treeId: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
-    const treeInfo = await this.db.getTreeInfo(treeId);
+    const treeInfo = await super.getTreeInfo(treeId);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }
 
@@ -370,94 +369,18 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
   // For logging/debugging purposes.
   private async getTreesStateHash(): Promise<Fr> {
-    const stateReferenceFields = (await this.db.getStateReference()).toFields();
+    const stateReferenceFields = (await super.getStateReference()).toFields();
     return Fr.fromBuffer(sha256Trunc(Buffer.concat(stateReferenceFields.map(field => field.toBuffer()))));
   }
 
   private static logTreeChange(
-    action: string,
     beforeState: AppendOnlyTreeSnapshot,
     afterState: AppendOnlyTreeSnapshot,
     treeId: MerkleTreeId,
   ) {
     const treeName = getTreeName(treeId);
-    HintingMerkleWriteOperations.log.trace(
-      `[${action}] ${treeName} tree state: ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${afterState.root}, ${afterState.nextAvailableLeafIndex}.`,
+    HintingPublicTreesDB.log.debug(
+      `[${treeName}] Evolved tree state: ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${afterState.root}, ${afterState.nextAvailableLeafIndex}.`,
     );
-  }
-
-  private async appendLeafInternal<ID extends MerkleTreeId, N extends number>(
-    treeId: ID,
-    leaf: MerkleTreeLeafType<ID>,
-  ): Promise<SiblingPath<N>> {
-    // Use sequentialInsert for PublicDataTree and NullifierTree.
-    assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
-
-    const beforeState = await this.getHintKey(treeId);
-
-    await this.db.appendLeaves<ID>(treeId, [leaf]);
-
-    const afterState = await this.getHintKey(treeId);
-
-    HintingMerkleWriteOperations.logTreeChange('appendLeaves', beforeState, afterState, treeId);
-
-    this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, [leaf as Fr]));
-
-    return await this.getSiblingPath<N>(treeId, BigInt(beforeState.nextAvailableLeafIndex));
-  }
-
-  // Non-hinted required methods from MerkleTreeWriteOperations interface
-  public async getTreeInfo(treeId: MerkleTreeId) {
-    return await this.db.getTreeInfo(treeId);
-  }
-
-  public async getStateReference() {
-    return await this.db.getStateReference();
-  }
-
-  public getInitialHeader() {
-    return this.db.getInitialHeader();
-  }
-
-  public async updateArchive(header: any): Promise<void> {
-    return await this.db.updateArchive(header);
-  }
-
-  public async batchInsert<
-    TreeHeight extends number,
-    SubtreeSiblingPathHeight extends number,
-    ID extends IndexedTreeId,
-  >(
-    treeId: ID,
-    leaves: Buffer[],
-    subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
-    return await this.db.batchInsert<TreeHeight, SubtreeSiblingPathHeight, ID>(treeId, leaves, subtreeHeight);
-  }
-
-  public async close(): Promise<void> {
-    return await this.db.close();
-  }
-
-  public async findLeafIndices<ID extends MerkleTreeId>(
-    treeId: ID,
-    values: MerkleTreeLeafType<ID>[],
-  ): Promise<(bigint | undefined)[]> {
-    return await this.db.findLeafIndices(treeId, values);
-  }
-
-  public async findLeafIndicesAfter<ID extends MerkleTreeId>(
-    treeId: ID,
-    values: MerkleTreeLeafType<ID>[],
-    startIndex: bigint,
-  ): Promise<(bigint | undefined)[]> {
-    return await this.db.findLeafIndicesAfter(treeId, values, startIndex);
-  }
-
-  public async getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
-    treeId: ID,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
-    return await this.db.getBlockNumbersForLeafIndices(treeId, leafIndices);
   }
 }

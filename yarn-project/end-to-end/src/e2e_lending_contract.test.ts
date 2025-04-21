@@ -72,7 +72,7 @@ describe('e2e_lending_contract', () => {
 
     lendingAccount = new LendingAccount(wallet.getAddress(), new Fr(42));
 
-    // Also specified in `noir-contracts/contracts/app/lending_contract/src/main.nr`
+    // Also specified in `noir-contracts/contracts/lending_contract/src/main.nr`
     const rate = 1268391679n;
     lendingSim = new LendingSimulator(
       cc,

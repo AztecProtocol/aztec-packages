@@ -1,7 +1,5 @@
 #pragma once
 
-#include <memory>
-
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -15,8 +13,6 @@ class EccTraceBuilder final {
                      TraceContainer& trace);
     void process_scalar_mul(const simulation::EventEmitterInterface<simulation::ScalarMulEvent>::Container& events,
                             TraceContainer& trace);
-
-    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs();
 };
 
 } // namespace bb::avm2::tracegen

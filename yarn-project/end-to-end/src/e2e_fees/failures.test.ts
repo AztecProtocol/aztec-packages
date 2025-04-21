@@ -97,8 +97,6 @@ describe('e2e_fees failures', () => {
 
     expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
 
-    const { sequencerBlockRewards } = await t.getBlockRewards();
-
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
     await t.context.watcher.trigger();
@@ -108,9 +106,7 @@ describe('e2e_fees failures', () => {
     const feeAmount = txReceipt.transactionFee!;
     const expectedProverFee = await t.getProverFee(txReceipt.blockNumber!);
     const newSequencerRewards = await t.getCoinbaseSequencerRewards();
-    expect(newSequencerRewards).toEqual(
-      currentSequencerRewards + sequencerBlockRewards + feeAmount - expectedProverFee,
-    );
+    expect(newSequencerRewards).toEqual(currentSequencerRewards + feeAmount - expectedProverFee);
 
     // and thus we paid the fee
     await expectMapping(

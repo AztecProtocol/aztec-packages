@@ -12,6 +12,26 @@ import {
   OutputType,
 } from '../serialize/index.js';
 import { Fr, Fq, Point, Buffer32, Buffer128, Ptr } from '../types/index.js';
+function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): number[] {
+  const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+
+  let offset = 0;
+  let count = buffer.byteLength >>> 2; // default is entire buffer length / 4
+
+  if (hasSizePrefix) {
+    // Read the first 4 bytes as the size (big-endian).
+    count = dv.getUint32(0, /* littleEndian= */ false);
+    offset = 4;
+  }
+
+  const out: number[] = new Array(count);
+  for (let i = 0; i < count; i++) {
+    out[i] = dv.getUint32(offset, false);
+    offset += 4;
+  }
+
+  return out;
+}
 
 export class BarretenbergApi {
   constructor(protected wasm: BarretenbergWasmWorker | BarretenbergWasmMain) {}
@@ -76,6 +96,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async poseidon2HashAccumulate(inputsBuffer: Fr[]): Promise<Fr> {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Fr];
+    const result = await this.wasm.callWasmExport(
+      'poseidon2_hash_accumulate',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async poseidon2Hashes(inputsBuffer: Fr[]): Promise<Fr> {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
@@ -93,18 +125,6 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
     const result = await this.wasm.callWasmExport(
       'poseidon2_permutation',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async poseidon2HashAccumulate(inputsBuffer: Fr[]): Promise<Fr> {
-    const inArgs = [inputsBuffer].map(serializeBufferable);
-    const outTypes: OutputType[] = [Fr];
-    const result = await this.wasm.callWasmExport(
-      'poseidon2_hash_accumulate',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -134,6 +154,127 @@ export class BarretenbergApi {
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out[0];
+  }
+
+  async schnorrComputePublicKey(privateKey: Fr): Promise<Point> {
+    const inArgs = [privateKey].map(serializeBufferable);
+    const outTypes: OutputType[] = [Point];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_compute_public_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async schnorrNegatePublicKey(publicKeyBuffer: Point): Promise<Point> {
+    const inArgs = [publicKeyBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Point];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_negate_public_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async schnorrConstructSignature(message: Uint8Array, privateKey: Fr): Promise<[Buffer32, Buffer32]> {
+    const inArgs = [message, privateKey].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer32, Buffer32];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_construct_signature',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  async schnorrVerifySignature(message: Uint8Array, pubKey: Point, sigS: Buffer32, sigE: Buffer32): Promise<boolean> {
+    const inArgs = [message, pubKey, sigS, sigE].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_verify_signature',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async schnorrMultisigCreateMultisigPublicKey(privateKey: Fq): Promise<Buffer128> {
+    const inArgs = [privateKey].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer128];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_multisig_create_multisig_public_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async schnorrMultisigValidateAndCombineSignerPubkeys(signerPubkeyBuf: Buffer128[]): Promise<[Point, boolean]> {
+    const inArgs = [signerPubkeyBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [Point, BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_multisig_validate_and_combine_signer_pubkeys',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  async schnorrMultisigConstructSignatureRound1(): Promise<[Buffer128, Buffer128]> {
+    const inArgs = [].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer128, Buffer128];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_multisig_construct_signature_round_1',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  async schnorrMultisigConstructSignatureRound2(
+    message: Uint8Array,
+    privateKey: Fq,
+    signerRoundOnePrivateBuf: Buffer128,
+    signerPubkeysBuf: Buffer128[],
+    roundOnePublicBuf: Buffer128[],
+  ): Promise<[Fq, boolean]> {
+    const inArgs = [message, privateKey, signerRoundOnePrivateBuf, signerPubkeysBuf, roundOnePublicBuf].map(
+      serializeBufferable,
+    );
+    const outTypes: OutputType[] = [Fq, BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_multisig_construct_signature_round_2',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  async schnorrMultisigCombineSignatures(
+    message: Uint8Array,
+    signerPubkeysBuf: Buffer128[],
+    roundOneBuf: Buffer128[],
+    roundTwoBuf: Fq[],
+  ): Promise<[Buffer32, Buffer32, boolean]> {
+    const inArgs = [message, signerPubkeysBuf, roundOneBuf, roundTwoBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer32, Buffer32, BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'schnorr_multisig_combine_signatures',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
   }
 
   async aesEncryptBufferCbc(input: Uint8Array, iv: Uint8Array, key: Uint8Array, length: number): Promise<Uint8Array> {
@@ -233,7 +374,22 @@ export class BarretenbergApi {
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
+    return out as [number, number];
+  }
+
+  async acirGatesAztecClient(
+    // cf acirProveAztecClient
+    acirVec: Uint8Array[],
+  ): Promise<number[]> {
+    const inArgs = [acirVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const resultBuffer = await this.wasm.callWasmExport(
+      'acir_gates_aztec_client',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+
+    return parseBigEndianU32Array(resultBuffer[0], /*hasSizePrefix=*/ true);
   }
 
   async acirNewAcirComposer(sizeHint: number): Promise<Ptr> {
@@ -289,7 +445,10 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
+  async acirProveAndVerifyUltraHonk(
+    constraintSystemBuf: Uint8Array,
+    witnessBuf: Uint8Array,
+  ): Promise<boolean> {
     const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -301,35 +460,14 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveAndVerifyMegaHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
+  async acirProveAndVerifyMegaHonk(
+    constraintSystemBuf: Uint8Array,
+    witnessBuf: Uint8Array,
+  ): Promise<boolean> {
     const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_and_verify_mega_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async acirProveAztecClient(ivcInputsBuf: Uint8Array): Promise<[Uint8Array, Uint8Array]> {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_prove_aztec_client',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
-  }
-
-  async acirVerifyAztecClient(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_verify_aztec_client',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -409,18 +547,6 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirHonkSolidityVerifier(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<string> {
-    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [StringDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_honk_solidity_verifier',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   async acirSerializeProofIntoFields(
     acirComposerPtr: Ptr,
     proofBuf: Uint8Array,
@@ -449,6 +575,42 @@ export class BarretenbergApi {
     return out as any;
   }
 
+  async acirProveAndVerifyAztecClient(acirVec: Uint8Array[], witnessVec: Uint8Array[]): Promise<boolean> {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_and_verify_aztec_client',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirProveAztecClient(acirVec: Uint8Array[], witnessVec: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_aztec_client',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return [out[0], out[1]];
+  }
+
+  async acirVerifyAztecClient(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_verify_aztec_client',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirProveUltraHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
@@ -466,18 +628,6 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_ultra_keccak_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async acirProveUltraStarknetHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
-    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_prove_ultra_starknet_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -509,18 +659,6 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirVerifyUltraStarknetHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_verify_ultra_starknet_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   async acirWriteVkUltraHonk(acirVec: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
@@ -545,11 +683,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirWriteVkUltraStarknetHonk(acirVec: Uint8Array): Promise<Uint8Array> {
-    const inArgs = [acirVec].map(serializeBufferable);
+  async acirHonkSolidityVerifier(acirVec: Uint8Array, vkBuf: Uint8Array): Promise<string> {
+    const inArgs = [acirVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_write_vk_ultra_starknet_honk',
+      'acir_honk_solidity_verifier',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -586,18 +724,6 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
     const result = await this.wasm.callWasmExport(
       'acir_vk_as_fields_mega_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async acirGatesAztecClient(ivcInputsBuf: Uint8Array): Promise<Uint8Array> {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_gates_aztec_client',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -668,6 +794,18 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
+  poseidon2HashAccumulate(inputsBuffer: Fr[]): Fr {
+    const inArgs = [inputsBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Fr];
+    const result = this.wasm.callWasmExport(
+      'poseidon2_hash_accumulate',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   poseidon2Hashes(inputsBuffer: Fr[]): Fr {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
@@ -685,18 +823,6 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
     const result = this.wasm.callWasmExport(
       'poseidon2_permutation',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  poseidon2HashAccumulate(inputsBuffer: Fr[]): Fr {
-    const inArgs = [inputsBuffer].map(serializeBufferable);
-    const outTypes: OutputType[] = [Fr];
-    const result = this.wasm.callWasmExport(
-      'poseidon2_hash_accumulate',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -726,6 +852,127 @@ export class BarretenbergApiSync {
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return out[0];
+  }
+
+  schnorrComputePublicKey(privateKey: Fr): Point {
+    const inArgs = [privateKey].map(serializeBufferable);
+    const outTypes: OutputType[] = [Point];
+    const result = this.wasm.callWasmExport(
+      'schnorr_compute_public_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  schnorrNegatePublicKey(publicKeyBuffer: Point): Point {
+    const inArgs = [publicKeyBuffer].map(serializeBufferable);
+    const outTypes: OutputType[] = [Point];
+    const result = this.wasm.callWasmExport(
+      'schnorr_negate_public_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  schnorrConstructSignature(message: Uint8Array, privateKey: Fr): [Buffer32, Buffer32] {
+    const inArgs = [message, privateKey].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer32, Buffer32];
+    const result = this.wasm.callWasmExport(
+      'schnorr_construct_signature',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  schnorrVerifySignature(message: Uint8Array, pubKey: Point, sigS: Buffer32, sigE: Buffer32): boolean {
+    const inArgs = [message, pubKey, sigS, sigE].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'schnorr_verify_signature',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  schnorrMultisigCreateMultisigPublicKey(privateKey: Fq): Buffer128 {
+    const inArgs = [privateKey].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer128];
+    const result = this.wasm.callWasmExport(
+      'schnorr_multisig_create_multisig_public_key',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  schnorrMultisigValidateAndCombineSignerPubkeys(signerPubkeyBuf: Buffer128[]): [Point, boolean] {
+    const inArgs = [signerPubkeyBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [Point, BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'schnorr_multisig_validate_and_combine_signer_pubkeys',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  schnorrMultisigConstructSignatureRound1(): [Buffer128, Buffer128] {
+    const inArgs = [].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer128, Buffer128];
+    const result = this.wasm.callWasmExport(
+      'schnorr_multisig_construct_signature_round_1',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  schnorrMultisigConstructSignatureRound2(
+    message: Uint8Array,
+    privateKey: Fq,
+    signerRoundOnePrivateBuf: Buffer128,
+    signerPubkeysBuf: Buffer128[],
+    roundOnePublicBuf: Buffer128[],
+  ): [Fq, boolean] {
+    const inArgs = [message, privateKey, signerRoundOnePrivateBuf, signerPubkeysBuf, roundOnePublicBuf].map(
+      serializeBufferable,
+    );
+    const outTypes: OutputType[] = [Fq, BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'schnorr_multisig_construct_signature_round_2',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
+  }
+
+  schnorrMultisigCombineSignatures(
+    message: Uint8Array,
+    signerPubkeysBuf: Buffer128[],
+    roundOneBuf: Buffer128[],
+    roundTwoBuf: Fq[],
+  ): [Buffer32, Buffer32, boolean] {
+    const inArgs = [message, signerPubkeysBuf, roundOneBuf, roundTwoBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer32, Buffer32, BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'schnorr_multisig_combine_signatures',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out as any;
   }
 
   aesEncryptBufferCbc(input: Uint8Array, iv: Uint8Array, key: Uint8Array, length: number): Uint8Array {
@@ -812,7 +1059,11 @@ export class BarretenbergApiSync {
     return;
   }
 
-  acirGetCircuitSizes(constraintSystemBuf: Uint8Array, recursive: boolean, honkRecursion: boolean): [number, number] {
+  acirGetCircuitSizes(
+    constraintSystemBuf: Uint8Array,
+    recursive: boolean,
+    honkRecursion: boolean,
+  ): [number, number, number] {
     const inArgs = [constraintSystemBuf, recursive, honkRecursion].map(serializeBufferable);
     const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -901,30 +1152,6 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveAztecClient(ivcInputsBuf: Uint8Array): [Uint8Array, Uint8Array] {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_prove_aztec_client',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out as any;
-  }
-
-  acirVerifyAztecClient(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
-    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_verify_aztec_client',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   acirLoadVerificationKey(acirComposerPtr: Ptr, vkBuf: Uint8Array): void {
     const inArgs = [acirComposerPtr, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [];
@@ -997,18 +1224,6 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirHonkSolidityVerifier(proofBuf: Uint8Array, vkBuf: Uint8Array): string {
-    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [StringDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_honk_solidity_verifier',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   acirSerializeProofIntoFields(acirComposerPtr: Ptr, proofBuf: Uint8Array, numInnerPublicInputs: number): Fr[] {
     const inArgs = [acirComposerPtr, proofBuf, numInnerPublicInputs].map(serializeBufferable);
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
@@ -1045,18 +1260,6 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveUltraKeccakHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Uint8Array {
-    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_prove_ultra_keccak_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   acirVerifyUltraHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
@@ -1069,35 +1272,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirVerifyUltraKeccakHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): boolean {
-    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_verify_ultra_keccak_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   acirWriteVkUltraHonk(acirVec: Uint8Array): Uint8Array {
     const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_write_vk_ultra_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  acirWriteVkUltraKeccakHonk(acirVec: Uint8Array): Uint8Array {
-    const inArgs = [acirVec].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_write_vk_ultra_keccak_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1134,18 +1313,6 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [VectorDeserializer(Fr)];
     const result = this.wasm.callWasmExport(
       'acir_vk_as_fields_mega_honk',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  acirGatesAztecClient(ivcInputsBuf: Uint8Array): Uint8Array {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_gates_aztec_client',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

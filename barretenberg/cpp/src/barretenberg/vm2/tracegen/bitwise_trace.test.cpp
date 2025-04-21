@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -28,9 +27,10 @@ TEST(BitwiseTraceGenTest, U1And)
         {
             {
                 .operation = BitwiseOperation::AND,
-                .a = MemoryValue::from(uint1_t(0)),
-                .b = MemoryValue::from(uint1_t(1)),
-                .res = MemoryValue::from(uint1_t(0)),
+                .tag = MemoryTag::U1,
+                .a = 0,
+                .b = 1,
+                .res = 0,
             },
         },
         trace);
@@ -77,9 +77,10 @@ TEST(BitwiseTraceGenTest, U32And)
         {
             {
                 .operation = BitwiseOperation::AND,
-                .a = MemoryValue::from<uint32_t>(0x52488425),
-                .b = MemoryValue::from<uint32_t>(0xC684486C),
-                .res = MemoryValue::from<uint32_t>(0x42000024),
+                .tag = MemoryTag::U32,
+                .a = 0x52488425,
+                .b = 0xC684486C,
+                .res = 0x42000024,
             },
         },
         trace);

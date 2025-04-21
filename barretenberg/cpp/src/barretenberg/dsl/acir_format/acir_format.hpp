@@ -2,7 +2,7 @@
 #include "aes128_constraint.hpp"
 
 #ifndef DISABLE_AZTEC_VM
-#include "avm2_recursion_constraint.hpp"
+#include "avm_recursion_constraint.hpp"
 #endif
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -269,5 +269,27 @@ template <typename Builder> class GateCounter {
     bool collect_gates_per_opcode;
     size_t prev_gate_count{};
 };
+
+void process_plonk_recursion_constraints(Builder& builder,
+                                         AcirFormat& constraint_system,
+                                         bool has_valid_witness_assignments,
+                                         GateCounter<Builder>& gate_counter);
+void process_honk_recursion_constraints(Builder& builder,
+                                        AcirFormat& constraint_system,
+                                        bool has_valid_witness_assignments,
+                                        GateCounter<Builder>& gate_counter,
+                                        uint32_t honk_recursion);
+
+void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
+                                       AcirFormat& constraints,
+                                       ClientIVC* ivc,
+                                       bool has_valid_witness_assignments,
+                                       GateCounter<MegaCircuitBuilder>& gate_counter);
+
+#ifndef DISABLE_AZTEC_VM
+void process_avm_recursion_constraints(Builder& builder,
+                                       AcirFormat& constraint_system,
+                                       GateCounter<Builder>& gate_counter);
+#endif
 
 } // namespace acir_format

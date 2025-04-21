@@ -11,7 +11,6 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
  * @param nextSeed - The seed used to influence the NEXT epoch
  */
 struct EpochData {
-  // TODO: remove in favor of commitment to comittee
   address[] committee;
   uint256 sampleSeed;
   uint256 nextSeed;

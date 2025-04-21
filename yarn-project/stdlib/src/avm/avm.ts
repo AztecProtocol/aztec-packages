@@ -10,7 +10,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
-import { GlobalVariables, TreeSnapshots, type Tx } from '../tx/index.js';
+import { TreeSnapshots, type Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -402,7 +402,6 @@ export class AvmEnqueuedCallHint {
 export class AvmTxHint {
   constructor(
     public readonly hash: string,
-    public readonly globalVariables: GlobalVariables,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -430,7 +429,6 @@ export class AvmTxHint {
 
     return new AvmTxHint(
       txHash.hash.toString(),
-      tx.data.constants.historicalHeader.globalVariables,
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -469,22 +467,13 @@ export class AvmTxHint {
   }
 
   static empty() {
-    return new AvmTxHint(
-      '',
-      GlobalVariables.empty(),
-      { noteHashes: [], nullifiers: [] },
-      { noteHashes: [], nullifiers: [] },
-      [],
-      [],
-      null,
-    );
+    return new AvmTxHint('', { noteHashes: [], nullifiers: [] }, { noteHashes: [], nullifiers: [] }, [], [], null);
   }
 
   static get schema() {
     return z
       .object({
         hash: z.string(),
-        globalVariables: GlobalVariables.schema,
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
@@ -500,7 +489,6 @@ export class AvmTxHint {
       .transform(
         ({
           hash,
-          globalVariables,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
@@ -509,7 +497,6 @@ export class AvmTxHint {
         }) =>
           new AvmTxHint(
             hash,
-            globalVariables,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,
@@ -528,7 +515,6 @@ export class AvmExecutionHints {
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     // Merkle DB hints.
-    public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
     public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
     public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
@@ -553,7 +539,6 @@ export class AvmExecutionHints {
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
-        startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
         getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
@@ -572,7 +557,6 @@ export class AvmExecutionHints {
           contractInstances,
           contractClasses,
           bytecodeCommitments,
-          startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
           getLeafPreimageHintsPublicDataTree,
@@ -590,7 +574,6 @@ export class AvmExecutionHints {
             contractInstances,
             contractClasses,
             bytecodeCommitments,
-            startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,
             getLeafPreimageHintsPublicDataTree,

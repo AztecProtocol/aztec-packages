@@ -11,14 +11,14 @@ class InstA {
   static readonly opcode: number = 1;
 
   // Expects opcode.
-  public static fromBuffer(buf: BufferCursor): InstA {
+  public static deserialize(buf: BufferCursor): InstA {
     const opcode: number = buf.readUint8();
     assert(opcode == InstA.opcode);
     return new InstA(buf.readUint16BE());
   }
 
   // Includes opcode.
-  public toBuffer(): Buffer {
+  public serialize(): Buffer {
     const buf = Buffer.alloc(1 + 2);
     buf.writeUint8(InstA.opcode);
     buf.writeUint16BE(this.n, 1);
@@ -38,7 +38,7 @@ class InstB {
   }
 
   // Includes opcode.
-  public toBuffer(): Buffer {
+  public serialize(): Buffer {
     const buf = Buffer.alloc(1 + 8);
     buf.writeUint8(InstB.opcode);
     buf.writeBigInt64BE(this.n, 1);
@@ -49,12 +49,12 @@ class InstB {
 describe('Bytecode Serialization', () => {
   it('Should deserialize using instruction set', () => {
     const instructionSet: InstructionSet = new Map<Opcode, any>([
-      [InstA.opcode, InstA.fromBuffer],
+      [InstA.opcode, InstA.deserialize],
       [InstB.opcode, InstB.deserialize],
     ]);
     const a = new InstA(0x1234);
     const b = new InstB(0x5678n);
-    const bytecode = Buffer.concat([a.toBuffer(), b.toBuffer()]);
+    const bytecode = Buffer.concat([a.serialize(), b.serialize()]);
 
     const actual = decodeFromBytecode(bytecode, instructionSet);
 
@@ -67,7 +67,7 @@ describe('Bytecode Serialization', () => {
 
     const actual = encodeToBytecode([a, b]);
 
-    const expected = Buffer.concat([a.toBuffer(), b.toBuffer()]);
+    const expected = Buffer.concat([a.serialize(), b.serialize()]);
     expect(actual).toEqual(expected);
   });
 
@@ -94,7 +94,7 @@ describe('Bytecode Serialization', () => {
         /*argsSize=*/ 0xc234,
       ),
     ];
-    const bytecode = Buffer.concat(instructions.map(i => i.toBuffer()));
+    const bytecode = Buffer.concat(instructions.map(i => i.serialize()));
 
     const actual = decodeFromBytecode(bytecode);
 
@@ -127,7 +127,7 @@ describe('Bytecode Serialization', () => {
 
     const actual = encodeToBytecode(instructions);
 
-    const expected = Buffer.concat(instructions.map(i => i.toBuffer()));
+    const expected = Buffer.concat(instructions.map(i => i.serialize()));
     expect(actual).toEqual(expected);
   });
 
@@ -145,7 +145,7 @@ describe('Bytecode Serialization', () => {
   it('Should throw an InvalidOpcodeError while deserializing an opcode value not in instruction set', () => {
     const decodeInvalid = () => {
       const instructionSet: InstructionSet = new Map<Opcode, any>([
-        [InstA.opcode, InstA.fromBuffer],
+        [InstA.opcode, InstA.deserialize],
         [InstB.opcode, InstB.deserialize],
       ]);
       const buf = Buffer.alloc(1);

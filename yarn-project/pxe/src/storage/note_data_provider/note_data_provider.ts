@@ -284,18 +284,20 @@ export class NoteDataProvider implements DataProvider {
         const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
         const noteIndex = await this.#nullifierToNoteId.getAsync(nullifier.toString());
         if (!noteIndex) {
-          throw new Error('Nullifier not found in removeNullifiedNotes');
+          continue;
         }
 
         const noteBuffer = noteIndex ? await this.#notes.getAsync(noteIndex) : undefined;
 
         if (!noteBuffer) {
-          throw new Error('Note not found in removeNullifiedNotes');
+          // note doesn't exist. Maybe it got nullified already
+          continue;
         }
         const noteScopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [];
         const note = NoteDao.fromBuffer(noteBuffer);
         if (!note.recipient.equals(recipient)) {
-          throw new Error("Tried to nullify someone else's note");
+          // tried to nullify someone else's note
+          continue;
         }
 
         nullifiedNotes.push(note);

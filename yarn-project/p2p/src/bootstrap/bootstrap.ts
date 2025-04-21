@@ -31,23 +31,19 @@ export class BootstrapNode implements P2PBootstrapApi {
    * @returns An empty promise.
    */
   public async start(config: BootnodeConfig) {
-    const { p2pIp, p2pPort, listenAddress, p2pBroadcastPort } = config;
+    const { p2pIp, p2pPort, listenAddress } = config;
+    const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, p2pPort, 'udp'));
+
     if (!p2pIp) {
       throw new Error('You need to provide a P2P IP address.');
     }
 
-    if (!p2pBroadcastPort) {
-      config.p2pBroadcastPort = p2pPort;
-    }
-
-    const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, config.p2pBroadcastPort!, 'udp'));
-
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
 
     const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
       peerIdPrivateKey,
       p2pIp,
-      config.p2pBroadcastPort!,
+      p2pPort,
       config.l1ChainId,
     );
     this.peerId = peerId;

@@ -41,9 +41,6 @@ class UltraFlavor {
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
-    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
-    // and Shplemini
-    static constexpr bool USE_PADDING = true;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (witness polynomials,
     // precomputed polynomials and shifts). We often need containers of this size to hold related data, so we choose a
@@ -360,6 +357,7 @@ class UltraFlavor {
         {}
         VerificationKey(ProvingKey& proving_key)
         {
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;

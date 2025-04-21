@@ -31,7 +31,6 @@ import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js
 import type { WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateConfig } from './config.js';
-import { WorldStateSynchronizerError } from './errors.js';
 
 export type { SnapshotDataKeys };
 
@@ -172,11 +171,10 @@ export class ServerWorldStateSynchronizer
 
   /**
    * Forces an immediate sync.
-   * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it.
-   * @param skipThrowIfTargetNotReached - Whether to skip throwing if the target block number is not reached.
+   * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it. Throws if cannot be reached.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public async syncImmediate(targetBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number> {
+  public async syncImmediate(targetBlockNumber?: number): Promise<number> {
     if (this.currentState !== WorldStateRunningState.RUNNING || this.blockStream === undefined) {
       throw new Error(`World State is not running. Unable to perform sync.`);
     }
@@ -188,32 +186,13 @@ export class ServerWorldStateSynchronizer
     }
     this.log.debug(`World State at ${currentBlockNumber} told to sync to ${targetBlockNumber ?? 'latest'}`);
 
-    // If the archiver is behind the target block, force an archiver sync
-    if (targetBlockNumber) {
-      const archiverLatestBlock = await this.l2BlockSource.getBlockNumber();
-      if (archiverLatestBlock < targetBlockNumber) {
-        this.log.debug(`Archiver is at ${archiverLatestBlock} behind target block ${targetBlockNumber}.`);
-        await this.l2BlockSource.syncImmediate();
-      }
-    }
-
     // Force the block stream to sync against the archiver now
     await this.blockStream.sync();
 
     // If we have been given a block number to sync to and we have not reached that number then fail
     const updatedBlockNumber = await this.getLatestBlockNumber();
-    if (!skipThrowIfTargetNotReached && targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
-      throw new WorldStateSynchronizerError(
-        `Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`,
-        {
-          cause: {
-            reason: 'block_not_available',
-            previousBlockNumber: currentBlockNumber,
-            updatedBlockNumber,
-            targetBlockNumber,
-          },
-        },
-      );
+    if (targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
+      throw new Error(`Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`);
     }
 
     return updatedBlockNumber;

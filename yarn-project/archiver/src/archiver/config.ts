@@ -3,7 +3,6 @@ import {
   type L1ContractAddresses,
   type L1ContractsConfig,
   type L1ReaderConfig,
-  l1ContractAddressesMapping,
   l1ContractsConfigMappings,
   l1ReaderConfigMappings,
 } from '@aztec/ethereum';
@@ -89,10 +88,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     ...numberConfigHelper(1000),
   },
   ...l1ContractsConfigMappings,
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
 };
 
 /**

@@ -34,9 +34,6 @@
       "path": "../bot"
     },
     {
-      "path": "../cli"
-    },
-    {
       "path": "../constants"
     },
     {

@@ -1,12 +1,11 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { Gas } from '@aztec/stdlib/gas';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { type GlobalVariables, PublicCallRequestWithCalldata, TxExecutionPhase } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
-import type { PublicContractsDB } from '../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { MeasuredPublicTxSimulator } from './measured_public_tx_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
@@ -19,7 +18,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
   public readonly tracer: Tracer;
 
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
+    treesDB: PublicTreesDB,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean = false,
@@ -27,7 +26,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
-    super(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, metrics);
+    super(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, metrics);
     this.tracer = metrics.tracer;
   }
 

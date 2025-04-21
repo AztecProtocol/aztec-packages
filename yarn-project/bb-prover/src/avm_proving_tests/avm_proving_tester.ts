@@ -138,12 +138,13 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     // TODO: Placeholder for now. They get ignored in C++.
     const inputs = await makeAvmCircuitInputs();
 
+    const rawVkPath = path.join(proofRes.vkPath!, 'vk');
     return await verifyAvmProofV2(
       BB_PATH,
       this.bbWorkingDirectory,
       proofRes.proofPath!,
       inputs.publicInputs,
-      proofRes.vkPath!,
+      rawVkPath,
       this.logger,
     );
   }

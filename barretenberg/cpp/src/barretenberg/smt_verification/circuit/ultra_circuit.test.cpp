@@ -17,7 +17,7 @@ using namespace bb;
 using namespace smt_circuit;
 
 namespace {
-auto& engine = numeric::get_randomness();
+auto& engine = numeric::get_debug_randomness();
 }
 
 using field_t = stdlib::field_t<UltraCircuitBuilder>;
@@ -25,7 +25,7 @@ using witness_t = stdlib::witness_t<UltraCircuitBuilder>;
 using pub_witness_t = stdlib::public_witness_t<UltraCircuitBuilder>;
 using uint_t = stdlib::uint32<UltraCircuitBuilder>;
 
-TEST(Ultra_circuit, assert_equal)
+TEST(ultra_circuit, assert_equal)
 {
     auto builder = UltraCircuitBuilder();
 
@@ -64,7 +64,7 @@ TEST(Ultra_circuit, assert_equal)
     ASSERT_EQ(circuit[i.get_witness_index()].term, circuit[j.get_witness_index()].term);
 }
 
-TEST(Ultra_circuit, arithmetic)
+TEST(ultra_circuit, arithmetic)
 {
     UltraCircuitBuilder builder;
 
@@ -87,11 +87,12 @@ TEST(Ultra_circuit, arithmetic)
     bool res = s.check();
     ASSERT_TRUE(res);
 
-    bb::fr c_solver_val = string_to_fr(s[cir["c"]], /*base=*/10);
-    ASSERT_EQ(c_solver_val, c.get_value());
+    std::string c_solver_val = s.getValue(cir["c"]).getFiniteFieldValue();
+    std::string c_builder_val = STerm(c.get_value(), &s, TermType::FFTerm).term.getFiniteFieldValue();
+    ASSERT_EQ(c_solver_val, c_builder_val);
 }
 
-TEST(Ultra_circuit, elliptic_add)
+TEST(ultra_circuit, elliptic_add)
 {
     UltraCircuitBuilder builder;
 
@@ -128,11 +129,11 @@ TEST(Ultra_circuit, elliptic_add)
     bool res = s.check();
     ASSERT_TRUE(res);
 
-    bb::fr x3_solver_val = string_to_fr(s[cir["x3"]], /*base=*/10);
-    bb::fr y3_solver_val = string_to_fr(s[cir["y3"]], /*base=*/10);
+    std::string x3_solver_val = s.getValue(cir["x3"]).getFiniteFieldValue();
+    std::string y3_solver_val = s.getValue(cir["y3"]).getFiniteFieldValue();
 
-    bb::fr x3_builder_val = builder.get_variable(x3);
-    bb::fr y3_builder_val = builder.get_variable(y3);
+    std::string x3_builder_val = STerm(builder.get_variable(x3), &s, TermType::FFTerm).term.getFiniteFieldValue();
+    std::string y3_builder_val = STerm(builder.get_variable(y3), &s, TermType::FFTerm).term.getFiniteFieldValue();
 
     ASSERT_EQ(x3_solver_val, x3_builder_val);
     ASSERT_EQ(y3_solver_val, y3_builder_val);
@@ -144,7 +145,7 @@ TEST(Ultra_circuit, elliptic_add)
     ASSERT_FALSE(res);
 }
 
-TEST(Ultra_circuit, elliptic_dbl)
+TEST(ultra_circuit, elliptic_dbl)
 {
     UltraCircuitBuilder builder;
 
@@ -173,11 +174,11 @@ TEST(Ultra_circuit, elliptic_dbl)
     bool res = s.check();
     ASSERT_TRUE(res);
 
-    bb::fr x3_solver_val = string_to_fr(s[cir["x3"]], /*base=*/10);
-    bb::fr y3_solver_val = string_to_fr(s[cir["y3"]], /*base=*/10);
+    std::string x3_solver_val = s.getValue(cir["x3"]).getFiniteFieldValue();
+    std::string y3_solver_val = s.getValue(cir["y3"]).getFiniteFieldValue();
 
-    bb::fr x3_builder_val = builder.get_variable(x3);
-    bb::fr y3_builder_val = builder.get_variable(y3);
+    std::string x3_builder_val = STerm(builder.get_variable(x3), &s, TermType::FFTerm).term.getFiniteFieldValue();
+    std::string y3_builder_val = STerm(builder.get_variable(y3), &s, TermType::FFTerm).term.getFiniteFieldValue();
 
     ASSERT_EQ(x3_solver_val, x3_builder_val);
     ASSERT_EQ(y3_solver_val, y3_builder_val);
@@ -189,11 +190,11 @@ TEST(Ultra_circuit, elliptic_dbl)
     ASSERT_FALSE(res);
 }
 
-TEST(Ultra_circuit, ranges)
+TEST(ultra_circuit, ranges)
 {
     UltraCircuitBuilder builder;
 
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
+    uint_t a(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
 
@@ -209,12 +210,12 @@ TEST(Ultra_circuit, ranges)
     ASSERT_TRUE(res);
 }
 
-TEST(Ultra_circuit, lookup_tables)
+TEST(ultra_circuit, lookup_tables)
 {
     UltraCircuitBuilder builder;
 
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
-    uint_t b(witness_t(&builder, engine.get_random_uint32()));
+    uint_t a(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
+    uint_t b(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
     uint_t c = a ^ b;
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
@@ -235,17 +236,17 @@ TEST(Ultra_circuit, lookup_tables)
     bool res = s.check();
     ASSERT_TRUE(res);
 
-    bb::fr c_solver_val = string_to_fr(s[cir["c"]], /*base=*/2, /*is_signed=*/false);
-    bb::fr c_builder_val = c.get_value();
+    std::string c_solver_val = s.getValue(cir["c"]).getBitVectorValue();
+    std::string c_builder_val = STerm(c.get_value(), &s, TermType::BVTerm).term.getBitVectorValue();
     ASSERT_EQ(c_solver_val, c_builder_val);
 }
 
-TEST(Ultra_circuit, xor_optimization)
+TEST(ultra_circuit, xor_optimization)
 {
     UltraCircuitBuilder builder;
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
+    uint_t a(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
     builder.set_variable_name(a.get_witness_index(), "a");
-    uint_t b(witness_t(&builder, engine.get_random_uint32()));
+    uint_t b(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
     builder.set_variable_name(b.get_witness_index(), "b");
     uint_t c = a ^ b;
     builder.set_variable_name(c.get_witness_index(), "c");
@@ -264,18 +265,19 @@ TEST(Ultra_circuit, xor_optimization)
 
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
+    std::vector<cvc5::Term> to_model = { circuit["c"] };
+    std::unordered_map<std::string, std::string> model = s.model(to_model);
 
-    bb::fr c_sym = string_to_fr(s[circuit["c"]], /*base=*/2);
-    bb::fr c_builder = c.get_value();
-    ASSERT_EQ(c_sym, c_builder);
+    bb::fr c_sym = string_to_fr(model["c"], 2);
+    ASSERT_EQ(c_sym, c.get_value());
 }
 
-TEST(Ultra_circuit, and_optimization)
+TEST(ultra_circuit, and_optimization)
 {
     UltraCircuitBuilder builder;
-    uint_t a(witness_t(&builder, engine.get_random_uint32()));
+    uint_t a(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
     builder.set_variable_name(a.get_witness_index(), "a");
-    uint_t b(witness_t(&builder, engine.get_random_uint32()));
+    uint_t b(witness_t(&builder, static_cast<uint32_t>(bb::fr::random_element())));
     builder.set_variable_name(b.get_witness_index(), "b");
     uint_t c = a & b;
     builder.set_variable_name(c.get_witness_index(), "c");
@@ -294,8 +296,9 @@ TEST(Ultra_circuit, and_optimization)
 
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
+    std::vector<cvc5::Term> to_model = { circuit["c"] };
+    std::unordered_map<std::string, std::string> model = s.model(to_model);
 
-    bb::fr c_sym = string_to_fr(s[circuit["c"]], /*base=*/2);
-    bb::fr c_builder = c.get_value();
-    ASSERT_EQ(c_sym, c_builder);
+    bb::fr c_sym = string_to_fr(model["c"], 2);
+    ASSERT_EQ(c_sym, c.get_value());
 }

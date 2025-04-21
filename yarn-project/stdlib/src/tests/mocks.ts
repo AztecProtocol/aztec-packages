@@ -78,7 +78,6 @@ export const mockTx = async (
     publicCalldataSize = 2,
     feePayer,
     clientIvcProof = ClientIvcProof.empty(),
-    maxPriorityFeesPerGas,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -87,7 +86,6 @@ export const mockTx = async (
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
-    maxPriorityFeesPerGas?: GasFees;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -97,10 +95,7 @@ export const mockTx = async (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
-  data.constants.txContext.gasSettings = GasSettings.default({
-    maxFeesPerGas: new GasFees(10, 10),
-    maxPriorityFeesPerGas,
-  });
+  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
   data.feePayer = feePayer ?? (await AztecAddress.random());
 
   const publicFunctionCalldata: HashedValues[] = [];

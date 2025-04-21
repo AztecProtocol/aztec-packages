@@ -491,7 +491,7 @@ export async function setup(
       {
         l1ChainId: config.l1ChainId,
         l1RpcUrls: config.l1RpcUrls,
-        l1Contracts: config.l1Contracts,
+        rollupAddress: config.l1Contracts.rollupAddress,
         port: blobSinkPort,
         dataDirectory: config.dataDirectory,
         dataStoreMapSizeKB: config.dataStoreMapSizeKB,
@@ -516,7 +516,7 @@ export async function setup(
     }
     config.l1PublishRetryIntervalMS = 100;
 
-    const blobSinkClient = createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
+    const blobSinkClient = createBlobSinkClient(config);
     const aztecNode = await AztecNodeService.createAndSync(
       config,
       { dateProvider, blobSinkClient, telemetry },
@@ -791,9 +791,7 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
-  const blobSinkClient = createBlobSinkClient(aztecNodeConfig, {
-    logger: createLogger('prover-node:blob-sink:client'),
-  });
+  const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
   const archiver = await createArchiver(archiverConfig, blobSinkClient, {
@@ -828,7 +826,7 @@ export async function createAndSyncProverNode(
     { prefilledPublicData },
   );
   getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.walletClient.account.address });
-  await proverNode.start();
+  proverNode.start();
   return proverNode;
 }
 

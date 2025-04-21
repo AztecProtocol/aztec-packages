@@ -34,7 +34,7 @@ data "terraform_remote_state" "metrics" {
   backend = "gcs"
   config = {
     bucket = "aztec-terraform"
-    prefix = "metrics-deploy/us-west1-a/aztec-gke-private/${var.METRICS_NAMESPACE}/terraform.tfstate"
+    prefix = "metrics-deploy/us-west1-a/aztec-gke-private/metrics/terraform.tfstate"
   }
 }
 

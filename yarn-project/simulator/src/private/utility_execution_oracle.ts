@@ -256,6 +256,10 @@ export class UtilityExecutionOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
+    // TODO(#10558) Remove this check once the debug log is fixed
+    if (message.startsWith('Context.note_hashes, after pushing new note hash:')) {
+      return;
+    }
     this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
@@ -366,19 +370,17 @@ export class UtilityExecutionOracle extends TypedOracle {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    msgContent: Fr[],
+    logContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
-    txIndexInBlock: number,
   ): Promise<void> {
     return this.executionDataProvider.storePrivateEventLog(
       contractAddress,
       recipient,
       eventSelector,
-      msgContent,
+      logContent,
       txHash,
       logIndexInTx,
-      txIndexInBlock,
     );
   }
 }

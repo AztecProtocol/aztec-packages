@@ -1,6 +1,7 @@
 #pragma once
 #include <fstream>
 
+#include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace smt_circuit_schema {
@@ -42,8 +43,7 @@ struct CircuitSchema {
                    real_variable_index,
                    lookup_tables,
                    real_variable_tags,
-                   range_tags,
-                   circuit_finalized);
+                   range_tags);
 };
 
 CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf);

@@ -1,23 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/common/op_count.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
-
-// Constructor
-ClientIVC::ClientIVC(TraceSettings trace_settings)
-    : trace_usage_tracker(trace_settings)
-    , trace_settings(trace_settings)
-    , goblin(bn254_commitment_key)
-{
-    // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
-    // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
-    size_t commitment_key_size =
-        std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-    info("BN254 commitment key size: ", commitment_key_size);
-    bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
-}
 
 /**
  * @brief Instantiate a stdlib verification queue for use in the kernel completion logic
@@ -108,8 +92,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
     // Recursively verify the merge proof for the circuit being recursively verified
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    RecursiveMergeVerifier merge_verifier{ &circuit };
-    [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
+    [[maybe_unused]] AggregationObject pairing_points =
+        GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -186,10 +170,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
-    {
-        PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
-        honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
-    }
+    honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
         vinfo("set honk vk metadata");
@@ -227,7 +208,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
  * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
  * decider proof.
  */
-std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof> ClientIVC::
+std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, ClientIVC::MergeProof> ClientIVC::
     construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
@@ -254,8 +235,7 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    RecursiveMergeVerifier merge_verifier{ &builder };
-    [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(builder, stdlib_merge_proof);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
@@ -280,8 +260,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);
 
-    auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
+    auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
+    honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
 
     return { decider_pk, merge_proof };
 }
@@ -294,12 +274,17 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
 std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
 {
     auto [decider_pk, merge_proof] = construct_hiding_circuit_key();
-    // FoldingRecursiveVerifier circuit is proven by a MegaZKProver
-    MegaZKProver prover(decider_pk);
+    MegaProver prover(decider_pk);
     HonkProof proof = prover.construct_proof();
 
     return { proof, merge_proof };
 }
+
+void ClientIVC::construct_vk()
+{
+    construct_hiding_circuit_key();
+    goblin.construct_vks();
+};
 
 /**
  * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
@@ -314,12 +299,14 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
+
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega };
+    MegaVerifier verifer{ vk.mega };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(proof.goblin_proof);
+    GoblinVerifier goblin_verifier{ vk.eccvm, vk.translator };
+    bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
     vinfo("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
 }
@@ -330,9 +317,11 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(const Proof& proof) const
+bool ClientIVC::verify(const Proof& proof)
 {
-    return verify(proof, get_vk());
+    auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
+    auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    return verify(proof, { honk_vk, eccvm_vk, translator_vk });
 }
 
 /**
@@ -401,83 +390,6 @@ std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> ClientIVC::precompute_
     this->trace_settings = settings;
 
     return vkeys;
-}
-
-// Proof methods
-size_t ClientIVC::Proof::size() const
-{
-    return mega_proof.size() + goblin_proof.size();
-}
-
-msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
-{
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, *this);
-    return buffer;
-}
-
-uint8_t* ClientIVC::Proof::to_msgpack_heap_buffer() const
-{
-    msgpack::sbuffer buffer = to_msgpack_buffer();
-
-    std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
-    return to_heap_buffer(buf);
-}
-
-ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(uint8_t const*& buffer)
-{
-    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
-
-    msgpack::sbuffer sbuf;
-    sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
-
-    return from_msgpack_buffer(sbuf);
-}
-
-ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
-{
-    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-    msgpack::object obj = oh.get();
-    Proof proof;
-    obj.convert(proof);
-    return proof;
-}
-
-void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
-{
-    msgpack::sbuffer buffer = to_msgpack_buffer();
-    std::ofstream ofs(filename, std::ios::binary);
-    if (!ofs.is_open()) {
-        throw_or_abort("Failed to open file for writing.");
-    }
-    ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-    ofs.close();
-}
-
-ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename)
-{
-    std::ifstream ifs(filename, std::ios::binary);
-    if (!ifs.is_open()) {
-        throw_or_abort("Failed to open file for reading.");
-    }
-
-    ifs.seekg(0, std::ios::end);
-    size_t file_size = static_cast<size_t>(ifs.tellg());
-    ifs.seekg(0, std::ios::beg);
-
-    std::vector<char> buffer(file_size);
-    ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
-    ifs.close();
-    msgpack::sbuffer msgpack_buffer;
-    msgpack_buffer.write(buffer.data(), file_size);
-
-    return Proof::from_msgpack_buffer(msgpack_buffer);
-}
-
-// VerificationKey construction
-ClientIVC::VerificationKey ClientIVC::get_vk() const
-{
-    return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
 }
 
 } // namespace bb

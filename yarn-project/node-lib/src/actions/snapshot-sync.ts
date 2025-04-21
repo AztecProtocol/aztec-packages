@@ -196,12 +196,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 /** Deletes target dir and writes the new version file. */
 async function prepareTarget(target: string, schemaVersion: number, rollupAddress: EthAddress) {
   const noOpen = () => Promise.resolve(undefined);
-  const versionManager = new DatabaseVersionManager<undefined>({
-    schemaVersion,
-    rollupAddress,
-    dataDirectory: target,
-    onOpen: noOpen,
-  });
+  const versionManager = new DatabaseVersionManager<undefined>(schemaVersion, rollupAddress, target, noOpen);
   await versionManager.resetDataDirectory();
   await versionManager.writeVersion();
 }

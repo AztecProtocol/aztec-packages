@@ -19,17 +19,6 @@
       "request": "attach",
       "name": "Attach",
       "port": 9229
-    },
-    {
-      "name": "Debug Current CMake Target",
-      "type": "lldb",
-      "request": "launch",
-      "program": "${command:cmake.launchTargetPath}",
-      "args": [],
-      "cwd": "${workspaceFolder}/barretenberg/cpp/build",
-      "initCommands": [
-        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
-      ],
     }
   ]
 }

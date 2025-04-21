@@ -104,7 +104,7 @@ function test_cmds {
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
     if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
-      echo "$hash ISOLATE=1 CPUS=10 MEM=10g yarn-project/scripts/run_test.sh $test"
+      echo "$hash ISOLATE=1 CPUS=20 MEM=16g yarn-project/scripts/run_test.sh $test"
     elif [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
       # Add debug logging for tests that require a bit more info
       echo "$hash ISOLATE=1 LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
@@ -150,7 +150,7 @@ function release_packages {
   local packages=$(get_projects topological)
   local package_list=()
   for package in $packages; do
-    (cd $package && retry "deploy_npm $1 $2")
+    (cd $package && deploy_npm $1 $2)
     local package_name=$(jq -r .name "$package/package.json")
     package_list+=("$package_name@$2")
   done

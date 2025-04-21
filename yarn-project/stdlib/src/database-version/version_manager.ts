@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchemaSync, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import fs from 'fs/promises';
 import { inspect } from 'node:util';
@@ -11,12 +11,7 @@ import { z } from 'zod';
  * Represents a version record for storing in a version file.
  */
 export class DatabaseVersion {
-  constructor(
-    /** The version of the data on disk. Used to perform upgrades */
-    public readonly schemaVersion: number,
-    /** The rollup the data pertains to */
-    public readonly rollupAddress: EthAddress,
-  ) {}
+  constructor(public readonly schemaVersion: number, public readonly rollupAddress: EthAddress) {}
 
   public toBuffer(): Buffer {
     return Buffer.from(jsonStringify(this));
@@ -71,7 +66,7 @@ export class DatabaseVersion {
   }
 
   public toString(): string {
-    return `DatabaseVersion{schemaVersion=${this.schemaVersion},rollupAddress=${this.rollupAddress}"}`;
+    return this.schemaVersion.toString();
   }
 
   /**
@@ -86,16 +81,6 @@ export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'writeFile' 
 
 export const DATABASE_VERSION_FILE_NAME = 'db_version';
 
-export type DatabaseVersionManagerOptions<T> = {
-  schemaVersion: number;
-  rollupAddress: EthAddress;
-  dataDirectory: string;
-  onOpen: (dataDir: string) => Promise<T>;
-  onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
-  fileSystem?: DatabaseVersionManagerFs;
-  log?: Logger;
-};
-
 /**
  * A manager for handling database versioning and migrations.
  * This class will check the version of data in a directory and either
@@ -106,12 +91,6 @@ export class DatabaseVersionManager<T> {
 
   private readonly versionFile: string;
   private readonly currentVersion: DatabaseVersion;
-
-  private dataDirectory: string;
-  private onOpen: (dataDir: string) => Promise<T>;
-  private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
-  private fileSystem: DatabaseVersionManagerFs;
-  private log: Logger;
 
   /**
    * Create a new version manager
@@ -125,27 +104,21 @@ export class DatabaseVersionManager<T> {
    * @param log - Optional custom logger
    * @param options - Configuration options
    */
-  constructor({
-    schemaVersion,
-    rollupAddress,
-    dataDirectory,
-    onOpen,
-    onUpgrade,
-    fileSystem = fs,
-    log = createLogger(`foundation:version-manager`),
-  }: DatabaseVersionManagerOptions<T>) {
+  constructor(
+    schemaVersion: number,
+    rollupAddress: EthAddress,
+    private dataDirectory: string,
+    private onOpen: (dataDir: string) => Promise<T>,
+    private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>,
+    private fileSystem: DatabaseVersionManagerFs = fs,
+    private log = createLogger(`foundation:version-manager`),
+  ) {
     if (schemaVersion < 1) {
       throw new TypeError(`Invalid schema version received: ${schemaVersion}`);
     }
 
-    this.versionFile = join(dataDirectory, DatabaseVersionManager.VERSION_FILE);
+    this.versionFile = join(this.dataDirectory, DatabaseVersionManager.VERSION_FILE);
     this.currentVersion = new DatabaseVersion(schemaVersion, rollupAddress);
-
-    this.dataDirectory = dataDirectory;
-    this.onOpen = onOpen;
-    this.onUpgrade = onUpgrade;
-    this.fileSystem = fileSystem;
-    this.log = log;
   }
 
   static async writeVersion(version: DatabaseVersion, dataDir: string, fileSystem: DatabaseVersionManagerFs = fs) {
@@ -164,8 +137,6 @@ export class DatabaseVersionManager<T> {
   public async open(): Promise<[T, boolean]> {
     // const storedVersion = await DatabaseVersion.readVersion(this.versionFile);
     let storedVersion: DatabaseVersion;
-    // a flag to suppress logs about 'resetting the data dir' when starting from an empty state
-    let shouldLogDataReset = true;
 
     try {
       const versionBuf = await this.fileSystem.readFile(this.versionFile);
@@ -173,8 +144,6 @@ export class DatabaseVersionManager<T> {
     } catch (err) {
       if (err && (err as Error & { code: string }).code === 'ENOENT') {
         storedVersion = DatabaseVersion.empty();
-        // only turn off these logs if the data dir didn't exist before
-        shouldLogDataReset = false;
       } else {
         this.log.warn(`Failed to read stored version information: ${err}. Defaulting to empty version`);
         storedVersion = DatabaseVersion.empty();
@@ -195,21 +164,13 @@ export class DatabaseVersionManager<T> {
           needsReset = true;
         }
       } else if (cmp !== 0) {
-        if (shouldLogDataReset) {
-          this.log.info(
-            `Can't upgrade from version ${storedVersion} to ${this.currentVersion}. Resetting database at ${this.dataDirectory}`,
-          );
-        }
+        this.log.info(
+          `Can't upgrade from version ${storedVersion.schemaVersion} to ${this.currentVersion.schemaVersion}. Resetting database at ${this.dataDirectory}`,
+        );
         needsReset = true;
       }
     } else {
-      if (shouldLogDataReset) {
-        this.log.warn('Rollup address has changed, resetting data directory', {
-          versionFile: this.versionFile,
-          storedVersion,
-          currentVersion: this.currentVersion,
-        });
-      }
+      this.log.warn('Rollup address changed, resetting data directory', { versionFile: this.versionFile });
       needsReset = true;
     }
 

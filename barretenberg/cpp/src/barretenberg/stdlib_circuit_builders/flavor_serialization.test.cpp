@@ -26,7 +26,7 @@ template <typename Flavor> class FlavorSerializationTests : public ::testing::Te
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, MegaFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 TYPED_TEST_SUITE(FlavorSerializationTests, FlavorTypes);
 
 // Test msgpack serialization/deserialization of verification keys
@@ -43,6 +43,9 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
 
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     VerificationKey original_vkey{ proving_key->proving_key };
+
+    // Set the pcs ptr to null since this will not be reconstructed correctly from buffer
+    original_vkey.pcs_verification_key = nullptr;
 
     // Populate some non-zero values in the databus_propagation_data to ensure its being handled
     if constexpr (IsMegaBuilder<Builder>) {

@@ -1,5 +1,4 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 
@@ -19,8 +18,6 @@ import { RollupContract } from './rollup.js';
 
 export class RegistryContract {
   public address: EthAddress;
-
-  private readonly log = createLogger('ethereum:contracts:registry');
   private readonly registry: GetContractReturnType<typeof RegistryAbi, PublicClient<HttpTransport, Chain>>;
 
   constructor(public readonly client: L1Clients['publicClient'], address: Hex | EthAddress) {
@@ -47,14 +44,6 @@ export class RegistryContract {
 
     try {
       return EthAddress.fromString(await this.registry.read.getRollup([version]));
-    } catch (e) {
-      this.log.warn(`Failed fetching rollup address for version ${version}. Retrying as index.`);
-    }
-
-    try {
-      const actualVersion = await this.registry.read.getVersion([version]);
-      const rollupAddress = await this.registry.read.getRollup([actualVersion]);
-      return EthAddress.fromString(rollupAddress);
     } catch (e) {
       throw new Error('Rollup address is undefined');
     }

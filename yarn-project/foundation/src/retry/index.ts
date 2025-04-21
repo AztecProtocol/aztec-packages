@@ -1,5 +1,5 @@
 import { TimeoutError } from '../error/index.js';
-import { type Logger, createLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
@@ -49,7 +49,7 @@ export async function retry<Result>(
   fn: () => Promise<Result>,
   name = 'Operation',
   backoff = backoffGenerator(),
-  log: Logger = createLogger('foundation:retry'),
+  log = createLogger('foundation:retry'),
   failSilently = false,
 ) {
   while (true) {
@@ -64,8 +64,8 @@ export async function retry<Result>(
       if (s === undefined) {
         throw err;
       }
-      log?.debug(`${name} failed. Will retry in ${s}s...`);
-      !failSilently && log?.error(`Error while retrying ${name}`, err);
+      log.verbose(`${name} failed. Will retry in ${s}s...`);
+      !failSilently && log.error(`Error while retrying ${name}`, err);
       await sleep(s * 1000);
       continue;
     }

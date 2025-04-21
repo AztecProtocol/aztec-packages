@@ -3,7 +3,6 @@
 #include <array>
 #include <type_traits>
 
-namespace bb::transform {
 /*
  * Generic map function for mapping a containers element to another type.
  */
@@ -62,4 +61,3 @@ template <typename Cont, typename F> Cont filter(Cont const& in, F op)
     std::remove_if(copy.begin(), copy.end(), op);
     return copy;
 }
-} // namespace bb::transform

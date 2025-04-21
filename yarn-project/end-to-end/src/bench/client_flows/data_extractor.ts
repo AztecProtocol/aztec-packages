@@ -5,7 +5,7 @@ import { createLogger, logger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 
-import { Decoder } from 'msgpackr';
+import { decode } from '@msgpack/msgpack';
 import assert from 'node:assert';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -149,10 +149,9 @@ async function main() {
 
   for (const flow of flows) {
     userLog.info(`Processing flow ${flow}`);
-    const ivcInputs = await readFile(join(ivcFolder, flow, 'ivc-inputs.msgpack'));
-    const stepsFromFile: PrivateExecutionStep[] = new Decoder({ useRecords: false }).unpack(ivcInputs);
+    const bytecode = await readFile(join(ivcFolder, flow, 'acir.msgpack'));
+    const acirStack = decode(bytecode) as Buffer[];
     const witnesses = await readFile(join(ivcFolder, flow, 'witnesses.json'));
-
     const witnessStack = JSON.parse(witnesses.toString()).map((witnessMap: Record<string, string>) => {
       return new Map<number, string>(Object.entries(witnessMap).map(([k, v]) => [Number(k), v]));
     });
@@ -161,11 +160,8 @@ async function main() {
     const privateExecutionSteps: PrivateExecutionStep[] = executionSteps.map((step, i) => ({
       functionName: step.fnName,
       gateCount: step.gateCount,
-      bytecode: stepsFromFile[i].bytecode,
-      // TODO(AD) do we still want to take this from witness.json?
+      bytecode: acirStack[i],
       witness: witnessStack[i],
-      // This can be left empty. If so, the prover will generate a vk on the fly (~25% slower).
-      vk: Buffer.from([]),
     }));
     let stats: { duration: number; eventName: string; proofSize: number } | undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

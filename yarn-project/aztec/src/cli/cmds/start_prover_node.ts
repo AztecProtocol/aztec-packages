@@ -1,5 +1,4 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
@@ -67,22 +66,6 @@ export async function startProverNode(
   proverConfig.l1Contracts = addresses;
   proverConfig = { ...proverConfig, ...config };
 
-  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
-  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
-
-  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-
-  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
-  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
-
-  if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
-    throw new Error(
-      `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
-    );
-  }
-
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
   let broker: ProvingJobBroker;
@@ -106,6 +89,16 @@ export async function startProverNode(
 
   await preloadCrsDataForVerifying(proverConfig, userLog);
 
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
@@ -120,6 +113,6 @@ export async function startProverNode(
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  await proverNode.start();
+  proverNode.start();
   return { config: proverConfig };
 }

@@ -1,5 +1,6 @@
 mod context;
 mod deploy;
+mod discovery;
 mod hash;
 mod history;
 mod keys;
@@ -10,7 +11,7 @@ mod oracle;
 mod state_vars;
 mod capsules;
 mod prelude;
-mod messages;
+mod encrypted_logs;
 mod unencrypted_logs;
 pub use dep::protocol_types;
 mod utils;

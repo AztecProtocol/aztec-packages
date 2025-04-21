@@ -14,7 +14,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { ProverNodeJobMetrics } from '../metrics.js';
+import { ProverNodeMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { EpochProvingJob } from './epoch-proving-job.js';
 
@@ -26,7 +26,7 @@ describe('epoch-proving-job', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
-  let metrics: ProverNodeJobMetrics;
+  let metrics: ProverNodeMetrics;
 
   // Created by a dependency
   let db: MockProxy<MerkleTreeWriteOperations>;
@@ -71,10 +71,7 @@ describe('epoch-proving-job', () => {
     publicProcessorFactory = mock<PublicProcessorFactory>();
     db = mock<MerkleTreeWriteOperations>();
     publicProcessor = mock<PublicProcessor>();
-    metrics = new ProverNodeJobMetrics(
-      getTelemetryClient().getMeter('EpochProvingJob'),
-      getTelemetryClient().getTracer('EpochProvingJob'),
-    );
+    metrics = new ProverNodeMetrics(getTelemetryClient());
 
     publicInputs = RootRollupPublicInputs.random();
     proof = Proof.empty();

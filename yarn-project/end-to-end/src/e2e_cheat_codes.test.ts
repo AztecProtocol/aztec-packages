@@ -63,7 +63,7 @@ describe('e2e_cheat_codes', () => {
       const timestamp = await ethCheatCodes.timestamp();
       const pastTimestamp = timestamp - 1000;
       await expect(async () => await ethCheatCodes.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow(
-        'Timestamp error',
+        new RegExp(`Details: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`),
       );
     });
 
@@ -127,12 +127,12 @@ describe('e2e_cheat_codes', () => {
         await walletClient.sendTransaction({
           account: randomAddress,
           to: myAddress,
-          value: 0n,
+          value: amountToSend,
         });
         // done with a try-catch because viem errors are noisy and we need to check just a small portion of the error.
         fail('should not be able to send funds from random address');
       } catch (e: any) {
-        expect(e.message).toContain('tx from field is set');
+        expect(e.message).toContain('No Signer available');
       }
     });
   });

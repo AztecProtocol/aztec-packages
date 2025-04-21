@@ -122,8 +122,7 @@ export class SequencerPublisher {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
 
-    this.blobSinkClient =
-      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
+    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -134,10 +133,6 @@ export class SequencerPublisher {
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
-  }
-
-  public getRollupContract(): RollupContract {
-    return this.rollupContract;
   }
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
@@ -184,10 +179,6 @@ export class SequencerPublisher {
     const currentL2Slot = this.getCurrentL2Slot();
     this.log.debug(`Current L2 slot: ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
-    const validActions = validRequests.map(x => x.action);
-    const expiredActions = requestsToProcess
-      .filter(request => request.lastValidL2Slot < currentL2Slot)
-      .map(x => x.action);
 
     if (validRequests.length !== requestsToProcess.length) {
       this.log.warn(`Some requests were expired for slot ${currentL2Slot}`, {
@@ -232,7 +223,7 @@ export class SequencerPublisher {
         this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
-      return { result, expiredActions, validActions };
+      return result;
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);

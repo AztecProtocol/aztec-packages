@@ -11,11 +11,22 @@ import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable private-vars-leading-underscore
 
 contract SetDepositsPerMintTest is StakingAssetHandlerBase {
+  uint256 internal constant MINT_INTERVAL = 1;
   uint256 internal constant INITIAL_DEPOSITS_PER_MINT = 1;
 
   function setUp() public override {
-    depositsPerMint = INITIAL_DEPOSITS_PER_MINT;
     super.setUp();
+    stakingAssetHandler = new StakingAssetHandler(
+      address(this),
+      address(stakingAsset),
+      address(staking),
+      WITHDRAWER,
+      MINIMUM_STAKE,
+      MINT_INTERVAL,
+      INITIAL_DEPOSITS_PER_MINT,
+      new address[](0)
+    );
+    stakingAsset.addMinter(address(stakingAssetHandler));
   }
 
   function test_WhenCallerOfSetDepositsPerMintIsNotOwner(address _caller) external {
@@ -51,10 +62,8 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
   }
 
   function test_WhenOwnerAddsValidators(uint256 _depositsPerMint) external {
-    address caller = address(0xbeefdeef);
-
     // it can add up to the deposits per mint without minting
-    _depositsPerMint = bound(_depositsPerMint, 1, 50);
+    _depositsPerMint = bound(_depositsPerMint, 1, 1000);
     address[] memory validators = new address[](_depositsPerMint);
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       validators[i] = address(uint160(i + 1));
@@ -62,28 +71,20 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
-    address rollup = stakingAssetHandler.getRollup();
-
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], validators[i], WITHDRAWER);
-      vm.prank(caller);
+      emit IStakingAssetHandler.ValidatorAdded(validators[i], validators[i], WITHDRAWER);
       stakingAssetHandler.addValidator(validators[i], validators[i]);
     }
-
-    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
-
-    emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
 
     // it reverts when adding one more validator
     vm.expectRevert(
       abi.encodeWithSelector(
-        IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
+        IStakingAssetHandler.NotEnoughTimeSinceLastMint.selector, block.timestamp, MINT_INTERVAL
       )
     );
-    vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef), address(0xbeefdeef));
-
-    emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
+    stakingAssetHandler.addValidator(
+      address(uint160(_depositsPerMint)), address(uint160(_depositsPerMint + 2))
+    );
   }
 }

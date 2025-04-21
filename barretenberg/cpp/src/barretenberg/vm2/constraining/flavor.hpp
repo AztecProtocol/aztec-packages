@@ -11,7 +11,7 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
@@ -57,10 +57,6 @@ class AvmFlavor {
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
-
-    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
-    // and Shplemini
-    static constexpr bool USE_PADDING = true;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_WITNESS_ENTITIES = AvmFlavorVariables::NUM_WITNESS_ENTITIES;
@@ -109,32 +105,10 @@ class AvmFlavor {
     static constexpr size_t NUM_FRS_FR = field_conversion::calc_num_bn254_frs<FF>();
 
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
-    // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
+    // to see its value and then update `AVM_PROOF_LENGTH_IN_FIELDS` in constants.nr.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
-
-    static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-                  "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"
-                  "as is smaller than the real AVM v2 proof. Increase the padded constant \n"
-                  "in constants.nr accordingly.");
-
-    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
-    //               "\nUnexpected AVM V2 proof length. This might be due to some changes in the\n"
-    //               "AVM circuit layout. In this case, modify AVM_V2_PROOF_LENGTH_IN_FIELDS \n"
-    //               "in constants.nr accordingly.");
-
-    // VK is composed of
-    // - circuit size encoded as a fr field element
-    // - num of inputs encoded as a fr field element
-    // - NUM_PRECOMPUTED_ENTITIES commitments
-    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES *
-    // NUM_FRS_COM,
-    //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
-    //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
-    //               "in constants.nr accordingly.");
 
     template <typename DataType> class PrecomputedEntities {
       public:
@@ -243,6 +217,7 @@ class AvmFlavor {
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
+            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
 
         VerificationKey(const size_t circuit_size,
@@ -253,6 +228,7 @@ class AvmFlavor {
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }
+            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
 
         std::vector<FF> to_field_elements() const;

@@ -232,10 +232,8 @@ export class CrossChainTestHarness {
       address: this.l1TokenManager.tokenAddress.toString(),
       client: this.walletClient,
     });
-    const balanceBefore = await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString());
-    const hash = await contract.write.mint([this.ethAccount.toString(), amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash });
-    expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(balanceBefore + amount);
+    await contract.write.mint([this.ethAccount.toString(), amount]);
+    expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
   }
 
   getL1BalanceOf(address: EthAddress) {

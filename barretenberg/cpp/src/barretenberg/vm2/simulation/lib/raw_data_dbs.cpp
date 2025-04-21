@@ -9,7 +9,6 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -25,41 +24,6 @@ std::string to_string(const TreeSnapshots& snapshots)
                   snapshots.noteHashTree,
                   "\nL1_TO_L2_MESSAGE_TREE: ",
                   snapshots.l1ToL2MessageTree);
-}
-
-std::string get_tree_name(world_state::MerkleTreeId tree_id)
-{
-    switch (tree_id) {
-    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
-        return "PUBLIC_DATA_TREE";
-    case world_state::MerkleTreeId::NULLIFIER_TREE:
-        return "NULLIFIER_TREE";
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
-        return "NOTE_HASH_TREE";
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
-        return "L1_TO_L2_MESSAGE_TREE";
-    case world_state::MerkleTreeId::ARCHIVE:
-        return "ARCHIVE";
-    }
-
-    return "UNKNOWN"; // To make GCC happy.
-}
-
-// We need this helper to avoid having const and non-const versions methods in the class.
-auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
-{
-    switch (tree_id) {
-    case world_state::MerkleTreeId::NULLIFIER_TREE:
-        return tree_roots.nullifierTree;
-    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
-        return tree_roots.publicDataTree;
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
-        return tree_roots.noteHashTree;
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
-        return tree_roots.l1ToL2MessageTree;
-    default:
-        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
-    }
 }
 
 } // namespace
@@ -148,8 +112,8 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
 }
 
 // Hinted MerkleDB starts.
-HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
-    : tree_roots(hints.startingTreeRoots)
+HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots)
+    : tree_roots(tree_roots)
 {
     vinfo("Initializing HintedRawMerkleDB with...",
           "\n * get_sibling_path_hints: ",
@@ -243,15 +207,22 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
 
 const AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id) const
 {
-    return get_tree_info_helper(tree_id, tree_roots);
+    switch (tree_id) {
+    case world_state::MerkleTreeId::NULLIFIER_TREE:
+        return tree_roots.nullifierTree;
+    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
+        return tree_roots.publicDataTree;
+    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+        return tree_roots.noteHashTree;
+    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        return tree_roots.l1ToL2MessageTree;
+    default:
+        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
+    }
 }
 
-AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id)
-{
-    return get_tree_info_helper(tree_id, tree_roots);
-}
-
-SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const
+crypto::merkle_tree::fr_sibling_path HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id,
+                                                                         crypto::merkle_tree::index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
@@ -261,8 +232,8 @@ SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_i
                                         tree_info.root,
                                         ", size: ",
                                         tree_info.nextAvailableLeafIndex,
-                                        ", tree: ",
-                                        get_tree_name(tree_id),
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
                                         ", leaf_index: ",
                                         leaf_index,
                                         ")"));
@@ -270,8 +241,8 @@ SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_i
     return it->second;
 }
 
-GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
-                                                                  const FF& value) const
+crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(
+    world_state::MerkleTreeId tree_id, const FF& value) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
@@ -281,8 +252,8 @@ GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::M
                                         tree_info.root,
                                         ", size: ",
                                         tree_info.nextAvailableLeafIndex,
-                                        ", tree: ",
-                                        get_tree_name(tree_id),
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
                                         ", value: ",
                                         value,
                                         ")"));
@@ -290,7 +261,7 @@ GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::M
     return it->second;
 }
 
-FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index) const
+FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
@@ -298,7 +269,8 @@ FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t 
     return it == get_leaf_value_hints.end() ? 0 : it->second;
 }
 
-IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
+crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
+    get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -315,7 +287,8 @@ IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_dat
     return it->second;
 }
 
-IndexedLeaf<NullifierLeafValue> HintedRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
+crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> HintedRawMerkleDB::
+    get_leaf_preimage_nullifier_tree(crypto::merkle_tree::index_t leaf_index) const
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -332,8 +305,8 @@ IndexedLeaf<NullifierLeafValue> HintedRawMerkleDB::get_leaf_preimage_nullifier_t
     return it->second;
 }
 
-SequentialInsertionResult<PublicDataLeafValue> HintedRawMerkleDB::insert_indexed_leaves_public_data_tree(
-    const PublicDataLeafValue& leaf_value)
+world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
+    insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value)
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     SequentialInsertHintPublicDataTreeKey key = { tree_info, world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
@@ -349,7 +322,7 @@ SequentialInsertionResult<PublicDataLeafValue> HintedRawMerkleDB::insert_indexed
     }
     const auto& hint = it->second;
 
-    SequentialInsertionResult<PublicDataLeafValue> result;
+    world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue> result;
 
     // Convert low leaves witness data
     result.low_leaf_witness_data.emplace_back(
@@ -371,8 +344,8 @@ SequentialInsertionResult<PublicDataLeafValue> HintedRawMerkleDB::insert_indexed
     return result;
 }
 
-SequentialInsertionResult<NullifierLeafValue> HintedRawMerkleDB::insert_indexed_leaves_nullifier_tree(
-    const NullifierLeafValue& leaf_value)
+world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> HintedRawMerkleDB::
+    insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value)
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     SequentialInsertHintNullifierTreeKey key = { tree_info, world_state::MerkleTreeId::NULLIFIER_TREE, leaf_value };
@@ -388,7 +361,7 @@ SequentialInsertionResult<NullifierLeafValue> HintedRawMerkleDB::insert_indexed_
     }
     const auto& hint = it->second;
 
-    SequentialInsertionResult<NullifierLeafValue> result;
+    world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> result;
 
     // Convert low leaves witness data
     result.low_leaf_witness_data.emplace_back(
@@ -534,51 +507,31 @@ void HintedRawMerkleDB::revert_checkpoint()
     checkpoint_action_counter++;
 }
 
-std::vector<AppendLeafResult> HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id,
-                                                               std::span<const FF> leaves)
+void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
 {
-    std::vector<AppendLeafResult> results;
-    results.reserve(leaves.size());
-
-    // We need to process each leaf individually because we need the sibling path after insertion, to be able to
-    // constraint the insertion.
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13380): This can be changed if the world state
-    // appendLeaves returns the sibling paths.
-    for (const auto& leaf : leaves) {
-        results.push_back(appendLeafInternal(tree_id, leaf));
+    if (leaves.empty()) {
+        return;
     }
 
-    return results;
-}
-
-void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves)
-{
-    auto& tree_info = get_tree_info(tree_id);
-    auto size_before = tree_info.nextAvailableLeafIndex;
-    tree_info.nextAvailableLeafIndex += num_leaves;
-
-    debug("Padded tree ", get_tree_name(tree_id), " from size ", size_before, " to ", tree_info.nextAvailableLeafIndex);
-}
-
-AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId tree_id, const FF& leaf)
-{
     auto tree_info = get_tree_info(tree_id);
-    AppendLeavesHintKey key = { tree_info, tree_id, { leaf } };
+    AppendLeavesHintKey key = { tree_info, tree_id, std::vector<FF>(leaves.begin(), leaves.end()) };
     auto it = append_leaves_hints.find(key);
     if (it == append_leaves_hints.end()) {
         throw std::runtime_error(format("Append leaves hint not found for key (root: ",
                                         tree_info.root,
                                         ", size: ",
                                         tree_info.nextAvailableLeafIndex,
-                                        ", tree: ",
-                                        get_tree_name(tree_id),
-                                        ", leaf: ",
-                                        leaf,
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
+                                        ", leaves: ",
+                                        leaves[0],
+                                        "..., leaves count: ",
+                                        leaves.size(),
                                         ")"));
     }
     const auto& stateAfter = it->second;
 
-    // Update the tree state based on the hint.
+    // Update the tree state based on the hint
     switch (tree_id) {
     case world_state::MerkleTreeId::NOTE_HASH_TREE:
         tree_roots.noteHashTree = stateAfter;
@@ -599,9 +552,6 @@ AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId
     default:
         throw std::runtime_error("append_leaves is only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE");
     }
-
-    // Get the sibling path for the newly inserted leaf.
-    return { .root = tree_info.root, .path = get_sibling_path(tree_id, tree_info.nextAvailableLeafIndex) };
 }
 
 } // namespace bb::avm2::simulation

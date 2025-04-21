@@ -50,6 +50,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using public_data_read = bb::avm2::public_data_read<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
+using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
 
 using lookup_low_leaf_poseidon2_0 = lookup_public_data_read_low_leaf_poseidon2_0_relation<FF>;
 using lookup_low_leaf_poseidon2_1 = lookup_public_data_read_low_leaf_poseidon2_1_relation<FF>;

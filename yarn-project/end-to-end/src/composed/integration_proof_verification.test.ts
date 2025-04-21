@@ -85,7 +85,8 @@ describe('proof_verification', () => {
   describe('public inputs', () => {
     it('output and proof public inputs are equal', () => {
       const proofPublicInputs = proof.extractPublicInputs().map(x => x.toString());
-      const outputPublicInputs = [...publicInputs.toFields()].map(x => x.toString());
+      const aggregationObject = proof.extractAggregationObject();
+      const outputPublicInputs = [...publicInputs.toFields(), ...aggregationObject].map(x => x.toString());
 
       expect(proofPublicInputs).toEqual(outputPublicInputs);
     });

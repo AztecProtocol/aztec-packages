@@ -135,6 +135,11 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
+    name  = "network.setupL2Contracts"
+    value = false
+  }
+
+  set {
     name  = "proverAgent.bb.hardwareConcurrency"
     value = 16
   }

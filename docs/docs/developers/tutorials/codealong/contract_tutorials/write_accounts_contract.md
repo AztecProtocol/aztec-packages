@@ -29,7 +29,7 @@ For the sake of simplicity, we will hardcode the signing public key into the con
 
 Let's start with the account contract itself in Aztec.nr. Create a new Aztec.nr contract project that will contain a file with the code for the account contract, with a hardcoded public key:
 
-#include_code contract noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr rust
+#include_code contract noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
 The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding authentication witness from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
@@ -45,7 +45,7 @@ Using the `AccountActions` module and the payload structs is not mandatory. You 
 
 The `AccountActions` module provides default implementations for most of the account contract methods needed, but it requires a function for validating an auth witness. In this function you will customize how your account validates an action: whether it is using a specific signature scheme, a multi-party approval, a password, etc.
 
-#include_code is-valid noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr rust
+#include_code is-valid noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr rust
 
 For our account contract, we will take the hash of the action to authorize, request the corresponding auth witness from the oracle, and validate it against our hardcoded public key. If the signature is correct, we authorize the action.
 
@@ -112,6 +112,6 @@ Lo and behold, we get `Error: Assertion failed: 'verification == true'` when run
 ### Optional: Learn more about concepts mentioned here
 
 - [ECDSA signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr)
-- [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/account/schnorr_account_contract)
+- [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/schnorr_account_contract)
 - [Account abstraction](../../../../aztec/concepts/accounts/index.md#what-is-account-abstraction)
 - [Authentication witness](../../../../aztec/concepts/advanced/authwit.md)

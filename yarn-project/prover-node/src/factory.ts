@@ -37,8 +37,7 @@ export async function createProverNode(
 ) {
   const config = resolveConfig(userConfig);
   const telemetry = deps.telemetry ?? getTelemetryClient();
-  const blobSinkClient =
-    deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('prover-node:blob-sink:client') });
+  const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
   const log = deps.log ?? createLogger('prover-node');
 
   await trySnapshotSync(config, log);

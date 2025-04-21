@@ -67,9 +67,9 @@ import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreim
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
-  type IndexedTxEffect,
   PublicSimulationOutput,
   Tx,
+  TxEffect,
   type TxHash,
   TxReceipt,
   TxStatus,
@@ -165,8 +165,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
-    const blobSinkClient =
-      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
+    const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
     // validate that the actual chain id matches that specified in configuration
@@ -237,21 +236,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
     );
 
-    // Start world state and wait for it to sync to the archiver.
-    await worldStateSynchronizer.start();
-
-    // Start p2p. Note that it depends on world state to be running.
-    await p2pClient.start();
-
     const slasherClient = createSlasherClient(config, archiver, telemetry);
-    slasherClient.start();
+
+    // start both and wait for them to sync from the block source
+    await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
+    log.verbose(`All Aztec Node subsystems synced`);
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
     await validatorsSentinel?.start();
-
-    log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
     const sequencer = config.disableValidator
@@ -507,7 +501,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return txReceipt;
   }
 
-  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     return this.blockSource.getTxEffect(txHash);
   }
 

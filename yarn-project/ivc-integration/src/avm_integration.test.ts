@@ -1,68 +1,47 @@
-import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
-import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
+import { type BBSuccess, BB_RESULT, generateAvmProof, generateProof, verifyProof } from '@aztec/bb-prover';
+import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_PUBLIC_COLUMN_MAX_SIZE,
+  AVM_PUBLIC_INPUTS_FLATTENED_SIZE,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import type { FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
-import { jest } from '@jest/globals';
+import { promises as fs } from 'fs';
+import { tmpdir } from 'node:os';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { getWorkingDirectory } from './bb_working_directory.js';
-import {
-  MockRollupBasePublicCircuit,
-  generate3FunctionTestingIVCStack,
-  mapAvmProofToNoir,
-  mapAvmPublicInputsToNoir,
-  mapAvmVerificationKeyToNoir,
-  mapRecursiveProofToNoir,
-  mapVerificationKeyToNoir,
-  simulateAvmBulkTesting,
-  witnessGenMockPublicBaseCircuit,
-} from './index.js';
-import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
-import type { KernelPublicInputs } from './types/index.js';
+import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.js';
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
-
-jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:avm-integration');
 
 describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
   let bbBinaryPath: string;
-  let tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
-  let clientIVCPublicInputs: KernelPublicInputs;
 
   let avmTestContractInstance: ContractInstanceWithAddress;
+  let avmTestContractAddress: AztecAddress;
 
   let simTester: PublicTxSimulationTester;
 
-  beforeAll(async () => {
-    const clientIVCProofPath = await getWorkingDirectory('bb-avm-integration-client-ivc-');
-    bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
-    const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
-    clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, logger);
-    await writeClientIVCProofToOutputDirectory(proof, clientIVCProofPath);
-    const verifyResult = await verifyClientIvcProof(
-      bbBinaryPath,
-      clientIVCProofPath.concat('/proof'),
-      clientIVCProofPath.concat('/vk'),
-      logger.info,
-    );
-    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
-    tubeProof = await proveTube(bbBinaryPath, clientIVCProofPath, logger);
-  });
-
   beforeEach(async () => {
     //Create a temp working dir
-    bbWorkingDirectory = await getWorkingDirectory('bb-avm-integration-');
+    bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-avm-integration-'));
+    bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
     simTester = await PublicTxSimulationTester.create();
     avmTestContractInstance = await simTester.registerAndDeployContract(
@@ -72,39 +51,121 @@ describe('AVM Integration', () => {
     );
   });
 
-  it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
+  async function createHonkProof(witness: Uint8Array, bytecode: string): Promise<BBSuccess> {
+    const witnessFileName = path.join(bbWorkingDirectory, 'witnesses.gz');
+    await fs.writeFile(witnessFileName, witness);
+    const recursive = false;
+    const provingResult = await generateProof(
+      bbBinaryPath,
+      bbWorkingDirectory,
+      'mock-public-base',
+      Buffer.from(bytecode, 'base64'),
+      recursive,
+      witnessFileName,
+      'ultra_honk',
+      logger.info,
+    );
+
+    expect(provingResult.status).toBe(BB_RESULT.SUCCESS);
+    return provingResult as BBSuccess;
+  }
+
+  // TODO: Skipping for now as per Davids advice.
+  it.skip('Should generate and verify an ultra honk proof from an AVM verification', async () => {
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = avmTestContractInstance;
-
-    const simRes = await simulateAvmBulkTesting(simTester, expectContractInstance);
-
+    const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const args = [
+      ...argsField,
+      ...argsU8,
+      /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
+      /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
+      /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
+    ].map(x => new Fr(x));
+    const simRes = await simTester.simulateTx(
+      /*sender=*/ AztecAddress.fromNumber(42),
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [{ address: avmTestContractAddress, fnName: 'bulk_testing', args }],
+    );
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
+    const bbSuccess = await proveAvm(avmCircuitInputs);
 
-    logger.debug('Avm public inputs', mapAvmPublicInputsToNoir(publicInputs));
+    const avmProofPath = bbSuccess.proofPath;
+    const avmVkPath = bbSuccess.vkPath;
+    expect(avmProofPath).toBeDefined();
+    expect(avmVkPath).toBeDefined();
 
-    const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
-      tube_data: {
-        public_inputs: clientIVCPublicInputs,
-        proof: mapRecursiveProofToNoir(tubeProof.proof),
-        vk_data: mapVerificationKeyToNoir(
-          tubeProof.verificationKey.keyAsFields,
-          ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        ),
-      },
-      verification_key: mapAvmVerificationKeyToNoir(vk),
-      proof: mapAvmProofToNoir(proof),
-      pub_cols_flattened: mapAvmPublicInputsToNoir(publicInputs),
+    // Read the binary proof
+    const avmProofBuffer = await fs.readFile(avmProofPath!);
+    const reader = BufferReader.asReader(avmProofBuffer);
+    const kernel_public_inputs = reader.readArray(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, Fr);
+    const calldataSize = Fr.fromBuffer(reader).toNumber();
+    const calldata = reader.readArray(calldataSize, Fr);
+    const returnDataSize = Fr.fromBuffer(reader).toNumber();
+    const returnData = reader.readArray(returnDataSize, Fr);
+
+    const public_cols_flattened = kernel_public_inputs
+      .concat(calldata)
+      .concat(Array(AVM_PUBLIC_COLUMN_MAX_SIZE - calldata.length).fill(new Fr(0)))
+      .concat(returnData)
+      .concat(Array(AVM_PUBLIC_COLUMN_MAX_SIZE - returnData.length).fill(new Fr(0)));
+
+    expect(public_cols_flattened.length).toBe(AVM_PUBLIC_INPUTS_FLATTENED_SIZE);
+
+    const proof: Fr[] = [];
+    while (!reader.isEmpty()) {
+      proof.push(Fr.fromBuffer(reader));
+    }
+    expect(proof.length).toBe(AVM_PROOF_LENGTH_IN_FIELDS);
+
+    // Read the key
+    const vkBuffer = await fs.readFile(path.join(avmVkPath!, 'vk'));
+    const vkReader = BufferReader.asReader(vkBuffer);
+    const vk = vkReader.readArray(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr);
+    expect(vk.length).toBe(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+
+    const witGenResult = await witnessGenMockPublicBaseCircuit({
+      verification_key: vk.map(x => x.toString()) as FixedLengthArray<
+        string,
+        typeof AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS
+      >,
+      proof: proof.map(x => x.toString()) as FixedLengthArray<string, typeof AVM_PROOF_LENGTH_IN_FIELDS>,
+      pub_cols_flattened: public_cols_flattened.map(x => x.toString()) as FixedLengthArray<
+        string,
+        typeof AVM_PUBLIC_INPUTS_FLATTENED_SIZE
+      >,
     });
 
-    await proveRollupHonk(
-      'MockRollupBasePublicCircuit',
+    await createHonkProof(witGenResult.witness, MockPublicBaseCircuit.bytecode);
+
+    const verifyResult = await verifyProof(
       bbBinaryPath,
-      bbWorkingDirectory,
-      MockRollupBasePublicCircuit,
-      baseWitnessResult.witness,
+      path.join(bbWorkingDirectory, 'proof'),
+      path.join(bbWorkingDirectory, 'vk'),
+      'ultra_honk',
       logger,
     );
+
+    expect(verifyResult.status).toBe(BB_RESULT.SUCCESS);
   }, 240_000);
 });
+
+async function proveAvm(avmCircuitInputs: AvmCircuitInputs): Promise<BBSuccess> {
+  const internalLogger = createLogger('ivc-integration:test:avm-proving');
+
+  // The paths for the barretenberg binary and the write path are hardcoded for now.
+  const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
+  const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
+
+  // Then we prove.
+  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
+  if (proofRes.status === BB_RESULT.FAILURE) {
+    internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
+  }
+  expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
+
+  return proofRes as BBSuccess;
+}

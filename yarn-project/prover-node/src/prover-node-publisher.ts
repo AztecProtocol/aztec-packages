@@ -1,11 +1,11 @@
-import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
-import { areArraysEqual } from '@aztec/foundation/collection';
+import { areArraysEqual, times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import type { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -17,7 +17,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import { ProverNodePublisherMetrics } from './metrics.js';
+import { ProverNodeMetrics } from './metrics.js';
 
 /**
  * Stats for a sent transaction.
@@ -40,7 +40,7 @@ export class ProverNodePublisher {
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
-  private metrics: ProverNodePublisherMetrics;
+  private metrics: ProverNodeMetrics;
 
   protected log = createLogger('prover-node:l1-tx-publisher');
 
@@ -60,14 +60,10 @@ export class ProverNodePublisher {
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
 
-    this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');
+    this.metrics = new ProverNodeMetrics(telemetry, 'ProverNode');
 
     this.rollupContract = deps.rollupContract;
     this.l1TxUtils = deps.l1TxUtils;
-  }
-
-  public getRollupContract() {
-    return this.rollupContract;
   }
 
   /**
@@ -149,7 +145,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
   }) {
-    const { fromBlock, toBlock, publicInputs } = args;
+    const { fromBlock, toBlock, publicInputs, proof } = args;
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
@@ -189,7 +185,10 @@ export class ProverNodePublisher {
 
     // Compare the public inputs computed by the contract with the ones injected
     const rollupPublicInputs = await this.rollupContract.getEpochProofPublicInputs(this.getSubmitEpochProofArgs(args));
-    const argsPublicInputs = [...publicInputs.toFields()];
+    const aggregationObject = proof.isEmpty()
+      ? times(AGGREGATION_OBJECT_LENGTH, Fr.zero)
+      : proof.extractAggregationObject();
+    const argsPublicInputs = [...publicInputs.toFields(), ...aggregationObject];
 
     if (!areArraysEqual(rollupPublicInputs.map(Fr.fromHexString), argsPublicInputs, (a, b) => a.equals(b))) {
       const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
@@ -215,6 +214,7 @@ export class ProverNodePublisher {
         args: argsArray[2],
         fees: argsArray[3],
         blobPublicInputs: argsArray[4],
+        aggregationObject: argsArray[5],
         proof: proofHex,
       },
     ] as const;
@@ -277,6 +277,7 @@ export class ProverNodePublisher {
         .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
         .map(b => b.toString())
         .join(``)}`,
+      `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
 

@@ -73,8 +73,7 @@ export async function deployTestWalletWithTokens(
     fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), undefined, logger)),
   );
 
-  // Progress by 3 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
-  await advanceL2Block(node);
+  // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
   await advanceL2Block(node);
   await advanceL2Block(node);
 

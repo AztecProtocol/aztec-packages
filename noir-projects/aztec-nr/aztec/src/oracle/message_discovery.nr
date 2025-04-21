@@ -1,4 +1,4 @@
-use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
+use crate::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS},

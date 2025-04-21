@@ -105,6 +105,7 @@ contract RollupBase is DecoderBase {
         args: args,
         fees: fees,
         blobPublicInputs: blobPublicInputs,
+        aggregationObject: "",
         proof: ""
       })
     );

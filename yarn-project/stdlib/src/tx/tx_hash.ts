@@ -12,6 +12,10 @@ export class TxHash {
     public readonly hash: Fr,
   ) {}
 
+  /*
+   * TxHashes are generated from the first nullifier of a transaction, which is a Fr.
+   * @returns A random TxHash.
+   */
   static random() {
     return new TxHash(Fr.random());
   }

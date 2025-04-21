@@ -1471,7 +1471,6 @@ export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
 export function makeAvmTxHint(seed = 0): AvmTxHint {
   return new AvmTxHint(
     `txhash-${seed}`,
-    makeGlobalVariables(seed),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
@@ -1504,7 +1503,6 @@ export async function makeAvmExecutionHints(
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
-    startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
     getLeafPreimageHintPublicDataTree: makeArray(
@@ -1536,7 +1534,6 @@ export async function makeAvmExecutionHints(
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
-    fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
     fields.getLeafPreimageHintPublicDataTree,

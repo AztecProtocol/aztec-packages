@@ -1,8 +1,6 @@
-#include "barretenberg/bb/deps/cli11.hpp"
+#include "barretenberg/bb/CLI11.hpp"
 #include <iomanip>
 #include <sstream>
-
-namespace bb {
 
 class Formatter : public CLI::Formatter {
   public:
@@ -115,4 +113,3 @@ class Formatter : public CLI::Formatter {
         return in;
     }
 };
-} // namespace bb

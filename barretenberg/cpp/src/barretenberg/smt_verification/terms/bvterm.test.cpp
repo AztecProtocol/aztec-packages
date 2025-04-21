@@ -1,14 +1,13 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "barretenberg/smt_verification/util/smt_util.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "term.hpp"
 
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = bb::numeric::get_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 using namespace bb;
@@ -39,8 +38,11 @@ TEST(BVTerm, addition)
     x == a.get_value();
     ASSERT_TRUE(s.check());
 
-    bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), yvals);
+    std::string yvals = s.getValue(y.term).getBitVectorValue();
+
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, yvals);
 }
 
 TEST(BVTerm, subtraction)
@@ -65,8 +67,11 @@ TEST(BVTerm, subtraction)
     x == a.get_value();
     ASSERT_TRUE(s.check());
 
-    bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), yvals);
+    std::string yvals = s.getValue(y.term).getBitVectorValue();
+
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, yvals);
 }
 
 TEST(BVTerm, xor)
@@ -91,8 +96,11 @@ TEST(BVTerm, xor)
     x == a.get_value();
     ASSERT_TRUE(s.check());
 
-    bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), yvals);
+    std::string yvals = s.getValue(y).getBitVectorValue();
+
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, yvals);
 }
 
 TEST(BVTerm, rotr)
@@ -114,8 +122,11 @@ TEST(BVTerm, rotr)
     y == b.get_value();
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[x], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(a.get_value(), xvals);
+    std::string xvals = s.getValue(x.term).getBitVectorValue();
+
+    STerm bval = STerm(a.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, rotl)
@@ -137,8 +148,11 @@ TEST(BVTerm, rotl)
     y == b.get_value();
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[x], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(a.get_value(), xvals);
+    std::string xvals = s.getValue(x.term).getBitVectorValue();
+
+    STerm bval = STerm(a.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 // non bijective operators
@@ -165,8 +179,10 @@ TEST(BVTerm, mul)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    std::string xvals = s.getValue(z.term).getBitVectorValue();
+    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, and)
@@ -192,8 +208,10 @@ TEST(BVTerm, and)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    std::string xvals = s.getValue(z.term).getBitVectorValue();
+    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, or)
@@ -219,8 +237,10 @@ TEST(BVTerm, or)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    std::string xvals = s.getValue(z.term).getBitVectorValue();
+    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, div)
@@ -246,8 +266,10 @@ TEST(BVTerm, div)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(c.get_value(), xvals);
+    std::string xvals = s.getValue(z.term).getBitVectorValue();
+    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, shr)
@@ -270,8 +292,10 @@ TEST(BVTerm, shr)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    std::string xvals = s.getValue(y.term).getBitVectorValue();
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, shl)
@@ -294,8 +318,10 @@ TEST(BVTerm, shl)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    std::string xvals = s.getValue(y.term).getBitVectorValue();
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, truncate)
@@ -319,8 +345,10 @@ TEST(BVTerm, truncate)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    std::string xvals = s.getValue(y.term).getBitVectorValue();
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }
 
 TEST(BVTerm, extract_bit)
@@ -329,7 +357,6 @@ TEST(BVTerm, extract_bit)
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     unsigned int mask = (1 << 10);
     uint_ct b = a & mask;
-    b >>= 10;
 
     uint32_t modulus_base = 16;
     uint32_t bitvector_size = 32;
@@ -345,6 +372,8 @@ TEST(BVTerm, extract_bit)
 
     ASSERT_TRUE(s.check());
 
-    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
-    ASSERT_EQ(b.get_value(), xvals);
+    std::string xvals = s.getValue(y.term).getBitVectorValue();
+    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
+    std::string bvals = s.getValue(bval.term).getBitVectorValue();
+    ASSERT_EQ(bvals, xvals);
 }

@@ -140,16 +140,16 @@ describe('blob', () => {
     }
   });
 
-  it('should serialise and deserialise a blob', async () => {
+  it('Should serialise and deserialise a blob', async () => {
     const blob = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
     const blobBuffer = blob.toBuffer();
     const deserialisedBlob = Blob.fromBuffer(blobBuffer);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
   });
 
-  it('should create a blob from a JSON object', async () => {
+  it('Should create a blob from a JSON object', async () => {
     const blob = await makeEncodedBlob(3);
-    const blobJson = blob.toJson(1);
+    const blobJson = blob.toJson();
     const deserialisedBlob = await Blob.fromJson(blobJson);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
   });

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 rm -rf broadcast cache out
-forge install
+forge install --no-commit
 # Ensure libraries are at the correct version
 git submodule update --init --recursive ./lib
 

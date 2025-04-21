@@ -11,7 +11,7 @@ import {
 } from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
-  handleEpochReadyToProve(epochNumber: bigint): Promise<boolean>;
+  handleEpochReadyToProve(epochNumber: bigint): Promise<void>;
 }
 
 /**
@@ -71,7 +71,6 @@ export class EpochMonitor implements Traceable {
   @trackSpan('EpochMonitor.work')
   public async work() {
     const { epochToProve, blockNumber, slotNumber } = await this.getEpochNumberToProve();
-    this.log.debug(`Epoch to prove: ${epochToProve}`, { blockNumber, slotNumber });
     if (epochToProve === undefined) {
       this.log.trace(`Next block to prove ${blockNumber} not yet mined`, { blockNumber });
       return;
@@ -88,9 +87,8 @@ export class EpochMonitor implements Traceable {
     }
 
     this.log.debug(`Epoch ${epochToProve} is ready to be proven`);
-    if (await this.handler?.handleEpochReadyToProve(epochToProve)) {
-      this.latestEpochNumber = epochToProve;
-    }
+    await this.handler?.handleEpochReadyToProve(epochToProve);
+    this.latestEpochNumber = epochToProve;
   }
 
   private async getEpochNumberToProve() {

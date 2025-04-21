@@ -30,9 +30,9 @@ class GoblinRecursiveVerifier {
     using ECCVMVerifier = ECCVMRecursiveVerifier_<ECCVMFlavor>;
 
     // ECCVM and Translator verification keys
-    using VerificationKey = Goblin::VerificationKey;
+    using VerifierInput = GoblinVerifier::VerifierInput;
 
-    GoblinRecursiveVerifier(Builder* builder, const VerificationKey& verification_keys)
+    GoblinRecursiveVerifier(Builder* builder, VerifierInput& verification_keys)
         : builder(builder)
         , verification_keys(verification_keys){};
 
@@ -49,7 +49,7 @@ class GoblinRecursiveVerifier {
 
   private:
     Builder* builder;
-    VerificationKey verification_keys; // ECCVM and Translator verification keys
+    VerifierInput verification_keys; // ECCVM and Translator verification keys
 };
 
 } // namespace bb::stdlib::recursion::honk

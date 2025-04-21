@@ -84,7 +84,7 @@ The previous code snippets moved funds to the bridge and created a L1->L2 messag
 
 This happens inside the `TokenBridge` contract on Aztec.
 
-#include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
+#include_code claim_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 What's happening here?
 
@@ -106,13 +106,13 @@ For both the public and private flow, we use the same mechanism to determine the
 
 #### `exit_to_L1_public` (TokenBridge.nr)
 
-#include_code exit_to_l1_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
+#include_code exit_to_l1_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 #### `exit_to_L1_private` (TokenBridge.nr)
 
 This function works very similarly to the public version, except here we burn user’s private notes.
 
-#include_code exit_to_l1_private /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
+#include_code exit_to_l1_private /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 Since this is a private method, it can't read what token is publicly stored. So instead the user passes a token address, and `_assert_token_is_same()` checks that this user provided address is same as the one in storage.
 

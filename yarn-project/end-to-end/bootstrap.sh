@@ -90,7 +90,6 @@ function test_cmds {
 
   # p2p sub-tests
   echo "$prefix simple e2e_p2p/gossip_network"
-  echo "$prefix simple e2e_p2p/gossip_network_no_cheat"
   echo "$prefix simple e2e_p2p/rediscovery"
   echo "$prefix simple e2e_p2p/reqresp"
   echo "$prefix simple e2e_p2p/reex"

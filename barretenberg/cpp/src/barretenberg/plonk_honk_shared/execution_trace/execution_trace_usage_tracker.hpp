@@ -31,7 +31,6 @@ struct ExecutionTraceUsageTracker {
     // Max sizes of the "tables" for databus and conventional lookups (distinct from the sizes of their gate blocks)
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
-    size_t max_gates_size = 0;
 
     // For printing only. Must match the order of the members in the arithmetization
 
@@ -72,8 +71,6 @@ struct ExecutionTraceUsageTracker {
         for (auto [block, max_size] : zip_view(circuit.blocks.get(), max_sizes.get())) {
             max_size = std::max(static_cast<uint32_t>(block.size()), max_size);
         }
-
-        max_gates_size = std::max(max_gates_size, circuit.num_gates);
 
         // update the max sixe of the databus and lookup tables
         max_databus_size = std::max({ max_databus_size,
@@ -121,15 +118,10 @@ struct ExecutionTraceUsageTracker {
 
     void print()
     {
-        info("Largest circuit: ", max_gates_size, " gates. Trace details:");
+        info("Minimum required block sizes for structured trace: ");
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {
-            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size;
-            if (idx % 4 == 3) {
-                std::cout << std::endl;
-            } else {
-                std::cout << "\t";
-            }
+            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
             idx++;
         }
         info("");

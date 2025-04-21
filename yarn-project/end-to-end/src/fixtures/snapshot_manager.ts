@@ -414,7 +414,7 @@ async function setupFromFresh(
     {
       l1ChainId: aztecNodeConfig.l1ChainId,
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
-      l1Contracts: aztecNodeConfig.l1Contracts,
+      rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       port: blobSinkPort,
       dataDirectory: aztecNodeConfig.dataDirectory,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
@@ -537,7 +537,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     {
       l1ChainId: aztecNodeConfig.l1ChainId,
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
-      l1Contracts: aztecNodeConfig.l1Contracts,
+      rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       port: blobSinkPort,
       dataDirectory: statePath,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,

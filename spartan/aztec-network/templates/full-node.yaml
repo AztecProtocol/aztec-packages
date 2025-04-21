@@ -110,8 +110,6 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.fullNode.p2p.enabled }}"
-            - name: P2P_MAX_TX_POOL_SIZE
-              value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.fullNode.p2p.floodPublish }}"
             - name: COINBASE

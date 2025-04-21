@@ -43,7 +43,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -93,7 +93,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // multivariate evaluations at u
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
-    Sumcheck sumcheck(log_circuit_size, transcript);
+    auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -115,7 +115,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(log_circuit_size,
+        Shplemini::compute_batch_opening_claim(key->circuit_size,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
@@ -128,7 +128,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge properly.
@@ -138,12 +137,36 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Extract the IPA claim from the public inputs
     // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
-        using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
+        const auto recover_fq_from_public_inputs = [](std::array<FF, Curve::BaseField::NUM_LIMBS>& limbs) {
+            for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
+                limbs[k].create_range_constraint(Curve::BaseField::NUM_LIMB_BITS, "limb_" + std::to_string(k));
+            }
+            return Curve::BaseField::unsafe_construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], false);
+        };
 
         if (verification_key->verification_key->contains_ipa_claim) {
-            PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0],
-                                              true };
-            output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
+            OpeningClaim<grumpkin<Builder>> ipa_claim;
+            std::array<FF, Curve::BaseField::NUM_LIMBS> challenge_bigfield_limbs;
+            for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
+                challenge_bigfield_limbs[k] =
+                    verification_key
+                        ->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
+            }
+            std::array<FF, Curve::BaseField::NUM_LIMBS> evaluation_bigfield_limbs;
+            for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
+                evaluation_bigfield_limbs[k] =
+                    verification_key
+                        ->public_inputs[verification_key->verification_key
+                                            ->ipa_claim_public_input_indices[Curve::BaseField::NUM_LIMBS + k]];
+            }
+            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
+            ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
+            ipa_claim.commitment = {
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[8]],
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]],
+                false
+            };
+            output.ipa_opening_claim = std::move(ipa_claim);
         }
     }
 

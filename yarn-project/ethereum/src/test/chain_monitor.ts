@@ -1,11 +1,10 @@
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
 
-import { EventEmitter } from 'events';
 import type { PublicClient } from 'viem';
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
-export class ChainMonitor extends EventEmitter {
+export class ChainMonitor {
   private readonly l1Client: PublicClient;
   private handle: NodeJS.Timeout | undefined;
 
@@ -25,7 +24,6 @@ export class ChainMonitor extends EventEmitter {
     private logger = createLogger('aztecjs:utils:chain_monitor'),
     private readonly intervalMs = 200,
   ) {
-    super();
     this.l1Client = rollup.client;
   }
 
@@ -38,7 +36,6 @@ export class ChainMonitor extends EventEmitter {
   }
 
   stop() {
-    this.removeAllListeners();
     if (this.handle) {
       clearInterval(this.handle!);
       this.handle = undefined;
@@ -62,7 +59,6 @@ export class ChainMonitor extends EventEmitter {
     const timestamp = block.timestamp;
     const timestampString = new Date(Number(timestamp) * 1000).toTimeString().split(' ')[0];
 
-    this.emit('l1-block', { l1BlockNumber: newL1BlockNumber, timestamp });
     let msg = `L1 block ${newL1BlockNumber} mined at ${timestampString}`;
 
     const newL2BlockNumber = Number(await this.rollup.getBlockNumber());
@@ -71,7 +67,6 @@ export class ChainMonitor extends EventEmitter {
       msg += ` with new L2 block ${newL2BlockNumber} for epoch ${epochNumber}`;
       this.l2BlockNumber = newL2BlockNumber;
       this.l2BlockTimestamp = timestamp;
-      this.emit('l2-block', { l2BlockNumber: newL2BlockNumber, l1BlockNumber: newL1BlockNumber, timestamp });
     }
 
     const newL2ProvenBlockNumber = Number(await this.rollup.getProvenBlockNumber());
@@ -80,11 +75,6 @@ export class ChainMonitor extends EventEmitter {
       msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;
       this.l2ProvenBlockNumber = newL2ProvenBlockNumber;
       this.l2ProvenBlockTimestamp = timestamp;
-      this.emit('l2-block-proven', {
-        l2ProvenBlockNumber: newL2ProvenBlockNumber,
-        l1BlockNumber: newL1BlockNumber,
-        timestamp,
-      });
     }
 
     this.logger.info(msg, {

@@ -1,4 +1,3 @@
 ^l1-contracts/src/.*\.sol$
 ^l1-contracts/test/.*\.sol$
 ^l1-contracts/bootstrap.sh
-^l1-contracts/foundry.toml

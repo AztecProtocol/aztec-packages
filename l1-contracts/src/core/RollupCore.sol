@@ -176,6 +176,7 @@ contract RollupCore is
     external
     override(IStakingCore)
   {
+    setupEpoch();
     StakingLib.deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
@@ -184,6 +185,7 @@ contract RollupCore is
     override(IStakingCore)
     returns (bool)
   {
+    setupEpoch();
     return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 

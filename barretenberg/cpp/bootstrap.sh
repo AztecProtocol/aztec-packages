@@ -4,8 +4,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export native_preset=${NATIVE_PRESET:-clang16-assert}
-export pic_preset=${PIC_PRESET:-clang16-pic-assert}
+export preset=clang16-assert
+export pic_preset="clang16-pic"
 export hash=$(cache_content_hash .rebuild_patterns)
 
 # Injects version number into a given bb binary.
@@ -26,30 +26,26 @@ function inject_version {
   printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
 }
 
-# Define build commands for each preset
-function build_preset() {
-  local preset=$1
-  shift
-  cmake --fresh --preset "$preset"
-  cmake --build --preset "$preset" "$@"
-}
-
 # Build all native binaries, including tests.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-native-$hash.zst; then
+  if ! cache_download barretenberg-release-$hash.zst; then
     ./format.sh check
-    build_preset $native_preset
-    cache_upload barretenberg-native-$hash.zst build/bin
+    rm -f build/CMakeCache.txt
+    cmake --preset $preset
+    cmake --build --preset $preset
+    cache_upload barretenberg-release-$hash.zst build/bin
   fi
 }
 
 function build_nodejs_module {
   set -eu
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-  if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
-    build_preset $pic_preset --target nodejs_module
-    cache_upload barretenberg-native-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
+  if ! cache_download barretenberg-release-nodejs-module-$hash.zst; then
+    rm -f build-pic/CMakeCache.txt
+    cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
+    cmake --build --preset $pic_preset --target nodejs_module
+    cache_upload barretenberg-release-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
   fi
 }
 
@@ -66,7 +62,9 @@ function build_darwin {
       sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
     fi
 
-    build_preset darwin-$arch --target bb
+    rm -f build-darwin-$arch/CMakeCache.txt
+    cmake --preset darwin-$arch
+    cmake --build --preset darwin-$arch --target bb
     cache_upload barretenberg-darwin-$hash.zst build-darwin-$arch/bin
   fi
 }
@@ -75,7 +73,9 @@ function build_darwin {
 function build_wasm {
   set -eu
   if ! cache_download barretenberg-wasm-$hash.zst; then
-    build_preset wasm
+    rm -f build-wasm/CMakeCache.txt
+    cmake --preset wasm
+    cmake --build --preset wasm
     cache_upload barretenberg-wasm-$hash.zst build-wasm/bin
   fi
 }
@@ -84,7 +84,9 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads
+    rm -f build-wasm-threads/CMakeCache.txt
+    cmake --preset wasm-threads
+    cmake --build --preset wasm-threads
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -122,8 +124,8 @@ function build_fuzzing_syntax_check_only {
 # TODO: Use the flattened crs. These old transcripts are a pain. Delete this.
 function download_old_crs {
   cd ./srs_db
-  retry "./download_ignition.sh 3"
-  retry ./download_grumpkin.sh
+  ./download_ignition.sh 3
+  ./download_grumpkin.sh
 }
 
 function build_release {
@@ -144,7 +146,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only download_old_crs
+export -f build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only download_old_crs
 
 function build {
   echo_header "bb cpp build"
@@ -191,14 +193,11 @@ function test {
 function build_benchmarks {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
-    # Run builds in parallel with different targets per preset
-    # bb_cli_bench is later used in yarn-project.
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset op-count-time --target ultra_honk_bench --target client_ivc_bench"
+    parallel --line-buffered --tag -v "denoise \
+      'cmake --preset {} && cmake --build --preset {} --target ultra_honk_bench --target client_ivc_bench'" ::: \
+      clang16-assert wasm-threads op-count op-count-time
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
+      {build,build-wasm-threads,build-op-count,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
   fi
 }
 
@@ -220,9 +219,10 @@ function bench {
       --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
   }
   function ultra_honk_wasm {
-    scripts/wasmtime.sh ./build-wasm-threads/bin/ultra_honk_bench \
-      --benchmark_out=./bench-out/ultra_honk_wasm.json \
-      --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+    wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
+      ./build-wasm-threads/bin/ultra_honk_bench \
+        --benchmark_out=./bench-out/ultra_honk_wasm.json \
+        --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
   }
 
   # Client IVC
@@ -236,15 +236,21 @@ function bench {
       --benchmark_out=./bench-out/client_ivc_release.json \
       --benchmark_filter="ClientIVCBench/Full/6$"
   }
+  function client_ivc_op_count {
+    ./build-op-count/bin/client_ivc_bench \
+      --benchmark_out=./bench-out/client_ivc_op_count.json \
+      --benchmark_filter="ClientIVCBench/Full/6$"
+  }
   function client_ivc_op_count_time {
     ./build-op-count-time/bin/client_ivc_bench \
       --benchmark_out=./bench-out/client_ivc_op_count_time.json \
       --benchmark_filter="ClientIVCBench/Full/6$"
   }
   function client_ivc_wasm {
-    scripts/wasmtime.sh ./build-wasm-threads/bin/client_ivc_bench \
-      --benchmark_out=./bench-out/client_ivc_wasm.json \
-      --benchmark_filter="ClientIVCBench/Full/6$"
+    wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
+      ./build-wasm-threads/bin/client_ivc_bench \
+        --benchmark_out=./bench-out/client_ivc_wasm.json \
+        --benchmark_filter="ClientIVCBench/Full/6$"
   }
 
   function run_benchmark {
@@ -255,7 +261,7 @@ function bench {
     taskset -c $start_core-$end_core bash -c "$2"
   }
 
-  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count_time client_ivc_wasm run_benchmark
+  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm run_benchmark
 
   local num_cpus=$(get_num_cpus)
   local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
@@ -265,6 +271,7 @@ function bench {
     ultra_honk_wasm \
     client_ivc_17_in_20_release \
     client_ivc_release \
+    client_ivc_op_count \
     client_ivc_op_count_time \
     client_ivc_wasm
 }
@@ -292,35 +299,25 @@ case "$cmd" in
     build
     test
     ;;
-  bench_ivc)
-    # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
+  e2e_ivc_bench)
     # Download the inputs for the private flows.
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
-
-    # build the benchmarked benches
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
-      "build_preset wasm-threads --target bb_cli_bench"
-
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then
       echo "Downloading inputs from commit $1."
       export AZTEC_CACHE_COMMIT=$1
       export DOWNLOAD_ONLY=1
       # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
-      # This generates the client IVC verification keys.
       yarn --cwd ../../yarn-project/bb-prover generate
     fi
-
-    # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
     ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
     ;;
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|release|build_native|build_nodejs_module|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|release|build_native|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
     $cmd "$@"
     ;;
   *)

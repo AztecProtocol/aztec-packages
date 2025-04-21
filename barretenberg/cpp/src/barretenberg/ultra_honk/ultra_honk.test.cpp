@@ -47,12 +47,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
-using FlavorTypes = testing::Types<UltraFlavor,
-                                   UltraZKFlavor,
-                                   UltraKeccakFlavor,
-                                   UltraStarknetFlavor,
-                                   UltraKeccakZKFlavor,
-                                   UltraStarknetZKFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
 /**

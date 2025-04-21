@@ -13,10 +13,14 @@ import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
-import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
-import { AvmExecutionError, AvmRevertReason, InvalidProgramCounterError } from './errors.js';
+import {
+  AvmExecutionError,
+  AvmRevertReason,
+  InvalidProgramCounterError,
+  revertReasonFromExceptionalHalt,
+  revertReasonFromExplicitRevert,
+} from './errors.js';
 import type { Instruction } from './opcodes/instruction.js';
-import { revertReasonFromExceptionalHalt, revertReasonFromExplicitRevert } from './revert_reason.js';
 import {
   INSTRUCTION_SET,
   type InstructionSet,
@@ -28,7 +32,7 @@ type OpcodeTally = {
   gas: Gas;
 };
 
-export class AvmSimulator implements AvmSimulatorInterface {
+export class AvmSimulator {
   private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();

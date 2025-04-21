@@ -27,33 +27,35 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     ~MockLowLevelMerkleDB() override;
 
     MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
-    MOCK_METHOD(SiblingPath, get_sibling_path, (MerkleTreeId tree_id, index_t leaf_index), (const, override));
-    MOCK_METHOD(GetLowIndexedLeafResponse,
+    MOCK_METHOD(crypto::merkle_tree::fr_sibling_path,
+                get_sibling_path,
+                (world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index),
+                (const, override));
+    MOCK_METHOD(crypto::merkle_tree::GetLowIndexedLeafResponse,
                 get_low_indexed_leaf,
-                (MerkleTreeId tree_id, const FF& value),
+                (world_state::MerkleTreeId tree_id, const FF& value),
                 (const, override));
-    MOCK_METHOD(FF, get_leaf_value, (MerkleTreeId tree_id, index_t leaf_index), (const, override));
-    MOCK_METHOD(IndexedLeaf<PublicDataLeafValue>,
+    MOCK_METHOD(FF,
+                get_leaf_value,
+                (world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index),
+                (const, override));
+    MOCK_METHOD(crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>,
                 get_leaf_preimage_public_data_tree,
-                (index_t leaf_index),
+                (crypto::merkle_tree::index_t leaf_index),
                 (const, override));
-    MOCK_METHOD(IndexedLeaf<NullifierLeafValue>,
+    MOCK_METHOD(crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>,
                 get_leaf_preimage_nullifier_tree,
-                (index_t leaf_index),
+                (crypto::merkle_tree::index_t leaf_index),
                 (const, override));
-    MOCK_METHOD(SequentialInsertionResult<PublicDataLeafValue>,
+    MOCK_METHOD(world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>,
                 insert_indexed_leaves_public_data_tree,
-                (const PublicDataLeafValue& leaf_value),
+                (const crypto::merkle_tree::PublicDataLeafValue& leaf_value),
                 (override));
-    MOCK_METHOD(SequentialInsertionResult<NullifierLeafValue>,
+    MOCK_METHOD(world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>,
                 insert_indexed_leaves_nullifier_tree,
-                (const NullifierLeafValue& leaf_value),
+                (const crypto::merkle_tree::NullifierLeafValue& leaf_value),
                 (override));
-    MOCK_METHOD(std::vector<AppendLeafResult>,
-                append_leaves,
-                (MerkleTreeId tree_id, std::span<const FF> leaves),
-                (override));
-    MOCK_METHOD(void, pad_tree, (MerkleTreeId tree_id, size_t num_leaves), (override));
+    MOCK_METHOD(void, append_leaves, (world_state::MerkleTreeId tree_id, std::span<const FF> leaves), (override));
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));
@@ -67,8 +69,6 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
 
     MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
     MOCK_METHOD(FF, storage_read, (const FF& key), (const, override));
-    MOCK_METHOD(bool, nullifier_exists, (const FF& nullifier), (const, override));
-    MOCK_METHOD(void, nullifier_write, (const FF& nullifier), (override));
 
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));

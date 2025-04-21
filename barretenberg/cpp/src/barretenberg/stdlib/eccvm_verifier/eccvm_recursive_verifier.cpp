@@ -23,12 +23,11 @@ std::pair<OpeningClaim<typename Flavor::Curve>, std::shared_ptr<typename ECCVMRe
 ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using Sumcheck = SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N>;
 
     RelationParameters<FF> relation_parameters;
 
@@ -41,6 +40,11 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1040): Extract circuit size as BF (field_t) then
+    // convert to FF (bigfield fq) since this is what's expected by ZM. See issue for more details.
+    const BF circuit_size_bf = transcript->template receive_from_prover<BF>("circuit_size");
+    const FF circuit_size{ static_cast<int>(static_cast<uint256_t>(circuit_size_bf.get_value())) };
 
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
@@ -65,9 +69,11 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(CONST_PROOF_SIZE_LOG_N, transcript);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
+    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
+    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -90,7 +96,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
-        Shplemini::compute_batch_opening_claim(CONST_ECCVM_LOG_N,
+        Shplemini::compute_batch_opening_claim(circuit_size,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),
@@ -211,7 +217,7 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
 
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK}
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 };
 

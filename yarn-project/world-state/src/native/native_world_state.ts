@@ -64,14 +64,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   ): Promise<NativeWorldStateService> {
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
     // Create a version manager to handle versioning
-    const versionManager = new DatabaseVersionManager({
-      schemaVersion: WORLD_STATE_DB_VERSION,
+    const versionManager = new DatabaseVersionManager(
+      WORLD_STATE_DB_VERSION,
       rollupAddress,
-      dataDirectory: worldStateDirectory,
-      onOpen: (dir: string) => {
+      worldStateDirectory,
+      (dir: string) => {
         return Promise.resolve(new NativeWorldState(dir, dbMapSizeKb, prefilledPublicData, instrumentation));
       },
-    });
+    );
 
     const [instance] = await versionManager.open();
     const worldState = new this(instance, instrumentation, log, cleanup);

@@ -18,7 +18,6 @@ export async function getL1ContractsConfig(
     l1StartBlock: bigint;
     l1GenesisTime: bigint;
     rollupVersion: number;
-    genesisArchiveTreeRoot: `0x${string}`;
   }
 > {
   const governance = new GovernanceContract(addresses.governanceAddress.toString(), publicClient, undefined);
@@ -43,7 +42,6 @@ export async function getL1ContractsConfig(
     manaTarget,
     provingCostPerMana,
     rollupVersion,
-    genesisArchiveTreeRoot,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
@@ -59,7 +57,6 @@ export async function getL1ContractsConfig(
     rollup.getManaTarget(),
     rollup.getProvingCostPerMana(),
     rollup.getVersion(),
-    rollup.getGenesisArchiveTreeRoot(),
   ] as const);
 
   return {
@@ -77,7 +74,6 @@ export async function getL1ContractsConfig(
     manaTarget: manaTarget,
     provingCostPerMana: provingCostPerMana,
     rollupVersion: Number(rollupVersion),
-    genesisArchiveTreeRoot,
   };
 }
 

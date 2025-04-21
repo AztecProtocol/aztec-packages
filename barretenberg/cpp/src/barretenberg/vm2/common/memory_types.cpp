@@ -1,8 +1,5 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 
-#include <cassert>
-#include <stdexcept>
-
 namespace bb::avm2 {
 
 uint8_t integral_tag_length(MemoryTag tag)

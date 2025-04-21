@@ -2,8 +2,6 @@
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include <gtest/gtest.h>
 
@@ -44,7 +42,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
 {
     using Builder = MegaCircuitBuilder;
     using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
-    Goblin goblin;
+    GoblinProver goblin;
 
     GoblinAccumulationOutput kernel_accum;
 
@@ -75,7 +73,10 @@ TEST_F(GoblinRecursionTests, Vanilla)
     MegaVerifier ultra_verifier{ kernel_accum.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
     // Verify the goblin proof (eccvm, translator, merge)
-    bool verified = Goblin::verify(proof);
+    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
+    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
+    bool verified = goblin_verifier.verify(proof);
     EXPECT_TRUE(ultra_verified && verified);
 }
 

@@ -16,7 +16,6 @@
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/simulation/update_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -42,7 +41,6 @@ using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
-using simulation::MockNullifierTreeCheck;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
@@ -58,7 +56,11 @@ using simulation::UpdateCheckEvent;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
+using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
+using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
+using GetLowIndexedLeafResponse = crypto::merkle_tree::GetLowIndexedLeafResponse;
+using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
+using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
 
 using update_hash_poseidon2 = lookup_update_check_update_hash_poseidon2_relation<FF>;
 using shared_mutable_slot_poseidon2 = lookup_update_check_shared_mutable_slot_poseidon2_relation<FF>;
@@ -91,7 +93,6 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     NiceMock<MockFieldGreaterThan> mock_field_gt;
     NiceMock<MockMerkleCheck> mock_merkle_check;
-    NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
 
     EventEmitter<PublicDataTreeReadEvent> public_data_tree_read_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -99,7 +100,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
-    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check);
+    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, update_check_event_emitter);
@@ -107,7 +108,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillOnce(Return(fr_sibling_path{ 0 }));
+        .WillOnce(Return(crypto::merkle_tree::fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillOnce(Return(PublicDataTreeLeafPreimage(PublicDataLeafValue(1, 0), 0, 0)));
     EXPECT_CALL(mock_low_level_merkle_db,
@@ -163,7 +164,6 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     NiceMock<MockFieldGreaterThan> mock_field_gt;
     NiceMock<MockMerkleCheck> mock_merkle_check;
-    NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
 
     EventEmitter<PublicDataTreeReadEvent> public_data_tree_read_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -171,7 +171,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
-    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check);
+    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, update_check_event_emitter);
@@ -190,7 +190,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillOnce(Return(fr_sibling_path{ 0 }));
+        .WillOnce(Return(crypto::merkle_tree::fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillRepeatedly([&](const uint64_t& index) {
             return PublicDataTreeLeafPreimage(

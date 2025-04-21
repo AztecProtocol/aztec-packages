@@ -57,19 +57,16 @@ ethereum:
   execution:
     resources:
       requests:
-        memory: "12Gi"
-        cpu: "2.5"
-    storageSize: "90Gi"
+        memory: "5Gi"
+    storageSize: "80Gi"
   beacon:
     resources:
       requests:
-        memory: "12Gi"
-        cpu: "2.5"
-    storageSize: "90Gi"
+        memory: "5Gi"
+    storageSize: "80Gi"
   validator:
     resources:
       requests:
-        memory: "12Gi"
-        cpu: "2.5"
+        memory: "5Gi"
 
 

@@ -30,9 +30,9 @@ function release {
   echo_header "playground release"
   if [ $(dist_tag) != "latest" ]; then
     # TODO attach to github release
-    do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$REF_NAME
+    do_or_dryrun yarn netlify deploy --site aztec-playground --dir=dist
   else
-    do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/
+    do_or_dryrun yarn netlify deploy --site aztec-playground --prod --dir=dist
   fi
 }
 

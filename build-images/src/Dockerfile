@@ -74,7 +74,7 @@ RUN git clone https://github.com/tpoechtrager/osxcross.git \
 ########################################################################################################################
 # Build foundry.
 FROM base-build AS foundry
-ENV FOUNDRY_VERSION=nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5
+ENV FOUNDRY_TAG=25f24e677a6a32a62512ad4f561995589ac2c7dc
 ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
@@ -82,7 +82,7 @@ ENV PATH="/opt/rust/cargo/bin:$PATH"
 ENV RUSTFLAGS="-C target-cpu=generic"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN curl -L https://foundry.paradigm.xyz | bash \
-    && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
+    && $FOUNDRY_BIN_DIR/foundryup -b nightly-$FOUNDRY_TAG \
     && mkdir -p /opt/foundry/bin \
     && for t in forge cast anvil chisel; do \
         mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \

@@ -285,10 +285,8 @@ pub(crate) comptime fn get_trait_impl_method(
     target_method: Quoted,
 ) -> TypedExpr {
     let trait_constraint = target_trait.as_trait_constraint();
-    typ
-        .get_trait_impl(trait_constraint)
-        .expect(f"Type does not implement trait")
-        .methods()
-        .filter(|m| m.name() == target_method)[0]
+    typ.get_trait_impl(trait_constraint).expect(f"Type does not implement trait").methods().filter(
+        |m| m.name() == target_method,
+    )[0]
         .as_typed_expr()
 }

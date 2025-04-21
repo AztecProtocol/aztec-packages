@@ -15,8 +15,6 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export { addL1Validator } from './update_l1_validators.js';
-
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
   'List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated)',
@@ -281,16 +279,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('add-l1-validator')
     .description('Adds a validator to the L1 rollup contract.')
     .addOption(l1RpcUrlsOption)
-    .option('-pk, --private-key <string>', 'The private key to use sending the transaction', PRIVATE_KEY)
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
-      'The mnemonic to use sending the transaction',
+      'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
-    .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
-    .option('--proposer-eoa <address>', 'ethereum address of the proposer EOA', parseEthereumAddress)
-    .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
+    .option('--validator <address>', 'ethereum address of the validator', parseEthereumAddress)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .option('--withdrawer <address>', 'ethereum address of the withdrawer', parseEthereumAddress)
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
       await addL1Validator({
@@ -298,9 +296,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
-        attesterAddress: options.attester,
-        proposerEOAAddress: options.proposerEoa,
-        stakingAssetHandlerAddress: options.stakingAssetHandler,
+        validatorAddress: options.validator,
+        rollupAddress: options.rollup,
+        withdrawerAddress: options.withdrawer,
         log,
         debugLogger,
       });

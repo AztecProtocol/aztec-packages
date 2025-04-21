@@ -22,8 +22,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
 
     using OpeningClaim = OpeningClaim<TypeParam>;
 
-    const size_t log_n = 4;
-    const size_t n = 1UL << log_n;
+    const size_t n = 16;
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 

@@ -25,7 +25,7 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
    */
   public override send(): DeploySentTx<TContract> {
     const promise = (() => {
-      return this.wallet.sendTx(this.getPlainDataTx());
+      return this.wallet.sendTx(this);
     })();
 
     return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instanceGetter);

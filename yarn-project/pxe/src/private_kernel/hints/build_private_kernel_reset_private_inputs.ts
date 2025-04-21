@@ -163,9 +163,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
       allowRemainder,
     );
 
-    const previousVkMembershipWitness = await oracle.getVkMembershipWitness(
-      this.previousKernelOutput.verificationKey.keyAsFields,
-    );
+    const previousVkMembershipWitness = await oracle.getVkMembershipWitness(this.previousKernelOutput.verificationKey);
     const previousKernelData = new PrivateKernelData(
       this.previousKernelOutput.publicInputs,
       this.previousKernelOutput.verificationKey,

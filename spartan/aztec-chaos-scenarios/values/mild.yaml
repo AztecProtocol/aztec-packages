@@ -5,10 +5,6 @@ global:
 
 networkShaping:
   enabled: true
-  # The label selectors to apply the network shaping to
-  appliedTo:
-    - validator
-    - full-node
   conditions:
     latency:
       enabled: true

@@ -1,7 +1,6 @@
 import createDebug from 'debug';
 
-import { generate3FunctionTestingIVCStack } from './index.js';
-import { proveThenVerifyAztecClient } from './prove_wasm.js';
+import { generate3FunctionTestingIVCStack, proveThenVerifyAztecClient } from './index.js';
 
 const logger = createDebug('aztec:ivc-test');
 

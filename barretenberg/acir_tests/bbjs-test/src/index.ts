@@ -42,7 +42,6 @@ async function generateProof({
   const witness = await fs.readFile(witnessPath);
   const proof = await backend.generateProof(new Uint8Array(witness), {
     keccak: oracleHash === "keccak",
-    starknet: oracleHash === "starknet",
   });
   assert(
     proof.proof.length === UH_PROOF_LENGTH_IN_BYTES,
@@ -67,7 +66,6 @@ async function generateProof({
 
   const verificationKey = await backend.getVerificationKey({
     keccak: oracleHash === "keccak",
-    starknet: oracleHash === "starknet",
   });
   await fs.writeFile(vkeyPath(outputDirectory), Buffer.from(verificationKey));
   debug("Verification key written to " + vkeyPath(outputDirectory));

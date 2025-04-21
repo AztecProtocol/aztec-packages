@@ -27,8 +27,7 @@ contract SubTest is UserLibBase {
   function test_GivenUserHaveNoCheckpoints(uint256 _amount) external whenAmountGt0(_amount) {
     // it revert
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__NoCheckpointsFound.selector));
-    vm.prank(msg.sender);
-    this.callSub(amount);
+    user.sub(amount);
   }
 
   function test_WhenAmountIsMoreThanLastCheckpoint(
@@ -46,8 +45,7 @@ contract SubTest is UserLibBase {
         Errors.Governance__InsufficientPower.selector, msg.sender, sumBefore, amount
       )
     );
-    vm.prank(msg.sender);
-    this.callSub(amount);
+    user.sub(amount);
   }
 
   modifier whenAmountIsLessOrEqualToLastCheckpoint(uint256 _amount) {
@@ -111,11 +109,5 @@ contract SubTest is UserLibBase {
 
     assertEq(last2.time, last.time + Timestamp.wrap(time));
     assertEq(last2.power, last.power - amount);
-  }
-
-  // @dev helper for testing, to avoid:
-  // "call didn't revert at a lower depth than cheatcode call depth"
-  function callSub(uint256 _amount) external {
-    user.sub(_amount);
   }
 }

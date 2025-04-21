@@ -14,7 +14,8 @@ namespace bb::avm2::simulation {
 class AluInterface {
   public:
     virtual ~AluInterface() = default;
-    virtual MemoryValue add(const MemoryValue& a, const MemoryValue& b) = 0;
+    // I'd like to return a ValueRefAndTag, but the MemoryValue& doesnt live long enough.
+    virtual FF add(const ValueRefAndTag& a, const ValueRefAndTag& b) = 0;
 };
 
 class Alu : public AluInterface {
@@ -23,7 +24,7 @@ class Alu : public AluInterface {
         : events(event_emitter)
     {}
 
-    MemoryValue add(const MemoryValue& a, const MemoryValue& b) override;
+    FF add(const ValueRefAndTag& a, const ValueRefAndTag& b) override;
 
   private:
     EventEmitterInterface<AluEvent>& events;
