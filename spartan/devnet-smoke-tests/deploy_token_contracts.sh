@@ -14,7 +14,8 @@ if [ "$token_contract_count" -lt "$max_token_contracts" ]; then
     token_symbol="TKN_$((token_contract_count + i))"
     token_name="Token_$((token_contract_count + i))"
 
-    # We only use the prover on the first iteration of the loop to avoid duplicating identical proofs
+    # We only use the prover on the first iteration of the loop - while we need all tokens to be deployed, proving is
+    # expensive and a single successful run is enough for the purposes of a smoke test.
     prover_to_use=$(get_prover $((i == 1)))
 
     new_token_contract_address=$(aztec-wallet $prover_to_use \
