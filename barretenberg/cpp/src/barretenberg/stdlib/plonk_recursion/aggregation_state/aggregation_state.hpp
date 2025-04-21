@@ -115,7 +115,6 @@ template <typename Builder_> struct aggregation_state {
         for (uint32_t& idx : ctx->pairing_point_accumulator_public_input_indices) {
             idx = pub_idx++;
         }
-        ctx->contains_pairing_point_accumulator = true;
 
         return start_idx;
     }

@@ -68,7 +68,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
             this->pairing_point_accumulator_public_input_indices =
                 native_key->pairing_point_accumulator_public_input_indices;
             this->ipa_claim_public_input_key = native_key->ipa_claim_public_input_key;
@@ -94,8 +93,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->contains_pairing_point_accumulator =
-                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
