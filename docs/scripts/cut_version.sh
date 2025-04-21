@@ -11,10 +11,19 @@
 
 # Exit on error
 set -e
+
 # Check if we're in the docs directory
 if [ ! -f "docusaurus.config.js" ]; then
     echo "Error: This script must be run from the docs directory"
-    exit 1
+    echo "New docs version should be cut manually"
+    exit 0
+fi
+
+# Check if GitHub CLI is available
+if ! command -v gh &> /dev/null; then
+    echo "Error: GitHub CLI (gh) is required but not installed"
+    echo "New docs version should be cut manually"
+    exit 0
 fi
 
 # Skip if this is a nightly build
@@ -56,15 +65,10 @@ git commit -m "chore(docs): cut new docs version for tag $COMMIT_TAG"
 # Push the branch
 git push origin $BRANCH_NAME
 
-# Create PR using GitHub CLI if available
-if command -v gh &> /dev/null; then
-    gh pr create \
-        --title "chore(docs): cut new docs version for tag $COMMIT_TAG" \
-        --body "This PR cuts a new docs version for tag $COMMIT_TAG" \
-        --base master
-else
-    echo "GitHub CLI not found. Please create PR manually at:"
-    echo "https://github.com/aztecprotocol/aztec-packages/compare/master...$BRANCH_NAME"
-fi
+# Create PR using GitHub CLI
+gh pr create \
+    --title "chore(docs): cut new docs version for tag $COMMIT_TAG" \
+    --body "This PR cuts a new docs version for tag $COMMIT_TAG" \
+    --base master
+echo "Successfully cut new docs version: $COMMIT_TAG and opened a PR"
 
-echo "Successfully cut new docs version: $COMMIT_TAG"
