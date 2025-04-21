@@ -133,8 +133,12 @@ fi
 # Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
 SECONDS=0
 set +e
-[ "${ISOLATE:-0}" -eq 1 ] && fg_cmd="--foreground"
-taskset -c $CPU_LIST timeout ${fg_cmd:-} -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
+if [ "${ISOLATE:-0}" -eq 1 ]; then
+  docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(cat | add_timestamps >> $tmp_file) &
+else
+  [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
+  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
+fi
 test_pid=$!
 # echo "RTC waiting on $test_pid" >/dev/tty
 wait $test_pid

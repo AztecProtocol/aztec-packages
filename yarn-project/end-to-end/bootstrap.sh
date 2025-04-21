@@ -7,16 +7,17 @@ hash=$(../bootstrap.sh hash)
 
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  local prefix="$hash $run_test_script"
-
-  if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash:TIMEOUT=15m:CPUS=8:MEM=96g NAME_POSTFIX=_real $run_test_script simple e2e_prover/full"
-  else
-    echo "$hash FAKE_PROOFS=1 NAME_POSTFIX=_fake $run_test_script simple e2e_prover/full"
-  fi
+  local prefix="$hash:ISOLATE=1"
 
   # Longest-running tests first
-  echo "$hash:TIMEOUT=15m $run_test_script simple e2e_block_building"
+  if [ "$CI_FULL" -eq 1 ]; then
+    echo "$prefix:TIMEOUT=15m:CPUS=8:MEM=96g:NAME_POSTFIX=_real $run_test_script simple e2e_prover/full"
+  else
+    echo "$prefix:NAME_POSTFIX=_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+  fi
+  echo "$prefix:TIMEOUT=15m $run_test_script simple e2e_block_building"
+
+  local prefix="$prefix $run_test_script"
 
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
@@ -124,6 +125,8 @@ function test_cmds {
   echo "$prefix simple e2e_circuit_recorder"
 
   # compose-based tests (use running sandbox)
+  # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+  local prefix="$hash:ONLY_TERM_PARENT=1 $run_test_script"
   echo "$prefix compose composed/docs_examples"
   echo "$prefix compose composed/e2e_pxe"
   echo "$prefix compose composed/e2e_sandbox_example"
@@ -142,7 +145,7 @@ function test_cmds {
     for flow in ../cli-wallet/test/flows/*.sh; do
       # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
       # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-      echo "$hash LOG_LEVEL=info $run_test_script compose $flow"
+      echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
     done
   fi
 }

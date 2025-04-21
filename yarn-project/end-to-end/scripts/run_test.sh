@@ -13,29 +13,10 @@ test=$2
 
 case "$type" in
   "simple")
-    export ENV_VARS_TO_INJECT="FAKE_PROOFS BENCH_OUTPUT CAPTURE_IVC_FOLDER LOG_LEVEL COLLECT_METRICS"
-    NAME=$test exec docker_isolate "./test_simple.sh $test"
+    exec ./test_simple.sh $test
   ;;
   "compose")
-    # Strip leading non alpha numerics and replace / and . with _.
-    name=$(echo "${test}${NAME_POSTFIX:-}" | sed 's/^[^a-zA-Z0-9]*//; s/[\/\.]/_/g')
-    name_arg="-p $name"
-    docker compose $name_arg down --timeout 0 &> /dev/null
-
-    function cleanup {
-      echo compose cleanup: $name_arg >/dev/tty
-      SECONDS=0
-      while [ $SECONDS -lt 15 ] && ! docker compose $name_arg ps --format '{{.Service}} {{.State}}' | grep -q "running"; do
-          echo waiting for compose to be running: $name_arg >/dev/tty
-          sleep 1
-      done
-      echo compose kill $name_arg >/dev/tty
-      docker compose $name_arg down --timeout 0 &> /dev/null
-    }
-    trap cleanup EXIT
-
-    TEST=$test docker compose $name_arg up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate &
-    pid=$!
-    wait $pid
+    # TODO: Replace this file with test_simple.sh, and just emit the below as part of test_cmds.
+    TEST=$test exec run_compose_test $test end-to-end $PWD
   ;;
 esac

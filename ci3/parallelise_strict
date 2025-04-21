@@ -15,7 +15,6 @@ function cleanup {
   echo >&2
   [ -f "$output" ] && rm -f $output
   kill -TERM $(jobs -p) &>/dev/null
-  wait
 }
 trap cleanup EXIT
 
@@ -97,11 +96,11 @@ done
 [ -t 1 ] && echo
 
 function filter_long_times {
-    grep -E '\([0-9]+s\)$' |           # Match lines ending with (number)s
-    sed 's/.*(\([0-9]\+\)s)$/\1 &/' |  # Extract number and keep original line
-    awk '$1 > 300 {print $0}' |        # Filter for times > 300s
-    sort -n |                          # Sort numerically by first column (time)
-    sed 's/^[0-9]\+ //'                # Remove the extracted number used for sorting
+  grep -E '\([0-9]+s\)$' |           # Match lines ending with (number)s
+  sed 's/.*(\([0-9]\+\)s)$/\1 &/' |  # Extract number and keep original line
+  awk '$1 > 300 {print $0}' |        # Filter for times > 300s
+  sort -n |                          # Sort numerically by first column (time)
+  sed 's/^[0-9]\+ //'                # Remove the extracted number used for sorting
 }
 
 slow_jobs=$(cat "$output" | filter_long_times)

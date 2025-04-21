@@ -107,6 +107,7 @@ function test_cmds {
   # noir-bb-bench: A slow pain. Figure out later.
   for test in !(end-to-end|kv-store|noir-bb-bench)/src/**/*.test.ts; do
     local prefix=$hash
+    local cmd_env=""
 
     # These need isolation due to network stack usage (p2p, anvil, etc).
     if [[ "$test" =~ ^(prover-node|p2p|ethereum|aztec|prover-client/src/test)/ ]]; then
@@ -123,19 +124,20 @@ function test_cmds {
 
     # Add debug logging for tests that require a bit more info
     if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
-      prefix+=":LOG_LEVEL=debug"
+      cmd_env+=" LOG_LEVEL=debug"
     fi
 
     # Enable real proofs in prover-client integration tests only on CI full.
     if [[ "$test" =~ ^prover-client/src/test/ ]]; then
       if [ "$CI_FULL" -eq 1 ]; then
-        prefix+=":CPUS=8:MEM=96g:LOG_LEVEL=verbose"
+        prefix+=":CPUS=8:MEM=96g"
+        cmd_env+=" LOG_LEVEL=verbose"
       else
-        prefix+=":FAKE_PROOFS=1"
+        cmd_env+=" FAKE_PROOFS=1"
       fi
     fi
 
-    echo "$prefix yarn-project/scripts/run_test.sh $test"
+    echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.

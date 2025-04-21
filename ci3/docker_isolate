@@ -60,6 +60,7 @@ done
 set -x
 cid=$(docker run -d \
   ${name_arg:-} \
+  --net=none \
   --cpus=${CPUS:-2} \
   --memory=${MEM:-8g} \
   ${cpuset_arg:-} \
