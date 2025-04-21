@@ -1,12 +1,9 @@
 #include <unordered_map>
 
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 #include "term.hpp"
 
 #include <gtest/gtest.h>
-
-namespace {
-auto& engine = bb::numeric::get_debug_randomness();
-}
 
 using namespace smt_terms;
 
@@ -25,11 +22,8 @@ TEST(FFTerm, addition)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getFiniteFieldValue();
-
-    STerm bval = STerm(b, &s, TermType::FFTerm);
-    std::string bvals = s.getValue(bval.term).getFiniteFieldValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 TEST(FFTerm, subtraction)
@@ -47,11 +41,8 @@ TEST(FFTerm, subtraction)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getFiniteFieldValue();
-
-    STerm bval = STerm(b, &s, TermType::FFTerm);
-    std::string bvals = s.getValue(bval.term).getFiniteFieldValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 TEST(FFTerm, multiplication)
@@ -69,11 +60,8 @@ TEST(FFTerm, multiplication)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getFiniteFieldValue();
-
-    STerm bval = STerm(b, &s, TermType::FFTerm);
-    std::string bvals = s.getValue(bval.term).getFiniteFieldValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 TEST(FFTerm, division)
@@ -91,11 +79,8 @@ TEST(FFTerm, division)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getFiniteFieldValue();
-
-    STerm bval = STerm(b, &s, TermType::FFTerm);
-    std::string bvals = s.getValue(bval.term).getFiniteFieldValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 TEST(FFTerm, set_inclusion)
@@ -115,11 +100,11 @@ TEST(FFTerm, set_inclusion)
 
     ASSERT_TRUE(s.check());
 
-    std::string xval = s.getValue(x).getFiniteFieldValue();
+    std::string xval = s[x];
     ASSERT_EQ(xval, "1");
-    std::string yval = s.getValue(y).getFiniteFieldValue();
+    std::string yval = s[y];
     ASSERT_EQ(yval, "2");
-    std::string zval = s.getValue(z).getFiniteFieldValue();
+    std::string zval = s[z];
     ASSERT_EQ(zval, "3");
 }
 

@@ -51,24 +51,62 @@ template <typename Curve> class OpeningClaim {
     using Fr = typename Curve::ScalarField;
 
   public:
+    using Builder =
+        std::conditional_t<std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>, UltraCircuitBuilder, void>;
     // (challenge r, evaluation v = p(r))
     OpeningPair<Curve> opening_pair;
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
-    IPAClaimIndices get_witness_indices() const
+    // Size of public inputs representation of an opening claim over Grumpkin
+    static constexpr size_t PUBLIC_INPUTS_SIZE = IPA_CLAIM_SIZE;
+
+    /**
+     * @brief Set the witness indices for the opening claim to public
+     * @note Implemented only for an opening claim over Grumpkin for use with IPA.
+     *
+     */
+    uint32_t set_public()
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
-        return { opening_pair.challenge.binary_basis_limbs[0].element.normalize().witness_index,
-                 opening_pair.challenge.binary_basis_limbs[1].element.normalize().witness_index,
-                 opening_pair.challenge.binary_basis_limbs[2].element.normalize().witness_index,
-                 opening_pair.challenge.binary_basis_limbs[3].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[0].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[1].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[2].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[3].element.normalize().witness_index,
-                 commitment.x.normalize().witness_index, // no idea if we need these normalize() calls...
-                 commitment.y.normalize().witness_index };
+        uint32_t start_idx = opening_pair.challenge.set_public();
+        opening_pair.evaluation.set_public();
+        commitment.set_public();
+
+        Builder* ctx = commitment.get_context();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually the builder/PK/VK will store
+        // public input key which should be set here and ipa_claim_public_input_indices should go away.
+        uint32_t pub_idx = start_idx;
+        for (uint32_t& idx : ctx->ipa_claim_public_input_indices) {
+            idx = pub_idx++;
+        }
+        ctx->contains_ipa_claim = true;
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct an opening claim from limbs stored on the public inputs.
+     * @note Implemented only for an opening claim over Grumpkin for use with IPA.
+     *
+     */
+    static OpeningClaim<Curve> reconstruct_from_public(
+        const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
+        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+    {
+        ASSERT(2 * Fr::PUBLIC_INPUTS_SIZE + Commitment::PUBLIC_INPUTS_SIZE == PUBLIC_INPUTS_SIZE);
+
+        const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
+        const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
+        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
+        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
+        std::span<const stdlib::field_t<Builder>, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE,
+                                                                                     COMMITMENT_SIZE };
+        auto challenge = Fr::reconstruct_from_public(challenge_limbs);
+        auto evaluation = Fr::reconstruct_from_public(evaluation_limbs);
+        auto commitment = Commitment::reconstruct_from_public(commitment_limbs);
+
+        return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
 
     auto get_native_opening_claim() const

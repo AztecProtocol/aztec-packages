@@ -623,8 +623,8 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
     constexpr uint32_t cast_size = 7;
     constexpr uint32_t set_64_size = 13;
 
-    instr_cast.operands.at(2) = Operand::u8(0x09); // tag operand mutation to 0x09 which is out of range
-    instr_set.operands.at(1) = Operand::u8(0x0A);  // tag operand mutation to 0x0A which is out of range
+    instr_cast.operands.at(2) = Operand::from<uint8_t>(0x09); // tag operand mutation to 0x09 which is out of range
+    instr_set.operands.at(1) = Operand::from<uint8_t>(0x0A);  // tag operand mutation to 0x0A which is out of range
 
     auto bytecode = instr_cast.serialize();
     ASSERT_EQ(bytecode.size(), cast_size);

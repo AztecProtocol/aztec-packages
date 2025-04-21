@@ -128,8 +128,8 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   public async getTxEffect(txHash: TxHash) {
     const match = this.l2Blocks
@@ -139,7 +139,12 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       return Promise.resolve(undefined);
     }
     const [txEffect, block] = match;
-    return { data: txEffect, l2BlockNumber: block.number, l2BlockHash: (await block.hash()).toString() };
+    return {
+      data: txEffect,
+      l2BlockNumber: block.number,
+      l2BlockHash: (await block.hash()).toString(),
+      txIndexInBlock: block.body.txEffects.indexOf(txEffect),
+    };
   }
 
   /**
@@ -247,6 +252,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+    return Promise.resolve();
+  }
+
+  syncImmediate(): Promise<void> {
     return Promise.resolve();
   }
 }

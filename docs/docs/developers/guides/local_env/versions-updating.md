@@ -44,7 +44,7 @@ As in the previous section, the location of the noir contracts moved at version 
 Notice the difference between the sample Counter contract from `0.23.0` to `0.24.0` shows the `note_type_id` was added.
 
 ```shell
-diff ~/nargo/github.com/AztecProtocol/v0.23.0/yarn-project/noir-contracts/contracts/counter_contract/src/main.nr ~/nargo/github.com/AztecProtocol/v0.24.0/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr
+diff ~/nargo/github.com/AztecProtocol/v0.23.0/yarn-project/noir-contracts/contracts/test/counter_contract/src/main.nr ~/nargo/github.com/AztecProtocol/v0.24.0/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr
 ```
 
 ```

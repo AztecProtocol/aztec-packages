@@ -26,11 +26,6 @@ data "terraform_remote_state" "aztec2_iac" {
   }
 }
 
-variable "VERSION" {
-  description = "The version of the Aztec scripts to upload"
-  type        = string
-}
-
 # Create the website S3 bucket
 resource "aws_s3_bucket" "install_bucket" {
   bucket = "install.aztec.network"
@@ -71,7 +66,7 @@ resource "aws_s3_bucket_policy" "install_bucket_policy" {
 
 resource "aws_cloudfront_distribution" "install" {
   origin {
-    domain_name = aws_s3_bucket.install_bucket.website_endpoint
+    domain_name = aws_s3_bucket_website_configuration.website_bucket.website_endpoint
     origin_id   = "S3-install-aztec-network"
 
     custom_origin_config {
@@ -101,9 +96,7 @@ resource "aws_cloudfront_distribution" "install" {
       }
     }
 
-    # TODO: Once new aztec-up script (almost certainly within days of this change), switch to redirect-to-https.
-    # viewer_protocol_policy = "redirect-to-https"
-    viewer_protocol_policy = "allow-all"
+    viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400

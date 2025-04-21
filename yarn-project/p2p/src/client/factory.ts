@@ -43,7 +43,12 @@ export const createP2PClient = async <T extends P2PClientType>(
   const archive = await createStore('p2p-archive', 1, config, createLogger('p2p-archive:lmdb-v2'));
 
   const mempools: MemPools<T> = {
-    txPool: deps.txPool ?? new AztecKVTxPool(store, archive, telemetry, config.archivedTxLimit),
+    txPool:
+      deps.txPool ??
+      new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
+        maxTxPoolSize: config.maxTxPoolSize,
+        archivedTxLimit: config.archivedTxLimit,
+      }),
     attestationPool:
       clientType === P2PClientType.Full
         ? ((deps.attestationPool ?? new InMemoryAttestationPool(telemetry)) as T extends P2PClientType.Full
@@ -59,7 +64,7 @@ export const createP2PClient = async <T extends P2PClientType>(
     config = await configureP2PClientAddresses(_config);
 
     // Create peer discovery service
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, store);
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
     const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     const discoveryService = new DiscV5Service(
       peerId,
