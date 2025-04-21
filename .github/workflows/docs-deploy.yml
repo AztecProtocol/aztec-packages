@@ -44,14 +44,15 @@ jobs:
 
       # Making the bash script here so we don't accidentally deploy
       - name: Deploy docs
-        working-directory: ./docs
         run: |
-          echo "deploying docs to prod"
-          yarn install
-          yarn build
+          ./docs/bootstrap.sh release
 
-          if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev --prod 2>&1); then
-            echo "Netlify deploy failed with error:"
-            echo "$deploy_output"
-            exit 1
-          fi
+      - name: Reindex with Typesense docsearch-scraper
+        run: |
+          docker run \
+            -e "TYPESENSE_API_KEY=${{ secrets.TYPESENSE_API_KEY }}" \
+            -e "TYPESENSE_HOST=${{ secrets.TYPESENSE_HOST }}" \
+            -e "TYPESENSE_PORT=443" \
+            -e "TYPESENSE_PROTOCOL=https" \
+            -e "CONFIG=$(cat docs/typesense.config.json | jq -r tostring)" \
+            typesense/docsearch-scraper:0.11.0

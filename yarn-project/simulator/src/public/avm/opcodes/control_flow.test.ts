@@ -19,8 +19,8 @@ describe('Control Flow Opcodes', () => {
       ]);
       const inst = new Jump(/*loc=*/ 0x12340000);
 
-      expect(Jump.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Jump.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should implement JUMP', async () => {
@@ -44,8 +44,8 @@ describe('Control Flow Opcodes', () => {
       ]);
       const inst = new JumpI(/*indirect=*/ 1, /*condOffset=*/ 0xa234, /*loc=*/ 0x12340000);
 
-      expect(JumpI.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(JumpI.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should implement JUMPI - truthy', async () => {
@@ -89,8 +89,8 @@ describe('Control Flow Opcodes', () => {
       ]);
       const inst = new InternalCall(/*loc=*/ 0x12340000);
 
-      expect(InternalCall.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(InternalCall.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should implement Internal Call and Return', async () => {

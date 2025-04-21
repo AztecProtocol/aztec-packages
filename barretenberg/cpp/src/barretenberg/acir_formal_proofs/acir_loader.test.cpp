@@ -20,7 +20,7 @@
 #include <vector>
 
 // Path to test artifacts containing ACIR programs and witness files
-const std::string ARTIFACTS_PATH = "../src/barretenberg/acir_formal_proofs/artifacts/";
+const std::string ARTIFACTS_PATH = "/tmp/";
 
 /**
  * @brief Saves witness data when a bug is found during verification
@@ -487,4 +487,43 @@ TEST(acir_formal_proofs, integer_terms_div)
     if (res) {
         save_buggy_witness(TESTNAME, circuit);
     }
+}
+
+/**
+ * @brief Tests non-uniqueness for casts
+ * Verifies that the ACIR implementation of casts is correct Field -> u64
+ */
+TEST(acir_formal_proofs, non_uniqueness_for_casts_field_to_u64)
+{
+    std::string TESTNAME = "Cast_Field_0";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    bool res = verify_non_uniqueness_for_casts(&solver, &loader, smt_terms::TermType::FFTerm);
+    EXPECT_FALSE(res);
+}
+
+/**
+ * @brief Tests non-uniqueness for casts
+ * Verifies that the ACIR implementation of casts is correct u64 -> u8
+ */
+TEST(acir_formal_proofs, non_uniqueness_for_casts_u64_to_u8)
+{
+    std::string TESTNAME = "Cast_Unsigned_64";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    bool res = verify_non_uniqueness_for_casts(&solver, &loader, smt_terms::TermType::BVTerm);
+    EXPECT_FALSE(res);
+}
+
+/**
+ * @brief Tests non-uniqueness for casts
+ * Verifies that the ACIR implementation of casts is correct u8 -> u64
+ */
+TEST(acir_formal_proofs, non_uniqueness_for_casts_u8_to_u64)
+{
+    std::string TESTNAME = "Cast_Unsigned_8";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    bool res = verify_non_uniqueness_for_casts(&solver, &loader, smt_terms::TermType::BVTerm);
+    EXPECT_FALSE(res);
 }

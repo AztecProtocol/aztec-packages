@@ -28,9 +28,7 @@ using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
 using simulation::EventEmitter;
-using simulation::Memory;
-using simulation::MemoryEvent;
-using simulation::NoopEventEmitter;
+using simulation::MemoryStore;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
@@ -53,8 +51,7 @@ TEST(Sha256ConstrainingTest, EmptyRow)
 // TOOD: Replace this with a hardcoded test vector and write a negative test
 TEST(Sha256ConstrainingTest, Basic)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 
@@ -64,13 +61,13 @@ TEST(Sha256ConstrainingTest, Basic)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
     }
     MemoryAddress dst_addr = 25;
 
@@ -89,8 +86,7 @@ TEST(Sha256ConstrainingTest, Basic)
 
 TEST(Sha256ConstrainingTest, Interaction)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 
@@ -100,13 +96,13 @@ TEST(Sha256ConstrainingTest, Interaction)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
     }
     MemoryAddress dst_addr = 25;
 

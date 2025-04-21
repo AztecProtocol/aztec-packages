@@ -4,6 +4,7 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -314,9 +315,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.mega->pcs_verification_key = nullptr;
         ivc_vk.eccvm->pcs_verification_key = nullptr;
-        ivc_vk.translator->pcs_verification_key = nullptr;
 
         return ivc_vk;
     };
@@ -513,6 +512,34 @@ TEST_F(ClientIVCTests, MsgpackProofFromFile)
     proof.to_file_msgpack(filename);
     auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
 
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+};
+
+/**
+ * @brief Test methods for serializing and deserializing a proof to/from a "heap" buffer in msgpack format
+ *
+ */
+TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to/from a heap buffer, check that it verifies
+    uint8_t const* buffer = proof.to_msgpack_heap_buffer();
+    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+    uint8_t const* uint8_ptr = uint8_buffer.data();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(uint8_ptr);
     EXPECT_TRUE(ivc.verify(proof_deserialized));
 };
 

@@ -203,7 +203,7 @@ function release {
     jq --arg v $version '.version = $v' package.json >tmp.json
     mv tmp.json package.json
 
-    deploy_npm $dist_tag $version
+    retry "deploy_npm $dist_tag $version"
     cd ..
   done
 }

@@ -2,15 +2,12 @@ import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory }
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
-
-/* eslint-disable camelcase */
 
 const logger = createLogger('ivc-integration:test:native');
 
@@ -22,7 +19,7 @@ describe('Client IVC Integration', () => {
 
   beforeEach(async () => {
     // Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-client-ivc-integration-'));
+    bbWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
   });
 
