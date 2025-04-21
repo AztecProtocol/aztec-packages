@@ -97,3 +97,49 @@ export interface AztecAsyncMap<K extends Key, V extends Value> extends AztecBase
    */
   keysAsync(range?: Range<K>): AsyncIterableIterator<K>;
 }
+
+/**
+ * Wraps an AztecMap that stores `Buffer`s with functions that convert to and from some other type `TypedV`, making the
+ * map behave as if it stored `TypedV` objects.
+ * @param into A function that converts a `TypedV` into a `Buffer`.
+ * @param from A function that creates a `TypedV` from a `Buffer`.
+ */
+export function typedBufferAztecMap<K extends Key, TypedV>(
+  map: AztecAsyncMap<K, Buffer>,
+  into: (value: TypedV) => Buffer,
+  from: (value: Buffer) => TypedV,
+): AztecAsyncMap<K, TypedV> {
+  return {
+    getAsync: async function (key: K): Promise<TypedV | undefined> {
+      const val = await map.getAsync(key);
+      if (val !== undefined) {
+        return from(val);
+      }
+    },
+    hasAsync: function (key: K): Promise<boolean> {
+      return map.hasAsync(key);
+    },
+    entriesAsync: async function* (range?: Range<K> | undefined): AsyncIterableIterator<[K, TypedV]> {
+      for await (const [key, val] of map.entriesAsync(range)) {
+        yield [key, from(val)];
+      }
+    },
+    valuesAsync: async function* (range?: Range<K> | undefined): AsyncIterableIterator<TypedV> {
+      for await (const val of map.valuesAsync(range)) {
+        yield from(val);
+      }
+    },
+    keysAsync: function (range?: Range<K> | undefined): AsyncIterableIterator<K> {
+      return map.keysAsync(range);
+    },
+    set: function (key: K, val: TypedV): Promise<void> {
+      return map.set(key, into(val));
+    },
+    setIfNotExists: function (key: K, val: TypedV): Promise<boolean> {
+      return map.setIfNotExists(key, into(val));
+    },
+    delete: function (key: K): Promise<void> {
+      return map.delete(key);
+    },
+  };
+}
