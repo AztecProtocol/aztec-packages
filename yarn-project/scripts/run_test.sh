@@ -17,7 +17,11 @@ cd ../$dir
 
 if [ "${ISOLATE:-0}" -eq 1 ]; then
   export ENV_VARS_TO_INJECT="NODE_OPTIONS LOG_LEVEL FAKE_PROOFS"
-  NAME=$name docker_isolate "node ../node_modules/.bin/jest --forceExit --runInBand $test $@"
+  NAME=$name exec docker_isolate "node ../node_modules/.bin/jest --forceExit --runInBand $test $@"
 else
-  node ../node_modules/.bin/jest --forceExit --runInBand $test $@
+  trap 'kill -9 -$sid &>/dev/null || true' EXIT
+  setsid node ../node_modules/.bin/jest --forceExit --runInBand $test $@ &
+  child_pid=$!
+  sid=$(ps -o sid= -p $child_pid | tr -d ' ')
+  wait $child_pid
 fi

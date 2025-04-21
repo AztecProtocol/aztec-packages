@@ -12,10 +12,14 @@ echo "Starting test run using max $num_cpus cpus..."
 sem_sched init $num_cpus
 
 function cleanup {
+  echo >&2
   [ -f "$output" ] && rm -f $output
   kill -TERM $(jobs -p) &>/dev/null
+  wait
 }
 trap cleanup EXIT
+
+trap exit SIGINT SIGTERM
 
 output=$(mktemp)
 
@@ -26,17 +30,19 @@ function run_and_release {
   run_test_cmd "$cmd" &
   local pid=$!
   wait $pid
+  semc --name "/complete_tests" +1
+  wait $pid
 }
 
 function status {
   [ "$no_term" -eq 1 ] && return
-  echo_stderr -e -n "\r$num_jobs scheduled, $(jobs -p | wc -l) running, $complete_jobs complete."
+  local complete_jobs=$(semc --name "/complete_tests")
+  echo_stderr -e -n "\r$num_jobs scheduled, $(jobs -p | wc -l) running, $complete_jobs complete.\e[K"
 }
 
 function wait_for_job {
   wait -n
   ret=$?
-  complete_jobs=$((complete_jobs + 1))
   status
   if [ $ret -ne 0 ]; then
     if [ $no_term -eq 0 ]; then
@@ -48,18 +54,19 @@ function wait_for_job {
 }
 
 function run_tests {
-  # semc --name "/complete_tests" --init 0
+  semc --name "/complete_tests" --init 0
   while IFS= read -r cmd || [ -n "$cmd" ]; do
     # Default.
-    export CPUS=2
+    local CPUS=2
 
-    # Extract the first token and export any variable assignments.
+    # Extract the first token and set any variable assignments (locally).
+    # We're actually only using this to get the number of cpus we need.
     hash_part="${cmd%% *}"
     if [[ "$hash_part" == *:* ]]; then
       IFS=':' read -ra parts <<< "$hash_part"
       # The first element is the actual hash; remaining elements are variable assignments.
       for var_assignment in "${parts[@]:1}"; do
-        export "$var_assignment"
+        local "$var_assignment"
       done
     fi
 
@@ -77,7 +84,6 @@ function run_tests {
 }
 
 num_jobs=0
-complete_jobs=0
 
 # We'll handle errors explicitly.
 set +e

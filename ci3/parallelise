@@ -19,7 +19,9 @@ echo "Starting test run with max $jobs jobs..."
 # Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
   set +e
-  output=$(parallel $parallel_args --bar "DUMP_FAIL=1 run_test_cmd {}" | DUP=1 cache_log "Test run"; exit ${PIPESTATUS[0]})
+  # Wrapping the call to parallel here in a new bash shell, fixes an oddity r.e. it sending TERMs to children.
+  # The first TERM just seems to be ignored.
+  output=$(parallel $parallel_args --bar 'DUMP_FAIL=1 run_test_cmd {}' | DUP=1 cache_log "Test run"; exit ${PIPESTATUS[0]})
   code=$?
   if [ "$code" -ne 0 ]; then
     echo -e "$output"

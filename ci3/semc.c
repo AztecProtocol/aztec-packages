@@ -190,7 +190,9 @@ int main(int argc, char *argv[]) {
 
     // If no amount specified, print value and exit.
     if (!has_amount) {
-        printf("%d\n", get_sem_value(sem));
+        if (init_value < 0) {
+            printf("%d\n", get_sem_value(sem));
+        }
         sem_close(sem);
         return 0;
     }

@@ -4,15 +4,24 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 source $ci3/source_refname
 
+# We must enable job control to ensure our test runs in it's own process group.
+# Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
+# This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
+# Slightly breaking the abstraction here, but if using strict scheduling we don't have the above problem,
+# but instead we want to avoid lots of "Terminated" messages.
+# [ "${STRICT_SCHEDULING:-0}" -eq 0 ] && set -m
+set -m
+
 cmd=$1
 
 # Defaults. Can be overridden.
-# We can schedule on
-CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
-CPUS=${CPUS:-2}
-# TODO: Only currently enforced by docker. Investigate ulimit.
-MEM=${MEM:-8g}
 TIMEOUT=${TIMEOUT:-600s}
+# The following are exported as they maybe used in the test command.
+# We can schedule on all CPUs by default.
+export CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
+export CPUS=${CPUS:-2}
+# TODO: Only currently enforced by docker. Investigate ulimit.
+export MEM=${MEM:-$((CPUS * 4))g}
 
 # Extract the first token and export any variable assignments.
 hash_part="${cmd%% *}"
@@ -56,6 +65,16 @@ function cleanup {
 }
 trap cleanup EXIT
 
+function sig_handler {
+  # echo RTC kill $test_pid $cmd >/dev/tty;
+  kill -TERM ${test_pid:-} &>/dev/null
+  # echo RTC waiting on $test_pid >/dev/tty;
+  # wait $test_pid
+  # echo RTC wait complete for $test_pid >/dev/tty;
+  exit
+}
+trap sig_handler SIGTERM SIGINT
+
 # Run the test, capturing output, with a timeout of 10m.
 # We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
@@ -78,6 +97,7 @@ function publish_log {
 }
 
 function live_publish_log {
+  # Not replacing previous trap as we run this function in the background.
   trap 'kill $sleep_pid &>/dev/null; exit' SIGTERM SIGINT
   # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
   sleep 30 &
@@ -103,19 +123,19 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     # If we're in CI, we want to publish the log live.
     live_publish_log &
     publish_pid=$!
-    trap "kill $publish_pid &>/dev/null" SIGTERM SIGINT
   fi
 fi
 
 # Reset timer.
 # Disable exit on error so we can capture code.
 # Run the test. Bind it to the given or default range of CPUs.
+# Timeout uses foreground so we only signal the test process, not the whole group (better cleanup control).
 # Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
 SECONDS=0
 set +e
-taskset -c $CPU_LIST timeout -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
+taskset -c $CPU_LIST timeout --foreground -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
 test_pid=$!
-trap "kill -- -$test_pid &>/dev/null" SIGTERM SIGINT
+# echo "RTC waiting on $test_pid" >/dev/tty
 wait $test_pid
 code=$?
 

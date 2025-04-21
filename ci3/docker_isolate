@@ -5,13 +5,34 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=$1
 
+# function cleanup {
+#   if [ -n "${cid:-}" ]; then
+#     echo "REMOVING $cid: $cmd" >/dev/tty
+#     set -x
+#     docker rm -f $cid &>/dev/tty
+#     echo "REMOVED $cid: $cmd $?" >/dev/tty
+#   fi
+# }
 function cleanup {
   if [ -n "${cid:-}" ]; then
-    docker rm -f $cid &>/dev/null
+    # echo "WAITING FOR $cid TO START OR EXIT" >/dev/tty
+    # SECONDS=0
+    # while [ $SECONDS -lt 15 ]; do
+    #   state=$(docker inspect --format '{{.State.Status}}' "$cid" 2>/dev/null || echo "notfound")
+    #   echo "STATE $cid: $state" >/dev/tty
+    #   if [ "$state" = "running" ] || [ "$state" = "exited" ]; then
+    #     break
+    #   fi
+    #   sleep 1
+    # done
+    # echo "REMOVING $cid: $cmd" >/dev/tty
+    docker rm -f "$cid" &>/dev/null
+    # echo "REMOVED $cid: $cmd $?" >/dev/tty
   fi
-  exit
 }
-trap cleanup SIGINT SIGTERM
+trap cleanup EXIT
+
+trap exit SIGINT SIGTERM
 
 # Compute container name.
 if [ -n "${NAME:-}" ]; then
@@ -37,9 +58,9 @@ done
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
 # Don't use & as we want to block, and be sure it starts before processing any signals.
 set -x
-cid=$(docker run -d --rm \
+cid=$(docker run -d \
   ${name_arg:-} \
-  --cpus=${CPUS:-4} \
+  --cpus=${CPUS:-2} \
   --memory=${MEM:-8g} \
   ${cpuset_arg:-} \
   --user $(id -u):$(id -g) \
@@ -53,6 +74,7 @@ cid=$(docker run -d --rm \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")
+# echo "$cid: $cmd" >/dev/tty
 set +x
 # At this point we know it's started, and can handle SIGTERM to kill the container.
 
