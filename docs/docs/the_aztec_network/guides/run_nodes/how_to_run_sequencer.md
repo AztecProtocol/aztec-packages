@@ -100,7 +100,7 @@ Once your node is fully synced, you can register as a validator using the `add-l
 ```bash
 aztec add-l1-validator \
   --network alpha-testnet \
-  --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key \
+  --l1-rpc-urls https://eth-sepolia.g.example.com/example/your-key \
   --private-key your-private-key \
   --attester your-validator-address \
   --proposer-eoa your-validator-address \

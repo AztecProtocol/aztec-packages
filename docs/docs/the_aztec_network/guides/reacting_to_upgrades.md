@@ -1,36 +1,20 @@
 ---
 sidebar_position: 4
-title: Reacting to upgrades 
+title: Reacting to upgrades
 ---
 
-This is a guide for sequencer nodes to understand how to react to protocol upgrades. To learn about how upgrades work, read the [concept section](../concepts/governance/upgrades.md).
+This is a guide for sequencer operators to understand how to react to protocol upgrades. To learn about how upgrades work, read the [concept section](../concepts/governance/upgrades.md).
 
-## Deploying the initial contracts
+## Sequencers signal for governance upgrades
 
-Assume that there is an initial deployment, which is a set of contracts as described in the [Deployment section](../concepts/deployments/what_is_deployment.md).
+To signal for governance upgrades, sequencers must set their `GOVERNANCE_PROPOSER_PAYLOAD` on their sequencer node to the address of a `payload`. This will register their signal with the GovernanceProposer contract.
 
-Once an AZIP garners enough buy-in from the community, sequencers can begin adopting the upgrade.
+:::info
+the `payload` is a contract on L1 that specifies the address of the new rollup contract to be upgraded to. The payloads to be voted on during alpha-testnet will be communicated to sequencers on the forum and on community channels like discord.
+:::
 
-## New Rollup contract is deployed to L1 and a proposal is initiated
+This signalling phase will pass once `N` sequencers in a round of `M` L2 blocks have signalled for the same payload. Once the quorum is met, anyone can call the `executeProposal(roundNumber)` function on the Governance Proposer contract to advance the upgrade into the next stage.
 
-To upgrade to a new Rollup instance is to:
-
-1. Convince the Governance contract to call `Registry.upgrade(_addressOfNewRollup)`
-
-2. Sequencers move stake to the new Rollup contract to be eligible for any Hypothetical Asset rewards.
-
-To achieve 1, a new Rollup contract is deployed at an address, and the code for calling `Registry.upgrade(_addressOfNewRollup)` is deployed at a separate address.
-
-Sequencers of the current canonical rollup, that is the current rollup as pointed to by the Registry, must then call `vote(proposal)` on the Proposals contract. Sequencers can only vote during L2 slots for which they’ve been assigned as the block proposer by the L1 Rollup smart contract. For any given L2 slot, there is only one such sequencer. 
-
-Sequencers vote by updating an environment variable `PROPOSAL_PAYLOAD` in their client software. If enough votes are received by the Proposals contract, any Ethereum account can call `pushProposal(_roundNumber)` where `_roundNumber` can be read from the L1.
-
-## Voting starts and proposal executed after delay
-
-Holders who locked their Hypothetical Assets in the Governance contract can vote on proposals. Each vote specifies whether it is in support of the upgrade or not, and the amount of locked Hypothetical Assets the holder wishes to vote.
-
-If the vote passes, a proposal is moved to an Executable state after some delay.
- 
-## Proposal executed
-
-Anyone can call `execute(_proposalId)` on the Governance contract which in turn will call the proposal code that was deployed.
+:::info
+The `N` and `M` are public variables on the Governance Proposer contract, and can be read by anyone (i.e. using a `cast call`). To get the round number, you can call the `computeRound(slotNumber)` on the Governance Proposer contract.
+:::
