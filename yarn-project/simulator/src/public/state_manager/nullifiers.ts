@@ -64,8 +64,8 @@ export class NullifierManager {
       //  `${MerkleTreeId[MerkleTreeId.NULLIFIER_TREE]} low leaf index should always be found (even if target leaf does not exist)`,
       //);
       //existsInTree = leafOrLowLeafIndex.alreadyPresent;
-      const leafIndex = await this.hostNullifiers.getNullifierIndex(siloedNullifier);
-      existsInTree = leafIndex !== undefined;
+      const exists = await this.hostNullifiers.checkNullifierExists(siloedNullifier);
+      existsInTree = exists;
     }
     const exists = cacheHit || existsInTree;
     return Promise.resolve({ exists, cacheHit });

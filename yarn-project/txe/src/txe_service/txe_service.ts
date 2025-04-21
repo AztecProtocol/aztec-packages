@@ -539,7 +539,7 @@ export class TXEService {
       fromArray(content.slice(0, Number(BigInt(contentLength)))),
       fromSingle(noteHash),
       fromSingle(nullifier),
-      fromSingle(txHash),
+      new TxHash(fromSingle(txHash)),
       AztecAddress.fromField(fromSingle(recipient)),
     );
 
@@ -642,6 +642,7 @@ export class TXEService {
     logContent: ForeignCallArray,
     txHash: ForeignCallSingle,
     logIndexInTx: ForeignCallSingle,
+    txIndexInBlock: ForeignCallSingle,
   ) {
     await this.typedOracle.storePrivateEventLog(
       AztecAddress.fromField(fromSingle(contractAddress)),
@@ -650,6 +651,7 @@ export class TXEService {
       fromArray(logContent),
       new TxHash(fromSingle(txHash)),
       fromSingle(logIndexInTx).toNumber(),
+      fromSingle(txIndexInBlock).toNumber(),
     );
     return toForeignCallResult([]);
   }

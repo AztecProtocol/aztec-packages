@@ -5,6 +5,10 @@
 
 namespace bb {
 
+TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<Transcript>& transcript)
+    : transcript(transcript)
+{}
+
 TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                                        const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)
@@ -51,12 +55,14 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                       const uint256_t& evaluation_input_x,
                                       const BF& batching_challenge_v)
 {
-    using Curve = typename Flavor::Curve;
-    using PCS = typename Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Curve = Flavor::Curve;
+    using PCS = Flavor::PCS;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
+    using Sumcheck = SumcheckVerifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
@@ -64,15 +70,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
-
-    if (circuit_size != key->circuit_size) {
-        return false;
-    }
 
     // Get commitments to wires and the ordered range constraints that do not require additional challenges
     for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
@@ -91,10 +91,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    Sumcheck sumcheck(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -123,7 +122,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(circuit_size,
+        Shplemini::compute_batch_opening_claim(TranslatorFlavor::CONST_TRANSLATOR_LOG_N,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),
@@ -135,7 +134,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                                sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    VerifierCommitmentKey pcs_vkey{};
+    auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
 
     return verified && consistency_checked;
 }

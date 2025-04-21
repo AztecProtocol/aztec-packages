@@ -179,9 +179,10 @@ function test_cmds_internal {
   for t in $honk_tests; do
     echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
   done
-  echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
+  echo SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement
+  echo SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
+  echo SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
 
   # prove and verify using bb.js classes
@@ -215,9 +216,6 @@ function run_benchmark {
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
-  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1265) fix acir benchmarking
-  # LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
-
   export HARDWARE_CONCURRENCY=16
 
   rm -rf bench-out && mkdir -p bench-out

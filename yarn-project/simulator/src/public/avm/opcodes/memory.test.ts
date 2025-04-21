@@ -29,8 +29,8 @@ describe('Memory instructions', () => {
         Set.wireFormat8,
       );
 
-      expect(Set.as(Set.wireFormat8).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat8).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u16]', () => {
@@ -46,8 +46,8 @@ describe('Memory instructions', () => {
         Set.wireFormat16,
       );
 
-      expect(Set.as(Set.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u32]', () => {
@@ -65,8 +65,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x12345678,
       ).as(Opcode.SET_32, Set.wireFormat32);
 
-      expect(Set.as(Set.wireFormat32).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat32).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u64]', () => {
@@ -84,8 +84,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x1234567812345678n,
       ).as(Opcode.SET_64, Set.wireFormat64);
 
-      expect(Set.as(Set.wireFormat64).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat64).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u128]', () => {
@@ -103,8 +103,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x12345678123456781234567812345678n,
       ).as(Opcode.SET_128, Set.wireFormat128);
 
-      expect(Set.as(Set.wireFormat128).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat128).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=ff]', () => {
@@ -122,8 +122,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefn,
       ).as(Opcode.SET_FF, Set.wireFormatFF);
 
-      expect(Set.as(Set.wireFormatFF).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormatFF).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('should correctly set value and tag (uninitialized)', async () => {
@@ -175,8 +175,8 @@ describe('Memory instructions', () => {
         /*dstTag=*/ TypeTag.FIELD,
       ).as(Opcode.CAST_16, Cast.wireFormat16);
 
-      expect(Cast.as(Cast.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Cast.as(Cast.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should upcast between integral types', async () => {
@@ -328,8 +328,8 @@ describe('Memory instructions', () => {
         Mov.wireFormat8,
       );
 
-      expect(Mov.as(Mov.wireFormat8).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Mov.as(Mov.wireFormat8).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should move integrals on different memory cells', async () => {
@@ -381,8 +381,8 @@ describe('Memory instructions', () => {
         /*dstOffset=*/ 0x3456,
       );
 
-      expect(CalldataCopy.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(CalldataCopy.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Writes nothing if size is 0', async () => {
@@ -462,8 +462,8 @@ describe('Memory instructions', () => {
       ]);
       const inst = new ReturndataSize(/*indirect=*/ 0x01, /*dstOffset=*/ 0x3456);
 
-      expect(ReturndataSize.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(ReturndataSize.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Writes size', async () => {
@@ -493,8 +493,8 @@ describe('Memory instructions', () => {
         /*dstOffset=*/ 0x3456,
       );
 
-      expect(ReturndataCopy.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(ReturndataCopy.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Writes nothing if size is 0', async () => {

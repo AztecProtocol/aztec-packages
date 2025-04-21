@@ -25,6 +25,7 @@ names:
   - sergei: &sergei "U05RR81391B"
   - spyros: &spyros "U03FCET0DQE"
   - jan: &jan "U03FGA0BWNR"
+  - esau: &esau "U067FJ9A4Q1"
 
 tests:
   # barretenberg
@@ -37,26 +38,12 @@ tests:
   #   Actual: false
   # Expected: true
   - regex: "join_split_example_tests"
-    skip: true
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Out of bounds memory access"
     owners:
       - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Sumcheck verification failed."
-    owners:
-      - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
-    error_regex: "verified: false"
-    owners:
-      - *sergei
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
-    error_regex: "timeout: sending signal TERM to command"
-    owners:
-      - *adam
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "Failed to fetch"
     owners:
@@ -64,6 +51,10 @@ tests:
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
+    owners:
+      - *tom
+  - regex: "tests::execution_success::test_ram_blowup_regression"
+    error_regex: "assertion `left == right` failed"
     owners:
       - *tom
 
@@ -83,6 +74,15 @@ tests:
     owners:
       - *charlie
 
+  # AD: hit this flake
+  # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
+  # 18:04:38 Brillig loops: 11
+  # 18:04:38 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  - regex: "noir/scripts/run_test.sh calibration.* arb_program_freqs_in_expected_range"
+    error_regex: "panicked at tooling/ast_fuzzer/tests/calibration.rs"
+    owners:
+      - *tom
+
   # e2e tests
   - regex: "simple e2e_p2p"
     error_regex: "could not listen on any available address"
@@ -92,16 +92,20 @@ tests:
     error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/slashing"
-    skip: true
+  - regex: "simple e2e_p2p/reex"
+    error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
-      - *lasse
-  - regex: "simple e2e_p2p/validators_sentinel"
+      - *sean
+  - regex: "simple e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p/reqresp"
-    error_regex: "TimeoutError: Timeout awaiting blocks mined"
+  - regex: "simple e2e_p2p"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
+  - regex: "simple e2e_p2p/gossip_network"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
   - regex: "simple e2e_fees/private_payments"
@@ -141,6 +145,10 @@ tests:
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
+  - regex: "simple e2e_sequencer_config"
+    error_regex: "Anvil failed to stop in time"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -149,6 +157,10 @@ tests:
       - *sean
   - regex: "p2p/src/client/p2p_client.test.ts"
     error_regex: "Exceeded timeout of 120000"
+    owners:
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
   - regex: "p2p/src/testbench/port_change.test.ts"
@@ -186,17 +198,23 @@ tests:
     owners:
       - *grego
 
-  # kind tests
-  - regex: "spartan/bootstrap.sh test-kind-smoke"
-    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "expect(locator).toBeVisible()"
     owners:
-      - *alex
+      - *esau
+
+  # kind tests
   - regex: "spartan/bootstrap.sh"
+    # Will skip all kind tests for now. Too unstable, blocking merge queue.
     error_regex: "timeout: sending signal TERM to command"
     owners:
       - *alex
   - regex: "spartan/bootstrap.sh"
     error_regex: "cp: cannot create regular file"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
       - *alex
 

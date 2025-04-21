@@ -23,7 +23,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
 template <typename CircuitBuilder>
-std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
+MergeRecursiveVerifier_<CircuitBuilder>::AggregationObject MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const StdlibProof<CircuitBuilder>& proof)
 {
     // Transform proof into a stdlib object
@@ -91,7 +91,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 
     auto pairing_points = KZG::reduce_verify(batched_claim, transcript);
 
-    return pairing_points;
+    return { pairing_points[0], pairing_points[1] };
 }
 
 template class MergeRecursiveVerifier_<MegaCircuitBuilder>;

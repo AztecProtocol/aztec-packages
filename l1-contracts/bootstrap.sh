@@ -3,9 +3,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+
 # We rely on noir-projects for the verifier contract.
 export hash=$(cache_content_hash \
   .rebuild_patterns \
+  ../noir/.rebuild_patterns \
   ../noir-projects/noir-protocol-circuits \
   ../barretenberg/cpp/.rebuild_patterns
 )
@@ -18,7 +20,7 @@ function build {
     rm -rf broadcast cache out serve generated
 
     # Install
-    forge install --no-commit
+    forge install
 
     # Ensure libraries are at the correct version
     git submodule update --init --recursive ./lib
@@ -38,7 +40,7 @@ function build {
     forge build $(find src test -name '*.sol')
 
     # Step 1.5: Output storage information for the rollup contract.
-    forge inspect src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
+    forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
     # Step 2: Build the the generated verifier contract with optimization.
     forge build $(find generated -name '*.sol') \
@@ -53,7 +55,7 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest && ./bootstrap.sh gas_report"
+  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
 }
 
 function test {
@@ -76,22 +78,26 @@ function inspect {
                 # Run forge inspect and capture output
                 methods_output=$(forge inspect "$full_path" methodIdentifiers 2>/dev/null)
                 errors_output=$(forge inspect "$full_path" errors 2>/dev/null)
+                events_output=$(forge inspect "$full_path" events 2>/dev/null)
 
-                # Only display if we have methods or errors
-                if [ "$methods_output" != "{}" ] || [ "$errors_output" != "{}" ]; then
+                # Only display if we have methods or errors or events (empty table output is 5 lines)
+                if [ $(echo "$methods_output" | wc -l) != 5 ] || [ $(echo "$errors_output" | wc -l) != 5 ] || [ $(echo "$events_output" | wc -l) != 5 ]; then
                     echo "----------------------------------------"
                     echo "Inspecting $full_path"
                     echo "----------------------------------------"
 
-                    if [ "$methods_output" != "{}" ]; then
-                        echo "Methods:"
+                    if [ $(echo "$methods_output" | wc -l) != 5 ]; then
                         echo "$methods_output"
                         echo ""
                     fi
 
-                    if [ "$errors_output" != "{}" ]; then
-                        echo "Errors:"
+                    if [ $(echo "$errors_output" | wc -l) != 5 ]; then
                         echo "$errors_output"
+                        echo ""
+                    fi
+
+                    if [ $(echo "$events_output" | wc -l) != 5 ]; then
+                        echo "$events_output"
                         echo ""
                     fi
                 fi
@@ -100,27 +106,29 @@ function inspect {
     done
 }
 
+
 function gas_report {
   check=${1:-"no"}
   echo_header "l1-contracts gas report"
   forge --version
 
   FORGE_GAS_REPORT=true forge test \
-    --no-match-contract "(FeeRollupTest)|(MinimalFeeModelTest)|(UniswapPortalTest)" \
+    --match-contract "^RollupTest$" \
     --no-match-test "(testInvalidBlobHash)|(testInvalidBlobProof)" \
     --fuzz-seed 42 \
     --isolate \
+    --json \
     > gas_report.new.tmp
-  grep "^|" gas_report.new.tmp > gas_report.new.md
+  jq '.' gas_report.new.tmp > gas_report.new.json
   rm gas_report.new.tmp
-  diff gas_report.new.md gas_report.md > gas_report.diff || true
+  diff gas_report.new.json gas_report.json > gas_report.diff || true
 
   if [ -s gas_report.diff -a "$check" = "check" ]; then
     cat gas_report.diff
     echo "Gas report has changed. Please check the diffs above, then run './bootstrap.sh gas_report' to update the gas report."
     exit 1
   fi
-  mv gas_report.new.md gas_report.md
+  mv gas_report.new.json gas_report.json
 }
 
 

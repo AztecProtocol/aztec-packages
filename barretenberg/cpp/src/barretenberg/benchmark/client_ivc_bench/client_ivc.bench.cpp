@@ -51,7 +51,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 {
-    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
     auto mocked_vkeys = mock_verification_keys(total_num_circuits);

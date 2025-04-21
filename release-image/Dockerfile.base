@@ -18,13 +18,15 @@ RUN apt update && apt install -y \
       git \
       gnupg \
       jq \
-      netcat-openbsd && \
+      netcat-openbsd \
+      parallel && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt update && apt install -y nodejs=18.19.1-1nodesource1 && \
     rm -rf /var/lib/apt/lists/*
 # Install anvil.
 COPY --from=build /opt/foundry/bin/anvil /opt/foundry/bin/anvil
-ENV PATH="/opt/foundry/bin:$PATH"
+COPY --from=build /opt/foundry/bin/cast /opt/foundry/bin/cast
+ENV PATH="/opt/foundry/bin:$PATH" FOUNDRY_DISABLE_NIGHTLY_WARNING="1"
 # Copy in production dependencies.
 COPY --from=build /usr/src/yarn-project/node_modules /usr/src/yarn-project/node_modules
 # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they

@@ -17,11 +17,6 @@ export class Proof {
   // Make sure this type is not confused with other buffer wrappers
   readonly __proofBrand: any;
 
-  // Honk proofs start with a 4 byte length prefix
-  // the proof metadata starts immediately after
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1312): Get rid of if possible.
-  private readonly metadataOffset = 4;
-
   constructor(
     /**
      * Holds the serialized proof data in a binary buffer format.
@@ -64,20 +59,26 @@ export class Proof {
     return bufferToHex(this.toBuffer());
   }
 
+  /**
+   * Returns the proof without the public inputs, but includes the pairing point object as part of the proof.
+   * @returns Proof in bytes form, including the pairing point object at the start.
+   */
   public withoutPublicInputs(): Buffer {
     if (this.isEmpty()) {
       return this.buffer;
     }
     // We are indexing to this particular size because we are assuming the proof buffer looks like:
-    // [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, binary proof]
-    const proofStart = this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs + this.metadataOffset;
+    // [binary public inputs, binary proof]
+    // Here, we are assuming the pairing point object is the last 16 fields of the public inputs.
+    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
+    const proofStart = Fr.SIZE_IN_BYTES * (this.numPublicInputs - AGGREGATION_OBJECT_LENGTH);
     assert(this.buffer.length >= proofStart, 'Proof buffer is not appropriately sized to call withoutPublicInputs()');
     return this.buffer.subarray(proofStart);
   }
 
   // This function assumes that the proof will contain an aggregation object and look something like:
-  // [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, aggregation object, rest of proof]
-  // We are extracting the binary public inputs and reading them as Frs, and also extracting the aggregation object.
+  // [binary public inputs, aggregation object, rest of proof]
+  // We are extracting the binary public inputs and reading them as Frs.
   public extractPublicInputs(): Fr[] {
     if (this.isEmpty()) {
       // return array of this.numPublicInputs 0s
@@ -85,30 +86,9 @@ export class Proof {
     }
     assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
     const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    const reader = BufferReader.asReader(
-      this.buffer.subarray(this.metadataOffset, this.metadataOffset + Fr.SIZE_IN_BYTES * numInnerPublicInputs),
-    );
-    let publicInputs = reader.readArray(numInnerPublicInputs, Fr);
-    // concatenate Fr[] with aggregation object
-    publicInputs = publicInputs.concat(this.extractAggregationObject());
+    const reader = BufferReader.asReader(this.buffer.subarray(0, Fr.SIZE_IN_BYTES * numInnerPublicInputs));
+    const publicInputs = reader.readArray(numInnerPublicInputs, Fr);
     return publicInputs;
-  }
-
-  public extractAggregationObject(): Fr[] {
-    if (this.isEmpty()) {
-      // return array of 16 0s
-      return new Array(16).fill(Fr.zero());
-    }
-    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
-    const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    // The aggregation object is currently stored after the initial inner public inputs and after the 4 byte proof metadata.
-    const reader = BufferReader.asReader(
-      this.buffer.subarray(
-        this.metadataOffset + Fr.SIZE_IN_BYTES * numInnerPublicInputs + this.metadataOffset,
-        this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs + this.metadataOffset,
-      ),
-    );
-    return reader.readArray(AGGREGATION_OBJECT_LENGTH, Fr);
   }
 
   /**

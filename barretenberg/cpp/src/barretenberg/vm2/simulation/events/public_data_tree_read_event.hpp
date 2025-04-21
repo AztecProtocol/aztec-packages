@@ -1,14 +1,14 @@
 #pragma once
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/world_state/types.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 #include <cstdint>
 #include <vector>
 
 namespace bb::avm2::simulation {
 
-using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
+using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
 
 struct PublicDataTreeReadEvent {
     FF value;

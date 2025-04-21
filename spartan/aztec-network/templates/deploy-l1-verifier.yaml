@@ -1,4 +1,4 @@
-{{- if and .Values.network.setupL2Contracts .Values.jobs.deployL1Verifier.enable }}
+{{- if .Values.jobs.deployL1Verifier.enable }}
 apiVersion: batch/v1
 kind: Job
 metadata:
