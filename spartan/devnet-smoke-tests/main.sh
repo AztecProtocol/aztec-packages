@@ -1,25 +1,26 @@
-set -eu -o pipefail
+set -eux -o pipefail
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-# This script assumes the presence of state.json if trying to recreate from existing state. It is expected to
-# be structured something like this { "accounts": [], "contracts": [] }
 
 source "$SCRIPT_DIR/utils.sh"
 
 # Check all required environment variables
 check_env_var "STATE_S3_BASE_PATH"
+check_env_var "STATE_S3_KEY"
 check_env_var "AZTEC_VERSION"
 check_env_var "NODE_URL"
 check_env_var "L1_URL"
 check_env_var "FAUCET_URL"
-check_env_var "SPONSORED_FPC_ADDRESS"
 
-SPONSORED_FPC_PAYMENT_METHOD="--payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS"
+print_header "Retrieving state from S3"
+source "$SCRIPT_DIR/retrieve_state.sh"
 
 print_header "Installing Aztec"
 source "$SCRIPT_DIR/install_aztec.sh"
+
+print_header "Set SponsoredFPC payment method"
+source "$SCRIPT_DIR/get_sponsored_fpc_address.sh"
 
 print_header "Registering existing accounts from state"
 source "$SCRIPT_DIR/register_existing_accounts_from_state.sh"
@@ -50,3 +51,10 @@ source "$SCRIPT_DIR/process_nft_contracts.sh"
 
 print_header "Marking setup of new accounts / contracts to be completed"
 source "$SCRIPT_DIR/mark_setup_completed.sh"
+
+# TODO (ek): Re-enable this when this flow has succeeded reliably
+# print_header "Uploading new state to S3"
+# source "$SCRIPT_DIR/upload_state.sh"
+
+print_header "Tests have completed successfully"
+source "$SCRIPT_DIR/print_stats.sh"

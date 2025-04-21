@@ -43,8 +43,8 @@ if [ "$total_account_count" -lt "$max_accounts" ]; then
 
     # We sleep here because it seems that the wait option on bridging is a bit flaky and sometimes we need to
     # wait another block (slot duration is 36s and picked 40s due to it being a nice round number)
-    echo "Sleeping 40 seconds before deploying to wait for L1 -> L2 message existence"
-    sleep 40s
+    echo "Sleeping 70 seconds before deploying to wait for L1 -> L2 message existence"
+    sleep 70s
 
     # We only use the prover on the first iteration of the loop to avoid duplicating identical proofs
     prover_to_use=$(get_prover $((i == 1)))
