@@ -222,7 +222,8 @@ TEST_F(MegaHonk, Databus)
     mock_opcode_indices(program.constraints);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = create_circuit<Builder>(program);
+    ProgramMetadata metadata{ .honk_recursion = 1 };
+    auto circuit = create_circuit<Builder>(program, metadata);
 
     EXPECT_TRUE(prove_and_verify(circuit));
 }
@@ -327,7 +328,8 @@ TEST_F(MegaHonk, DatabusReturn)
     mock_opcode_indices(program.constraints);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit = create_circuit<Builder>(program);
+    ProgramMetadata metadata{ .honk_recursion = 1 };
+    auto circuit = create_circuit<Builder>(program, metadata);
 
     EXPECT_TRUE(prove_and_verify(circuit));
 }

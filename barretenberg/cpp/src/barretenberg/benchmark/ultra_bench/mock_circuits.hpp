@@ -35,6 +35,7 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
         a = b * b;
         b = c * c;
     }
+    stdlib::recursion::aggregation_state<Builder>::add_default_pairing_points_to_public_inputs(builder);
 }
 
 template <typename Prover>
