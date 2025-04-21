@@ -74,7 +74,7 @@ export class BLS12Point {
 
   /**
    * Create a Point instance from a given buffer or BufferReader.
-   * The input 'buffer' should have exactly 64 bytes representing the x and y coordinates.
+   * The input 'buffer' should have exactly 96 bytes representing the x and y coordinates.
    *
    * @param buffer - The buffer or BufferReader containing the x and y coordinates of the point.
    * @returns A Point instance.

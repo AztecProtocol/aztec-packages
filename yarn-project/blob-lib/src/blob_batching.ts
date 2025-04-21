@@ -72,6 +72,12 @@ export class BatchedBlob {
 
   /**
    * Gets the final challenges based on all blobs and their elements to perform a multi opening proof.
+   * Used in BatchedBlobAccumulator as 'finalZ' and finalGamma':
+   *  - z = H(...H(H(z_0, z_1) z_2)..z_n)
+   *    - where z_i = H(H(fields of blob_i), C_i) = Blob.challengeZ,
+   *    - used such that p_i(z) = y_i = Blob.evaluationY for all n blob polynomials p_i().
+   *  - gamma = H(H(...H(H(y_0, y_1) y_2)..y_n), z)
+   *    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }, for all blob evaluations y_i (see above) and commitments C_i.
    * @returns Challenges z and gamma.
    */
   static async precomputeBatchedBlobChallenges(blobs: Blob[]): Promise<{ z: Fr; gamma: Fr }> {
