@@ -1,8 +1,0 @@
-[package]
-name = "mock_public_base"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.32.0"
-
-[dependencies]
-types = { path = "../../../noir-protocol-circuits/crates/types" }

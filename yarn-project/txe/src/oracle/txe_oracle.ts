@@ -112,7 +112,6 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/nati
 import { TXENode } from '../node/txe_node.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import { TXEPublicTreesDB } from '../util/txe_public_dbs.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 1;
@@ -772,7 +771,9 @@ export class TXE implements TypedOracle {
       }
     }
 
-    await this.node.processTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
+    // At this point we always have a single tx in the block so we set the tx index to 0.
+    const txIndexInBlock = 0;
+    await this.node.processTxEffect(blockNumber, txIndexInBlock, new TxHash(new Fr(blockNumber)), txEffect);
 
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -943,9 +944,13 @@ export class TXE implements TypedOracle {
     // See note at revert below.
     const checkpoint = await ForkCheckpoint.new(db);
     try {
-      const treesDB = new TXEPublicTreesDB(db, this);
       const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-      const simulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, /*doMerkleOperations=*/ true);
+      const simulator = new PublicTxSimulator(
+        this.baseFork,
+        contractsDB,
+        globalVariables,
+        /*doMerkleOperations=*/ false,
+      );
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
       const firstNullifier = usedTxRequestHashForNonces
@@ -1256,6 +1261,7 @@ export class TXE implements TypedOracle {
     logContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void> {
     return this.pxeOracleInterface.storePrivateEventLog(
       contractAddress,
@@ -1264,6 +1270,7 @@ export class TXE implements TypedOracle {
       logContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
     );
   }
 }

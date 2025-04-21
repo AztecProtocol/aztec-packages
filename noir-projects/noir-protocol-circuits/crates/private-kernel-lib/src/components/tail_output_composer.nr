@@ -53,9 +53,10 @@ impl TailOutputComposer {
             source.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| m.expose_to_public());
         data.private_logs =
             source.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log);
-        data.contract_class_logs_hashes = source.contract_class_logs_hashes.storage().map(
-            |l: ScopedLogHash| l.expose_to_public(),
-        );
+        data.contract_class_logs_hashes = source
+            .contract_class_logs_hashes
+            .storage()
+            .map(|l: ScopedLogHash| l.expose_to_public());
         data
     }
 }

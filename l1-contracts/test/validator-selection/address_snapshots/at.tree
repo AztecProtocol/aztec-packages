@@ -1,0 +1,9 @@
+AtTest
+├── when no validators are registered
+│   └── it reverts with IndexOutOfBounds
+├── when index is out of bounds
+│   └── it reverts with IndexOutOfBounds
+└── when index is valid
+    ├── it returns the current validator at that index
+    └── when validators are removed
+        └── it returns the correct validator after reordering

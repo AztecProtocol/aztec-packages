@@ -4,10 +4,8 @@ import { fileURLToPath } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
-const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm/aztec_constants.hpp';
-const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/avm/constants_gen.pil';
-// Temp while vm2 is WIP
-const PIL_VM2_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
+const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm2/common/aztec_constants.hpp';
+const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
 // Whitelist of constants that will be copied to aztec_constants.hpp.
@@ -97,6 +95,7 @@ const CPP_CONSTANTS = [
   'UPDATED_CLASS_IDS_SLOT',
   'UPDATES_SHARED_MUTABLE_VALUES_LEN',
   'PUBLIC_DATA_TREE_HEIGHT',
+  'NULLIFIER_TREE_HEIGHT',
   'BLOCK_NUMBER_BIT_SIZE',
   'UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE',
 ];
@@ -161,6 +160,7 @@ const PIL_CONSTANTS = [
   'GRUMPKIN_ONE_Y',
   'AVM_PC_SIZE_IN_BITS',
   'PUBLIC_DATA_TREE_HEIGHT',
+  'NULLIFIER_TREE_HEIGHT',
   'UPDATED_CLASS_IDS_SLOT',
   'UPDATES_SHARED_MUTABLE_VALUES_LEN',
   'DEPLOYER_CONTRACT_ADDRESS',
@@ -496,13 +496,9 @@ function main(): void {
   const cppTargetPath = join(__dirname, CPP_AZTEC_CONSTANTS_FILE);
   generateCppConstants(parsedContent, cppTargetPath);
 
-  // PIL - VM1
+  // PIL
   const pilTargetPath = join(__dirname, PIL_AZTEC_CONSTANTS_FILE);
   generatePilConstants(parsedContent, pilTargetPath);
-
-  // PIL - VM2
-  const pilVm2TargetPath = join(__dirname, PIL_VM2_AZTEC_CONSTANTS_FILE);
-  generatePilConstants(parsedContent, pilVm2TargetPath);
 
   // Solidity
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);

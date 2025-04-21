@@ -81,6 +81,10 @@ describe('Registry', () => {
       const address = await registry.getRollupAddress(deployedVersion);
       expect(address).toEqual(rollupAddress);
     }
+    {
+      const address = await registry.getRollupAddress(0);
+      expect(address).toEqual(rollupAddress);
+    }
   });
 
   it('handles non-existent versions', async () => {

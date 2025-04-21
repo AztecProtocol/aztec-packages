@@ -15,6 +15,12 @@ contract PowerAtTest is UserLibBase {
   function test_WhenTimeNotInPast() external {
     // it revert
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__UserLib__NotInPast.selector));
+    this.callPowerAt();
+  }
+
+  // @dev helper for testing, to avoid:
+  // "call didn't revert at a lower depth than cheatcode call depth"
+  function callPowerAt() external view {
     user.powerAt(Timestamp.wrap(block.timestamp));
   }
 
