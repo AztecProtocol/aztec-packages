@@ -415,19 +415,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     logger.debug(`Generating witness data for ${circuitType}`);
 
     const inputWitness = convertInput(input);
-    const timer = new Timer();
     const foreignCallHandler = undefined; // We don't handle foreign calls in the native ACVM simulator
-    const outputWitness = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
-    const output = convertOutput(outputWitness);
+    const witnessResult = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
+    const output = convertOutput(witnessResult.witness);
 
     const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
-    this.instrumentation.recordDuration('witGenDuration', circuitName, timer);
+    this.instrumentation.recordDuration('witGenDuration', circuitName, witnessResult.duration);
     this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
     this.instrumentation.recordSize('witGenOutputSize', circuitName, output.toBuffer().length);
 
     logger.info(`Generated witness`, {
       circuitName,
-      duration: timer.ms(),
+      duration: witnessResult.duration,
       inputSize: input.toBuffer().length,
       outputSize: output.toBuffer().length,
       eventName: 'circuit-witness-generation',
