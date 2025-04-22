@@ -70,4 +70,27 @@ static std::array<Fr, virtual_log_n> compute_padding_indicator_array(const Fr& l
     return result;
 }
 
+/**
+ * @brief Given a witness `n` and a padding indicator array computed from `log_n`, check in-circuit that the latter is
+ * indded the logarithm of `n`.
+ *
+ * @details It is crucial that `log_n` is constrained to be in range [1, virtual_log_n], as it forces the first `log_n`
+ * entries of `padding_indicator_array` to be equal to 1 and the rest of the entries to be equal to 0. This implies that
+ * `n` can be reconstructed by incrementing each entry in the array and taking their product.
+ *
+ * @tparam Fr
+ * @tparam virtual_log_n
+ * @param padding_indicator_array
+ * @param n expected = 2^(log_n)
+ */
+template <typename Fr, size_t virtual_log_n>
+static void constrain_log_circuit_size(const std::array<Fr, virtual_log_n>& padding_indicator_array, const Fr& n)
+{
+    Fr accumulated_circuit_size{ 1 };
+    for (auto& indicator : padding_indicator_array) {
+        accumulated_circuit_size *= indicator + Fr{ 1 };
+    };
+
+    n.assert_equal(accumulated_circuit_size);
+}
 } // namespace bb::stdlib

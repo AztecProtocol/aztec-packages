@@ -92,11 +92,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(FF::from_witness(builder, log_circuit_size));
+        compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
+
+    constrain_log_circuit_size(padding_indicator_array, key->circuit_size);
 
     auto sumcheck = Sumcheck(transcript);
 

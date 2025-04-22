@@ -23,10 +23,9 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
     static constexpr size_t domain_size = 25;
 
-  public:
     void test_value_in_range()
     {
-        for (size_t idx = 2; idx <= domain_size; idx++) {
+        for (size_t idx = 1; idx <= domain_size; idx++) {
             Builder builder;
             Fr x = Fr::from_witness(&builder, idx);
 
@@ -37,6 +36,10 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             // Check that the sum of indicators is indeed x
             Fr sum_of_indicators = std::accumulate(result.begin(), result.end(), Fr{ 0 });
             EXPECT_TRUE((sum_of_indicators == x).get_value());
+            // Create a witness = 2^idx
+            Fr exponent = Fr::from_witness(&builder, 1 << idx);
+            // Using the indicator values, compute 2^idx in-circuit.
+            stdlib::constrain_log_circuit_size(result, exponent);
             // Check the correctness of the circuit
             EXPECT_TRUE(CircuitChecker::check(builder));
         }
@@ -87,24 +90,52 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
     void test_gate_count_independence()
     {
-        auto get_gate_count = [](const uint256_t& scalar_raw) -> size_t {
+        auto get_gate_count = [](const uint32_t& scalar_raw) -> size_t {
             Builder builder;
             Fr x = Fr::from_witness(&builder, scalar_raw);
             [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, domain_size>(x);
 
             size_t gate_count = builder.get_estimated_num_finalized_gates();
+            // Create a witness = 2^(idx)
+            Fr exponent = Fr::from_witness(&builder, 1UL << scalar_raw);
+            // Using the indicator values, compute 2^idx in-circuit.
+            stdlib::constrain_log_circuit_size(result, exponent);
             return gate_count;
         };
 
         // Valid input: x in [1, domain_size - 1]
-        uint256_t x_in_range = (domain_size - 1) / 2;
+        uint32_t x_in_range = (domain_size - 1) / 2;
         size_t gates_in_range = get_gate_count(x_in_range);
 
         // Random input
-        uint256_t random_scalar = engine.get_random_uint256();
+        uint32_t random_scalar = engine.get_random_uint32();
         size_t gates_random = get_gate_count(random_scalar);
 
         EXPECT_EQ(gates_in_range, gates_random);
+    }
+
+    void test_log_constraint_failure()
+    {
+        for (size_t idx = 1; idx <= domain_size; idx++) {
+            Builder builder;
+            Fr x = Fr::from_witness(&builder, idx);
+
+            auto result = compute_padding_indicator_array<Fr, domain_size>(x);
+            EXPECT_TRUE(result[idx - 1].get_value() == 1);
+
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
+            // Check that the sum of indicators is indeed x
+            Fr sum_of_indicators = std::accumulate(result.begin(), result.end(), Fr{ 0 });
+            EXPECT_TRUE((sum_of_indicators == x).get_value());
+            // Check the correctness of the circuit
+            EXPECT_TRUE(CircuitChecker::check(builder));
+            // Create a witness = 2^idx
+            Fr exponent = Fr::from_witness(&builder, (1 << idx) + 1);
+            // Using the indicator values, compute tampered "2^idx" in-circuit.
+            stdlib::constrain_log_circuit_size(result, exponent);
+            // Circuit check must fail as 2^(log_n) != n
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
     }
 };
 
@@ -132,5 +163,9 @@ TYPED_TEST(PaddingIndicatorArrayTest, TestValueNotInrange)
 TYPED_TEST(PaddingIndicatorArrayTest, TestGateCountIndependence)
 {
     TestFixture::test_gate_count_independence();
+}
+TYPED_TEST(PaddingIndicatorArrayTest, TestLogConstraintFailure)
+{
+    TestFixture::test_log_constraint_failure();
 }
 } // namespace

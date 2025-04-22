@@ -30,6 +30,9 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
 
     const auto padding_indicator_array =
         compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
+
+    constrain_log_circuit_size(padding_indicator_array, accumulator->verification_key->circuit_size);
+
     Sumcheck sumcheck(transcript, accumulator->target_sum);
 
     SumcheckOutput<Flavor> output = sumcheck.verify(
