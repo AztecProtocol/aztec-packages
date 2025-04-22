@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
-import {SlashingProposer} from "@aztec/core/staking/SlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 contract Slasher is ISlasher {
