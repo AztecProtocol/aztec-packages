@@ -1,5 +1,4 @@
 import { createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 import {
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,

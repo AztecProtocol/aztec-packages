@@ -11,7 +11,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { Timer } from '@aztec/foundation/timer';
 import {
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
