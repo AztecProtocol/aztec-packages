@@ -1,9 +1,9 @@
 #include "acir_loader.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/terms/term.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
 #include <fstream>
 #include <string>
 #include <vector>

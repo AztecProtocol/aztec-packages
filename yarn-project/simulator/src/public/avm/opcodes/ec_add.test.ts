@@ -40,8 +40,8 @@ describe('EC Instructions', () => {
         /*dstOffset=*/ 0x1239,
       );
 
-      expect(EcAdd.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(EcAdd.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it(`Should double correctly`, async () => {

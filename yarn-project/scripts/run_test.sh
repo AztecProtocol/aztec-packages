@@ -6,6 +6,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 test=$1
+shift 1
 dir=${test%%/*}
 
 # Default to 2 CPUs and 4GB of memory when running with ISOLATE=1.
@@ -30,11 +31,11 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register" \
     -e LOG_LEVEL \
     aztecprotocol/build:3.0 \
-      node ../node_modules/.bin/jest --forceExit --runInBand $test &
+      node ../node_modules/.bin/jest --forceExit --runInBand $test $@ &
   wait $!
 else
   export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"
   export LOG_LEVEL=${LOG_LEVEL:-info}
   cd ../$dir
-  node ../node_modules/.bin/jest --forceExit --runInBand $test
+  node ../node_modules/.bin/jest --forceExit --runInBand $test $@
 fi

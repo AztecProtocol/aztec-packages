@@ -65,6 +65,34 @@ export function FunctionParameter({ parameter, required, onParameterChange }: Fu
     }
   };
 
+  function getParameterType(type: AbiType) {
+    switch (type.kind) {
+      case 'field':
+        return 'number';
+      case 'integer':
+        return 'number';
+      case 'string':
+        return 'text';
+      default:
+        return 'text';
+    }
+  }
+
+  function getParameterLabel(type: AbiType) {
+    switch (type.kind) {
+      case 'field':
+        return 'number';
+      case 'integer':
+        return 'int';
+      case 'string':
+        return 'string';
+      case 'boolean':
+        return 'bool';
+      default:
+        return '';
+    }
+  }
+
   return (
     <div css={container}>
       {isAddressStruct(parameter.type) && !manualInput ? (
@@ -112,8 +140,8 @@ export function FunctionParameter({ parameter, required, onParameterChange }: Fu
           variant="outlined"
           disabled={['array', 'struct', 'tuple'].includes(parameter.type.kind) && !isAddressStruct(parameter.type)}
           key={parameter.name}
-          type="text"
-          label={capitalize(parameter.name)}
+          type={getParameterType(parameter.type)}
+          label={`${capitalize(parameter.name)}  (${getParameterLabel(parameter.type)})`}
           onChange={e => handleParameterChange(e.target.value, parameter.type)}
         />
       )}

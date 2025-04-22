@@ -827,7 +827,7 @@ export async function createAndSyncProverNode(
     { prefilledPublicData },
   );
   getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
-  proverNode.start();
+  await proverNode.start();
   return proverNode;
 }
 

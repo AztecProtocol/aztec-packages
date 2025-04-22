@@ -4,7 +4,7 @@ sidebar_position: 4
 tags: [fees]
 ---
 
-import { Why_Fees } from '/components/snippets';
+import { Why_Fees } from '@site/src/components/Snippets/snippets';
 
 <Why_Fees />
 
@@ -46,13 +46,13 @@ More information about the design/choices can be found in the fees section of th
 
 As part of a transaction the follow gas settings are available to be defined by the user.
 
-import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '/components/snippets';
+import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/src/components/Snippets/snippets';
 
 <Gas_Settings />
 
 These are:
 
-```javascript title="gas_settings_vars" showLineNumbers 
+```javascript title="gas_settings_vars" showLineNumbers
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
 export class GasSettings {
   constructor(
