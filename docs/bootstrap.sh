@@ -32,18 +32,6 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
-function release_docs {
-  echo "deploying docs to prod"
-  yarn install
-  yarn build
-
-  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev --prod 2>&1); then
-    echo "Netlify deploy failed with error:"
-    echo "$deploy_output"
-    exit 1
-  fi
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -53,9 +41,6 @@ case "$cmd" in
     ;;
   "hash")
     echo "$hash"
-    ;;
-  "release")
-    release_docs
     ;;
   *)
     echo "Unknown command: $cmd"
