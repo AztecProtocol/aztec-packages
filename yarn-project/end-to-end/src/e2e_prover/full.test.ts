@@ -1,4 +1,13 @@
-import { type AztecAddress, EthAddress, ProvenTx, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
+import {
+  type AztecAddress,
+  EthAddress,
+  ProvenTx,
+  Tx,
+  TxReceipt,
+  TxStatus,
+  retryUntil,
+  waitForProven,
+} from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
@@ -156,6 +165,69 @@ describe('full_prover', () => {
       expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
 
       logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
+      const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
+      expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
+
+      const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
+      expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
+
+      const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
+      const fees = (
+        await Promise.all([
+          t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
+          t.aztecNode.getBlock(Number(newProvenBlockNumber)),
+        ])
+      ).map(b => b!.header.totalFees.toBigInt());
+
+      const totalRewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
+      const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;
+      const proverGain = rewardsAfterProver - rewardsBeforeProver;
+
+      // May be less than totalRewards due to burn.
+      expect(sequencerGain + proverGain).toBeLessThanOrEqual(totalRewards);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'proves empty blocks',
+    async () => {
+      logger.info(`Starting test with empty blocks`);
+
+      const canonicalAddress = await feeJuicePortal.read.ROLLUP();
+      logger.info(`Canonical address: ${canonicalAddress}`);
+      expect(canonicalAddress.toLowerCase()).toBe(
+        t.l1Contracts.l1ContractAddresses.rollupAddress.toString().toLowerCase(),
+      );
+
+      const startBlockNumber = await t.aztecNode.getBlockNumber();
+      logger.info(`Producing an empty block after ${startBlockNumber}`);
+      await t.aztecNodeAdmin.flushTxs();
+      await retryUntil(async () => (await t.aztecNode.getBlockNumber()) > startBlockNumber);
+
+      const emptyBlockNumber = await t.aztecNode.getBlockNumber();
+      const emptyBlock = await t.aztecNode.getBlock(emptyBlockNumber);
+      expect(emptyBlock?.getStats().txCount).toEqual(0);
+      logger.info(`Empty block number: ${emptyBlockNumber}`);
+
+      // Warp to the next epoch
+      const epoch = await cheatCodes.rollup.getEpoch();
+      logger.info(`Advancing from epoch ${epoch} to next epoch`);
+
+      const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
+      const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
+      const oldProvenBlockNumber = await rollup.getProvenBlockNumber();
+
+      await cheatCodes.rollup.advanceToNextEpoch();
+
+      logger.info(`Awaiting proof for the previous epoch`);
+      await retryUntil(async () => (await t.aztecNode.getProvenBlockNumber()) > oldProvenBlockNumber);
+
+      const newProvenBlockNumber = await rollup.getProvenBlockNumber();
+      expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
+      expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
+
+      logger.info(`Checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
       const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
       expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
 
