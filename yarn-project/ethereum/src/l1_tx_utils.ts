@@ -28,7 +28,7 @@ import {
   hexToBytes,
 } from 'viem';
 
-import type { ViemPublicClient, ViemWalletClient } from './types.js';
+import { type ViemClient, isExtendedClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -199,8 +199,7 @@ export class L1TxUtils {
   private interrupted = false;
 
   constructor(
-    public publicClient: ViemPublicClient,
-    public walletClient: ViemWalletClient,
+    public client: ViemClient,
     protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
     private debugMaxGasLimit: boolean = false,
@@ -220,21 +219,27 @@ export class L1TxUtils {
   }
 
   public getSenderAddress() {
-    return this.walletClient.account.address;
+    if (!isExtendedClient(this.client)) {
+      throw new Error('Cannot get sender address from public client');
+    }
+    return this.client.account.address;
   }
 
   public getSenderBalance(): Promise<bigint> {
-    return this.publicClient.getBalance({
+    if (!isExtendedClient(this.client)) {
+      throw new Error('Cannot get sender balance from public client');
+    }
+    return this.client.getBalance({
       address: this.getSenderAddress(),
     });
   }
 
   public getBlock() {
-    return this.publicClient.getBlock();
+    return this.client.getBlock();
   }
 
   public getBlockNumber() {
-    return this.publicClient.getBlockNumber();
+    return this.client.getBlockNumber();
   }
 
   /**
@@ -248,9 +253,13 @@ export class L1TxUtils {
     _gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
+    if (!isExtendedClient(this.client)) {
+      throw new Error('Cannot send transaction from public client');
+    }
+
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
-      const account = this.walletClient.account;
+      const account = this.client.account;
       let gasLimit: bigint;
 
       if (this.debugMaxGasLimit) {
@@ -269,7 +278,7 @@ export class L1TxUtils {
 
       let txHash: Hex;
       if (blobInputs) {
-        txHash = await this.walletClient.sendTransaction({
+        txHash = await this.client.sendTransaction({
           ...request,
           ...blobInputs,
           gas: gasLimit,
@@ -278,7 +287,7 @@ export class L1TxUtils {
           maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         });
       } else {
-        txHash = await this.walletClient.sendTransaction({
+        txHash = await this.client.sendTransaction({
           ...request,
           gas: gasLimit,
           maxFeePerGas: gasPrice.maxFeePerGas,
@@ -317,16 +326,20 @@ export class L1TxUtils {
     _blobInputs?: L1BlobInputs,
     isCancelTx: boolean = false,
   ): Promise<TransactionReceipt> {
+    if (!isExtendedClient(this.client)) {
+      throw new Error('Cannot monitor transaction from public client.');
+    }
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
-    const account = this.walletClient.account;
+    const account = this.client.account;
+
     const blobInputs = _blobInputs || {};
     const makeGetTransactionBackoff = () =>
       makeBackoff(times(gasConfig.txPropagationMaxQueryAttempts ?? 3, i => i + 1));
 
     // Retry a few times, in case the tx is not yet propagated.
     const tx = await retry<GetTransactionReturnType>(
-      () => this.publicClient.getTransaction({ hash: initialTxHash }),
+      () => this.client.getTransaction({ hash: initialTxHash }),
       `Getting L1 transaction ${initialTxHash}`,
       makeGetTransactionBackoff(),
       this.logger,
@@ -362,11 +375,12 @@ export class L1TxUtils {
 
     while (!txTimedOut) {
       try {
-        const currentNonce = await this.publicClient.getTransactionCount({ address: account.address });
+        // account.address || request.address is null-checked above
+        const currentNonce = await this.client.getTransactionCount({ address: account.address });
         if (currentNonce > nonce) {
           for (const hash of txHashes) {
             try {
-              const receipt = await this.publicClient.getTransactionReceipt({ hash });
+              const receipt = await this.client.getTransactionReceipt({ hash });
               if (receipt) {
                 if (receipt.status === 'reverted') {
                   this.logger?.error(`L1 transaction ${hash} reverted`, receipt);
@@ -385,7 +399,7 @@ export class L1TxUtils {
 
         // Retry a few times, in case the tx is not yet propagated.
         const tx = await retry<GetTransactionReturnType>(
-          () => this.publicClient.getTransaction({ hash: currentTxHash }),
+          () => this.client.getTransaction({ hash: currentTxHash }),
           `Getting L1 transaction ${currentTxHash}`,
           makeGetTransactionBackoff(),
           this.logger,
@@ -432,7 +446,7 @@ export class L1TxUtils {
             },
           );
 
-          currentTxHash = await this.walletClient.sendTransaction({
+          currentTxHash = await this.client.sendTransaction({
             ...request,
             ...blobInputs,
             nonce,
@@ -504,15 +518,14 @@ export class L1TxUtils {
     previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
   ): Promise<GasPrice> {
     const gasConfig = { ...this.config, ..._gasConfig };
-    const block = await this.publicClient.getBlock({ blockTag: 'latest' });
+    const block = await this.client.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
 
     // Get blob base fee if available
     let blobBaseFee = 0n;
     if (isBlobTx) {
       try {
-        const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
-        blobBaseFee = BigInt(blobBaseFeeHex);
+        blobBaseFee = await this.client.getBlobBaseFee();
         this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
       } catch {
         this.logger?.warn('Failed to get L1 blob base fee', attempt);
@@ -528,7 +541,7 @@ export class L1TxUtils {
       priorityFee = BigInt(gasConfig.fixedPriorityFeePerGas * 1_000_000) * (WEI_CONST / 1_000_000n);
     } else {
       // Get initial priority fee from the network
-      priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
+      priorityFee = await this.client.estimateMaxPriorityFeePerGas();
     }
     let maxFeePerGas = baseFee;
 
@@ -626,7 +639,7 @@ export class L1TxUtils {
     if (_blobInputs) {
       // @note requests with blobs also require maxFeePerBlobGas to be set
       const gasPrice = await this.getGasPrice(gasConfig, true, 0);
-      initialEstimate = await this.publicClient.estimateGas({
+      initialEstimate = await this.client.estimateGas({
         account,
         ...request,
         ..._blobInputs,
@@ -636,7 +649,7 @@ export class L1TxUtils {
 
       this.logger?.debug(`L1 gas used in estimateGas by blob tx: ${initialEstimate}`);
     } else {
-      initialEstimate = await this.publicClient.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
+      initialEstimate = await this.client.estimateGas({ account, ...request, gas: LARGE_GAS_LIMIT });
       this.logger?.debug(`L1 gas used in estimateGas by non-blob tx: ${initialEstimate}`);
     }
 
@@ -647,7 +660,7 @@ export class L1TxUtils {
   }
 
   async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
-    const tx = await this.publicClient.getTransaction({ hash: txHash as Hex });
+    const tx = await this.client.getTransaction({ hash: txHash as Hex });
     if (!tx) {
       return undefined;
     }
@@ -672,9 +685,9 @@ export class L1TxUtils {
     stateOverride: StateOverride = [],
   ) {
     try {
-      await this.publicClient.simulateContract({
+      await this.client.simulateContract({
         ...args,
-        account: this.walletClient.account,
+        account: this.client.account,
         stateOverride,
       });
       this.logger?.trace('Simulated blob tx', { blobInputs });
@@ -684,7 +697,7 @@ export class L1TxUtils {
       // This throws a EstimateGasExecutionError with the custom error information:
       const request = blobInputs
         ? {
-            account: this.walletClient.account,
+            account: this.client.account,
             to: args.address,
             data,
             blobs: blobInputs.blobs,
@@ -692,12 +705,12 @@ export class L1TxUtils {
             maxFeePerBlobGas: blobInputs.maxFeePerBlobGas,
           }
         : {
-            account: this.walletClient.account,
+            account: this.client.account,
             to: args.address,
             data,
           };
       this.logger?.trace('Preparing tx', { request });
-      await this.walletClient.prepareTransactionRequest(request);
+      await this.client.prepareTransactionRequest(request);
       this.logger?.trace('Prepared tx');
       return undefined;
     } catch (simulationErr: any) {
@@ -710,7 +723,7 @@ export class L1TxUtils {
               abi: args.abi,
               functionName: args.functionName,
               address: args.address,
-              sender: this.walletClient.account.address,
+              ...(isExtendedClient(this.client) && { sender: this.client.account.address }),
             });
       if (contractErr.name === 'ContractFunctionExecutionError') {
         const execErr = contractErr as ContractFunctionExecutionError;
@@ -721,7 +734,7 @@ export class L1TxUtils {
   }
 
   public async simulateGasUsed(
-    request: L1TxRequest & { gas?: bigint },
+    request: L1TxRequest & { gas?: bigint; from?: Hex },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
@@ -729,26 +742,29 @@ export class L1TxUtils {
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
 
-    const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
+    const call: any = {
+      to: request.to!,
+      data: request.data,
+      ...(request.from && { from: request.from }),
+    };
+
+    if (isExtendedClient(this.client)) {
+      const nonce = await this.client.getTransactionCount({ address: this.client.account.address });
+      call.nonce = nonce;
+      call.from = request.from ?? this.client.account.address;
+      call.maxFeePerGas = gasPrice.maxFeePerGas;
+      call.maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
+      call.gas = request.gas ?? LARGE_GAS_LIMIT;
+    }
 
     try {
-      const result = await this.publicClient.simulate({
+      const result = await this.client.simulateBlocks({
         validation: true,
         blocks: [
           {
             blockOverrides,
             stateOverrides,
-            calls: [
-              {
-                from: this.walletClient.account.address,
-                to: request.to!,
-                data: request.data,
-                maxFeePerGas: gasPrice.maxFeePerGas,
-                maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-                gas: request.gas ?? LARGE_GAS_LIMIT,
-                nonce,
-              },
-            ],
+            calls: [call],
           },
         ],
       });
@@ -793,7 +809,10 @@ export class L1TxUtils {
     if (isBlobTx) {
       throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
     }
-    const account = this.walletClient.account;
+    if (!isExtendedClient(this.client)) {
+      throw new Error('Cannot cancel transaction without a wallet client.');
+    }
+    const account = this.client.account;
 
     // Get gas price with higher priority fee for cancellation
     const cancelGasPrice = await this.getGasPrice(
@@ -817,7 +836,7 @@ export class L1TxUtils {
     };
 
     // Send 0-value tx to self with higher gas price
-    const cancelTxHash = await this.walletClient.sendTransaction({
+    const cancelTxHash = await this.client.sendTransaction({
       ...request,
       nonce,
       gas: 21_000n, // Standard ETH transfer gas

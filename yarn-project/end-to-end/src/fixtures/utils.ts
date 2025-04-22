@@ -36,7 +36,7 @@ import {
   type DeployL1ContractsReturnType,
   ForwarderContract,
   NULL_KEY,
-  createL1Clients,
+  createExtendedL1Client,
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
@@ -224,12 +224,11 @@ async function setupWithRemoteEnvironment(
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
 
-  const { walletClient, publicClient } = createL1Clients(config.l1RpcUrls, account, foundry);
+  const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
   const deployL1ContractsValues: DeployL1ContractsReturnType = {
     l1ContractAddresses: l1Contracts,
-    walletClient,
-    publicClient,
+    l1Client,
   };
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
@@ -449,7 +448,7 @@ export async function setup(
       const rewardDistributor = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
         abi: l1Artifacts.rewardDistributor.contractAbi,
-        client: deployL1ContractsValues.publicClient,
+        client: deployL1ContractsValues.l1Client,
       });
 
       const blockReward = await rewardDistributor.read.BLOCK_REWARD();
@@ -458,11 +457,11 @@ export async function setup(
       const feeJuice = getContract({
         address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
         abi: l1Artifacts.feeAsset.contractAbi,
-        client: deployL1ContractsValues.walletClient,
+        client: deployL1ContractsValues.l1Client,
       });
 
       const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
-      await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
+      await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
       logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
     }
 
@@ -477,7 +476,7 @@ export async function setup(
     const watcher = new AnvilTestWatcher(
       new EthCheatCodesWithState(config.l1RpcUrls),
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       dateProvider,
     );
 
@@ -827,16 +826,16 @@ export async function createAndSyncProverNode(
     },
     { prefilledPublicData },
   );
-  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.walletClient.account.address });
+  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
   proverNode.start();
   return proverNode;
 }
 
 function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
+  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
 
   const log = createLogger(logName);
-  const l1TxUtils = new DelayedTxUtils(publicClient, walletClient, log, aztecNodeConfig);
+  const l1TxUtils = new DelayedTxUtils(l1Client, log, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
 }
@@ -846,11 +845,10 @@ export async function createForwarderContract(
   privateKey: `0x${string}`,
   rollupAddress: Hex,
 ) {
-  const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
+  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
   const forwarderContract = await ForwarderContract.create(
-    walletClient.account.address,
-    walletClient,
-    publicClient,
+    l1Client.account.address,
+    l1Client,
     createLogger('forwarder'),
     rollupAddress,
   );

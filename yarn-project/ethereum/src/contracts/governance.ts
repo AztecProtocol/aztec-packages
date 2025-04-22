@@ -15,7 +15,7 @@ import {
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
-import type { ViemPublicClient, ViemWalletClient } from '../types.js';
+import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
 
 export type L1GovernanceContractAddresses = Pick<
   L1ContractAddresses,
@@ -48,17 +48,13 @@ export function extractProposalIdFromLogs(logs: Log[]): bigint {
 }
 
 export class GovernanceContract {
-  private readonly publicGovernance: GetContractReturnType<typeof GovernanceAbi, ViemPublicClient>;
-  private readonly walletGovernance: GetContractReturnType<typeof GovernanceAbi, ViemWalletClient> | undefined;
+  private readonly publicGovernance: GetContractReturnType<typeof GovernanceAbi, ViemClient>;
+  private readonly walletGovernance: GetContractReturnType<typeof GovernanceAbi, ExtendedViemWalletClient> | undefined;
 
-  constructor(
-    address: Hex,
-    public readonly publicClient: ViemPublicClient,
-    public readonly walletClient: ViemWalletClient | undefined,
-  ) {
-    this.publicGovernance = getContract({ address, abi: GovernanceAbi, client: publicClient });
-    this.walletGovernance = walletClient
-      ? getContract({ address, abi: GovernanceAbi, client: walletClient })
+  constructor(address: Hex, public readonly client: ViemClient) {
+    this.publicGovernance = getContract({ address, abi: GovernanceAbi, client: client });
+    this.walletGovernance = isExtendedClient(client)
+      ? getContract({ address, abi: GovernanceAbi, client: client })
       : undefined;
   }
 
@@ -94,9 +90,12 @@ export class GovernanceContract {
   }
 
   public async deposit(onBehalfOf: Hex, amount: bigint) {
+    if (!isExtendedClient(this.client)) {
+      throw new Error('Wallet client is required for this operation');
+    }
     const walletGovernance = this.assertWalletGovernance();
     const depositTx = await walletGovernance.write.deposit([onBehalfOf, amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash: depositTx });
+    await this.client.waitForTransactionReceipt({ hash: depositTx });
   }
 
   public async proposeWithLock({
@@ -108,7 +107,7 @@ export class GovernanceContract {
   }): Promise<bigint> {
     const walletGovernance = this.assertWalletGovernance();
     const proposeTx = await walletGovernance.write.proposeWithLock([payloadAddress, withdrawAddress]);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: proposeTx });
+    const receipt = await this.client.waitForTransactionReceipt({ hash: proposeTx });
     if (receipt.status !== 'success') {
       throw new Error(`Proposal failed: ${receipt.status}`);
     }
@@ -124,7 +123,7 @@ export class GovernanceContract {
     } else {
       const proposal = await this.getProposal(proposalId);
       const startOfActive = proposal.creation + proposal.config.votingDelay;
-      const block = await this.publicClient.getBlock();
+      const block = await this.client.getBlock();
       // Add 12 seconds to the time to make sure we don't vote too early
       const secondsToActive = Number(startOfActive - block.timestamp) + 12;
       const now = new Date();
@@ -152,7 +151,7 @@ export class GovernanceContract {
         proposal.config.votingDelay +
         proposal.config.votingDuration +
         proposal.config.executionDelay;
-      const block = await this.publicClient.getBlock();
+      const block = await this.client.getBlock();
       const secondsToExecutable = Number(startOfExecutable - block.timestamp) + 12;
       const now = new Date();
       logger.info(`
@@ -165,9 +164,12 @@ export class GovernanceContract {
   }
 
   public async getPower(): Promise<bigint> {
+    if (!isExtendedClient(this.client)) {
+      throw new Error('Wallet client is required for this operation');
+    }
     const walletGovernance = this.assertWalletGovernance();
-    const now = await this.publicClient.getBlock();
-    return walletGovernance.read.powerAt([this.walletClient!.account.address, now.timestamp]);
+    const now = await this.client.getBlock();
+    return walletGovernance.read.powerAt([this.client!.account.address, now.timestamp]);
   }
 
   public async vote({
@@ -184,7 +186,7 @@ export class GovernanceContract {
     logger: Logger;
   }) {
     const walletGovernance = this.assertWalletGovernance();
-    const l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient!, logger);
+    const l1TxUtils = new L1TxUtils(this.client, logger);
     const retryDelaySeconds = 12;
 
     voteAmount = voteAmount ?? (await this.getPower());
@@ -242,7 +244,7 @@ export class GovernanceContract {
     logger: Logger;
   }) {
     const walletGovernance = this.assertWalletGovernance();
-    const l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient!, logger);
+    const l1TxUtils = new L1TxUtils(this.client, logger);
     const retryDelaySeconds = 12;
     let success = false;
     for (let i = 0; i < retries; i++) {

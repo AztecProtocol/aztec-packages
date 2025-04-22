@@ -1,3 +1,4 @@
+import { createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
@@ -6,9 +7,9 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { createL1Clients, deployL1Contracts } from '../deploy_l1_contracts.js';
+import { deployL1Contracts } from '../deploy_l1_contracts.js';
 import { startAnvil } from '../test/start_anvil.js';
-import type { ViemPublicClient, ViemWalletClient } from '../types.js';
+import type { ExtendedViemWalletClient } from '../types.js';
 import { GovernanceContract } from './governance.js';
 
 describe('Governance', () => {
@@ -19,8 +20,7 @@ describe('Governance', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let walletClient: ViemWalletClient;
-  let publicClient: ViemPublicClient;
+  let l1Client: ExtendedViemWalletClient;
   let governance: GovernanceContract;
   beforeAll(async () => {
     logger = createLogger('ethereum:test:governance');
@@ -31,7 +31,7 @@ describe('Governance', () => {
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ walletClient, publicClient } = createL1Clients([rpcUrl], privateKey));
+    l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
@@ -42,11 +42,7 @@ describe('Governance', () => {
       genesisBlockHash: Fr.random(),
     });
 
-    governance = new GovernanceContract(
-      deployed.l1ContractAddresses.governanceAddress.toString(),
-      publicClient,
-      walletClient,
-    );
+    governance = new GovernanceContract(deployed.l1ContractAddresses.governanceAddress.toString(), l1Client);
   });
 
   afterAll(async () => {

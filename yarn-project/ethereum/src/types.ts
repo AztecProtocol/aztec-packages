@@ -1,8 +1,10 @@
 import type {
+  Abi,
   Account,
   Chain,
   Client,
   FallbackTransport,
+  GetContractReturnType,
   HttpTransport,
   PublicActions,
   PublicClient,
@@ -27,7 +29,16 @@ export type ExtendedViemWalletClient = Client<
 
 export type ViemWalletClient = SimpleViemWalletClient | ExtendedViemWalletClient;
 
+/** Type for a viem client that can be either public or extended with wallet capabilities */
+export type ViemClient = ViemPublicClient | ExtendedViemWalletClient;
+
 export type L1Clients = {
   publicClient: ViemPublicClient;
   walletClient: ExtendedViemWalletClient;
 };
+
+export type ViemContract<TAbi extends Abi> = GetContractReturnType<TAbi, ExtendedViemWalletClient>;
+
+export function isExtendedClient(client: ViemClient): client is ExtendedViemWalletClient {
+  return 'account' in client;
+}
