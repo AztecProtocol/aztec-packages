@@ -43,14 +43,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   // Test Block Flags
   struct TestFlags {
-    bool invalidProposer;
     bool provideEmptyAttestations;
+    bool invalidProposer;
     bool invalidCommitteeCommitment;
   }
 
   TestFlags NO_FLAGS = TestFlags({
-    invalidProposer: false,
     provideEmptyAttestations: true,
+    invalidProposer: false,
     invalidCommitteeCommitment: false
   });
 
@@ -122,6 +122,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
+  // NOTE: this must be run with --isolate as transient storage gets thrashed when working out the proposer.
+  // This also changes the committee which is calculated within each call.
+  // TODO(md): clear out transient storage used by the sample lib - we cannot afford to have a malicious proposer
+  // change the committee committment to something unpredictable.
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
     setup(100)
@@ -130,7 +134,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
-    _testBlock("mixed_block_1", _insufficientSigs, committeeSize, NO_FLAGS);
+    _testBlock("mixed_block_1", _insufficientSigs, committeeSize, TestFlags({
+      provideEmptyAttestations: false,
+      invalidProposer: false,
+      invalidCommitteeCommitment: false
+    }));
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
@@ -150,16 +158,9 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // got finalised.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
-    _testBlock("mixed_block_1", false, 3, TestFlags({
-      invalidProposer: false,
-      provideEmptyAttestations: false,
-      invalidCommitteeCommitment: false
-    }));
-    _testBlock("mixed_block_2", false, 3, TestFlags({
-      invalidProposer: false,
-      provideEmptyAttestations: false,
-      invalidCommitteeCommitment: false
-    }));
+    _testBlock("mixed_block_1", false, 3, NO_FLAGS);
+    _testBlock("mixed_block_2", false, 3, NO_FLAGS);
+
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
 
@@ -189,7 +190,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     _testBlock("mixed_block_1", true, 3, TestFlags({
       invalidProposer: true,
       provideEmptyAttestations: true,
-      invalidCommitteeCommitment: true
+      invalidCommitteeCommitment: false
     }));
   }
 
@@ -254,7 +255,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
-      uint256 attestationsCount = _flags.provideEmptyAttestations ? validators.length : _signatureCount;
+      // Pad out with empty (missing signature) attestations to make the committee commitment match
+      bool provideEmptyAttestations = _flags.provideEmptyAttestations || !_expectRevert;
+
+      uint256 attestationsCount = provideEmptyAttestations ? validators.length : _signatureCount;
       CommitteeAttestation[] memory attestations = new CommitteeAttestation[](attestationsCount);
 
       ProposePayload memory proposePayload = ProposePayload({
@@ -271,7 +275,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       }
 
       // We must include empty attestations to make the committee commitment match
-      if (_flags.provideEmptyAttestations) {
+      if (provideEmptyAttestations) {
         for (uint256 i = _signatureCount; i < validators.length; i++) {
           attestations[i] = createEmptyAttestation(validators[i]);
         }

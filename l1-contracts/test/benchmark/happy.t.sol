@@ -285,13 +285,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     Signature memory signature = Signature({v: v, r: r, s: s});
     // Address can be zero for signed attestations
-    return CommitteeAttestation({addr: address(0), signature: signature});
+    return CommitteeAttestation({addr: _signer, signature: signature});
   }
 
   // This is used for attestations that are not signed - we include their address to help reconstruct the committee commitment
   function createEmptyAttestation(address _signer)
     internal
-    view
+    pure
     returns (CommitteeAttestation memory)
   {
     Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});

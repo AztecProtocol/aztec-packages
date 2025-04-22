@@ -18,7 +18,6 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
-
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
   using MessageHashUtils for bytes32;
@@ -90,21 +89,20 @@ library ValidatorSelectionLib {
 
     (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_stakingStore, _epochNumber);
 
+    // @todo Consider getting rid of this option.
+    // If the proposer is open, we allow anyone to propose without needing any signatures
+    if (committeeSize == 0) {
+      return;
+    }
+
     uint256 proposerIndex = computeProposerIndex(
       _epochNumber, _slot, getSampleSeed(_epochNumber), committeeSize
     );
-
 
     // TODO: add more checks here
     // Read the attester from the signatures
     address attester = _attestations[proposerIndex].addr;
     address proposer = _stakingStore.info[attester].proposer;
-
-    // @todo Consider getting rid of this option.
-    // If the proposer is open, we allow anyone to propose without needing any signatures
-    if (proposer == address(0)) {
-      return;
-    }
 
     require(
       proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
@@ -129,25 +127,26 @@ library ValidatorSelectionLib {
     for (uint256 i = 0; i < _attestations.length; i++) {
       // To avoid stack too deep errors
       CommitteeAttestation memory attestation = _attestations[i];
-      if (attestation.addr != address(0)) {
-        reconstructedCommittee[i] = attestation.addr;
-      } else {
+      // TODO: stronger check
+      if (attestation.signature.v != 0) {
         address recovered = ecrecover(digest, attestation.signature.v, attestation.signature.r, attestation.signature.s);
         reconstructedCommittee[i] = recovered;
         validAttestations++;
+      } else {
+        reconstructedCommittee[i] = attestation.addr;
       }
-    }
-
-    // Check the committee commitment
-    bytes32 reconstructedCommitment = computeCommitteeCommitment(reconstructedCommittee);
-    if (reconstructedCommitment != committeeCommitment) {
-      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
     }
 
     require(
       validAttestations >= needed,
       Errors.ValidatorSelection__InsufficientAttestations(needed, validAttestations)
     );
+
+    // Check the committee commitment
+    bytes32 reconstructedCommitment = computeCommitteeCommitment(reconstructedCommittee);
+    if (reconstructedCommitment != committeeCommitment) {
+      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
+    }
   }
 
   // Note: this resamples the validator set, Only call this from view functions
@@ -160,13 +159,20 @@ library ValidatorSelectionLib {
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
 
-    address[] memory committee = sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber));
+    // TODO(md): go back to previous pr and apply this change
+    uint224 sampleSeed = getSampleSeed(_epochNumber);
+    if (sampleSeed == 0) {
+      sampleSeed = type(uint224).max;
+      getStorage().seeds.push(Epoch.unwrap(_epochNumber).toUint32(), sampleSeed);
+    }
+
+    address[] memory committee = sampleValidators(_stakingStore, _epochNumber, sampleSeed);
     if (committee.length == 0) {
       return address(0);
     }
 
     address attester = committee[computeProposerIndex(
-      _epochNumber, _slot, getSampleSeed(_epochNumber), committee.length
+      _epochNumber, _slot, sampleSeed, committee.length
     )];
 
     return _stakingStore.info[attester].proposer;
