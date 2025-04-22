@@ -107,7 +107,7 @@ const { transactionFee } = await bananaCoin.methods
 
 **The equivalent to specify fees via CLI...**
 
-import { CLI_Fees } from '@site/src/components/Snippets/snippets';
+import { CLI_Fees } from '@site/src/components/Snippets/general_snippets';
 
 <CLI_Fees />
 
@@ -288,7 +288,7 @@ export class GasSettings {
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.0/yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L11-L20</a></sub></sup>
 
-import { Gas_Settings_Components, Gas_Settings } from '@site/src/components/Snippets/snippets';
+import { Gas_Settings_Components, Gas_Settings } from '@site/src/components/Snippets/general_snippets';
 
 <Gas_Settings />
 
