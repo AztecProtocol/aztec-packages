@@ -36,18 +36,16 @@ const contentLayout = css({
 });
 
 const headerFrame = css({
-  height: '100px',
   margin: '24px 60px',
   backgroundColor: '#CDD1D5',
   borderRadius: '10px',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 40px',
-  position: 'relative',
+  padding: '12px 36px',
+  flexWrap: 'wrap',
   '@media (max-width: 1200px)': {
     margin: '12px 12px 24px 12px',
-    padding: '0 12px',
-    height: '80px',
+    padding: '3px 12px',
   },
 });
 
@@ -60,6 +58,10 @@ const logo = css({
     width: '120px',
     marginRight: '0.1rem',
   },
+  '@media (max-width: 900px)': {
+    height: 'auto',
+    width: '100px',
+  },
 });
 
 const headerTitle = css({
@@ -69,46 +71,41 @@ const headerTitle = css({
   fontSize: '42px',
   lineHeight: '48px',
   display: 'flex',
+  height: '60px',
   alignItems: 'center',
   letterSpacing: '0.03em',
   color: '#2D2D2D',
   textDecoration: 'none',
-  marginTop: '0.5rem',
   padding: '1rem',
   '@media (max-width: 1200px)': {
-    marginTop: '0.3rem',
     fontSize: '20px',
     lineHeight: '20px',
+  },
+  '@media (max-width: 900px)': {
+    fontSize: '16px',
+    lineHeight: '16px',
   },
 });
 
 const docsButton = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '12px 24px',
-  position: 'absolute',
-  width: '160px',
-  height: '42px',
-  right: '40px',
+  marginLeft: 'auto',
   background: '#8C7EFF',
-  boxShadow: '0px 0px 0px 1px #715EC2, 0px 0px 0px 3px rgba(247, 249, 255, 0.08)',
   borderRadius: '6px',
   color: '#FFFFFF',
   fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
   fontWeight: 500,
   fontSize: '16px',
   lineHeight: '20px',
+  height: '50px',
   cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '12px',
   textDecoration: 'none',
   '@media (max-width: 1200px)': {
-    padding: 0,
+    padding: '10px',
     fontSize: '14px',
-    width: '100px',
-    gap: 0,
-    right: '10px',
   },
 });
 
