@@ -52,7 +52,6 @@ void write_standalone_vk(const std::string& output_data_type,
     using VerificationKey = ClientIVC::MegaVerificationKey;
     using Program = acir_format::AcirProgram;
     using ProgramMetadata = acir_format::ProgramMetadata;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -67,9 +66,6 @@ void write_standalone_vk(const std::string& output_data_type,
                                                ? nullptr
                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
     Builder builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Add public inputs corresponding to pairing point accumulator
-    AggregationObject::add_default_pairing_points_to_public_inputs(builder);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
