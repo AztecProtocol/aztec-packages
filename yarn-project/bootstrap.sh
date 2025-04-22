@@ -116,7 +116,7 @@ function test_cmds {
 
     # Boost some tests resources.
     if [[ "$test" =~ testbench ]]; then
-      prefix+=":CPUS=8:MEM=16g"
+      prefix+=":CPUS=10:MEM=16g"
     fi
     if [[ "$test" =~ ^ivc-integration/ ]]; then
       prefix+=":CPUS=8"
