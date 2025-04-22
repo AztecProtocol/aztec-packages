@@ -549,7 +549,6 @@ template <typename Curve> class GeminiVerifier_ {
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 
         Fr eval_pos_prev = batched_evaluation;
-        // Virtual size allows padding in Shplemini.
 
         Fr zero{ 0 };
         if constexpr (Curve::is_stdlib_type) {

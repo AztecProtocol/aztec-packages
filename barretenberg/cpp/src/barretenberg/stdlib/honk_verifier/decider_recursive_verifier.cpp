@@ -28,12 +28,9 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): fix log_circuit_size usage in stdlib cases.
-    const size_t log_circuit_size = static_cast<uint32_t>(accumulator->verification_key->log_circuit_size.get_value());
-
     const auto padding_indicator_array =
         compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
-    Sumcheck sumcheck(log_circuit_size, transcript, accumulator->target_sum);
+    Sumcheck sumcheck(transcript, accumulator->target_sum);
 
     SumcheckOutput<Flavor> output = sumcheck.verify(
         accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges, padding_indicator_array);

@@ -98,7 +98,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const auto padding_indicator_array =
         compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(FF::from_witness(builder, log_circuit_size));
 
-    auto sumcheck = Sumcheck(log_circuit_size, transcript);
+    auto sumcheck = Sumcheck(transcript);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};

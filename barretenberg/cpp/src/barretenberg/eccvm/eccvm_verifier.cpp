@@ -49,7 +49,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(CONST_ECCVM_LOG_N, transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {

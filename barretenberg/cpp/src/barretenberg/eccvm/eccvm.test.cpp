@@ -149,7 +149,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(CONST_ECCVM_LOG_N, verifier_transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations

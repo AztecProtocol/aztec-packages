@@ -97,7 +97,7 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, transcript);
+    Sumcheck sumcheck(transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
