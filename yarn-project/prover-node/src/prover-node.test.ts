@@ -21,10 +21,12 @@ import type { Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { SpecificProverNodeConfig } from './config.js';
+import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
-import { ProverNode, type ProverNodeOptions } from './prover-node.js';
+import { ProverNode } from './prover-node.js';
 
 describe('prover-node', () => {
   // Prover node dependencies
@@ -37,7 +39,7 @@ describe('prover-node', () => {
   let coordination: ProverCoordination;
   let mockCoordination: MockProxy<ProverCoordination>;
   let epochMonitor: MockProxy<EpochMonitor>;
-  let config: ProverNodeOptions;
+  let config: SpecificProverNodeConfig;
 
   // L1 genesis time
   let l1GenesisTime: number;
@@ -81,10 +83,11 @@ describe('prover-node', () => {
     coordination = mockCoordination;
 
     config = {
-      maxPendingJobs: 3,
-      pollingIntervalMs: 10,
-      maxParallelBlocksPerEpoch: 32,
+      proverNodeMaxPendingJobs: 3,
+      proverNodePollingIntervalMs: 10,
+      proverNodeMaxParallelBlocksPerEpoch: 32,
       txGatheringIntervalMs: 100,
+      proverNodeFailedEpochStore: undefined,
     };
 
     // World state returns a new mock db every time it is asked to fork
@@ -192,10 +195,8 @@ describe('prover-node', () => {
     public nextJobRun: () => Promise<void> = () => Promise.resolve();
 
     protected override doCreateEpochProvingJob(
-      epochNumber: bigint,
+      data: EpochProvingJobData,
       deadline: Date | undefined,
-      _blocks: L2Block[],
-      _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,
     ): EpochProvingJob {
       const state = this.nextJobState;
@@ -205,11 +206,11 @@ describe('prover-node', () => {
       const job = mock<EpochProvingJob>({
         run,
         getState: () => state,
-        getEpochNumber: () => epochNumber,
+        getEpochNumber: () => data.epochNumber,
         getDeadline: () => deadline,
       });
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber, job });
+      jobs.push({ epochNumber: data.epochNumber, job });
       this.totalJobCount++;
       return job;
     }
