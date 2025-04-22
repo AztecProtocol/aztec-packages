@@ -400,7 +400,6 @@ template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -413,16 +412,13 @@ concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFl
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                       UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                        MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                         MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                         MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                        TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
                                         AvmRecursiveFlavor_<UltraCircuitBuilder>,
                                         AvmRecursiveFlavor_<MegaCircuitBuilder>,
@@ -446,11 +442,9 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 #else
@@ -464,11 +458,9 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 #endif

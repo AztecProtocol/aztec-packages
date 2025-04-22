@@ -260,9 +260,7 @@ template <typename Builder> class Transcript {
             field_pt borrow = field_pt::from_witness(context, need_borrow);
 
             // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
-            if constexpr (IsSimulator<Builder>) {
-                context->create_range_constraint(borrow.get_value(), 1, "borrow");
-            } else if constexpr (HasPlookup<Builder>) {
+            if constexpr (HasPlookup<Builder>) {
                 context->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
             } else {
                 context->create_range_constraint(borrow.get_witness_index(), 1, "borrow");

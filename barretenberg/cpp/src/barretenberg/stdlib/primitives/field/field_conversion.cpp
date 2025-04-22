@@ -51,7 +51,4 @@ template fq<UltraCircuitBuilder> convert_to_grumpkin_fr<UltraCircuitBuilder>(Ult
 template fq<MegaCircuitBuilder> convert_to_grumpkin_fr<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
                                                                            const fr<MegaCircuitBuilder>& f);
 
-template fq<CircuitSimulatorBN254> convert_to_grumpkin_fr<CircuitSimulatorBN254>(CircuitSimulatorBN254& builder,
-                                                                                 const fr<CircuitSimulatorBN254>& f);
-
 } // namespace bb::stdlib::field_conversion

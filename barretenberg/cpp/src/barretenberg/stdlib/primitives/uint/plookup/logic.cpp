@@ -333,15 +333,11 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(cons
 
 template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint8_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint16_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint32_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint64_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint64_t>;
 
 } // namespace bb::stdlib

@@ -210,7 +210,5 @@ template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
 template class ProtogalaxyRecursiveVerifier_<
     RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
 
 } // namespace bb::stdlib::recursion::honk

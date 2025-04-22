@@ -42,15 +42,10 @@ uint<Builder, Native>::uint(const witness_t<Builder>& witness)
     : context(witness.context)
     , witness_status(WitnessStatus::OK)
 {
-    if constexpr (IsSimulator<Builder>) {
-        additive_constant = witness.witness;
-        witness_index = IS_CONSTANT;
-    } else {
-        additive_constant = 0;
-        accumulators = constrain_accumulators(
-            context, witness.witness_index, width, "uint: range constraint fails in constructor of uint from witness");
-        witness_index = accumulators[num_accumulators() - 1];
-    }
+    additive_constant = 0;
+    accumulators = constrain_accumulators(
+        context, witness.witness_index, width, "uint: range constraint fails in constructor of uint from witness");
+    witness_index = accumulators[num_accumulators() - 1];
 }
 
 template <typename Builder, typename Native>

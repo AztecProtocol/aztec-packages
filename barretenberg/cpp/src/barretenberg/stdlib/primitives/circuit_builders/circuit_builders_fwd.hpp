@@ -34,5 +34,4 @@ template <class ExecutionTrace> class UltraCircuitBuilder_;
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 template <class FF> class MegaCircuitBuilder_;
 using MegaCircuitBuilder = MegaCircuitBuilder_<field<Bn254FrParams>>;
-class CircuitSimulatorBN254;
 } // namespace bb

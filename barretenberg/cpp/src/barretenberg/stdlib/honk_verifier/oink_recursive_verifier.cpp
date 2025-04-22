@@ -135,7 +135,5 @@ template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuild
 template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
-template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 template class OinkRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

@@ -59,6 +59,4 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
 
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuilder>>;
-template class DeciderRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
-template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 } // namespace bb::stdlib::recursion::honk

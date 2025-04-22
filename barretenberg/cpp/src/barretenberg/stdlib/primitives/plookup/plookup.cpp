@@ -99,5 +99,4 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
 
 template class plookup_read<bb::UltraCircuitBuilder>;
 template class plookup_read<bb::MegaCircuitBuilder>;
-template class plookup_read<bb::CircuitSimulatorBN254>;
 } // namespace bb::stdlib
