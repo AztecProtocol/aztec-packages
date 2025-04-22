@@ -106,8 +106,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
                                      // indices because of the nuances of KZG commitment).
         ACCUMULATORS_BINARY_LIMBS_1,
         ACCUMULATORS_BINARY_LIMBS_2,
-        ACCUMULATORS_BINARY_LIMBS_3, // Highest limb is 50 bits (254 mod 68)    P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, // Low
-                                     // limbs split further into smaller chunks for range constraints
+        ACCUMULATORS_BINARY_LIMBS_3, // Highest limb is 50 bits (254 mod 68)
         QUOTIENT_LOW_BINARY_LIMBS,   // Quotient limbs
         QUOTIENT_HIGH_BINARY_LIMBS,
         RELATION_WIDE_LIMBS,              // Limbs for checking the correctness of  mod 2²⁷² relations.

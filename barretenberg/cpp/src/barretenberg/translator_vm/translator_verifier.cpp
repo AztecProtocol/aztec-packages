@@ -153,7 +153,8 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
     const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
                                                                auto& relation_parameters) {
         const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-        const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
+        const BF x = reconstruct_from_array(
+            relation_parameters.evaluation_input_x); // these are a power higher than they should be
         const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
         const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
         const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);

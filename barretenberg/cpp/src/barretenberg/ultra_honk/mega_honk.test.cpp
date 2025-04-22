@@ -229,7 +229,7 @@ TYPED_TEST(MegaHonkTests, SingleCircuit)
 {
     using Flavor = TypeParam;
     auto builder = typename Flavor::CircuitBuilder{};
-
+    builder.queue_ecc_no_op();
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct and verify Honk proof

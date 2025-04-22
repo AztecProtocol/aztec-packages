@@ -234,6 +234,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     const StdlibProof<ClientCircuit> stdlib_merge_proof =
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
 
+    // We do an "append only ultra ops" here
+    builder.queue_ecc_no_op();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
     RecursiveMergeVerifier merge_verifier{ &builder };
     [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
@@ -298,10 +300,10 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Verify the hiding circuit proof
     MegaZKVerifier verifer{ vk.mega };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
-    vinfo("Mega verified: ", mega_verified);
+    info("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(proof.goblin_proof);
-    vinfo("Goblin verified: ", goblin_verified);
+    info("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
 }
 

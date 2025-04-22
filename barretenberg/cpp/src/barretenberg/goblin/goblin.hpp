@@ -162,10 +162,10 @@ class Goblin {
         bool translation_verified = translator_verifier.verify_translation(
             proof.translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 
-        vinfo("merge verified?: ", merge_verified);
-        vinfo("eccvm verified?: ", eccvm_verified);
-        vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
-        vinfo("translation verified?: ", translation_verified);
+        info("merge verified?: ", merge_verified);
+        info("eccvm verified?: ", eccvm_verified);
+        info("accumulator construction_verified?: ", accumulator_construction_verified);
+        info("translation verified?: ", translation_verified);
 
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };

@@ -78,6 +78,16 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to
     add_mega_gates_to_ensure_all_polys_are_non_zero();
 }
 
+template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->no_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    return op_tuple;
+}
+
 /**
  * @brief Add simple point addition operation to the op queue and add corresponding gates
  *
