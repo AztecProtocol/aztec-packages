@@ -1,8 +1,5 @@
-import { proxy } from 'comlink';
 import createDebug from 'debug';
-import { createMainWorker } from './barretenberg_wasm_main/factory/node/index.js';
-import { getRemoteBarretenbergWasm, getSharedMemoryAvailable } from './helpers/node/index.js';
-import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from './barretenberg_wasm_main/index.js';
+import { getSharedMemoryAvailable } from './helpers/node/index.js';
 import { fetchCode } from './fetch_code/index.js';
 
 export async function fetchModuleAndThreads(
@@ -39,23 +36,3 @@ async function getAvailableThreads(logger: (msg: string) => void): Promise<numbe
     }
   }
 }
-
-export class BarretenbergWasm extends BarretenbergWasmMain {
-  /**
-   * Construct and initialize BarretenbergWasm within a Worker. Return both the worker and the wasm proxy.
-   * Used when running in the browser, because we can't block the main thread.
-   */
-  public static async new(
-    desiredThreads?: number,
-    wasmPath?: string,
-    logger: (msg: string) => void = createDebug('bb.js:bb_wasm_main'),
-  ) {
-    const worker = createMainWorker();
-    const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(desiredThreads, wasmPath, logger);
-    await wasm.init(module, threads, proxy(logger));
-    return { worker, wasm };
-  }
-}
-
-export type BarretenbergWasmWorker = BarretenbergWasmMainWorker;
