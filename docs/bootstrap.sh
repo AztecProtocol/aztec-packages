@@ -37,7 +37,8 @@ function release_docs {
   yarn install
   yarn build
 
-  yarn netlify deploy --site aztec-docs-dev --prod
+  deploy_output=$(yarn netlify deploy --site aztec-docs-dev --prod 2>&1)
+  echo "$deploy_output"
 }
 
 case "$cmd" in
