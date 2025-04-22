@@ -8,7 +8,8 @@ pub struct ContractFunction {
     pub membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
 }
 
-pub global default_vk: [Field; 143] = [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
+pub global default_vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS] =
+    [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
 
 // sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
 pub global default_private_function: ContractFunction = ContractFunction {

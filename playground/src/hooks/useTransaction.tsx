@@ -33,7 +33,7 @@ export function useTransaction() {
         ...currentTx,
         ...{ txHash, status: 'sending' },
       });
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true });
+      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 120 });
       await walletDB.storeTx({
         contractAddress,
         txHash,

@@ -133,9 +133,7 @@ pub global PUBLIC_LOG_DATA_SIZE_IN_FIELDS: u32 = 13;
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1; // This includes the contract address, since it is always emitted with a public log
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/messages/payload.nr.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The following genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
-pub global GENESIS_BLOCK_HASH: Field =
-    0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75;
+// The genesis value is taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
@@ -438,8 +436,6 @@ pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
     + 5;
 pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
-    + 1 /* previous_block_hash */
-    + 1 /* end_block_hash */
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
@@ -447,9 +443,9 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
-// + 8 for previous_block_hash, end_block_hash, end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
+// + 6 for end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
-    + 8
+    + 6
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
     + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
 pub global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
@@ -479,9 +475,7 @@ pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HON
 pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH; // in the future these can differ
 
 pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128; // size of an Ultra verification key
-pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 =
-    HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS + IPA_CLAIM_LENGTH + 1; // size of an Ultra verification key
-
+pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 129; // size of an Ultra Rollup verification key
 pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
