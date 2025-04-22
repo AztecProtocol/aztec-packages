@@ -156,7 +156,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     // Now that we have passed on the registry, we can deploy the new rollup.
     const initialTestAccounts = await getInitialTestAccounts();
-    const { genesisBlockHash, genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
+    const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
       initialTestAccounts.map(a => a.address),
     );
     const { rollup: newRollup } = await deployRollupForUpgrade(
@@ -169,7 +169,6 @@ describe('e2e_p2p_add_rollup', () => {
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
         genesisArchiveRoot,
-        genesisBlockHash,
         ethereumSlotDuration: t.ctx.aztecNodeConfig.ethereumSlotDuration,
         aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,
         aztecEpochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
