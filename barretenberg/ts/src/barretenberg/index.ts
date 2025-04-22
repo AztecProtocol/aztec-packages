@@ -55,7 +55,6 @@ export class Barretenberg extends BarretenbergApi {
     const worker = await createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-    console.log('about to init');
     await wasm.init(
       module,
       threads,
@@ -63,7 +62,6 @@ export class Barretenberg extends BarretenbergApi {
       options.memory?.initial,
       options.memory?.maximum,
     );
-    console.log('init done');
     return new Barretenberg(worker, wasm, options);
   }
 

@@ -10,8 +10,6 @@ export async function createThreadWorker() {
   const debugStr = debug.disable();
   debug.enable(debugStr);
   worker.postMessage({ debug: debugStr });
-  console.log('Thread worker created');
   await new Promise<void>(resolve => readinessListener(worker, resolve));
-  console.log('Thread worker ready');
   return worker;
 }
