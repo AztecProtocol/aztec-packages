@@ -37,7 +37,7 @@ function release_docs {
   yarn install
   yarn build
 
-  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev --prod 2>&1); then
+  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev --prod); then
     echo "Netlify deploy failed with error:"
     echo "$deploy_output"
     exit 1
@@ -54,7 +54,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "release")
+  "release-docs")
     release_docs
     ;;
   *)

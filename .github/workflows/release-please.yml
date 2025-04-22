@@ -54,7 +54,7 @@ jobs:
       - name: Build dependencies
         run: |
           for project in noir barretenberg l1-contracts yarn-project; do
-            $project/bootstrap.sh
+            $project/bootstrap.sh ci
           done
 
       - name: Query new version

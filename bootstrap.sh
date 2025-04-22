@@ -341,6 +341,10 @@ case "$cmd" in
         echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
       fi
     fi
+
+    if [ "$REF_NAME" = "master" ]; then
+      release-docs
+    fi
     ;;
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
