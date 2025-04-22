@@ -18,11 +18,12 @@ source $(git rev-parse --show-toplevel)/ci3/source
 set -x
 
 # Positional parameters.
-namespace="$1"
-values_file="${2:-default.yaml}"
-sepolia_deployment="${3:-false}"
-mnemonic_file="${4:-"mnemonic.tmp"}"
-helm_instance="${5:-spartan}"
+target="${1:-kind}"
+namespace="$2"
+values_file="${3:-default.yaml}"
+sepolia_deployment="${4:-false}"
+mnemonic_file="${5:-"mnemonic.tmp"}"
+helm_instance="${6:-spartan}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
@@ -30,17 +31,32 @@ aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}
 overrides="${OVERRIDES:-}"
 resources_file="${RESOURCES_FILE:-default.yaml}"
+repository="${REPOSITORY:-aztecprotocol/aztec}"
 
-if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
-  echo "Aztec Docker image not found. It needs to be built."
+if [ "$target" = "kind" ] ; then
+  if ! docker_has_image "$repository:$aztec_docker_tag"; then
+    echo "Aztec Docker image not found. It needs to be built."
+    exit 1
+  fi
+
+  # Switch to a KIND cluster (will also pull in necessary dependencies)
+  ../bootstrap.sh kind
+
+  # Load the Docker image into kind
+  flock logs/kind-image.lock kind load docker-image $repository:$aztec_docker_tag
+elif [ "$target" = "gke" ]; then
+  TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/$repository/tags/$aztec_docker_tag)
+  if [[ "$TAGS" != *"not found"* ]]; then
+      echo "TAG $aztec_docker_tag available in docker hub"
+  else
+    echo "Tag $aztec_docker_tag not found, please ensure it is published to docker hub"
+    exit 1
+  fi
+else
+  echo "Unknown target: $target"
   exit 1
 fi
 
-# Switch to a KIND cluster (will also pull in necessary dependencies)
-../bootstrap.sh kind
-
-# Load the Docker image into kind
-flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
 # Start the deployment monitor in background
 ./monitor_k8s_deployment.sh "$namespace" "$helm_instance" "app!=setup-l2-contracts" &
@@ -74,7 +90,7 @@ fi
 
 # Initialize Helm set arguments
 helm_set_args=(
-  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
+  --set images.aztec.image="$repository:$aztec_docker_tag"
 )
 
 # Some configuration values are set in the eth-devnet/config/config.yaml file

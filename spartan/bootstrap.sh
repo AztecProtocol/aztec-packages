@@ -125,39 +125,50 @@ case "$cmd" in
   "test-kind-smoke")
     OVERRIDES="telemetry.enabled=false,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/smoke.test.ts 1-validators.yaml smoke${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/smoke.test.ts 1-validators.yaml smoke${NAME_POSTFIX:-}
     ;;
   "test-kind-4epochs")
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml four-epochs${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/4epochs.test.ts ci.yaml four-epochs${NAME_POSTFIX:-}
     ;;
   "test-kind-4epochs-sepolia")
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false SEPOLIA_RUN=true \
-      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci-sepolia.yaml four-epochs${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/4epochs.test.ts ci-sepolia.yaml four-epochs${NAME_POSTFIX:-}
     ;;
   "test-kind-proving")
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/proving.test.ts ci.yaml proving${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/proving.test.ts ci.yaml proving${NAME_POSTFIX:-}
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_gke.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-1tps")
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
-      ./scripts/test_gke.sh src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
+    ;;
+  "test-gke-transfer")
+    # TODO(#12163) reenable bot once not conflicting with transfer
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml  \
+      ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-1tps.yaml transfer${NAME_POSTFIX:-}
+    ;;
+  "test-gke-1tps")
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
+      ./scripts/test_k8s.sh gke src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
     ;;
   "test-prod-deployment")
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
@@ -165,7 +176,7 @@ case "$cmd" in
   "test-cli-upgrade")
     OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;
   *)
     echo "Unknown command: $cmd"

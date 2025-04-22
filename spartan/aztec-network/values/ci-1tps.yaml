@@ -9,7 +9,7 @@ ethereum:
   blockTime: 12
 
 telemetry:
-  enabled: true
+  enabled: false
 
 validator:
   replicas: 4
