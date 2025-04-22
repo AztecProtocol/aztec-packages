@@ -168,11 +168,12 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @param _ts - The timestamp to check
    * @param _archive - The archive to check (should be the latest archive)
+   * @param _attestations - Empty attestations are sent in order to recalculate the committee committment + work out the correct proposer
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive, CommitteeAttestation[] memory _attestations)
     external
     override(IRollup)
     returns (Slot, uint256)
@@ -190,13 +191,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
-
     ValidatorSelectionLib.verify(
       StakingLib.getStorage(),
       slot,
       slot.epochFromSlot(),
-      attestations,
+      _attestations,
       _archive,
       BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
     );

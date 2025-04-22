@@ -86,7 +86,6 @@ library ValidatorSelectionLib {
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
   ) internal {
-
     (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_stakingStore, _epochNumber);
 
     // @todo Consider getting rid of this option.
@@ -245,6 +244,9 @@ library ValidatorSelectionLib {
     if (committeeCommitment == bytes32(0)) {
       // This will set epoch.committee and the next sample seed in the store, meaning epoch.commitee on the line below will be set (storage reference)
       setupEpoch(_stakingStore, _epochNumber);
+
+      // TODO(md): move this into eariler pr? - optimise in earlier pr
+      committeeCommitment = store.committeeCommitments[_epochNumber];
     }
 
     // TODO(md): calcaulte and store the size alongside the commitment

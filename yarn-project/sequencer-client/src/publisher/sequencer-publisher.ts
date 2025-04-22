@@ -23,7 +23,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
-import type { CommitteeAttestation } from '@aztec/stdlib/block';
+import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -266,7 +266,12 @@ export class SequencerPublisher {
   public canProposeAtNextEthBlock(tipArchive: Buffer) {
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive, this.getForwarderAddress().toString(), this.ethereumSlotDuration)
+      .canProposeAtNextEthBlock(
+        tipArchive,
+        this.getForwarderAddress().toString(),
+        this.ethereumSlotDuration,
+        this.epochCache,
+      )
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.debug(err.message);
@@ -295,8 +300,18 @@ export class SequencerPublisher {
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
+    // If we have no attestations, we still need to provide the empty attestations
+    // so that the committee is recalculated correctly
+    const ignoreSignatures = attestationData.attestations.length === 0;
+    if (ignoreSignatures) {
+      const committee = await this.epochCache.getCommittee(ts);
+      attestationData.attestations = committee.committee.map(committeeMember =>
+        CommitteeAttestation.fromAddress(committeeMember),
+      );
+    }
+
     const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
-    const flags = { ignoreDA: true, ignoreSignatures: formattedAttestations.length == 0 };
+    const flags = { ignoreDA: true, ignoreSignatures };
 
     const args = [
       toHex(header.toBuffer()),
