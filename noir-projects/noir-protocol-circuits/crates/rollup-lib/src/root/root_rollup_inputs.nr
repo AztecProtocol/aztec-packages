@@ -67,8 +67,6 @@ impl RootRollupInputs {
         RootRollupPublicInputs {
             previous_archive: left.previous_archive,
             end_archive: right.new_archive,
-            previous_block_hash: left.previous_block_hash,
-            end_block_hash: right.end_block_hash,
             end_timestamp: right.end_global_variables.timestamp,
             end_block_number: right.end_global_variables.block_number,
             out_hash,
