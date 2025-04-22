@@ -94,6 +94,8 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             size_t num_frs_read = 0;
 
             this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->log_circuit_size =
+                FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->contains_pairing_point_accumulator =
