@@ -180,7 +180,9 @@ library EpochProofLib {
       publicInputs[6] = _args.outHash;
     }
 
-    for (uint256 i = 0; i < Constants.AZTEC_MAX_EPOCH_DURATION; i++) {
+    uint256 numBlocks = _end - _start + 1;
+
+    for (uint256 i = 0; i < numBlocks; i++) {
       publicInputs[7 + i] = rollupStore.blocks[_start + i].headerHash;
     }
 
@@ -208,7 +210,7 @@ library EpochProofLib {
     {
       BlobVarsTemp memory tmp = BlobVarsTemp({blobOffset: 0, offset: offset, i: 0});
       // blob_public_inputs
-      for (; tmp.i < _end - _start + 1; tmp.i++) {
+      for (; tmp.i < numBlocks; tmp.i++) {
         uint8 blobsInBlock = uint8(_blobPublicInputs[tmp.blobOffset++]);
         for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
           if (j < blobsInBlock) {
