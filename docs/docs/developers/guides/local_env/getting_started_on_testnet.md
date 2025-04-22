@@ -157,8 +157,8 @@ You should see `2n`.
 
 ## Next Steps
 
-To play more with the Aztec testnet, check out these:
+Congratulations! You've now learned the fundamentals of working with the Aztec testnet. Here are some resources to continue your journey:
 
 - [Aztec Playground](https://play.aztec.network/)
-- [Ecosystem](https://www.aztec.network/ecosystem)
+- [Tutorials](../../tutorials/codealong/contract_tutorials/counter_contract.md)
 - [Guide to run a node](../../../run_node/index.md)
