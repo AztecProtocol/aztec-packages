@@ -54,6 +54,7 @@ export default {
       new TerserPlugin({
         terserOptions: {
           compress: false,
+          sourceMap: true,
           mangle: false,
           format: {
             beautify: true
@@ -63,7 +64,8 @@ export default {
     ],
     splitChunks: {
       chunks: 'async',
-    }
+    },
+    runtimeChunk: false
   },
   experiments: {
     outputModule: true,
