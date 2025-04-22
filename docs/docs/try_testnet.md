@@ -25,5 +25,5 @@ Be one of the first in the world to build privacy-preserving apps enahnced with 
 
 ## Develop on Aztec Testnet
 
-Follow the [getting started on testnet guide](./developers/guides/local_env/sandbox_to_testnet.md).
+Follow the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md).
 
