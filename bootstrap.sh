@@ -343,7 +343,7 @@ case "$cmd" in
     fi
 
     if [ "$REF_NAME" = "master" ]; then
-      release-docs
+      docs/bootstrap.sh release-docs
     fi
     ;;
   test|test_cmds|bench|release|release_dryrun)
