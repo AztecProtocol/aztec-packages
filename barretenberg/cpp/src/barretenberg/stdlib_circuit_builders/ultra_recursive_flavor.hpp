@@ -126,8 +126,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset =
                 stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->pub_inputs_offset);
-            this->pairing_point_accumulator_public_input_indices =
-                native_key->pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -151,9 +150,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
 
-            for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
-                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            }
+            this->pairing_inputs_public_input_key.start_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
