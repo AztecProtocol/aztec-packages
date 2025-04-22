@@ -10,6 +10,13 @@
 
 namespace bb::avm2::tracegen {
 
+namespace {
+
+const uint16_t read_encoding = 0b01;
+const uint16_t write_encoding = 0b11;
+
+} // namespace
+
 RegisterMemInfo& RegisterMemInfo::has_inputs(uint16_t num_inputs)
 {
     for (uint16_t i = 0; i < num_inputs; ++i) {
@@ -26,6 +33,16 @@ RegisterMemInfo& RegisterMemInfo::has_outputs(uint16_t num_outputs)
         write_index++;
     }
     return *this;
+}
+
+bool RegisterMemInfo::is_active(uint8_t index) const
+{
+    return ((encoded_register_info >> (2 * index)) & 1) == 1;
+}
+
+bool RegisterMemInfo::is_write(uint8_t index) const
+{
+    return ((encoded_register_info >> (2 * index + 1)) & 1) == 1;
 }
 
 const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
@@ -68,14 +85,14 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
 
 // Maps Execution opcodes to their register + memory accesses
 // TODO: This will need to revisited, we will only be sure of the access patterns when we do the opcodes
-const std::unordered_map<ExecutionOpCode, uint16_t> REGISTER_INFO_MAP = { {
-    { ExecutionOpCode::ADD, RegisterMemInfo().has_inputs(2).has_outputs(1).encode() },
-    { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1).encode() },
-    { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1).encode() },
-    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(0).encode() },
-    { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(0).encode() },
-    { ExecutionOpCode::JUMP, RegisterMemInfo().encode() },
-    { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1).encode() },
+const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = { {
+    { ExecutionOpCode::ADD, RegisterMemInfo().has_inputs(2).has_outputs(1) },
+    { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1) },
+    { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1) },
+    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(0) },
+    { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(0) },
+    { ExecutionOpCode::JUMP, RegisterMemInfo() },
+    { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1) },
 } };
 
 } // namespace bb::avm2::tracegen

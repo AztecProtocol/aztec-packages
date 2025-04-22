@@ -33,11 +33,11 @@ pol commit subtrace_operation_id;
 
 // Subtrace Dispatch selectors
 // These boolean selectors are constrained via the precomputed Execution Instruction Spec Table
-pol commit alu_sel;
-pol commit bitwise_sel;
-pol commit to_radix_sel;
-pol commit ecc_add_sel;
-pol commit poseidon2_perm_sel;
+pol commit sel_alu;
+pol commit sel_bitwise;
+pol commit sel_to_radix;
+pol commit sel_ecc_add;
+pol commit sel_poseidon2_perm;
 
 pol commit ex_opcode;
 pol commit indirect;

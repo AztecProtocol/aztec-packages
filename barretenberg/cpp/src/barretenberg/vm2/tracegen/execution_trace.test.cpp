@@ -57,7 +57,7 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
     // todo: Test doesnt check the other register fields are zeroed out.
     EXPECT_THAT(trace.as_rows(),
                 AllOf(Contains(Field(&R::execution_sel, 1)),
-                      Contains(Field(&R::execution_alu_sel, 1)),
+                      Contains(Field(&R::execution_sel_alu, 1)),
                       Contains(Field(&R::execution_reg1, 5)),
                       Contains(Field(&R::execution_reg2, 3)),
                       Contains(Field(&R::execution_reg3, 8)),

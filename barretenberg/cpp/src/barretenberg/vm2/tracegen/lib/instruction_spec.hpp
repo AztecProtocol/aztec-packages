@@ -38,14 +38,17 @@ class RegisterMemInfo {
     RegisterMemInfo& has_inputs(uint16_t num_inputs);
     RegisterMemInfo& has_outputs(uint16_t num_outputs);
 
+    // Given a register index, returns if the register is active for this instruction
+    bool is_active(uint8_t index) const;
+    // Given a register index, returns if the register is used for writing to memory
+    bool is_write(uint8_t index) const;
+
   private:
-    static const uint16_t read_encoding = 0b01;
-    static const uint16_t write_encoding = 0b11;
     uint16_t encoded_register_info = 0;
     uint16_t write_index = 0;
 };
 
 extern const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP;
-extern const std::unordered_map<ExecutionOpCode, uint16_t> REGISTER_INFO_MAP;
+extern const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP;
 
 } // namespace bb::avm2::tracegen

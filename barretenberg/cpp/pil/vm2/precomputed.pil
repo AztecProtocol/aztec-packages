@@ -114,11 +114,11 @@ pol constant mem_op_reg5, rw_5;
 pol constant mem_op_reg6, rw_6;
 pol constant mem_op_reg7, rw_7;
 // Subtrace/Gadget Selector
-pol constant op_alu_sel;
-pol constant op_bitwise_sel;
-pol constant op_poseidon_perm_sel;
-pol constant op_to_radix_sel;
-pol constant op_ecc_sel;
+pol constant sel_dispatch_alu;
+pol constant sel_dispatch_bitwise;
+pol constant sel_dispatch_poseidon_perm;
+pol constant sel_dispatch_to_radix;
+pol constant sel_dispatch_ecc;
     // Add more here
 pol constant subtrace_operation_id;
 
