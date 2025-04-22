@@ -12,5 +12,5 @@ name=$test
 
 cd ../$dir
 
-exec node --no-warnings --experimental-vm-modules --loader @swc-node/register" \
+exec node --no-warnings --experimental-vm-modules --loader @swc-node/register \
   ../node_modules/.bin/jest --forceExit --runInBand $test $@
