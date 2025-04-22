@@ -45,15 +45,15 @@ class {{lookup_name}}_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._{{lhs_selector}}() == 1 || in._{{rhs_selector}}() == 1);
+        return (in.get(ColumnAndShifts::{{lhs_selector}}) == 1 || in.get(ColumnAndShifts::{{rhs_selector}}) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._{{lhs_selector}}());
-        const auto is_table_entry = View(in._{{rhs_selector}}());
+        const auto is_operation = View(in.get(ColumnAndShifts::{{lhs_selector}}));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::{{rhs_selector}}));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -70,15 +70,15 @@ class {{lookup_name}}_settings {
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
         return std::forward_as_tuple(
-            in._{{inverses_col}}(),
-            in._{{counts_col}}(),
-            in._{{lhs_selector}}(),
-            in._{{rhs_selector}}(),
+            in.get(ColumnAndShifts::{{inverses_col}}),
+            in.get(ColumnAndShifts::{{counts_col}}),
+            in.get(ColumnAndShifts::{{lhs_selector}}),
+            in.get(ColumnAndShifts::{{rhs_selector}}),
             {{#each lhs_cols as |col|}}
-            in._{{col}}(),
-            {{/each}}
+            in.get(ColumnAndShifts::{{col}}){{#unless @last}},{{/unless}}
+            {{/each}},
             {{#each rhs_cols as |col|}}
-            in._{{col}}(){{#unless @last}},{{/unless}}
+            in.get(ColumnAndShifts::{{col}}){{#unless @last}},{{/unless}}
             {{/each}}
         );
     }
