@@ -12,6 +12,11 @@
 # Exit on error
 set -e
 
+if [ "$CI_NIGHTLY" -eq 1 ]; then
+    echo "Skipping docs version cut for nightly build $COMMIT_TAG"
+    exit 0
+fi
+
 # Check if we're in the docs directory
 if [ ! -f "docusaurus.config.js" ]; then
     echo "Error: This script must be run from the docs directory"
@@ -23,13 +28,6 @@ fi
 if ! command -v gh &> /dev/null; then
     echo "Error: GitHub CLI (gh) is required but not installed"
     echo "New docs version should be cut manually"
-    exit 0
-fi
-
-# Skip if this is a nightly build
-# COMMIT_TAG is set in docs/bootstrap.sh
-if [[ "$COMMIT_TAG" == *"nightly"* ]]; then
-    echo "Skipping docs version cut for nightly build $COMMIT_TAG"
     exit 0
 fi
 
