@@ -31,23 +31,7 @@ install_timeout=${INSTALL_TIMEOUT:-30m}
 overrides="${OVERRIDES:-}"
 resources_file="${RESOURCES_FILE:-default.yaml}"
 
-TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/$aztec_docker_tag)
-if [[ "$TAGS" != *"not found"* ]]; then
-    echo "TAG $aztec_docker_tag available in docker hub"
-else
-  echo "Tag $aztec_docker_tag not found, please ensure it is published to docker hub"
-  exit 1
-fi
 
-
-echo "HERE IN DEPLOY_GKE"
-kubectl config get-contexts
-
-# Switch to a KIND cluster (will also pull in necessary dependencies)
-#../bootstrap.sh kind
-
-# Load the Docker image into kind
-#flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
 # Start the deployment monitor in background
 ./monitor_k8s_deployment.sh "$namespace" "$helm_instance" "app!=setup-l2-contracts" &
