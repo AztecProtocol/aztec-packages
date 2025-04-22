@@ -55,6 +55,11 @@ const functionName = css({
   },
 });
 
+const actionButton = css({
+  marginLeft: '0 !important',
+  borderRadius: '6px',
+});
+
 interface FunctionCardProps {
   fn: FunctionAbi;
   contract?: Contract;
@@ -266,7 +271,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         )}
       </CardContent>
       {isExpanded && (
-        <CardActions sx={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+        <CardActions sx={{ flexWrap: 'wrap', gap: '0.5rem', padding: '12px' }}>
           <Tooltip title="Run a local simulation of function execution.">
             <Button
               disabled={!wallet || !contract || isWorking}
@@ -275,6 +280,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               size="small"
               onClick={() => simulate(fn.name)}
               endIcon={<PsychologyIcon />}
+              css={actionButton}
             >
               Simulate
             </Button>
@@ -288,6 +294,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               variant="contained"
               onClick={() => setOpenSendTxDialog(true)}
               endIcon={<SendIcon />}
+              css={actionButton}
             >
               Send
             </Button>
@@ -301,6 +308,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               variant="contained"
               onClick={() => setOpenCreateAuthwitDialog(true)}
               endIcon={<VpnKeyIcon />}
+              css={actionButton}
             >
               Authwit
             </Button>
@@ -314,6 +322,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               size="small"
               onClick={() => profile(fn.name)}
               endIcon={<TroubleshootIcon />}
+              css={actionButton}
             >
               Profile
             </Button>
