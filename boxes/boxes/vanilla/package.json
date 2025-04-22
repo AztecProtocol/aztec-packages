@@ -25,6 +25,7 @@
     "@types/node": "^20.11.17",
     "assert": "^2.1.0",
     "html-webpack-plugin": "^5.6.0",
+    "ignore-loader": "^0.1.2",
     "stream-browserify": "^3.0.0",
     "ts-loader": "^9.5.1",
     "typescript": "^5.0.4",

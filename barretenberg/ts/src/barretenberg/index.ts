@@ -52,7 +52,7 @@ export class Barretenberg extends BarretenbergApi {
    * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
    */
   static async new(options: BackendOptions = {}) {
-    const worker = createMainWorker();
+    const worker = await createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
     console.log('about to init');

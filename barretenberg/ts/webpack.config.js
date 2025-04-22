@@ -62,7 +62,9 @@ export default {
       }),
     ],
     splitChunks: {
-      chunks: 'async',
+      // Cannot use async due to https://github.com/webpack/webpack/issues/17014
+      // messing with module workers loaded asynchronously.
+      chunks: /barretenberg.*.js/,
     },
     runtimeChunk: false
   },
