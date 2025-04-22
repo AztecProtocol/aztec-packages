@@ -713,10 +713,8 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
   return new BlockRootOrBlockMergePublicInputs(
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
-    fr(seed + 0x400),
-    fr(seed + 0x500),
-    globalVariables ?? makeGlobalVariables(seed + 0x501),
-    globalVariables ?? makeGlobalVariables(seed + 0x502),
+    globalVariables ?? makeGlobalVariables(seed + 0x400),
+    globalVariables ?? makeGlobalVariables(seed + 0x500),
     fr(seed + 0x600),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
@@ -786,8 +784,9 @@ function makeBlockRootRollupData(seed = 0) {
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
-    makeHeader(seed + 0x2300),
-    fr(seed + 0x2400),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
+    makeHeader(seed + 0x2400),
+    fr(seed + 0x2500),
   );
 }
 
@@ -880,18 +879,16 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  */
 export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
+    makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
-    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    fr(seed + 0x300),
     fr(seed + 0x400),
     fr(seed + 0x500),
-    fr(seed + 0x600),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x600),
     fr(seed + 0x700),
-    fr(seed + 0x800),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
-    fr(seed + 0x100),
-    fr(seed + 0x101),
-    fr(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x300),
+    fr(seed + 0x701),
+    fr(seed + 0x702),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x800),
   );
 }
 

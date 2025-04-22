@@ -44,7 +44,7 @@ jobs:
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
         run: |
-          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag || github.ref_name }}/g" src/barretenberg/bb/main.cpp
+          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag || github.ref_name }}/g" src/barretenberg/bb/cli.cpp
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp

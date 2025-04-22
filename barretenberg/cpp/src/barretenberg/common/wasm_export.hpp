@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #ifdef __clang__
 #define WASM_EXPORT extern "C" __attribute__((visibility("default"))) __attribute__((annotate("wasm_export")))
 #define ASYNC_WASM_EXPORT                                                                                              \
@@ -14,3 +15,5 @@
 #else
 #define WASM_IMPORT(name) extern "C"
 #endif
+
+using uint8_vec_vec_in_buf = uint8_t const*;

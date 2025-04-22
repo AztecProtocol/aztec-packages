@@ -15,7 +15,7 @@ export interface AztecNodeAdmin {
    * Updates the configuration of this node.
    * @param config - Updated configuration to be merged with the current one.
    */
-  setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void>;
+  setConfig(config: Partial<SequencerConfig & ProverConfig & { maxTxPoolSize: number }>): Promise<void>;
 
   /**
    * Forces the next block to be built bypassing all time and pending checks.

@@ -9,6 +9,7 @@ include "class_id_derivation.pil";
 include "range_check.pil";
 include "bitwise.pil";
 include "merkle_check.pil";
+include "memory.pil";
 include "precomputed.pil";
 include "sha256.pil";
 include "ecc.pil";

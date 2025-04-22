@@ -80,8 +80,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually vk stores public input key directly.
-    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0],
-                                                             true };
+    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0] };
     AggregationObject nested_agg_obj =
         PublicAggState::reconstruct(verification_key->public_inputs, pairing_point_public_input_key);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
@@ -128,6 +127,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge properly.
@@ -135,15 +135,10 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
         using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
-
-        if (verification_key->verification_key->contains_ipa_claim) {
-            PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0],
-                                              true };
-            output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
-        }
+        output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs,
+                                                       verification_key->verification_key->ipa_claim_public_input_key);
     }
 
     return output;

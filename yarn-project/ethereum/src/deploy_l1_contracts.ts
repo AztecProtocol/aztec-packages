@@ -209,8 +209,6 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   protocolContractTreeRoot: Fr;
   /** The genesis root of the archive tree. */
   genesisArchiveRoot: Fr;
-  /** The hash of the genesis block header. */
-  genesisBlockHash: Fr;
   /** The salt for CREATE2 deployment. */
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
@@ -543,7 +541,6 @@ export const deployRollup = async (
     vkTreeRoot: args.vkTreeRoot.toString(),
     protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
-    genesisBlockHash: args.genesisBlockHash.toString(),
   };
   logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [

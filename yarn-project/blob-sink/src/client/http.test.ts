@@ -411,7 +411,7 @@ describe('HttpBlobSinkClient', () => {
     });
 
     it('should fall back to archive client', async () => {
-      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `http://api.blobscan.com` });
+      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `https://api.blobscan.com` });
       const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
