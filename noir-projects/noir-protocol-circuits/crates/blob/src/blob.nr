@@ -44,7 +44,7 @@ pub fn check_block_blob_sponge(
 
 fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: BlobCommitment) -> Field {
     let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
-    let challenge = std::hash::poseidon2::Poseidon2::hash(preimage, 3);
+    let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
 }
 
@@ -474,7 +474,7 @@ mod tests {
         let padded_blob_fields = pad_end(blob, 0);
         let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
-        let expected_z = std::hash::poseidon2::Poseidon2::hash(
+        let expected_z = poseidon::poseidon2::Poseidon2::hash(
             [sponge_blob.squeeze(), kzg_commitment_in.inner[0], kzg_commitment_in.inner[1]],
             3,
         );
