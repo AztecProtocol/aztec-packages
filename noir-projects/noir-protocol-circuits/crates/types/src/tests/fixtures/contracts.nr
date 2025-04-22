@@ -24,15 +24,15 @@ pub global default_contract: ContractData = ContractData {
     contract_address_salt: 0x000000000000000000000000000000000000000000000000000000000000ddd5,
     artifact_hash: 0x0000000000000000000000000000000000000000000000000000000000003039,
     public_bytecode_commitment: 0x2e018d154e7faf1ddf8400a4b3605574e69afc04425f3e662e054dc094fb0428,
-    private_functions_root: 0x251a32ab93df504fb01ed4cffa2de97981ac697be8c7e541c6376a33d56c7f8f,
+    private_functions_root: 0x2b18285717cd9bf8008715c0249d7934b5481da4688f0d3cba007b7e292d56d7,
     address: AztecAddress {
-        inner: 0x2103bdf288c84f70b50f0a8b8399a7b48b0067b5bba5d58c9247b3a527e53d95,
+        inner: 0x1f790a6c3a1e3f3562b41f5ea05cfeb38dc5562c09520e75f7a127827129f918,
     },
     partial_address: PartialAddress {
-        inner: 0x295528d484a5f8900121273fd18f70fe63809d8df45633a145e9752709129536,
+        inner: 0x0bf3894bffb754bd07b13afb9e538bc800b6b3e404d4507b88ea72bb4edf41e7,
     },
     contract_class_id: ContractClassId {
-        inner: 0x17abd18cdf29c2c46b4a3f76fb5cb48b6341646beda3d0cfc4cefcd921f70528,
+        inner: 0x0d1476163c809d8c11cd7b66296eda5b653707d6d1a766845fd78bdb47de7a30,
     },
     public_keys: PublicKeys::default(),
     salted_initialization_hash: SaltedInitializationHash {

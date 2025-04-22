@@ -18,7 +18,7 @@ pub global default_private_function: ContractFunction = ContractFunction {
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
-            0x17a3e4a4fbb826f0d435c00338e20f1823e5958adbcd1ac91d03c0b00cc46ff8,
+            0x13c663ec0bb5d328246394c6b9f33988be9c05f3aa6cbf68f7ec6f795bf1645b,
             0x233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357,
             0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
             0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
