@@ -768,8 +768,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     OriginTag tag{};
     const auto empty_tag = OriginTag();
 
-    // handle_points_at_infinity_method can remove some constant points, which messes with this code under
-    // CircuitSimulator
     for (size_t i = 0; i < _points.size(); i++) {
         tag = OriginTag(tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
     }
