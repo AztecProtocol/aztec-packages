@@ -57,7 +57,7 @@ impl Empty for BatchingBlobCommitment {
 // So, e.g., can just call point.compress_to_bytes() in future. For now:
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
-    // TODO(MW): use built in .to_be_bytes() in bignum 0.7.0
+    // TODO(#13609): use built in .to_be_bytes() in bignum 0.7.0
     let mut compressed = bignum_limbs_to_be_bytes::<_, 381>(x.limbs);
     let most_sig_bits = byte_to_bits_be(compressed[0]);
     // TODO(MW): May not need to assert this since Bignum may check it's 381 bits?
@@ -89,7 +89,7 @@ fn get_flags(point: BLSPoint) -> ([bool; 3], Q) {
     (flags, x)
 }
 
-// Will be included as .to_be_bytes() in bignum 0.7.0 TODO(MW): remove when bumped
+// Will be included as .to_be_bytes() in bignum 0.7.0 TODO(#13609): remove when bumped
 fn bignum_limbs_to_be_bytes<let N: u32, let MOD_BITS: u32>(
     val: [u128; N],
 ) -> [u8; (MOD_BITS + 7) / 8] {
@@ -177,7 +177,7 @@ impl BlobPublicInputsAcc {
     *
     */
     pub fn accumulate(self, other: BlobAccumulationInputs, final_gamma: F) -> Self {
-        // TODO(MW): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
+        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
         let hashed_y_i = poseidon2_hash(other.y_i.limbs.map(|l| l as Field));
         Self {
             v: sha256_to_field(self.v.to_be_bytes::<32>().concat(other.c_i.compressed)),
@@ -190,7 +190,7 @@ impl BlobPublicInputsAcc {
     }
 
     pub fn init(first_output: BlobAccumulationInputs, final_gamma: F) -> Self {
-        // TODO(MW): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
+        // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
         let hashed_y_0 = poseidon2_hash(first_output.y_i.limbs.map(|l| l as Field));
         Self {
             v: sha256_to_field(first_output.c_i.compressed),
