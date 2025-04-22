@@ -34,6 +34,8 @@ function release {
   else
     do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/
   fi
+  local id=$(cd terraform && terraform init &>/dev/null && terraform output -raw cloudfront_distribution_id)
+  do_or_dryrun aws cloudfront create-invalidation --distribution-id $id --paths "/*"
 }
 
 case "$cmd" in
