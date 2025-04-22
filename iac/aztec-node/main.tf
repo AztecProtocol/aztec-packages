@@ -90,6 +90,22 @@ resource "aws_security_group" "instance_sg" {
   }
 
   ingress {
+    description = "443 TCP"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "8080 TCP"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     description = "libp2p TCP"
     from_port   = 40400
     to_port     = 40400
