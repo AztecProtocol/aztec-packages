@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745334168774,
+  "lastUpdate": 1745334600127,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "42dfbbf6e11b63727add72987edbbea08fb21e64",
-          "message": "chore(noir-contracts): update readme (#13563)\n\nCurrent prose is unacceptable\n\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2025-04-15T15:25:00Z",
-          "tree_id": "78e1c92de1f31112390c265aa97c947583cb9fdb",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/42dfbbf6e11b63727add72987edbbea08fb21e64"
-        },
-        "date": 1744734280580,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9874,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2653170166905629,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 153503,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1935,6 +1896,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 170433,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f19c182e80be6e3c7239a48585ab70bc8cffd5ea",
+          "message": "refactor: validate block header hash in circuits (#13094)\n\nPreviously: we computed the \"end\" block (header) hash in circuit and\noutput it along with the previous block hash from block root. The L1 was\nsupposed to check that the previous block hash was the same as the\nprevious block's end block hash. But we only did that for the first\nblock of the entire epoch, the rest of the proposed block hashes could\nbe anything.\n\nNow:\n- Remove block hashes on l1, as it is committed to by archive roots. And\nnothing is looking up the block hash value on L1.\n- Constrain the previous block hash in block root rollup circuit by\nperforming a membership check against the previous archive root.",
+          "timestamp": "2025-04-22T14:10:36Z",
+          "tree_id": "eda00eb219a857f45887855751deda090c0a5d06",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f19c182e80be6e3c7239a48585ab70bc8cffd5ea"
+        },
+        "date": 1745334592036,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9595,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.27468603386329427,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 156456,
             "unit": "us"
           }
         ]
