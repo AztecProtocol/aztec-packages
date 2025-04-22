@@ -48,7 +48,7 @@ class LMDBEnvironment {
 
     uint64_t get_map_size() const;
 
-    const std::string& get_directory() const { return _directory; }
+    uint64_t get_data_file_size() const;
 
   private:
     std::atomic_uint64_t _id;

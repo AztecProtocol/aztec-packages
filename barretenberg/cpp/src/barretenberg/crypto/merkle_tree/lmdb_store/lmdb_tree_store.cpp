@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
-#include <filesystem>
 #include <lmdb.h>
 #include <optional>
 #include <stdexcept>
@@ -98,18 +97,12 @@ const std::string& LMDBTreeStore::get_name() const
 void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
 {
     stats.mapSize = _environment->get_map_size();
+    stats.physicalFileSize = _environment->get_data_file_size();
     stats.blocksDBStats = _blockDatabase->get_stats(tx);
     stats.leafPreimagesDBStats = _leafHashToPreImageDatabase->get_stats(tx);
     stats.leafIndicesDBStats = _leafKeyToIndexDatabase->get_stats(tx);
     stats.nodesDBStats = _nodeDatabase->get_stats(tx);
     stats.blockIndicesDBStats = _indexToBlockDatabase->get_stats(tx);
-
-    std::string dataPath = (std::filesystem::path(_environment->get_directory()) / "data.mdb").string();
-    if (std::filesystem::exists(dataPath)) {
-        stats.physicalFileSize = std::filesystem::file_size(dataPath);
-    } else {
-        stats.physicalFileSize = 0;
-    }
 }
 
 void LMDBTreeStore::write_block_data(const block_number_t& blockNumber,

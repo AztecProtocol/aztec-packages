@@ -94,7 +94,8 @@ struct TreeDBStats {
 
     bool operator==(const TreeDBStats& other) const
     {
-        return mapSize == other.mapSize && blocksDBStats == other.blocksDBStats && nodesDBStats == other.nodesDBStats &&
+        return mapSize == other.mapSize && physicalFileSize == other.physicalFileSize &&
+               blocksDBStats == other.blocksDBStats && nodesDBStats == other.nodesDBStats &&
                leafPreimagesDBStats == other.leafPreimagesDBStats && leafIndicesDBStats == other.leafIndicesDBStats &&
                blockIndicesDBStats == other.blockIndicesDBStats;
     }
@@ -103,6 +104,7 @@ struct TreeDBStats {
     {
         if (this != &other) {
             mapSize = other.mapSize;
+            physicalFileSize = other.physicalFileSize;
             blocksDBStats = std::move(other.blocksDBStats);
             nodesDBStats = std::move(other.nodesDBStats);
             leafPreimagesDBStats = std::move(other.leafPreimagesDBStats);
@@ -116,9 +118,10 @@ struct TreeDBStats {
 
     friend std::ostream& operator<<(std::ostream& os, const TreeDBStats& stats)
     {
-        os << "Map Size: " << stats.mapSize << " Blocks DB " << stats.blocksDBStats << ", Nodes DB "
-           << stats.nodesDBStats << ", Leaf Pre-images DB " << stats.leafPreimagesDBStats << ", Leaf Indices DB "
-           << stats.leafIndicesDBStats << ", Block Indices DB " << stats.blockIndicesDBStats;
+        os << "Map Size: " << stats.mapSize << ", Physical File Size: " << stats.physicalFileSize << " Blocks DB "
+           << stats.blocksDBStats << ", Nodes DB " << stats.nodesDBStats << ", Leaf Pre-images DB "
+           << stats.leafPreimagesDBStats << ", Leaf Indices DB " << stats.leafIndicesDBStats << ", Block Indices DB "
+           << stats.blockIndicesDBStats;
         return os;
     }
 };
