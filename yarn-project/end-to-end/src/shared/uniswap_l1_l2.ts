@@ -14,7 +14,6 @@ import {
   type DeployL1ContractsReturnType,
   type ExtendedViemWalletClient,
   RollupContract,
-  type ViemPublicClient,
   deployL1Contract,
   extractEvent,
 } from '@aztec/ethereum';
@@ -76,7 +75,6 @@ export const uniswapL1L2TestSuite = (
     let logger: Logger;
 
     let l1Client: ExtendedViemWalletClient;
-    let publicClient: ViemPublicClient;
 
     let ownerWallet: AccountWallet;
     let ownerAddress: AztecAddress;
