@@ -7,8 +7,6 @@ import AddIcon from '@mui/icons-material/Add';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { AddNetworksDialog } from './AddNetworkDialog';
 import { css } from '@emotion/react';
-import Link from '@mui/material/Link';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { AztecContext, AztecEnv, WebLogger } from '../../../aztecEnv';
@@ -61,6 +59,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     setCurrentContractAddress,
     setCurrentContractArtifact,
     setShowContractInterface,
+    setTotalLogCount,
     network,
     connecting,
   } = useContext(AztecContext);
@@ -77,6 +76,14 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     };
     initNetworkStore();
   }, []);
+
+  // Connect to the first network automatically
+  useEffect(() => {
+    if (isNetworkStoreInitialized && !network) {
+      handleNetworkChange(NETWORKS[0].nodeURL);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNetworkStoreInitialized]);
 
   useEffect(() => {
     const refreshNetworks = async () => {
@@ -99,10 +106,10 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     }
   }, [isNetworkStoreInitialized]);
 
-  const handleNetworkChange = async (event: SelectChangeEvent) => {
+  const handleNetworkChange = async (nodeURL: string) => {
     setConnecting(true);
     setPXEInitialized(false);
-    const network = networks.find(network => network.nodeURL === event.target.value);
+    const network = networks.find(network => network.nodeURL === nodeURL);
     const node = await AztecEnv.connectToNode(network.nodeURL);
     setAztecNode(node);
     setNetwork(network);
@@ -110,7 +117,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     setCurrentContractAddress(null);
     setCurrentContractArtifact(null);
     setShowContractInterface(false);
-    const pxe = await AztecEnv.initPXE(node, setLogs);
+    const pxe = await AztecEnv.initPXE(node, setLogs, setTotalLogCount);
     const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
     const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
     const walletDBStore = await createStore(
@@ -205,7 +212,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
                 return 'Select Network';
               }}
               disabled={connecting}
-              onChange={handleNetworkChange}
+              onChange={(e) => handleNetworkChange(e.target.value)}
             >
               {networks.map(network => (
                 <MenuItem

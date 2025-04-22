@@ -55,6 +55,7 @@ spec:
             - |
               # Get the private key from the mnemonic - based on the pod replica index
               source /scripts/get-private-key.sh && \
+              source /shared/config/keys.env && \
               source /shared/contracts/contracts.env && \
               source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
@@ -120,6 +121,8 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
+            - name: P2P_MAX_TX_POOL_SIZE
+              value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.validator.p2p.floodPublish }}"
             - name: VALIDATOR_DISABLED

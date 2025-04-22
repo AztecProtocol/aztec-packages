@@ -5,6 +5,7 @@ tags: [fees, accounts, transactions, cli, contracts]
 ---
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';
+import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
 
 The Aztec network is a privacy preserving layer 2 secured by Ethereum, and for the consensus mechanism to work, Aztec makes use of an asset to pay for transactions called, "Fee juice".
 
@@ -24,13 +25,13 @@ By the end of this tutorial you will...
 
 For this tutorial we'll need to be familiar with a few components:
 
-<General.PXE />
+<Glossary.PXE />
 
-<General.AztecNode />
+<Glossary.AztecNode />
 
-<General.AztecSandbox />
+<Glossary.AztecSandbox />
 
-<General.AztecWalletCLI />
+<Glossary.Tools.aztec_wallet />
 
 ## Connect to the network
 
@@ -72,7 +73,7 @@ async function main() {
 
 ## Create Account Contract in a PXE
 
-<General.Account />
+<Glossary.Account />
 
 For convenience, Aztec Labs has implemented an account contract that authenticates transactions using Schnorr signatures. The contract class for a Schnorr account is pre-registered on Aztec networks (eg sandbox, testnet) to bootstrap first use. Ordinarily for a contract to be deployed, its class would have to be registered with the network first.
 
@@ -132,6 +133,7 @@ To bootstrap first use, a sponsored fee paying contract (the canonical sponsored
 
 
 <Fees.FPC />
+
 In the case of the canonical sponsored FPC, the only criteria is an upper bound on how much it sponsors an account's transactions. This will be enough to at least deploy an account.
 
 The PXE can be queried for the canonical sponsored FPC address, and then specified as the payment method.

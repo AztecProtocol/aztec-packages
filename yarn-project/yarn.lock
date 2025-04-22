@@ -328,7 +328,6 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
@@ -468,11 +467,10 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
-    "@aztec/noir-noirc_abi": "workspace:^"
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
@@ -578,6 +576,7 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
+    "@aztec/cli": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
@@ -587,7 +586,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
-    "@aztec/noir-noirc_abi": "workspace:^"
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
@@ -602,7 +601,6 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
-    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@noble/curves": "npm:^1.0.0"
     "@swc/core": "npm:^1.4.11"
     "@swc/jest": "npm:^0.2.36"
@@ -631,6 +629,7 @@ __metadata:
     lodash.compact: "npm:^3.0.1"
     lodash.every: "npm:^4.6.0"
     lodash.omit: "npm:^4.5.0"
+    msgpackr: "npm:^1.11.2"
     process: "npm:^0.11.10"
     stream-browserify: "npm:^3.0.0"
     string-argv: "npm:^0.3.2"
@@ -787,7 +786,6 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@playwright/test": "npm:1.49.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.8.1"
@@ -799,6 +797,7 @@ __metadata:
     html-webpack-plugin: "npm:^5.6.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^4.0.0-beta1"
+    msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     playwright: "npm:1.49.0"
     puppeteer: "npm:^22.4.1"
@@ -982,12 +981,13 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.4
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=fec074&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=c6552c&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.4"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.4"
     "@aztec/noir-types": "npm:1.0.0-beta.4"
-  checksum: 10/edce428cfecf37166e407202c183f694d7ea5f32b4da0946f2035649dbbb2b3adea32994f86922f00eb89f46b3c426892bac73be1a2cedd76db794f566806b72
+    pako: "npm:^2.1.0"
+  checksum: 10/5837f4c888ae8387a3acd02c0593ab1d2c20ea0e68f92f55ed7897ec9960720e6bc1f79848ab0d46421c22b97110dcf4b84aca5c4876b36934df0dd4c54cc1eb
   languageName: node
   linkType: hard
 
@@ -1226,7 +1226,6 @@ __metadata:
     "@aztec/simulator": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.omit": "npm:^4.5.7"
     "@types/lodash.times": "npm:^4.3.9"
@@ -1358,7 +1357,9 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@google-cloud/storage": "npm:^7.15.0"
+    "@jest/expect": "npm:^29.5.0"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.chunk": "npm:^4.2.9"
@@ -2880,7 +2881,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/expect@npm:^29.7.0":
+"@jest/expect@npm:^29.5.0, @jest/expect@npm:^29.7.0":
   version: 29.7.0
   resolution: "@jest/expect@npm:29.7.0"
   dependencies:
@@ -3701,13 +3702,6 @@ __metadata:
   bin:
     workspaces-to-typescript-project-references: bin/cmd.js
   checksum: 10/79e5d7399062053e84e0998d3cd215ff5b9c277fa90bb08549675a9bdad9c60f9910cd5d710d94a71515237fd1e65b3033586780bca6d2210fc1f047d2728dee
-  languageName: node
-  linkType: hard
-
-"@msgpack/msgpack@npm:^3.0.0-beta2":
-  version: 3.0.0-beta2
-  resolution: "@msgpack/msgpack@npm:3.0.0-beta2"
-  checksum: 10/d02f9221aa152cbd2977d1f56dc591baa2a37420a694cbc7e54ff0724f56ac0523e94de010e56bb845d67a1f2226c1761064b5777e63e9fc26884f4144d391a7
   languageName: node
   linkType: hard
 

@@ -17,16 +17,17 @@ const container = css({
   justifyContent: 'center',
   marginRight: '1rem',
   marginTop: '1rem',
+  width: '100%',
 });
 
-export function FunctionParameter({
-  parameter,
-  onParameterChange,
-}: {
+interface FunctionParameterProps {
+  required?: boolean;
   parameter: ABIParameter;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onParameterChange: (value: any) => void;
-}) {
+}
+
+export function FunctionParameter({ parameter, required, onParameterChange }: FunctionParameterProps) {
   const { walletDB } = useContext(AztecContext);
 
   const [manualInput, setManualInput] = useState(false);
@@ -64,6 +65,34 @@ export function FunctionParameter({
     }
   };
 
+  function getParameterType(type: AbiType) {
+    switch (type.kind) {
+      case 'field':
+        return 'number';
+      case 'integer':
+        return 'number';
+      case 'string':
+        return 'text';
+      default:
+        return 'text';
+    }
+  }
+
+  function getParameterLabel(type: AbiType) {
+    switch (type.kind) {
+      case 'field':
+        return 'number';
+      case 'integer':
+        return 'int';
+      case 'string':
+        return 'string';
+      case 'boolean':
+        return 'bool';
+      default:
+        return '';
+    }
+  }
+
   return (
     <div css={container}>
       {isAddressStruct(parameter.type) && !manualInput ? (
@@ -87,6 +116,7 @@ export function FunctionParameter({
           renderInput={params => (
             <TextField
               {...params}
+              required={required}
               label={capitalize(parameter.name)}
               slotProps={{
                 input: {
@@ -104,13 +134,14 @@ export function FunctionParameter({
         />
       ) : (
         <TextField
+          required={required}
           fullWidth
           css={css}
           variant="outlined"
           disabled={['array', 'struct', 'tuple'].includes(parameter.type.kind) && !isAddressStruct(parameter.type)}
           key={parameter.name}
-          type="text"
-          label={capitalize(parameter.name)}
+          type={getParameterType(parameter.type)}
+          label={`${capitalize(parameter.name)}  (${getParameterLabel(parameter.type)})`}
           onChange={e => handleParameterChange(e.target.value, parameter.type)}
         />
       )}

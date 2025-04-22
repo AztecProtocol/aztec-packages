@@ -28,6 +28,7 @@ const container = css({
   transition: 'all 0.3s ease-out',
   padding: '20px',
   margin: '0 24px 0 0',
+  scrollbarWidth: 'none',
   '@media (max-width: 1200px)': {
     padding: '12px',
     width: 'auto',
@@ -110,14 +111,14 @@ export function SidebarComponent() {
 
   const getAccountButtonText = () => {
     if (!wallet) return 'Connect Account';
-    return `${walletAlias || formatFrAsString(wallet.getAddress().toString())} Account`;
+    return `Account: ${walletAlias || formatFrAsString(wallet.getAddress().toString())}`;
   };
 
   const getContractButtonText = () => {
     if (!currentContractArtifact) return 'Select Contract';
     const name = currentContractArtifact.name;
     if (currentContractAddress) {
-      return `${contractAlias ?? name} (${formatFrAsString(currentContractAddress.toString())})`;
+      return `Contract: ${contractAlias ?? name} (${formatFrAsString(currentContractAddress.toString())})`;
     } else {
       return name;
     }

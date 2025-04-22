@@ -17,6 +17,8 @@ network:
   # If true then configured bootnodes are considered non-gossiping peers
   p2pBootstrapNodesAsFullPeers: true
 
+  mempoolLimitBytes: "100000000" # approx 100MB
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB
@@ -203,7 +205,7 @@ proverNode:
   pollInterval: 1000
   viemPollingInterval: 1000
   dataDir: "/data"
-  storageSize: "1Gi"
+  storageSize: "10Gi"
   txGathering:
     timeoutMs: 60000
     intervalMs: 1000
