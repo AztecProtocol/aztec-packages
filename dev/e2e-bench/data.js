@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745347256115,
+  "lastUpdate": 1745349041589,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0ebb29ebf3798a17b162fadc6e9c0c7fcd98256a",
-          "message": "chore(bb): debugging helpers (#13584)\n\nAllows for starting a vscode debugging session with whatever the cmake\ntarget currently selected is and with pretty-print helpers for fq, fr,\nuint256_t",
-          "timestamp": "2025-04-15T23:02:01Z",
-          "tree_id": "7afd67e45cbeadd910dc4dac17e3dc146703d875",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0ebb29ebf3798a17b162fadc6e9c0c7fcd98256a"
-        },
-        "date": 1744763240423,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9691,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2603799829242807,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 148238,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1935,6 +1896,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 146858,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9c1d9f1c49140639384a17b9eae5f87701d294f0",
+          "message": "fix(p2p): better batch connection sampling (#13674)\n\n## Overview\n\nImproves batch connection sampling such that we can increase the retry\nattempts for prover nodes requesting\ntransaction information from their peers.\n\n### Core improvements\n**Previously**\nWhen making a batch request, we requested the peer list, iterated\nthrough it until we found a peer without an reqresp active connection\nand used those. This meant that we were commonly only using the first\n3-4 peers in the peer list.\n\nNow it will do random sampling without replacement to peers without\nalready active reqresp connections. If there are non available, then we\nwill just sample from peers already servicing requests.",
+          "timestamp": "2025-04-22T18:16:00Z",
+          "tree_id": "b3f7ffbb5cfae21a78eba4cdbe943aa7cf2d09a8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9c1d9f1c49140639384a17b9eae5f87701d294f0"
+        },
+        "date": 1745349033587,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9234,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2643534680795831,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 143692,
             "unit": "us"
           }
         ]
