@@ -7,6 +7,7 @@ import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
 import { LoadingModal } from '../common/LoadingModal';
+import { Button } from '@mui/material';
 
 const layout = css({
   display: 'flex',
@@ -35,18 +36,16 @@ const contentLayout = css({
 });
 
 const headerFrame = css({
-  height: '100px',
   margin: '24px 60px',
   backgroundColor: '#CDD1D5',
   borderRadius: '10px',
   display: 'flex',
   alignItems: 'center',
-  padding: '0 40px',
-  position: 'relative',
+  padding: '12px 36px',
+  flexWrap: 'wrap',
   '@media (max-width: 1200px)': {
     margin: '12px 12px 24px 12px',
-    padding: '0 12px',
-    height: '80px',
+    padding: '3px 12px',
   },
 });
 
@@ -59,6 +58,10 @@ const logo = css({
     width: '120px',
     marginRight: '0.1rem',
   },
+  '@media (max-width: 900px)': {
+    height: 'auto',
+    width: '90px',
+  },
 });
 
 const headerTitle = css({
@@ -68,46 +71,46 @@ const headerTitle = css({
   fontSize: '42px',
   lineHeight: '48px',
   display: 'flex',
+  height: '60px',
   alignItems: 'center',
   letterSpacing: '0.03em',
   color: '#2D2D2D',
   textDecoration: 'none',
-  marginTop: '0.5rem',
   padding: '1rem',
   '@media (max-width: 1200px)': {
-    marginTop: '0.3rem',
     fontSize: '20px',
     lineHeight: '20px',
+  },
+  '@media (max-width: 900px)': {
+    fontSize: '16px',
+    lineHeight: '16px',
   },
 });
 
 const docsButton = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '12px 24px',
-  position: 'absolute',
-  width: '160px',
-  height: '42px',
-  right: '40px',
+  marginLeft: 'auto',
   background: '#8C7EFF',
-  boxShadow: '0px 0px 0px 1px #715EC2, 0px 0px 0px 3px rgba(247, 249, 255, 0.08)',
   borderRadius: '6px',
   color: '#FFFFFF',
   fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
   fontWeight: 500,
   fontSize: '16px',
   lineHeight: '20px',
+  height: '50px',
   cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '12px',
   textDecoration: 'none',
   '@media (max-width: 1200px)': {
-    padding: 0,
+    padding: '10px',
     fontSize: '14px',
-    width: '85px',
-    gap: 0,
-    right: '12px',
+  },
+  '@media (max-width: 900px)': {
+    padding: '8px',
+    fontSize: '12px',
+    fontWeight: 500,
   },
 });
 
@@ -167,16 +170,20 @@ export default function Home() {
   return (
     <div css={layout}>
       <div css={headerFrame}>
-        <img css={logo} src={logoURL} alt="Aztec Logo" />
+        <div role="button" style={{ cursor: 'pointer' }} onClick={() => {
+          setShowContractInterface(false);
+        }}>
+          <img css={logo} src={logoURL} alt="Aztec Logo" />
+        </div>
         <div css={headerTitle}>PLAYGROUND</div>
         <a
-          href="https://docs.aztec.network/developers/inspiration"
+          href="https://docs.aztec.network/"
           target="_blank"
           rel="noopener noreferrer"
           css={docsButton}
           style={{ textDecoration: 'none' }}
         >
-          Inspiration
+          Start Building
         </a>
       </div>
       <AztecContext.Provider value={AztecContextInitialValue}>
