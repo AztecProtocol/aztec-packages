@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745319990996,
+  "lastUpdate": 1745326134177,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a7cfbbe8595ae3bdc4c7dd204dac524c03bbb358",
-          "message": "fix: cpp bench ci (#13565)",
-          "timestamp": "2025-04-15T10:10:17-04:00",
-          "tree_id": "8d40dee5b283e69d03eb5715cdbc408c7d6be5ab",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a7cfbbe8595ae3bdc4c7dd204dac524c03bbb358"
-        },
-        "date": 1744729052533,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9971,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2678595344601291,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 159081,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1935,6 +1896,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 158391,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0e51259cc55b4c84eb6c6b21fdac7b6478dcf2c4",
+          "message": "fix: run yarn (#13713)\n\nFix bootstrap after\nhttps://github.com/AztecProtocol/aztec-packages/commit/366d98084f5de17c73924b7080e7263d86dc1f05",
+          "timestamp": "2025-04-22T11:51:43Z",
+          "tree_id": "23ec1e4286943a567b011c41b7607226931b8f5c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0e51259cc55b4c84eb6c6b21fdac7b6478dcf2c4"
+        },
+        "date": 1745326126179,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9156,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26213913926089344,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 145623,
             "unit": "us"
           }
         ]
