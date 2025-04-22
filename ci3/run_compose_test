@@ -5,7 +5,6 @@ name=$1
 exit_container=$2
 compose_file_path=$3
 
-completed=0
 # Strip leading non alpha numerics and replace / and . with _.
 name=$(echo "${name}${NAME_POSTFIX:-}" | sed 's/^[^a-zA-Z0-9]*//; s/[\/\.]/_/g')
 name_arg="-p $name"
@@ -20,7 +19,7 @@ function cleanup {
   # If the container hasn't completed, wait up to 15 seconds for it to start.
   # Bit of kludge, but otherwise the "down" could happen before the "up" has started.
   SECONDS=0
-  while [[ $completed -eq 0 && $SECONDS -lt 15 ]] && \
+  while [[ -z "${code:-}" && $SECONDS -lt 15 ]] && \
     ! docker compose $name_arg ps --format '{{.Service}} {{.State}}' | grep -q "running"; do
       # echo waiting for compose to be running: $name_arg >/dev/tty
       sleep 1
@@ -35,5 +34,4 @@ setsid docker compose --ansi always $name_arg up --exit-code-from=$exit_containe
 pid=$!
 wait $pid
 code=$?
-completed=1
 exit $code
