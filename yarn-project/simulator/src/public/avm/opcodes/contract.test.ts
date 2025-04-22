@@ -48,8 +48,8 @@ describe('Contract opcodes', () => {
         /*memberEnum=*/ 0x02,
       );
 
-      expect(GetContractInstance.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(GetContractInstance.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([
