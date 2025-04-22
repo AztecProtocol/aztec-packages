@@ -37,11 +37,7 @@ function release_docs {
   yarn install
   yarn build
 
-  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev --prod); then
-    echo "Netlify deploy failed with error:"
-    echo "$deploy_output"
-    exit 1
-  fi
+  yarn netlify deploy --site aztec-docs-dev --prod
 }
 
 case "$cmd" in
