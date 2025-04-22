@@ -141,6 +141,7 @@ function run {
     ${arg_env_vars:-} \
     ${arg_host_binds:-} \
     ${arg_user:-} \
+    --entrypoint ""  \
     aztecprotocol/aztec:$VERSION "${args[@]}"
 }
 
