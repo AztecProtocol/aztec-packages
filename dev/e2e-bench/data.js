@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745326134177,
+  "lastUpdate": 1745330529984,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a89de5d213cf5d5cdbdc4e2e308848a20e64ef5f",
-          "message": "refactor(public/avm): from hints to the end of the world (#13459)\n\nI had a few design goals with this PR\n1. Move the merkle hinting layer to the merkle db directly (from the\nPublicContractsDB)\n1. Make hinting a TxSimulator concept\n1. Divide the tree accesses into low level and high level (like we do in\nC++).\n1. Tighten our exports\n1. Some cleanups\n\nI'm satisfied with the result, but there are some things worth noting\n* Now the TxSimulator wraps the merkle db into a hinting merkle db. This\nmeans that the hints will _always_ be generated and the caller has no\ncontrol. However, reexecution and the TXE could benefit from a model\nwhere no hinting (or tracing) is done. I had a version of this PR where\nthis was done via an extra PublicTreesDBFactory that was passed to the\nTxSimulator, but I found it too much for the moment. I think at some\npoint we can consider having a more flexible factory type for the\nPublicProcessor and the TxSimulator where we can specify, e.g., merkle\nops, tracing, hinting, etc and have a \"Proving\" factory and a\n\"Simulation-only\" factory.\n\n## AI generated description\n\nThis PR refactors the public processor and simulator components to use\n`MerkleTreeWriteOperations` directly instead of going through the\n`PublicTreesDB` abstraction. Key changes include:\n\n- Changed `PublicTxSimulator` to accept a `MerkleTreeWriteOperations`\ninstead of `PublicTreesDB`\n- Moved `PublicTreesDB` to be an internal implementation detail rather\nthan a public API\n- Refactored `HintingPublicTreesDB` to `HintingMerkleWriteOperations` to\nwork directly with the merkle tree interface\n- Moved `SimpleContractDataSource` from `avm/fixtures` to\n`public/fixtures` for better organization\n- Added high-level methods to `PublicTreesDB` for writing note hashes\nand nullifiers\n- Simplified tree operations in `PublicPersistableStateManager` by using\nthe new high-level methods\n- Updated `checkL1ToL2MessageExists` to no longer require a contract\naddress parameter\n\nThis change simplifies the codebase by reducing unnecessary abstractions\nand making the component dependencies more explicit.",
-          "timestamp": "2025-04-15T14:59:39Z",
-          "tree_id": "859d0be15b138c9bbe6d544b98552e8443fb7953",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a89de5d213cf5d5cdbdc4e2e308848a20e64ef5f"
-        },
-        "date": 1744732456970,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9997,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.26862577233267365,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 159203,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1935,6 +1896,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 145623,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c244b2e6f20e7390d5bbd788f6a982474e6476fe",
+          "message": "fix: Increase timeout for p2p integration test (#13720)\n\nThis PR simply increases the timeout for a test",
+          "timestamp": "2025-04-22T13:05:32Z",
+          "tree_id": "5d60c0acd0e953a880757da5c21963d8c3282efd",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c244b2e6f20e7390d5bbd788f6a982474e6476fe"
+        },
+        "date": 1745330522083,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9245,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26468393694064013,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 153289,
             "unit": "us"
           }
         ]
