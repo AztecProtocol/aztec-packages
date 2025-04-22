@@ -531,7 +531,6 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
             if constexpr (HasPlookup<C>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/665)
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             } else {
