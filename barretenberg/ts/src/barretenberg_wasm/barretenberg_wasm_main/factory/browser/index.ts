@@ -1,8 +1,9 @@
 import debug from 'debug';
-import MainWorker from './main.worker.js';
 
 export function createMainWorker() {
-  const worker = new MainWorker();
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  const worker = new Worker(new URL('./main.worker.ts', import.meta.url));
   const debugStr = debug.disable();
   debug.enable(debugStr);
   worker.postMessage({ debug: debugStr });

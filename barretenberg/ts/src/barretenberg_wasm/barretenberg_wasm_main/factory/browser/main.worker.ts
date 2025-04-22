@@ -11,5 +11,3 @@ self.onmessage = function (e) {
 expose(new BarretenbergWasmMain());
 
 self.postMessage({ ready: true });
-
-export default null as any;

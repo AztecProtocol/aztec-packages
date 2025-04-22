@@ -1,8 +1,9 @@
 import debug from 'debug';
-import ThreadWorker from './thread.worker.js';
 
 export function createThreadWorker() {
-  const worker = new ThreadWorker();
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  const worker = new Worker(new URL('./thread.worker.ts', import.meta.url));
   const debugStr = debug.disable();
   debug.enable(debugStr);
   worker.postMessage({ debug: debugStr });
