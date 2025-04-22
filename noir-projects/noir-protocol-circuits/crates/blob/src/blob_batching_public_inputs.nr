@@ -1,6 +1,6 @@
 use bigcurve::{
     BigCurveTrait,
-    curves::bls12_381::{BLS12_381 as Point, BLS12_381_SCALAR_SLICES, BLS12_381Scalar},
+    curves::bls12_381::{BLS12_381 as BLSPoint, BLS12_381_SCALAR_SLICES, BLS12_381Scalar},
     ScalarFieldTrait,
 };
 use bigint::{BigNum, bignum::BigNumTrait, BLS12_381_Fq as Q, BLS12_381_Fr as F};
@@ -12,7 +12,7 @@ use types::{
 };
 
 pub struct BatchingBlobCommitment {
-    pub point: Point,
+    pub point: BLSPoint,
     pub compressed: [u8; 48], // TODO(MW): get Q::num_bytes from somewhere, rather than hardcoded 48
 }
 
@@ -37,25 +37,25 @@ impl Eq for BatchingBlobCommitment {
 
 impl Empty for BatchingBlobCommitment {
     fn empty() -> Self {
-        Self { point: Point::point_at_infinity(), compressed: [0; 48] }
+        Self { point: BLSPoint::point_at_infinity(), compressed: [0; 48] }
     }
 }
 
 // TODO(MW): get_flags() and compress_to_bytes() will eventually be part of BigCurve.
 
 // Ideally we would impl like:
-// impl From<Point> for BlobCommitment {
+// impl From<BLSPoint> for BlobCommitment {
 //     }
 // }
-// impl Point {
-//     fn get_flags(point: Point) -> ([bool; 3], Q) {
+// impl BLSPoint {
+//     fn get_flags(point: BLSPoint) -> ([bool; 3], Q) {
 //     }
 //     fn compress_to_bytes(self) -> [u8; 48] {
 //     }
 // }
 
 // So, e.g., can just call point.compress_to_bytes() in future. For now:
-pub fn compress_to_blob_commitment(point: Point) -> (BatchingBlobCommitment) {
+pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
     // TODO(MW): use built in .to_be_bytes() in bignum 0.7.0
     let mut compressed = bignum_limbs_to_be_bytes::<_, 381>(x.limbs);
@@ -79,7 +79,7 @@ pub fn compress_to_blob_commitment(point: Point) -> (BatchingBlobCommitment) {
     BatchingBlobCommitment { point, compressed }
 }
 
-fn get_flags(point: Point) -> ([bool; 3], Q) {
+fn get_flags(point: BLSPoint) -> ([bool; 3], Q) {
     let x = point.x;
     let y = point.y;
     let is_greater = y > -y;
@@ -145,7 +145,7 @@ pub struct BlobPublicInputsAcc {
     pub v: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
     pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub y: F, // Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y (BLS12Fr)
-    pub c: Point, // Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
+    pub c: BLSPoint, // Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
     pub gamma: Field, // Challenge for linear combination of each blob's y and C (BLS12Fr but represented here as BN254Fr, since it is hashed natively)
     pub gamma_pow: F, // gamma^i for current blob, used above (BLS12Fr)
 }
@@ -221,7 +221,7 @@ impl Empty for BlobPublicInputsAcc {
             v: 0,
             z: 0,
             y: F::zero(),
-            c: Point::point_at_infinity(),
+            c: BLSPoint::point_at_infinity(),
             gamma: 0,
             gamma_pow: F::zero(),
         }

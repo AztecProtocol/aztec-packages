@@ -9,8 +9,7 @@ use crate::{
     },
     blob_public_inputs::BlobCommitment,
 };
-// TODO(MW): use name BLSPoint rather than Point here?
-use bigcurve::curves::bls12_381::BLS12_381 as Point;
+use bigcurve::curves::bls12_381::BLS12_381 as BLSPoint;
 use bigint::{BigNumTrait, BLS12_381_Fr as F};
 use types::{
     abis::sponge_blob::SpongeBlob,
@@ -48,7 +47,7 @@ fn evaluate_blob_for_batching(
 // - Updates the batched blob accumulator
 pub fn evaluate_blobs_and_batch(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments_points: [Point; BLOBS_PER_BLOCK],
+    kzg_commitments_points: [BLSPoint; BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
     challenge_z: Field, // shared over epoch, verified in root
     challenge_gamma: F, // shared over epoch, verified in root
@@ -93,7 +92,7 @@ mod tests {
         blob_batching::evaluate_blobs_and_batch,
         blob_batching_public_inputs::{BlobPublicInputsAcc, compress_to_blob_commitment},
     };
-    use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as Point};
+    use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as BLSPoint};
     use bigint::{BigNumTrait, BLS12_381_Fq as Q, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,
@@ -115,7 +114,7 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(400);
         sponge_blob.absorb(blob, 400);
         let kzg_commitments_in = [
-            Point {
+            BLSPoint {
                 x: Q {
                     limbs: [
                         0xa971c7e8d8292be943d05bccebcfea,
@@ -134,8 +133,8 @@ mod tests {
                 },
                 is_infinity: false,
             },
-            Point::point_at_infinity(),
-            Point::point_at_infinity(),
+            BLSPoint::point_at_infinity(),
+            BLSPoint::point_at_infinity(),
         ];
         // = z_0
         let final_z = 0x135d767e8b86b949d264be7a6b71d257c538893f3cef60c95d76ba420df18c3c;
@@ -192,7 +191,7 @@ mod tests {
         // Init. injected values:
         // - Commitments are injected and checked for correctness on L1 via acc.v
         let kzg_commitments_in = [
-            Point {
+            BLSPoint {
                 x: Q {
                     limbs: [
                         0x2627fc88755984d7f002e5ef0e6b3e,
@@ -211,7 +210,7 @@ mod tests {
                 },
                 is_infinity: false,
             },
-            Point {
+            BLSPoint {
                 x: Q {
                     limbs: [
                         0x71556bb7217816fbb3f822fc873740,
@@ -230,7 +229,7 @@ mod tests {
                 },
                 is_infinity: false,
             },
-            Point {
+            BLSPoint {
                 x: Q {
                     limbs: [
                         0x69afb94a09e713e7fb94e26f33c3ed,
@@ -282,7 +281,7 @@ mod tests {
         // C is a BLS point with value:
         // x: 0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e,
         // y: 0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254,
-        let expected_c = Point {
+        let expected_c = BLSPoint {
             x: Q {
                 limbs: [
                     0x2616100269935afcb1b98c85d5e93e,
