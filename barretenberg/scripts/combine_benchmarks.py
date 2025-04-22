@@ -55,13 +55,14 @@ def modify_benchmark_data(file_paths):
     combined_results = {"benchmarks": []}
 
     for file_path in file_paths:
+        print("!")
         prefix = ""
         # Historical name compatibility:
         if "wasm" in file_path:
             prefix = "wasm"
         elif "release" in file_path:
             prefix = "native"
-        elif "-ivc.json" in file_path:
+        elif "ivc-" in file_path:
             prefix = "ivc-"
         if file_path.endswith(".txt"):
             # Process text files to extract memory data.
@@ -83,6 +84,7 @@ def modify_benchmark_data(file_paths):
 
 def main():
     file_paths = sys.argv[1::]
+    print(file_paths)
     final_data = modify_benchmark_data(file_paths)
 
     # Output the combined benchmark data as formatted JSON.

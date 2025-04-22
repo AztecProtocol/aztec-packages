@@ -74,6 +74,15 @@ tests:
     owners:
       - *charlie
 
+  # AD: hit this flake
+  # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
+  # 18:04:38 Brillig loops: 11
+  # 18:04:38 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  - regex: "noir/scripts/run_test.sh calibration.* arb_program_freqs_in_expected_range"
+    error_regex: "panicked at tooling/ast_fuzzer/tests/calibration.rs"
+    owners:
+      - *tom
+
   # e2e tests
   - regex: "simple e2e_p2p"
     error_regex: "could not listen on any available address"

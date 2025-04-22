@@ -5,8 +5,7 @@
 namespace bb {
 
 MergeVerifier::MergeVerifier()
-    : transcript(std::make_shared<Transcript>())
-    , pcs_verification_key(std::make_unique<VerifierCommitmentKey>()){};
+    : transcript(std::make_shared<Transcript>()){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -87,7 +86,8 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
     OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
     auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    VerifierCommitmentKey pcs_vkey{};
+    auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
     return identity_checked && verified;
 }
 } // namespace bb

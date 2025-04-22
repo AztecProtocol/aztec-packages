@@ -1,0 +1,11 @@
+AddTest
+├── when validator is not in the set
+│   ├── it returns true
+│   ├── it increases the length
+│   ├── it creates a checkpoint for the next epoch
+│   └── it does not change the current epoch
+├── when validator is already in the set
+│   └── it returns false
+└── when validator has been removed from the set
+    └── it can be added again
+

@@ -22,6 +22,27 @@ enum class ValueTag {
     MAX = U128,
 };
 
+template <typename T> ValueTag tag_for_type()
+{
+    if constexpr (std::is_same_v<T, FF>) {
+        return ValueTag::FF;
+    } else if constexpr (std::is_same_v<T, uint1_t>) {
+        return ValueTag::U1;
+    } else if constexpr (std::is_same_v<T, uint8_t>) {
+        return ValueTag::U8;
+    } else if constexpr (std::is_same_v<T, uint16_t>) {
+        return ValueTag::U16;
+    } else if constexpr (std::is_same_v<T, uint32_t>) {
+        return ValueTag::U32;
+    } else if constexpr (std::is_same_v<T, uint64_t>) {
+        return ValueTag::U64;
+    } else if constexpr (std::is_same_v<T, uint128_t>) {
+        return ValueTag::U128;
+    }
+}
+
+uint8_t get_tag_bits(ValueTag tag);
+
 class TaggedValue {
   public:
     // We are using variant to avoid heap allocations at the cost of a bigger memory footprint.
@@ -70,7 +91,8 @@ class TaggedValue {
         if (std::holds_alternative<T>(value)) {
             return std::get<T>(value);
         }
-        throw std::runtime_error("TaggedValue::as(): type mismatch");
+        throw std::runtime_error("TaggedValue::as(): type mismatch. Wanted type " +
+                                 std::to_string(static_cast<uint32_t>(tag_for_type<T>())) + " but got " + to_string());
     }
 
     std::size_t hash() const noexcept { return std::hash<FF>{}(as_ff()); }
