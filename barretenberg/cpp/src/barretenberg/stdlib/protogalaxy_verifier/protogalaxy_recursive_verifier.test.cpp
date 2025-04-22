@@ -238,6 +238,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
+        ASSERT(recursive_folding_manifest.size() > 0);
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
@@ -266,10 +267,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
      * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
      * verifiers are identical by checking the manifests
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in
-    // tests once we can fold keys of different sizes.
     static void test_full_protogalaxy_recursive()
     {
+        using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
         // Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
         create_function_circuit(builder1);
@@ -316,6 +316,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
+        ASSERT(recursive_folding_manifest.size() > 0);
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
             EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
                 << "Recursive Verifier/Verifier manifest discrepency in round " << i;
@@ -335,9 +336,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // check that the result agrees.
         InnerDeciderVerifier native_decider_verifier(verifier_accumulator);
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
-        auto recursive_result =
-            native_decider_verifier.accumulator->verification_key->pcs_verification_key->pairing_check(
-                pairing_points[0].get_value(), pairing_points[1].get_value());
+        NativeVerifierCommitmentKey pcs_vkey{};
+        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(native_result, recursive_result);
 
         if constexpr (!IsSimulator<OuterBuilder>) {

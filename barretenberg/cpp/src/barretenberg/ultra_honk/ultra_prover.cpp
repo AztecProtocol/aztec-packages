@@ -41,6 +41,13 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
+    : proving_key(std::make_shared<DeciderProvingKey>(circuit))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(proving_key->proving_key.commitment_key)
+{}
+
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
@@ -77,7 +84,9 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
+template class UltraProver_<UltraStarknetFlavor>;
 template class UltraProver_<UltraKeccakZKFlavor>;
+template class UltraProver_<UltraStarknetZKFlavor>;
 template class UltraProver_<UltraRollupFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;

@@ -145,3 +145,17 @@ TEST(NativeTranscript, TwoProversTwoFields)
         EXPECT_EQ(received_k, elt_k);
     }
 }
+
+/**
+ * @brief Test the add_to_hash_buffer functionality
+ *
+ */
+TEST(NativeTranscript, ConsumeElement)
+{
+    Transcript prover_transcript, verifier_transcript;
+    prover_transcript.add_to_hash_buffer("a", Fr(1));
+    verifier_transcript.add_to_hash_buffer("a", Fr(1));
+    auto prover_chal = prover_transcript.get_challenge<Fr>("alpha");
+    auto verifier_chal = verifier_transcript.get_challenge<Fr>("alpha");
+    EXPECT_EQ(prover_chal, verifier_chal);
+}

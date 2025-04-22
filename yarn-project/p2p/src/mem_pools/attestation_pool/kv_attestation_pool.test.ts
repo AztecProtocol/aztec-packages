@@ -1,4 +1,4 @@
-import { type AztecAsyncKVStore } from '@aztec/kv-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { describeAttestationPool } from './attestation_pool_test_suite.js';

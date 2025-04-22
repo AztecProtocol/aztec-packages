@@ -1,6 +1,6 @@
-import { DB_MAP_SIZE, DB_NUM_ITEMS, DB_USED_SIZE } from './metrics.js';
+import * as Metrics from './metrics.js';
 import {
-  type Attributes,
+  type AttributesType,
   type BatchObservableResult,
   type Meter,
   type ObservableGauge,
@@ -14,18 +14,18 @@ export class LmdbMetrics {
   private dbUsedSize: ObservableGauge;
   private dbNumItems: ObservableGauge;
 
-  constructor(meter: Meter, private attributes?: Attributes, private getStats?: LmdbStatsCallback) {
-    this.dbMapSize = meter.createObservableGauge(DB_MAP_SIZE, {
+  constructor(meter: Meter, private attributes?: AttributesType, private getStats?: LmdbStatsCallback) {
+    this.dbMapSize = meter.createObservableGauge(Metrics.DB_MAP_SIZE, {
       description: 'LMDB Map Size',
       valueType: ValueType.INT,
       unit: 'By',
     });
-    this.dbUsedSize = meter.createObservableGauge(DB_USED_SIZE, {
+    this.dbUsedSize = meter.createObservableGauge(Metrics.DB_USED_SIZE, {
       description: 'LMDB Used Size',
       valueType: ValueType.INT,
       unit: 'By',
     });
-    this.dbNumItems = meter.createObservableGauge(DB_NUM_ITEMS, {
+    this.dbNumItems = meter.createObservableGauge(Metrics.DB_NUM_ITEMS, {
       description: 'LMDB Num Items',
       valueType: ValueType.INT,
     });

@@ -3,18 +3,24 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
     context::PrivateContext,
-    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_siloed_nullifier},
+    note::{
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
+        utils::compute_siloed_note_nullifier,
+    },
     oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
 };
+use protocol_types::traits::Hash;
 
-trait ProveNullifierInclusion {
+mod test;
+
+pub trait ProveNullifierInclusion {
     fn prove_nullifier_inclusion(header: BlockHeader, nullifier: Field);
 }
 
 impl ProveNullifierInclusion for BlockHeader {
     fn prove_nullifier_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of the nullifier
-        /// Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
+        // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
             get_nullifier_membership_witness(self.global_variables.block_number as u32, nullifier)
         };
@@ -38,23 +44,29 @@ impl ProveNullifierInclusion for BlockHeader {
     }
 }
 
-trait ProveNoteIsNullified {
-    fn prove_note_is_nullified<Note, let N: u32>(
+pub trait ProveNoteIsNullified {
+    fn prove_note_is_nullified<Note>(
         header: BlockHeader,
-        note: Note,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface<N> + NullifiableNote;
+        Note: NoteHash;
 }
 
 impl ProveNoteIsNullified for BlockHeader {
     // docs:start:prove_note_is_nullified
-    fn prove_note_is_nullified<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    fn prove_note_is_nullified<Note>(
+        self,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
+        context: &mut PrivateContext,
+    )
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteHash,
     {
-        let nullifier = compute_siloed_nullifier(note, context);
+        let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_inclusion(nullifier);
     }

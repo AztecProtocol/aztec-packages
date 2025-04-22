@@ -7,13 +7,19 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../ethereum"
     },
     {
       "path": "../foundation"
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

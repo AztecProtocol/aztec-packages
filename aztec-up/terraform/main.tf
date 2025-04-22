@@ -26,11 +26,6 @@ data "terraform_remote_state" "aztec2_iac" {
   }
 }
 
-variable "VERSION" {
-  description = "The version of the Aztec scripts to upload"
-  type        = string
-}
-
 # Create the website S3 bucket
 resource "aws_s3_bucket" "install_bucket" {
   bucket = "install.aztec.network"
@@ -69,48 +64,9 @@ resource "aws_s3_bucket_policy" "install_bucket_policy" {
   })
 }
 
-# Upload files to s3 bucket if changes were detected
-resource "null_resource" "upload_public_directory" {
-  triggers = {
-    always_run = "${timestamp()}"
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
-    command     = <<EOT
-      # Function to compare versions
-      version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
-
-      # Read the current version from S3
-      CURRENT_VERSION=$(aws s3 cp s3://${aws_s3_bucket.install_bucket.id}/VERSION - 2>/dev/null || echo "0.0.0")
-
-      # Validate that var.VERSION is a valid semver
-      if [[ ! "${var.VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        echo "Warning: ${var.VERSION} is not a valid semver version. Skipping version comparison."
-      else
-        # Check if new version is greater than current version
-        if version_gt "${var.VERSION}" "$CURRENT_VERSION"; then
-          echo "Uploading new version ${var.VERSION}"
-
-          # Upload new version to root
-          aws s3 sync ../bin s3://${aws_s3_bucket.install_bucket.id}/
-
-          # Update VERSION file
-          echo "${var.VERSION}" | aws s3 cp - s3://${aws_s3_bucket.install_bucket.id}/VERSION
-        else
-          echo "New version ${var.VERSION} is not greater than current version $CURRENT_VERSION. Skipping root upload."
-        fi
-      fi
-
-      # Always create a version directory and upload files there
-      aws s3 sync ../bin s3://${aws_s3_bucket.install_bucket.id}/${var.VERSION}/
-    EOT
-  }
-}
-
 resource "aws_cloudfront_distribution" "install" {
   origin {
-    domain_name = aws_s3_bucket.install_bucket.website_endpoint
+    domain_name = aws_s3_bucket_website_configuration.website_bucket.website_endpoint
     origin_id   = "S3-install-aztec-network"
 
     custom_origin_config {
@@ -140,9 +96,7 @@ resource "aws_cloudfront_distribution" "install" {
       }
     }
 
-    # TODO: Once new aztec-up script (almost certainly within days of this change), switch to redirect-to-https.
-    # viewer_protocol_policy = "redirect-to-https"
-    viewer_protocol_policy = "allow-all"
+    viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400

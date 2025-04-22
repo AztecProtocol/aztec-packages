@@ -172,11 +172,12 @@ lagrange_evaluations<typename Curve::Builder> get_lagrange_evaluations(
  * which includes detailed comments.
  */
 template <typename Curve, typename program_settings>
-aggregation_state<Curve> verify_proof(typename Curve::Builder* context,
-                                      std::shared_ptr<verification_key<Curve>> key,
-                                      const plonk::transcript::Manifest& manifest,
-                                      const plonk::proof& proof,
-                                      const aggregation_state<Curve> previous_output = aggregation_state<Curve>())
+aggregation_state<typename Curve::Builder> verify_proof(
+    typename Curve::Builder* context,
+    std::shared_ptr<verification_key<Curve>> key,
+    const plonk::transcript::Manifest& manifest,
+    const plonk::proof& proof,
+    const aggregation_state<typename Curve::Builder> previous_output = aggregation_state<typename Curve::Builder>())
 {
     using Builder = typename Curve::Builder;
 
@@ -192,10 +193,11 @@ aggregation_state<Curve> verify_proof(typename Curve::Builder* context,
  * which includes detailed comments.
  */
 template <typename Curve, typename program_settings>
-aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
-                                       std::shared_ptr<verification_key<Curve>> key,
-                                       Transcript<typename Curve::Builder>& transcript,
-                                       const aggregation_state<Curve> previous_output = aggregation_state<Curve>())
+aggregation_state<typename Curve::Builder> verify_proof_(
+    typename Curve::Builder* context,
+    std::shared_ptr<verification_key<Curve>> key,
+    Transcript<typename Curve::Builder>& transcript,
+    const aggregation_state<typename Curve::Builder> previous_output = aggregation_state<typename Curve::Builder>())
 {
     using fr_ct = typename Curve::ScalarField;
     using fq_ct = typename Curve::BaseField;
@@ -386,17 +388,17 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
 
     rhs = (-rhs) - PI_Z;
 
-    auto result = aggregation_state<Curve>{ opening_result, rhs, true };
+    auto result = aggregation_state<Builder>{ opening_result, rhs };
     return result;
 }
 
 template <typename Flavor>
-aggregation_state<bn254<typename Flavor::CircuitBuilder>> verify_proof(
+aggregation_state<typename Flavor::CircuitBuilder> verify_proof(
     typename Flavor::CircuitBuilder* context,
     std::shared_ptr<verification_key<bn254<typename Flavor::CircuitBuilder>>> key,
     const plonk::proof& proof,
-    const aggregation_state<bn254<typename Flavor::CircuitBuilder>> previous_output =
-        aggregation_state<bn254<typename Flavor::CircuitBuilder>>())
+    const aggregation_state<typename Flavor::CircuitBuilder> previous_output =
+        aggregation_state<typename Flavor::CircuitBuilder>())
 {
     // TODO(Cody): Be sure this is kosher
     const auto manifest =

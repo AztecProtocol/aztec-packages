@@ -125,26 +125,23 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
      * @brief Use the sponge to hash an input string
      *
      * @tparam out_len
-     * @tparam is_variable_length. Distinguishes between hashes where the preimage length is constant/not constant
      * @param input
      * @return std::array<FF, out_len>
      */
-    template <size_t out_len, bool is_variable_length>
-    static std::array<FF, out_len> hash_internal(std::span<const FF> input)
+    template <size_t out_len> static std::array<FF, out_len> hash_internal(std::span<const FF> input)
     {
         size_t in_len = input.size();
         const uint256_t iv = (static_cast<uint256_t>(in_len) << 64) + out_len - 1;
+        return hash_internal<out_len>(input, iv);
+    }
+
+    template <size_t out_len> static std::array<FF, out_len> hash_internal(std::span<const FF> input, FF iv)
+    {
         FieldSponge sponge(iv);
 
+        size_t in_len = input.size();
         for (size_t i = 0; i < in_len; ++i) {
             sponge.absorb(input[i]);
-        }
-
-        // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
-        // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
-        // fixed-length and variable-length hashes do not collide)
-        if constexpr (is_variable_length) {
-            sponge.absorb(1);
         }
 
         std::array<FF, out_len> output;
@@ -154,16 +151,7 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
         return output;
     }
 
-    template <size_t out_len> static std::array<FF, out_len> hash_fixed_length(std::span<const FF> input)
-    {
-        return hash_internal<out_len, false>(input);
-    }
-    static FF hash_fixed_length(std::span<const FF> input) { return hash_fixed_length<1>(input)[0]; }
-
-    template <size_t out_len> static std::array<FF, out_len> hash_variable_length(std::span<FF> input)
-    {
-        return hash_internal<out_len, true>(input);
-    }
-    static FF hash_variable_length(std::span<FF> input) { return hash_variable_length<1>(input)[0]; }
+    static FF hash_internal(std::span<const FF> input) { return hash_internal<1>(input)[0]; }
+    static FF hash_internal(std::span<const FF> input, FF iv) { return hash_internal<1>(input, iv)[0]; }
 };
 } // namespace bb::crypto

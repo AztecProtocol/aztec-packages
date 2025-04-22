@@ -1,4 +1,4 @@
-{{- if and (not .Values.ethereum.externalHost) .Values.pxe.enabled }}
+{{- if and (not .Values.ethereum.execution.externalHosts) .Values.pxe.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,8 +32,10 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-dependencies
@@ -86,12 +88,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: OTEL_SERVICE_NAME
-              value: faucet
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
-            - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.telemetry.excludeMetrics }}"
           ports:
             - name: http
               containerPort: {{ .Values.faucet.service.nodePort }}
@@ -105,6 +101,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-faucet
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: faucet
 spec:
   type: ClusterIP
   selector:

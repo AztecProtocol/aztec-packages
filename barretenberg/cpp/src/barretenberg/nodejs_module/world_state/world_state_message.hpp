@@ -48,6 +48,12 @@ enum WorldStateMessageType {
 
     GET_STATUS,
 
+    CREATE_CHECKPOINT,
+    COMMIT_CHECKPOINT,
+    REVERT_CHECKPOINT,
+
+    COPY_STORES,
+
     CLOSE = 999,
 };
 
@@ -68,6 +74,11 @@ struct CreateForkResponse {
 };
 
 struct DeleteForkRequest {
+    uint64_t forkId;
+    MSGPACK_FIELDS(forkId);
+};
+
+struct ForkIdOnlyRequest {
     uint64_t forkId;
     MSGPACK_FIELDS(forkId);
 };
@@ -220,6 +231,12 @@ struct SyncBlockRequest {
                    paddedL1ToL2Messages,
                    paddedNullifiers,
                    publicDataWrites);
+};
+
+struct CopyStoresRequest {
+    std::string dstPath;
+    std::optional<bool> compact;
+    MSGPACK_FIELDS(dstPath, compact);
 };
 
 } // namespace bb::nodejs

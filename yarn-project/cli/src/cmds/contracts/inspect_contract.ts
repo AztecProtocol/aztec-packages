@@ -1,18 +1,21 @@
-import { getContractClassFromArtifact } from '@aztec/circuits.js';
+import { sha256 } from '@aztec/foundation/crypto';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 import {
   type FunctionArtifact,
   FunctionSelector,
   decodeFunctionSignature,
   decodeFunctionSignatureWithParameterNames,
-} from '@aztec/foundation/abi';
-import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+  retainBytecode,
+} from '@aztec/stdlib/abi';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { getContractArtifact } from '../../utils/aztec.js';
 
 export async function inspectContract(contractArtifactFile: string, debugLogger: Logger, log: LogFn) {
   const contractArtifact = await getContractArtifact(contractArtifactFile, log);
-  const contractFns = contractArtifact.functions.filter(f => f.name !== 'compute_note_hash_and_optionally_a_nullifier');
+  const contractFns = contractArtifact.functions.concat(
+    contractArtifact.nonDispatchPublicFunctions.map(f => f as FunctionArtifact),
+  );
   if (contractFns.length === 0) {
     log(`No functions found for contract ${contractArtifact.name}`);
   }
@@ -43,9 +46,16 @@ async function logFunction(fn: FunctionArtifact, log: LogFn) {
   const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
   const signature = decodeFunctionSignature(fn.name, fn.parameters);
   const selector = await FunctionSelector.fromSignature(signature);
-  const bytecodeSize = fn.bytecode.length;
-  const bytecodeHash = sha256(fn.bytecode).toString('hex');
-  log(
-    `${fn.functionType} ${signatureWithParameterNames} \n\tfunction signature: ${signature}\n\tselector: ${selector}\n\tbytecode: ${bytecodeSize} bytes (sha256 ${bytecodeHash})`,
-  );
+
+  if (retainBytecode(fn)) {
+    const bytecodeSize = fn.bytecode.length;
+    const bytecodeHash = sha256(fn.bytecode).toString('hex');
+    log(
+      `${fn.functionType} ${signatureWithParameterNames} \n\tfunction signature: ${signature}\n\tselector: ${selector}\n\tbytecode: ${bytecodeSize} bytes (sha256 ${bytecodeHash})`,
+    );
+  } else {
+    log(
+      `${fn.functionType} ${signatureWithParameterNames} \n\tfunction signature: ${signature}\n\tselector: ${selector}`,
+    );
+  }
 }

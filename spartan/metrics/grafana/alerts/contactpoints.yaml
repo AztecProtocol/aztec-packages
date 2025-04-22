@@ -1,0 +1,11 @@
+apiVersion: 1
+contactPoints:
+    - orgId: 1
+      name: 'Slack #network-alerts channel'
+      receivers:
+        - uid: deexubp9hzpc1b
+          type: slack
+          settings:
+            url: $SLACK_WEBHOOK_URL
+          disableResolveMessage: false
+

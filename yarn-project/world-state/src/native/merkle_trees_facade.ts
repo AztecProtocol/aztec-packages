@@ -1,26 +1,23 @@
+import { Fr } from '@aztec/foundation/fields';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
+import type {
+  BatchInsertionResult,
+  IndexedTreeId,
+  MerkleTreeLeafType,
+  MerkleTreeReadOperations,
+  MerkleTreeWriteOperations,
+  SequentialInsertionResult,
+  TreeInfo,
+} from '@aztec/stdlib/interfaces/server';
 import {
-  type BatchInsertionResult,
-  type IndexedTreeId,
   MerkleTreeId,
-  type MerkleTreeLeafType,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type SequentialInsertionResult,
-  SiblingPath,
-  type TreeInfo,
-} from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  Fr,
   NullifierLeaf,
   NullifierLeafPreimage,
-  PartialStateReference,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-  StateReference,
-} from '@aztec/circuits.js';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+} from '@aztec/stdlib/trees';
+import { type BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 
 import assert from 'assert';
 
@@ -32,7 +29,7 @@ import {
   blockStateReference,
   treeStateReferenceToSnapshot,
 } from './message.js';
-import { type NativeWorldStateInstance } from './native_world_state_instance.js';
+import type { NativeWorldStateInstance } from './native_world_state_instance.js';
 
 export class MerkleTreesFacade implements MerkleTreeReadOperations {
   constructor(
@@ -189,7 +186,6 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
   }
-
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,
@@ -266,6 +262,21 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
   }
+
+  public async createCheckpoint(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.CREATE_CHECKPOINT, { forkId: this.revision.forkId });
+  }
+
+  public async commitCheckpoint(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.COMMIT_CHECKPOINT, { forkId: this.revision.forkId });
+  }
+
+  public async revertCheckpoint(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.REVERT_CHECKPOINT, { forkId: this.revision.forkId });
+  }
 }
 
 function hydrateLeaf<ID extends MerkleTreeId>(treeId: ID, leaf: Fr | Buffer) {
@@ -284,7 +295,7 @@ export function serializeLeaf(leaf: Fr | NullifierLeaf | PublicDataTreeLeaf): Se
   if (leaf instanceof Fr) {
     return leaf.toBuffer();
   } else if (leaf instanceof NullifierLeaf) {
-    return { value: leaf.nullifier.toBuffer() };
+    return { nullifier: leaf.nullifier.toBuffer() };
   } else {
     return { value: leaf.value.toBuffer(), slot: leaf.slot.toBuffer() };
   }
@@ -296,23 +307,22 @@ function deserializeLeafValue(leaf: SerializedLeafValue): Fr | NullifierLeaf | P
   } else if ('slot' in leaf) {
     return new PublicDataTreeLeaf(Fr.fromBuffer(leaf.slot), Fr.fromBuffer(leaf.value));
   } else {
-    return new NullifierLeaf(Fr.fromBuffer(leaf.value));
+    return new NullifierLeaf(Fr.fromBuffer(leaf.nullifier));
   }
 }
 
-function deserializeIndexedLeaf(leaf: SerializedIndexedLeaf): IndexedTreeLeafPreimage {
-  if ('slot' in leaf.value) {
+function deserializeIndexedLeaf(leafPreimage: SerializedIndexedLeaf): IndexedTreeLeafPreimage {
+  if ('slot' in leafPreimage.leaf) {
     return new PublicDataTreeLeafPreimage(
-      Fr.fromBuffer(leaf.value.slot),
-      Fr.fromBuffer(leaf.value.value),
-      Fr.fromBuffer(leaf.nextValue),
-      BigInt(leaf.nextIndex),
+      new PublicDataTreeLeaf(Fr.fromBuffer(leafPreimage.leaf.slot), Fr.fromBuffer(leafPreimage.leaf.value)),
+      Fr.fromBuffer(leafPreimage.nextKey),
+      BigInt(leafPreimage.nextIndex),
     );
-  } else if ('value' in leaf.value) {
+  } else if ('nullifier' in leafPreimage.leaf) {
     return new NullifierLeafPreimage(
-      Fr.fromBuffer(leaf.value.value),
-      Fr.fromBuffer(leaf.nextValue),
-      BigInt(leaf.nextIndex),
+      new NullifierLeaf(Fr.fromBuffer(leafPreimage.leaf.nullifier)),
+      Fr.fromBuffer(leafPreimage.nextKey),
+      BigInt(leafPreimage.nextIndex),
     );
   } else {
     throw new Error('Invalid leaf type');

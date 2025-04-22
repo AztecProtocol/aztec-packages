@@ -3,6 +3,7 @@
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/eccvm//eccvm_fixed_vk.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -45,6 +46,13 @@ class ECCVMFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
+    // Fixed size of the ECCVM circuits used in ClientIVC
+    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // they become too small.
+    static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
+
     static constexpr size_t NUM_WIRES = 85;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -96,17 +104,21 @@ class ECCVMFlavor {
     // define the containers for storing the contributions from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
 
+    // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
+    // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
+    // SmallSubgroupIPA witness polynomials.
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
-  public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
+        bool operator==(const PrecomputedEntities& other) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
@@ -114,9 +126,6 @@ class ECCVMFlavor {
                               lagrange_last);  // column 2
 
         DataType get_selectors() { return get_all(); };
-        auto get_sigma_polynomials() { return RefArray<DataType, 0>{}; };
-        auto get_id_polynomials() { return RefArray<DataType, 0>{}; };
-        auto get_table_polynomials() { return RefArray<DataType, 0>{}; };
     };
 
     /**
@@ -128,12 +137,7 @@ class ECCVMFlavor {
                               z_perm,           // column 0
                               lookup_inverses); // column 1
     };
-
-    /**
-     * @brief Container for all witness polynomials used/constructed by the prover.
-     * @details Shifts are not included here since they do not occupy their own memory.
-     */
-    template <typename DataType> class WireEntities {
+    template <typename DataType> class WireNonShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               transcript_add,                             // column 0
@@ -195,32 +199,51 @@ class ECCVMFlavor {
                               transcript_msm_infinity,                    // column 56
                               transcript_msm_x_inverse,                   // column 57
                               transcript_msm_count_zero_at_transition,    // column 58
-                              transcript_msm_count_at_transition_inverse, // column 59
-                              transcript_mul,                             // column 60
-                              transcript_msm_count,                       // column 61
-                              transcript_accumulator_x,                   // column 62
-                              transcript_accumulator_y,                   // column 63
-                              precompute_scalar_sum,                      // column 64
-                              precompute_s1hi,                            // column 65
-                              precompute_dx,                              // column 66
-                              precompute_dy,                              // column 67
-                              precompute_tx,                              // column 68
-                              precompute_ty,                              // column 69
-                              msm_transition,                             // column 70
-                              msm_add,                                    // column 71
-                              msm_double,                                 // column 72
-                              msm_skew,                                   // column 73
-                              msm_accumulator_x,                          // column 74
-                              msm_accumulator_y,                          // column 75
-                              msm_count,                                  // column 76
-                              msm_round,                                  // column 77
-                              msm_add1,                                   // column 78
-                              msm_pc,                                     // column 79
-                              precompute_pc,                              // column 80
-                              transcript_pc,                              // column 81
-                              precompute_round,                           // column 82
-                              transcript_accumulator_empty,               // column 83
-                              precompute_select)                          // column 84
+                              transcript_msm_count_at_transition_inverse) // column 59
+    };
+
+    /**
+     * @brief Container for all to-be-shifted witness polynomials excluding the accumulators used/constructed by the
+     * prover.
+     * @details Shifts are not included here since they do not occupy their own memory.
+     */
+    template <typename DataType> class WireToBeShiftedWithoutAccumulatorsEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              transcript_mul,        // column 60
+                              transcript_msm_count,  // column 61
+                              precompute_scalar_sum, // column 62
+                              precompute_s1hi,       // column 63
+                              precompute_dx,         // column 64
+                              precompute_dy,         // column 65
+                              precompute_tx,         // column 66
+                              precompute_ty,         // column 67
+                              msm_transition,        // column 68
+                              msm_add,               // column 69
+                              msm_double,            // column 70
+                              msm_skew,              // column 71
+                              msm_accumulator_x,     // column 72
+                              msm_accumulator_y,     // column 73
+                              msm_count,             // column 74
+                              msm_round,             // column 75
+                              msm_add1,              // column 76
+                              msm_pc,                // column 77
+                              precompute_pc,         // column 78
+                              transcript_pc,         // column 79
+                              precompute_round,      // column 80
+                              precompute_select)     // column 81
+    };
+
+    /**
+     * @brief Containter for transcript accumulators, they stand out as the only to-be-shifted wires that are always
+     * populated until the dyadic size of the circuit.
+     */
+    template <typename DataType> class WireToBeShiftedAccumulatorEntities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              transcript_accumulator_empty, // column 82
+                              transcript_accumulator_x,     // column 83
+                              transcript_accumulator_y)     // column 84
     };
 
     /**
@@ -228,12 +251,29 @@ class ECCVMFlavor {
      * @details Shifts are not included here since they do not occupy their own memory.
      */
     template <typename DataType>
-    class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
+    class WitnessEntities : public WireNonShiftedEntities<DataType>,
+                            public WireToBeShiftedWithoutAccumulatorsEntities<DataType>,
+                            public WireToBeShiftedAccumulatorEntities<DataType>,
+                            public DerivedWitnessEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
-        auto get_wires() { return WireEntities<DataType>::get_all(); };
-        // The sorted concatenations of table and witness data needed for plookup.
-        auto get_sorted_polynomials() { return RefArray<DataType, 0>{}; };
+        DEFINE_COMPOUND_GET_ALL(WireNonShiftedEntities<DataType>,
+                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>,
+                                WireToBeShiftedAccumulatorEntities<DataType>,
+                                DerivedWitnessEntities<DataType>)
+        auto get_wires()
+        {
+            return concatenate(WireNonShiftedEntities<DataType>::get_all(),
+                               WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all(),
+                               WireToBeShiftedAccumulatorEntities<DataType>::get_all());
+        };
+
+        // Used to amortize the commitment time when the ECCVM size is fixed
+        auto get_accumulators() { return WireToBeShiftedAccumulatorEntities<DataType>::get_all(); };
+        auto get_wires_without_accumulators()
+        {
+            return concatenate(WireNonShiftedEntities<DataType>::get_all(),
+                               WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
+        }
     };
 
     /**
@@ -244,29 +284,29 @@ class ECCVMFlavor {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               transcript_mul_shift,               // column 0
                               transcript_msm_count_shift,         // column 1
-                              transcript_accumulator_x_shift,     // column 2
-                              transcript_accumulator_y_shift,     // column 3
-                              precompute_scalar_sum_shift,        // column 4
-                              precompute_s1hi_shift,              // column 5
-                              precompute_dx_shift,                // column 6
-                              precompute_dy_shift,                // column 7
-                              precompute_tx_shift,                // column 8
-                              precompute_ty_shift,                // column 9
-                              msm_transition_shift,               // column 10
-                              msm_add_shift,                      // column 11
-                              msm_double_shift,                   // column 12
-                              msm_skew_shift,                     // column 13
-                              msm_accumulator_x_shift,            // column 14
-                              msm_accumulator_y_shift,            // column 15
-                              msm_count_shift,                    // column 16
-                              msm_round_shift,                    // column 17
-                              msm_add1_shift,                     // column 18
-                              msm_pc_shift,                       // column 19
-                              precompute_pc_shift,                // column 20
-                              transcript_pc_shift,                // column 21
-                              precompute_round_shift,             // column 22
-                              transcript_accumulator_empty_shift, // column 23
-                              precompute_select_shift,            // column 24
+                              precompute_scalar_sum_shift,        // column 2
+                              precompute_s1hi_shift,              // column 3
+                              precompute_dx_shift,                // column 4
+                              precompute_dy_shift,                // column 5
+                              precompute_tx_shift,                // column 6
+                              precompute_ty_shift,                // column 7
+                              msm_transition_shift,               // column 8
+                              msm_add_shift,                      // column 9
+                              msm_double_shift,                   // column 10
+                              msm_skew_shift,                     // column 11
+                              msm_accumulator_x_shift,            // column 12
+                              msm_accumulator_y_shift,            // column 13
+                              msm_count_shift,                    // column 14
+                              msm_round_shift,                    // column 15
+                              msm_add1_shift,                     // column 16
+                              msm_pc_shift,                       // column 17
+                              precompute_pc_shift,                // column 18
+                              transcript_pc_shift,                // column 19
+                              precompute_round_shift,             // column 20
+                              precompute_select_shift,            // column 21
+                              transcript_accumulator_empty_shift, // column 22
+                              transcript_accumulator_x_shift,     // column 23
+                              transcript_accumulator_y_shift,     // column 24
                               z_perm_shift);                      // column 25
     };
 
@@ -276,29 +316,29 @@ class ECCVMFlavor {
         // NOTE: must match order of ShiftedEntities above!
         return RefArray{ entities.transcript_mul,               // column 0
                          entities.transcript_msm_count,         // column 1
-                         entities.transcript_accumulator_x,     // column 2
-                         entities.transcript_accumulator_y,     // column 3
-                         entities.precompute_scalar_sum,        // column 4
-                         entities.precompute_s1hi,              // column 5
-                         entities.precompute_dx,                // column 6
-                         entities.precompute_dy,                // column 7
-                         entities.precompute_tx,                // column 8
-                         entities.precompute_ty,                // column 9
-                         entities.msm_transition,               // column 10
-                         entities.msm_add,                      // column 11
-                         entities.msm_double,                   // column 12
-                         entities.msm_skew,                     // column 13
-                         entities.msm_accumulator_x,            // column 14
-                         entities.msm_accumulator_y,            // column 15
-                         entities.msm_count,                    // column 16
-                         entities.msm_round,                    // column 17
-                         entities.msm_add1,                     // column 18
-                         entities.msm_pc,                       // column 19
-                         entities.precompute_pc,                // column 20
-                         entities.transcript_pc,                // column 21
-                         entities.precompute_round,             // column 22
-                         entities.transcript_accumulator_empty, // column 23
-                         entities.precompute_select,            // column 24
+                         entities.precompute_scalar_sum,        // column 2
+                         entities.precompute_s1hi,              // column 3
+                         entities.precompute_dx,                // column 4
+                         entities.precompute_dy,                // column 5
+                         entities.precompute_tx,                // column 6
+                         entities.precompute_ty,                // column 7
+                         entities.msm_transition,               // column 8
+                         entities.msm_add,                      // column 9
+                         entities.msm_double,                   // column 10
+                         entities.msm_skew,                     // column 11
+                         entities.msm_accumulator_x,            // column 12
+                         entities.msm_accumulator_y,            // column 13
+                         entities.msm_count,                    // column 14
+                         entities.msm_round,                    // column 15
+                         entities.msm_add1,                     // column 16
+                         entities.msm_pc,                       // column 17
+                         entities.precompute_pc,                // column 18
+                         entities.transcript_pc,                // column 19
+                         entities.precompute_round,             // column 20
+                         entities.precompute_select,            // column 21
+                         entities.transcript_accumulator_empty, // column 22
+                         entities.transcript_accumulator_x,     // column 23
+                         entities.transcript_accumulator_y,     // column 24
                          entities.z_perm };                     // column 25
     }
 
@@ -317,28 +357,16 @@ class ECCVMFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-        // get_wires is inherited
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
-        // Gemini-specific getters.
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // this getter is necessary for more uniform zk verifiers
-        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
@@ -347,22 +375,6 @@ class ECCVMFlavor {
       public:
         using Base = AllEntities<FF>;
         using Base::Base;
-    };
-
-    /**
-     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
-     */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
     };
 
     /**
@@ -504,7 +516,7 @@ class ECCVMFlavor {
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
-                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_raw_ops(), builder.get_number_of_muls());
+                ECCVMTranscriptBuilder::compute_rows(builder.op_queue->get_eccvm_ops(), builder.get_number_of_muls());
             const std::vector<MSM> msms = builder.get_msms();
             const auto point_table_rows =
                 ECCVMPointTablePrecomputationBuilder::compute_rows(CircuitBuilder::get_flattened_scalar_muls(msms));
@@ -513,10 +525,18 @@ class ECCVMFlavor {
             const auto& msm_rows = std::get<0>(result);
             const auto& point_table_read_counts = std::get<1>(result);
 
-            const size_t num_rows =
-                std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
+            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
+                                    NUM_DISABLED_ROWS_IN_SUMCHECK;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
-            const size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
+
+            size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
+
+            if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
+                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound");
+            }
+
+            dyadic_num_rows = ECCVM_FIXED_SIZE;
+            size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -531,7 +551,7 @@ class ECCVMFlavor {
             }
             lagrange_first.at(0) = 1;
             lagrange_second.at(1) = 1;
-            lagrange_last.at(lagrange_last.size() - 1) = 1;
+            lagrange_last.at(unmasked_witness_size - 1) = 1;
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
@@ -588,13 +608,13 @@ class ECCVMFlavor {
             // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
             // values that are all zero (issue #2217)
             if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
-                for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+                for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                     transcript_accumulator_empty.set_if_valid_index(i, 1);
                 }
             }
             // in addition, unless the accumulator is reset, it contains the value from the previous row so this
             // must be propagated
-            for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
+            for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
                 transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
                 transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
             }
@@ -673,6 +693,30 @@ class ECCVMFlavor {
     };
 
     /**
+     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
+     */
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
+
+      public:
+        PartiallyEvaluatedMultivariates() = default;
+        PartiallyEvaluatedMultivariates(const size_t circuit_size)
+        {
+            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
+            for (auto& poly : this->get_all()) {
+                poly = Polynomial(circuit_size / 2);
+            }
+        }
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                // After the initial sumcheck round, the new size is CEIL(size/2).
+                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+                poly = Polynomial(desired_size, circuit_size / 2);
+            }
+        }
+    };
+
+    /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
@@ -681,11 +725,15 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
+        // Used to amortize the commitment time if the `fixed size` > `real_size`.
+        size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
+        // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
-            : Base(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()), 0)
+            : Base(ECCVM_FIXED_SIZE, 0)
+            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
         {}
     };
@@ -698,21 +746,35 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey() = default;
+        bool operator==(const VerificationKey&) const = default;
+
+        // IPA verification key requires one more point.
+        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key =
+            std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
+
+        // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
+        VerificationKey()
+            : VerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+
+            // Populate the commitments of the precomputed polynomials using the fixed VK data
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            // IPA verification key requires one more point.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
-            // how many points they need
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size + 1);
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
+            this->log_circuit_size = CONST_ECCVM_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
@@ -721,7 +783,8 @@ class ECCVMFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
@@ -858,7 +921,6 @@ class ECCVMFlavor {
      */
     class Transcript : public NativeTranscript {
       public:
-        uint32_t circuit_size;
         Commitment transcript_add_comm;
         Commitment transcript_mul_comm;
         Commitment transcript_eq_comm;
@@ -948,26 +1010,34 @@ class ECCVMFlavor {
         Commitment lookup_inverses_comm;
         Commitment libra_concatenation_commitment;
         FF libra_sum;
-        std::array<Commitment, CONST_PROOF_SIZE_LOG_N> sumcheck_round_commitments;
-        std::array<std::array<FF, 2>, CONST_PROOF_SIZE_LOG_N> sumcheck_round_evaluations;
+        std::array<Commitment, CONST_ECCVM_LOG_N> sumcheck_round_commitments;
+        std::array<std::array<FF, 2>, CONST_ECCVM_LOG_N> sumcheck_round_evaluations;
         FF libra_claimed_evaluation;
-        Commitment libra_big_sum_commitment;
+        Commitment libra_grand_sum_commitment;
         Commitment libra_quotient_commitment;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
         FF libra_concatenation_eval;
-        FF libra_shifted_big_sum_eval;
-        FF libra_big_sum_eval;
+        FF libra_shifted_grand_sum_eval;
+        FF libra_grand_sum_eval;
         FF libra_quotient_eval;
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
         std::vector<Commitment> gemini_fold_comms;
         std::vector<FF> gemini_fold_evals;
         Commitment shplonk_q_comm;
+        Commitment translation_concatenated_masking_term_commitment;
+        FF translation_masking_term_eval;
         FF translation_eval_op;
         FF translation_eval_px;
         FF translation_eval_py;
         FF translation_eval_z1;
         FF translation_eval_z2;
+        Commitment translation_grand_sum_commitment;
+        Commitment translation_quotient_commitment;
+        FF translation_concatenation_eval;
+        FF translation_grand_sum_shift_eval;
+        FF translation_grand_sum_eval;
+        FF translation_quotient_eval;
         Commitment shplonk_q2_comm;
 
         Transcript() = default;
@@ -980,8 +1050,7 @@ class ECCVMFlavor {
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
-            circuit_size = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
-                                                                                        num_frs_read);
+
             transcript_add_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
@@ -1162,7 +1231,7 @@ class ECCVMFlavor {
                 NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_sum =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 sumcheck_round_commitments[i] = NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read);
                 sumcheck_round_evaluations[i] = NativeTranscript::template deserialize_from_buffer<std::array<FF, 2>>(
@@ -1172,7 +1241,7 @@ class ECCVMFlavor {
             libra_claimed_evaluation = NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
                 NativeTranscript::proof_data, num_frs_read);
-            libra_big_sum_commitment =
+            libra_grand_sum_commitment =
                 NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_quotient_commitment =
                 NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -1180,18 +1249,20 @@ class ECCVMFlavor {
                 deserialize_from_buffer<Commitment>(NativeTranscript::proof_data, num_frs_read);
             hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N - 1; ++i) {
                 gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
             libra_concatenation_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_shifted_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_shifted_grand_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_grand_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             libra_quotient_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
+            translation_concatenated_masking_term_commitment =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             translation_eval_op =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             translation_eval_px =
@@ -1203,6 +1274,20 @@ class ECCVMFlavor {
             translation_eval_z2 =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
+            translation_masking_term_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_grand_sum_commitment =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            translation_quotient_commitment =
+                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            translation_concatenation_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_grand_sum_shift_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_grand_sum_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            translation_quotient_eval =
+                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
             shplonk_q2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
@@ -1211,8 +1296,6 @@ class ECCVMFlavor {
             size_t old_proof_length = NativeTranscript::proof_data.size();
 
             NativeTranscript::proof_data.clear();
-
-            NativeTranscript::template serialize_to_buffer(circuit_size, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);
@@ -1317,7 +1400,7 @@ class ECCVMFlavor {
 
             NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(sumcheck_round_commitments[i],
                                                                NativeTranscript::proof_data);
                 NativeTranscript::template serialize_to_buffer(sumcheck_round_evaluations[i],
@@ -1327,28 +1410,37 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
 
             NativeTranscript::template serialize_to_buffer(sumcheck_evaluations, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_big_sum_commitment, proof_data);
+            NativeTranscript::template serialize_to_buffer(libra_grand_sum_commitment, proof_data);
             NativeTranscript::template serialize_to_buffer(libra_quotient_commitment, proof_data);
             NativeTranscript::template serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N - 1; ++i) {
                 NativeTranscript::template serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
             }
             NativeTranscript::template serialize_to_buffer(libra_concatenation_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_shifted_big_sum_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_big_sum_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(libra_grand_sum_eval, proof_data);
             NativeTranscript::template serialize_to_buffer(libra_quotient_eval, proof_data);
             NativeTranscript::template serialize_to_buffer(shplonk_q_comm, proof_data);
 
+            NativeTranscript::template serialize_to_buffer(translation_concatenated_masking_term_commitment,
+                                                           proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_py, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_z1, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
 
+            NativeTranscript::template serialize_to_buffer(translation_masking_term_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_grand_sum_commitment, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_quotient_commitment, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_concatenation_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_grand_sum_shift_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_grand_sum_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer(translation_quotient_eval, proof_data);
             NativeTranscript::template serialize_to_buffer(shplonk_q2_comm, NativeTranscript::proof_data);
 
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);

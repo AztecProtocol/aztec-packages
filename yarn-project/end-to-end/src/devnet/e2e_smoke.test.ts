@@ -1,10 +1,10 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
   Fr,
   type PXE,
-  SignerlessWallet,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -12,15 +12,14 @@ import {
   fileURLToPath,
   retryUntil,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-// eslint-disable-next-line no-restricted-imports
-import { PXESchema } from '@aztec/circuit-types';
-import { deriveSigningKey } from '@aztec/circuits.js';
 import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type Logger } from '@aztec/foundation/log';
+import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
+// eslint-disable-next-line no-restricted-imports
+import { PXESchema } from '@aztec/stdlib/interfaces/client';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import getPort from 'get-port';
 import { exec } from 'node:child_process';
@@ -37,7 +36,7 @@ const {
   PXE_URL,
   FAUCET_URL,
   AZTEC_CLI = `node ${resolve(fileURLToPath(import.meta.url), '../../../../aztec/dest/bin/index.js')}`,
-  ETHEREUM_HOST,
+  ETHEREUM_HOSTS,
   PXE_PROVER_ENABLED = '0',
   USE_EMPTY_BLOCKS = '0',
 } = process.env;
@@ -67,8 +66,8 @@ describe('End-to-end tests for devnet', () => {
   beforeAll(async () => {
     logger = getLogger();
 
-    if (!ETHEREUM_HOST) {
-      throw new Error('ETHEREUM_HOST must be set');
+    if (!ETHEREUM_HOSTS) {
+      throw new Error('ETHEREUM_HOSTS must be set');
     }
 
     if (!AZTEC_CLI) {
@@ -163,7 +162,7 @@ describe('End-to-end tests for devnet', () => {
       claimSecret: { value: string };
       messageLeafIndex: string;
     }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
-      'l1-rpc-url': ETHEREUM_HOST!,
+      'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       'l1-private-key': l1Account.privateKey,
       'rpc-url': pxeUrl,
@@ -179,7 +178,7 @@ describe('End-to-end tests for devnet', () => {
     const txReceipt = await l2Account
       .deploy({
         fee: {
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(await l2Account.getWallet(), {
             claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
             claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
@@ -280,7 +279,7 @@ describe('End-to-end tests for devnet', () => {
 
   async function getL1Balance(address: string, token?: EthAddress): Promise<bigint> {
     const { balance } = await cli<{ balance: string }>('get-l1-balance', [address], {
-      'l1-rpc-url': ETHEREUM_HOST!,
+      'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       token,
     });
@@ -294,10 +293,12 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function advanceChainWithEmptyBlocks(pxe: PXE) {
-    const { l1ChainId, protocolVersion } = await pxe.getNodeInfo();
-    const test = await TestContract.deploy(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, protocolVersion)),
-    )
+    const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
+    if (!deployWallet) {
+      throw new Error('A funded wallet is required to create dummy txs.');
+    }
+
+    const test = await TestContract.deploy(deployWallet)
       .send({ universalDeploy: true, skipClassRegistration: true })
       .deployed();
 

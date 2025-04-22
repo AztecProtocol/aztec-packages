@@ -23,4 +23,3 @@ fn main(
     }
     prev_kernel_public_inputs
 }
-

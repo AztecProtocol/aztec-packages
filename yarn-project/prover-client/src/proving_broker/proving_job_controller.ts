@@ -1,31 +1,25 @@
-import {
-  type ProvingJobId,
-  type ProvingJobInputs,
-  type ProvingJobResultsMap,
-  ProvingRequestType,
-  type ServerCircuitProver,
-} from '@aztec/circuit-types';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { AbortError } from '@aztec/foundation/error';
+import { createLogger } from '@aztec/foundation/log';
+import type {
+  ProvingJobId,
+  ProvingJobInputs,
+  ProvingJobResultsMap,
+  ServerCircuitProver,
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 export enum ProvingJobControllerStatus {
   IDLE = 'idle',
-  PROVING = 'proving',
+  RUNNING = 'running',
   DONE = 'done',
-  ABORTED = 'aborted',
-}
-
-interface ProvingJobCompletionCallback<T extends ProvingRequestType = ProvingRequestType> {
-  (
-    jobId: ProvingJobId,
-    type: T,
-    error: Error | undefined,
-    result: ProvingJobResultsMap[T] | undefined,
-  ): void | Promise<void>;
 }
 
 export class ProvingJobController {
   private status: ProvingJobControllerStatus = ProvingJobControllerStatus.IDLE;
   private promise?: Promise<void>;
   private abortController = new AbortController();
+  private result?: ProvingJobResultsMap[ProvingRequestType] | Error;
 
   constructor(
     private jobId: ProvingJobId,
@@ -33,59 +27,58 @@ export class ProvingJobController {
     private epochNumber: number,
     private startedAt: number,
     private circuitProver: ServerCircuitProver,
-    private onComplete: ProvingJobCompletionCallback,
+    private onComplete: () => void,
+    private log = createLogger('prover-client:proving-agent:job-controller-' + randomBytes(4).toString('hex')),
   ) {}
 
   public start(): void {
     if (this.status !== ProvingJobControllerStatus.IDLE) {
+      this.log.warn(
+        `Job controller for jobId=${this.jobId} not starting because it is not idle currentStatus=${this.status}`,
+        {
+          currentStatus: this.status,
+          jobId: this.jobId,
+        },
+      );
       return;
     }
 
-    this.status = ProvingJobControllerStatus.PROVING;
+    this.promise = this.run();
 
-    this.promise = this.generateProof()
-      .then(
-        result => {
-          if (this.status === ProvingJobControllerStatus.ABORTED) {
-            return;
-          }
-          this.status = ProvingJobControllerStatus.DONE;
-          return this.onComplete(this.jobId, this.inputs.type, undefined, result);
-        },
-        error => {
-          if (this.status === ProvingJobControllerStatus.ABORTED) {
-            return;
-          }
-
-          if (error.name === 'AbortError') {
-            // Ignore abort errors
-            return;
-          }
-
-          this.status = ProvingJobControllerStatus.DONE;
-          return this.onComplete(this.jobId, this.inputs.type, error, undefined);
-        },
-      )
-      .catch(_ => {
-        // ignore completion errors
-      });
+    this.log.info(`Job controller started jobId=${this.jobId}`, {
+      jobId: this.jobId,
+    });
   }
 
   public getStatus(): ProvingJobControllerStatus {
     return this.status;
   }
 
+  public getResult(): ProvingJobResultsMap[ProvingRequestType] | Error | undefined {
+    return this.result;
+  }
+
   public abort(): void {
-    if (this.status !== ProvingJobControllerStatus.PROVING) {
+    if (this.status !== ProvingJobControllerStatus.RUNNING) {
+      this.log.warn(`Tried to abort job controller for jobId=${this.jobId} but it is not running`, {
+        currentStatus: this.status,
+        jobId: this.jobId,
+      });
       return;
     }
 
-    this.status = ProvingJobControllerStatus.ABORTED;
     this.abortController.abort();
+    this.log.warn(`Aborted job controller for jobId=${this.jobId}`, {
+      jobId: this.jobId,
+    });
   }
 
   public getJobId(): ProvingJobId {
     return this.jobId;
+  }
+
+  public getProofType(): ProvingRequestType {
+    return this.inputs.type;
   }
 
   public getStartedAt(): number {
@@ -95,6 +88,36 @@ export class ProvingJobController {
   public getProofTypeName(): string {
     return ProvingRequestType[this.inputs.type];
   }
+
+  private run = async () => {
+    this.status = ProvingJobControllerStatus.RUNNING;
+    let result: ProvingJobResultsMap[ProvingRequestType] | Error;
+    try {
+      result = await this.generateProof();
+    } catch (err) {
+      if (err && err instanceof Error) {
+        result = err;
+      } else {
+        result = new Error('Unknown proving error: ' + String(err), { cause: err });
+      }
+    }
+
+    if (this.abortController.signal.aborted) {
+      this.log.warn(`Job controller for jobId=${this.jobId} completed but job was aborted`, {
+        currentStatus: this.status,
+        jobId: this.jobId,
+      });
+      result = new AbortError('Proof was aborted');
+    }
+
+    this.result = result;
+    this.status = ProvingJobControllerStatus.DONE;
+    try {
+      this.onComplete();
+    } catch (err) {
+      this.log.warn(`On complete handler error: ${err}`, { jobId: this.jobId });
+    }
+  };
 
   private async generateProof(): Promise<ProvingJobResultsMap[ProvingRequestType]> {
     const { type, inputs } = this.inputs;

@@ -1,4 +1,4 @@
-import { type Logger } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js';
 
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
@@ -98,7 +98,7 @@ export class AlertChecker {
     }
 
     if (alertTriggered) {
-      throw new Error('Test failed due to triggered alert');
+      throw new AlertTriggeredError('Test failed due to triggered alert');
     }
   }
 
@@ -124,4 +124,8 @@ export class AlertChecker {
     const alerts = this.loadAlertsConfig(filePath);
     await this.checkAlerts(alerts);
   }
+}
+
+export class AlertTriggeredError extends Error {
+  override name = 'AlertTriggeredError';
 }

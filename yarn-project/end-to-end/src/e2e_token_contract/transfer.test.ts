@@ -27,13 +27,16 @@ describe('e2e_token_contract transfer private', () => {
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
 
-    // We give wallets[0] access to wallets[1]'s notes to be able to transfer the notes.
-    wallets[0].setScopes([wallets[0].getAddress(), wallets[1].getAddress()]);
-
     const tx = await asset.methods.transfer(accounts[1].address, amount).send().wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
-    const events = await wallets[1].getPrivateEvents<Transfer>(TokenContract.events.Transfer, tx.blockNumber!, 1);
+    const events = await wallets[1].getPrivateEvents<Transfer>(
+      asset.address,
+      TokenContract.events.Transfer,
+      tx.blockNumber!,
+      1,
+      [wallets[1].getAddress()],
+    );
 
     expect(events[0]).toEqual({
       from: accounts[0].address,

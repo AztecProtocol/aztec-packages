@@ -3,24 +3,24 @@ title: L2 Contracts (Aztec)
 sidebar_position: 1
 ---
 
-This page goes over the code in the L2 contract for Uniswap, which works alongside a [token bridge (codealong tutorial)](../token_bridge/index.md).
+This page goes over the code in the L2 contract for Uniswap, which works alongside a [token bridge (codealong tutorial)](../token_bridge.md).
 
 ## Main.nr
 
 ### Setup and constructor
 
-#include_code uniswap_setup noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
+#include_code uniswap_setup noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
 We just need to store the portal address for the token that we want to swap.
 
 ### Public swap
 
-#include_code swap_public noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
+#include_code swap_public noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
 
 1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../../../../aztec/concepts/advanced/authwit.md)).
 2. We fetch the underlying aztec token that needs to be swapped.
 3. We transfer the user’s funds to the Uniswap contract. Like with Ethereum, the user must have provided approval to the Uniswap contract to do so. The user must provide the nonce they used in the approval for transfer, so that Uniswap can send it to the token contract, to prove it has appropriate approval.
 4. Funds are added to the Uniswap contract.
-5. Uniswap must exit the input tokens to L1. For this it has to approve the bridge to burn its tokens on its behalf and then actually exit the funds. We call the [`exit_to_l1_public()` method on the token bridge](../token_bridge/3_withdrawing_to_l1.md). We use the public flow for exiting since we are operating on public state.
+5. Uniswap must exit the input tokens to L1. For this it has to approve the bridge to burn its tokens on its behalf and then actually exit the funds. We call the [`exit_to_l1_public()` method on the token bridge](../token_bridge.md). We use the public flow for exiting since we are operating on public state.
 6. It is not enough for us to simply emit a message to withdraw the funds. We also need to emit a message to display our swap intention. If we do not do this, there is nothing stopping a third party from calling the Uniswap portal with their own parameters and consuming our message.
 
 So the Uniswap portal (on L1) needs to know:
@@ -39,7 +39,7 @@ You can find the corresponding function on the [L1 contracts page](./l1_contract
 
 ### Private swap
 
-#include_code swap_private noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
+#include_code swap_private noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
 
 This uses a util function `compute_swap_private_content_hash()` - find that [here](#utils)
 
@@ -55,19 +55,19 @@ This flow works similarly to the public flow with a few notable changes:
 
 Both public and private swap functions call this function:
 
-#include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
 
 ## Utils
 
 ### Compute content hash for public
 
-#include_code uniswap_public_content_hash noir-projects/noir-contracts/contracts/uniswap_contract/src/util.nr rust
+#include_code uniswap_public_content_hash noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr rust
 
 This method computes the L2 to L1 message content hash for the public. To find out how it is consumed on L1, view the [L1 contracts page](./l1_contract.md)
 
 ### Compute content hash for private
 
-#include_code compute_swap_private_content_hash noir-projects/noir-contracts/contracts/uniswap_contract/src/util.nr rust
+#include_code compute_swap_private_content_hash noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr rust
 
 This method computes the L2 to L1 message content hash for the private. To find out how it is consumed on L1, view the [L1 contracts page](./l1_contract.md).
 

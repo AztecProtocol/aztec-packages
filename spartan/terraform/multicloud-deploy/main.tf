@@ -135,11 +135,6 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name  = "network.setupL2Contracts"
-    value = false
-  }
-
-  set {
     name  = "proverAgent.bb.hardwareConcurrency"
     value = 16
   }
@@ -172,7 +167,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   # pointing Google Cloud provers to nodes in AWS
   set {
-    name  = "ethereum.externalHost"
+    name  = "ethereum.execution.externalHosts"
     value = data.kubernetes_service.lb_ethereum_tcp.status.0.load_balancer.0.ingress.0.hostname
   }
 

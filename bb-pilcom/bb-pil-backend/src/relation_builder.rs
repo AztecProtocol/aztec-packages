@@ -143,6 +143,7 @@ impl RelationBuilder for BBFiles {
                 json!({
                     "degree": id.degree,
                     "identity": id.identity,
+                    "label": id.label.clone(),
                 })
             }).collect_vec(),
             "alias_defs": alias_defs_in_order.iter().map(|(name, degree, expr)| {
@@ -217,7 +218,7 @@ fn create_identity<F: FieldElement>(
 ) -> Option<BBIdentity> {
     // We want to read the types of operators and then create the appropriate code
     if let Some(expr) = &expression.selector {
-        let (degree, id, col_aliases) = recurse_expression(expr, indexed_aliases, false);
+        let (degree, id, col_aliases) = recurse_expression(expr, indexed_aliases, false, None);
         collected_aliases.extend(col_aliases);
         log::trace!("expression {:?}, {:?}", degree, id);
         Some(BBIdentity {

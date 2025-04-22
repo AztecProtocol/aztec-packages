@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 # Get the name of the script without the path and extension
@@ -24,25 +24,19 @@ until curl -s -X POST -H 'content-type: application/json' \
   $BOT_PXE_URL | grep -q '"enr:-'; do
   sleep 1
 done
-
-# Don't wait for l2 contracts if using EasyPrivateTokenContract
-if [ "${BOT_TOKEN_CONTRACT:-TokenContract}" != "EasyPrivateTokenContract" ]; then
-  echo "Waiting for l2 contracts to be deployed..."
-  until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ]; do
-    sleep 1
-  done
-  echo "Done waiting."
-fi
+echo "Waiting for l2 contracts to be deployed..."
+until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l2-contracts.env ]; do
+  sleep 1
+done
+echo "Done waiting."
 
 # Set environment variables
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
 export AZTEC_NODE_URL=${AZTEC_NODE_URL:-"http://127.0.0.1:8080"}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
-export BOT_PRIVATE_KEY="0xcafe"
 export BOT_TX_INTERVAL_SECONDS="5"
 export BOT_PRIVATE_TRANSFERS_PER_TX="1"
 export BOT_PUBLIC_TRANSFERS_PER_TX="0"
-export BOT_NO_WAIT_FOR_TRANSFERS="true"
 export BOT_FOLLOW_CHAIN="NONE"
 export BOT_NO_START="false"
 export PXE_PROVER_ENABLED="false"

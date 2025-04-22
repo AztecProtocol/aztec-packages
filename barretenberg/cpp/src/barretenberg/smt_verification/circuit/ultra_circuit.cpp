@@ -30,18 +30,18 @@ UltraCircuit::UltraCircuit(
     // add gate in its normal state to solver
 
     size_t arith_cursor = 0;
-    while (arith_cursor < this->selectors[1].size()) {
-        arith_cursor = this->handle_arithmetic_relation(arith_cursor, 1);
+    while (arith_cursor < this->selectors[2].size()) {
+        arith_cursor = this->handle_arithmetic_relation(arith_cursor, 2);
     }
 
     size_t lookup_cursor = 0;
-    while (lookup_cursor < this->selectors[5].size()) {
-        lookup_cursor = this->handle_lookup_relation(lookup_cursor, 5);
+    while (lookup_cursor < this->selectors[1].size()) {
+        lookup_cursor = this->handle_lookup_relation(lookup_cursor, 1);
     }
 
     size_t elliptic_cursor = 0;
-    while (elliptic_cursor < this->selectors[3].size()) {
-        elliptic_cursor = this->handle_elliptic_relation(elliptic_cursor, 3);
+    while (elliptic_cursor < this->selectors[4].size()) {
+        elliptic_cursor = this->handle_elliptic_relation(elliptic_cursor, 4);
     }
 
     // size_t delta_range_cursor = 0;
@@ -88,7 +88,7 @@ size_t UltraCircuit::handle_arithmetic_relation(size_t cursor, size_t idx)
 
     std::vector<bb::fr> boolean_gate = { 1, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
     bool boolean_gate_flag =
-        (boolean_gate == selectors[1][cursor]) && (w_l_idx == w_r_idx) && (w_o_idx == 0) && (w_4_idx == 0);
+        (boolean_gate == selectors[idx][cursor]) && (w_l_idx == w_r_idx) && (w_o_idx == 0) && (w_4_idx == 0);
     if (boolean_gate_flag) {
         (Bool(w_l) == Bool(STerm(0, this->solver, this->type)) | Bool(w_l) == Bool(STerm(1, this->solver, this->type)))
             .assert_term();
@@ -292,7 +292,7 @@ size_t UltraCircuit::handle_elliptic_relation(size_t cursor, size_t idx)
         y_add_identity == 0; // scaling_factor = 1
     }
 
-    bb::fr curve_b = this->selectors[3][cursor][11];
+    bb::fr curve_b = this->selectors[idx][cursor][11];
     auto x_pow_4 = (y1_sqr - curve_b) * x_1;
     auto y1_sqr_mul_4 = y1_sqr + y1_sqr;
     y1_sqr_mul_4 += y1_sqr_mul_4;

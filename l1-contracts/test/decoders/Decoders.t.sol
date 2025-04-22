@@ -2,10 +2,10 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "./Base.sol";
+import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {HeaderLibHelper} from "./helpers/HeaderLibHelper.sol";
-import {Header} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
+import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.

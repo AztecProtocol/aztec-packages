@@ -1,1 +1,1 @@
-export { jsonStringify, jsonParseWithSchema, tryJsonStringify } from './convert.js';
+export { jsonStringify, jsonParseWithSchema, jsonParseWithSchemaSync, tryJsonStringify } from './convert.js';

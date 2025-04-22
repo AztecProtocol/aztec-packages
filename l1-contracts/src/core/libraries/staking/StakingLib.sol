@@ -11,13 +11,16 @@ import {
   IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 library StakingLib {
   using SafeERC20 for IERC20;
-  using EnumerableSet for EnumerableSet.AddressSet;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -26,7 +29,7 @@ library StakingLib {
     uint256 _minimumStake,
     Timestamp _exitDelay,
     address _slasher
-  ) external {
+  ) internal {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
     store.minimumStake = _minimumStake;
@@ -34,7 +37,7 @@ library StakingLib {
     store.slasher = _slasher;
   }
 
-  function finaliseWithdraw(address _attester) external {
+  function finaliseWithdraw(address _attester) internal {
     StakingStorage storage store = getStorage();
     ValidatorInfo storage validator = store.info[_attester];
     require(validator.status == Status.EXITING, Errors.Staking__NotExiting(_attester));
@@ -56,7 +59,7 @@ library StakingLib {
     emit IStakingCore.WithdrawFinalised(_attester, recipient, amount);
   }
 
-  function slash(address _attester, uint256 _amount) external {
+  function slash(address _attester, uint256 _amount) internal {
     StakingStorage storage store = getStorage();
     require(msg.sender == store.slasher, Errors.Staking__NotSlasher(store.slasher, msg.sender));
 
@@ -78,6 +81,7 @@ library StakingLib {
     // gas and cost edge cases around recipient, so lets just avoid that.
     if (validator.status == Status.VALIDATING && validator.stake < store.minimumStake) {
       require(store.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
+
       validator.status = Status.LIVING;
     }
 
@@ -85,7 +89,7 @@ library StakingLib {
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
-    external
+    internal
   {
     require(
       _attester != address(0) && _proposer != address(0),
@@ -113,7 +117,7 @@ library StakingLib {
     emit IStakingCore.Deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
-  function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
+  function initiateWithdraw(address _attester, address _recipient) internal returns (bool) {
     StakingStorage storage store = getStorage();
     ValidatorInfo storage validator = store.info[_attester];
 
@@ -131,6 +135,8 @@ library StakingLib {
 
     // Note that the "amount" is not stored here, but reusing the `validators`
     // We always exit fully.
+    // @note The attester might be chosen for the epoch, so the delay must be long enough
+    //       to allow for that.
     store.exits[_attester] =
       Exit({exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay, recipient: _recipient});
     validator.status = Status.EXITING;
@@ -140,7 +146,7 @@ library StakingLib {
     return true;
   }
 
-  function getStorage() public pure returns (StakingStorage storage storageStruct) {
+  function getStorage() internal pure returns (StakingStorage storage storageStruct) {
     bytes32 position = STAKING_SLOT;
     assembly {
       storageStruct.slot := position

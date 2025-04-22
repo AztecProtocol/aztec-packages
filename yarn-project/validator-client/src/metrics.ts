@@ -1,4 +1,4 @@
-import { type BlockProposal } from '@aztec/circuit-types';
+import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
   Attributes,
   type Gauge,
@@ -11,6 +11,8 @@ import {
 export class ValidatorMetrics {
   private reExecutionTime: Gauge;
   private failedReexecutionCounter: UpDownCounter;
+  private attestationsCount: UpDownCounter;
+  private failedAttestationsCount: UpDownCounter;
 
   constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
@@ -25,6 +27,16 @@ export class ValidatorMetrics {
       description: 'The time taken to re-execute a transaction',
       unit: 'ms',
       valueType: ValueType.DOUBLE,
+    });
+
+    this.attestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_COUNT, {
+      description: 'The number of attestations',
+      valueType: ValueType.INT,
+    });
+
+    this.failedAttestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_FAILED_ATTESTATION_COUNT, {
+      description: 'The number of failed attestations',
+      valueType: ValueType.INT,
     });
   }
 
@@ -43,8 +55,17 @@ export class ValidatorMetrics {
   public async recordFailedReexecution(proposal: BlockProposal) {
     this.failedReexecutionCounter.add(1, {
       [Attributes.STATUS]: 'failed',
-      [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toString(),
       [Attributes.BLOCK_PROPOSER]: (await proposal.getSender())?.toString(),
+    });
+  }
+
+  public incAttestations() {
+    this.attestationsCount.add(1);
+  }
+
+  public incFailedAttestations(reason: string) {
+    this.failedAttestationsCount.add(1, {
+      [Attributes.ERROR_TYPE]: reason,
     });
   }
 }

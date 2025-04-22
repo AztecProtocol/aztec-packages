@@ -20,6 +20,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
+
+    // Number of bb::fr field elements used to represent a goblin element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
         field_t<Builder> positive_skew;
@@ -38,6 +41,34 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
 
     element(const element& other);
     element(element&& other) noexcept;
+
+    /**
+     * @brief Set the witness indices for the x and y coordinates to public
+     *
+     * @return uint32_t Index at which the representation is stored in the public inputs
+     */
+    uint32_t set_public() const
+    {
+        const uint32_t start_idx = x.set_public();
+        y.set_public();
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a biggroup element from limbs of its coordinates (generally stored in the public inputs)
+     *
+     * @param limbs
+     * @return element
+     */
+    static element reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        const size_t FRS_PER_FQ = Fq::PUBLIC_INPUTS_SIZE;
+        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
+        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
+
+        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+    }
 
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
@@ -143,6 +174,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         result.y.assert_is_in_field();
         return result;
     }
+    element scalar_mul(const Fr& scalar, const size_t max_num_bits = 0) const;
 
     element reduce() const
     {
@@ -231,7 +263,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     // i.e. for the bn254 curve, the template param is `typename = void`
     // for any other curve, there is no template param
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
+        requires(IsNotMegaBuilder<Builder>)
     static element bn254_endo_batch_mul(const std::vector<element>& big_points,
                                         const std::vector<Fr>& big_scalars,
                                         const std::vector<element>& small_points,
@@ -239,7 +271,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                                         const size_t max_num_small_bits);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>) // TODO(https://github.com/AztecProtocol/barretenberg/issues/707)
+        requires(IsNotMegaBuilder<Builder>)
     static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
                                                        const std::vector<Fr>& big_scalars,
                                                        const std::vector<element>& small_points,
@@ -525,7 +557,10 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             num_fives = num_points / 5;
             num_sixes = 0;
             // size-6 table is expensive and only benefits us if creating them reduces the number of total tables
-            if (num_fives * 5 == (num_points - 1)) {
+            if (num_points == 1) {
+                num_fives = 0;
+                num_sixes = 0;
+            } else if (num_fives * 5 == (num_points - 1)) {
                 num_fives -= 1;
                 num_sixes = 1;
             } else if (num_fives * 5 == (num_points - 2) && num_fives >= 2) {

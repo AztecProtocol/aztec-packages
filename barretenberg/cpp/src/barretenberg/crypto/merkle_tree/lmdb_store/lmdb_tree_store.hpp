@@ -10,7 +10,7 @@
 #include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
 #include "barretenberg/lmdblib/lmdb_store_base.hpp"
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "lmdb.h"
 #include <cstdint>
@@ -170,6 +170,8 @@ class LMDBTreeStore : public LMDBStoreBase {
     LMDBTreeStore& operator=(const LMDBTreeStore& other) = delete;
     LMDBTreeStore& operator=(LMDBTreeStore&& other) = delete;
     ~LMDBTreeStore() override = default;
+
+    const std::string& get_name() const;
 
     void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 

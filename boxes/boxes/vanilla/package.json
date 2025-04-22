@@ -11,7 +11,7 @@
     "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
     "dev": "yarn prep && webpack serve --mode development",
     "build": "yarn prep && webpack",
-    "serve": "webpack serve --no-open --mode development",
+    "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
     "test": "npx playwright test",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src"

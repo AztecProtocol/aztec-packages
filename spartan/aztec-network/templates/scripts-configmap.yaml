@@ -9,8 +9,8 @@ data:
     {{ .Files.Get "files/config/setup-service-addresses.sh" | nindent 4 }}
   setup-p2p-addresses.sh: |
     {{ .Files.Get "files/config/setup-p2p-addresses.sh" | nindent 4 }}
-  configure-validator-env.sh: |
-    {{ .Files.Get "files/config/config-validator-env.sh" | nindent 4 }}
+  configure-full-node-env.sh: |
+    {{ .Files.Get "files/config/config-full-node-env.sh" | nindent 4 }}
   configure-prover-env.sh: |
     {{ .Files.Get "files/config/config-prover-env.sh" | nindent 4 }}
   deploy-l1-contracts.sh: |
@@ -19,4 +19,7 @@ data:
     {{ .Files.Get "files/config/get-private-key.sh" | nindent 4 }}
   get-validator-addresses.sh: |
     {{ .Files.Get "files/config/get-validator-addresses.sh" | nindent 4 }}
-
+  consolidate-sepolia-balances.sh: |
+    {{ .Files.Get "files/cleanup/consolidate-sepolia-balances.sh" | nindent 4 }}
+  setup-otel-resource.sh: |
+    {{ .Files.Get "files/config/setup-otel-resource.sh" | nindent 4 }}

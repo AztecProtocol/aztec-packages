@@ -121,12 +121,10 @@ impl BlockRootRollupOutputComposer {
         };
 
         let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
-        if accumulated_fees != 0 {
-            fees[0] = FeeRecipient {
-                recipient: constants.global_variables.coinbase,
-                value: accumulated_fees,
-            };
-        }
+        fees[0] = FeeRecipient {
+            recipient: constants.global_variables.coinbase,
+            value: accumulated_fees,
+        };
 
         let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
         blob_public_inputs[0] = block_blob_public_inputs;
@@ -207,7 +205,7 @@ impl BlockRootRollupOutputComposer {
                 self.merged_rollup.end_sponge_blob,
             )
         } else {
-            /// Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            // Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
             unsafe {
                 blob::mock_blob_oracle::evaluate_blobs(
                     data.blobs_fields,

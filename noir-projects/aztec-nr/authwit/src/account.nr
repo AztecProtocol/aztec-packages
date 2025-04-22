@@ -1,7 +1,10 @@
 use dep::aztec::{
     context::PrivateContext,
-    hash::poseidon2_hash_with_separator,
-    protocol_types::constants::{GENERATOR_INDEX__COMBINED_PAYLOAD, GENERATOR_INDEX__TX_NULLIFIER},
+    protocol_types::{
+        constants::{GENERATOR_INDEX__COMBINED_PAYLOAD, GENERATOR_INDEX__TX_NULLIFIER},
+        hash::poseidon2_hash_with_separator,
+        traits::Hash,
+    },
 };
 
 use crate::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};

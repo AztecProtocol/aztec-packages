@@ -57,7 +57,7 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows)
         using Relation = std::tuple_element_t<i, typename AvmFlavor::LookupRelations>;
         checks.push_back([&, num_rows]() {
             // Compute logderivs.
-            bb::compute_logderivative_inverse<AvmFlavor, Relation>(polys, params, num_rows);
+            bb::compute_logderivative_inverse<typename AvmFlavor::FF, Relation>(polys, params, num_rows);
 
             // Check the logderivative relation
             typename Relation::SumcheckArrayOfValuesOverSubrelations lookup_result{};

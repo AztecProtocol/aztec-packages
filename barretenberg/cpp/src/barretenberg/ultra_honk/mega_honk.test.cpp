@@ -27,8 +27,6 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using MergeProver = MergeProver_<Flavor>;
-    using MergeVerifier = MergeVerifier_<Flavor>;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -90,6 +88,25 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
 TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 
 /**
+ * @brief Check that size of a merge proof matches the corresponding constant
+ * @details This is useful for ensuring correct construction of mock merge proofs
+ *
+ */
+TYPED_TEST(MegaHonkTests, MergeProofSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct a merge proof and ensure its size matches expectation; if not, the constant may need to be updated
+    MergeProver merge_prover{ builder.op_queue };
+    auto merge_proof = merge_prover.construct_proof();
+
+    EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
+}
+
+/**
  * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
  * gates
  *
@@ -116,6 +133,8 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
+    // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'BasicStructured' test for MegaZKFlavor.";
     }
@@ -152,6 +171,8 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 
     // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
+    // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'DynamicVirtualSizeIncrease' test for MegaZKFlavor.";
     }
@@ -207,10 +228,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 TYPED_TEST(MegaHonkTests, SingleCircuit)
 {
     using Flavor = TypeParam;
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-    auto builder = typename Flavor::CircuitBuilder{ op_queue };
+    auto builder = typename Flavor::CircuitBuilder{};
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
@@ -219,7 +237,7 @@ TYPED_TEST(MegaHonkTests, SingleCircuit)
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+    auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue);
     EXPECT_TRUE(merge_verified);
 }
 
@@ -233,9 +251,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
     using Flavor = TypeParam;
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
@@ -260,9 +275,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkOnly)
 
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
@@ -287,9 +299,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
 
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
@@ -304,17 +313,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         // Construct and verify Goblin ECC op queue Merge proof
         auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
-    }
-
-    // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
-    // iteratively during transcript aggregation by the provers and stored in the op queue.
-    size_t aggregate_op_queue_size = op_queue->get_current_size();
-    auto ultra_ops = op_queue->get_aggregate_transcript();
-    auto commitment_key = std::make_shared<typename Flavor::CommitmentKey>(aggregate_op_queue_size);
-    size_t idx = 0;
-    for (const auto& result : op_queue->get_ultra_ops_commitments()) {
-        auto expected = commitment_key->commit({ /* start index */ 0, ultra_ops[idx++] });
-        EXPECT_EQ(result, expected);
     }
 }
 
@@ -396,6 +394,8 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     using Flavor = TypeParam;
     // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
     // i=1,2,3. This mechanism does not work with structured polynomials yet.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
+    // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
         GTEST_SKIP() << "Skipping 'PolySwap' test for MegaZKFlavor.";
     }

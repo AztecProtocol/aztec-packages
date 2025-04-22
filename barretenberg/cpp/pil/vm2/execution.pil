@@ -1,13 +1,28 @@
 include "alu.pil";
 include "addressing.pil";
+include "address_derivation.pil";
 include "bc_decomposition.pil";
 include "bc_hashing.pil";
 include "bc_retrieval.pil";
 include "instr_fetching.pil";
+include "class_id_derivation.pil";
 include "range_check.pil";
 include "bitwise.pil";
+include "merkle_check.pil";
+include "memory.pil";
 include "precomputed.pil";
 include "sha256.pil";
+include "ecc.pil";
+include "poseidon2_hash.pil";
+include "poseidon2_perm.pil";
+include "scalar_mul.pil";
+include "to_radix.pil";
+include "ff_gt.pil";
+include "context.pil";
+include "context_stack.pil";
+include "public_data_read.pil";
+include "update_check.pil";
+include "nullifier_check.pil";
 
 namespace execution;
 
@@ -20,7 +35,6 @@ pol commit op1, op2, op3, op4;
 // resolved operands
 pol commit rop1, rop2, rop3, rop4;
 
-pol commit pc;
 pol commit bytecode_id;
 pol commit clk;
 pol commit last;
@@ -48,10 +62,3 @@ last * sel' = 0;
 
 // These are needed to have a non-empty set of columns for each type.
 pol public input;
-#[LOOKUP_DUMMY_PRECOMPUTED]
-sel {/*will be 1=OR*/ sel, clk, clk, clk} in
-precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
-#[LOOKUP_DUMMY_DYNAMIC]  // Just a self-lookup for now, for testing.
-sel {op1, op2, op3, op4} in sel {op1, op2, op3, op4};
-#[PERM_DUMMY_DYNAMIC]  // Just a self-permutation for now, for testing.
-sel {op1, op2, op3, op4} is sel {op1, op2, op3, op4};

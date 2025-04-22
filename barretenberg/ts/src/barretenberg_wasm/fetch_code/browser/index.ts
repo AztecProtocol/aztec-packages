@@ -3,11 +3,20 @@ import pako from 'pako';
 // Annoyingly the wasm declares if it's memory is shared or not. So now we need two wasms if we want to be
 // able to fallback on "non shared memory" situations.
 export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
-  const suffix = multithreaded ? '-threads' : '';
-  const url = wasmPath
-    ? `${wasmPath}/barretenberg${suffix}.wasm.gz`
-    : (await import(/* webpackIgnore: true */ `./barretenberg${suffix}.js`)).default;
+  let url: string;
+  if (wasmPath) {
+    const suffix = multithreaded ? '-threads' : '';
+    const filePath = wasmPath.split('/').slice(0, -1).join('/');
+    const fileNameWithExtensions = wasmPath.split('/').pop();
+    const [fileName, ...extensions] = fileNameWithExtensions!.split('.');
+    url = `${filePath}/${fileName}${suffix}.${extensions.join('.')}`;
+  } else {
+    url = multithreaded
+      ? (await import(/* webpackIgnore: true */ './barretenberg-threads.js')).default
+      : (await import(/* webpackIgnore: true */ './barretenberg.js')).default;
+  }
   const res = await fetch(url);
+  // Default bb wasm is compressed, but user could point it to a non-compressed version
   const maybeCompressedData = await res.arrayBuffer();
   const buffer = new Uint8Array(maybeCompressedData);
   const isGzip =

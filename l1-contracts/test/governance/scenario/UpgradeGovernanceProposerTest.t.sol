@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestBase} from "@test/base/Base.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
-import {Rollup} from "../../harnesses/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -17,7 +17,7 @@ import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {NewGovernanceProposerPayload} from "./NewGovernanceProposerPayload.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup, CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 
 /**
@@ -47,7 +47,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   function setUp() external {
     token = IMintableERC20(address(new TestERC20("test", "TEST", address(this))));
 
-    registry = new Registry(address(this));
+    registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, 7, 10);
 
     governance = new Governance(token, address(governanceProposer));
@@ -66,17 +66,23 @@ contract UpgradeGovernanceProposerTest is TestBase {
       });
     }
 
-    RewardDistributor rewardDistributor = new RewardDistributor(token, registry, address(this));
+    RewardDistributor rewardDistributor =
+      RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, token, bytes32(0), bytes32(0), address(this)
+      token,
+      rewardDistributor,
+      token,
+      address(this),
+      TestConstants.getGenesisState(),
+      TestConstants.getRollupConfigInput()
     );
 
     token.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     token.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
-    registry.upgrade(address(rollup));
-
+    registry.addRollup(IRollup(address(rollup)));
+    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
   }
 

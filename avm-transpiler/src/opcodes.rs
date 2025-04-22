@@ -37,6 +37,7 @@ pub enum AvmOpcode {
     // Execution environment
     GETENVVAR_16,
     CALLDATACOPY,
+    SUCCESSCOPY,
     RETURNDATASIZE,
     RETURNDATACOPY,
     // Control flow
@@ -77,7 +78,6 @@ pub enum AvmOpcode {
     SHA256COMPRESSION,
     KECCAKF1600,
     ECADD,
-    MSM,
     // Conversions
     TORADIXBE,
 }
@@ -125,6 +125,7 @@ impl AvmOpcode {
             AvmOpcode::GETENVVAR_16 => "GETENVVAR_16",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
+            AvmOpcode::SUCCESSCOPY => "SUCCESSCOPY",
             AvmOpcode::RETURNDATASIZE => "RETURNDATASIZE",
             AvmOpcode::RETURNDATACOPY => "RETURNDATACOPY",
 
@@ -173,7 +174,6 @@ impl AvmOpcode {
             AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
             AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::ECADD => "ECADD",
-            AvmOpcode::MSM => "MSM",
             // Conversions
             AvmOpcode::TORADIXBE => "TORADIXBE",
         }

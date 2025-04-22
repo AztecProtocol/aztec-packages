@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
-import { type Libp2p } from 'libp2p';
+import type { Libp2p } from 'libp2p';
 
 import { BatchConnectionSampler } from './batch_connection_sampler.js';
 import { ConnectionSampler, type RandomSampler } from './connection_sampler.js';

@@ -1,30 +1,38 @@
-# Aztec Box
+# Aztec Vanilla Starter Kit
 
-This box is a one-stop-shop for Aztec that will deploy a minimal barebones HTML+JS page. You can use it as a boilerplate to start developing your own Aztec app in seconds!
+This is a "frameworkless" starter dapp for use with Aztec.
 
 ## Getting Started
 
-The easiest way to start is with a Github Codespaces, which has a generous free tier. Just click on this button:
+Install Aztec as per the [getting started documentation](https://docs.aztec.network/developers/getting_started).
 
-[![One-Click HTML/TS Starter](.devcontainer/assets/vanilla_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fvanilla%2Fdevcontainer.json)
+Clone this repository:
 
-## Using the `npx` command
-
-The above method just uses the `npx` command, AKA "unboxing the box". This is a CLI command to quickly start developing on your own machine.
-
-### Prerequisites
-
-- Node >v18
-- Docker
-
-### Usage
-
-Just open a terminal and write:
-
-```bash
-npx aztec-app
+```
+git clone https://github.com/aztecprotocol/aztec-starter-vanilla
 ```
 
-## More information
+Ensure corepack is installed. Enable corepack and install dependencies:
 
-Visit the [Aztec Docs](https://docs.aztec.network) for more information on how Aztec works, and the [Awesome Aztec Repository](https://github.com/AztecProtocol/awesome-aztec) for more cool projects, boilerplates and tooling.
+```
+corepack enable
+yarn install
+```
+
+Run tests:
+
+```
+yarn test
+```
+
+Serve the dapp in development mode:
+
+```
+yarn serve
+```
+
+Build the dapp for distribution:
+
+```
+yarn build
+```

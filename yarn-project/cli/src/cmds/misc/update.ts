@@ -1,11 +1,10 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 import { relative, resolve } from 'path';
 import { parse } from 'semver';
 
-import { type DependencyChanges } from './update/common.js';
-import { GITHUB_TAG_PREFIX } from './update/github.js';
+import type { DependencyChanges } from './update/common.js';
 import { updateAztecNr } from './update/noir.js';
 import { getNewestVersion, updateAztecDeps, updateLockfile } from './update/npm.js';
 
@@ -44,11 +43,7 @@ export async function updateProject(
   for (const contract of contracts) {
     try {
       projectDependencyChanges.push(
-        await updateAztecNr(
-          resolve(process.cwd(), projectPath, contract),
-          `${GITHUB_TAG_PREFIX}-v${targetAztecVersion.version}`,
-          log,
-        ),
+        await updateAztecNr(resolve(process.cwd(), projectPath, contract), `v${targetAztecVersion.version}`, log),
       );
     } catch (err) {
       if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {

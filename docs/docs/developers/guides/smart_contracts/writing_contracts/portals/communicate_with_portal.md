@@ -3,7 +3,7 @@ title: Communicating with L1
 tags: [contracts, portals]
 ---
 
-Follow the [token bridge tutorial](../../../../tutorials/codealong/contract_tutorials/token_bridge/index.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../../../../developers/tutorials/codealong/contract_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 
@@ -13,10 +13,10 @@ The `Inbox` can be seen as a mailbox to the rollup, portals put messages into th
 
 When sending messages, we need to specify quite a bit of information beyond just the content that we are sharing. Namely we need to specify:
 
-| Name        | Type                | Description                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ----------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Recipient   | `L2Actor`           | The message recipient. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it.                                                                                                                                                                                              |
-| Secret Hash | `field` (~254 bits) | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use `computeSecretHash` to compute it from a secret.                                                                                              |
+| Name        | Type                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recipient   | `L2Actor`           | The message recipient. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it.                                                                                                                                                                                                            |
+| Secret Hash | `field` (~254 bits) | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use `computeSecretHash` to compute it from a secret.                                                                                                            |
 | Content     | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions) |
 
 With all that information at hand, we can call the `sendL2Message` function on the Inbox. The function will return a `field` (inside `bytes32`) that is the hash of the message. This hash can be used as an identifier to spot when your message has been included in a rollup block.
@@ -41,9 +41,9 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../tutorials/codealong/contract_tutorials/token_bridge/index.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/codealong/contract_tutorials/token_bridge.md).
 
-#include_code claim_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
 :::info
 The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Aztec.nr, you can use our `sha256_to_field()` to do a sha256 hash which fits in one field element
@@ -51,7 +51,7 @@ The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Azt
 
 ### Token portal hash library
 
-#include_code mint_to_public_content_hash_nr /noir-projects/noir-contracts/contracts/token_portal_content_hash_lib/src/lib.nr rust
+#include_code mint_to_public_content_hash_nr /noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib/src/lib.nr rust
 
 ### Token Portal contract
 
@@ -93,7 +93,7 @@ Access control on the L1 portal contract is essential to prevent consumption of 
 
 As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1.
 
-#include_code exit_to_l1_private noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code exit_to_l1_private noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
 When the transaction is included in a rollup block and published to Ethereum the message will be inserted into the `Outbox` on Ethereum, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
 
@@ -181,5 +181,5 @@ Designated callers are enforced at the contract level for contracts that are not
 ## Examples of portals
 
 - Token bridge (Portal contract built for L1 -> L2, i.e., a non-native L2 asset)
-  - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/test/portals/TokenPortal.sol)
-  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr)
+  - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/test/portals/TokenPortal.sol)
+  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)

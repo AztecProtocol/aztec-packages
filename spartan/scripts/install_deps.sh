@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
 os=$(uname | awk '{print tolower($0)}')
@@ -12,7 +12,7 @@ fi
 
 # Install kind if it is not installed
 if ! command -v kind &> /dev/null; then
-  curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.26.0/kind-${os}-$(arch)
+  curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.23.0/kind-${os}-$(arch)
   chmod +x ./kind
   sudo mv ./kind /usr/local/bin/kind
 fi

@@ -1,5 +1,5 @@
-import { type AztecNode, type PXE, createAztecNodeClient } from '@aztec/circuit-types';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { type AztecNode, type PXE, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 
 /*
  * Wrapper class for PXE service, avoids initialization issues due to

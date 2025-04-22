@@ -61,8 +61,8 @@ int32_t __imported_wasi_snapshot_preview1_fd_close(int32_t)
 
 int32_t __imported_wasi_snapshot_preview1_environ_get(int32_t, int32_t)
 {
-    info("environ_get not implemented.");
-    abort();
+    // info("environ_get not implemented.");
+    // abort();
     return 0;
 }
 

@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     address::aztec_address::AztecAddress, point::Point, scalar::Scalar, traits::FromField,
 };
-use std::embedded_curve_ops::multi_scalar_mul;
+use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 
 /// Computes a standard ecdh shared secret: [secret] * public_key = shared_secret.
 /// The input secret is known only to one party. The output shared secret is derivable

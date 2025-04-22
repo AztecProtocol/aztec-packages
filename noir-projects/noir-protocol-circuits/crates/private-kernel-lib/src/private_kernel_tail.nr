@@ -9,6 +9,7 @@ use dep::types::{
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
+    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -37,6 +38,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
             self.previous_kernel.verify();
         }
         // Generate output.
+        // Safety: The output is validated below by TailOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -59,18 +61,20 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
+            gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
         },
         address::{AztecAddress, EthAddress},
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
         tests::fixture_builder::FixtureBuilder,
+        traits::{Empty, FromField},
     };
     use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_L2_TO_L1_MSG,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -83,6 +87,7 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_protocol_nullifier();
+            previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
             previous_kernel.is_private_only = true;
 
             PrivateKernelTailInputsBuilder { previous_kernel }
@@ -117,25 +122,6 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
-    }
-
-    #[test]
-    fn measuring_of_log_lengths() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        // Logs for the previous call stack.
-        let prev_contract_class_logs_hash = 956;
-        let prev_contract_class_log_preimages_length = 24;
-        builder.previous_kernel.add_contract_class_log_hash(
-            prev_contract_class_logs_hash,
-            prev_contract_class_log_preimages_length,
-        );
-
-        let public_inputs = builder.execute();
-
-        assert_eq(
-            public_inputs.end.contract_class_log_preimages_length,
-            prev_contract_class_log_preimages_length,
-        );
     }
 
     #[test]
@@ -274,13 +260,24 @@ mod tests {
 
         let public_inputs = builder.execute();
 
+        let total_num_private_log_fields = get_emitted_private_logs_len(builder
+            .previous_kernel
+            .private_logs
+            .storage()
+            .map(|l| l.inner.log));
+        let total_num_contract_class_log_fields = get_emitted_contract_class_logs_len(builder
+            .previous_kernel
+            .contract_class_logs_hashes
+            .storage());
+
         let num_private_logs = 1 + 2;
-        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
-        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+        let num_da_fields =
+            1 /* nullifier */ + total_num_private_log_fields + total_num_contract_class_log_fields;
+        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD);
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
         let l2_gas = 1 * L2_GAS_PER_NULLIFIER
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG
-            + 12 * L2_GAS_PER_LOG_BYTE;
+            + 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
         assert_eq(Gas::tx_overhead() + Gas::new(da_gas, l2_gas), public_inputs.gas_used);
     }
 
@@ -290,21 +287,6 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
         builder.failed();
-    }
-
-    #[test]
-    fn propagate_fee_payer() {
-        // Check that we carry forward if the fee payer is already set
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        let fee_payer = AztecAddress::from_field(123);
-        builder.previous_kernel.fee_payer = fee_payer;
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer remains empty if unset
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 
     #[test]

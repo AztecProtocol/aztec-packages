@@ -27,6 +27,7 @@ template <typename Flavor> class UltraVerifier_ {
     bool verify_proof(const HonkProof& proof, const HonkProof& ipa_proof = {});
 
     std::shared_ptr<Transcript> transcript{ nullptr };
+    std::shared_ptr<Transcript> ipa_transcript{ nullptr };
     std::shared_ptr<DeciderVK> verification_key;
     std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key;
 };
@@ -34,6 +35,7 @@ template <typename Flavor> class UltraVerifier_ {
 using UltraVerifier = UltraVerifier_<UltraFlavor>;
 using UltraRollupVerifier = UltraVerifier_<UltraRollupFlavor>;
 using UltraKeccakVerifier = UltraVerifier_<UltraKeccakFlavor>;
+using UltraStarknetVerifier = UltraVerifier_<UltraStarknetFlavor>;
 using MegaVerifier = UltraVerifier_<MegaFlavor>;
 using MegaZKVerifier = UltraVerifier_<MegaZKFlavor>;
 

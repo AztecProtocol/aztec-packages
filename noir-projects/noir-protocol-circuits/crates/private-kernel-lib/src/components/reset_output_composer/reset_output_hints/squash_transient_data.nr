@@ -1,7 +1,9 @@
 use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::abis::{
-    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
-    side_effect::scoped::Scoped,
+    note_hash::ScopedNoteHash,
+    nullifier::ScopedNullifier,
+    private_log::PrivateLogData,
+    side_effect::{Ordered, scoped::Scoped},
 };
 
 pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
@@ -41,9 +43,9 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
         if log.inner.note_hash_counter == 0 {
             propagated_logs.push(log);
         } else {
-            let linked_note_hash_propagated = propagated_note_hashes.storage().any(
-                |n: ScopedNoteHash| (n.counter() == log.inner.note_hash_counter),
-            );
+            let linked_note_hash_propagated = propagated_note_hashes
+                .storage()
+                .any(|n: ScopedNoteHash| (n.counter() == log.inner.note_hash_counter));
             if linked_note_hash_propagated {
                 propagated_logs.push(log);
             }

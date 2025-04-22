@@ -22,7 +22,7 @@ use crate::oracle::execution_cache;
 pub struct Deployer<let N: u32, let M: u32> {
     pub path: str<N>,
     pub name: str<M>,
-    pub public_keys_hash: Field,
+    pub secret: Field,
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
@@ -38,14 +38,14 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash,
+            self.secret,
         );
         cheatcodes::advance_blocks_by(1);
         let inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
         let mut private_context = PrivateContext::new(inputs, 0);
         let args = call_interface.get_args();
         let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };
-        execution_cache::store(args);
+        execution_cache::store(args, args_hash);
         let _ = private_context.call_private_function_with_args_hash(
             instance.to_address(),
             call_interface.get_selector(),
@@ -68,7 +68,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash,
+            self.secret,
         );
         cheatcodes::advance_blocks_by(1);
 
@@ -98,7 +98,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash,
+            self.secret,
         );
         cheatcodes::advance_blocks_by(1);
 
@@ -115,7 +115,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     }
 
     pub unconstrained fn without_initializer(self) -> ContractInstance {
-        cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
+        cheatcodes::deploy(self.path, self.name, "", &[], self.secret)
     }
 }
 

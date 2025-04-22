@@ -79,6 +79,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
 
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
+        small_subgroup_ipa_prover.prove();
 
         prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
                                                               polynomial_batcher,
@@ -116,7 +117,9 @@ template class DeciderProver_<UltraFlavor>;
 template class DeciderProver_<UltraZKFlavor>;
 template class DeciderProver_<UltraRollupFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
+template class DeciderProver_<UltraStarknetFlavor>;
 template class DeciderProver_<UltraKeccakZKFlavor>;
+template class DeciderProver_<UltraStarknetZKFlavor>;
 template class DeciderProver_<MegaFlavor>;
 template class DeciderProver_<MegaZKFlavor>;
 

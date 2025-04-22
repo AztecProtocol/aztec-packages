@@ -1,7 +1,8 @@
-import { AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
@@ -14,7 +15,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   jest.setTimeout(TIMEOUT);
   const admin = AztecAddress.fromNumber(42);
   const liquidityProvider = AztecAddress.fromNumber(111);
-  const otherLiqduidityProvider = AztecAddress.fromNumber(222);
+  const otherLiquidityProvider = AztecAddress.fromNumber(222);
   const swapper = AztecAddress.fromNumber(333);
 
   let token0: ContractInstanceWithAddress;
@@ -24,7 +25,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
   });
 
   // TODO(dbanks12): add tester support for authwit and finish implementing this test
@@ -51,8 +52,8 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
 
     await mint(/*to=*/ liquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
     await mint(/*to=*/ liquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token1);
-    await mint(/*to=*/ otherLiqduidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
-    await mint(/*to=*/ otherLiqduidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token1);
+    await mint(/*to=*/ otherLiquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
+    await mint(/*to=*/ otherLiquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token1);
     await mint(/*to=*/ swapper, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
 
     //const ammBalancesBefore = await getAmmBalances();
@@ -72,6 +73,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
       constructorArgs,
       /*deployer=*/ admin,
       TokenContractArtifact,
+      /*skipNullifierInsertion=*/ false,
       seed,
     );
 
@@ -93,7 +95,13 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
 
   const deployAMM = async (seed = 0) => {
     const constructorArgs = [token0, token1, liquidityToken];
-    const amm = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, AMMContractArtifact, seed);
+    const amm = await tester.registerAndDeployContract(
+      constructorArgs,
+      /*deployer=*/ admin,
+      AMMContractArtifact,
+      /*skipNullifierInsertion=*/ false,
+      seed,
+    );
 
     await tester.simProveVerify(
       /*sender=*/ admin,

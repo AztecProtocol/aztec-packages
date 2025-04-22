@@ -94,7 +94,7 @@ resource "aws_service_discovery_service" "aztec-proving-agent" {
 data "template_file" "user_data" {
   count    = local.node_count
   template = <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
 echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-proving-agent-group-${count.index + 1}"}' >> /etc/ecs/ecs.config
 EOF
@@ -264,10 +264,6 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
       {
         "name": "PROVER_AGENT_ENABLED",
         "value": "true"
-      },
-      {
-        "name": "PROVER_AGENT_CONCURRENCY",
-        "value": "1"
       },
       {
         "name": "PROVER_REAL_PROOFS",

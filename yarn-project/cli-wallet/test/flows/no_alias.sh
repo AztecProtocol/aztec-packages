@@ -1,14 +1,15 @@
-#!/bin/bash
-set -e
-source ../utils/setup.sh
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+source shared/setup.sh
 
 test_title "Basic flow, no aliases"
 
 AMOUNT=42
 
-ACCOUNT_ADDRESS=$(aztec-wallet create-account -a main | grep "Address:" | awk '{print $2}')
-TOKEN_ADDRESS=$(aztec-wallet deploy ./target/token_contract-Token.json --args $ACCOUNT_ADDRESS Test TST 18 -f $ACCOUNT_ADDRESS | grep "Contract deployed at" | awk '{print $4}')
-aztec-wallet send mint_to_public -c ./target/token_contract-Token.json -ca $TOKEN_ADDRESS --args $ACCOUNT_ADDRESS $AMOUNT -f $ACCOUNT_ADDRESS
+aztec-wallet import-test-accounts
+ACCOUNT_ADDRESS=$(aztec-wallet create-account --payment method=fee_juice,feePayer=test0 | grep "Address:" | awk '{print $2}')
+TOKEN_ADDRESS=$(aztec-wallet deploy ./target/token_contract-Token.json --args accounts:test0 Test TST 18 -f test0 | grep "Contract deployed at" | awk '{print $4}')
+aztec-wallet send mint_to_public -c ./target/token_contract-Token.json -ca $TOKEN_ADDRESS --args $ACCOUNT_ADDRESS $AMOUNT -f test0
 RESULT=$(aztec-wallet simulate balance_of_public -c ./target/token_contract-Token.json -ca $TOKEN_ADDRESS --args $ACCOUNT_ADDRESS -f $ACCOUNT_ADDRESS | grep "Simulation result:" | awk '{print $3}')
 
 section "Main account public balance is ${RESULT}"

@@ -2,10 +2,11 @@ import { compactArray, times } from '@aztec/foundation/collection';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type Logger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -15,22 +16,19 @@ import {
   type Address,
   type BaseError,
   type BlockOverrides,
-  type Chain,
   type ContractFunctionExecutionError,
   type GetTransactionReturnType,
   type Hex,
-  type HttpTransport,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
   type StateOverride,
   type TransactionReceipt,
-  type WalletClient,
   formatGwei,
   getContractError,
   hexToBytes,
 } from 'viem';
 
-import { type L1Clients } from './deploy_l1_contracts.js';
+import type { ViemPublicClient, ViemWalletClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -40,7 +38,7 @@ import { formatViemError } from './utils.js';
 const WEI_CONST = 1_000_000_000n;
 
 // @note using this large gas limit to avoid the issue of `gas limit too low` when estimating gas in reth
-const LARGE_GAS_LIMIT = 10_000_000n;
+const LARGE_GAS_LIMIT = 12_000_000n;
 
 // setting a minimum bump percentage to 10% due to geth's implementation
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298
@@ -62,10 +60,6 @@ export interface L1TxUtilsConfig {
    * Maximum gas price in gwei
    */
   maxGwei?: bigint;
-  /**
-   * Minimum gas price in gwei
-   */
-  minGwei?: bigint;
   /**
    * Maximum blob fee per gas in gwei
    */
@@ -111,15 +105,10 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
     ...numberConfigHelper(20),
   },
-  minGwei: {
-    description: 'Minimum gas price in gwei',
-    env: 'L1_GAS_PRICE_MIN',
-    ...bigintConfigHelper(1n),
-  },
   maxGwei: {
     description: 'Maximum gas price in gwei',
     env: 'L1_GAS_PRICE_MAX',
-    ...bigintConfigHelper(100n),
+    ...bigintConfigHelper(500n),
   },
   maxBlobGwei: {
     description: 'Maximum blob fee per gas in gwei',
@@ -149,7 +138,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   checkIntervalMs: {
     description: 'How often to check tx status',
     env: 'L1_TX_MONITOR_CHECK_INTERVAL_MS',
-    ...numberConfigHelper(10_000),
+    ...numberConfigHelper(1_000),
   },
   stallTimeMs: {
     description: 'How long before considering tx stalled',
@@ -169,6 +158,10 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
 };
 
 export const defaultL1TxUtilsConfig = getDefaultConfig<L1TxUtilsConfig>(l1TxUtilsConfigMappings);
+
+export function getL1TxUtilsConfigEnvVars(): L1TxUtilsConfig {
+  return getConfigFromMappings(l1TxUtilsConfigMappings);
+}
 
 export interface L1TxRequest {
   to: Address | null;
@@ -202,14 +195,15 @@ export type TransactionStats = {
 };
 
 export class L1TxUtils {
-  protected readonly config: L1TxUtilsConfig;
+  public readonly config: L1TxUtilsConfig;
   private interrupted = false;
 
   constructor(
-    public publicClient: L1Clients['publicClient'],
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
-    protected readonly logger?: Logger,
+    public publicClient: ViemPublicClient,
+    public walletClient: ViemWalletClient,
+    protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
+    private debugMaxGasLimit: boolean = false,
   ) {
     this.config = {
       ...defaultL1TxUtilsConfig,
@@ -227,6 +221,12 @@ export class L1TxUtils {
 
   public getSenderAddress() {
     return this.walletClient.account.address;
+  }
+
+  public getSenderBalance(): Promise<bigint> {
+    return this.publicClient.getBalance({
+      address: this.getSenderAddress(),
+    });
   }
 
   public getBlock() {
@@ -253,7 +253,9 @@ export class L1TxUtils {
       const account = this.walletClient.account;
       let gasLimit: bigint;
 
-      if (gasConfig.gasLimit) {
+      if (this.debugMaxGasLimit) {
+        gasLimit = LARGE_GAS_LIMIT;
+      } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
         gasLimit = await this.estimateGas(account, request);
@@ -293,7 +295,9 @@ export class L1TxUtils {
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
       const viemError = formatViemError(err);
-      this.logger?.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      this.logger?.error(`Failed to send L1 transaction`, viemError.message, {
+        metaMessages: viemError.metaMessages,
+      });
       throw viemError;
     }
   }
@@ -505,12 +509,14 @@ export class L1TxUtils {
 
     // Get blob base fee if available
     let blobBaseFee = 0n;
-    try {
-      const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
-      blobBaseFee = BigInt(blobBaseFeeHex);
-      this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
-    } catch {
-      this.logger?.warn('Failed to get L1 blob base fee', attempt);
+    if (isBlobTx) {
+      try {
+        const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
+        blobBaseFee = BigInt(blobBaseFeeHex);
+        this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
+      } catch {
+        this.logger?.warn('Failed to get L1 blob base fee', attempt);
+      }
     }
 
     let priorityFee: bigint;

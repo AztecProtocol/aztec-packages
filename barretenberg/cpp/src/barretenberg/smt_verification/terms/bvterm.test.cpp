@@ -1,12 +1,14 @@
+#include <cstdint>
 #include <unordered_map>
 
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "term.hpp"
 
 #include <gtest/gtest.h>
 
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_randomness();
 }
 
 using namespace bb;
@@ -37,11 +39,8 @@ TEST(BVTerm, addition)
     x == a.get_value();
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getBitVectorValue();
-
-    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(b.get_value(), yvals);
 }
 
 TEST(BVTerm, subtraction)
@@ -66,11 +65,8 @@ TEST(BVTerm, subtraction)
     x == a.get_value();
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getBitVectorValue();
-
-    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(b.get_value(), yvals);
 }
 
 TEST(BVTerm, xor)
@@ -95,11 +91,8 @@ TEST(BVTerm, xor)
     x == a.get_value();
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y).getBitVectorValue();
-
-    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(b.get_value(), yvals);
 }
 
 TEST(BVTerm, rotr)
@@ -121,11 +114,8 @@ TEST(BVTerm, rotr)
     y == b.get_value();
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(x.term).getBitVectorValue();
-
-    STerm bval = STerm(a.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[x], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(a.get_value(), xvals);
 }
 
 TEST(BVTerm, rotl)
@@ -147,11 +137,8 @@ TEST(BVTerm, rotl)
     y == b.get_value();
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(x.term).getBitVectorValue();
-
-    STerm bval = STerm(a.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[x], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(a.get_value(), xvals);
 }
 
 // non bijective operators
@@ -178,10 +165,8 @@ TEST(BVTerm, mul)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(z.term).getBitVectorValue();
-    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(c.get_value(), xvals);
 }
 
 TEST(BVTerm, and)
@@ -207,10 +192,8 @@ TEST(BVTerm, and)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(z.term).getBitVectorValue();
-    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(c.get_value(), xvals);
 }
 
 TEST(BVTerm, or)
@@ -236,10 +219,8 @@ TEST(BVTerm, or)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(z.term).getBitVectorValue();
-    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(c.get_value(), xvals);
 }
 
 TEST(BVTerm, div)
@@ -265,10 +246,8 @@ TEST(BVTerm, div)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(z.term).getBitVectorValue();
-    STerm bval = STerm(c.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[z], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(c.get_value(), xvals);
 }
 
 TEST(BVTerm, shr)
@@ -291,10 +270,8 @@ TEST(BVTerm, shr)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(y.term).getBitVectorValue();
-    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(b.get_value(), xvals);
 }
 
 TEST(BVTerm, shl)
@@ -317,8 +294,57 @@ TEST(BVTerm, shl)
 
     ASSERT_TRUE(s.check());
 
-    std::string xvals = s.getValue(y.term).getBitVectorValue();
-    STerm bval = STerm(b.get_value(), &s, TermType::BVTerm);
-    std::string bvals = s.getValue(bval.term).getBitVectorValue();
-    ASSERT_EQ(bvals, xvals);
+    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(b.get_value(), xvals);
+}
+
+TEST(BVTerm, truncate)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
+    unsigned int mask = (1 << 10) - 1;
+    uint_ct b = a & mask;
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
+
+    STerm x = BVVar("x", &s);
+    STerm y = x.truncate(9);
+
+    x == a.get_value();
+
+    ASSERT_TRUE(s.check());
+
+    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(b.get_value(), xvals);
+}
+
+TEST(BVTerm, extract_bit)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_ct(&builder, engine.get_random_uint32());
+    unsigned int mask = (1 << 10);
+    uint_ct b = a & mask;
+    b >>= 10;
+
+    uint32_t modulus_base = 16;
+    uint32_t bitvector_size = 32;
+    Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+             default_solver_config,
+             modulus_base,
+             bitvector_size);
+
+    STerm x = BVVar("x", &s);
+    STerm y = x.extract_bit(10);
+
+    x == a.get_value();
+
+    ASSERT_TRUE(s.check());
+
+    bb::fr xvals = string_to_fr(s[y], /*base=*/2, /*is_signed=*/false);
+    ASSERT_EQ(b.get_value(), xvals);
 }

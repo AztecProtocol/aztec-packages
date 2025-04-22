@@ -1,12 +1,14 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { mockTx } from '@aztec/circuit-types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { AGGREGATION_OBJECT_LENGTH, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
+import { parseBooleanEnv } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { mockTx } from '@aztec/stdlib/testing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlock } from '../block_builder/light.js';
@@ -14,8 +16,10 @@ import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 describe('prover/bb_prover/full-rollup', () => {
+  const FAKE_PROOFS = parseBooleanEnv(process.env.FAKE_PROOFS);
+
   let context: TestContext;
-  let prover: BBNativeRollupProver;
+  let prover: BBNativeRollupProver | undefined;
   let log: Logger;
 
   beforeEach(async () => {
@@ -24,7 +28,7 @@ describe('prover/bb_prover/full-rollup', () => {
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
-    context = await TestContext.new(log, 1, buildProver);
+    context = await TestContext.new(log, 1, FAKE_PROOFS ? undefined : buildProver);
   });
 
   afterEach(async () => {
@@ -50,7 +54,7 @@ describe('prover/bb_prover/full-rollup', () => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
           const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
           tx.data.constants.historicalHeader = initialHeader;
-          tx.data.constants.vkTreeRoot = await getVKTreeRoot();
+          tx.data.constants.vkTreeRoot = getVKTreeRoot();
           return tx;
         });
 
@@ -74,7 +78,11 @@ describe('prover/bb_prover/full-rollup', () => {
       log.info(`Awaiting proofs`);
       const epochResult = await context.orchestrator.finaliseEpoch();
 
-      await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
+      if (prover) {
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
+        epochResult.proof.numPublicInputs -= AGGREGATION_OBJECT_LENGTH;
+        await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
+      }
 
       // Generate test data for the 2/2 blocks epoch scenario
       if (blockCount === 2 && totalBlocks === 2 && isGenerateTestDataEnabled()) {
@@ -85,7 +93,7 @@ describe('prover/bb_prover/full-rollup', () => {
         );
       }
     },
-    900000,
+    FAKE_PROOFS ? undefined : 900_000,
   );
 
   // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots
@@ -120,6 +128,8 @@ describe('prover/bb_prover/full-rollup', () => {
     await context.orchestrator.setBlockCompleted(context.blockNumber);
 
     const result = await context.orchestrator.finaliseEpoch();
-    await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
+    if (prover) {
+      await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
+    }
   });
 });

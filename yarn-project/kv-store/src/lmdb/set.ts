@@ -1,7 +1,7 @@
-import { type Database } from 'lmdb';
+import type { Database } from 'lmdb';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
+import type { Key, Range } from '../interfaces/common.js';
+import type { AztecAsyncSet, AztecSet } from '../interfaces/set.js';
 import { LmdbAztecMap } from './map.js';
 
 /**

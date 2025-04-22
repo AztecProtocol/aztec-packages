@@ -12,7 +12,7 @@ namespace bb {
  * @tparam Flavor
  * @return OinkProverOutput<Flavor>
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
+template <IsUltraFlavor Flavor> HonkProof OinkProver<Flavor>::prove()
 {
     if (proving_key->proving_key.commitment_key == nullptr) {
         proving_key->proving_key.commitment_key =
@@ -59,10 +59,12 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
 
-#ifndef __wasm__
+    // #ifndef __wasm__
     // Free the commitment key
     proving_key->proving_key.commitment_key = nullptr;
-#endif
+    // #endif
+
+    return transcript->proof_data;
 }
 
 /**
@@ -74,10 +76,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
     const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
     const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
-    transcript->send_to_verifier(domain_separator + "circuit_size", circuit_size);
-    transcript->send_to_verifier(domain_separator + "public_input_size", num_public_inputs);
-    transcript->send_to_verifier(domain_separator + "pub_inputs_offset",
-                                 static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset));
+    const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
+
+    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
+    transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
+    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
     ASSERT(proving_key->proving_key.num_public_inputs == proving_key->proving_key.public_inputs.size());
 
@@ -236,18 +239,6 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 }
 
 /**
- * @brief We mask the commitment to a witness, its evaluation at the Sumcheck challenge and, if needed, the
- * evaluation of its shift.
- */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::mask_witness_polynomial(Polynomial<FF>& polynomial)
-{
-    const size_t circuit_size = polynomial.virtual_size();
-    for (size_t idx = 1; idx < MASKING_OFFSET; idx++) {
-        polynomial.at(circuit_size - idx) = FF::random_element();
-    }
-}
-
-/**
  * @brief A uniform method to mask, commit, and send the corresponding commitment to the verifier.
  *
  * @param polynomial
@@ -259,9 +250,9 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
                                                       const std::string& label,
                                                       const CommitmentKey::CommitType type)
 {
-    // Mask if needed
+    // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
-        mask_witness_polynomial(polynomial);
+        polynomial.mask();
     };
 
     typename Flavor::Commitment commitment;
@@ -275,7 +266,9 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
+template class OinkProver<UltraStarknetFlavor>;
 template class OinkProver<UltraKeccakZKFlavor>;
+template class OinkProver<UltraStarknetZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;

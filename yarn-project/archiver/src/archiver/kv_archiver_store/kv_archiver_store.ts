@@ -1,46 +1,43 @@
-import {
-  type GetContractClassLogsResponse,
-  type GetPublicLogsResponse,
-  type InBlock,
-  type InboxLeaf,
-  type L2Block,
-  type LogFilter,
-  type TxHash,
-  type TxReceipt,
-  type TxScopedL2Log,
-} from '@aztec/circuit-types';
-import {
-  type BlockHeader,
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type Fr,
-  type PrivateLog,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type StoreSize } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, StoreSize } from '@aztec/kv-store';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2Block } from '@aztec/stdlib/block';
+import type {
+  ContractClassPublic,
+  ContractInstanceUpdateWithAddress,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { InboxLeaf } from '@aztec/stdlib/messaging';
+import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval } from '../structs/data_retrieval.js';
-import { type L1Published } from '../structs/published.js';
+import { join } from 'path';
+
+import type { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
+import type { DataRetrieval } from '../structs/data_retrieval.js';
+import type { PublishedL2Block } from '../structs/published.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
-import { NullifierStore } from './nullifier_store.js';
+
+export const ARCHIVER_DB_VERSION = 1;
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
+  public static readonly SCHEMA_VERSION = ARCHIVER_DB_VERSION;
+
   #blockStore: BlockStore;
   #logStore: LogStore;
-  #nullifierStore: NullifierStore;
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
@@ -54,13 +51,21 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
-    this.#nullifierStore = new NullifierStore(db);
+  }
+
+  public async backupTo(path: string, compress = true): Promise<string> {
+    await this.db.backupTo(path, compress);
+    return join(path, 'data.mdb');
+  }
+
+  public close() {
+    return this.db.close();
   }
 
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
-  getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
@@ -83,9 +88,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#contractClassStore.getContractClassIds();
   }
 
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const contract = this.#contractInstanceStore.getContractInstance(address);
-    return contract;
+  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
+    return this.#contractInstanceStore.getContractInstance(address, blockNumber);
   }
 
   async addContractClasses(
@@ -113,9 +117,9 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    utilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, unconstrainedFunctions);
+    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
@@ -126,12 +130,34 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return (await Promise.all(data.map(c => this.#contractInstanceStore.deleteContractInstance(c)))).every(Boolean);
   }
 
+  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean> {
+    return (
+      await Promise.all(
+        data.map((update, logIndex) =>
+          this.#contractInstanceStore.addContractInstanceUpdate(update, blockNumber, logIndex),
+        ),
+      )
+    ).every(Boolean);
+  }
+  async deleteContractInstanceUpdates(
+    data: ContractInstanceUpdateWithAddress[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    return (
+      await Promise.all(
+        data.map((update, logIndex) =>
+          this.#contractInstanceStore.deleteContractInstanceUpdate(update, blockNumber, logIndex),
+        ),
+      )
+    ).every(Boolean);
+  }
+
   /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+  addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
     return this.#blockStore.addBlocks(blocks);
   }
 
@@ -153,7 +179,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
+  getBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
     return toArray(this.#blockStore.getBlocks(start, limit));
   }
 
@@ -170,8 +196,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found).
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   getTxEffect(txHash: TxHash) {
     return this.#blockStore.getTxEffect(txHash);
@@ -197,23 +223,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.deleteLogs(blocks);
-  }
-
-  /**
-   * Append new nullifiers to the store's list.
-   * @param blocks - The blocks for which to add the nullifiers.
-   * @returns True if the operation is successful.
-   */
-  addNullifiers(blocks: L2Block[]): Promise<boolean> {
-    return this.#nullifierStore.addNullifiers(blocks);
-  }
-
-  deleteNullifiers(blocks: L2Block[]): Promise<boolean> {
-    return this.#nullifierStore.deleteNullifiers(blocks);
-  }
-
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
-    return this.#nullifierStore.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
 
   getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -309,16 +318,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#blockStore.getProvenL2BlockNumber();
   }
 
-  getProvenL2EpochNumber(): Promise<number | undefined> {
-    return this.#blockStore.getProvenL2EpochNumber();
-  }
-
   async setProvenL2BlockNumber(blockNumber: number) {
     await this.#blockStore.setProvenL2BlockNumber(blockNumber);
-  }
-
-  async setProvenL2EpochNumber(epochNumber: number) {
-    await this.#blockStore.setProvenL2EpochNumber(epochNumber);
   }
 
   async setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {

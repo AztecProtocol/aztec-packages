@@ -6,8 +6,11 @@ use crate::components::reset_output_composer::reset_output_hints::generate_reset
 use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataIndexHint};
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier, private_log::PrivateLogData, side_effect::scoped::Scoped,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        note_hash::ScopedNoteHash,
+        nullifier::ScopedNullifier,
+        private_log::PrivateLogData,
+        side_effect::{Ordered, scoped::Scoped},
     },
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
@@ -15,6 +18,7 @@ use dep::types::{
         compute_siloed_private_log_field, compute_unique_siloed_note_hash, silo_note_hash,
         silo_nullifier,
     },
+    traits::{Deserialize, Serialize},
     utils::arrays::sort_by_counter_asc,
 };
 

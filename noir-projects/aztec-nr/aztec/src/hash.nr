@@ -1,13 +1,12 @@
-use crate::utils::to_bytes::{arr_to_be_bytes_arr, str_to_be_bytes_arr};
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
         GENERATOR_INDEX__FUNCTION_ARGS, GENERATOR_INDEX__MESSAGE_NULLIFIER,
-        GENERATOR_INDEX__SECRET_HASH,
+        GENERATOR_INDEX__PUBLIC_CALLDATA, GENERATOR_INDEX__SECRET_HASH,
     },
     hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice, sha256_to_field},
     point::Point,
-    traits::Hash,
+    traits::{Hash, ToField},
 };
 
 pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
@@ -82,6 +81,7 @@ impl ArgsHasher {
     }
 }
 
+// Computes the hash of input arguments or return values for private functions, or for authwit creation.
 pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
     if args.len() == 0 {
         0
@@ -90,11 +90,30 @@ pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
     }
 }
 
+// Same as `hash_args_array`, but takes a slice instead of an array.
 pub fn hash_args(args: [Field]) -> Field {
     if args.len() == 0 {
         0
     } else {
         poseidon2_hash_with_separator_slice(args, GENERATOR_INDEX__FUNCTION_ARGS)
+    }
+}
+
+// Computes the hash of calldata for public functions.
+pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
+    if calldata.len() == 0 {
+        0
+    } else {
+        poseidon2_hash_with_separator(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
+    }
+}
+
+// Same as `hash_calldata_array`, but takes a slice instead of an array.
+pub fn hash_calldata(calldata: [Field]) -> Field {
+    if calldata.len() == 0 {
+        0
+    } else {
+        poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
     }
 }
 

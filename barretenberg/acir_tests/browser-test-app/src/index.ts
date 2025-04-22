@@ -20,7 +20,7 @@ async function runTest(
   await backend.destroy();
 
   debug(`verifying...`);
-  const verifier = new BarretenbergVerifier({ threads });
+  const verifier = new BarretenbergVerifier();
   const verified = await verifier.verifyUltraHonkProof(proof, verificationKey);
   debug(`verified: ${verified}`);
 

@@ -45,13 +45,13 @@ describe('e2e_nested_contract manual', () => {
   it('executes public calls in expected order', async () => {
     const pubSetValueSelector = await childContract.methods.pub_set_value.selector();
     const actions = [
-      await childContract.methods.pub_set_value(20n).request(),
-      await parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n).request(),
+      childContract.methods.pub_set_value(20n),
+      parentContract.methods.enqueue_call_to_child(childContract.address, pubSetValueSelector, 40n),
     ];
 
     const tx = await new BatchCall(wallet, actions).send().wait();
     const extendedLogs = (
-      await wallet.getPublicLogs({
+      await pxe.getPublicLogs({
         fromBlock: tx.blockNumber!,
       })
     ).logs;

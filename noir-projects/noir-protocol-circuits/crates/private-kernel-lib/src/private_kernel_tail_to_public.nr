@@ -10,6 +10,7 @@ use dep::types::{
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
+    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -38,6 +39,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.previous_kernel.verify();
         }
         // Generate output.
+        // Safety: The output is validated below by TailToPublicOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -60,19 +62,23 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-            note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
+            gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+            kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
+            note_hash::ScopedNoteHash,
+            nullifier::ScopedNullifier,
+            private_log::PrivateLogData,
             side_effect::scoped::Scoped,
         },
         address::{AztecAddress, EthAddress},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
+        traits::FromField,
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, GENERATOR_INDEX__TSK_M,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-        L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX,
+        PRIVATE_KERNEL_TAIL_INDEX,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -85,6 +91,7 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_protocol_nullifier();
+            previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
             previous_kernel.end_setup();
             previous_kernel.append_public_call_requests(1);
 
@@ -159,9 +166,11 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let output_nullifiers = builder.previous_kernel.nullifiers.storage().map(
-            |n: ScopedNullifier| n.nullifier.value,
-        );
+        let output_nullifiers = builder
+            .previous_kernel
+            .nullifiers
+            .storage()
+            .map(|n: ScopedNullifier| n.nullifier.value);
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.nullifiers,
@@ -194,9 +203,11 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let exposed_note_hashes = builder.previous_kernel.note_hashes.storage().map(
-            |n: ScopedNoteHash| n.note_hash.value,
-        );
+        let exposed_note_hashes = builder
+            .previous_kernel
+            .note_hashes
+            .storage()
+            .map(|n: ScopedNoteHash| n.note_hash.value);
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.note_hashes,
@@ -229,9 +240,11 @@ mod tests {
         // expect 2 revertible note hashes
         builder.previous_kernel.append_siloed_private_logs_for_note(3, 12);
 
-        let exposed_private_logs = builder.previous_kernel.private_logs.storage().map(
-            |n: Scoped<PrivateLogData>| n.inner.log,
-        );
+        let exposed_private_logs = builder
+            .previous_kernel
+            .private_logs
+            .storage()
+            .map(|n: Scoped<PrivateLogData>| n.inner.log);
 
         let public_inputs = builder.execute();
 
@@ -384,14 +397,25 @@ mod tests {
 
         let public_inputs = builder.execute();
 
+        let total_num_private_log_fields = get_emitted_private_logs_len(builder
+            .previous_kernel
+            .private_logs
+            .storage()
+            .map(|l| l.inner.log));
+        let total_num_contract_class_log_fields = get_emitted_contract_class_logs_len(builder
+            .previous_kernel
+            .contract_class_logs_hashes
+            .storage());
+
         let num_private_logs = 3;
-        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
-        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+        let num_da_fields =
+            1 /* nullifier */ + total_num_private_log_fields + total_num_contract_class_log_fields;
+        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD);
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
             + 1 * L2_GAS_PER_NULLIFIER
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG
-            + 12 * L2_GAS_PER_LOG_BYTE /* contract_class_logs */;
+            + 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
@@ -401,21 +425,6 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
         builder.failed();
-    }
-
-    #[test]
-    fn propagate_fee_payer() {
-        // Check that we carry forward if the fee payer is already set
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let fee_payer = AztecAddress::from_field(123);
-        builder.previous_kernel.fee_payer = fee_payer;
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer remains empty if unset
-        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 
     #[test]

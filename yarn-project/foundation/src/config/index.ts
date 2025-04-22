@@ -1,4 +1,4 @@
-import { type EnvVar } from './env_var.js';
+import type { EnvVar } from './env_var.js';
 
 export { type EnvVar } from './env_var.js';
 
@@ -10,6 +10,7 @@ export interface ConfigMapping {
   description: string;
   isBoolean?: boolean;
   nested?: Record<string, ConfigMapping>;
+  fallback?: EnvVar[];
 }
 
 export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
@@ -18,20 +19,59 @@ export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
 
 export type ConfigMappingsType<T> = Record<keyof T, ConfigMapping>;
 
+/**
+ * Shared utility function to get a value from environment variables with fallback support.
+ * This can be used by both getConfigFromMappings and CLI utilities.
+ *
+ * @param env - The primary environment variable name
+ * @param fallback - Optional array of fallback environment variable names
+ * @param parseFunc - Optional function to parse the environment variable value
+ * @param defaultValue - Optional default value to use if no environment variable is set
+ * @returns The parsed value from environment variables or the default value
+ */
+export function getValueFromEnvWithFallback<T>(
+  env: EnvVar | undefined,
+  parseFunc: ((val: string) => T) | undefined,
+  defaultValue: T | undefined,
+  fallback?: EnvVar[],
+): T | undefined {
+  let value: string | undefined;
+
+  // Try primary env var
+  if (env) {
+    value = process.env[env];
+  }
+
+  // If primary not found, try fallbacks
+  if (value === undefined && fallback && fallback.length > 0) {
+    for (const fallbackEnv of fallback) {
+      const fallbackVal = process.env[fallbackEnv];
+      if (fallbackVal !== undefined) {
+        value = fallbackVal;
+        break;
+      }
+    }
+  }
+
+  // Parse the value if needed
+  if (value !== undefined) {
+    return parseFunc ? parseFunc(value) : (value as unknown as T);
+  }
+
+  // Return default if no env var found
+  return defaultValue;
+}
+
 export function getConfigFromMappings<T>(configMappings: ConfigMappingsType<T>): T {
   const config = {} as T;
 
   for (const key in configMappings) {
-    const { env, parseEnv, defaultValue: def, nested } = configMappings[key];
+    const { env, parseEnv, defaultValue, nested, fallback } = configMappings[key];
     if (nested) {
       (config as any)[key] = getConfigFromMappings(nested);
     } else {
-      const val = env ? process.env[env] : undefined;
-      if (val !== undefined) {
-        (config as any)[key] = parseEnv ? parseEnv(val) : val;
-      } else if (def !== undefined) {
-        (config as any)[key] = def;
-      }
+      // Use the shared utility function
+      (config as any)[key] = getValueFromEnvWithFallback(env, parseEnv, defaultValue, fallback);
     }
   }
 
@@ -72,7 +112,12 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
  */
 export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
   return {
-    parseEnv: (val: string) => BigInt(val),
+    parseEnv: (val: string) => {
+      if (val === '') {
+        return defaultVal;
+      }
+      return BigInt(val);
+    },
     defaultValue: defaultVal,
   };
 }

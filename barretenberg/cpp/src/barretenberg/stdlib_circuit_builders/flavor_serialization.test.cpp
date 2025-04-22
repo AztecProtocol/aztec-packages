@@ -26,7 +26,7 @@ template <typename Flavor> class FlavorSerializationTests : public ::testing::Te
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, MegaFlavor>;
 TYPED_TEST_SUITE(FlavorSerializationTests, FlavorTypes);
 
 // Test msgpack serialization/deserialization of verification keys
@@ -44,13 +44,12 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     VerificationKey original_vkey{ proving_key->proving_key };
 
-    // Set the pcs ptr to null since this will not be reconstructed correctly from buffer
-    original_vkey.pcs_verification_key = nullptr;
-
     // Populate some non-zero values in the databus_propagation_data to ensure its being handled
     if constexpr (IsMegaBuilder<Builder>) {
-        original_vkey.databus_propagation_data.app_return_data_public_input_idx = 2;
-        original_vkey.databus_propagation_data.kernel_return_data_public_input_idx = 4;
+        original_vkey.databus_propagation_data.app_return_data_commitment_pub_input_key =
+            PublicComponentKey{ /*start_idx=*/1 };
+        original_vkey.databus_propagation_data.kernel_return_data_commitment_pub_input_key =
+            PublicComponentKey{ /*start_idx=*/5 };
         original_vkey.databus_propagation_data.is_kernel = 1;
     }
 

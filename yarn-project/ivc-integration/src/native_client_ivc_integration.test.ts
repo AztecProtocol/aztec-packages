@@ -1,23 +1,13 @@
-import {
-  BB_RESULT,
-  executeBbClientIvcProof,
-  readFromOutputDirectory,
-  verifyClientIvcProof,
-  writeToOutputDirectory,
-} from '@aztec/bb-prover';
-import { type ClientIvcProof } from '@aztec/circuits.js';
+import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { encode } from '@msgpack/msgpack';
-import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
-
-/* eslint-disable camelcase */
+import { proveClientIVC } from './prove_native.js';
 
 const logger = createLogger('ivc-integration:test:native');
 
@@ -29,31 +19,9 @@ describe('Client IVC Integration', () => {
 
   beforeEach(async () => {
     // Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-client-ivc-integration-'));
+    bbWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
   });
-
-  async function createClientIvcProof(witnessStack: Uint8Array[], bytecodes: string[]): Promise<ClientIvcProof> {
-    await fs.writeFile(
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
-    );
-
-    await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
-    const provingResult = await executeBbClientIvcProof(
-      bbBinaryPath,
-      bbWorkingDirectory,
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      path.join(bbWorkingDirectory, 'witnesses.msgpack'),
-      logger.info,
-    );
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      throw new Error(provingResult.reason);
-    }
-
-    return readFromOutputDirectory(bbWorkingDirectory);
-  }
 
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
@@ -62,9 +30,14 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
-    const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await writeToOutputDirectory(proof, bbWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
+    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, logger);
+    await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
+    const verifyResult = await verifyClientIvcProof(
+      bbBinaryPath,
+      bbWorkingDirectory.concat('/proof'),
+      bbWorkingDirectory.concat('/vk'),
+      logger.info,
+    );
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });
@@ -79,9 +52,14 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
 
-    const proof = await createClientIvcProof(witnessStack, bytecodes);
-    await writeToOutputDirectory(proof, bbWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(bbBinaryPath, bbWorkingDirectory, logger.info);
+    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, logger);
+    await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
+    const verifyResult = await verifyClientIvcProof(
+      bbBinaryPath,
+      bbWorkingDirectory.concat('/proof'),
+      bbWorkingDirectory.concat('/vk'),
+      logger.info,
+    );
 
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
   });

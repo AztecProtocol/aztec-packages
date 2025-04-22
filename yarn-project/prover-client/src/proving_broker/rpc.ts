@@ -1,3 +1,5 @@
+import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
+import type { SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import {
   type GetProvingJobResponse,
   ProofUri,
@@ -7,11 +9,10 @@ import {
   ProvingJobId,
   type ProvingJobProducer,
   ProvingJobStatus,
-  ProvingRequestType,
-} from '@aztec/circuit-types';
-import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
-import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type ApiSchemaFor, optional } from '@aztec/foundation/schemas';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { type ApiSchemaFor, optional } from '@aztec/stdlib/schemas';
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/stdlib/versioning';
 import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
@@ -57,20 +58,38 @@ export function createProvingBrokerServer(broker: ProvingJobBroker): SafeJsonRpc
   return createTracedJsonRpcServer(broker, ProvingJobBrokerSchema);
 }
 
-export function createProvingJobBrokerClient(url: string, fetch = makeTracedFetch([1, 2, 3], false)): ProvingJobBroker {
-  return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, false, 'proverBroker', fetch);
+export function createProvingJobBrokerClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobBroker {
+  return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, {
+    namespaceMethods: 'proverBroker',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
 export function createProvingJobProducerClient(
   url: string,
+  versions: Partial<ComponentsVersions>,
   fetch = makeTracedFetch([1, 2, 3], false),
 ): ProvingJobProducer {
-  return createSafeJsonRpcClient(url, ProvingJobProducerSchema, false, 'provingJobProducer', fetch);
+  return createSafeJsonRpcClient(url, ProvingJobProducerSchema, {
+    namespaceMethods: 'provingJobProducer',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
 export function createProvingJobConsumerClient(
   url: string,
+  versions: Partial<ComponentsVersions>,
   fetch = makeTracedFetch([1, 2, 3], false),
 ): ProvingJobConsumer {
-  return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, false, 'provingJobConsumer', fetch);
+  return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
+    namespaceMethods: 'provingJobConsumer',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }

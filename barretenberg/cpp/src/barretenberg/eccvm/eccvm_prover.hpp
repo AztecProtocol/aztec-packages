@@ -18,6 +18,7 @@ class ECCVMProver {
     using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
+    using Commitment = typename Flavor::Commitment;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -28,12 +29,12 @@ class ECCVMProver {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+    using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
-    BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
     BB_PROFILE void execute_log_derivative_commitments_round();
     BB_PROFILE void execute_grand_product_computation_round();
@@ -43,9 +44,21 @@ class ECCVMProver {
 
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
+    void compute_translation_opening_claims();
+    void commit_to_witness_polynomial(Polynomial& polynomial,
+                                      const std::string& label,
+                                      CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default,
+                                      const std::vector<std::pair<size_t, size_t>>& active_ranges = {});
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
+
+    size_t unmasked_witness_size;
+
+    // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
+    // `multivariate_to_univariate_opening_claim`
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
+    std::array<OpeningClaim, NUM_OPENING_CLAIMS> opening_claims;
 
     TranslationEvaluations translation_evaluations;
 
@@ -58,13 +71,8 @@ class ECCVMProver {
     CommitmentLabels commitment_labels;
     ZKData zk_sumcheck_data;
 
-    Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
-    FF nu_challenge;               // needed in both Shplonk rounds
-
-    Polynomial quotient_W;
-
     FF evaluation_challenge_x;
-    FF translation_batching_challenge_v; // to be rederived by the translator verifier
+    FF batching_challenge_v;
 
     SumcheckOutput<Flavor> sumcheck_output;
 };

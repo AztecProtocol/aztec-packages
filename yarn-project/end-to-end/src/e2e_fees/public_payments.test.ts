@@ -1,7 +1,7 @@
 import { type AccountWallet, type AztecAddress, PublicFeePaymentMethod } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -15,7 +15,7 @@ describe('e2e_fees public_payment', () => {
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
 
-  const t = new FeesTest('private_payment');
+  const t = new FeesTest('public_payment');
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -52,13 +52,11 @@ describe('e2e_fees public_payment', () => {
       t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC.address),
       t.getGasBalanceFn(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
-
-    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   it('pays fees for tx that make public transfer', async () => {
     const bananasToSendToBob = 10n;
+    // docs:start:fpc
     const tx = await bananaCoin.methods
       .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
       .send({
@@ -68,6 +66,7 @@ describe('e2e_fees public_payment', () => {
         },
       })
       .wait();
+    // docs:end:fpc
 
     const feeAmount = tx.transactionFee!;
 

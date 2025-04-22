@@ -1,16 +1,16 @@
+import { createLogger } from '@aztec/foundation/log';
 import {
   type L2BlockSource,
   L2BlockStream,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
-} from '@aztec/circuit-types';
-import { createLogger } from '@aztec/foundation/log';
+} from '@aztec/stdlib/block';
 import { type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 /** Extends an L2BlockStream with a tracer to create a new trace per iteration. */
 export class TraceableL2BlockStream extends L2BlockStream implements Traceable {
   constructor(
-    l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,
+    l2BlockSource: Pick<L2BlockSource, 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'>,
     localData: L2BlockStreamLocalDataProvider,
     handler: L2BlockStreamEventHandler,
     public readonly tracer: Tracer,

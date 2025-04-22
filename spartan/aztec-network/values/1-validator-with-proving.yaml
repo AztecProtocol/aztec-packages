@@ -1,16 +1,10 @@
 aztec:
   realProofs: true
-  slotDuration: 36
-  epochDuration: 32
 
 validator:
   replicas: 1
   validator:
     disabled: false
-
-bootNode:
-  validator:
-    disabled: true
 
 proverAgent:
   replicas: 6

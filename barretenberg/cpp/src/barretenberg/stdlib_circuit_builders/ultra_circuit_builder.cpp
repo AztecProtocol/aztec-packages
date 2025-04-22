@@ -7,7 +7,8 @@
  */
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include <barretenberg/plonk/proof_system/constants.hpp>
+#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>
 #include <unordered_set>
@@ -52,6 +53,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
         process_RAM_arrays();
         process_range_lists();
 #endif
+        populate_public_inputs_block();
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
@@ -644,6 +646,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
      * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
      * can also chain double gates together
      **/
+    this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
+
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
     if (can_fuse_into_previous_gate) {
@@ -1795,6 +1799,24 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 }
 
 /**
+ * @brief Copy the public input idx data into the public inputs trace block
+ * @note
+ */
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
+{
+    PROFILE_THIS_NAME("populate_public_inputs_block");
+
+    // Update the public inputs block
+    for (const auto& idx : this->public_inputs) {
+        // first two wires get a copy of the public inputs
+        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
+        for (auto& selector : this->blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
+}
+
+/**
  * @brief Called in `compute_proving_key` when finalizing circuit.
  * Iterates over the cached_non_native_field_multiplication objects,
  * removes duplicates, and instantiates the remainder as constraints`
@@ -2164,6 +2186,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_sorted_ROM_gate(RomRecord& record)
 {
     record.record_witness = this->add_variable(0);
+    // record_witness is intentionally used only in a single gate
+    update_used_witnesses(record.record_witness);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
     blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
@@ -2298,7 +2322,7 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::create_RAM_array(const size_t array
 /**
  * @brief Initialize a RAM cell to equal `value_witness`
  *
- * @param ram_id The index of the ROM array, which cell we are initializing
+ * @param ram_id The index of the RAM array, which cell we are initializing
  * @param index_value The index of the cell within the array (an actual index, not a witness index)
  * @param value_witness The index of the witness with the value that should be in the
  */
@@ -2569,6 +2593,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         const auto value1 = this->get_variable(record.value_column1_witness);
         const auto value2 = this->get_variable(record.value_column2_witness);
         const auto index_witness = this->add_variable(FF((uint64_t)index));
+        // the same thing as with the record witness
+        update_used_witnesses(index_witness);
         const auto value1_witness = this->add_variable(value1);
         const auto value2_witness = this->add_variable(value2);
         RomRecord sorted_record{
@@ -2869,7 +2895,14 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
  */
 template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<ExecutionTrace>::export_circuit()
 {
-    this->set_variable_name(this->zero_idx, "zero");
+    // You should not name `zero` by yourself
+    // but it will be rewritten anyway
+    auto first_zero_idx = this->get_first_variable_in_class(this->zero_idx);
+    if (!this->variable_names.contains(first_zero_idx)) {
+        this->set_variable_name(this->zero_idx, "zero");
+    } else {
+        this->variable_names[first_zero_idx] = "zero";
+    }
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 
@@ -2921,7 +2954,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
             };
 
             if (idx < block.size() - 1) {
-                // TODO(alex): don't forget to handle memory_data later
                 tmp_w.push_back(block.w_l()[idx + 1]);
                 tmp_w.push_back(block.w_r()[idx + 1]);
                 tmp_w.push_back(block.w_o()[idx + 1]);

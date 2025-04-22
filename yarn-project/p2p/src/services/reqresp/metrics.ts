@@ -1,6 +1,6 @@
 // Request response metrics
 import { Attributes, Metrics, ValueType } from '@aztec/telemetry-client';
-import { type TelemetryClient, type Tracer, type UpDownCounter } from '@aztec/telemetry-client';
+import type { TelemetryClient, Tracer, UpDownCounter } from '@aztec/telemetry-client';
 
 export class ReqRespMetrics {
   public readonly tracer: Tracer;

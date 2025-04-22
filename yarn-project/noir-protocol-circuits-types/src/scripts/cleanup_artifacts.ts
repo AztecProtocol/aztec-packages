@@ -11,7 +11,7 @@ async function cleanupArtifacts(target: string) {
     }
     const fileData = JSON.parse((await readFile(join(target, file), 'utf8')).toString());
     fileData.file_map = {};
-    fileData.debug_symbols = {};
+    fileData.debug_symbols = '';
     await writeFile(join(target, file), JSON.stringify(fileData));
   }
 }

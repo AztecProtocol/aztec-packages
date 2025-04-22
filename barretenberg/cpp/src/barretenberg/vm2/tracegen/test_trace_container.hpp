@@ -3,8 +3,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -23,6 +23,8 @@ class TestTraceContainer : public TraceContainer {
             set(row, values[row]);
         }
     }
+    // Copy constructor. We allow copying for testing purposes.
+    TestTraceContainer(const TestTraceContainer&);
 
     // Returns a trace in dense format with properly filled in shifted columns.
     RowTraceContainer as_rows() const;

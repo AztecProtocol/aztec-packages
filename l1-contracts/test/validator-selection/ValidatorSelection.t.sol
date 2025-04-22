@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "../decoders/Base.sol";
+import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -12,25 +12,24 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup, Config} from "@aztec/core/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
-import {Slot, Epoch, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Slot, Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+
+import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -56,6 +55,7 @@ contract ValidatorSelectionTest is DecoderBase {
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   Signature internal emptySignature;
+  TimeCheater internal timeCheater;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
   mapping(address proposer => uint256 privateKey) internal proposerPrivateKeys;
   mapping(address proposer => address attester) internal proposerToAttester;
@@ -72,6 +72,13 @@ contract ValidatorSelectionTest is DecoderBase {
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime = full.block.decodedHeader.globalVariables.timestamp
         - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
+
+      timeCheater = new TimeCheater(
+        address(rollup),
+        initialTime,
+        TestConstants.AZTEC_SLOT_DURATION,
+        TestConstants.AZTEC_EPOCH_DURATION
+      );
       vm.warp(initialTime);
     }
 
@@ -96,24 +103,15 @@ contract ValidatorSelectionTest is DecoderBase {
     }
 
     testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this));
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    Registry registry = new Registry(address(this), testERC20);
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup({
-      _fpcJuicePortal: new MockFeeJuicePortal(),
+      _feeAsset: testERC20,
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
-      _vkTreeRoot: bytes32(0),
-      _protocolContractTreeRoot: bytes32(0),
-      _ares: address(this),
-      _config: Config({
-        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-        targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecEpochProofClaimWindowInL2Slots: TestConstants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-      })
+      _governance: address(this),
+      _genesisState: TestConstants.getGenesisState(),
+      _config: TestConstants.getRollupConfigInput()
     });
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
@@ -122,18 +120,20 @@ contract ValidatorSelectionTest is DecoderBase {
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
-    inbox = Inbox(address(rollup.INBOX()));
-    outbox = Outbox(address(rollup.OUTBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = Outbox(address(rollup.getOutbox()));
 
     merkleTestUtil = new MerkleTestUtil();
 
+    // Progress into the next epoch for changes to take effect
+    timeCheater.cheat__progressEpoch();
     _;
   }
 
   function testInitialCommitteeMatch() public setup(4) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
-    assertEq(rollup.getCurrentEpoch(), 0);
+    assertEq(rollup.getCurrentEpoch(), 1);
     assertEq(attesters.length, 4, "Invalid validator set size");
     assertEq(committee.length, 4, "invalid committee set size");
 
@@ -173,6 +173,24 @@ contract ValidatorSelectionTest is DecoderBase {
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
+  }
+
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+    Epoch pre = rollup.getCurrentEpoch();
+    vm.warp(
+      block.timestamp
+        + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration()
+    );
+
+    Epoch post = rollup.getCurrentEpoch();
+
+    uint256 validatorSetSize = rollup.getAttesters().length;
+    uint256 targetCommitteeSize = rollup.getTargetCommitteeSize();
+    uint256 expectedSize =
+      validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
+
+    assertEq(rollup.getEpochCommittee(pre).length, expectedSize, "Invalid committee size");
+    assertEq(rollup.getEpochCommittee(post).length, expectedSize, "Invalid committee size");
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
@@ -258,16 +276,22 @@ contract ValidatorSelectionTest is DecoderBase {
 
     bytes32[] memory txHashes = new bytes32[](0);
 
-    // We update the header to have 0 as the base fee
-    assembly {
-      mstore(add(add(header, 0x20), 0x0228), 0)
+    {
+      uint256 version = rollup.getVersion();
+      uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      bytes32 inHash = inbox.getRoot(full.block.decodedHeader.globalVariables.blockNumber);
+      assembly {
+        mstore(add(add(header, 0x20), 0x0064), inHash)
+        mstore(add(add(header, 0x20), 0x0154), version)
+        mstore(add(add(header, 0x20), 0x0228), manaBaseFee)
+      }
     }
 
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
       blockHash: bytes32(0),
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
 
@@ -313,14 +337,14 @@ contract ValidatorSelectionTest is DecoderBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
@@ -367,10 +391,11 @@ contract ValidatorSelectionTest is DecoderBase {
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
+    uint256 version = rollup.getVersion();
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);
       inbox.sendL2Message(
-        DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
+        DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
       );
     }
   }

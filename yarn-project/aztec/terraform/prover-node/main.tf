@@ -58,7 +58,7 @@ locals {
   node_p2p_private_keys = var.NODE_P2P_PRIVATE_KEYS
   node_count            = length(local.prover_private_keys)
   data_dir              = "/usr/src/yarn-project/aztec"
-  eth_host              = var.ETHEREUM_HOST != "" ? var.ETHEREUM_HOST : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.API_KEY}"
+  eth_host              = var.ETHEREUM_HOSTS != "" ? var.ETHEREUM_HOSTS : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.API_KEY}"
 }
 
 output "node_count" {
@@ -130,7 +130,7 @@ resource "aws_efs_mount_target" "public_az2" {
 data "template_file" "user_data" {
   count    = local.node_count
   template = <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
 echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-prover-node-${count.index + 1}"}' >> /etc/ecs/ecs.config
 EOF
@@ -237,7 +237,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "LOG_JSON", value = "1" },
         { name = "DEPLOY_TAG", value = var.DEPLOY_TAG },
         { name = "NETWORK_NAME", value = "${var.DEPLOY_TAG}" },
-        { name = "ETHEREUM_HOST", value = "${local.eth_host}" },
+        { name = "ETHEREUM_HOSTS", value = "${local.eth_host}" },
         { name = "L1_CHAIN_ID", value = var.L1_CHAIN_ID },
         { name = "DATA_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/data" },
         { name = "DEPLOY_AZTEC_CONTRACTS", value = "false" },
@@ -258,7 +258,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         // Prover
         { name = "PROVER_PUBLISHER_PRIVATE_KEY", value = local.prover_private_keys[count.index] },
         { name = "PROVER_AGENT_ENABLED", value = "false" },
-        { name = "PROVER_AGENT_CONCURRENCY", value = "0" },
         { name = "PROVER_REAL_PROOFS", value = tostring(var.PROVING_ENABLED) },
         { name = "BB_WORKING_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/temp" },
         { name = "ACVM_WORKING_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/temp" },
@@ -281,12 +280,9 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "P2P_ENABLED", value = tostring(var.P2P_ENABLED) },
         { name = "BOOTSTRAP_NODES", value = var.BOOTSTRAP_NODES },
         { name = "PEER_ID_PRIVATE_KEY", value = local.node_p2p_private_keys[count.index] },
-        { name = "P2P_TCP_LISTEN_ADDR", value = "0.0.0.0:${var.NODE_P2P_TCP_PORT + count.index}" },
-        { name = "P2P_UDP_LISTEN_ADDR", value = "0.0.0.0:${var.NODE_P2P_UDP_PORT + count.index}" },
-        { name = "P2P_TCP_ANNOUNCE_ADDR", value = ":${var.NODE_P2P_TCP_PORT + count.index}" },
-        { name = "P2P_UDP_ANNOUNCE_ADDR", value = ":${var.NODE_P2P_UDP_PORT + count.index}" },
+        { name = "P2P_IP", value = "0.0.0.0" },
+        { name = "P2P_PORT", value = "${var.NODE_P2P_TCP_PORT + count.index}" },
         { name = "P2P_QUERY_FOR_IP", value = "true" },
-        { name = "P2P_MIN_PEERS", value = var.P2P_MIN_PEERS },
         { name = "P2P_MAX_PEERS", value = var.P2P_MAX_PEERS },
         { name = "P2P_BLOCK_CHECK_INTERVAL_MS", value = "1000" },
         { name = "P2P_PEER_CHECK_INTERVAL_MS", value = "2000" },

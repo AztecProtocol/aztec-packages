@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-set -euo pipefail
-
-# An example line is:
-#   100644 da9ae2e020ea7fe3505488bbafb39adc7191559b 0       yarn-project/world-state/tsconfig.json
-# Extract the hashes and pipe the hash portion of each file to git hash-object to produce our content hash.
-calculate_rebuild_files "$@" | awk '{print $3}' | git hash-object --stdin

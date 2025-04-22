@@ -1,29 +1,26 @@
+import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { AbortError } from '@aztec/foundation/error';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type ProofUri,
-  ProvingError,
   type ProvingJob,
   type ProvingJobConsumer,
   type ProvingJobId,
   type ProvingJobInputs,
-  ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
-import {
-  type ParityPublicInputs,
-  RECURSIVE_PROOF_LENGTH,
-  VerificationKeyData,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { randomBytes } from '@aztec/foundation/crypto';
-import { AbortError } from '@aztec/foundation/error';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
+} from '@aztec/stdlib/interfaces/server';
+import type { ParityPublicInputs } from '@aztec/stdlib/parity';
+import { ProvingRequestType, makeRecursiveProof } from '@aztec/stdlib/proofs';
+import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
 
 import { MockProver } from '../test/mock_prover.js';
-import { type ProofStore } from './proof_store/index.js';
+import type { ProofStore } from './proof_store/index.js';
 import { ProvingAgent } from './proving_agent.js';
 
 describe('ProvingAgent', () => {
@@ -47,12 +44,12 @@ describe('ProvingAgent', () => {
     proofDB = {
       getProofInput: jest.fn(),
       getProofOutput: jest.fn(),
-      saveProofInput: jest.fn(),
-      saveProofOutput: jest.fn(),
+      saveProofInput: jest.fn(() => Promise.resolve('' as ProofUri)),
+      saveProofOutput: jest.fn(() => Promise.resolve('' as ProofUri)),
     };
 
     allowList = [ProvingRequestType.BASE_PARITY];
-    agent = new ProvingAgent(jobSource, proofDB, prover, allowList);
+    agent = new ProvingAgent(jobSource, proofDB, prover, allowList, agentPollIntervalMs);
   });
 
   afterEach(async () => {
@@ -79,12 +76,15 @@ describe('ProvingAgent', () => {
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.getProvingJob).toHaveBeenCalledTimes(1);
+    expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(1);
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.getProvingJob).toHaveBeenCalledTimes(1);
+    expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(2);
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
     expect(jobSource.getProvingJob).toHaveBeenCalledTimes(1);
+    expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(3);
 
     // let's resolve the proof
     const result = makePublicInputsAndRecursiveProof(
@@ -124,7 +124,9 @@ describe('ProvingAgent', () => {
     agent.start();
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, 'test error', false, { allowList });
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, expect.stringContaining('test error'), false, {
+      allowList,
+    });
   });
 
   it('sets the retry flag on when reporting an error', async () => {
@@ -137,7 +139,9 @@ describe('ProvingAgent', () => {
     agent.start();
 
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, err.message, true, { allowList });
+    expect(jobSource.reportProvingJobError).toHaveBeenCalledWith(job.id, expect.stringContaining(err.message), true, {
+      allowList,
+    });
   });
 
   it('reports jobs in progress to the job source', async () => {
@@ -196,23 +200,32 @@ describe('ProvingAgent', () => {
     // this should cause the agent to abort the current job and start the new one
     const secondJobResponse = makeBaseParityJob();
 
-    jobSource.reportProvingJobProgress.mockResolvedValueOnce(secondJobResponse);
     proofDB.getProofInput.mockResolvedValueOnce(secondJobResponse.inputs);
 
     const secondProof =
       promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
     jest.spyOn(prover, 'getBaseParityProof').mockReturnValueOnce(secondProof.promise);
 
+    jobSource.reportProvingJobProgress.mockResolvedValueOnce(secondJobResponse);
+
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(3);
-    expect(jobSource.reportProvingJobProgress).toHaveBeenLastCalledWith(firstJob.job.id, firstJob.time, {
+    expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(4);
+    expect(jobSource.reportProvingJobProgress).toHaveBeenNthCalledWith(3, firstJob.job.id, firstJob.time, {
       allowList: [ProvingRequestType.BASE_PARITY],
     });
+    expect(jobSource.reportProvingJobProgress).toHaveBeenNthCalledWith(
+      4,
+      secondJobResponse.job.id,
+      secondJobResponse.time,
+      {
+        allowList: [ProvingRequestType.BASE_PARITY],
+      },
+    );
     expect(firstProofAborted).toBe(true);
 
     // agent should have switched now
     await jest.advanceTimersByTimeAsync(agentPollIntervalMs);
-    expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(4);
+    expect(jobSource.reportProvingJobProgress).toHaveBeenCalledTimes(5);
     expect(jobSource.reportProvingJobProgress).toHaveBeenLastCalledWith(
       secondJobResponse.job.id,
       secondJobResponse.time,
@@ -220,8 +233,6 @@ describe('ProvingAgent', () => {
         allowList: [ProvingRequestType.BASE_PARITY],
       },
     );
-
-    secondProof.resolve(makeBaseParityResult());
   });
 
   it('immediately starts working on the next job', async () => {

@@ -33,10 +33,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
-        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_EQ", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_TRANSITION", frs_per_G);
@@ -99,8 +97,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MUL", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_COUNT", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SCALAR_SUM", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_S1HI", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_DX", frs_per_G);
@@ -120,8 +116,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "PRECOMPUTE_PC", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_PC", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_ROUND", frs_per_G);
-        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_EMPTY", frs_per_G);
         manifest_expected.add_entry(round, "PRECOMPUTE_SELECT", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_EMPTY", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
+        manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
         manifest_expected.add_challenge(round, "beta", "gamma");
 
         round++;
@@ -129,7 +127,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
             round++;
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
@@ -141,7 +139,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         // get the challenge for the ZK Sumcheck claim
         manifest_expected.add_challenge(round, "Libra:Challenge");
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
             round++;
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_comm_" + idx, frs_per_G);
@@ -155,7 +153,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
         manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:big_sum_commitment", frs_per_G);
+        manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
@@ -163,19 +161,19 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i < CONST_ECCVM_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
         }
         manifest_expected.add_challenge(round, "Gemini:r");
         round++;
-        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i <= CONST_ECCVM_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
         }
         manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:shifted_big_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:big_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
         manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
         manifest_expected.add_challenge(round, "Shplonk:nu");
         round++;
@@ -183,6 +181,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "Shplonk:z");
 
         round++;
+        manifest_expected.add_entry(round, "Translation:concatenated_masking_term_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
         round++;
@@ -191,17 +190,24 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Translation:Py", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:z1", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:z2", frs_per_Fr);
-        manifest_expected.add_challenge(round, "Translation:ipa_batching_challenge");
+        manifest_expected.add_challenge(round, "Translation:batching_challenge_v");
 
         round++;
+        manifest_expected.add_entry(round, "Translation:masking_term_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_commitment", frs_per_G);
+        manifest_expected.add_entry(round, "Translation:quotient_commitment", frs_per_G);
+        manifest_expected.add_challenge(round, "Translation:small_ipa_evaluation_challenge");
+
+        round++;
+        manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fr);
+        manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fr);
         manifest_expected.add_challenge(round, "Shplonk:nu");
 
         round++;
         manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
         manifest_expected.add_challenge(round, "Shplonk:z");
-
-        round++;
-        manifest_expected.add_challenge(round, "Translation:batching_challenge");
 
         return manifest_expected;
     }
@@ -278,6 +284,8 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     ECCVMProver prover(builder);
+    prover.transcript->enable_manifest();
+    prover.ipa_transcript->enable_manifest();
     ECCVMProof proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -285,6 +293,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     auto prover_manifest = prover.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
+    ASSERT(manifest_expected.size() > 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
     }
@@ -293,6 +302,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     auto prover_ipa_manifest = prover.ipa_transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
+    ASSERT(ipa_manifest_expected.size() > 0);
     for (size_t round = 0; round < ipa_manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_ipa_manifest[round], ipa_manifest_expected[round])
             << "IPA prover manifest discrepency in round " << round;
@@ -311,6 +321,8 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     ECCVMProver prover(builder);
+    prover.transcript->enable_manifest();
+    prover.ipa_transcript->enable_manifest();
     ECCVMProof proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
@@ -325,9 +337,19 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     // The last challenge generated by the ECCVM Prover is the translation univariate batching challenge and, on the
     // verifier side, is only generated in the translator verifier hence the ECCVM prover's manifest will have one extra
     // challenge
+    ASSERT(prover_manifest.size() > 0);
     for (size_t round = 0; round < prover_manifest.size() - 1; ++round) {
         ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
             << "Prover/Verifier manifest discrepency in round " << round;
+    }
+
+    // Check consistency of IPA transcripts
+    auto prover_ipa_manifest = prover.ipa_transcript->get_manifest();
+    auto verifier_ipa_manifest = verifier.ipa_transcript->get_manifest();
+    ASSERT(prover_ipa_manifest.size() > 0);
+    for (size_t round = 0; round < prover_ipa_manifest.size(); ++round) {
+        ASSERT_EQ(prover_ipa_manifest[round], verifier_ipa_manifest[round])
+            << "Prover/Verifier IPA manifest discrepency in round " << round;
     }
 }
 

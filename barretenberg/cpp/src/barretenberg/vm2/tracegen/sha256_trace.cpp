@@ -3,11 +3,16 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -260,10 +265,6 @@ void Sha256TraceBuilder::process(
 {
     using C = Column;
 
-    // Before processing the events, the sha256 needs to have a latch placed at the zeroth row
-    trace.set(C::sha256_latch, row, 1);
-    row++;
-
     for (const auto& event : events) {
         std::array<uint32_t, 16> prev_w_helpers = event.input;
         std::array<uint32_t, 8> round_state = event.state;
@@ -299,6 +300,8 @@ void Sha256TraceBuilder::process(
                       } });
 
             // Computing W
+            // TODO: we currently perform the w computation even for the input round
+            // This might not be what we want to do when we end up solving the xors (since it will involve lookups)
             uint32_t round_w = compute_w_with_witness(prev_w_helpers);
             // W is set based on if we are still using the input values
             if (is_an_input_round) {
@@ -348,6 +351,12 @@ void Sha256TraceBuilder::process(
 
         row++;
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> Sha256TraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

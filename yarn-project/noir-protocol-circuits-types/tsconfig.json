@@ -8,13 +8,16 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     },
     {
       "path": "../kv-store"

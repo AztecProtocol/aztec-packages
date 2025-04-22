@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage: ./test_kind.sh <test> <values_file=default.yaml>
 # The <test> file is located in yarn-project/end-to-end/src/spartan.
@@ -19,12 +19,16 @@
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
+set -x
+
 # Main positional parameter
 test=$1
 values_file="${2:-default.yaml}"
+namespace="${3:-$(basename $test | tr '.' '-')}"
+mnemonic_file="${4:-$(mktemp)}"
 
 # Default values for environment variables
-namespace="${NAMESPACE:-test-kind}"
+helm_instance=${HELM_INSTANCE:-$namespace}
 chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
@@ -32,6 +36,10 @@ cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-true}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
+sepolia_run=${SEPOLIA_RUN:-false}
+
+resources_file="${RESOURCES_FILE:-default.yaml}"
+OVERRIDES="${OVERRIDES:-}"
 
 # Ensure we have kind context
 ../bootstrap.sh kind
@@ -42,12 +50,6 @@ if [ -z "$namespace" ]; then
   exit 1
 fi
 
-# Only check for end-to-end image if a test is specified
-if [ "$use_docker" = "true" ] && ! docker_has_image "aztecprotocol/end-to-end:$aztec_docker_tag"; then
-  echo "End-to-end Docker image not found. It needs to be built."
-  exit 1
-fi
-
 if [ "$install_metrics" = "true" ]; then
   ../bootstrap.sh metrics-kind
 fi
@@ -55,22 +57,31 @@ fi
 # If fresh_install is true, delete the namespace
 if [ "$fresh_install" = "true" ]; then
   echo "Deleting existing namespace due to FRESH_INSTALL=true"
+  # Run helm uninstall first to ensure post-delete hooks are run
+  helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
   kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
 fi
 
-function cleanup() {
+function cleanup {
+  set +e
+  (cat "logs/kind-$namespace.log" || true) | cache_log "kind test $test" || true
   # kill everything in our process group except our process
-  trap - SIGTERM && kill -9 $(pgrep -g $$ | grep -v $$) $stern_pid $(jobs -p) &>/dev/null || true
+  trap - SIGTERM && kill $stern_pid $(jobs -p) &>/dev/null || true
 
   if [ "$cleanup_cluster" = "true" ]; then
     kind delete cluster || true
+  elif [ "$fresh_install" = "true" ]; then
+    # Run helm uninstall first to ensure post-delete hooks are run
+    helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
+    kubectl delete namespace "$namespace" --ignore-not-found=true --wait=true --now --timeout=10m &>/dev/null || true
   fi
 }
 trap cleanup SIGINT SIGTERM EXIT
 
 stern_pid=""
-function copy_stern_to_log() {
-  stern spartan -n $namespace > logs/test_kind.log &
+function copy_stern_to_log {
+  # Start stern in a subshell, capture its PID, and pipe output to cache_log so it is uploaded
+  stern "$helm_instance" -n "$namespace" >"logs/kind-$namespace.log" &>/dev/null &
   stern_pid=$!
 }
 
@@ -79,17 +90,8 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  ./deploy_kind.sh $namespace $values_file
+  deploy_result=$(RESOURCES_FILE="$resources_file" OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
 fi
-
-# Find 4 free ports between 9000 and 10000
-free_ports=$(find_ports 4)
-
-# Extract the free ports from the list
-forwarded_pxe_port=$(echo $free_ports | awk '{print $1}')
-forwarded_anvil_port=$(echo $free_ports | awk '{print $2}')
-forwarded_metrics_port=$(echo $free_ports | awk '{print $3}')
-forwarded_node_port=$(echo $free_ports | awk '{print $4}')
 
 if [ "$install_metrics" = "true" ]; then
   grafana_password=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
@@ -103,58 +105,41 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 ethereum_slot_duration=$(./read_value.sh "ethereum.blockTime" $value_yamls)
 aztec_slot_duration=$(./read_value.sh "aztec.slotDuration" $value_yamls)
 aztec_epoch_duration=$(./read_value.sh "aztec.epochDuration" $value_yamls)
-aztec_epoch_proof_claim_window_in_l2_slots=$(./read_value.sh "aztec.epochProofClaimWindow" $value_yamls)
+aztec_proof_submission_window=$(./read_value.sh "aztec.proofSubmissionWindow" $value_yamls)
 
-if [ "$use_docker" = "true" ]; then
-  echo "RUNNING TEST: $test (docker)"
-  # Run test in Docker.
-  # Note this will go away soon with the end-to-end image (which also means we deal with the duplication for now.)
-  docker run --rm --network=host \
-    -v ~/.kube:/root/.kube \
-    -e K8S=local \
-    -e INSTANCE_NAME="spartan" \
-    -e SPARTAN_DIR="/usr/src/spartan" \
-    -e NAMESPACE="$namespace" \
-    -e HOST_PXE_PORT=$forwarded_pxe_port \
-    -e CONTAINER_PXE_PORT=8081 \
-    -e HOST_ETHEREUM_PORT=$forwarded_anvil_port \
-    -e CONTAINER_ETHEREUM_PORT=8545 \
-    -e HOST_NODE_PORT=$forwarded_node_port \
-    -e CONTAINER_NODE_PORT=8080 \
-    -e HOST_METRICS_PORT=$forwarded_metrics_port \
-    -e CONTAINER_METRICS_PORT=80 \
-    -e GRAFANA_PASSWORD=$grafana_password \
-    -e DEBUG=${DEBUG:-""} \
-    -e LOG_JSON=1 \
-    -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
-    -e ETHEREUM_SLOT_DURATION=$ethereum_slot_duration \
-    -e AZTEC_SLOT_DURATION=$aztec_slot_duration \
-    -e AZTEC_EPOCH_DURATION=$aztec_epoch_duration \
-    -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$aztec_epoch_proof_claim_window_in_l2_slots \
-    aztecprotocol/end-to-end:$aztec_docker_tag $test
+if [ "$sepolia_run" = "true" ]; then
+  # Read the mnemonic from tmp file
+  set +x
+  l1_account_mnemonic=$(cat "$mnemonic_file")
+  set -x
+  rm "$mnemonic_file"
 else
-  echo "RUNNING TEST: $test"
-  # Run test locally.
-  export K8S="local"
-  export INSTANCE_NAME="spartan"
-  export SPARTAN_DIR="$(pwd)/.."
-  export NAMESPACE="$namespace"
-  export HOST_PXE_PORT="$forwarded_pxe_port"
-  export CONTAINER_PXE_PORT="8081"
-  export HOST_ETHEREUM_PORT="$forwarded_anvil_port"
-  export CONTAINER_ETHEREUM_PORT="8545"
-  export HOST_NODE_PORT="$forwarded_node_port"
-  export CONTAINER_NODE_PORT="8080"
-  export HOST_METRICS_PORT="$forwarded_metrics_port"
-  export CONTAINER_METRICS_PORT="80"
-  export GRAFANA_PASSWORD="$grafana_password"
-  export DEBUG="${DEBUG:-""}"
-  export LOG_JSON="1"
-  export LOG_LEVEL="${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"}"
-  export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
-  export AZTEC_SLOT_DURATION="$aztec_slot_duration"
-  export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
-  export AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS="$aztec_epoch_proof_claim_window_in_l2_slots"
-
-  yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"
+  l1_account_mnemonic=$(./read_value.sh "aztec.l1DeploymentMnemonic" $value_yamls)
 fi
+
+echo "RUNNING TEST: $test"
+# Run test locally.
+export K8S="local"
+export INSTANCE_NAME="$helm_instance"
+export SPARTAN_DIR="$(pwd)/.."
+export NAMESPACE="$namespace"
+export CONTAINER_PXE_PORT="8081"
+export CONTAINER_ETHEREUM_PORT="8545"
+export CONTAINER_NODE_PORT="8080"
+export CONTAINER_NODE_ADMIN_PORT="8880"
+export CONTAINER_SEQUENCER_PORT="8080"
+export CONTAINER_PROVER_NODE_PORT="8080"
+export CONTAINER_METRICS_PORT="80"
+export GRAFANA_PASSWORD="$grafana_password"
+export DEBUG="${DEBUG:-""}"
+export LOG_JSON="1"
+export LOG_LEVEL="${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"}"
+export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
+export AZTEC_SLOT_DURATION="$aztec_slot_duration"
+export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
+export AZTEC_PROOF_SUBMISSION_WINDOW="$aztec_proof_submission_window"
+set +x
+export L1_ACCOUNT_MNEMONIC="$l1_account_mnemonic"
+set -x
+
+yarn --cwd ../../yarn-project/end-to-end test --forceExit "$test"

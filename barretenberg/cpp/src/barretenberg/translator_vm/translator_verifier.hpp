@@ -20,10 +20,13 @@ class TranslatorVerifier {
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;
 
-    std::shared_ptr<VerificationKey> key;
+    // Default construct fixed VK
+    std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
+
+    TranslatorVerifier(const std::shared_ptr<Transcript>& transcript);
 
     TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                        const std::shared_ptr<Transcript>& transcript);
@@ -33,7 +36,8 @@ class TranslatorVerifier {
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
                                                      const uint256_t& accumulated_result);
-    bool verify_proof(const HonkProof& proof);
-    bool verify_translation(const TranslationEvaluations& translation_evaluations);
+    bool verify_proof(const HonkProof& proof, const uint256_t& evaluation_input_x, const BF& batching_challenge_v);
+    bool verify_translation(const TranslationEvaluations& translation_evaluations,
+                            const BF& translation_masking_term_eval);
 };
 } // namespace bb

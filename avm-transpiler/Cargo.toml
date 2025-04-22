@@ -2,7 +2,7 @@
 name = "avm-transpiler"
 version = "0.1.0"
 authors = ["The Aztec Team <hello@aztecprotocol.com>"]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,6 +11,8 @@ license = "MIT OR Apache-2.0"
 # local
 acvm = { path = "../noir/noir-repo/acvm-repo/acvm", features = ["bn254"] }
 noirc_errors = { path = "../noir/noir-repo/compiler/noirc_errors" }
+noirc_abi = { path = "../noir/noir-repo/tooling/noirc_abi" }
+noirc_evaluator = { path = "../noir/noir-repo/compiler/noirc_evaluator" }
 
 # external
 base64 = "0.21"
@@ -18,3 +20,6 @@ env_logger = "0.11"
 log = "0.4"
 serde_json = "1.0"
 serde = { version = "1.0.136", features = ["derive"] }
+regex = "1.11.1"
+fxhash = "0.2.1"
+once_cell = "1.20.3"

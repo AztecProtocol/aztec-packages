@@ -1,23 +1,26 @@
 import { jest } from '@jest/globals';
 
 import { type Logger, createLogger } from '../log/pino-logger.js';
-import { sleep } from '../sleep/index.js';
-import { RunningPromise } from './running-promise.js';
+import { type ErrorHandler, RunningPromise } from './running-promise.js';
+
+jest.useFakeTimers();
 
 describe('RunningPromise', () => {
   let runningPromise: RunningPromise;
   let counter: number;
-  let fn: () => Promise<void>;
+  let fn: jest.Mock<() => Promise<void>>;
   let logger: Logger;
+  let errorHandler: jest.Mock<ErrorHandler>;
 
   beforeEach(() => {
     counter = 0;
-    fn = async () => {
+    fn = jest.fn(() => {
       counter++;
-      await sleep(100);
-    };
+      return Promise.resolve();
+    });
+    errorHandler = jest.fn();
     logger = createLogger('test');
-    runningPromise = new RunningPromise(fn, logger, 50);
+    runningPromise = new RunningPromise(fn, logger, 50, errorHandler);
   });
 
   afterEach(async () => {
@@ -31,52 +34,66 @@ describe('RunningPromise', () => {
     });
 
     it('immediately runs the function if sleeping', async () => {
+      expect(counter).toEqual(0);
       runningPromise.start();
-      await sleep(110);
       expect(counter).toEqual(1);
+
       await runningPromise.trigger();
       expect(counter).toEqual(2);
     });
 
     it('waits for current run to finish before triggering', async () => {
       runningPromise.start();
-      await sleep(10);
       expect(counter).toEqual(1);
-      await runningPromise.trigger();
+      const promise = runningPromise.trigger();
+      expect(counter).toEqual(1);
+      await promise;
       expect(counter).toEqual(2);
     });
+  });
 
-    it('handles errors', async () => {
-      const failingFn = async () => {
-        await fn();
-        throw new Error('ouch');
-      };
-      const loggerSpy = jest.spyOn(logger, 'error');
-      runningPromise = new RunningPromise(failingFn, logger, 50);
-      runningPromise.start();
-      await sleep(150);
-      expect(counter).toEqual(1);
-      expect(loggerSpy).toHaveBeenCalledTimes(1);
+  describe('handles errors', () => {
+    beforeEach(() => {
+      fn.mockImplementation(() => {
+        counter++;
+        return Promise.reject(new Error('ouch'));
+      });
     });
 
-    class IgnoredError extends Error {
-      constructor() {
-        super('ignored');
-        this.name = 'IgnoredError';
-      }
-    }
-
-    it('handles ignored errors', async () => {
-      const failingFn = async () => {
-        await fn();
-        throw new IgnoredError();
-      };
-      const loggerSpy = jest.spyOn(logger, 'error');
-      runningPromise = new RunningPromise(failingFn, logger, 50, [IgnoredError]);
+    it('reports errors upstream', async () => {
       runningPromise.start();
-      await sleep(150);
+      await Promise.resolve();
+
       expect(counter).toEqual(1);
-      expect(loggerSpy).not.toHaveBeenCalled();
+      expect(errorHandler).toHaveBeenCalledTimes(1);
+      expect(errorHandler).toHaveBeenCalledWith(new Error('ouch'));
+    });
+
+    it('continues running even if fn errors', async () => {
+      runningPromise.start();
+      await Promise.resolve();
+
+      expect(counter).toEqual(1);
+      expect(errorHandler).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersToNextTimerAsync();
+      expect(counter).toEqual(2);
+      expect(errorHandler).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops immediately if told so by the error handler', async () => {
+      errorHandler.mockReturnValueOnce(RunningPromise.EXIT);
+      runningPromise.start();
+      await Promise.resolve();
+
+      expect(counter).toEqual(1);
+      expect(errorHandler).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(counter).toEqual(1);
+      expect(errorHandler).toHaveBeenCalledTimes(1);
+
+      expect(runningPromise.isRunning()).toBeFalsy();
     });
   });
 });

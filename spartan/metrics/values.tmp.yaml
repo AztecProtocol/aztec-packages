@@ -91,9 +91,13 @@ prometheus:
     global:
       evaluation_interval: 15s
       scrape_interval: 15s
+      scrape_timeout: 10s
   serverFiles:
     prometheus.yml:
       scrape_configs:
+        - job_name: prometheus
+          static_configs:
+            - targets: ["127.0.0.1:9090"]
         - job_name: otel-collector
           static_configs:
             - targets: ["metrics-opentelemetry-collector.metrics:8888"]
@@ -108,6 +112,9 @@ prometheus:
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
+  env:
+    PRODUCTION_NAMESPACES_REGEX: "devnet|master-rc-1|alpha-testnet"
+    SLACK_WEBHOOK_URL: "http://127.0.0.1" # dummy value
   datasources:
     datasources.yaml:
       apiVersion: 1
@@ -117,6 +124,9 @@ grafana:
           uid: spartan-metrics-prometheus
           isDefault: true
           url: http://metrics-prometheus-server.metrics:80
+          jsonData:
+            timeout: 60
+            timeInterval: 15s
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
@@ -129,9 +139,28 @@ grafana:
           editable: true
           options:
             path: /var/lib/grafana/dashboards/default
+        - name: "aztec"
+          orgId: 1
+          folder: "Aztec"
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/aztec
+        - name: "metrics"
+          orgId: 1
+          folder: "Metrics"
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/metrics
+  # unfortunately, we can't use the `file` helper in values.yaml, so we have to inline the dashboard
+  # json. This is a limitation of Helm.
+  # See the install scripts: we inject the dashboard json into a copy of this file, which is the
+  # version that actually gets helm installed.
+  alerting:
   dashboards:
     default:
-      # unfortunately, we can't use the `file` helper here, so we have to inline the dashboard
-      # json. This is a limitation of Helm.
-      # See the install scripts: we inject the dashboard json into a copy of this file, which is the
-      # version that actually gets helm installed.
+    aztec:
+    metrics:

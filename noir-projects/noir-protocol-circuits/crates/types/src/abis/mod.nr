@@ -10,6 +10,7 @@ pub mod function_data;
 pub mod global_variables;
 pub mod note_hash_leaf_preimage;
 pub mod nullifier_leaf_preimage;
+pub mod protocol_contract_leaf_preimage;
 
 pub mod tx_constant_data;
 pub mod combined_constant_data;
@@ -20,6 +21,7 @@ pub mod read_request;
 pub mod log;
 pub mod private_log;
 pub mod public_log;
+pub mod contract_class_log;
 pub mod log_hash;
 pub mod note_hash;
 pub mod nullifier;

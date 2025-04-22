@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
-import { type AztecAsyncSingleton, type AztecSingleton } from './singleton.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from './store.js';
+import type { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
+import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isSyncStore } from './utils.js';
 
 export function describeAztecSingleton(

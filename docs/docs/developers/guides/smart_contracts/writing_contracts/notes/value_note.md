@@ -21,7 +21,7 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#inc
 
 ### In your contract
 
-#include_code import_valuenote noir-projects/noir-contracts/contracts/child_contract/src/main.nr rust
+#include_code import_valuenote noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr rust
 
 ## Working with ValueNote
 
@@ -32,7 +32,7 @@ Creating a new `ValueNote` takes the following args:
 - `value` (`Field`): the value of the ValueNote
 - `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
-#include_code valuenote_new noir-projects/noir-contracts/contracts/child_contract/src/main.nr rust
+#include_code valuenote_new noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr rust
 
 ### Getting a balance
 
@@ -40,7 +40,7 @@ A user may have multiple notes in a set that all refer to the same content (e.g.
 
 It takes one argument - the set of notes.
 
-#include_code get_balance noir-projects/noir-contracts/contracts/stateful_test_contract/src/main.nr rust
+#include_code get_balance noir-projects/noir-contracts/contracts/test/stateful_test_contract/src/main.nr rust
 
 This can only be used in an unconstrained function.
 
@@ -52,12 +52,12 @@ Both `increment` and `decrement` functions take the same args:
 
 Note that this will create a new note in the set of notes passed as the first argument.
 For example:
-#include_code increment_valuenote noir-projects/noir-contracts/contracts/benchmarking_contract/src/main.nr rust
+#include_code increment_valuenote noir-projects/noir-contracts/contracts/test/benchmarking_contract/src/main.nr rust
 
 The `decrement` function works similarly except the `amount` is the number that the value will be decremented by, and it will fail if the sum of the selected notes is less than the amount.
 
 ## Learn more
 
 - [Keys, including nullifier keys and outgoing viewer](../../../../../aztec/concepts/accounts/keys.md)
-- [How to write a custom note](./custom_note.md)
+- [How to implement a note](./implementing_a_note.md)
 - [ValueNote reference](../../../../reference/smart_contract_reference/aztec-nr/value-note/value_note.md)

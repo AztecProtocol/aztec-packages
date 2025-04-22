@@ -22,15 +22,15 @@ mkdir val1 && cd val1
 curl -L sp-testnet.aztec.network | bash
 ```
 
-This will install `aztec-spartan.sh` in the current directory. You can now run it:
+This will install `aztec-sequencer.sh` in the current directory. You can now run it:
 
 ```bash
-./aztec-spartan.sh config
+./aztec-sequencer.sh config
 ```
 
 If you don't have Docker installed, the script will do it for you. It will then prompt for any required environment variables and output both a `docker-compose.yml` and an `.env` file. You will also be prompted to choose whether to use a [named volume](https://docs.docker.com/engine/storage/volumes/) (default) or if you want to use a local directory to store the node's data.
 
-Run `./aztec-spartan.sh` without any command to see all available options, and pass them as flags, i.e. `npx aztec-spartan config -p 8080 -p2p 40400`. If you want to use a different key for p2p peer id, pass it with `-pk <your_key>`.
+Run `./aztec-sequencer.sh` without any command to see all available options, and pass them as flags, i.e. `./aztec-sequencer config -p 8080 -p2p 40400`. If you want to use a different key for p2p peer id, pass it with `-pk <your_key>`.
 
 For more options, see the [Node Configuration](#node-configuration) section.
 
@@ -39,7 +39,7 @@ For more options, see the [Node Configuration](#node-configuration) section.
 
 ## Running
 
-To spare you a few keystrokes, you can use `npx aztec-spartan [start/stop/logs/update]` to start, stop, output logs or pull the latest docker images.
+To spare you a few keystrokes, you can use `./aztec-sequencer [start/stop/logs/update]` to start, stop, output logs or pull the latest docker images.
 
 > [!NOTE]
 > The above deploy script will connect your node to the p2p network where it will register peers and start receiving messages from other nodes on the network. You will not be in the validator set just yet.
@@ -48,15 +48,12 @@ To spare you a few keystrokes, you can use `npx aztec-spartan [start/stop/logs/u
 
 ## Node Configuration
 
-The `aztec-spartan.sh` script will set the following required variables on your behalf. You can ofcourse override the variables set by the script by simply changing the `.env` file directly and re-running `./aztec-spartan.sh`
+The user is prompted to enter some values which will map to corresponding ENV variables. Some are required:
 
-| Variable | Description |
-| ----- | ----- |
-| ETHEREUM_HOST | URL to the Ethereum node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh`|
-| BOOTNODE_URL | URL to a bootnode that supplies L1 contract addresses and the ENR of the bootstrap nodes. |
-| IMAGE | The docker image to run |
-
-In addition, the user is prompted to enter 1) an IP Address and a P2P port to be used for the TCP and UDP addresses (defaults to 40400) 2) A port for your node (8080) 3) an Ethereum private key 4) `COINBASE` which is the Ethereum address associated with the private key and 5) a path to a local directory to store node data if you don't opt for a named volume.
+1. A Sepolia execution node RPC (for example on [alchemy](https://dashboard.alchemy.com/))
+2. A Sepolia beacon node RPC (for example from [drpc](https://drpc.org))
+3. An Ethereum private key
+4. `COINBASE` which is the Ethereum address associated with the private key
 
 On a first run, the script will generate a p2p private key and store it in `$DATA_DIR/var/lib/aztec/p2p-private-key`. If you wish to change your p2p private key, you can pass it on as a CLI arg using the flag `-pk` or update the `PEER_ID_PRIVATE_KEY` in the env file.
 
@@ -66,32 +63,30 @@ The Publisher is the main node component that interacts with the Ethereum L1, fo
 
 The Archiver's primary functions are data storage and retrieval (i.e. L1->L2 messages), state synchronization and re-org handling.
 
-|Variable| Description|
-|----|-----|
-|ETHEREUM_HOST| This is the URL to the L1 node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh`|
-|L1_CHAIN_ID | Chain ID of the L1 |
-| DATA_DIRECTORY | Optional dir to store archiver and world state data. If omitted will store in memory |
-| ARCHIVER_POLLING_INTERVAL_MS | The polling interval in ms for retrieving new L2 blocks and encrypted logs
-| SEQ_PUBLISHER_PRIVATE_KEY | This should be the same as your validator private key |
-|SEQ_PUBLISH_RETRY_INTERVAL_MS  | The interval to wait between publish retries|
-| SEQ_VIEM_POLLING_INTERVAL_TIME | The polling interval viem uses in ms |
+| Variable                       | Description                                                                                                                                                          |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ETHEREUM_HOSTS                 | List of Ethereum nodes URLs your validator will connect to (comma separated). For as long as we're on private networks, please use the value in `aztec-sequencer.sh` |
+| L1_CHAIN_ID                    | Chain ID of the L1                                                                                                                                                   |
+| DATA_DIRECTORY                 | Optional dir to store archiver and world state data. If omitted will store in memory                                                                                 |
+| ARCHIVER_POLLING_INTERVAL_MS   | The polling interval in ms for retrieving new L2 blocks and encrypted logs                                                                                           |
+| SEQ_PUBLISHER_PRIVATE_KEY      | This should be the same as your validator private key                                                                                                                |
+| SEQ_PUBLISH_RETRY_INTERVAL_MS  | The interval to wait between publish retries                                                                                                                         |
+| SEQ_VIEM_POLLING_INTERVAL_TIME | The polling interval viem uses in ms                                                                                                                                 |
 
 ### Sequencer Config
 
 The Sequencer Client is a criticial component that coordinates tx validation, L2 block creation, collecting attestations and block submission (through the Publisher).
 
-|Variable| Description|
-|----|-----|
-| VALIDATOR_DISABLED | If this is True, the client won't perform any validator duties. |
-| VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS | If not enough attestations, sleep for this long and check again |
-|GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS | To nominate proposals for voting, you must set this variable to the Ethereum address of the `proposal` payload. You must edit this to vote on a governance upgrade.|
-| SEQ_ENFORCE_TIME_TABLE | Whether to enforce strict timeliness requirement when building blocks. Refer [here](#sequencer-timeliness-requirements) for more on the timetable |
-| SEQ_MAX_TX_PER_BLOCK | Increase this to make larger blocks |
-| SEQ_MIN_TX_PER_BLOCK | Increase this to require making larger blocks |
-| SEQ_MIN_SECONDS_BETWEEN_BLOCKS | If greater than zero, the sequencer will not propose a block until this much time has passed since the last L2 block was published to L1 |
-| SEQ_MAX_SECONDS_BETWEEN_BLOCKS | Sequencer will ignore the minTxPerBlock if this many seconds have passed since the last L2 block.|
-| COINBASE | This is the Ethereum address that will receive the validator's share of block rewards. It defaults to your validator address.  |
-| FEE_RECIPIENT | This is the Aztec address that will receive the validator's share of transaction fees. Also defaults to your validator's address (but on Aztec L2). |
+| Variable                                   | Description                                                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| VALIDATOR_DISABLED                         | If this is True, the client won't perform any validator duties.                                                                                                     |
+| VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS | If not enough attestations, sleep for this long and check again                                                                                                     |
+| GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS        | To nominate proposals for voting, you must set this variable to the Ethereum address of the `proposal` payload. You must edit this to vote on a governance upgrade. |
+| SEQ_ENFORCE_TIME_TABLE                     | Whether to enforce strict timeliness requirement when building blocks. Refer [here](#sequencer-timeliness-requirements) for more on the timetable                   |
+| SEQ_MAX_TX_PER_BLOCK                       | Increase this to make larger blocks                                                                                                                                 |
+| SEQ_MIN_TX_PER_BLOCK                       | Increase this to require making larger blocks                                                                                                                       |
+| COINBASE                                   | This is the Ethereum address that will receive the validator's share of block rewards. It defaults to your validator address.                                       |
+| FEE_RECIPIENT                              | This is the Aztec address that will receive the validator's share of transaction fees. Also defaults to your validator's address (but on Aztec L2).                 |
 
 #### Sequencer Timeliness Requirements
 
@@ -107,18 +102,16 @@ Currently the default timetable values are hardcoded in [sequencer.ts](https://g
 
 The P2P client coordinates peer-to-peer communication between Nodes.
 
-| Variable | Description |
-| ---- | ------|
-| BOOTSTRAP_NODES | A list of bootstrap peer ENRs to connect to. Separated by commas. |
-| P2P_TCP_ANNOUNCE_ADDR | Format: `<IP_ADDRESS>:<TCP_PORT>`|
-|P2P_UDP_ANNOUNCE_ADDR |Format: `<IP_ADDRESS>:<UDP_PORT>`|
-| P2P_TCP_LISTEN_ADDR | Format: `<IP_ADDRESS>:<TCP_PORT>` or can use `0.0.0.0:<TCP_PORT>` to listen on all interfaces|
-| P2P_UDP_LISTEN_ADDR |Format: `<IP_ADDRESS>:<TCP_PORT>` or can use `0.0.0.0:<UDP_PORT>` to listen on all interfaces |
-| P2P_QUERY_FOR_IP | Useful in dynamic environments where your IP is not known in advance. Set this to True, and only supply `:TCP_PORT` and `:UDP_PORT` for the `ANNOUNCE_ADDR` variables. If you know your public IP address in advance, set this to False or just provide the full announce addresses.
-| P2P_ENABLED | Whether to run the P2P module. Defaults to False, so make sure to set to True |
-| P2P_MIN_PEERS | The min number of peers to connect to.  |
-| P2P_MAX_PEERS | The max number of peers to connect to.  |
-| P2P_BLOCK_CHECK_INTERVAL_MS | How milliseconds to wait between each check for new L2 blocks. |
+| Variable                    | Description                                                                                                                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| BOOTSTRAP_NODES             | A list of bootstrap peer ENRs to connect to. Separated by commas.                                                                                                                                                                                                                    |
+| P2P_IP                      | The client's public IP address. Defaults to working it out using disv5, otherwise set P2P_QUERY_FOR_IP if you are behind a NAT                                                                                                                                                       |
+| P2P_PORT                    | The port that will be used for sending / receiving p2p messages. Defaults to 40400.                                                                                                                                                                                                  |
+| P2P_LISTEN_ARR              | Address to listen on for p2p messages. Defaults to 0.0.0.0                                                                                                                                                                                                                           |
+| P2P_QUERY_FOR_IP            | Useful in dynamic environments where your IP is not known in advance. Set this to True, and only supply `:TCP_PORT` and `:UDP_PORT` for the `ANNOUNCE_ADDR` variables. If you know your public IP address in advance, set this to False or just provide the full announce addresses. |
+| P2P_ENABLED                 | Whether to run the P2P module. Defaults to False, so make sure to set to True                                                                                                                                                                                                        |
+| P2P_MAX_PEERS               | The max number of peers to connect to.                                                                                                                                                                                                                                               |
+| P2P_BLOCK_CHECK_INTERVAL_MS | How milliseconds to wait between each check for new L2 blocks.                                                                                                                                                                                                                       |
 
 ### Prover Config
 

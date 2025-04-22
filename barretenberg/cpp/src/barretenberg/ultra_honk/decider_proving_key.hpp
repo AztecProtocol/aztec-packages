@@ -1,4 +1,7 @@
 #pragma once
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
@@ -11,6 +14,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
+#include <chrono>
 
 namespace bb {
 /**
@@ -67,7 +71,9 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
-                circuit.blocks.summarize();
+                if (verbose_logging) {
+                    circuit.blocks.summarize();
+                }
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 overflow_size = circuit.blocks.overflow.size();
                 dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
@@ -76,15 +82,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             }
         }
 
-        info("Finalized circuit size: ",
-             circuit.num_gates,
-             ". Log dyadic circuit size: ",
-             numeric::get_msb(dyadic_circuit_size),
-             ".");
-
-        // Complete the public inputs execution trace block from circuit.public_inputs
-        Trace::populate_public_inputs_block(circuit);
-        circuit.blocks.compute_offsets(is_structured);
+        circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
@@ -93,12 +91,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
-        // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to
-        // failure once https://github.com/AztecProtocol/barretenberg/issues/746 is resolved.
-        if constexpr (IsMegaFlavor<Flavor>) {
-            circuit.op_queue->append_nonzero_ops();
-        }
         vinfo("allocating polynomials object in proving key...");
         {
             PROFILE_THIS_NAME("allocating proving key");
@@ -155,7 +147,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, MASKING_OFFSET);
+                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
         }
 
         {
@@ -174,8 +166,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
 
         if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
-            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
+            proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
             proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
@@ -227,7 +218,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
 
-    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit);
+    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb

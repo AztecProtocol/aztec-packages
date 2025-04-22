@@ -114,7 +114,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
 
         if constexpr (Flavor::HasZK) {
             manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:big_sum_commitment", frs_per_G);
+            manifest_expected.add_entry(round, "Libra:grand_sum_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
             manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
@@ -135,8 +135,8 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         }
         if constexpr (Flavor::HasZK) {
             manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:shifted_big_sum_eval", frs_per_Fr);
-            manifest_expected.add_entry(round, "Libra:big_sum_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:shifted_grand_sum_eval", frs_per_Fr);
+            manifest_expected.add_entry(round, "Libra:grand_sum_eval", frs_per_Fr);
             manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
         }
 
@@ -193,12 +193,14 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(proving_key);
+    prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = TestFixture::construct_mega_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
+    ASSERT(manifest_expected.size() > 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
             info("Prover manifest discrepency in round ", round);
@@ -229,6 +231,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(proving_key);
+    prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
@@ -242,6 +245,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     auto verifier_manifest = verifier.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()
+    ASSERT(prover_manifest.size() > 0);
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
         if (prover_manifest[round] != verifier_manifest[round]) {
             info("Prover/Verifier manifest discrepency in round ", round);
@@ -301,7 +305,7 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     prover.transcript->serialize_full_transcript();
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
@@ -314,6 +318,6 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     prover.transcript->serialize_full_transcript();
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }

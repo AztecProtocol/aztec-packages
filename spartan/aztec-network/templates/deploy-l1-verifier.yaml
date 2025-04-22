@@ -1,4 +1,4 @@
-{{- if and .Values.network.setupL2Contracts .Values.jobs.deployL1Verifier.enable }}
+{{- if .Values.jobs.deployL1Verifier.enable }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -8,7 +8,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed,before-hook-creation
 
 spec:
   template:
@@ -27,6 +27,7 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
       containers:
         - name: deploy-l1-verifier
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -47,9 +48,7 @@ spec:
               kubectl config set-context default --cluster=default --user=default
               kubectl config use-context default
 
-              cp /scripts/setup-service-addresses.sh /tmp/setup-service-addresses.sh
-              chmod +x /tmp/setup-service-addresses.sh
-              /tmp/setup-service-addresses.sh
+              /scripts/setup-service-addresses.sh
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
 
@@ -100,8 +99,8 @@ spec:
               value: "{{ .Values.network.public }}"
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
-            - name: EXTERNAL_ETHEREUM_HOST
-              value: "{{ .Values.ethereum.execution.externalHost }}"
+            - name: EXTERNAL_ETHEREUM_HOSTS
+              value: "{{ .Values.ethereum.execution.externalHosts }}"
             - name: ETHEREUM_PORT
               value: "{{ .Values.ethereum.execution.service.port }}"
             - name: EXTERNAL_BOOT_NODE_HOST
@@ -114,8 +113,8 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: SERVICE_NAME
               value: {{ include "aztec-network.fullname" . }}
-            - name: USE_GCLOUD_OBSERVABILITY
-              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
           volumeMounts:
             - name: config
               mountPath: /shared/config

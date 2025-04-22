@@ -78,14 +78,6 @@ template <class Flavor> class TraceToPolynomials {
      */
     static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
 
-    /**
-     * @brief Populate the public inputs block
-     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
-     *
-     * @param circuit
-     */
-    static void populate_public_inputs_block(Builder& builder);
-
   private:
     /**
      * @brief Add the memory records indicating which rows correspond to RAM/ROM reads/writes

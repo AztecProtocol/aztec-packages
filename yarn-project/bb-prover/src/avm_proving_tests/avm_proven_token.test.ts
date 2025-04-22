@@ -1,7 +1,8 @@
-import { AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { type PublicTxResult } from '@aztec/simulator/server';
+import type { PublicTxResult } from '@aztec/simulator/server';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
@@ -19,7 +20,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
@@ -107,7 +108,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
       ],
     );
     expect(balResult.revertCode.isOK()).toBe(true);
-    expectAppCall0Output(balResult, [new Fr(expectedBalance), Fr.zero()]);
+    expectAppCall0Output(balResult, [new Fr(expectedBalance)]);
   };
 });
 

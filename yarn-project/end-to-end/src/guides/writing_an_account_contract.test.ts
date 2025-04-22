@@ -4,6 +4,7 @@ import {
   AuthWitness,
   type AuthWitnessProvider,
   type CompleteAddress,
+  type ContractArtifact,
   Fr,
   GrumpkinScalar,
   Schnorr,
@@ -19,10 +20,14 @@ const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877c
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
 class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
   constructor(private privateKey = PRIVATE_KEY) {
-    super(SchnorrHardcodedAccountContractArtifact);
+    super();
   }
 
-  getDeploymentArgs() {
+  override getContractArtifact(): Promise<ContractArtifact> {
+    return Promise.resolve(SchnorrHardcodedAccountContractArtifact);
+  }
+
+  getDeploymentFunctionAndArgs() {
     // This contract has no constructor
     return Promise.resolve(undefined);
   }
@@ -44,32 +49,45 @@ describe('guides/writing_an_account_contract', () => {
   let context: Awaited<ReturnType<typeof setup>>;
 
   beforeEach(async () => {
-    context = await setup(0);
+    context = await setup(1);
   });
 
   afterEach(() => context.teardown());
 
   it('works', async () => {
-    const { pxe, logger } = context;
+    const { pxe, logger, wallet: fundedWallet } = context;
+
     // docs:start:account-contract-deploy
     const secretKey = Fr.random();
     const account = await AccountManager.create(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
-    const wallet = await account.waitSetup();
-    const address = wallet.getCompleteAddress().address;
+
+    if (await account.isDeployable()) {
+      // The account has no funds. Use a funded wallet to pay for the fee for the deployment.
+      await account.deploy({ deployWallet: fundedWallet }).wait();
+    } else {
+      // The contract has no constructor. Deployment is not required.
+      // Register it in the PXE Service to start using it.
+      await account.register();
+    }
+
+    const wallet = await account.getWallet();
+    const address = wallet.getAddress();
     // docs:end:account-contract-deploy
     logger.info(`Deployed account contract at ${address}`);
 
-    // docs:start:account-contract-works
-    const token = await TokenContract.deploy(wallet, address, 'TokenName', 'TokenSymbol', 18).send().deployed();
+    // docs:start:token-contract-deploy
+    const token = await TokenContract.deploy(fundedWallet, fundedWallet.getAddress(), 'TokenName', 'TokenSymbol', 18)
+      .send()
+      .deployed();
     logger.info(`Deployed token contract at ${token.address}`);
 
     const mintAmount = 50n;
-    const from = address; // we are setting from to address here because of TODO(#9887)
+    const from = fundedWallet.getAddress(); // we are setting from here because we need a sender to calculate the tag
     await token.methods.mint_to_private(from, address, mintAmount).send().wait();
 
     const balance = await token.methods.balance_of_private(address).simulate();
     logger.info(`Balance of wallet is now ${balance}`);
-    // docs:end:account-contract-works
+    // docs:end:token-contract-deploy
     expect(balance).toEqual(50n);
 
     // docs:start:account-contract-fails

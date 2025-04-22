@@ -20,19 +20,22 @@ npm install @aztec/accounts
 
 ```typescript
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { GrumpkinScalar } from '@aztec/circuit-types';
+import { GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/stdlib';
 
-const encryptionSecretKey = GrumpkinScalar.random();
-const signingSecretKey = GrumpkinScalar.random();
-const wallet = getSchnorrAccount(pxe, encryptionSecretKey, signingSecretKey).waitDeploy();
+const encryptionSecretKey = Fr.random();
+const signingPrivateKey = GrumpkinScalar.random();
+const wallet = getSchnorrAccount(pxe, encryptionSecretKey, signingPrivateKey)
+  .deploy({ deployWallet }) // Use a wallet with funds to pay for the fee for the deployment.
+  .wait();
 console.log(`New account deployed at ${wallet.getAddress()}`);
 ```
 
 ### Create a wallet object from an already deployed account
 
 ```typescript
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 
-const wallet = getSchnorrWallet(pxe, encryptionPrivateKey);
+const wallet = getSchnorrWallet(pxe, address, signingPrivateKey);
 console.log(`Wallet for ${wallet.getAddress()} ready`);
 ```

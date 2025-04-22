@@ -5,6 +5,14 @@
 
 namespace bb::avm2::tracegen {
 
+TestTraceContainer::TestTraceContainer(const TestTraceContainer& other)
+{
+    for (size_t i = 0; i < num_columns(); ++i) {
+        const auto column = static_cast<Column>(i);
+        other.visit_column(column, [this, column](uint32_t row, const auto& value) { set(column, row, value); });
+    }
+}
+
 TestTraceContainer TestTraceContainer::from_rows(const RowTraceContainer& rows)
 {
     TestTraceContainer container;

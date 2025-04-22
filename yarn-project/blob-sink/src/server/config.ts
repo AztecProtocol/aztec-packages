@@ -1,20 +1,29 @@
+import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
-export interface BlobSinkConfig {
+import {
+  type BlobSinkConfig as BlobSinkClientConfig,
+  blobSinkConfigMapping as blobSinkClientConfigMapping,
+} from '../client/config.js';
+
+export type BlobSinkConfig = {
   port?: number;
-  dataStoreConfig?: DataStoreConfig;
-}
+} & Omit<BlobSinkClientConfig, 'blobSinkUrl'> &
+  Partial<DataStoreConfig> &
+  Partial<L1ReaderConfig> &
+  Partial<ChainConfig>;
 
 export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
   port: {
     env: 'BLOB_SINK_PORT',
     description: 'The port to run the blob sink server on',
   },
-  dataStoreConfig: {
-    ...dataConfigMappings,
-    description: 'The configuration for the data store',
-  },
+  ...blobSinkClientConfigMapping,
+  ...dataConfigMappings,
+  ...chainConfigMappings,
+  ...l1ReaderConfigMappings,
 };
 
 /**

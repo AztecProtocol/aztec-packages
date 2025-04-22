@@ -2,17 +2,18 @@ import {
   type AccountWallet,
   type AztecAddress,
   Fr,
-  type FunctionCall,
   FunctionSelector,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
-import { Gas, GasSettings } from '@aztec/circuits.js';
-import { FunctionType, U128 } from '@aztec/foundation/abi';
-import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { FunctionType } from '@aztec/stdlib/abi';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 
+import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
@@ -30,6 +31,13 @@ describe('e2e_fees failures', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+
+    // Prove up until the current state by just marking it as proven.
+    // Then turn off the watcher to prevent it from keep proving
+    await t.context.watcher.trigger();
+    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.catchUpProvenChain();
+    t.setIsMarkingAsProven(false);
   });
 
   afterAll(async () => {
@@ -41,11 +49,11 @@ describe('e2e_fees failures', () => {
     const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
 
     const [initialAlicePrivateBananas] = await t.getBananaPrivateBalanceFn(aliceAddress, sequencerAddress);
-    const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
-
     const [initialFPCPublicBananas] = await t.getBananaPublicBalanceFn(bananaFPC.address);
 
     await t.mintPrivateBananas(privateMintedAlicePrivateBananas, aliceAddress);
+    // Catch the initial balances after the mint above, which costs gas.
+    const [initialAliceGas, initialFPCGas] = await t.getGasBalanceFn(aliceAddress, bananaFPC.address);
 
     // if we simulate locally, it throws an error
     await expect(
@@ -59,7 +67,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
+    ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
@@ -70,8 +78,11 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
+    await t.context.watcher.trigger();
+    await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
-    const currentSequencerL1Gas = await t.getCoinbaseBalance();
+
+    const currentSequencerRewards = await t.getCoinbaseSequencerRewards();
 
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
@@ -86,12 +97,20 @@ describe('e2e_fees failures', () => {
 
     expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
 
-    // We wait until the block is proven since that is when the payout happens.
+    const { sequencerBlockRewards } = await t.getBlockRewards();
+
+    // @note There is a potential race condition here if other tests send transactions that get into the same
+    // epoch and thereby pays out fees at the same time (when proven).
+    await t.context.watcher.trigger();
+    await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
     const feeAmount = txReceipt.transactionFee!;
-    const newSequencerL1FeeAssetBalance = await t.getCoinbaseBalance();
-    expect(newSequencerL1FeeAssetBalance).toEqual(currentSequencerL1Gas + feeAmount);
+    const expectedProverFee = await t.getProverFee(txReceipt.blockNumber!);
+    const newSequencerRewards = await t.getCoinbaseSequencerRewards();
+    expect(newSequencerRewards).toEqual(
+      currentSequencerRewards + sequencerBlockRewards + feeAmount - expectedProverFee,
+    );
 
     // and thus we paid the fee
     await expectMapping(
@@ -130,13 +149,15 @@ describe('e2e_fees failures', () => {
       aliceAddress,
       bananaFPC.address,
     );
+
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
     );
 
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
     // if we simulate locally, it throws an error
     await expect(
       bananaCoin.methods
@@ -148,7 +169,7 @@ describe('e2e_fees failures', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow(/attempt to subtract with underflow 'hi == high'/);
+    ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
     await expectMapping(
@@ -245,13 +266,14 @@ describe('e2e_fees failures', () => {
       aliceAddress,
       bananaFPC.address,
     );
+
+    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
+
     const [initialAliceGas, initialFPCGas, initialSequencerGas] = await t.getGasBalanceFn(
       aliceAddress,
       bananaFPC.address,
       sequencerAddress,
     );
-
-    await bananaCoin.methods.mint_to_public(aliceAddress, publicMintedAlicePublicBananas).send().wait();
 
     const badGas = GasSettings.from({
       ...gasSettings,
@@ -309,11 +331,11 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
-    const maxFee = new U128(gasSettings.getFeeLimit().toBigInt());
+  override async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
+    const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
-    const tooMuchFee = new U128(maxFee.toInteger() * 2n);
+    const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
     const asset = await this.getAsset();
 
@@ -322,8 +344,8 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
         caller: this.paymentContract,
         action: {
           name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
-          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
+          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+          selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,
           to: asset,
@@ -333,17 +355,21 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       true,
     );
 
-    return [
-      await setPublicAuthWitInteraction.request(),
-      {
-        name: 'fee_entrypoint_public',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [...tooMuchFee.toFields(), nonce],
-        returnTypes: [],
-      },
-    ];
+    return new ExecutionPayload(
+      [
+        ...(await setPublicAuthWitInteraction.request()).calls,
+        {
+          name: 'fee_entrypoint_public',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          args: [tooMuchFee, nonce],
+          returnTypes: [],
+        },
+      ],
+      [],
+      [],
+    );
   }
 }

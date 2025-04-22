@@ -3,7 +3,7 @@
 #include <cstddef>
 
 #include "./eccvm_builder_types.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 
@@ -124,7 +124,7 @@ class ECCVMMSMMBuilder {
         pc_values.reserve(msms.size() + 1);
         pc_values.push_back(total_number_of_muls);
         for (const auto& msm : msms) {
-            const size_t num_rows_required = ECCOpQueue::num_eccvm_msm_rows(msm.size());
+            const size_t num_rows_required = EccvmRowTracker::num_eccvm_msm_rows(msm.size());
             msm_row_counts.push_back(msm_row_counts.back() + num_rows_required);
             pc_values.push_back(pc_values.back() - msm.size());
         }

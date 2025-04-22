@@ -45,7 +45,7 @@ pub struct RollupFixtureBuilder {
 
 impl RollupFixtureBuilder {
     pub fn new() -> Self {
-        let vk_tree = comptime { fixtures::vk_tree::get_vk_merkle_tree() };
+        let vk_tree = fixtures::vk_tree::VK_MERKLE_TREE;
         let vk_tree_root = vk_tree.get_root();
 
         let mut global_variables = GlobalVariables::empty();
@@ -276,7 +276,7 @@ impl RollupFixtureBuilder {
     }
 
     pub fn mock_evaluate_blobs(_self: Self) {
-        /// Safety: Mock the oracle call when the blob data is not relevant to the test.
+        // Safety: Mock the oracle call when the blob data is not relevant to the test.
         unsafe {
             let _ = OracleMock::mock("evaluateBlobs").returns(BlockBlobPublicInputs::empty());
         }

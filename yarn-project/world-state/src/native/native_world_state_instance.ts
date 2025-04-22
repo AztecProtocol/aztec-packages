@@ -1,4 +1,3 @@
-import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   GeneratorIndex,
@@ -8,14 +7,16 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { createLogger } from '@aztec/foundation/log';
+} from '@aztec/constants';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import assert from 'assert';
 import { cpus } from 'os';
 
-import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
   WorldStateMessageType,
   type WorldStateRequest,
@@ -51,13 +52,15 @@ export class NativeWorldState implements NativeWorldStateInstance {
   constructor(
     dataDir: string,
     dbMapSizeKb: number,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     private instrumentation: WorldStateInstrumentation,
-    private log = createLogger('world-state:database'),
+    private log: Logger = createLogger('world-state:database'),
   ) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
       `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
     );
+    const prefilledPublicDataBufferArray = prefilledPublicData.map(d => [d.slot.toBuffer(), d.value.toBuffer()]);
     const ws = new BaseNativeWorldState(
       dataDir,
       {
@@ -71,6 +74,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.NULLIFIER_TREE]: 2 * MAX_NULLIFIERS_PER_TX,
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
+      prefilledPublicDataBufferArray,
       GeneratorIndex.BLOCK_HASH,
       dbMapSizeKb,
       threads,

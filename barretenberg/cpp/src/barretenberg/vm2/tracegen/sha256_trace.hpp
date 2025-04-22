@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
@@ -13,9 +15,10 @@ class Sha256TraceBuilder final {
         : trace(trace)
     {}
     void process(const simulation::EventEmitterInterface<simulation::Sha256CompressionEvent>::Container& events);
+    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs();
 
   private:
-    uint32_t row = 0;
+    uint32_t row = 1; // Start from 1 to avoid the precomputed row.
     TraceContainer& trace;
 
     void into_limbs_with_witness(const uint64_t, const uint8_t b, Column c_lhs, Column c_rhs);

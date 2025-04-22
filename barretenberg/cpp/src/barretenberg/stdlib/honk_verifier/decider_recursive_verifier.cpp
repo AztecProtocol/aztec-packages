@@ -10,12 +10,13 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -26,8 +27,9 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
-    auto sumcheck = Sumcheck(
-        static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): fix log_circuit_size usage in stdlib cases.
+    const size_t log_circuit_size = static_cast<uint32_t>(accumulator->verification_key->log_circuit_size.get_value());
+    Sumcheck sumcheck(log_circuit_size, transcript, accumulator->target_sum);
 
     SumcheckOutput<Flavor> output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
@@ -37,7 +39,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
         .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
-    const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+    const auto opening_claim = Shplemini::compute_batch_opening_claim(log_circuit_size,
                                                                       claim_batcher,
                                                                       output.challenge,
                                                                       Commitment::one(builder),
@@ -46,7 +48,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
                                                                       Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    return pairing_points;
+    return { pairing_points[0], pairing_points[1] };
 }
 
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;

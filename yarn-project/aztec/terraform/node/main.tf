@@ -58,7 +58,7 @@ locals {
   node_p2p_private_keys  = var.NODE_P2P_PRIVATE_KEYS
   node_count             = length(local.sequencer_private_keys)
   data_dir               = "/usr/src/yarn-project/aztec"
-  eth_host               = var.ETHEREUM_HOST != "" ? var.ETHEREUM_HOST : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
+  eth_host               = var.ETHEREUM_HOSTS != "" ? var.ETHEREUM_HOSTS : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
 }
 
 output "node_count" {
@@ -131,7 +131,7 @@ resource "aws_efs_mount_target" "public_az2" {
 data "template_file" "user_data" {
   count    = local.node_count
   template = <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
 echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"}' >> /etc/ecs/ecs.config
 EOF
@@ -253,7 +253,11 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "80"
         },
         {
-          name  = "ETHEREUM_HOST"
+          name  = "AZTEC_ADMIN_PORT"
+          value = "8880"
+        },
+        {
+          name  = "ETHEREUM_HOSTS"
           value = "${local.eth_host}"
         },
         {
@@ -283,14 +287,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "SEQ_MIN_TX_PER_BLOCK"
           value = var.SEQ_MIN_TX_PER_BLOCK
-        },
-        {
-          name  = "SEQ_MAX_SECONDS_BETWEEN_BLOCKS"
-          value = var.SEQ_MAX_SECONDS_BETWEEN_BLOCKS
-        },
-        {
-          name  = "SEQ_MIN_SECONDS_BETWEEN_BLOCKS"
-          value = var.SEQ_MIN_SECONDS_BETWEEN_BLOCKS
         },
         {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
@@ -369,10 +365,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = local.node_p2p_private_keys[count.index]
         },
         {
-          name  = "P2P_MIN_PEERS"
-          value = var.P2P_MIN_PEERS
-        },
-        {
           name  = "P2P_MAX_PEERS"
           value = var.P2P_MAX_PEERS
         },
@@ -389,8 +381,8 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
         },
         {
-          name  = "P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH"
-          value = tostring(var.P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH)
+          name  = "P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW"
+          value = tostring(var.P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW)
         },
         {
           name  = "P2P_GOSSIPSUB_INTERVAL_MS"
@@ -419,10 +411,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "PROVER_AGENT_ENABLED"
           value = "false"
-        },
-        {
-          name  = "PROVER_AGENT_CONCURRENCY",
-          value = "0"
         },
         {
           name  = "PROVER_REAL_PROOFS"

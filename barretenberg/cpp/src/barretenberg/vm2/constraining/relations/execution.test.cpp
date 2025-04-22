@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -22,7 +22,7 @@ TEST(ExecutionConstrainingTest, Basic)
     // clang-format off
     TestTraceContainer trace({
          {{ C::execution_sel, 1 }, {C::execution_clk, 0}, { C::execution_pc, 0 }},
-        {{ C::execution_sel, 1 }, {C::execution_clk, 1}, { C::execution_pc, 20 }, { C::execution_last, 1 }}
+         {{ C::execution_sel, 1 }, {C::execution_clk, 1}, { C::execution_pc, 20 }, { C::execution_last, 1 }}
     });
     // clang-format on
 

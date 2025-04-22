@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, traits::Packable};
+use dep::protocol_types::{address::AztecAddress, traits::{Packable, ToField}};
 
 #[oracle(storageRead)]
 unconstrained fn storage_read_oracle<let N: u32>(

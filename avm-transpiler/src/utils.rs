@@ -26,8 +26,14 @@ pub fn extract_brillig_from_acir_program(
     let opcodes = &main_function.opcodes;
     assert_eq!(opcodes.len(), 1, "An AVM program should only have a single `BrilligCall`");
     match opcodes[0] {
-        Opcode::BrilligCall { id, .. } => assert_eq!(id, BrilligFunctionId(0), "The ID of the `BrilligCall` must be 0 as we have a single `Brillig` function"),
-        _ => panic!("Tried to extract a Brillig program from its ACIR wrapper opcode, but the opcode doesn't contain Brillig!"),
+        Opcode::BrilligCall { id, .. } => assert_eq!(
+            id,
+            BrilligFunctionId(0),
+            "The ID of the `BrilligCall` must be 0 as we have a single `Brillig` function"
+        ),
+        _ => panic!(
+            "Tried to extract a Brillig program from its ACIR wrapper opcode, but the opcode doesn't contain Brillig!"
+        ),
     }
     assert_eq!(
         program.unconstrained_functions.len(),
@@ -75,4 +81,18 @@ pub fn make_operand<T: Into<FieldElement> + Clone>(bits: usize, value: &T) -> Av
         254 => AvmOperand::FF { value: field },
         _ => panic!("Invalid operand size for bits: {}", bits),
     }
+}
+
+pub(crate) const UNRESOLVED_PC: u32 = 0xdeadbeef;
+
+pub(crate) fn make_unresolved_pc() -> AvmOperand {
+    AvmOperand::U32 { value: UNRESOLVED_PC }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub(crate) struct UnresolvedPCLocation {
+    // The index of the instruction that contains the unresolved PC
+    pub(crate) instruction_index: usize,
+    // The index of the immediate operand in the instruction that is unresolved
+    pub(crate) immediate_index: usize,
 }

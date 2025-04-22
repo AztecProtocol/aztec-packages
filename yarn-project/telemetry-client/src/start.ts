@@ -1,9 +1,9 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { type TelemetryClientConfig } from './config.js';
+import type { TelemetryClientConfig } from './config.js';
 import { NoopTelemetryClient } from './noop.js';
 import { OpenTelemetryClient } from './otel.js';
-import { type TelemetryClient } from './telemetry.js';
+import type { TelemetryClient } from './telemetry.js';
 
 export * from './config.js';
 
@@ -17,8 +17,8 @@ export function initTelemetryClient(config: TelemetryClientConfig): TelemetryCli
     return telemetry;
   }
 
-  if (config.metricsCollectorUrl || config.useGcloudObservability) {
-    log.info(`Using OpenTelemetry client ${config.useGcloudObservability ? 'with GCP' : 'with custom collector'}`);
+  if (config.metricsCollectorUrl) {
+    log.info(`Using OpenTelemetry client with custom collector`);
     telemetry = OpenTelemetryClient.createAndStart(config, log);
   } else {
     log.info('Using NoopTelemetryClient');

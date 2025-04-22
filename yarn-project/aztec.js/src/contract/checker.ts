@@ -1,4 +1,10 @@
-import { type AbiType, type BasicType, type ContractArtifact, type StructType } from '@aztec/foundation/abi';
+import {
+  type AbiType,
+  type BasicType,
+  type ContractArtifact,
+  type StructType,
+  getDefaultInitializer,
+} from '@aztec/stdlib/abi';
 
 /**
  * Represents a type derived from input type T with the 'kind' property removed.
@@ -38,8 +44,7 @@ export function abiChecker(artifact: ContractArtifact) {
     });
   });
 
-  // TODO: implement a better check for constructor (right now only checks if it has it or not)
-  if (!artifact.functions.find(func => func.name === 'constructor')) {
+  if (!getDefaultInitializer(artifact)) {
     throw new Error('ABI has no constructor');
   }
 

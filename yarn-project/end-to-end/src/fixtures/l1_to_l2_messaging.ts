@@ -1,24 +1,22 @@
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  RollupContract,
+  type ViemPublicClient,
+  type ViemWalletClient,
+} from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { InboxAbi } from '@aztec/l1-artifacts';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { expect } from '@jest/globals';
-import {
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  decodeEventLog,
-  getContract,
-} from 'viem';
+import { decodeEventLog, getContract } from 'viem';
 
 export async function sendL1ToL2Message(
   message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
   ctx: {
-    walletClient: WalletClient<HttpTransport, Chain, Account>;
-    publicClient: PublicClient<HttpTransport, Chain>;
-    l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress'>;
+    walletClient: ViemWalletClient;
+    publicClient: ViemPublicClient;
+    l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress' | 'rollupAddress'>;
   },
 ) {
   const inbox = getContract({
@@ -28,7 +26,11 @@ export async function sendL1ToL2Message(
   });
 
   const { recipient, content, secretHash } = message;
-  const version = 1;
+
+  const version = await new RollupContract(
+    ctx.publicClient,
+    ctx.l1ContractAddresses.rollupAddress.toString(),
+  ).getVersion();
 
   // We inject the message to Inbox
   const txHash = await inbox.write.sendL2Message([

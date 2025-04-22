@@ -1,10 +1,12 @@
-import { type AccountManager, type Fr } from '@aztec/aztec.js';
-import { type ConfigMappingsType } from '@aztec/foundation/config';
-import { type LogFn } from '@aztec/foundation/log';
-import { type PXEService } from '@aztec/pxe';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
+import type { AccountManager, Fr } from '@aztec/aztec.js';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+import type { LogFn } from '@aztec/foundation/log';
+import type { PXEService } from '@aztec/pxe/server';
+import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
 
 import chalk from 'chalk';
-import { type Command } from 'commander';
+import type { Command } from 'commander';
 
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
@@ -214,3 +216,33 @@ export const extractRelevantOptions = <T>(
 
   return relevantOptions;
 };
+
+/**
+ * Downloads just enough points to be able to verify ClientIVC proofs.
+ * @param opts - Whether proof are to be verifier
+ * @param log - Logging function
+ */
+export async function preloadCrsDataForVerifying(
+  { realProofs }: Pick<AztecNodeConfig, 'realProofs'>,
+  log: LogFn,
+): Promise<void> {
+  if (realProofs) {
+    const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
+    await Promise.all([Crs.new(2 ** 1, undefined, log), GrumpkinCrs.new(2 ** 16 + 1, undefined, log)]);
+  }
+}
+
+/**
+ * Downloads enough points to be able to prove every server-side circuit
+ * @param opts - Whether real proof are to be generated
+ * @param log - Logging function
+ */
+export async function preloadCrsDataForServerSideProving(
+  { realProofs }: Pick<ProverConfig, 'realProofs'>,
+  log: LogFn,
+): Promise<void> {
+  if (realProofs) {
+    const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
+    await Promise.all([Crs.new(2 ** 25 + 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
+  }
+}

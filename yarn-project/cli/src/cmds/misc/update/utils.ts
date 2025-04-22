@@ -1,4 +1,4 @@
-import { type NoirPackageConfig } from '@aztec/foundation/noir';
+import type { NoirPackageConfig } from '@aztec/foundation/noir';
 
 import TOML from '@iarna/toml';
 import { CommanderError } from 'commander';

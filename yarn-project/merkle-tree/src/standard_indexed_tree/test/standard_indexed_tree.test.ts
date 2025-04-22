@@ -1,16 +1,16 @@
-import { SiblingPath } from '@aztec/circuit-types';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
+import type { FromBuffer } from '@aztec/foundation/serialize';
+import { SiblingPath } from '@aztec/foundation/trees';
+import type { Hasher } from '@aztec/foundation/trees';
+import type { AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import {
-  Fr,
   NullifierLeaf,
   NullifierLeafPreimage,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-} from '@aztec/circuits.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { type FromBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type Hasher } from '@aztec/types/interfaces';
+} from '@aztec/stdlib/trees';
 
 import { INITIAL_LEAF, type MerkleTree, Pedersen, loadTree, newTree } from '../../index.js';
 import { treeTestSuite } from '../../test/test_suite.js';
@@ -57,7 +57,11 @@ const createFromName = async (store: AztecKVStore, hasher: Hasher, name: string)
 };
 
 const createNullifierTreeLeafHashInputs = (value: number, nextIndex: number, nextValue: number) => {
-  return new NullifierLeafPreimage(new Fr(value), new Fr(nextValue), BigInt(nextIndex)).toHashInputs();
+  return new NullifierLeafPreimage(
+    new NullifierLeaf(new Fr(value)),
+    new Fr(nextValue),
+    BigInt(nextIndex),
+  ).toHashInputs();
 };
 
 const createPublicDataTreeLeaf = (slot: number, value: number) => {
@@ -66,8 +70,7 @@ const createPublicDataTreeLeaf = (slot: number, value: number) => {
 
 const createPublicDataTreeLeafHashInputs = (slot: number, value: number, nextIndex: number, nextSlot: number) => {
   return new PublicDataTreeLeafPreimage(
-    new Fr(slot),
-    new Fr(value),
+    new PublicDataTreeLeaf(new Fr(slot), new Fr(value)),
     new Fr(nextSlot),
     BigInt(nextIndex),
   ).toHashInputs();

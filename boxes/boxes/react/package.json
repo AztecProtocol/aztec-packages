@@ -12,7 +12,7 @@
     "prep": "yarn clean && yarn compile && yarn codegen",
     "dev": "yarn prep && webpack serve --mode development",
     "build": "yarn prep && webpack",
-    "serve": "webpack serve --no-open --mode development",
+    "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "yarn test:node && yarn test:browser",
@@ -79,7 +79,7 @@
     "util": "^0.12.5",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1"
+    "webpack-dev-server": "^5.2.0"
   },
   "files": [
     "dist",
