@@ -44,15 +44,16 @@ class lookup_bc_hashing_get_packed_field_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._bc_hashing_sel() == 1 || in._bc_decomposition_sel_packed() == 1);
+        return (in.get(ColumnAndShifts::bc_hashing_sel) == 1 ||
+                in.get(ColumnAndShifts::bc_decomposition_sel_packed) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._bc_hashing_sel());
-        const auto is_table_entry = View(in._bc_decomposition_sel_packed());
+        const auto is_operation = View(in.get(ColumnAndShifts::bc_hashing_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::bc_decomposition_sel_packed));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -68,16 +69,16 @@ class lookup_bc_hashing_get_packed_field_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_bc_hashing_get_packed_field_inv(),
-                                     in._lookup_bc_hashing_get_packed_field_counts(),
-                                     in._bc_hashing_sel(),
-                                     in._bc_decomposition_sel_packed(),
-                                     in._bc_hashing_pc_index(),
-                                     in._bc_hashing_bytecode_id(),
-                                     in._bc_hashing_packed_field(),
-                                     in._bc_decomposition_pc(),
-                                     in._bc_decomposition_id(),
-                                     in._bc_decomposition_packed_field());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_bc_hashing_get_packed_field_inv),
+                                     in.get(ColumnAndShifts::lookup_bc_hashing_get_packed_field_counts),
+                                     in.get(ColumnAndShifts::bc_hashing_sel),
+                                     in.get(ColumnAndShifts::bc_decomposition_sel_packed),
+                                     in.get(ColumnAndShifts::bc_hashing_pc_index),
+                                     in.get(ColumnAndShifts::bc_hashing_bytecode_id),
+                                     in.get(ColumnAndShifts::bc_hashing_packed_field),
+                                     in.get(ColumnAndShifts::bc_decomposition_pc),
+                                     in.get(ColumnAndShifts::bc_decomposition_id),
+                                     in.get(ColumnAndShifts::bc_decomposition_packed_field));
     }
 };
 
@@ -139,15 +140,16 @@ class lookup_bc_hashing_iv_is_len_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._bc_hashing_start() == 1 || in._bc_decomposition_sel_packed() == 1);
+        return (in.get(ColumnAndShifts::bc_hashing_start) == 1 ||
+                in.get(ColumnAndShifts::bc_decomposition_sel_packed) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._bc_hashing_start());
-        const auto is_table_entry = View(in._bc_decomposition_sel_packed());
+        const auto is_operation = View(in.get(ColumnAndShifts::bc_hashing_start));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::bc_decomposition_sel_packed));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -163,16 +165,16 @@ class lookup_bc_hashing_iv_is_len_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_bc_hashing_iv_is_len_inv(),
-                                     in._lookup_bc_hashing_iv_is_len_counts(),
-                                     in._bc_hashing_start(),
-                                     in._bc_decomposition_sel_packed(),
-                                     in._bc_hashing_pc_index(),
-                                     in._bc_hashing_bytecode_id(),
-                                     in._bc_hashing_incremental_hash(),
-                                     in._bc_decomposition_pc(),
-                                     in._bc_decomposition_id(),
-                                     in._bc_decomposition_bytes_remaining());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_bc_hashing_iv_is_len_inv),
+                                     in.get(ColumnAndShifts::lookup_bc_hashing_iv_is_len_counts),
+                                     in.get(ColumnAndShifts::bc_hashing_start),
+                                     in.get(ColumnAndShifts::bc_decomposition_sel_packed),
+                                     in.get(ColumnAndShifts::bc_hashing_pc_index),
+                                     in.get(ColumnAndShifts::bc_hashing_bytecode_id),
+                                     in.get(ColumnAndShifts::bc_hashing_incremental_hash),
+                                     in.get(ColumnAndShifts::bc_decomposition_pc),
+                                     in.get(ColumnAndShifts::bc_decomposition_id),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_remaining));
     }
 };
 
@@ -233,15 +235,15 @@ class lookup_bc_hashing_poseidon2_hash_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._bc_hashing_sel() == 1 || in._poseidon2_hash_sel() == 1);
+        return (in.get(ColumnAndShifts::bc_hashing_sel) == 1 || in.get(ColumnAndShifts::poseidon2_hash_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._bc_hashing_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::bc_hashing_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -257,16 +259,16 @@ class lookup_bc_hashing_poseidon2_hash_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_bc_hashing_poseidon2_hash_inv(),
-                                     in._lookup_bc_hashing_poseidon2_hash_counts(),
-                                     in._bc_hashing_sel(),
-                                     in._poseidon2_hash_sel(),
-                                     in._bc_hashing_packed_field(),
-                                     in._bc_hashing_incremental_hash(),
-                                     in._bc_hashing_output_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_bc_hashing_poseidon2_hash_inv),
+                                     in.get(ColumnAndShifts::lookup_bc_hashing_poseidon2_hash_counts),
+                                     in.get(ColumnAndShifts::bc_hashing_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_sel),
+                                     in.get(ColumnAndShifts::bc_hashing_packed_field),
+                                     in.get(ColumnAndShifts::bc_hashing_incremental_hash),
+                                     in.get(ColumnAndShifts::bc_hashing_output_hash),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
