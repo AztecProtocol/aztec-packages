@@ -11,7 +11,7 @@ You should have a wallet to act as the transaction sender, a contract that has b
 
 You can learn how to create wallets from [this guide](./create_account.md).
 
-You can learn how to deploy a contract [here](../smart_contracts/how_to_deploy_contract.md).
+You can learn how to deploy a contract [here](./deploy_contract.md).
 
 You can learn how to use fee juice [here](./pay_fees.md).
 

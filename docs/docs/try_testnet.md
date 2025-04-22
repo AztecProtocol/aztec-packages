@@ -2,27 +2,28 @@
 title: Try Testnet
 keywords: [testnet, aztec, migration]
 tags: [testnet, migration]
+id: try_testnet
 ---
 
-The Aztec Testnet is live! You can read the announcement [here](TODO). If you would like to contribute to the continuous testing of the Aztec Network, you can take part in:
 
-- [Running a validator node](#validator-node)
-- [Running a prover node](#prover-node)
-- [Deploying an app onto testnet](#develop-on-aztec-testnet)
+# The Aztec Testnet is live! 🥳
 
-## Run a testnet node
+With a growing network of over 100 active nodes, Aztec is the first fully decentralized L2 testnet that prioritizes privacy from day one. Aztec implements a unique VM designed for privacy-preserving transactions. It has both public and private states, enabling seamless composability across these domains.
 
-It is recommended to read the [full "Run a node" section](./run_node/concepts/governance/governance.md]) to fully understand how decentralization and governance works on the Aztec testnet.
+Be one of the first in the world to build privacy-preserving apps enahnced with the security of Ethereum!
 
-### Validator node
+## Explore testnet
 
-Follow the [sequencer guide](./run_node/guides/run_nodes/how_to_run_validator_sequencer.md).
+- [Read the announcement in our blog](https://aztec.network/blog)
+- [Check out our growing ecosystem of explorers, bridges, wallets, apps, and more](https://aztec.network/ecosystem)
 
-### Prover node
+## Take part
 
-Follow the [prover guide](./run_node/guides/run_nodes/how_to_run_prover.md).
+- [Run a node](./run_node/index.md)
+- [Interact with testnet using Playground, a tool for deploying & interacting with contracts](https://play.aztec.network/)
+- [Get inspiration for what you could build](./developers/inspiration.md)
 
 ## Develop on Aztec Testnet
 
-Follow the [sandbox -> testnet migration guide](./developers/guides/local_env/sandbox_to_testnet.md).
+Follow the [getting started on testnet guide](./developers/guides/local_env/sandbox_to_testnet.md).
 
