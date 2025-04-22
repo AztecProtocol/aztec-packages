@@ -1106,7 +1106,6 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
  *
  * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
  */
-
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
 {
     // Just return one immediately
@@ -1135,67 +1134,6 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
         }
         shifted_exponent >>= 1;
     }
-    return accumulator;
-}
-
-/**
- * @brief Raise a bigfield to a power of an exponent (field_t) that must be a witness. Note that the exponent must
- * not exceed 32 bits and is implicitly range constrained.
- *
- * @returns this ** (exponent)
- *
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
- */
-template <typename Builder, typename T>
-bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent) const
-{
-    auto* ctx = get_context() ? get_context() : exponent.get_context();
-    uint256_t exponent_value = exponent.get_value();
-
-    if constexpr (IsSimulator<Builder>) {
-        if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
-            ctx->failure("field_t::pow exponent accumulator incorrect");
-        }
-        constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
-        auto result = bigfield(ctx, native(get_value()).pow(exponent_value & MASK_32_BITS));
-        result.set_origin_tag(OriginTag(get_origin_tag(), exponent.get_origin_tag()));
-        return result;
-    }
-
-    ASSERT(exponent_value.get_msb() < 32);
-    // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
-    if (exponent.is_constant()) {
-        return this->pow(static_cast<uint32_t>(exponent_value));
-    }
-    std::vector<bool_t<Builder>> exponent_bits(32);
-    // Collect individual bits as bool_t's
-    for (size_t i = 0; i < exponent_bits.size(); ++i) {
-        uint256_t value_bit = exponent_value & 1;
-        bool_t<Builder> bit;
-        bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
-        exponent_bits[31 - i] = (bit);
-        exponent_value >>= 1;
-    }
-
-    field_t<Builder> exponent_accumulator(ctx, 0);
-
-    // Reconstruct the exponent from bits
-    for (const auto& bit : exponent_bits) {
-        exponent_accumulator += exponent_accumulator;
-        exponent_accumulator += field_t<Builder>(bit);
-    }
-
-    // Ensure it's equal to the original
-    exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
-    bigfield accumulator(ctx, 1);
-    bigfield one(1);
-    // Compute the power with a square-and-multiply algorithm
-    for (size_t digit_idx = 0; digit_idx < 32; ++digit_idx) {
-        accumulator *= accumulator;
-        accumulator *= one.conditional_select(*this, exponent_bits[digit_idx]);
-    }
-    accumulator.self_reduce();
-    accumulator.set_origin_tag(OriginTag(get_origin_tag(), exponent.tag));
     return accumulator;
 }
 
