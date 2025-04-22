@@ -1,6 +1,5 @@
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import webpack from 'webpack';
 import TerserPlugin from 'terser-webpack-plugin';
 
@@ -78,7 +77,9 @@ export default {
     }),
   ],
   resolve: {
-    plugins: [new ResolveTypeScriptPlugin()],
+    extensionAlias: {
+      '.js': ['.ts', '.js'],
+    },
     fallback: {
       os: false,
     },

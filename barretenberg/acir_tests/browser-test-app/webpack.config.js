@@ -13,7 +13,12 @@ export default {
     rules: [
       {
         test: /\.tsx?$/,
-        use: [{ loader: "ts-loader" }],
+        loader: "ts-loader",
+        exclude: /node_modules|\.d\.ts$/
+      },
+      {
+        test: /\.d\.ts$/,
+        loader: 'ignore-loader'
       },
     ],
   },
