@@ -3,9 +3,11 @@ import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { schemas } from '@aztec/foundation/schemas';
-import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 
 import { z } from 'zod';
+
+import { L2Block } from './l2_block.js';
+import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 export type L1PublishedData = {
   blockNumber: bigint;
