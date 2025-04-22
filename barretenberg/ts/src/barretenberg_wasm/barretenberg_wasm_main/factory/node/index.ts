@@ -14,5 +14,5 @@ function getCurrentDir() {
 
 export function createMainWorker() {
   const __dirname = getCurrentDir();
-  return Promise.resolve(new Worker(__dirname + `/main.js`));
+  return Promise.resolve(new Worker(__dirname + `/main.worker.js`));
 }
