@@ -1,5 +1,6 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -38,6 +39,9 @@ describe('prover-node', () => {
   let epochMonitor: MockProxy<EpochMonitor>;
   let config: ProverNodeOptions;
 
+  // L1 genesis time
+  let l1GenesisTime: number;
+
   // Subject under test
   let proverNode: TestProverNode;
 
@@ -64,7 +68,9 @@ describe('prover-node', () => {
     );
 
   beforeEach(async () => {
-    prover = mock<EpochProverManager>();
+    prover = mock<EpochProverManager>({
+      getProverId: () => Fr.random(),
+    });
     publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
@@ -112,8 +118,10 @@ describe('prover-node', () => {
         return Promise.resolve([]);
       }
     });
+
+    l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
+    l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
-    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
     l2BlockSource.getL2Tips.mockResolvedValue({
       latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
       proven: { number: 0, hash: undefined },
@@ -139,6 +147,7 @@ describe('prover-node', () => {
   it('starts a proof on a finished epoch', async () => {
     await proverNode.handleEpochReadyToProve(10n);
     expect(jobs[0].epochNumber).toEqual(10n);
+    expect(jobs[0].job.getDeadline()).toEqual(new Date((l1GenesisTime + 10 + 2) * 1000));
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
@@ -186,7 +195,7 @@ describe('prover-node', () => {
 
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
-      _deadline: Date | undefined,
+      deadline: Date | undefined,
       _blocks: L2Block[],
       _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,
@@ -196,9 +205,10 @@ describe('prover-node', () => {
       const run = this.nextJobRun;
       this.nextJobRun = () => Promise.resolve();
       const job = mock<EpochProvingJob>({
-        getState: () => state,
         run,
+        getState: () => state,
         getEpochNumber: () => epochNumber,
+        getDeadline: () => deadline,
       });
       job.getId.mockReturnValue(jobs.length.toString());
       jobs.push({ epochNumber, job });

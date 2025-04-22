@@ -26,6 +26,10 @@ export class BlockRootRollupData {
      */
     public l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     /**
+     * Hint for checking the hash of previous_block_header is the last leaf of the previous archive.
+     */
+    public previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    /**
      * Hint for inserting the new block hash to the last archive.
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -73,6 +77,7 @@ export class BlockRootRollupData {
     return [
       fields.l1ToL2Roots,
       fields.l1ToL2MessageSubtreeSiblingPath,
+      fields.previousArchiveSiblingPath,
       fields.newArchiveSiblingPath,
       fields.previousBlockHeader,
       fields.proverId,
@@ -89,6 +94,7 @@ export class BlockRootRollupData {
     return new BlockRootRollupData(
       RootParityInput.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
       reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
       BlockHeader.fromBuffer(reader),
       Fr.fromBuffer(reader),

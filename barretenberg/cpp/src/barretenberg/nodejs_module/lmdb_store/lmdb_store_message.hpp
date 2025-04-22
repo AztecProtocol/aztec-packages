@@ -26,6 +26,7 @@ enum LMDBStoreMessageType {
     STATS,
 
     CLOSE,
+    COPY_STORE,
 };
 
 struct OpenDatabaseRequest {
@@ -116,6 +117,12 @@ struct StatsResponse {
     std::vector<lmdblib::DBStats> stats;
     uint64_t dbMapSizeBytes;
     MSGPACK_FIELDS(stats, dbMapSizeBytes);
+};
+
+struct CopyStoreRequest {
+    std::string dstPath;
+    std::optional<bool> compact;
+    MSGPACK_FIELDS(dstPath, compact);
 };
 
 } // namespace bb::nodejs::lmdb_store

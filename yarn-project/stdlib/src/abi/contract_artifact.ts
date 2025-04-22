@@ -21,6 +21,7 @@ import {
   AZTEC_INTERNAL_ATTRIBUTE,
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
+  AZTEC_UTILITY_ATTRIBUTE,
   AZTEC_VIEW_ATTRIBUTE,
   type NoirCompiledContract,
 } from '../noir/index.js';
@@ -155,14 +156,14 @@ function generateFunctionAbi(fn: NoirCompiledContractFunction, contract: NoirCom
   const isInternal = fn.custom_attributes.includes(AZTEC_INTERNAL_ATTRIBUTE);
   const isStatic = fn.custom_attributes.includes(AZTEC_VIEW_ATTRIBUTE);
 
-  // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
+  // If the function is not a utility function, the first item is inputs or CallContext which we should omit
   let parameters = fn.abi.parameters.map(generateFunctionParameter);
   if (hasKernelFunctionInputs(parameters)) {
     parameters = parameters.slice(1);
   }
 
   let returnTypes: AbiType[] = [];
-  if (functionType === FunctionType.UNCONSTRAINED) {
+  if (functionType === FunctionType.UTILITY) {
     returnTypes = fn.abi.return_type ? [fn.abi.return_type.abi_type] : returnTypes;
   } else {
     const pathToFind = `${contract.name}::${fn.name}_abi`;
@@ -215,17 +216,30 @@ function generateFunctionArtifact(
 }
 
 function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
-  if (fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE)) {
+  if (fn.custom_attributes.some(attr => attr.endsWith(AZTEC_PRIVATE_ATTRIBUTE))) {
     return FunctionType.PRIVATE;
-  } else if (fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE)) {
+  } else if (fn.custom_attributes.some(attr => attr.endsWith(AZTEC_PUBLIC_ATTRIBUTE))) {
     return FunctionType.PUBLIC;
-  } else if (fn.is_unconstrained) {
-    return FunctionType.UNCONSTRAINED;
+  } else if (fn.custom_attributes.some(attr => attr.endsWith(AZTEC_UTILITY_ATTRIBUTE))) {
+    return FunctionType.UTILITY;
   } else {
-    // Default to a private function (see simple_macro_example_expanded for an example of this behavior)
-    return FunctionType.PRIVATE;
+    throw new Error(`Invalid function type for a noir contract function ${fn.name}`);
   }
 }
+
+// TODO(https://github.com/noir-lang/noir/issues/7912): Replace the above function with this one once the linked issue
+// is fixed.
+// function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
+//   if (fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE)) {
+//     return FunctionType.PRIVATE;
+//   } else if (fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE)) {
+//     return FunctionType.PUBLIC;
+//   } else if (fn.custom_attributes.includes(AZTEC_UTILITY_ATTRIBUTE)) {
+//     return FunctionType.UTILITY;
+//   } else {
+//     throw new Error(`Invalid function type for a noir contract function ${fn.name}`);
+//   }
+// }
 
 /**
  * Returns true if the first parameter is kernel function inputs.

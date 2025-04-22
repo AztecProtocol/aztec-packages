@@ -10,7 +10,7 @@ import {
   makeFetch,
 } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -99,7 +99,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
-    const contract = await DocsExampleContract.deploy(wallet).send().deployed();
+    const contract = await NoConstructorContract.deploy(wallet).send().deployed();
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_public(arbitraryValue).send().wait();
@@ -110,7 +110,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipPublicDeployment: true, skipClassRegistration: true };
-    await expect(DocsExampleContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
+    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
   });
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {

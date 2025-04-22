@@ -30,8 +30,6 @@ export type L1RollupContractAddresses = Pick<
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
-  previousBlockHash: `0x${string}`;
-  endBlockHash: `0x${string}`;
   endTimestamp: bigint;
   outHash: `0x${string}`;
   proverId: `0x${string}`;
@@ -140,6 +138,17 @@ export class RollupContract {
     return this.rollup.read.getManaLimit();
   }
 
+  @memoize
+  getVersion() {
+    return this.rollup.read.getVersion();
+  }
+
+  @memoize
+  async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
+    const block = await this.rollup.read.getBlock([0n]);
+    return block.archive;
+  }
+
   getSlasher() {
     return this.rollup.read.getSlasher();
   }
@@ -183,6 +192,10 @@ export class RollupContract {
 
   getCurrentSampleSeed() {
     return this.rollup.read.getCurrentSampleSeed();
+  }
+
+  getCurrentEpoch() {
+    return this.rollup.read.getCurrentEpoch();
   }
 
   async getCurrentEpochCommittee() {
@@ -276,12 +289,16 @@ export class RollupContract {
     };
   }
 
+  public async getFeeJuicePortal() {
+    return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
+  }
+
   public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
     return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
 
   getEpochProofPublicInputs(
-    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`, `0x${string}`],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }
@@ -358,10 +375,6 @@ export class RollupContract {
 
   getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
     return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
-  }
-
-  getVersion() {
-    return this.rollup.read.getVersion();
   }
 
   getSlotAt(timestamp: bigint) {

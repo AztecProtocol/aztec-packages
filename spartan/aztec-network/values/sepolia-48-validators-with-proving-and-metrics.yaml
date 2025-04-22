@@ -11,7 +11,6 @@ images:
     pullPolicy: Always
 
 network:
-  setupL2Contracts: false
   public: true
 
 ethereum:

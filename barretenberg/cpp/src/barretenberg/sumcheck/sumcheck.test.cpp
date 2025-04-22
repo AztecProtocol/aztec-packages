@@ -1,13 +1,8 @@
 #include "sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
-#include "barretenberg/relations/delta_range_constraint_relation.hpp"
-#include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -379,8 +374,14 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 };
 
 // Define the FlavorTypes
-using FlavorTypes =
-    testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor,
+                                   UltraZKFlavor,
+                                   UltraKeccakFlavor,
+                                   UltraStarknetFlavor,
+                                   UltraKeccakZKFlavor,
+                                   UltraStarknetZKFlavor,
+                                   MegaFlavor,
+                                   MegaZKFlavor>;
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 

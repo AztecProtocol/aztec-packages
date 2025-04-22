@@ -8,6 +8,7 @@ import { FeeJuicePortalAbi, RewardDistributorAbi, TestERC20Abi } from '@aztec/l1
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
@@ -85,7 +86,7 @@ describe('full_prover', () => {
 
       expect(balance).toBeGreaterThan(0n);
 
-      const canonicalAddress = await feeJuicePortal.read.canonicalRollup();
+      const canonicalAddress = await feeJuicePortal.read.ROLLUP();
       logger.info(`Canonical address: ${canonicalAddress}`);
       expect(canonicalAddress.toLowerCase()).toBe(
         t.l1Contracts.l1ContractAddresses.rollupAddress.toString().toLowerCase(),
@@ -285,8 +286,8 @@ describe('full_prover', () => {
       sentPublicTx.wait({ timeout: 10, interval: 0.1 }),
     ]);
 
-    expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
-    expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(/Tx dropped by P2P node/);
+    expect(String((results[0] as PromiseRejectedResult).reason)).toMatch(TX_ERROR_INVALID_PROOF);
+    expect(String((results[1] as PromiseRejectedResult).reason)).toMatch(TX_ERROR_INVALID_PROOF);
   });
 
   it(
@@ -352,9 +353,7 @@ describe('full_prover', () => {
 
       // Assert that the large influx of invalid txs are rejected and do not ddos the node
       for (let i = 0; i < NUM_INVALID_TXS; i++) {
-        const invalidTxReceipt = (results[i] as PromiseFulfilledResult<FieldsOf<TxReceipt>>).value;
-        expect(invalidTxReceipt.status).toBe(TxStatus.DROPPED);
-        expect(invalidTxReceipt.error).toMatch(/Tx dropped by P2P node/);
+        expect(String((results[i] as PromiseRejectedResult).reason)).toMatch(TX_ERROR_INVALID_PROOF);
       }
 
       // Assert that the valid tx is successfully sent and mined

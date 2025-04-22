@@ -9,6 +9,7 @@ import type {
   L2Tips,
   PublishedL2Block,
 } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { P2PApi, PeerInfo, ProverCoordination } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, type BlockProposal, ConsensusPayload, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -211,7 +212,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   constructor(
     _clientType: T,
     store: AztecAsyncKVStore,
-    private l2BlockSource: L2BlockSource,
+    private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
     config: Partial<P2PConfig> = {},
@@ -295,12 +296,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         break;
       case 'chain-proven': {
         const from = (await this.getSyncedProvenBlockNum()) + 1;
-        const limit = event.blockNumber - from + 1;
+        const limit = event.block.number - from + 1;
         await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
         break;
       }
       case 'chain-pruned':
-        await this.handlePruneL2Blocks(event.blockNumber);
+        await this.handlePruneL2Blocks(event.block.number);
         break;
       default: {
         const _: never = event;
@@ -371,6 +372,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info('P2P client stopped.');
   }
 
+  /** Triggers a sync to the archiver. Used for testing. */
+  public async sync() {
+    await this.blockStream.sync();
+  }
+
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
     [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
@@ -439,12 +445,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
-    await this.txPool.addTxs(txs);
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const txs = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
+
+    // Some transactions may return undefined, so we filter them out
+    const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
+    await this.txPool.addTxs(filteredTxs);
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
     this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
-    return txs as Tx[];
+
+    // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
+    return txs;
   }
 
   public getPendingTxs(): Promise<Tx[]> {
@@ -527,7 +538,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes);
-    return txs.filter((tx): tx is Tx => !!tx).concat(missingTxs);
+    const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
+    return txs.filter((tx): tx is Tx => !!tx).concat(fetchedMissingTxs);
   }
 
   /**
@@ -737,7 +749,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info(
       `Detected chain prune. Removing invalid txs count=${
         txsToDelete.length
-      } newLatestBlock=${latestBlock} previousLatestBlock=${this.getSyncedLatestBlockNum()}`,
+      } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
     );
 
     // delete invalid txs (both pending and mined)

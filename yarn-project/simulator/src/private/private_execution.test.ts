@@ -46,7 +46,7 @@ import {
 } from '@aztec/stdlib/hash';
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { L1ToL2Message } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
 import { makeHeader } from '@aztec/stdlib/testing';
@@ -64,9 +64,9 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
+import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { WASMSimulator } from './providers/acvm_wasm.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -298,9 +298,7 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    executionDataProvider.syncTaggedLogs.mockImplementation((_, __, ___) =>
-      Promise.resolve(new Map<string, TxScopedL2Log[]>()),
-    );
+    executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(
@@ -429,8 +427,7 @@ describe('Private Execution test suite', () => {
         buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
         buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
       ]);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
@@ -481,8 +478,7 @@ describe('Private Execution test suite', () => {
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
 
       const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)]);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
@@ -943,8 +939,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -996,8 +991,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1068,8 +1062,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1107,8 +1100,7 @@ describe('Private Execution test suite', () => {
   describe('Get notes', () => {
     it('fails if returning no notes', async () => {
       const args = [2n, true];
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       await expect(() =>

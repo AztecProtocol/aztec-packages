@@ -1,8 +1,14 @@
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include <memory>
+
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -28,5 +34,12 @@ void ClassIdDerivationTraceBuilder::process(
                   } });
         row++;
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> ClassIdDerivationTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_class_id_derivation_class_id_poseidon2_1_settings>>());
 }
 } // namespace bb::avm2::tracegen

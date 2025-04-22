@@ -6,17 +6,17 @@ import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
+  mockCheckNullifierExists,
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockGetNullifierIndex,
   mockTraceFork,
 } from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
@@ -30,7 +30,7 @@ describe('External Calls', () => {
   let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: PublicPersistableStateManager;
 
   beforeEach(() => {
     treesDB = mock<PublicTreesDB>();
@@ -59,8 +59,8 @@ describe('External Calls', () => {
         /*argsSizeOffset=*/ 0xc234,
       );
 
-      expect(Call.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Call.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Call to non-existent bytecode returns failure', async () => {
@@ -128,7 +128,7 @@ describe('External Calls', () => {
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
-      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
+      mockCheckNullifierExists(treesDB, true, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -174,14 +174,14 @@ describe('External Calls', () => {
         new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, 1).as(Opcode.SET_8, Set.wireFormat8),
         new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
       ]);
-      mockGetNullifierIndex(treesDB, addr);
+      mockCheckNullifierExists(treesDB, true, addr);
 
       const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
-      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
+      mockCheckNullifierExists(treesDB, true, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -227,8 +227,8 @@ describe('External Calls', () => {
         /*argsSizeOffset=*/ 0xc234,
       );
 
-      expect(StaticCall.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(StaticCall.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should fail if a static call attempts to touch storage', async () => {
@@ -252,7 +252,7 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = encodeToBytecode(otherContextInstructions);
-      mockGetNullifierIndex(treesDB, addr.toFr());
+      mockCheckNullifierExists(treesDB, true, addr.toFr());
 
       const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
@@ -279,8 +279,8 @@ describe('External Calls', () => {
       ]);
       const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*copySize=*/ 0xa234);
 
-      expect(Return.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Return.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should return data from the return opcode', async () => {
@@ -313,8 +313,8 @@ describe('External Calls', () => {
         Revert.wireFormat16,
       );
 
-      expect(Revert.as(Revert.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Revert.as(Revert.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should return data and revert from the revert opcode', async () => {
@@ -342,8 +342,8 @@ describe('External Calls', () => {
       ]);
       const inst = new SuccessCopy(/*indirect=*/ 0x12, /*dstOffset=*/ 0x5678);
 
-      expect(SuccessCopy.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SuccessCopy.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should correctly copy success state for a successful call', async () => {

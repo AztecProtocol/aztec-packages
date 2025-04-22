@@ -8,7 +8,7 @@
 #include "barretenberg/lmdblib/lmdb_store_base.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "lmdb_tree_store.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -87,6 +87,11 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
             _environment, *tx, _name + BLOCK_INDICES_DB, false, false, false, index_key_cmp);
         tx->commit();
     }
+}
+
+const std::string& LMDBTreeStore::get_name() const
+{
+    return _name;
 }
 
 void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)

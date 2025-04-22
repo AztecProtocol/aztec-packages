@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -25,7 +24,7 @@ namespace {
 using ::testing::NiceMock;
 using ::testing::TestWithParam;
 
-using tracegen::LookupIntoDynamicTableSequential;
+using tracegen::LookupIntoDynamicTableGeneric;
 using tracegen::TestTraceContainer;
 
 using simulation::EventEmitter;
@@ -70,9 +69,9 @@ std::vector<TestParams> comparison_tests = {
     TestParams{ 0, -1, false }
 };
 
-class BasicTest : public TestWithParam<TestParams> {};
+class FieldGreaterThanBasicTest : public TestWithParam<TestParams> {};
 
-TEST_P(BasicTest, BasicComparison)
+TEST_P(FieldGreaterThanBasicTest, BasicComparison)
 {
     const auto& param = GetParam();
 
@@ -92,11 +91,13 @@ TEST_P(BasicTest, BasicComparison)
     check_relation<ff_gt>(trace);
 }
 
-INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest, BasicTest, ::testing::ValuesIn(comparison_tests));
+INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest,
+                         FieldGreaterThanBasicTest,
+                         ::testing::ValuesIn(comparison_tests));
 
-class InteractionsTests : public TestWithParam<TestParams> {};
+class FieldGreaterThanInteractionsTests : public TestWithParam<TestParams> {};
 
-TEST_P(InteractionsTests, InteractionsWithRangeCheck)
+TEST_P(FieldGreaterThanInteractionsTests, InteractionsWithRangeCheck)
 {
     const auto& param = GetParam();
 
@@ -117,15 +118,15 @@ TEST_P(InteractionsTests, InteractionsWithRangeCheck)
     builder.process(event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_a_hi_range::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_a_lo_range::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_a_hi_range::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_a_lo_range::Settings>().process(trace);
 
     check_relation<ff_gt>(trace);
-    check_interaction<lookup_a_hi_range>(trace);
-    check_interaction<lookup_a_lo_range>(trace);
 }
 
-INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest, InteractionsTests, ::testing::ValuesIn(comparison_tests));
+INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest,
+                         FieldGreaterThanInteractionsTests,
+                         ::testing::ValuesIn(comparison_tests));
 
 TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
 {

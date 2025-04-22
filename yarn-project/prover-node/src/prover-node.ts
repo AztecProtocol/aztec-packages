@@ -1,5 +1,6 @@
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -8,13 +9,14 @@ import type { P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
@@ -32,7 +34,7 @@ import {
 } from '@aztec/telemetry-client';
 
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
-import { ProverNodeMetrics } from './metrics.js';
+import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
 
@@ -57,7 +59,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   private jobs: Map<string, EpochProvingJob> = new Map();
   private options: ProverNodeOptions;
-  private metrics: ProverNodeMetrics;
+  private jobMetrics: ProverNodeJobMetrics;
+  private rewardsMetrics: ProverNodeRewardsMetrics;
   private l1Metrics: L1Metrics;
 
   private txFetcher: RunningPromise;
@@ -91,8 +94,17 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       ...compact(options),
     };
 
-    this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+    const meter = telemetryClient.getMeter('ProverNode');
     this.tracer = telemetryClient.getTracer('ProverNode');
+
+    this.jobMetrics = new ProverNodeJobMetrics(meter, telemetryClient.getTracer('EpochProvingJob'));
+
+    this.rewardsMetrics = new ProverNodeRewardsMetrics(
+      meter,
+      EthAddress.fromField(this.prover.getProverId()),
+      this.publisher.getRollupContract(),
+    );
+
     this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
 
@@ -111,8 +123,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   /**
    * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
    * @param epochNumber - The epoch number that was just completed.
+   * @returns false if there is an error, true otherwise
    */
-  async handleEpochReadyToProve(epochNumber: bigint): Promise<void> {
+  async handleEpochReadyToProve(epochNumber: bigint): Promise<boolean> {
     try {
       this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
         jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
@@ -122,15 +135,17 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
         this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
           activeJobs: activeJobs.map(job => job.uuid),
         });
-        return;
+        return true;
       }
       await this.startProof(epochNumber);
+      return true;
     } catch (err) {
       if (err instanceof EmptyEpochError) {
         this.log.info(`Not starting proof for ${epochNumber} since no blocks were found`);
       } else {
         this.log.error(`Error handling epoch completed`, err);
       }
+      return false;
     }
   }
 
@@ -138,11 +153,12 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts the prover node so it periodically checks for unproven epochs in the unfinalised chain from L1 and
    * starts proving jobs for them.
    */
-  start() {
+  async start() {
     this.txFetcher.start();
     this.epochsMonitor.start(this);
     this.l1Metrics.start();
-    this.log.info('Started ProverNode', this.options);
+    await this.rewardsMetrics.start();
+    this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.options);
   }
 
   /**
@@ -159,8 +175,20 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await this.worldState.stop();
     await tryStop(this.coordination);
     this.l1Metrics.stop();
+    this.rewardsMetrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
+  }
+
+  /** Returns world state status. */
+  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    const { syncSummary } = await this.worldState.status();
+    return syncSummary;
+  }
+
+  /** Returns archiver status. */
+  public getL2Tips() {
+    return this.l2BlockSource.getL2Tips();
   }
 
   /**
@@ -245,9 +273,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.telemetryClient,
     );
 
-    const [_, endTimestamp] = getTimestampRangeForEpoch(epochNumber + 1n, await this.getL1Constants());
-    const deadline = new Date(Number(endTimestamp) * 1000);
-
+    const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
+    const deadline = new Date(Number(deadlineTs) * 1000);
     const job = this.doCreateEpochProvingJob(epochNumber, deadline, blocks, txs, publicProcessorFactory);
     this.jobs.set(job.getId(), job);
     return job;
@@ -326,7 +353,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.metrics,
+      this.jobMetrics,
       deadline,
       { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
     );

@@ -1,17 +1,26 @@
-if (NOT(FUZZING) AND NOT(WASM))
+# Used also by bb_cli_bench
+barretenberg_module(
+    bb-cli-lib
+    barretenberg
+    env
+    api
+    circuit_checker
+    ${TRACY_LIBS}
+    libdeflate::libdeflate_static)
+
+if(NOT DISABLE_AZTEC_VM)
+    add_dependencies(bb-cli-lib vm2)
+endif()
+
+if (NOT(FUZZING))
     add_executable(
         bb
         main.cpp
     )
-
     target_link_libraries(
         bb
         PRIVATE
-        barretenberg
-        env
-        circuit_checker
-        ${TRACY_LIBS}
-        libdeflate::libdeflate_static
+        bb-cli-lib
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(

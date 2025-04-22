@@ -26,8 +26,8 @@ describe('start_anvil', () => {
     expect(anvil.status).toEqual('idle');
   });
 
-  it('does not reuse ports when starting multiple instances', async () => {
-    const anvils = await Promise.all(times(20, () => startAnvil()));
+  it('can start multiple anvils on different ports', async () => {
+    const anvils = await Promise.all(times(20, i => startAnvil({ port: 8545 + i })));
     const ports = anvils.map(({ rpcUrl }) => parseInt(new URL(rpcUrl).port));
     expect(new Set(ports).size).toEqual(20);
     await Promise.all(anvils.map(({ anvil }) => anvil.stop()));

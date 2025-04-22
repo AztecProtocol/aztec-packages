@@ -29,7 +29,7 @@ template <typename BF, typename FF = void> struct TranslationEvaluations_ {
 
 /**
  * @brief Efficiently compute \f$ \text{translation_masking_term_eval} \cdot x^{N}\f$, where \f$ N =
- * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{MASKING_OFFSET}  \f$.
+ * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{NUM_DISABLED_ROWS_IN_SUMCHECK}  \f$.
  * @details As described in \ref ECCVMProver::compute_translation_opening_claims(), Translator's
  * `accumulated_result` \f$ A \f$ satisfies \f{align}{ x\cdot A = \sum_i \widetilde{T}_i v^i - X^N \cdot
  * \text{translation_masking_term_eval}. \f} Therefore, before propagating the `translation_masking_term_eval`,
@@ -39,15 +39,15 @@ template <typename FF>
 static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x, FF& translation_masking_term_eval)
 {
     // This method is only invoked within Goblin, which runs ECCVM with a fixed size.
-    static constexpr size_t LOG_MASKING_OFFSET = numeric::get_msb(MASKING_OFFSET);
-    static_assert(1UL << LOG_MASKING_OFFSET == MASKING_OFFSET, "MASKING_OFFSET must be a power of 2");
+    static constexpr size_t LOG_MASKING_OFFSET = numeric::get_msb(NUM_DISABLED_ROWS_IN_SUMCHECK);
+    static_assert(1UL << LOG_MASKING_OFFSET == NUM_DISABLED_ROWS_IN_SUMCHECK, "MASKING_OFFSET must be a power of 2");
 
-    FF x_to_masking_offset = evaluation_challenge_x;
+    FF x_to_num_disabled_rows = evaluation_challenge_x;
     for (size_t idx = 0; idx < LOG_MASKING_OFFSET; idx++) {
-        x_to_masking_offset = x_to_masking_offset.sqr();
+        x_to_num_disabled_rows = x_to_num_disabled_rows.sqr();
     }
 
-    FF x_to_circuit_size = x_to_masking_offset;
+    FF x_to_circuit_size = x_to_num_disabled_rows;
 
     for (size_t idx = LOG_MASKING_OFFSET; idx < CONST_ECCVM_LOG_N; idx++) {
         x_to_circuit_size = x_to_circuit_size.sqr();
@@ -55,6 +55,6 @@ static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x
 
     // Update `translation_masking_term_eval`
     translation_masking_term_eval *= x_to_circuit_size;
-    translation_masking_term_eval *= x_to_masking_offset.invert();
+    translation_masking_term_eval *= x_to_num_disabled_rows.invert();
 };
 } // namespace bb

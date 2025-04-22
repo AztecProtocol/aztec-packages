@@ -10,7 +10,13 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { type DeployL1ContractsArgs, RollupContract, createL1Clients, getPublicClient } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsArgs,
+  RollupContract,
+  createL1Clients,
+  getPublicClient,
+  l1Artifacts,
+} from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -39,7 +45,6 @@ import {
   type SetupOptions,
   ensureAccountsPubliclyDeployed,
   getBalancesFn,
-  setupCanonicalFeeJuice,
   setupSponsoredFPC,
 } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
@@ -141,6 +146,26 @@ export class FeesTest {
     }
   }
 
+  async getBlockRewards() {
+    const rewardDistributor = getContract({
+      address: this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+      abi: l1Artifacts.rewardDistributor.contractAbi,
+      client: this.context.deployL1ContractsValues.publicClient,
+    });
+
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+
+    const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(
+      EthAddress.fromString(rewardDistributor.address),
+    );
+
+    const toDistribute = balance > blockReward ? blockReward : balance;
+    const sequencerBlockRewards = toDistribute / 2n;
+    const proverBlockRewards = toDistribute - sequencerBlockRewards;
+
+    return { sequencerBlockRewards, proverBlockRewards };
+  }
+
   async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, address);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
@@ -198,9 +223,7 @@ export class FeesTest {
   async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
       'setup_fee_juice',
-      async context => {
-        await setupCanonicalFeeJuice(context.pxe);
-      },
+      async () => {},
       async (_data, context) => {
         this.context = context;
 

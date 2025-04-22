@@ -49,28 +49,19 @@ class CircuitSimulatorBN254 {
     size_t num_gates = 0;
     static constexpr uint32_t zero_idx = 0; // Should agree with what is in circuit builders
     std::vector<FF> public_inputs;
-
-    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
-    {
-
-        if (contains_pairing_point_accumulator) {
-            failure("added recursive proof when one already exists");
-        }
-        contains_pairing_point_accumulator = true;
-
-        for (uint32_t idx = 0; idx < proof_element_limbs.size(); idx++) {
-            set_public_input(proof_element_limbs[idx]);
-            pairing_point_accumulator_public_input_indices[idx] = static_cast<uint32_t>(public_inputs.size() - 1);
-        }
-    }
+    std::vector<uint32_t> used_witnesses;
 
     inline uint32_t add_variable([[maybe_unused]] const bb::fr index) const { return 1028; }
     inline bb::fr get_variable([[maybe_unused]] const uint32_t index) const { return 1028; }
 
     uint32_t put_constant_variable([[maybe_unused]] const bb::fr& variable) { return 1028; }
-    void set_public_input([[maybe_unused]] const uint32_t witness_index) {}
+    uint32_t set_public_input([[maybe_unused]] const uint32_t witness_index) { return 0; }
 
-    void set_public_input(const bb::fr value) { public_inputs.emplace_back(value); }
+    uint32_t set_public_input(const bb::fr value)
+    {
+        public_inputs.emplace_back(value);
+        return 0;
+    }
 
     void fix_witness([[maybe_unused]] const uint32_t witness_index, [[maybe_unused]] const bb::fr& witness_value){};
 
@@ -205,6 +196,8 @@ class CircuitSimulatorBN254 {
     }
     void create_ecc_dbl_gate([[maybe_unused]] const ecc_dbl_gate_<FF>& in){};
 
+    std::vector<uint32_t> get_used_witnesses() { return used_witnesses; }
+    void update_used_witnesses([[maybe_unused]] uint32_t var_idx){};
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
 };

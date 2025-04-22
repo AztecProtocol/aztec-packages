@@ -34,6 +34,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../node-lib"
+    },
+    {
       "path": "../noir-protocol-circuits-types"
     },
     {

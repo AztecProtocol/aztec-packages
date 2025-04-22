@@ -3,31 +3,28 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <stdexcept>
 #include <vector>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::tracegen {
-namespace {
-
-// This returns a number whose first n bits are set to 1.
-uint64_t as_unary(uint32_t n)
-{
-    assert(n <= DECOMPOSE_WINDOW_SIZE);
-    uint64_t tmp = (static_cast<uint64_t>(1) << n) - 1;
-    return tmp;
-}
-
-} // namespace
 
 void BytecodeTraceBuilder::process_decomposition(
     const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
@@ -42,7 +39,6 @@ void BytecodeTraceBuilder::process_decomposition(
         const auto& bytecode = *event.bytecode;
         const auto id = event.bytecode_id;
         auto bytecode_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? bytecode[i] : 0; };
-        auto bytecode_exists_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? 1 : 0; };
         const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
 
         for (uint32_t i = 0; i < bytecode_len; i++) {
@@ -65,7 +61,6 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
                     { C::bc_decomposition_abs_diff, abs_diff },
                     { C::bc_decomposition_bytes_to_read, bytes_to_read },
-                    { C::bc_decomposition_bytes_to_read_unary, as_unary(bytes_to_read) },
                     { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
                     // Sliding window.
                     { C::bc_decomposition_bytes, bytecode_at(i) },
@@ -105,43 +100,6 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_pc_plus_34, bytecode_at(i + 34) },
                     { C::bc_decomposition_bytes_pc_plus_35, bytecode_at(i + 35) },
                     { C::bc_decomposition_bytes_pc_plus_36, bytecode_at(i + 36) },
-                    // Bytecode overflow selectors.
-                    { C::bc_decomposition_sel_pc_plus_1, bytecode_exists_at(i + 1) },
-                    { C::bc_decomposition_sel_pc_plus_2, bytecode_exists_at(i + 2) },
-                    { C::bc_decomposition_sel_pc_plus_3, bytecode_exists_at(i + 3) },
-                    { C::bc_decomposition_sel_pc_plus_4, bytecode_exists_at(i + 4) },
-                    { C::bc_decomposition_sel_pc_plus_5, bytecode_exists_at(i + 5) },
-                    { C::bc_decomposition_sel_pc_plus_6, bytecode_exists_at(i + 6) },
-                    { C::bc_decomposition_sel_pc_plus_7, bytecode_exists_at(i + 7) },
-                    { C::bc_decomposition_sel_pc_plus_8, bytecode_exists_at(i + 8) },
-                    { C::bc_decomposition_sel_pc_plus_9, bytecode_exists_at(i + 9) },
-                    { C::bc_decomposition_sel_pc_plus_10, bytecode_exists_at(i + 10) },
-                    { C::bc_decomposition_sel_pc_plus_11, bytecode_exists_at(i + 11) },
-                    { C::bc_decomposition_sel_pc_plus_12, bytecode_exists_at(i + 12) },
-                    { C::bc_decomposition_sel_pc_plus_13, bytecode_exists_at(i + 13) },
-                    { C::bc_decomposition_sel_pc_plus_14, bytecode_exists_at(i + 14) },
-                    { C::bc_decomposition_sel_pc_plus_15, bytecode_exists_at(i + 15) },
-                    { C::bc_decomposition_sel_pc_plus_16, bytecode_exists_at(i + 16) },
-                    { C::bc_decomposition_sel_pc_plus_17, bytecode_exists_at(i + 17) },
-                    { C::bc_decomposition_sel_pc_plus_18, bytecode_exists_at(i + 18) },
-                    { C::bc_decomposition_sel_pc_plus_19, bytecode_exists_at(i + 19) },
-                    { C::bc_decomposition_sel_pc_plus_20, bytecode_exists_at(i + 20) },
-                    { C::bc_decomposition_sel_pc_plus_21, bytecode_exists_at(i + 21) },
-                    { C::bc_decomposition_sel_pc_plus_22, bytecode_exists_at(i + 22) },
-                    { C::bc_decomposition_sel_pc_plus_23, bytecode_exists_at(i + 23) },
-                    { C::bc_decomposition_sel_pc_plus_24, bytecode_exists_at(i + 24) },
-                    { C::bc_decomposition_sel_pc_plus_25, bytecode_exists_at(i + 25) },
-                    { C::bc_decomposition_sel_pc_plus_26, bytecode_exists_at(i + 26) },
-                    { C::bc_decomposition_sel_pc_plus_27, bytecode_exists_at(i + 27) },
-                    { C::bc_decomposition_sel_pc_plus_28, bytecode_exists_at(i + 28) },
-                    { C::bc_decomposition_sel_pc_plus_29, bytecode_exists_at(i + 29) },
-                    { C::bc_decomposition_sel_pc_plus_30, bytecode_exists_at(i + 30) },
-                    { C::bc_decomposition_sel_pc_plus_31, bytecode_exists_at(i + 31) },
-                    { C::bc_decomposition_sel_pc_plus_32, bytecode_exists_at(i + 32) },
-                    { C::bc_decomposition_sel_pc_plus_33, bytecode_exists_at(i + 33) },
-                    { C::bc_decomposition_sel_pc_plus_34, bytecode_exists_at(i + 34) },
-                    { C::bc_decomposition_sel_pc_plus_35, bytecode_exists_at(i + 35) },
-                    { C::bc_decomposition_sel_pc_plus_36, bytecode_exists_at(i + 36) },
                 } });
         }
 
@@ -212,8 +170,7 @@ void BytecodeTraceBuilder::process_retrieval(
     for (const auto& event : events) {
         trace.set(
             row,
-            { {
-                { C::bc_retrieval_sel, 1 },
+            { { { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
                 // TODO: handle errors.
@@ -221,7 +178,8 @@ void BytecodeTraceBuilder::process_retrieval(
                 // Contract instance.
                 { C::bc_retrieval_salt, event.contract_instance.salt },
                 { C::bc_retrieval_deployer_addr, event.contract_instance.deployer_addr },
-                { C::bc_retrieval_class_id, event.contract_instance.contract_class_id },
+                { C::bc_retrieval_current_class_id, event.contract_instance.current_class_id },
+                { C::bc_retrieval_original_class_id, event.contract_instance.original_class_id },
                 { C::bc_retrieval_init_hash, event.contract_instance.initialisation_hash },
                 { C::bc_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },
                 { C::bc_retrieval_nullifier_key_y, event.contract_instance.public_keys.nullifier_key.y },
@@ -235,9 +193,15 @@ void BytecodeTraceBuilder::process_retrieval(
                 { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
                 { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
                 { C::bc_retrieval_public_bytecode_commitment, event.contract_class.public_bytecode_commitment },
+                // State.
+                { C::bc_retrieval_block_number, event.current_block_number },
+                { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
+                { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
                 // Siloing.
+                { C::bc_retrieval_outer_nullifier_domain_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
+                { C::bc_retrieval_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
                 { C::bc_retrieval_siloed_address, event.siloed_address },
-            } });
+                { C::bc_retrieval_nullifier_exists, true } } });
         row++;
     }
 }
@@ -412,6 +376,33 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                   } });
         row++;
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> BytecodeTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        // Bytecode Hashing
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_get_packed_field_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_iv_is_len_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_poseidon2_hash_settings>>(),
+        // Bytecode Retrieval
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_address_derivation_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_update_check_settings>>(),
+        std::make_unique<
+            LookupIntoDynamicTableSequential<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_deployment_nullifier_read_settings>>(),
+        // Bytecode Decomposition
+        std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
+        // Instruction Fetching
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytecode_size_from_bc_dec_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_tag_value_validation_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_pc_abs_diff_positive_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

@@ -149,12 +149,16 @@ export function injectCommands(
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
-    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
+    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .option(
+      '--register-class',
+      'Register the contract class (useful for when the contract class has not been deployed yet).',
+    );
 
   addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
-    const { rpcUrl, wait, from: parsedFromAddress, json } = options;
+    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass } = options;
 
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db);
@@ -162,6 +166,7 @@ export function injectCommands(
     await deployAccount(
       account,
       wait,
+      registerClass,
       await FeeOptsWithFeePayer.fromCli(options, client, log, db),
       json,
       debugLogger,
@@ -226,7 +231,6 @@ export function injectCommands(
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
     const address = await deploy(
-      client,
       wallet,
       artifactPath,
       json,
@@ -263,7 +267,13 @@ export function injectCommands(
     .addOption(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
-    .addOption(createAuthwitnessOption('Authorization witness to use for the transaction', !db, db))
+    .addOption(
+      createAuthwitnessOption(
+        'Authorization witness to use for the transaction. If using multiple, pass a comma separated string',
+        !db,
+        db,
+      ),
+    )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.');
@@ -281,7 +291,7 @@ export function injectCommands(
       secretKey,
       alias,
       cancel,
-      authWitness,
+      authWitness: authWitnessArray,
     } = options;
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
@@ -290,7 +300,7 @@ export function injectCommands(
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
-    const authWitnesses = cleanupAuthWitnesses(authWitness);
+    const authWitnesses = cleanupAuthWitnesses(authWitnessArray);
     const sentTx = await send(
       wallet,
       functionName,
@@ -423,7 +433,6 @@ export function injectCommands(
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      log(`Minting ${amount} fee juice on L1 and pushing to L2`);
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
@@ -639,13 +648,38 @@ export function injectCommands(
       aliasedAddressParser('accounts', address, db),
     )
     .argument('[artifact]', ARTIFACT_DESCRIPTION, artifactPathParser)
+    .option('--init <string>', 'The contract initializer function to call', 'constructor')
+    .option(
+      '-k, --public-key <string>',
+      'Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.',
+      parsePublicKey,
+    )
+    .option(
+      '-s, --salt <hex string>',
+      'Optional deployment salt as a hex string for generating the deployment address.',
+      parseFieldFromHexString,
+    )
+    .option('--deployer <string>', 'The address of the account that deployed the contract', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
     .addOption(createArgsOption(true, db))
     .addOption(pxeOption)
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createAliasOption('Alias for the contact. Used for easy reference in subsequent commands.', !db))
     .action(async (address, artifactPathPromise, _options, command) => {
       const { registerContract } = await import('./register_contract.js');
-      const { from: parsedFromAddress, rpcUrl, nodeUrl, secretKey, alias } = command.optsWithGlobals();
+      const {
+        from: parsedFromAddress,
+        rpcUrl,
+        nodeUrl,
+        secretKey,
+        alias,
+        init,
+        publicKey,
+        salt,
+        deployer,
+        args,
+      } = command.optsWithGlobals();
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const node = pxeWrapper?.getNode() ?? createAztecNodeClient(nodeUrl);
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
@@ -653,7 +687,18 @@ export function injectCommands(
 
       const artifactPath = await artifactPathPromise;
 
-      const instance = await registerContract(wallet, node, address, artifactPath, log);
+      const instance = await registerContract(
+        wallet,
+        node,
+        address,
+        artifactPath,
+        log,
+        init,
+        publicKey,
+        args,
+        salt,
+        deployer,
+      );
 
       if (db && alias) {
         await db.storeContract(instance.address, artifactPath, log, alias);

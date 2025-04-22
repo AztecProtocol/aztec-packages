@@ -1,18 +1,5 @@
-#include "barretenberg/nodejs_module/world_state/world_state.hpp"
-#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/response.hpp"
-#include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/messaging/header.hpp"
-#include "barretenberg/nodejs_module/util/async_op.hpp"
-#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
-#include "barretenberg/world_state/fork.hpp"
-#include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
-#include "msgpack/v3/pack_decl.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
-#include "napi.h"
+
 #include <algorithm>
 #include <any>
 #include <array>
@@ -24,6 +11,20 @@
 #include <stdexcept>
 #include <sys/types.h>
 #include <unordered_map>
+
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/messaging/header.hpp"
+#include "barretenberg/nodejs_module/util/async_op.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/fork.hpp"
+#include "barretenberg/world_state/types.hpp"
+#include "napi.h"
 
 using namespace bb::nodejs;
 using namespace bb::world_state;
@@ -257,6 +258,10 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     _dispatcher.register_target(
         WorldStateMessageType::REVERT_CHECKPOINT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_checkpoint(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::COPY_STORES,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return copy_stores(obj, buffer); });
 }
 
 Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
@@ -820,6 +825,20 @@ bool WorldStateWrapper::get_status(msgpack::object& obj, msgpack::sbuffer& buf) 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusSummary> resp_msg(WorldStateMessageType::GET_STATUS, header, { status });
     msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::copy_stores(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<CopyStoresRequest> request;
+    obj.convert(request);
+
+    _ws->copy_stores(request.value.dstPath, request.value.compact.value_or(false));
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COPY_STORES, header, {});
+    msgpack::pack(buffer, resp_msg);
 
     return true;
 }

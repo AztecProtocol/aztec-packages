@@ -71,14 +71,16 @@ if(ENABLE_ASAN)
 endif()
 
 if(FUZZING)
+    add_definitions(-DULTRA_FUZZ)
+    if(SHOW_INFORMATION)
+        add_definitions(-DSHOW_INFORMATION=1)
+    endif()
+
     add_definitions(-DFUZZING=1)
 
     if(DISABLE_CUSTOM_MUTATORS)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
-
-    add_compile_options(-fsanitize=fuzzer)
-    add_link_options(-fsanitize=fuzzer)
 
     set(MULTITHREADING OFF)
 endif()
@@ -161,6 +163,7 @@ include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 include(cmake/lmdb.cmake)
+include(cmake/libdeflate.cmake)
 
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 if (NOT WASM)

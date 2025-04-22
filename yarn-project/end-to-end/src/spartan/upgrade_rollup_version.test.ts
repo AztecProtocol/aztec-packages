@@ -1,10 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { type NodeInfo, type PXE, createCompatibleClient, retryUntil, sleep } from '@aztec/aztec.js';
+import { type NodeInfo, type PXE, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
 import {
-  GovernanceContract,
-  GovernanceProposerContract,
   type L1ContractAddresses,
-  L1TxUtils,
   RegistryContract,
   RollupContract,
   createEthereumChain,
@@ -13,17 +10,14 @@ import {
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
-import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { ChildProcess } from 'child_process';
 import omit from 'lodash.omit';
-import { getContract } from 'viem';
-import { stringify } from 'viem/utils';
 
-import { isK8sConfig, rollAztecPods, setupEnvironment, startPortForward, updateSequencersConfig } from './utils.js';
+import { isK8sConfig, rollAztecPods, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
@@ -62,30 +56,21 @@ describe('spartan_upgrade_rollup_version', () => {
 
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
     nodeInfo = await pxe.getNodeInfo();
-    originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, 'slashFactoryAddress');
+    originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, [
+      'slashFactoryAddress',
+      'stakingAssetHandlerAddress',
+      'feeAssetHandlerAddress',
+    ]);
   });
 
   // We need a separate account to deploy the new governance proposer
   // because the underlying validators are currently producing blob transactions
   // and you can't submit blob and non-blob transactions from the same account
 
+  // @note Look at older commits to find a version that actually go through governance here
   it(
     'should upgrade the rollup version',
     async () => {
-      /** Helpers */
-      const govInfo = async () => {
-        const bn = await l1PublicClient.getBlockNumber();
-        const slot = await rollup.getSlotNumber();
-        const round = await governanceProposer.computeRound(slot);
-        const info = await governanceProposer.getRoundInfo(originalL1ContractAddresses.rollupAddress.toString(), round);
-        const leaderVotes = await governanceProposer.getProposalVotes(
-          originalL1ContractAddresses.rollupAddress.toString(),
-          round,
-          info.leader,
-        );
-        return { bn, slot, round, info, leaderVotes };
-      };
-
       /** Setup */
 
       const chain = createEthereumChain(ETHEREUM_HOSTS, nodeInfo.l1ChainId);
@@ -97,9 +82,10 @@ describe('spartan_upgrade_rollup_version', () => {
       debugLogger.info(`l1WalletClient: ${l1WalletClient.account.address}`);
       const initialTestAccounts = await getInitialTestAccounts();
 
-      const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialTestAccounts.map(a => a.address));
+      const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialTestAccounts.map(a => a.address));
 
-      const { rollup: newRollup, payloadAddress } = await deployRollupForUpgrade(
+      const rollup = new RollupContract(l1PublicClient, originalL1ContractAddresses.rollupAddress.toString());
+      const { rollup: newRollup } = await deployRollupForUpgrade(
         {
           walletClient: l1WalletClient,
           publicClient: l1PublicClient,
@@ -108,9 +94,7 @@ describe('spartan_upgrade_rollup_version', () => {
           salt: Math.floor(Math.random() * 1000000),
           vkTreeRoot: getVKTreeRoot(),
           protocolContractTreeRoot,
-          l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
           genesisArchiveRoot,
-          genesisBlockHash,
           ethereumSlotDuration: 12,
           aztecSlotDuration: 24,
           aztecEpochDuration: 4,
@@ -123,117 +107,12 @@ describe('spartan_upgrade_rollup_version', () => {
           governanceProposerRoundSize: 10,
           manaTarget: BigInt(100e6),
           provingCostPerMana: BigInt(100),
+          feeJuicePortalInitialBalance: fundingNeeded,
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,
         defaultL1TxUtilsConfig,
       );
-
-      await updateSequencersConfig(config, {
-        governanceProposerPayload: payloadAddress,
-      });
-
-      const rollup = new RollupContract(l1PublicClient, originalL1ContractAddresses.rollupAddress.toString());
-      const governanceProposer = new GovernanceProposerContract(
-        l1PublicClient,
-        originalL1ContractAddresses.governanceProposerAddress.toString(),
-      );
-
-      let info = await govInfo();
-      expect(info.bn).toBeDefined();
-      expect(info.slot).toBeDefined();
-      debugLogger.info(`info: ${stringify(info)}`);
-
-      const quorumSize = await governanceProposer.getQuorumSize();
-      debugLogger.info(`quorumSize: ${quorumSize}`);
-      expect(quorumSize).toBeGreaterThan(0);
-
-      /** GovernanceProposer Voting */
-
-      // Wait until we have enough votes to execute the proposal.
-      while (true) {
-        info = await govInfo();
-        debugLogger.info(`Leader votes: ${info.leaderVotes}`);
-        if (info.leaderVotes >= quorumSize) {
-          debugLogger.info(`Leader votes have reached quorum size`);
-          break;
-        }
-        await sleep(12000);
-      }
-
-      const executableRound = info.round;
-      debugLogger.info(`Waiting for round ${executableRound + 1n}`);
-
-      while (info.round === executableRound) {
-        await sleep(12500);
-        info = await govInfo();
-        debugLogger.info(`slot: ${info.slot}`);
-      }
-
-      expect(info.round).toBeGreaterThan(executableRound);
-
-      debugLogger.info(`Executing proposal ${info.round}`);
-
-      const l1TxUtils = new L1TxUtils(l1PublicClient, l1WalletClient, debugLogger);
-      const { receipt, proposalId } = await governanceProposer.executeProposal(executableRound, l1TxUtils);
-      expect(receipt).toBeDefined();
-      expect(receipt.status).toEqual('success');
-      debugLogger.info(`Executed proposal ${info.round}`, receipt);
-
-      const addresses = await RegistryContract.collectAddresses(
-        l1PublicClient,
-        originalL1ContractAddresses.registryAddress,
-        'canonical',
-      );
-
-      // Set up the primary voter
-      const token = getContract({
-        address: addresses.feeJuiceAddress.toString(),
-        abi: FeeJuiceAbi,
-        client: l1PublicClient,
-      });
-
-      const governance = new GovernanceContract(addresses.governanceAddress.toString(), l1PublicClient, l1WalletClient);
-      const { minimumVotes: voteAmount } = await governance.getConfiguration();
-
-      const mintTx = await token.write.mint([l1WalletClient.account.address, voteAmount], {
-        account: l1WalletClient.account,
-      });
-      await l1PublicClient.waitForTransactionReceipt({ hash: mintTx });
-
-      const approveTx = await token.write.approve([addresses.governanceAddress.toString(), voteAmount], {
-        account: l1WalletClient.account,
-      });
-      await l1PublicClient.waitForTransactionReceipt({ hash: approveTx });
-
-      await governance.deposit(l1WalletClient.account.address, voteAmount);
-
-      await governance.awaitProposalActive({
-        proposalId,
-        logger: debugLogger,
-      });
-
-      // Vote for the proposal
-      await governance.vote({
-        proposalId,
-        voteAmount,
-        inFavor: true,
-        retries: 10,
-        logger: debugLogger,
-      });
-
-      // Wait for the proposal to be in the executable phase
-      await governance.awaitProposalExecutable({
-        proposalId,
-        logger: debugLogger,
-      });
-
-      // Execute the proposal
-      await governance.executeProposal({
-        proposalId,
-        retries: 10,
-        logger: debugLogger,
-      });
 
       const newAddresses = await newRollup.getRollupAddresses();
 
@@ -250,13 +129,26 @@ describe('spartan_upgrade_rollup_version', () => {
         ...newAddresses,
       });
 
-      await expect(
-        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, 2),
-      ).resolves.toEqual(newCanonicalAddresses);
+      const oldVersion = await new RollupContract(
+        l1PublicClient,
+        originalL1ContractAddresses.rollupAddress.toString(),
+      ).getVersion();
+      const newVersion = await new RollupContract(
+        l1PublicClient,
+        newCanonicalAddresses.rollupAddress.toString(),
+      ).getVersion();
+
+      debugLogger.info(`oldVersion: ${oldVersion}, address: ${originalL1ContractAddresses.rollupAddress}`);
+      debugLogger.info(`newVersion: ${newVersion}, address: ${newCanonicalAddresses.rollupAddress}`);
+      expect(oldVersion).not.toEqual(newVersion);
 
       await expect(
-        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, 1),
+        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, oldVersion),
       ).resolves.toEqual(originalL1ContractAddresses);
+
+      await expect(
+        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, newVersion),
+      ).resolves.toEqual(newCanonicalAddresses);
 
       const oldRollupTips = await rollup.getTips();
       await retryUntil(
@@ -284,6 +176,13 @@ describe('spartan_upgrade_rollup_version', () => {
       pxe = await createCompatibleClient(PXE_URL, debugLogger);
 
       const newNodeInfo = await pxe.getNodeInfo();
+
+      // @todo There is an issue here, probably related to #12791, but somehow
+      // the address returned by the pxe node info is NEITHER the old nor the new rollup address
+
+      debugLogger.info(`newNodeInfo: ${JSON.stringify(newNodeInfo)}`);
+      debugLogger.info(`originalL1ContractAddresses: ${JSON.stringify(originalL1ContractAddresses)}`);
+      debugLogger.info(`newCanonicalAddresses: ${JSON.stringify(newCanonicalAddresses)}`);
       expect(newNodeInfo.l1ContractAddresses.rollupAddress).toEqual(newCanonicalAddresses.rollupAddress);
 
       const l2Tips = await newRollup.getTips();

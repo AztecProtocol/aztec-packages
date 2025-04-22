@@ -3,6 +3,8 @@ import {
   FeeJuicePaymentMethod,
   type SendMethodOptions,
   SentTx,
+  TxHash,
+  TxReceipt,
   type Wallet,
   createLogger,
   waitForProven,
@@ -20,7 +22,7 @@ export abstract class BaseBot {
 
   protected constructor(public readonly pxe: PXE, public readonly wallet: Wallet, public config: BotConfig) {}
 
-  public async run() {
+  public async run(): Promise<TxReceipt | TxHash> {
     this.attempts++;
     const logCtx = { runId: Date.now() * 1000 + Math.floor(Math.random() * 1000) };
     const { followChain, txMinedWaitSeconds } = this.config;
@@ -32,7 +34,7 @@ export abstract class BaseBot {
 
     if (followChain === 'NONE') {
       this.log.info(`Transaction ${txHash} sent, not waiting for it to be mined`);
-      return;
+      return txHash;
     }
 
     this.log.verbose(
@@ -50,9 +52,18 @@ export abstract class BaseBot {
       `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,
       logCtx,
     );
+
+    await this.onTxMined(receipt, logCtx);
+
+    return receipt;
   }
 
   protected abstract createAndSendTx(logCtx: object): Promise<SentTx>;
+
+  protected onTxMined(_receipt: TxReceipt, _logCtx: object): Promise<void> {
+    // no-op
+    return Promise.resolve();
+  }
 
   protected getSendMethodOpts(...authWitnesses: AuthWitness[]): SendMethodOptions {
     const sender = this.wallet.getAddress();

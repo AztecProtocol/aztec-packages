@@ -9,7 +9,7 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
-#include "barretenberg/vm/stats.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
 

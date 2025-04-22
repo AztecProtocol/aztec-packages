@@ -4,7 +4,8 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
-#include <msgpack/sbuffer_decl.hpp>
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <utility>
 
 #include <unordered_map>
@@ -42,9 +43,8 @@ template <typename FF_> class CircuitBuilderBase {
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bool contains_pairing_point_accumulator = false;
 
-    // Public input indices which contain the output IPA opening claim
-    IPAClaimPubInputIndices ipa_claim_public_input_indices;
-    bool contains_ipa_claim = false;
+    // Index of the IPA opening claim in the public inputs
+    PublicComponentKey ipa_claim_public_input_key;
 
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
     // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
@@ -182,11 +182,12 @@ template <typename FF_> class CircuitBuilderBase {
     virtual uint32_t add_public_variable(const FF& in);
 
     /**
-     * Make a witness variable public.
+     * @brief Make a witness variable public.
      *
      * @param witness_index The index of the witness.
-     * */
-    virtual void set_public_input(uint32_t witness_index);
+     * @return uint32_t The index of the witness in the public inputs vector.
+     */
+    virtual uint32_t set_public_input(uint32_t witness_index);
     virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
 
     // TODO(#216)(Adrian): This method should belong in the ComposerHelper, where the number of reserved gates can be
@@ -206,15 +207,14 @@ template <typename FF_> class CircuitBuilderBase {
     bool is_valid_variable(uint32_t variable_index) { return variable_index < variables.size(); };
 
     /**
-     * @brief Add information about which witnesses contain the recursive proof computation information
+     * @brief PLONK only: Add information about which witnesses contain the recursive proof computation information
      *
      * @param circuit_constructor Object with the circuit
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
-
-    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
+    void add_pairing_point_accumulator_for_plonk(
+        const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
 
     bool failed() const;
     const std::string& err() const;
@@ -263,7 +263,8 @@ template <typename FF> struct CircuitSchemaInternal {
                    real_variable_index,
                    lookup_tables,
                    real_variable_tags,
-                   range_tags);
+                   range_tags,
+                   circuit_finalized);
 };
 } // namespace bb
 

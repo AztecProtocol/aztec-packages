@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 
@@ -18,6 +19,8 @@ import { RollupContract } from './rollup.js';
 
 export class RegistryContract {
   public address: EthAddress;
+
+  private readonly log = createLogger('ethereum:contracts:registry');
   private readonly registry: GetContractReturnType<typeof RegistryAbi, PublicClient<HttpTransport, Chain>>;
 
   constructor(public readonly client: L1Clients['publicClient'], address: Hex | EthAddress) {
@@ -42,12 +45,19 @@ export class RegistryContract {
       version = BigInt(version);
     }
 
-    const snapshot = await this.registry.read.getSnapshot([version]);
-    const address = EthAddress.fromString(snapshot.rollup);
-    if (address.equals(EthAddress.ZERO)) {
+    try {
+      return EthAddress.fromString(await this.registry.read.getRollup([version]));
+    } catch (e) {
+      this.log.warn(`Failed fetching rollup address for version ${version}. Retrying as index.`);
+    }
+
+    try {
+      const actualVersion = await this.registry.read.getVersion([version]);
+      const rollupAddress = await this.registry.read.getRollup([actualVersion]);
+      return EthAddress.fromString(rollupAddress);
+    } catch (e) {
       throw new Error('Rollup address is undefined');
     }
-    return address;
   }
 
   /**
@@ -55,12 +65,7 @@ export class RegistryContract {
    * @returns The canonical address of the rollup. If the rollup is not set, throws an error.
    */
   public async getCanonicalAddress(): Promise<EthAddress> {
-    const snapshot = await this.registry.read.getCurrentSnapshot();
-    const address = EthAddress.fromString(snapshot.rollup);
-    if (address.equals(EthAddress.ZERO)) {
-      throw new Error('Rollup address is undefined');
-    }
-    return address;
+    return EthAddress.fromString(await this.registry.read.getCanonicalRollup());
   }
 
   public async getGovernanceAddresses(): Promise<
@@ -107,5 +112,20 @@ export class RegistryContract {
   public async getNumberOfVersions(): Promise<number> {
     const version = await this.registry.read.numberOfVersions();
     return Number(version);
+  }
+
+  public async getRollupVersions(): Promise<bigint[]> {
+    const count = await this.getNumberOfVersions();
+
+    const versions: bigint[] = [];
+    for (let i = 0; i < count; i++) {
+      versions.push(await this.registry.read.getVersion([BigInt(i)]));
+    }
+
+    return versions;
+  }
+
+  public async getRewardDistributor(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.registry.read.getRewardDistributor());
   }
 }

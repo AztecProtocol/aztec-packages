@@ -65,7 +65,7 @@ export class ContractClassRegisteredEvent {
       privateFunctionsRoot: this.privateFunctionsRoot,
       version: this.version,
       privateFunctions: [],
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
     };
   }
 }

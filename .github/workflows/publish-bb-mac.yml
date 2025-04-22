@@ -44,7 +44,7 @@ jobs:
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
         run: |
-          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag || github.ref_name }}/g" src/barretenberg/bb/main.cpp
+          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag || github.ref_name }}/g" src/barretenberg/bb/cli.cpp
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
@@ -157,7 +157,7 @@ jobs:
 
       - name: Publish to GitHub
         uses: softprops/action-gh-release@v1
-        if: ${{ inputs.publish || github.event_name == 'schedule' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         with:
           tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
           prerelease: true

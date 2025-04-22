@@ -21,6 +21,7 @@ library Errors {
   // Inbox
   error Inbox__Unauthorized(); // 0xe5336a6b
   error Inbox__ActorTooLarge(bytes32 actor); // 0xa776a06e
+  error Inbox__VersionMismatch(uint256 expected, uint256 actual); // 0x47452014
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
@@ -28,7 +29,7 @@ library Errors {
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
   error Outbox__InvalidChainId(); // 0x577ec7c4
-  error Outbox__InvalidVersion(uint256 entry, uint256 message); // 0x7915cac3
+  error Outbox__VersionMismatch(uint256 expected, uint256 actual);
   error Outbox__NothingToConsume(bytes32 messageHash); // 0xfb4fb506
   error Outbox__IncompatibleEntryArguments(
     bytes32 messageHash,
@@ -50,12 +51,10 @@ library Errors {
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
   error Rollup__InsufficientFundsInEscrow(uint256 required, uint256 available); // 0xa165f276
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
-  error Rollup__InvalidBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
   error Rollup__InvalidChainId(uint256 expected, uint256 actual); // 0x37b5bc12
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
   error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
-  error Rollup__InvalidPreviousBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
@@ -133,4 +132,7 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+
+  // AddressSnapshotLib
+  error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
 }

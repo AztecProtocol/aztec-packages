@@ -2,6 +2,7 @@ import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
@@ -90,7 +91,7 @@ export class DummyP2PService implements P2PService {
  */
 export class DummyPeerDiscoveryService extends EventEmitter implements PeerDiscoveryService {
   private currentState = PeerDiscoveryState.STOPPED;
-  public bootstrapNodes: string[] = [];
+  public bootstrapNodeEnrs: ENR[] = [];
 
   /**
    * Starts the dummy implementation.
@@ -110,9 +111,9 @@ export class DummyPeerDiscoveryService extends EventEmitter implements PeerDisco
   }
   /**
    * Called to discover peers in the network.
-   * @returns An array of discovered peer addresses.
+   * @returns An array of Enrs.
    */
-  public getAllPeers() {
+  public getKadValues() {
     return [];
   }
 

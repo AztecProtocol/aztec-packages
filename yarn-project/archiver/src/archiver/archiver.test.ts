@@ -1,5 +1,6 @@
 import { Blob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -112,6 +113,7 @@ describe('Archiver', () => {
       epochDuration: 4,
       slotDuration: 24,
       ethereumSlotDuration: 12,
+      proofSubmissionWindow: 8,
     };
 
     archiver = new Archiver(
@@ -607,11 +609,10 @@ async function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const blockHash = toHex((await l2Block.header.hash()).toBuffer());
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [{ header, archive, blockHash, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] }, [], blobInput],
+    args: [{ header, archive, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] }, [], blobInput],
   });
 
   const forwarderInput = encodeFunctionData({
@@ -639,5 +640,6 @@ async function makeVersionedBlobHashes(l2Block: L2Block): Promise<`0x${string}`[
  * @returns The blobs.
  */
 async function makeBlobsFromBlock(block: L2Block) {
-  return await Blob.getBlobs(block.body.toBlobFields());
+  const blobs = await Blob.getBlobs(block.body.toBlobFields());
+  return blobs.map((blob, index) => new BlobWithIndex(blob, index));
 }

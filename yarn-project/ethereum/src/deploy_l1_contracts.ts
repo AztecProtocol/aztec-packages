@@ -31,6 +31,8 @@ import {
   RollupLinkReferences,
   SlashFactoryAbi,
   SlashFactoryBytecode,
+  StakingAssetHandlerAbi,
+  StakingAssetHandlerBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
   ValidatorSelectionLibAbi,
@@ -194,23 +196,19 @@ export const l1Artifacts = {
     contractAbi: FeeAssetHandlerAbi,
     contractBytecode: FeeAssetHandlerBytecode as Hex,
   },
+  stakingAssetHandler: {
+    contractAbi: StakingAssetHandlerAbi,
+    contractBytecode: StakingAssetHandlerBytecode as Hex,
+  },
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
-  /**
-   * The address of the L2 Fee Juice contract.
-   * It should be an AztecAddress, but the type is defined in stdlib,
-   * which would create a circular import
-   * */
-  l2FeeJuiceAddress: Fr;
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
   protocolContractTreeRoot: Fr;
   /** The genesis root of the archive tree. */
   genesisArchiveRoot: Fr;
-  /** The hash of the genesis block header. */
-  genesisBlockHash: Fr;
   /** The salt for CREATE2 deployment. */
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
@@ -219,6 +217,8 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   l1TxConfig?: Partial<L1TxUtilsConfig>;
   /** Enable fast mode for deployments (fire and forget transactions) */
   acceleratedTestDeployments?: boolean;
+  /** The initial balance of the fee juice portal. This is the amount of fee juice that is prefunded to accounts */
+  feeJuicePortalInitialBalance?: bigint;
 }
 
 /**
@@ -263,8 +263,205 @@ export function createL1Clients(
   return { walletClient, publicClient } as L1Clients;
 }
 
+export const deploySharedContracts = async (
+  clients: L1Clients,
+  deployer: L1Deployer,
+  args: DeployL1ContractsArgs,
+  logger: Logger,
+) => {
+  const txHashes: Hex[] = [];
+
+  const feeAssetAddress = await deployer.deploy(l1Artifacts.feeAsset, [
+    'FeeJuice',
+    'FEE',
+    clients.walletClient.account.address.toString(),
+  ]);
+  logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
+
+  const stakingAssetAddress = await deployer.deploy(l1Artifacts.stakingAsset, [
+    'Staking',
+    'STK',
+    clients.walletClient.account.address.toString(),
+  ]);
+  logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
+
+  const registryAddress = await deployer.deploy(l1Artifacts.registry, [
+    clients.walletClient.account.address.toString(),
+    feeAssetAddress.toString(),
+  ]);
+  logger.verbose(`Deployed Registry at ${registryAddress}`);
+
+  const governanceProposerAddress = await deployer.deploy(l1Artifacts.governanceProposer, [
+    registryAddress.toString(),
+    args.governanceProposerQuorum,
+    args.governanceProposerRoundSize,
+  ]);
+  logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
+
+  // @note @LHerskind the assets are expected to be the same at some point, but for better
+  // configurability they are different for now.
+  const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
+    stakingAssetAddress.toString(),
+    governanceProposerAddress.toString(),
+  ]);
+  logger.verbose(`Deployed Governance at ${governanceAddress}`);
+
+  const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
+    feeAssetAddress.toString(),
+    1n * 10n ** 18n, // @todo  #8084
+    governanceAddress.toString(),
+  ]);
+  logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
+
+  const feeAsset = getContract({
+    address: feeAssetAddress.toString(),
+    abi: l1Artifacts.feeAsset.contractAbi,
+    client: clients.publicClient,
+  });
+
+  logger.verbose(`Waiting for deployments to complete`);
+  await deployer.waitForDeployments();
+
+  if (args.acceleratedTestDeployments || !(await feeAsset.read.minters([coinIssuerAddress.toString()]))) {
+    const { txHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'addMinter',
+        args: [coinIssuerAddress.toString()],
+      }),
+      ...(args.acceleratedTestDeployments ? { gasLimit: 1_000_000n } : {}),
+    });
+    logger.verbose(`Added coin issuer ${coinIssuerAddress} as minter on fee asset in ${txHash}`);
+    txHashes.push(txHash);
+  }
+
+  const { txHash: setGovernanceTxHash } = await deployer.sendTransaction({
+    to: registryAddress.toString(),
+    data: encodeFunctionData({
+      abi: l1Artifacts.registry.contractAbi,
+      functionName: 'updateGovernance',
+      args: [governanceAddress.toString()],
+    }),
+  });
+
+  txHashes.push(setGovernanceTxHash);
+
+  let feeAssetHandlerAddress: EthAddress | undefined = undefined;
+  let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
+
+  // Only if not on mainnet will we deploy the handlers
+  if (clients.publicClient.chain.id !== 1) {
+    /* -------------------------------------------------------------------------- */
+    /*                          CHEAT CODES START HERE                            */
+    /* -------------------------------------------------------------------------- */
+
+    feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
+      clients.walletClient.account.address,
+      feeAssetAddress.toString(),
+      BigInt(1e18),
+    ]);
+    logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
+
+    const { txHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'addMinter',
+        args: [feeAssetHandlerAddress.toString()],
+      }),
+    });
+    logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
+    txHashes.push(txHash);
+
+    // Only if on sepolia will we deploy the staking asset handler
+    // Should not be deployed to devnet since it would cause caos with sequencers there etc.
+    if ([11155111, foundry.id].includes(clients.publicClient.chain.id)) {
+      const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
+
+      stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
+        clients.walletClient.account.address,
+        stakingAssetAddress.toString(),
+        registryAddress.toString(),
+        AMIN.toString(), // withdrawer,
+        BigInt(60 * 60 * 24), // mintInterval,
+        BigInt(10), // depositsPerMint,
+        [AMIN.toString()], // isUnhinged,
+      ]);
+      logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
+
+      const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
+        to: stakingAssetAddress.toString(),
+        data: encodeFunctionData({
+          abi: l1Artifacts.stakingAsset.contractAbi,
+          functionName: 'addMinter',
+          args: [stakingAssetHandlerAddress.toString()],
+        }),
+      });
+      logger.verbose(
+        `Added staking asset handler ${stakingAssetHandlerAddress} as minter on staking asset in ${stakingMinterTxHash}`,
+      );
+      txHashes.push(stakingMinterTxHash);
+    }
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /*                           CHEAT CODES END HERE                             */
+  /* -------------------------------------------------------------------------- */
+
+  logger.verbose(`Waiting for deployments to complete`);
+  await deployer.waitForDeployments();
+  await Promise.all(txHashes.map(txHash => clients.publicClient.waitForTransactionReceipt({ hash: txHash })));
+
+  logger.verbose(`Deployed shared contracts`);
+
+  const registry = new RegistryContract(clients.publicClient, registryAddress);
+
+  /* -------------------------------------------------------------------------- */
+  /*                      FUND REWARD DISTRIBUTOR START                         */
+  /* -------------------------------------------------------------------------- */
+
+  const rewardDistributorAddress = await registry.getRewardDistributor();
+
+  const rewardDistributor = getContract({
+    address: rewardDistributorAddress.toString(),
+    abi: l1Artifacts.rewardDistributor.contractAbi,
+    client: clients.publicClient,
+  });
+
+  const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+
+  const funding = blockReward * 200000n;
+  const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
+    to: feeAssetAddress.toString(),
+    data: encodeFunctionData({
+      abi: l1Artifacts.feeAsset.contractAbi,
+      functionName: 'mint',
+      args: [rewardDistributorAddress.toString(), funding],
+    }),
+  });
+
+  logger.verbose(`Funded reward distributor with ${funding} fee asset in ${fundRewardDistributorTxHash}`);
+
+  /* -------------------------------------------------------------------------- */
+  /*                      FUND REWARD DISTRIBUTOR STOP                          */
+  /* -------------------------------------------------------------------------- */
+
+  return {
+    feeAssetAddress,
+    feeAssetHandlerAddress,
+    stakingAssetAddress,
+    stakingAssetHandlerAddress,
+    registryAddress,
+    governanceAddress,
+    governanceProposerAddress,
+    coinIssuerAddress,
+    rewardDistributorAddress: await registry.getRewardDistributor(),
+  };
+};
+
 /**
- * Deploys the rollup, slash factory, and the payload which can be used to make the rollup the canonical version.
+ * Deploys a new rollup, using the existing canonical version to derive certain values (addresses of assets etc).
  * @param clients - The L1 clients.
  * @param args - The deployment arguments.
  * @param registryAddress - The address of the registry.
@@ -289,16 +486,11 @@ export const deployRollupForUpgrade = async (
 
   const addresses = await RegistryContract.collectAddresses(clients.publicClient, registryAddress, 'canonical');
 
-  const rollup = await deployRollup(clients, deployer, args, addresses, logger);
-  const payloadAddress = await deployUpgradePayload(deployer, {
-    registryAddress: addresses.registryAddress,
-    rollupAddress: EthAddress.fromString(rollup.address),
-  });
-  const slashFactoryAddress = await deploySlashFactory(deployer, rollup.address, logger);
+  const { rollup, slashFactoryAddress } = await deployRollup(clients, deployer, args, addresses, logger);
 
   await deployer.waitForDeployments();
 
-  return { rollup, payloadAddress, slashFactoryAddress };
+  return { rollup, slashFactoryAddress };
 };
 
 export const deploySlashFactory = async (deployer: L1Deployer, rollupAddress: Hex, logger: Logger) => {
@@ -319,13 +511,21 @@ export const deployUpgradePayload = async (
   return payloadAddress;
 };
 
+/**
+ * Deploys a new rollup contract, funds and initializes the fee juice portal, and initializes the validator set.
+ */
 export const deployRollup = async (
   clients: L1Clients,
   deployer: L1Deployer,
   args: DeployL1ContractsArgs,
-  addresses: Pick<L1ContractAddresses, 'feeJuicePortalAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'>,
+  addresses: Pick<
+    L1ContractAddresses,
+    'feeJuiceAddress' | 'registryAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
+  >,
   logger: Logger,
-): Promise<RollupContract> => {
+) => {
+  const txHashes: Hex[] = [];
+
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
@@ -341,11 +541,10 @@ export const deployRollup = async (
     vkTreeRoot: args.vkTreeRoot.toString(),
     protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
-    genesisBlockHash: args.genesisBlockHash.toString(),
   };
   logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [
-    addresses.feeJuicePortalAddress.toString(),
+    addresses.feeJuiceAddress.toString(),
     addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
     clients.walletClient.account.address.toString(),
@@ -355,6 +554,8 @@ export const deployRollup = async (
 
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
+
+  const rollupContract = new RollupContract(clients.publicClient, rollupAddress);
 
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
@@ -371,10 +572,109 @@ export const deployRollup = async (
     );
   }
 
-  return new RollupContract(clients.publicClient, rollupAddress);
+  if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
+    const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
+
+    // In fast mode, use the L1TxUtils to send transactions with nonce management
+    const { txHash: mintTxHash } = await deployer.sendTransaction({
+      to: addresses.feeJuiceAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'mint',
+        args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
+      }),
+    });
+    logger.verbose(
+      `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
+    );
+    txHashes.push(mintTxHash);
+  }
+
+  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
+  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
+
+  // We need to call a function on the registry to set the various contract addresses.
+  const registryContract = getContract({
+    address: getAddress(addresses.registryAddress.toString()),
+    abi: l1Artifacts.registry.contractAbi,
+    client: clients.walletClient,
+  });
+
+  // Only if we are the owner will we be sending these transactions
+  if ((await registryContract.read.owner()) === getAddress(clients.walletClient.account.address)) {
+    const version = await rollupContract.getVersion();
+    try {
+      const retrievedRollupAddress = await registryContract.read.getRollup([version]);
+      logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
+    } catch (e) {
+      const { txHash: addRollupTxHash } = await deployer.sendTransaction({
+        to: addresses.registryAddress.toString(),
+        data: encodeFunctionData({
+          abi: l1Artifacts.registry.contractAbi,
+          functionName: 'addRollup',
+          args: [getAddress(rollupContract.address)],
+        }),
+      });
+      logger.verbose(
+        `Adding rollup ${rollupContract.address} to registry ${addresses.registryAddress} in tx ${addRollupTxHash}`,
+      );
+
+      txHashes.push(addRollupTxHash);
+    }
+  } else {
+    logger.verbose(`Not the owner of the registry, skipping rollup addition`);
+  }
+
+  await deployer.waitForDeployments();
+  await Promise.all(txHashes.map(txHash => clients.publicClient.waitForTransactionReceipt({ hash: txHash })));
+  logger.verbose(`Rollup deployed`);
+
+  return { rollup: rollupContract, slashFactoryAddress };
 };
 
-/**
+export const handoverToGovernance = async (
+  clients: L1Clients,
+  deployer: L1Deployer,
+  registryAddress: EthAddress,
+  governanceAddress: EthAddress,
+  logger: Logger,
+  acceleratedTestDeployments: boolean | undefined,
+) => {
+  // We need to call a function on the registry to set the various contract addresses.
+  const registryContract = getContract({
+    address: getAddress(registryAddress.toString()),
+    abi: l1Artifacts.registry.contractAbi,
+    client: clients.walletClient,
+  });
+
+  const txHashes: Hex[] = [];
+
+  // If the owner is not the Governance contract, transfer ownership to the Governance contract
+  if (
+    acceleratedTestDeployments ||
+    (await registryContract.read.owner()) !== getAddress(governanceAddress.toString())
+  ) {
+    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
+    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
+      to: registryAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.registry.contractAbi,
+        functionName: 'transferOwnership',
+        args: [getAddress(governanceAddress.toString())],
+      }),
+    });
+    logger.verbose(
+      `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
+    );
+    txHashes.push(transferOwnershipTxHash);
+  }
+
+  // Wait for all actions to be mined
+  await deployer.waitForDeployments();
+  await Promise.all(txHashes.map(txHash => clients.publicClient.waitForTransactionReceipt({ hash: txHash })));
+};
+
+/*
  * Initialize the validator set for the rollup using a cheat function.
  * @note This function will only be used when the chain is local anvil node soon (#12050)
  *
@@ -544,7 +844,6 @@ export const deployL1Contracts = async (
 
   logger.verbose(`Deploying contracts from ${account.address.toString()}`);
 
-  // Governance stuff
   const deployer = new L1Deployer(
     walletClient,
     publicClient,
@@ -554,209 +853,30 @@ export const deployL1Contracts = async (
     txUtilsConfig,
   );
 
-  const registryAddress = await deployer.deploy(l1Artifacts.registry, [account.address.toString()]);
-  logger.verbose(`Deployed Registry at ${registryAddress}`);
-
-  const feeAssetAddress = await deployer.deploy(l1Artifacts.feeAsset, ['FeeJuice', 'FEE', account.address.toString()]);
-  logger.verbose(`Deployed Fee Juice at ${feeAssetAddress}`);
-
-  const stakingAssetAddress = await deployer.deploy(l1Artifacts.stakingAsset, [
-    'Staking',
-    'STK',
-    account.address.toString(),
-  ]);
-  logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
-
-  const governanceProposerAddress = await deployer.deploy(l1Artifacts.governanceProposer, [
-    registryAddress.toString(),
-    args.governanceProposerQuorum,
-    args.governanceProposerRoundSize,
-  ]);
-  logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
-
-  // @note @LHerskind the assets are expected to be the same at some point, but for better
-  // configurability they are different for now.
-  const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
-    stakingAssetAddress.toString(),
-    governanceProposerAddress.toString(),
-  ]);
-  logger.verbose(`Deployed Governance at ${governanceAddress}`);
-
-  const coinIssuerAddress = await deployer.deploy(l1Artifacts.coinIssuer, [
-    feeAssetAddress.toString(),
-    1n * 10n ** 18n, // @todo  #8084
-    governanceAddress.toString(),
-  ]);
-  logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
-
-  const rewardDistributorAddress = await deployer.deploy(l1Artifacts.rewardDistributor, [
-    feeAssetAddress.toString(),
-    registryAddress.toString(),
-    governanceAddress.toString(),
-  ]);
-  logger.verbose(`Deployed RewardDistributor at ${rewardDistributorAddress}`);
-
-  const feeJuicePortalAddress = await deployer.deploy(l1Artifacts.feeJuicePortal, [
-    registryAddress.toString(),
-    feeAssetAddress.toString(),
-    args.l2FeeJuiceAddress.toString(),
-  ]);
-  logger.verbose(`Deployed Fee Juice Portal at ${feeJuicePortalAddress}`);
-
-  logger.verbose(`Waiting for governance contracts to be deployed`);
-  await deployer.waitForDeployments();
-  logger.verbose(`All governance contracts deployed`);
-
-  const feeJuicePortal = getContract({
-    address: feeJuicePortalAddress.toString(),
-    abi: l1Artifacts.feeJuicePortal.contractAbi,
-    client: walletClient,
-  });
-
-  const feeAsset = getContract({
-    address: feeAssetAddress.toString(),
-    abi: l1Artifacts.feeAsset.contractAbi,
-    client: walletClient,
-  });
-  // Transaction hashes to await
-  const txHashes: Hex[] = [];
-
-  const { feeAssetHandlerAddress, txHash: feeAssetHandlerTxHash } = await cheat_initializeFeeAssetHandler(
+  const {
+    feeAssetAddress,
+    feeAssetHandlerAddress,
+    stakingAssetAddress,
+    stakingAssetHandlerAddress,
+    registryAddress,
+    rewardDistributorAddress,
+  } = await deploySharedContracts(clients, deployer, args, logger);
+  const { rollup, slashFactoryAddress } = await deployRollup(
     clients,
     deployer,
-    feeAssetAddress,
-    logger,
-  );
-  txHashes.push(feeAssetHandlerTxHash);
-
-  if (args.acceleratedTestDeployments || !(await feeAsset.read.minters([coinIssuerAddress.toString()]))) {
-    const { txHash } = await deployer.sendTransaction({
-      to: feeAssetAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.feeAsset.contractAbi,
-        functionName: 'addMinter',
-        args: [coinIssuerAddress.toString()],
-      }),
-    });
-    logger.verbose(`Added coin issuer ${coinIssuerAddress} as minter on fee asset in ${txHash}`);
-    txHashes.push(txHash);
-  }
-
-  // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
-  //        because there is circular dependency hell. This is a temporary solution. #3342
-  // @todo  #8084
-  // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000000000000n;
-
-  // In fast mode, use the L1TxUtils to send transactions with nonce management
-  const { txHash: mintTxHash } = await deployer.sendTransaction({
-    to: feeAssetAddress.toString(),
-    data: encodeFunctionData({
-      abi: l1Artifacts.feeAsset.contractAbi,
-      functionName: 'mint',
-      args: [feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT],
-    }),
-  });
-  logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash} (accelerated test deployments)`);
-  txHashes.push(mintTxHash);
-
-  // @note  This is used to ensure we fully wait for the transaction when running against a real chain
-  //        otherwise we execute subsequent transactions too soon
-  if (!args.acceleratedTestDeployments) {
-    await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
-    logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
-  }
-
-  // Check if portal needs initialization
-  let needsInitialization = args.acceleratedTestDeployments;
-  if (!args.acceleratedTestDeployments) {
-    // Only check if not in fast mode and not already known to need initialization
-    needsInitialization = !(await feeJuicePortal.read.initialized());
-  }
-  if (needsInitialization) {
-    const { txHash: initPortalTxHash } = await deployer.sendTransaction({
-      to: feeJuicePortalAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.feeJuicePortal.contractAbi,
-        functionName: 'initialize',
-        args: [],
-      }),
-    });
-
-    txHashes.push(initPortalTxHash);
-    logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
-  } else {
-    logger.verbose(`Fee juice portal is already initialized`);
-  }
-  logger.verbose(
-    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeAssetAddress} to L2 ${args.l2FeeJuiceAddress}`,
-  );
-
-  const rollup = await deployRollup(
-    {
-      walletClient,
-      publicClient,
-    },
-    deployer,
     args,
-    { feeJuicePortalAddress, rewardDistributorAddress, stakingAssetAddress },
+    {
+      feeJuiceAddress: feeAssetAddress,
+      registryAddress,
+      rewardDistributorAddress,
+      stakingAssetAddress,
+    },
     logger,
   );
-  const slashFactoryAddress = await deploySlashFactory(deployer, rollup.address, logger);
 
   logger.verbose('Waiting for rollup and slash factory to be deployed');
   await deployer.waitForDeployments();
-  logger.verbose(`Rollup and slash factory deployed`);
 
-  // We need to call a function on the registry to set the various contract addresses.
-  const registryContract = getContract({
-    address: getAddress(registryAddress.toString()),
-    abi: l1Artifacts.registry.contractAbi,
-    client: walletClient,
-  });
-
-  if (
-    args.acceleratedTestDeployments ||
-    !(await registryContract.read.isRollupRegistered([getAddress(rollup.address.toString())]))
-  ) {
-    const { txHash: upgradeTxHash } = await deployer.sendTransaction({
-      to: registryAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.registry.contractAbi,
-        functionName: 'upgrade',
-        args: [getAddress(rollup.address.toString())],
-      }),
-    });
-    logger.verbose(
-      `Upgrading registry contract at ${registryAddress} to rollup ${rollup.address} in tx ${upgradeTxHash}`,
-    );
-    txHashes.push(upgradeTxHash);
-  } else {
-    logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollup.address}`);
-  }
-
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (
-    args.acceleratedTestDeployments ||
-    (await registryContract.read.owner()) !== getAddress(governanceAddress.toString())
-  ) {
-    // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
-    const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
-      to: registryAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.registry.contractAbi,
-        functionName: 'transferOwnership',
-        args: [getAddress(governanceAddress.toString())],
-      }),
-    });
-    logger.verbose(
-      `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
-    );
-    txHashes.push(transferOwnershipTxHash);
-  }
-
-  // Wait for all actions to be mined
-  await Promise.all(txHashes.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
   logger.verbose(`All transactions for L1 deployment have been mined`);
   const l1Contracts = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
 
@@ -792,11 +912,12 @@ export const deployL1Contracts = async (
       ...l1Contracts,
       slashFactoryAddress,
       feeAssetHandlerAddress,
+      stakingAssetHandlerAddress,
     },
   };
 };
 
-class L1Deployer {
+export class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];
   public readonly l1TxUtils: L1TxUtils;

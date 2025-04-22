@@ -19,7 +19,6 @@ describe('Governance', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let l2FeeJuiceAddress: Fr;
   let walletClient: ViemWalletClient;
   let publicClient: ViemPublicClient;
   let governance: GovernanceContract;
@@ -29,8 +28,6 @@ describe('Governance', () => {
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
-    // Valid AztecAddress represented by its xCoord as a Fr
-    l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -41,9 +38,7 @@ describe('Governance', () => {
       salt: undefined,
       vkTreeRoot,
       protocolContractTreeRoot,
-      l2FeeJuiceAddress,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
 
     governance = new GovernanceContract(

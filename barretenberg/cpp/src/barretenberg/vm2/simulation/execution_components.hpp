@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -39,9 +40,11 @@ class ExecutionComponentsProviderInterface {
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
   public:
     ExecutionComponentsProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
+                                RangeCheckInterface& range_check,
                                 EventEmitterInterface<MemoryEvent>& memory_events,
                                 const InstructionInfoDBInterface& instruction_info_db)
         : tx_bytecode_manager(tx_bytecode_manager)
+        , range_check(range_check)
         , memory_events(memory_events)
         , instruction_info_db(instruction_info_db)
     {}
@@ -61,6 +64,7 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
     uint32_t next_context_id = 0;
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
+    RangeCheckInterface& range_check;
     EventEmitterInterface<MemoryEvent>& memory_events;
     const InstructionInfoDBInterface& instruction_info_db;
 

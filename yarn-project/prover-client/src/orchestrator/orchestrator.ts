@@ -52,6 +52,7 @@ import { inspect } from 'util';
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
+  getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -90,7 +91,7 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    private readonly proverId: Fr = Fr.ZERO,
+    private readonly proverId: Fr,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -152,6 +153,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+    const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
     const blockProvingState = this.provingState!.startNewBlock(
@@ -160,6 +162,7 @@ export class ProvingOrchestrator implements EpochProver {
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchive,
+      lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
     );
@@ -531,7 +534,6 @@ export class ProvingOrchestrator implements EpochProver {
         }`,
         {
           [Attributes.TX_HASH]: processedTx.hash.toString(),
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
         signal => {
@@ -601,7 +603,6 @@ export class ProvingOrchestrator implements EpochProver {
         'ProvingOrchestrator.prover.getTubeProof',
         {
           [Attributes.TX_HASH]: txHash,
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
         },
         signal => this.prover.getTubeProof(inputs, signal, this.provingState!.epochNumber),
@@ -626,7 +627,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'merge-rollup' satisfies CircuitName,
         },
         signal => this.prover.getMergeRollupProof(inputs, signal, provingState.epochNumber),
@@ -659,7 +659,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
         signal => {
@@ -674,12 +673,21 @@ export class ProvingOrchestrator implements EpochProver {
       ),
       async result => {
         provingState.setBlockRootRollupProof(result);
-        const header = await provingState.buildHeaderFromProvingOutputs(logger);
+        const header = await provingState.buildHeaderFromProvingOutputs();
         if (!(await header.hash()).equals(await provingState.block!.header.hash())) {
           logger.error(
-            `Block header mismatch\nCircuit:${inspect(header)}\nComputed:${inspect(provingState.block!.header)}`,
+            `Block header mismatch.\nCircuit: ${inspect(header)}\nComputed: ${inspect(provingState.block!.header)}`,
           );
-          provingState.reject(`Block header hash mismatch`);
+          provingState.reject(`Block header hash mismatch.`);
+        }
+
+        const dbArchiveRoot = provingState.block!.archive.root;
+        const circuitArchiveRoot = result.inputs.newArchive.root;
+        if (!dbArchiveRoot.equals(circuitArchiveRoot)) {
+          logger.error(
+            `New archive root mismatch.\nCircuit: ${result.inputs.newArchive.root}\nComputed: ${dbArchiveRoot}`,
+          );
+          provingState.reject(`New archive root mismatch.`);
         }
 
         logger.debug(`Completed ${rollupType} proof for block ${provingState.block!.number}`);
@@ -710,7 +718,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBaseParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' satisfies CircuitName,
         },
         signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
@@ -746,7 +753,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' satisfies CircuitName,
         },
         signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
@@ -774,7 +780,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBlockMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-merge-rollup' satisfies CircuitName,
         },
         signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
@@ -802,7 +807,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
         },
         signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
@@ -832,7 +836,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-rollup' satisfies CircuitName,
         },
         signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),
