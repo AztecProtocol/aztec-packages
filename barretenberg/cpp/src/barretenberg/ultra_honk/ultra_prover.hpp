@@ -58,9 +58,11 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
 using UltraProver = UltraProver_<UltraFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
+#ifdef STARTKNET_GARAGA_FLAVORS
 using UltraStarknetProver = UltraProver_<UltraStarknetFlavor>;
-using UltraKeccakZKProver = UltraProver_<UltraKeccakZKFlavor>;
 using UltraStarknetZKProver = UltraProver_<UltraStarknetZKFlavor>;
+#endif
+using UltraKeccakZKProver = UltraProver_<UltraKeccakZKFlavor>;
 using MegaProver = UltraProver_<MegaFlavor>;
 using MegaZKProver = UltraProver_<MegaZKFlavor>;
 

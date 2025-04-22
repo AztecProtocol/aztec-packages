@@ -1,3 +1,4 @@
+#ifdef STARKNET_GARAGA_FLAVORS
 #pragma once
 
 #include "barretenberg/ext/starknet/crypto/poseidon/poseidon.hpp"
@@ -49,3 +50,4 @@ struct StarknetTranscriptParams : public bb::KeccakTranscriptParams {
 using StarknetTranscript = bb::BaseTranscript<StarknetTranscriptParams>;
 
 } // namespace bb::starknet
+#endif
