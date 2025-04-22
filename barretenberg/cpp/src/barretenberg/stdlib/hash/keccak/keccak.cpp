@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "keccak.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
