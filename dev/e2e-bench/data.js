@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745343545825,
+  "lastUpdate": 1745345259772,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a3a326ef99340a61e917b3c2f8a6484337c0ad7",
-          "message": "chore: mint block rewards for 200K blocks at deployment (#13537)\n\nFund the reward distributor with funds for 200K blocks as part of the\ndeployments.",
-          "timestamp": "2025-04-15T17:03:40Z",
-          "tree_id": "4f6853098244f141aa6da5921c51bdbc66e13de1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a3a326ef99340a61e917b3c2f8a6484337c0ad7"
-        },
-        "date": 1744740126768,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9618,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.25843098794290226,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 145221,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1935,6 +1896,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 159089,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "def1287f42c5b4406ceb2b76d00e078b649f50e5",
+          "message": "test: mempool limit (#13735)\n\nThis PR adds and e2e test to verify the mempool limit works as expected",
+          "timestamp": "2025-04-22T16:46:32Z",
+          "tree_id": "2e0fb9e54736bdfb1af0f932ec721cb0c6a86f9d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/def1287f42c5b4406ceb2b76d00e078b649f50e5"
+        },
+        "date": 1745345251649,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9156,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26214071975977427,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 145645,
             "unit": "us"
           }
         ]
