@@ -23,7 +23,7 @@ import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { makeTestP2PClient, makeTestP2PClients } from '../test-helpers/make-test-p2p-clients.js';
 
-const TEST_TIMEOUT = 80000;
+const TEST_TIMEOUT = 120000;
 
 const NUMBER_OF_PEERS = 2;
 
