@@ -458,11 +458,9 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 #endif
