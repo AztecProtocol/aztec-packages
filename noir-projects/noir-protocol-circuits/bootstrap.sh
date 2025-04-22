@@ -142,9 +142,19 @@ function compile {
 export -f compile
 
 function build {
+  set -eu
+
+  echo_stderr "Checking libraries for warnings..."
+  parallel -v --line-buffer --tag $NARGO --program-dir {} check --deny-warnings ::: \
+    ./crates/blob \
+    ./crates/parity-lib \
+    ./crates/private-kernel-lib \
+    ./crates/reset-kernel-lib \
+    ./crates/rollup-lib \
+    ./crates/types \
+
   # We allow errors so we can output the joblog.
   set +e
-  set -u
   rm -rf target
   mkdir -p $key_dir
 

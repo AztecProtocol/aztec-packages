@@ -981,12 +981,13 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.4
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=fec074&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=c6552c&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.4"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.4"
     "@aztec/noir-types": "npm:1.0.0-beta.4"
-  checksum: 10/edce428cfecf37166e407202c183f694d7ea5f32b4da0946f2035649dbbb2b3adea32994f86922f00eb89f46b3c426892bac73be1a2cedd76db794f566806b72
+    pako: "npm:^2.1.0"
+  checksum: 10/5837f4c888ae8387a3acd02c0593ab1d2c20ea0e68f92f55ed7897ec9960720e6bc1f79848ab0d46421c22b97110dcf4b84aca5c4876b36934df0dd4c54cc1eb
   languageName: node
   linkType: hard
 

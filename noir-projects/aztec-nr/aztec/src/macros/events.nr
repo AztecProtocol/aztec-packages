@@ -4,7 +4,7 @@ use protocol_types::meta::generate_serialize_to_fields;
 comptime fn generate_event_interface(s: TypeDefinition) -> Quoted {
     let name = s.name();
     let typ = s.as_type();
-    let (serialization_fields, _) = generate_serialize_to_fields(quote { self }, typ, &[], false);
+    let (serialization_fields, _) = generate_serialize_to_fields(quote { self }, typ, false);
     let content_len = serialization_fields.len();
 
     let event_type_id = compute_event_selector(s);

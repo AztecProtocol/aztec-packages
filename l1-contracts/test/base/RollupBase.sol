@@ -71,8 +71,6 @@ contract RollupBase is DecoderBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: parentBlockLog.archive,
       endArchive: endFull.block.archive,
-      previousBlockHash: parentBlockLog.blockHash,
-      endBlockHash: endFull.block.blockHash,
       endTimestamp: Timestamp.wrap(0), // WHAT ?
       outHash: bytes32(0), // WHAT ?
       proverId: _prover
@@ -245,7 +243,6 @@ contract RollupBase is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      blockHash: full.block.blockHash,
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });

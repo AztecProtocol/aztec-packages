@@ -36,15 +36,15 @@ class lookup_to_radix_limb_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._to_radix_sel() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in.get(ColumnAndShifts::to_radix_sel) == 1 || in.get(ColumnAndShifts::precomputed_sel_range_8) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._to_radix_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
+        const auto is_operation = View(in.get(ColumnAndShifts::to_radix_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_8));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -60,12 +60,12 @@ class lookup_to_radix_limb_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_to_radix_limb_range_inv(),
-                                     in._lookup_to_radix_limb_range_counts(),
-                                     in._to_radix_sel(),
-                                     in._precomputed_sel_range_8(),
-                                     in._to_radix_limb(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_to_radix_limb_range_inv),
+                                     in.get(ColumnAndShifts::lookup_to_radix_limb_range_counts),
+                                     in.get(ColumnAndShifts::to_radix_sel),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_8),
+                                     in.get(ColumnAndShifts::to_radix_limb),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -120,15 +120,15 @@ class lookup_to_radix_limb_less_than_radix_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._to_radix_sel() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in.get(ColumnAndShifts::to_radix_sel) == 1 || in.get(ColumnAndShifts::precomputed_sel_range_8) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._to_radix_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
+        const auto is_operation = View(in.get(ColumnAndShifts::to_radix_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_8));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -144,12 +144,12 @@ class lookup_to_radix_limb_less_than_radix_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_to_radix_limb_less_than_radix_range_inv(),
-                                     in._lookup_to_radix_limb_less_than_radix_range_counts(),
-                                     in._to_radix_sel(),
-                                     in._precomputed_sel_range_8(),
-                                     in._to_radix_limb_radix_diff(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_to_radix_limb_less_than_radix_range_inv),
+                                     in.get(ColumnAndShifts::lookup_to_radix_limb_less_than_radix_range_counts),
+                                     in.get(ColumnAndShifts::to_radix_sel),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_8),
+                                     in.get(ColumnAndShifts::to_radix_limb_radix_diff),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -208,15 +208,16 @@ class lookup_to_radix_fetch_safe_limbs_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._to_radix_start() == 1 || in._precomputed_sel_to_radix_safe_limbs() == 1);
+        return (in.get(ColumnAndShifts::to_radix_start) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_to_radix_safe_limbs) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._to_radix_start());
-        const auto is_table_entry = View(in._precomputed_sel_to_radix_safe_limbs());
+        const auto is_operation = View(in.get(ColumnAndShifts::to_radix_start));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_to_radix_safe_limbs));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -232,14 +233,14 @@ class lookup_to_radix_fetch_safe_limbs_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_to_radix_fetch_safe_limbs_inv(),
-                                     in._lookup_to_radix_fetch_safe_limbs_counts(),
-                                     in._to_radix_start(),
-                                     in._precomputed_sel_to_radix_safe_limbs(),
-                                     in._to_radix_radix(),
-                                     in._to_radix_safe_limbs(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_to_radix_safe_limbs());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_to_radix_fetch_safe_limbs_inv),
+                                     in.get(ColumnAndShifts::lookup_to_radix_fetch_safe_limbs_counts),
+                                     in.get(ColumnAndShifts::to_radix_start),
+                                     in.get(ColumnAndShifts::precomputed_sel_to_radix_safe_limbs),
+                                     in.get(ColumnAndShifts::to_radix_radix),
+                                     in.get(ColumnAndShifts::to_radix_safe_limbs),
+                                     in.get(ColumnAndShifts::precomputed_clk),
+                                     in.get(ColumnAndShifts::precomputed_to_radix_safe_limbs));
     }
 };
 
@@ -299,15 +300,16 @@ class lookup_to_radix_fetch_p_limb_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._to_radix_not_padding_limb() == 1 || in._precomputed_sel_p_decomposition() == 1);
+        return (in.get(ColumnAndShifts::to_radix_not_padding_limb) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_p_decomposition) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._to_radix_not_padding_limb());
-        const auto is_table_entry = View(in._precomputed_sel_p_decomposition());
+        const auto is_operation = View(in.get(ColumnAndShifts::to_radix_not_padding_limb));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_p_decomposition));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -323,16 +325,16 @@ class lookup_to_radix_fetch_p_limb_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_to_radix_fetch_p_limb_inv(),
-                                     in._lookup_to_radix_fetch_p_limb_counts(),
-                                     in._to_radix_not_padding_limb(),
-                                     in._precomputed_sel_p_decomposition(),
-                                     in._to_radix_radix(),
-                                     in._to_radix_limb_index(),
-                                     in._to_radix_p_limb(),
-                                     in._precomputed_p_decomposition_radix(),
-                                     in._precomputed_p_decomposition_limb_index(),
-                                     in._precomputed_p_decomposition_limb());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_to_radix_fetch_p_limb_inv),
+                                     in.get(ColumnAndShifts::lookup_to_radix_fetch_p_limb_counts),
+                                     in.get(ColumnAndShifts::to_radix_not_padding_limb),
+                                     in.get(ColumnAndShifts::precomputed_sel_p_decomposition),
+                                     in.get(ColumnAndShifts::to_radix_radix),
+                                     in.get(ColumnAndShifts::to_radix_limb_index),
+                                     in.get(ColumnAndShifts::to_radix_p_limb),
+                                     in.get(ColumnAndShifts::precomputed_p_decomposition_radix),
+                                     in.get(ColumnAndShifts::precomputed_p_decomposition_limb_index),
+                                     in.get(ColumnAndShifts::precomputed_p_decomposition_limb));
     }
 };
 
@@ -387,15 +389,16 @@ class lookup_to_radix_limb_p_diff_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._to_radix_not_padding_limb() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in.get(ColumnAndShifts::to_radix_not_padding_limb) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_8) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._to_radix_not_padding_limb());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
+        const auto is_operation = View(in.get(ColumnAndShifts::to_radix_not_padding_limb));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_8));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -411,12 +414,12 @@ class lookup_to_radix_limb_p_diff_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_to_radix_limb_p_diff_range_inv(),
-                                     in._lookup_to_radix_limb_p_diff_range_counts(),
-                                     in._to_radix_not_padding_limb(),
-                                     in._precomputed_sel_range_8(),
-                                     in._to_radix_limb_p_diff(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_to_radix_limb_p_diff_range_inv),
+                                     in.get(ColumnAndShifts::lookup_to_radix_limb_p_diff_range_counts),
+                                     in.get(ColumnAndShifts::to_radix_not_padding_limb),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_8),
+                                     in.get(ColumnAndShifts::to_radix_limb_p_diff),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
