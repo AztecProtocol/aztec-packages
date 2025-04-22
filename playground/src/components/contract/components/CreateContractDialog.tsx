@@ -36,6 +36,7 @@ import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import { InfoText } from '../../common/InfoText';
 import { INFO_TEXT } from '../../../constants';
+import { DialogActions, DialogContent } from '@mui/material';
 
 export function CreateContractDialog({
   open,
@@ -135,14 +136,16 @@ export function CreateContractDialog({
   return (
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Create contract</DialogTitle>
+
       <div css={{ display: 'flex', padding: '1rem', flexDirection: 'column' }}>
         <FormControlLabel
           control={<Switch value={registerExisting} onChange={(_event, checked) => setRegisterExisting(checked)} />}
-          label={registerExisting ? 'Register existing contract' : 'Create & deploy a new contract'}
+          label={'Load an already deployed version of this contract'}
         />
         <InfoText>{INFO_TEXT.CREATE_CONTRACT}</InfoText>
       </div>
-      <div css={dialogBody}>
+
+      <DialogContent sx={dialogBody}>
         <FormGroup css={form}>
           {registerExisting ? (
             <TextField
@@ -211,36 +214,39 @@ export function CreateContractDialog({
             <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
         </FormGroup>
-        <div css={{ flexGrow: 1, margin: 'auto' }}></div>
-        {!error ? (
-          isRegistering ? (
-            <div css={progressIndicator}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                Registering contract...
-              </Typography>
-              <CircularProgress size={20} />
-            </div>
-          ) : registerExisting ? (
-            <Button disabled={alias === '' || address === '' || isRegistering} onClick={registerExistingContract}>
-              Register
-            </Button>
+
+        <DialogActions>
+          {!error ? (
+            isRegistering ? (
+              <div css={progressIndicator}>
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  Registering contract...
+                </Typography>
+                <CircularProgress size={20} />
+              </div>
+            ) : registerExisting ? (
+              <Button disabled={alias === '' || address === '' || isRegistering} onClick={registerExistingContract}>
+                Register
+              </Button>
+            ) : (
+              <Button
+                disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
+                onClick={createContract}
+              >
+                {publiclyDeploy ? 'Create and deploy' : 'Create'}
+              </Button>
+            )
           ) : (
-            <Button
-              disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
-              onClick={createContract}
-            >
-              {publiclyDeploy ? 'Create and deploy' : 'Create'}
-            </Button>
-          )
-        ) : (
-          <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
-            An error occurred: {error}
-          </Typography>
-        )}
-        <Button color="error" onClick={handleClose}>
-          Cancel
-        </Button>
-      </div>
+            <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
+              An error occurred: {error}
+            </Typography>
+          )}
+          <Button color="error" onClick={handleClose}>
+            Cancel
+          </Button>
+        </DialogActions>
+
+      </DialogContent>
     </Dialog>
   );
 }

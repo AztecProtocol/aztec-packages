@@ -63,13 +63,13 @@ export const FUNCTION_DESCRIPTIONS = {
 
 export const INFO_TEXT = {
   ACCOUNT_ABSTRACTION:
-    'Aztec has native Account Abstraction, you can choose the type of signature you want for your account contract',
+    'Aztec has native Account Abstraction, you can choose the type of signature you want for your account contract. We recommend the ecdsa_r1 signature that you can store on passkeys or do web authentication.',
   ALIASES: "Give friendly names to objects you interact with, so they're easier to find later",
   FEE_ABSTRACTION:
-    'Aztec has native Fee Abstraction, so you can choose to pay fees in multiple ways. For test networks, we have you covered! Use our Sponsored FPC (Fee Paying Contract) and your transactions are on us',
+    'Aztec has native Fee Abstraction, so you can choose to pay gas fees in multiple ways. For testnet, we’ve got you covered! Use our Sponsored Fee Payment Contract and your transactions are on us.',
   AUTHWITS:
-    'Authorization witnesses (AuthWits) allow execution of functions on behalf of other addresses you own (you have their secret keys)',
+    'Authorization witnesses (AuthWits) work similarly to permit/approval on Ethereum. They allow execution of functions on behalf of other contracts or addresses.',
   CREATE_CONTRACT:
-    "Just like in other networks, you can register an existing contract instance (if you know it's ABI and address) or create a new one",
+    "Just like in Ethereum, you can load an existing contract instance (if you know it's ABI and address) or create a new one.",
   CONTACTS: 'Register contacts so you can discover notes sent by them',
 };

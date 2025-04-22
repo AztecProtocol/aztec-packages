@@ -165,10 +165,14 @@ const funFacts = [
   'The Aztec protocol was founded in 2017',
   "We're almost there...",
   'Aztec Connect was the first private DeFi application',
-  'Aztec invented PLONK which is really cool',
+  'Aztec invented PLONK which is really cool and underpins all modern zkVMs',
   'Aztec supports private, public, and hybrid smart contract execution',
-  'Aztec enables privacy and full composability',
+  'Aztec enables privacy and full composability across private and public calls',
+  'All transactions on Aztec start off private (since all accounts and transaction entrypoints are private)',
+  'Aztec is the first L2 to launch a decentralized testnet on day 1',
+  'While you wait for this proof, check out somethinghappened.wtf',
 ];
+
 
 export function LoadingModal() {
   const { currentTx, setCurrentTx, logs } = useContext(AztecContext);
