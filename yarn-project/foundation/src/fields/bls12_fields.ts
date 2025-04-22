@@ -103,6 +103,12 @@ export abstract class BLS12Field {
     return this.isZero();
   }
 
+  isNegative(): boolean {
+    // Returns whether the field element is above the halfway point of (p-1)/2
+    // Generally referred to as 'negative' but also referred to as 'greater' (e.g. in point compression)
+    return this.toBigInt() > (this.modulus() - 1n) / 2n;
+  }
+
   toFriendlyJSON(): string {
     return this.toString();
   }

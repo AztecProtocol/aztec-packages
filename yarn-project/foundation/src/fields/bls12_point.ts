@@ -113,7 +113,7 @@ export class BLS12Point {
     if (point.isZero()) {
       return this.COMPRESSED_ZERO;
     }
-    const isGreater = Boolean((point.y.toBigInt() * 2n) / BLS12Fq.MODULUS);
+    const isGreater = point.y.isNegative();
     return setMask(toBufferBE(point.x.toBigInt(), BLS12Fq.SIZE_IN_BYTES), { compressed: true, sort: isGreater });
   }
 
@@ -138,7 +138,7 @@ export class BLS12Point {
       if (!y) {
         throw new BLSPointNotOnCurveError(x);
       }
-      if ((y.toBigInt() * 2n) / BLS12Fq.MODULUS !== BigInt(sort)) {
+      if (y.isNegative() !== sort) {
         y = y.negate();
       }
       return new BLS12Point(x, y, infinity);
@@ -181,7 +181,7 @@ export class BLS12Point {
       throw new BLSPointNotOnCurveError(x);
     }
 
-    const yPositiveBigInt = y.toBigInt() <= (BLS12Fq.MODULUS - 1n) / 2n ? y.toBigInt() : BLS12Fq.MODULUS - y.toBigInt();
+    const yPositiveBigInt = y.isNegative() ? BLS12Fq.MODULUS - y.toBigInt() : y.toBigInt();
     const yNegativeBigInt = BLS12Fq.MODULUS - yPositiveBigInt;
 
     // Choose the positive or negative root based on isPositive
@@ -250,7 +250,7 @@ export class BLS12Point {
    * @returns The x coordinate and the sign of the y coordinate.
    */
   toXAndSign(): [BLS12Fq, boolean] {
-    return [this.x, this.y.toBigInt() <= (BLS12Fq.MODULUS - 1n) / 2n];
+    return [this.x, !this.y.isNegative()];
   }
 
   /**

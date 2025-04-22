@@ -23,8 +23,8 @@ export class BatchedBlob {
     public readonly y: BLS12Fr,
     /** Commitment C, linear combination of all commitments C_i = [p_i] with gamma. */
     public readonly commitment: BLS12Point,
-    /** KZG opening proof, linear combination of all blob kzg proofs Q_i with gamma. */
-    public readonly proof: BLS12Point,
+    /** KZG opening 'proof' Q (commitment to the quotient poly.), linear combination of all blob kzg 'proofs' Q_i with gamma. */
+    public readonly q: BLS12Point,
   ) {}
 
   /**
@@ -63,11 +63,11 @@ export class BatchedBlob {
         `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${gamma}`,
       );
     }
-    if (!verifyKzgProof(acc.cAcc.compress(), acc.zAcc.toBuffer(), acc.yAcc.toBuffer(), acc.proofAcc.compress())) {
+    if (!verifyKzgProof(acc.cAcc.compress(), acc.zAcc.toBuffer(), acc.yAcc.toBuffer(), acc.qAcc.compress())) {
       throw new Error(`KZG proof did not verify.`);
     }
 
-    return new BatchedBlob(acc.vAcc, acc.zAcc, acc.yAcc, acc.cAcc, acc.proofAcc);
+    return new BatchedBlob(acc.vAcc, acc.zAcc, acc.yAcc, acc.cAcc, acc.qAcc);
   }
 
   /**
@@ -121,7 +121,7 @@ export class BatchedBlob {
    * input[32:64]   - z
    * input[64:96]   - y
    * input[96:144]  - commitment C
-   * input[144:192] - proof (a commitment to the quotient polynomial q(X))
+   * input[144:192] - commitment Q (a 'proof' committing to the quotient polynomial q(X))
    *
    * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
    */
@@ -131,7 +131,7 @@ export class BatchedBlob {
       this.z.toBuffer(),
       this.y.toBuffer(),
       this.commitment.compress(),
-      this.proof.compress(),
+      this.q.compress(),
     ]);
     return `0x${buf.toString('hex')}`;
   }
@@ -150,11 +150,11 @@ export class BatchedBlobAccumulator {
     public readonly yAcc: BLS12Fr,
     /** Commitment c_acc. Final value is linear combination of all commitments C_i = [p_i] with gamma. */
     public readonly cAcc: BLS12Point,
-    /** KZG opening proof_acc. Final value is linear combination of all blob kzg proofs Q_i with gamma. */
-    public readonly proofAcc: BLS12Point,
+    /** KZG opening q_acc. Final value is linear combination of all blob kzg 'proofs' Q_i with gamma. */
+    public readonly qAcc: BLS12Point,
     /**
-     * Challenge point gamma_acc for multi opening. Used with y, C, and kzg proof above.
-     * TODO(MW): We calculate this by hashing natively in the circuit (hence Fr representation), but it's actually used
+     * Challenge point gamma_acc for multi opening. Used with y, C, and kzg 'proof' Q above.
+     * TODO(#13608): We calculate this by hashing natively in the circuit (hence Fr representation), but it's actually used
      * as a BLS12Fr field elt. Is this safe? Is there a skew?
      */
     public readonly gammaAcc: Fr,
@@ -172,7 +172,7 @@ export class BatchedBlobAccumulator {
    * @returns An initial blob accumulator.
    */
   static async initialize(blob: Blob, finalZ: Fr, finalGamma: BLS12Fr): Promise<BatchedBlobAccumulator> {
-    const [proof, evaluation] = computeKzgProof(blob.data, finalZ.toBuffer());
+    const [q, evaluation] = computeKzgProof(blob.data, finalZ.toBuffer());
     const firstY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
     // Here, i = 0, so:
     return new BatchedBlobAccumulator(
@@ -180,7 +180,7 @@ export class BatchedBlobAccumulator {
       blob.challengeZ, // zAcc = z_0
       firstY, // yAcc = gamma^0 * y_0 = 1 * y_0
       BLS12Point.decompress(blob.commitment), // cAcc = gamma^0 * C_0 = 1 * C_0
-      BLS12Point.decompress(Buffer.from(proof)), // proofAcc = gamma^0 * Q_0 = 1 * Q_0
+      BLS12Point.decompress(Buffer.from(q)), // qAcc = gamma^0 * Q_0 = 1 * Q_0
       await hashNoirBigNumLimbs(firstY), // gammaAcc = posiedon2(y_0.limbs)
       finalGamma, // gammaPow = gamma^(i + 1) = gamma^1 = gamma
       finalZ,
@@ -195,7 +195,7 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulate(blob: Blob) {
-    const [proof, evaluation] = computeKzgProof(blob.data, this.finalZ.toBuffer());
+    const [q, evaluation] = computeKzgProof(blob.data, this.finalZ.toBuffer());
     const thisY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
 
     // Moving from i - 1 to i, so:
@@ -204,7 +204,7 @@ export class BatchedBlobAccumulator {
       await poseidon2Hash([this.zAcc, blob.challengeZ]), // zAcc := poseidon2(zAcc, z_i)
       this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
       this.cAcc.add(BLS12Point.decompress(blob.commitment).mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
-      this.proofAcc.add(BLS12Point.decompress(Buffer.from(proof)).mul(this.gammaPow)), // proofAcc := proofAcc + (gamma^i * C_i)
+      this.qAcc.add(BLS12Point.decompress(Buffer.from(q)).mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
       await poseidon2Hash([this.gammaAcc, await hashNoirBigNumLimbs(thisY)]), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
       this.gammaPow.mul(this.finalGamma), // gammaPow = gamma^(i + 1) = gamma^i * final_gamma
       this.finalZ,
