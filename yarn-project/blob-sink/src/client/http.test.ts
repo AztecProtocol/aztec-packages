@@ -7,7 +7,6 @@ import http from 'http';
 import type { AddressInfo } from 'net';
 
 import { BlobSinkServer } from '../server/server.js';
-import { BlobWithIndex } from '../types/blob_with_index.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
 import { HttpBlobSinkClient } from './http.js';
 
@@ -47,7 +46,6 @@ describe('HttpBlobSinkClient', () => {
 
     let testEncodedBlob: Blob;
     let testEncodedBlobHash: Buffer;
-    let testEncodedBlobWithIndex: BlobWithIndex;
 
     let testNonEncodedBlob: Blob;
     let testNonEncodedBlobHash: Buffer;
@@ -69,7 +67,6 @@ describe('HttpBlobSinkClient', () => {
     beforeEach(async () => {
       testEncodedBlob = await makeEncodedBlob(3);
       testEncodedBlobHash = testEncodedBlob.getEthVersionedBlobHash();
-      testEncodedBlobWithIndex = new BlobWithIndex(testEncodedBlob, 0);
 
       testBlobIgnore = await makeEncodedBlob(3);
 
@@ -79,7 +76,7 @@ describe('HttpBlobSinkClient', () => {
       blobData = [
         // Correctly encoded blob
         {
-          index: '0',
+          index: 0,
           blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
           // eslint-disable-next-line camelcase
           kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
@@ -88,7 +85,7 @@ describe('HttpBlobSinkClient', () => {
         },
         // Correctly encoded blob, but we do not ask for it in the client
         {
-          index: '1',
+          index: 1,
           blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
           // eslint-disable-next-line camelcase
           kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
@@ -97,7 +94,7 @@ describe('HttpBlobSinkClient', () => {
         },
         // Incorrectly encoded blob
         {
-          index: '2',
+          index: 2,
           blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
           // eslint-disable-next-line camelcase
           kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
@@ -197,7 +194,7 @@ describe('HttpBlobSinkClient', () => {
       expect(success).toBe(true);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
       // Check that the blob sink was called with the correct block hash and no index
       expect(blobSinkSpy).toHaveBeenCalledWith('0x1234', undefined);
@@ -215,7 +212,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
     it('should handle when multiple consensus hosts are provided', async () => {
@@ -228,7 +225,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
     it('should handle API keys without headers', async () => {
@@ -242,7 +239,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
       const clientWithNoKey = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
@@ -275,7 +272,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
       const clientWithWrongHeader = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
@@ -324,7 +321,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       let retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
       // Verify that the second consensus host works when the first host fails
       consensusServer1?.close();
@@ -340,7 +337,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
       // Verify that the third consensus host works when the first and second hosts fail
       consensusServer2?.close();
@@ -356,7 +353,7 @@ describe('HttpBlobSinkClient', () => {
       });
 
       retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
     it('even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
@@ -370,7 +367,7 @@ describe('HttpBlobSinkClient', () => {
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
       // We should only get the correctly encoded blob
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
     it('should handle L1 missed slots', async () => {
@@ -396,7 +393,7 @@ describe('HttpBlobSinkClient', () => {
         0,
       );
 
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
       // Verify we hit the 404 for slot 33 before trying slot 34, and that we use the api key header
       // (see issue https://github.com/AztecProtocol/aztec-packages/issues/13415)
@@ -409,20 +406,5 @@ describe('HttpBlobSinkClient', () => {
         expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
     });
-
-    it('should fall back to archive client', async () => {
-      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `https://api.blobscan.com` });
-      const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
-
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
-      expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
-      expect(archiveSpy).toHaveBeenCalledWith('0x1234');
-    });
   });
 });
-
-class TestHttpBlobSinkClient extends HttpBlobSinkClient {
-  public getArchiveClient() {
-    return this.archiveClient!;
-  }
-}
