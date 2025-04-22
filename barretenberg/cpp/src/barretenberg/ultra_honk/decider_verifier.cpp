@@ -17,14 +17,12 @@ template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
-    , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
     , transcript(transcript)
 {}
 
 template <typename Flavor>
 DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator)
     : accumulator(accumulator)
-    , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
 {}
 
 /**
@@ -48,6 +46,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
@@ -89,14 +88,17 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    VerifierCommitmentKey pcs_vkey{};
+    bool verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
     return sumcheck_output.verified && verified && consistency_checked;
 }
 
 template class DeciderVerifier_<UltraFlavor>;
 template class DeciderVerifier_<UltraZKFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
+template class DeciderVerifier_<UltraStarknetFlavor>;
 template class DeciderVerifier_<UltraKeccakZKFlavor>;
+template class DeciderVerifier_<UltraStarknetZKFlavor>;
 template class DeciderVerifier_<UltraRollupFlavor>;
 template class DeciderVerifier_<MegaFlavor>;
 template class DeciderVerifier_<MegaZKFlavor>;

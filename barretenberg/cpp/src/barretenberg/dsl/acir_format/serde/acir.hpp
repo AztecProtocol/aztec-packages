@@ -6,8 +6,8 @@
 
 #pragma once
 
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "bincode.hpp"
-#include "msgpack.hpp"
 #include "serde.hpp"
 
 namespace Acir {

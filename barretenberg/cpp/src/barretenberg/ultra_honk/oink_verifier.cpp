@@ -6,6 +6,8 @@
 
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
@@ -162,7 +164,9 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 template class OinkVerifier<UltraFlavor>;
 template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
+template class OinkVerifier<UltraStarknetFlavor>;
 template class OinkVerifier<UltraKeccakZKFlavor>;
+template class OinkVerifier<UltraStarknetZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;

@@ -19,7 +19,7 @@ export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 function write_vk {
   set -eu
   local flow_folder="$input_folder/$1"
-  ./build/bin/bb write_vk --scheme client_ivc -v -b "$flow_folder/acir.msgpack" --input_type runtime_stack --verifier_type ivc -o "$flow_folder"
+  ./build/bin/bb write_vk --scheme client_ivc -v --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" --verifier_type ivc -o "$flow_folder"
 }
 
 export -f write_vk

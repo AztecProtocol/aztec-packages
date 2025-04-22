@@ -106,6 +106,7 @@ function inspect {
     done
 }
 
+
 function gas_report {
   check=${1:-"no"}
   echo_header "l1-contracts gas report"

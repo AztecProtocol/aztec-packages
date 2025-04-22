@@ -18,7 +18,6 @@
 #include <optional>
 #include <unordered_set>
 
-#include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace bb {
