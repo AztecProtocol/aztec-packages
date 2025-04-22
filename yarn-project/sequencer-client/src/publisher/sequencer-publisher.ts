@@ -20,10 +20,10 @@ import {
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import type { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
 import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -48,7 +48,7 @@ type L1ProcessArgs = {
   /** L2 block tx hashes */
   txHashes: TxHash[];
   /** Attestations */
-  attestations?: Signature[];
+  attestations?: CommitteeAttestation[];
 };
 
 export enum VoteType {
@@ -288,19 +288,19 @@ export class SequencerPublisher {
    */
   public async validateBlockForSubmission(
     header: ProposedBlockHeader,
-    attestationData: { digest: Buffer; signatures: Signature[] } = {
+    attestationData: { digest: Buffer; attestations: CommitteeAttestation[] } = {
       digest: Buffer.alloc(32),
-      signatures: [],
+      attestations: [],
     },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
-    const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
-    const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
+    const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
+    const flags = { ignoreDA: true, ignoreSignatures: formattedAttestations.length == 0 };
 
     const args = [
       toHex(header.toBuffer()),
-      formattedSignatures,
+      formattedAttestations,
       toHex(attestationData.digest),
       ts,
       toHex(header.contentCommitment.blobsHash),
@@ -405,7 +405,7 @@ export class SequencerPublisher {
    */
   public async enqueueProposeL2Block(
     block: L2Block,
-    attestations?: Signature[],
+    attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
@@ -431,7 +431,7 @@ export class SequencerPublisher {
     //        make time consistency checks break.
     const ts = await this.validateBlockForSubmission(proposedBlockHeader, {
       digest: digest.toBuffer(),
-      signatures: attestations ?? [],
+      attestations: attestations ?? [],
     });
 
     this.log.debug(`Submitting propose transaction`);
@@ -486,9 +486,7 @@ export class SequencerPublisher {
         throw new Error('Failed to validate blobs');
       });
 
-    const attestations = encodedData.attestations
-      ? encodedData.attestations.map(attest => attest.toViemSignature())
-      : [];
+    const attestations = encodedData.attestations ? encodedData.attestations.map(attest => attest.toViem()) : [];
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {

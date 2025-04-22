@@ -1,10 +1,9 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, L2BlockHash } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
@@ -18,7 +17,8 @@ type BlockStorage = {
   header: Buffer;
   archive: Buffer;
   l1: L1PublishedData;
-  signatures: Buffer[];
+  // TODO(md): this is a serious breaking change?? No way to do a migration with this?
+  attestations: Buffer[];
 };
 
 /**
@@ -74,7 +74,7 @@ export class BlockStore {
           header: block.block.header.toBuffer(),
           archive: block.block.archive.toBuffer(),
           l1: block.l1,
-          signatures: block.signatures.map(sig => sig.toBuffer()),
+          attestations: block.attestations.map(attestation => attestation.toBuffer()),
         });
 
         for (let i = 0; i < block.block.body.txEffects.length; i++) {
@@ -187,8 +187,8 @@ export class BlockStore {
         } with hash ${await block.hash()})`,
       );
     }
-    const signatures = blockStorage.signatures.map(Signature.fromBuffer);
-    return { block, l1: blockStorage.l1, signatures };
+    const attestations = blockStorage.attestations.map(CommitteeAttestation.fromBuffer);
+    return { block, l1: blockStorage.l1, attestations };
   }
 
   /**

@@ -715,9 +715,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private async addAttestationsToPool(blocks: PublishedL2Block[]): Promise<void> {
     const attestations = blocks.flatMap(block => {
       const payload = ConsensusPayload.fromBlock(block.block);
-      return block.signatures
-        .filter(sig => !sig.isEmpty)
-        .map(signature => new BlockAttestation(block.block.header.globalVariables.blockNumber, payload, signature));
+
+      // TODO(md): Think about adding these back to the pool
+      // TODO(md): A malicious proposer could submit a signature here? - double check
+      return block.attestations
+        .filter(attestation => !attestation.signature.isEmpty())
+        .map(attestation => new BlockAttestation(payload, attestation.signature));
     });
     await this.attestationPool?.addAttestations(attestations);
     const slots = blocks.map(b => b.block.header.getSlot()).sort((a, b) => Number(a - b));

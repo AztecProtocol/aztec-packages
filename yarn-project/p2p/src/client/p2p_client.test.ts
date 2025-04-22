@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 
@@ -338,18 +338,20 @@ describe('In-Memory P2P Client', () => {
       const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
       await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
       expect(addAttestationsSpy).toHaveBeenCalledWith(
-        block.signatures.map(signature => expect.objectContaining({ signature })),
+        block.attestations.map(attestation => expect.objectContaining({ signature: attestation.signature })),
       );
     });
 
     it('handles empty signatures in block stream events', async () => {
       await client.start();
       const block = await randomPublishedL2Block(1);
-      block.signatures[0] = Signature.empty();
+      block.attestations[0] = CommitteeAttestation.empty();
       const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
       await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
       expect(addAttestationsSpy).toHaveBeenCalledWith(
-        block.signatures.filter(sig => !sig.isEmpty).map(signature => expect.objectContaining({ signature })),
+        block.attestations
+          .filter(attestation => !attestation.signature.isEmpty())
+          .map(attestation => expect.objectContaining({ signature: attestation.signature })),
       );
     });
   });

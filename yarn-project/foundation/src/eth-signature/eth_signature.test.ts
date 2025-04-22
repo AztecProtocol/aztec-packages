@@ -43,21 +43,21 @@ describe('eth signature', () => {
   });
 
   it('should serialize and deserialize to hex string with v=0', () => {
-    const signature = new Signature(Buffer32.random(), Buffer32.random(), 0, false);
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 0);
     const serialized = signature.toString();
     const deserialized = Signature.fromString(serialized);
     checkEquivalence(signature, deserialized);
   });
 
   it('should serialize and deserialize to hex string with 1-digit v', () => {
-    const signature = new Signature(Buffer32.random(), Buffer32.random(), 1, false);
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 1);
     const serialized = signature.toString();
     const deserialized = Signature.fromString(serialized);
     checkEquivalence(signature, deserialized);
   });
 
   it('should serialize and deserialize to hex string with 2-digit v', () => {
-    const signature = new Signature(Buffer32.random(), Buffer32.random(), 26, false);
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 26);
     const serialized = signature.toString();
     const deserialized = Signature.fromString(serialized);
     checkEquivalence(signature, deserialized);

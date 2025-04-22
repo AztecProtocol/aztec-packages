@@ -1,5 +1,7 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
+// TODO: watch out for circular dependency - maybe into foundation
+// import type { ViemCommitteeAttestation } from '@aztec/stdlib/block';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
@@ -14,6 +16,12 @@ import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
+
+// TODO: watch out for circular dependency - maybe into foundation
+type ViemCommitteeAttestation = {
+  addr: `0x${string}`;
+  signature: ViemSignature;
+};
 
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
@@ -306,7 +314,7 @@ export class RollupContract {
   public async validateHeader(
     args: readonly [
       `0x${string}`,
-      ViemSignature[],
+      ViemCommitteeAttestation[],
       `0x${string}`,
       bigint,
       `0x${string}`,

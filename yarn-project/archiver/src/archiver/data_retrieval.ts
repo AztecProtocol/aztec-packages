@@ -3,11 +3,10 @@ import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type { EpochProofPublicInputArgs, ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, L2Block } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, type ViemCommitteeAttestation } from '@aztec/stdlib/block';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -189,7 +188,7 @@ async function processL2BlockProposedLogs(
         l1BlockNumber: log.blockNumber,
         l2BlockNumber,
         archive: archive.toString(),
-        signatures: block.signatures.map(signature => signature.toString()),
+        attestations: block.attestations.map(attestation => attestation.toString()),
       });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
@@ -288,7 +287,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, signatures, _blobInput] = rollupArgs! as readonly [
+  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -299,7 +298,7 @@ async function getBlockFromRollupTx(
       };
       txHashes: Hex[];
     },
-    ViemSignature[],
+    ViemCommitteeAttestation[],
     Hex,
   ];
 
@@ -334,7 +333,7 @@ async function getBlockFromRollupTx(
     stateReference,
     header,
     body,
-    signatures: signatures.map(Signature.fromViemSignature),
+    attestations: attestations.map(CommitteeAttestation.fromViem),
   };
 }
 

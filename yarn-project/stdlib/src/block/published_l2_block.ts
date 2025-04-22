@@ -3,7 +3,7 @@ import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { schemas } from '@aztec/foundation/schemas';
-import { L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 
 import { z } from 'zod';
 
@@ -16,7 +16,7 @@ export type L1PublishedData = {
 export type PublishedL2Block = {
   block: L2Block;
   l1: L1PublishedData;
-  signatures: Signature[];
+  attestations: CommitteeAttestation[];
 };
 
 export const PublishedL2BlockSchema = z.object({
@@ -26,7 +26,7 @@ export const PublishedL2BlockSchema = z.object({
     timestamp: schemas.BigInt,
     blockHash: z.string(),
   }),
-  signatures: z.array(Signature.schema),
+  attestations: z.array(CommitteeAttestation.schema),
 });
 
 export async function randomPublishedL2Block(l2BlockNumber: number): Promise<PublishedL2Block> {
@@ -38,8 +38,11 @@ export async function randomPublishedL2Block(l2BlockNumber: number): Promise<Pub
   };
   // Create valid signatures
   const signers = times(3, () => Secp256k1Signer.random());
-  const signatures = await Promise.all(
-    times(3, async i => signers[i].signMessage(Buffer32.fromField(await block.hash()))),
+  const attestations = await Promise.all(
+    times(3, async i => {
+      const signature: Signature = signers[i].signMessage(Buffer32.fromField(await block.hash()));
+      return CommitteeAttestation.fromAddressAndSignature(signers[i].address, signature);
+    }),
   );
-  return { block, l1, signatures };
+  return { block, l1, attestations };
 }
