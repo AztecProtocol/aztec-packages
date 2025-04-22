@@ -36,7 +36,7 @@ done
 
 # Tests don't usually need network access, so disable it by default.
 network_arg="--net=none"
-[ "${NET:-}" -eq 1 ] && network_arg=""
+[ "${NET:-0}" -eq 1 ] && network_arg=""
 
 # Launch the container in the background.
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
