@@ -11,7 +11,7 @@ pub struct ContractFunction {
 pub global default_vk: [Field; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS] =
     [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS];
 
-// sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
+// sibling_path copy-and-pasted from __snapshots__/noir_test_gen.test.ts.snap (defaultContract 1)
 pub global default_private_function: ContractFunction = ContractFunction {
     data: FunctionData { selector: FunctionSelector { inner: 1010101 }, is_private: true },
     vk_hash: crate::hash::verification_key_hash(default_vk),
