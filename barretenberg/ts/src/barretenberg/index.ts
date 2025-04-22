@@ -3,10 +3,10 @@ import { BarretenbergApi, BarretenbergApiSync } from '../barretenberg_api/index.
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
-import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
+import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraPlonkBackend, UltraHonkBackend, AztecClientBackend } from './backend.js';
@@ -40,7 +40,7 @@ export type CircuitOptions = {
 export class Barretenberg extends BarretenbergApi {
   private options: BackendOptions;
 
-  private constructor(private worker: any, wasm: BarretenbergWasmWorker, options: BackendOptions) {
+  private constructor(private worker: any, wasm: BarretenbergWasmMainWorker, options: BackendOptions) {
     super(wasm);
     this.options = options;
   }
@@ -52,7 +52,7 @@ export class Barretenberg extends BarretenbergApi {
    * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
    */
   static async new(options: BackendOptions = {}) {
-    const worker = createMainWorker();
+    const worker = await createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
     await wasm.init(
@@ -96,6 +96,10 @@ export class Barretenberg extends BarretenbergApi {
   async destroy() {
     await this.wasm.destroy();
     await this.worker.terminate();
+  }
+
+  getWasm() {
+    return this.wasm;
   }
 }
 
