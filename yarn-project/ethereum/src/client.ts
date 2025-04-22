@@ -4,6 +4,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import {
   type Chain,
   type HDAccount,
+  type LocalAccount,
   type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
@@ -72,7 +73,7 @@ async function waitForRpc(client: ViemPublicClient, config: Config, logger?: Log
 
 export function createExtendedL1Client(
   rpcUrls: string[],
-  mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount,
+  mnemonicOrPrivateKeyOrHdAccount: string | `0x${string}` | HDAccount | PrivateKeyAccount | LocalAccount,
   chain: Chain = foundry,
   pollingIntervalMS?: number,
   addressIndex?: number,

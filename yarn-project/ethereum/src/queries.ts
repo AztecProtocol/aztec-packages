@@ -21,7 +21,7 @@ export async function getL1ContractsConfig(
     genesisArchiveTreeRoot: `0x${string}`;
   }
 > {
-  const governance = new GovernanceContract(addresses.governanceAddress.toString(), publicClient, undefined);
+  const governance = new GovernanceContract(addresses.governanceAddress.toString(), publicClient);
   const governanceProposerAddress = await governance.getGovernanceProposerAddress();
   const governanceProposer = new GovernanceProposerContract(publicClient, governanceProposerAddress.toString());
   const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());

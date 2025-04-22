@@ -50,10 +50,10 @@ export class RollupContract {
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
     const {
-      publicClient,
+      l1Client,
       l1ContractAddresses: { rollupAddress },
     } = deployL1ContractsValues;
-    return new RollupContract(publicClient, rollupAddress.toString());
+    return new RollupContract(l1Client, rollupAddress.toString());
   }
 
   static getFromConfig(config: L1ReaderConfig) {

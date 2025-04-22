@@ -1,3 +1,4 @@
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -80,9 +81,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     options: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
-    this.l1Metrics = new L1Metrics(telemetryClient.getMeter('ProverNodeL1Metrics'), publisher.l1TxUtils.publicClient, [
-      publisher.getSenderAddress(),
-    ]);
+    this.l1Metrics = new L1Metrics(
+      telemetryClient.getMeter('ProverNodeL1Metrics'),
+      publisher.l1TxUtils.client as ViemPublicClient,
+      [publisher.getSenderAddress()],
+    );
 
     this.options = {
       pollingIntervalMs: 1_000,

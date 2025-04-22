@@ -69,7 +69,7 @@ import {
   type L1TxUtilsConfig,
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
-import type { ExtendedViemWalletClient, L1Clients } from './types.js';
+import type { ExtendedViemWalletClient } from './types.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
