@@ -60,7 +60,7 @@ const logo = css({
   },
   '@media (max-width: 900px)': {
     height: 'auto',
-    width: '100px',
+    width: '90px',
   },
 });
 
@@ -106,6 +106,11 @@ const docsButton = css({
   '@media (max-width: 1200px)': {
     padding: '10px',
     fontSize: '14px',
+  },
+  '@media (max-width: 900px)': {
+    padding: '8px',
+    fontSize: '12px',
+    fontWeight: 500,
   },
 });
 

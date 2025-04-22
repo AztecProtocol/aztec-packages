@@ -60,15 +60,39 @@ const headerContainer = css({
 
 const header = css({
   display: 'flex',
+  flexDirection: 'column',
   width: '100%',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
+});
+
+const titleContainer = css({
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  width: '100%',
+  marginBottom: '1rem',
 });
 
 const contractActions = css({
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
+  minWidth: '150px',
+});
+
+const deployButton = css({
+  background: '#8C7EFF',
+  height: '30px',
+  fontSize: '14px',
+  fontWeight: 600,
+  padding: '20px 16px',
+  borderRadius: '6px',
+  '@media (max-width: 900px)': {
+    padding: '4px',
+    height: 'auto',
+  },
 });
 
 const loadingArtifactContainer = css({
@@ -184,47 +208,48 @@ export function ContractComponent() {
         <div css={contractFnContainer}>
           <div css={headerContainer}>
             <div css={header}>
-              <Box sx={{ marginBottom: '2rem' }}>
+              <Box sx={titleContainer}>
                 <Typography variant="h3" css={contractName}>
                   {currentContractArtifact.name}
                 </Typography>
 
-                {!!ContractDescriptions[currentContractArtifact.name] && (
-                  <Typography variant="body1">
-                    {ContractDescriptions[currentContractArtifact.name]}
-                  </Typography>
+                {!currentContractAddress && wallet && (
+                  <div css={contractActions}>
+                    <Button size="small" variant="contained" css={deployButton} onClick={() => setOpenCreateContractDialog(true)}>
+                      Deploy / Load Contract
+                    </Button>
+                    {openCreateContractDialog && (
+                      <CreateContractDialog
+                        contractArtifact={currentContractArtifact}
+                        open={openCreateContractDialog}
+                        onClose={handleContractCreation}
+                      />
+                    )}
+                  </div>
                 )}
+
+                {currentContractAddress && (
+                  <div css={contractActions}>
+                    <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
+                    <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
+                    <IconButton
+                      onClick={() => {
+                        setCurrentContractAddress(null);
+                        setCurrentContract(null);
+                        setCurrentContractArtifact(null);
+                      }}
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </div>
+                )}
+
               </Box>
 
-              {!currentContractAddress && wallet && (
-                <div css={contractActions}>
-                  <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
-                    Deploy / Load Contract
-                  </Button>
-                  {openCreateContractDialog && (
-                    <CreateContractDialog
-                      contractArtifact={currentContractArtifact}
-                      open={openCreateContractDialog}
-                      onClose={handleContractCreation}
-                    />
-                  )}
-                </div>
-              )}
-
-              {currentContractAddress && (
-                <div css={contractActions}>
-                  <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
-                  <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
-                  <IconButton
-                    onClick={() => {
-                      setCurrentContractAddress(null);
-                      setCurrentContract(null);
-                      setCurrentContractArtifact(null);
-                    }}
-                  >
-                    <ClearIcon />
-                  </IconButton>
-                </div>
+              {!!ContractDescriptions[currentContractArtifact.name] && (
+                <Typography variant="body1" css={{ marginBottom: '2rem' }}>
+                  {ContractDescriptions[currentContractArtifact.name]}
+                </Typography>
               )}
             </div>
 
