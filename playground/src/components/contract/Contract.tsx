@@ -19,10 +19,15 @@ import { formatFrAsString } from '../../utils/conversion';
 import { CreateContractDialog } from './components/CreateContractDialog';
 import ClearIcon from '@mui/icons-material/Clear';
 import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
+
 import { ContractUpload } from './components/ContractUpload';
 import { ContractFilter } from './components/ContractFilter';
 import { FunctionCard } from './components/FunctionCard';
 import { useTransaction } from '../../hooks/useTransaction';
+import { ContractDescriptions, ContractDocumentationLinks, ContractMethodOrder } from '../../utils/constants';
+import Box from '@mui/material/Box';
+import CardContent from '@mui/material/CardContent';
+import Card from '@mui/material/Card';
 
 const container = css({
   display: 'flex',
@@ -55,15 +60,39 @@ const headerContainer = css({
 
 const header = css({
   display: 'flex',
+  flexDirection: 'column',
   width: '100%',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+});
+
+const titleContainer = css({
+  display: 'flex',
+  flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
+  width: '100%',
+  marginBottom: '1rem',
 });
 
 const contractActions = css({
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
+  minWidth: '150px',
+});
+
+const deployButton = css({
+  background: '#8C7EFF',
+  height: '30px',
+  fontSize: '14px',
+  fontWeight: 600,
+  padding: '20px 16px',
+  borderRadius: '6px',
+  '@media (max-width: 900px)': {
+    padding: '4px',
+    height: 'auto',
+  },
 });
 
 const loadingArtifactContainer = css({
@@ -137,6 +166,12 @@ export function ContractComponent() {
     }
   }, [currentContractArtifact, currentContractAddress, wallet]);
 
+  useEffect(() => {
+    if (!currentContractAddress) {
+      setOpenCreateContractDialog(true);
+    }
+  }, [currentContractAddress]);
+
   const handleContractCreation = async (
     contract?: ContractInstanceWithAddress,
     publiclyDeploy?: boolean,
@@ -173,39 +208,51 @@ export function ContractComponent() {
         <div css={contractFnContainer}>
           <div css={headerContainer}>
             <div css={header}>
-              <Typography variant="h3" css={contractName}>
-                {currentContractArtifact.name}
-              </Typography>
-              {!currentContractAddress && wallet && (
-                <div css={contractActions}>
-                  <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
-                    Register/Deploy
-                  </Button>
-                  {openCreateContractDialog && (
-                    <CreateContractDialog
-                      contractArtifact={currentContractArtifact}
-                      open={openCreateContractDialog}
-                      onClose={handleContractCreation}
-                    />
-                  )}
-                </div>
-              )}
-              {currentContractAddress && (
-                <div css={contractActions}>
-                  <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
-                  <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
-                  <IconButton
-                    onClick={() => {
-                      setCurrentContractAddress(null);
-                      setCurrentContract(null);
-                      setCurrentContractArtifact(null);
-                    }}
-                  >
-                    <ClearIcon />
-                  </IconButton>
-                </div>
+              <Box sx={titleContainer}>
+                <Typography variant="h3" css={contractName}>
+                  {currentContractArtifact.name}
+                </Typography>
+
+                {!currentContractAddress && wallet && (
+                  <div css={contractActions}>
+                    <Button size="small" variant="contained" css={deployButton} onClick={() => setOpenCreateContractDialog(true)}>
+                      Deploy / Load Contract
+                    </Button>
+                    {openCreateContractDialog && (
+                      <CreateContractDialog
+                        contractArtifact={currentContractArtifact}
+                        open={openCreateContractDialog}
+                        onClose={handleContractCreation}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {currentContractAddress && (
+                  <div css={contractActions}>
+                    <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
+                    <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
+                    <IconButton
+                      onClick={() => {
+                        setCurrentContractAddress(null);
+                        setCurrentContract(null);
+                        setCurrentContractArtifact(null);
+                      }}
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </div>
+                )}
+
+              </Box>
+
+              {!!ContractDescriptions[currentContractArtifact.name] && (
+                <Typography variant="body1" css={{ marginBottom: '2rem' }}>
+                  {ContractDescriptions[currentContractArtifact.name]}
+                </Typography>
               )}
             </div>
+
             <ContractFilter filters={filters} onFilterChange={setFilters} />
           </div>
           {functionAbis
@@ -218,9 +265,26 @@ export function ContractComponent() {
                   (filters.utility && fn.functionType === FunctionType.UTILITY)) &&
                 (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
             )
+            .sort((a, b) => {
+              if (ContractMethodOrder[currentContractArtifact.name]) {
+                return ContractMethodOrder[currentContractArtifact.name]?.indexOf(a.name) - ContractMethodOrder[currentContractArtifact.name]?.indexOf(b.name)
+              }
+              return 0;
+            })
             .map(fn => (
-              <FunctionCard fn={fn} key={fn.name} contract={currentContract} onSendTxRequested={sendTx} />
+              <FunctionCard fn={fn} key={fn.name} contract={currentContract} contractArtifact={currentContractArtifact} onSendTxRequested={sendTx} />
             ))}
+
+          {!!ContractDocumentationLinks[currentContractArtifact.name] && (
+            <Card sx={{ margin: '3rem 0.5rem' }}>
+              <CardContent>
+                <Typography variant="body1">
+                  <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
+                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>
