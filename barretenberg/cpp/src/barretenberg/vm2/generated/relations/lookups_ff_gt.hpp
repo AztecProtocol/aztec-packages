@@ -40,15 +40,15 @@ class lookup_ff_gt_a_lo_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._ff_gt_sel() == 1 || in._range_check_sel() == 1);
+        return (in.get(ColumnAndShifts::ff_gt_sel) == 1 || in.get(ColumnAndShifts::range_check_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._ff_gt_sel());
-        const auto is_table_entry = View(in._range_check_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::ff_gt_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::range_check_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -64,14 +64,14 @@ class lookup_ff_gt_a_lo_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_ff_gt_a_lo_range_inv(),
-                                     in._lookup_ff_gt_a_lo_range_counts(),
-                                     in._ff_gt_sel(),
-                                     in._range_check_sel(),
-                                     in._ff_gt_a_lo(),
-                                     in._ff_gt_constant_128(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_ff_gt_a_lo_range_inv),
+                                     in.get(ColumnAndShifts::lookup_ff_gt_a_lo_range_counts),
+                                     in.get(ColumnAndShifts::ff_gt_sel),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::ff_gt_a_lo),
+                                     in.get(ColumnAndShifts::ff_gt_constant_128),
+                                     in.get(ColumnAndShifts::range_check_value),
+                                     in.get(ColumnAndShifts::range_check_rng_chk_bits));
     }
 };
 
@@ -128,15 +128,15 @@ class lookup_ff_gt_a_hi_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._ff_gt_sel() == 1 || in._range_check_sel() == 1);
+        return (in.get(ColumnAndShifts::ff_gt_sel) == 1 || in.get(ColumnAndShifts::range_check_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._ff_gt_sel());
-        const auto is_table_entry = View(in._range_check_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::ff_gt_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::range_check_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -152,14 +152,14 @@ class lookup_ff_gt_a_hi_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_ff_gt_a_hi_range_inv(),
-                                     in._lookup_ff_gt_a_hi_range_counts(),
-                                     in._ff_gt_sel(),
-                                     in._range_check_sel(),
-                                     in._ff_gt_a_hi(),
-                                     in._ff_gt_constant_128(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_ff_gt_a_hi_range_inv),
+                                     in.get(ColumnAndShifts::lookup_ff_gt_a_hi_range_counts),
+                                     in.get(ColumnAndShifts::ff_gt_sel),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::ff_gt_a_hi),
+                                     in.get(ColumnAndShifts::ff_gt_constant_128),
+                                     in.get(ColumnAndShifts::range_check_value),
+                                     in.get(ColumnAndShifts::range_check_rng_chk_bits));
     }
 };
 
