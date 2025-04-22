@@ -5,12 +5,11 @@ tags: [testnet, migration]
 id: try_testnet
 ---
 
-
 # The Aztec Testnet is live! 🥳
 
-With a growing network of over 100 active nodes, Aztec is the first fully decentralized L2 testnet that prioritizes privacy from day one. Aztec implements a unique VM designed for privacy-preserving transactions. It has both public and private states, enabling seamless composability across these domains.
+With a growing network of over 100 active nodes, Aztec is the first fully decentralized L2 testnet from day one. Aztec implements a unique VM designed for privacy-preserving transactions. It has both public and private states, enabling seamless composability across these domains.
 
-Be one of the first in the world to build privacy-preserving apps enahnced with the security of Ethereum!
+Be one of the first in the world to build privacy-preserving apps enhanced with the security of Ethereum!
 
 ## Explore testnet
 
