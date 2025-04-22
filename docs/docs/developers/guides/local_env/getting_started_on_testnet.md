@@ -53,6 +53,7 @@ aztec-wallet create-account --register-only -a my-wallet
 
 2. Register your account with the fee sponsor contract:
 ```bash
+export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 aztec-wallet register-contract SPONSORED_FPC_ADDRESS SponsoredFPC --from my-wallet
 ```
 
