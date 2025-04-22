@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
 
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"

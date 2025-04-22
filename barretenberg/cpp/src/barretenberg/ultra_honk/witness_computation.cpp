@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
