@@ -54,8 +54,8 @@ describe('Environment getters', () => {
       GetEnvVar.wireFormat16,
     );
 
-    expect(GetEnvVar.as(GetEnvVar.wireFormat16).deserialize(buf)).toEqual(instr);
-    expect(instr.serialize()).toEqual(buf);
+    expect(GetEnvVar.as(GetEnvVar.wireFormat16).fromBuffer(buf)).toEqual(instr);
+    expect(instr.toBuffer()).toEqual(buf);
   });
 
   describe.each([

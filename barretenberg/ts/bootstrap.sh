@@ -41,7 +41,7 @@ function test {
 }
 
 function release {
-  deploy_npm $(dist_tag) ${REF_NAME#v}
+  retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
 case "$cmd" in

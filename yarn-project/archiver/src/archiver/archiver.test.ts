@@ -609,11 +609,10 @@ async function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const blockHash = toHex((await l2Block.header.hash()).toBuffer());
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [{ header, archive, blockHash, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] }, [], blobInput],
+    args: [{ header, archive, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] }, [], blobInput],
   });
 
   const forwarderInput = encodeFunctionData({

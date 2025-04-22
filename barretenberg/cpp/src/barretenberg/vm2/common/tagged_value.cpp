@@ -93,6 +93,29 @@ template <typename Op> struct UnaryOperationVisitor {
 
 } // namespace
 
+uint8_t get_tag_bits(ValueTag tag)
+{
+    switch (tag) {
+    case ValueTag::U1:
+        return 1;
+    case ValueTag::U8:
+        return 8;
+    case ValueTag::U16:
+        return 16;
+    case ValueTag::U32:
+        return 32;
+    case ValueTag::U64:
+        return 64;
+    case ValueTag::U128:
+        return 128;
+    case ValueTag::FF:
+        return 254;
+    }
+
+    assert(false && "Invalid tag");
+    return 0;
+}
+
 // Constructor
 TaggedValue::TaggedValue(TaggedValue::value_type value_)
     : value(value_)
