@@ -176,7 +176,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         };
 
         auto [blocks_10, verification_key_10] = get_blocks(10);
-        auto [blocks_11, verification_key_11] = get_blocks(11);
+        auto [blocks_11, verification_key_11] = get_blocks(14);
 
         compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_10, blocks_11 },
                                                                 { verification_key_10, verification_key_11 });
