@@ -31,10 +31,9 @@ impl EmptyBlockRootRollupInputs {
         let validator = BlockRootRollupInputsValidator::new(
             [], // previous_rollup_data
             [], // allowed_vk_indices
-            self.data.l1_to_l2_roots,
-            self.data.previous_block_header,
+            self.data,
         );
-        validator.validate_without_previous_rollups(self.is_padding);
+        validator.validate_without_previous_rollups(self.is_padding, self.constants.last_archive);
 
         let mut blob_public_input = BlobPublicInputs::empty();
         blob_public_input.kzg_commitment.inner = EMPTY_EFFECT_BLOB_COMMITMENT;
@@ -92,7 +91,6 @@ mod tests {
         let output = builder.execute();
 
         assert(output.previous_archive != output.new_archive);
-        assert(output.previous_block_hash != output.end_block_hash);
         assert_eq(output.start_global_variables, output.end_global_variables);
         assert_eq(output.out_hash, 0);
         assert_array_eq(
@@ -140,10 +138,18 @@ mod tests {
         let output = builder.execute();
 
         assert_eq(output.previous_archive, output.new_archive);
-        assert_eq(output.previous_block_hash, output.end_block_hash);
         assert_eq(output.start_global_variables, output.end_global_variables);
         assert_eq(output.out_hash, 0);
         assert_array_eq(output.fees, []);
         assert_array_eq(output.blob_public_inputs, []);
+    }
+
+    #[test(should_fail_with = "hash of the previous block header is not the last leaf in the archive tree")]
+    unconstrained fn random_previous_block_header_fails() {
+        let mut builder = TestBuilder::new();
+
+        builder.inputs.previous_block_header.state.partial.note_hash_tree.root += 1;
+
+        let _ = builder.execute();
     }
 }

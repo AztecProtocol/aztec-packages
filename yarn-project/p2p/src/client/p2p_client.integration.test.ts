@@ -325,11 +325,11 @@ describe('p2p client integration', () => {
             archive: Fr.random(),
             txHashes: [TxHash.random()],
           };
-          const blockProposal = await makeBlockProposal(dummyPayload);
+          const blockProposal = makeBlockProposal(dummyPayload);
           client1.client.broadcastProposal(blockProposal);
 
           // client 1 sends an attestation
-          const attestation = await mockAttestation(
+          const attestation = mockAttestation(
             Secp256k1Signer.random(),
             Number(dummyPayload.header!.getSlot()),
             dummyPayload.archive,
@@ -427,11 +427,11 @@ describe('p2p client integration', () => {
             archive: Fr.random(),
             txHashes: [TxHash.random()],
           };
-          const blockProposal = await makeBlockProposal(dummyPayload);
+          const blockProposal = makeBlockProposal(dummyPayload);
           client1.client.broadcastProposal(blockProposal);
 
           // client 1 sends an attestation
-          const attestation = await mockAttestation(
+          const attestation = mockAttestation(
             Secp256k1Signer.random(),
             Number(dummyPayload.header!.getSlot()),
             dummyPayload.archive,
