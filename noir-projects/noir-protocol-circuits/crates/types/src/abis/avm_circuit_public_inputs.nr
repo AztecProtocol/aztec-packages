@@ -22,8 +22,6 @@ use crate::{
     utils::reader::Reader,
 };
 
-use std::hash::{poseidon2, poseidon2_permutation};
-
 pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.

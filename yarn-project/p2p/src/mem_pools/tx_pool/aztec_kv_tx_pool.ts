@@ -341,6 +341,11 @@ export class AztecKVTxPool implements TxPool {
     return vals.map(x => TxHash.fromString(x));
   }
 
+  public setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void> {
+    this.#maxTxPoolSize = maxSizeBytes;
+    return Promise.resolve();
+  }
+
   /**
    * Creates a GasTxValidator instance.
    * @param db - DB for the validator to use

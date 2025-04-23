@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
@@ -138,9 +144,11 @@ void WitnessComputation<Flavor>::complete_proving_key_for_test(
 template class WitnessComputation<UltraFlavor>;
 template class WitnessComputation<UltraZKFlavor>;
 template class WitnessComputation<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 template class WitnessComputation<UltraStarknetFlavor>;
-template class WitnessComputation<UltraKeccakZKFlavor>;
 template class WitnessComputation<UltraStarknetZKFlavor>;
+#endif
+template class WitnessComputation<UltraKeccakZKFlavor>;
 template class WitnessComputation<UltraRollupFlavor>;
 template class WitnessComputation<MegaFlavor>;
 template class WitnessComputation<MegaZKFlavor>;

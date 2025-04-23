@@ -7,11 +7,5 @@ export function createBlobArchiveClient(config: BlobSinkConfig): BlobArchiveClie
     return new BlobscanArchiveClient(config.archiveApiUrl);
   }
 
-  if (config.l1ChainId === 1) {
-    return new BlobscanArchiveClient('https://api.blobscan.com');
-  } else if (config.l1ChainId === 11155111) {
-    return new BlobscanArchiveClient('https://api.sepolia.blobscan.com');
-  }
-
   return undefined;
 }

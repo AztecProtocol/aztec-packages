@@ -12,7 +12,6 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -21,20 +20,20 @@
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
 
-// clang-format off
-// These getters are used to speedup logderivative inverses.
-// See https://github.com/AztecProtocol/aztec-packages/pull/11605/ for a full explanation.
-#define DEFAULT_GETTERS(ENTITY) \
-    inline auto& _##ENTITY() { return ENTITY; } \
-    inline auto& _##ENTITY() const { return ENTITY; }
-#define ROW_PROXY_GETTERS(ENTITY) \
-    inline auto& _##ENTITY() { return pp.ENTITY[row_idx]; } \
-    inline auto& _##ENTITY() const { return pp.ENTITY[row_idx]; }
-#define DEFINE_GETTERS(GETTER_MACRO, ENTITIES) \
-    FOR_EACH(GETTER_MACRO, ENTITIES)
-// clang-format on
-
 namespace bb::avm2 {
+
+// This helper lets us access entities by column.
+// It is critical to achieve performance when calculating lookup inverses.
+// See https://github.com/AztecProtocol/aztec-packages/pull/11605 for more details.
+template <typename Entities> auto& get_entity_by_column(Entities& entities, ColumnAndShifts c)
+{
+    // A statically constructed pointer to members of the class, indexed by column.
+    // This should only be created once per Entities class.
+    static std::array<typename Entities::DataType(Entities::*), NUM_COLUMNS_WITH_SHIFTS> col_ptrs = {
+        AVM2_ALL_ENTITIES_E(&Entities::)
+    };
+    return (entities.*col_ptrs[static_cast<size_t>(c)]);
+}
 
 class AvmFlavor {
   public:
@@ -139,32 +138,28 @@ class AvmFlavor {
     template <typename DataType> class PrecomputedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_PRECOMPUTED_ENTITIES)
     };
 
   private:
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_WIRE_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_WIRE_ENTITIES)
     };
 
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_DERIVED_WITNESS_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_DERIVED_WITNESS_ENTITIES)
     };
 
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_SHIFTED_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_SHIFTED_ENTITIES)
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
-    static auto get_to_be_shifted([[maybe_unused]] PrecomputedAndWitnessEntitiesSuperset& entities)
+    static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
     {
-        return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ AVM2_TO_BE_SHIFTED(entities) };
+        return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ AVM2_TO_BE_SHIFTED_E(entities.) };
     }
 
   public:
@@ -178,11 +173,12 @@ class AvmFlavor {
         static const auto& get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
 
-    template <typename DataType>
-    class AllEntities : public PrecomputedEntities<DataType>,
-                        public WitnessEntities<DataType>,
-                        public ShiftedEntities<DataType> {
+    template <typename DataType_>
+    class AllEntities : public PrecomputedEntities<DataType_>,
+                        public WitnessEntities<DataType_>,
+                        public ShiftedEntities<DataType_> {
       public:
+        using DataType = DataType_;
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_unshifted()
@@ -200,6 +196,10 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
+
+        // We need both const and non-const versions.
+        DataType& get(ColumnAndShifts c) { return get_entity_by_column(*this, c); }
+        const DataType& get(ColumnAndShifts c) const { return get_entity_by_column(*this, c); }
     };
 
     class ProvingKey : public PrecomputedEntities<Polynomial>, public WitnessEntities<Polynomial> {
@@ -258,6 +258,7 @@ class AvmFlavor {
         std::vector<FF> to_field_elements() const;
     };
 
+    // Used by sumcheck.
     class AllValues : public AllEntities<FF> {
       public:
         using Base = AllEntities<FF>;
@@ -270,7 +271,6 @@ class AvmFlavor {
         using BaseDataType = const FF;
         using DataType = BaseDataType&;
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_ALL_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_ALL_ENTITIES)
     };
 
     template <typename Polynomials> class PolynomialEntitiesAtFixedRow {
@@ -279,7 +279,10 @@ class AvmFlavor {
             : row_idx(row_idx)
             , pp(pp)
         {}
-        DEFINE_GETTERS(ROW_PROXY_GETTERS, AVM2_ALL_ENTITIES)
+
+        // We need both const and non-const versions.
+        auto& get(ColumnAndShifts c) { return pp.get(c)[row_idx]; }
+        const auto& get(ColumnAndShifts c) const { return pp.get(c)[row_idx]; }
 
       private:
         const size_t row_idx;
