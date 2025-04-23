@@ -193,6 +193,11 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
 
   /** Identifies a p2p client. */
   isP2PClient(): true;
+
+  /** Identifies a p2p client. */
+  isP2PClient(): true;
+
+  updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 };
 
 /**
@@ -226,6 +231,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   private blockStream;
 
+  private config: P2PConfig;
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -247,10 +254,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   ) {
     super(telemetry, 'P2PClient');
 
-    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = {
+    this.config = {
       ...getP2PDefaultConfig(),
       ...config,
     };
+
+    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } =
+      this.config;
     this.keepProvenTxsFor = keepProvenTxsInPoolFor;
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
@@ -280,6 +290,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return this.synchedBlockHashes.getAsync(number);
+  }
+
+  public async updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
+    if (typeof config.maxTxPoolSize === 'number' && this.config.maxTxPoolSize !== config.maxTxPoolSize) {
+      await this.txPool.setMaxTxPoolSize(config.maxTxPoolSize);
+      this.config.maxTxPoolSize = config.maxTxPoolSize;
+    }
   }
 
   public async getL2Tips(): Promise<L2Tips> {

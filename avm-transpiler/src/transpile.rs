@@ -594,33 +594,31 @@ fn handle_external_call(
     inputs: &[ValueOrArray],
     opcode: AvmOpcode,
 ) {
-    if !destinations.is_empty() || inputs.len() != 4 {
+    if !destinations.is_empty() || inputs.len() != 5 {
         panic!(
-            "Transpiler expects ForeignCall (Static)Call to have 0 destinations and 4 inputs, got {} and {}.",
+            "Transpiler expects ForeignCall (Static)Call to have 0 destinations and 5 inputs, got {} and {}.",
             destinations.len(),
             inputs.len()
         );
     }
 
-    let gas_offset_ptr = match &inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
-            assert!(
-                *size == 2,
-                "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)"
-            );
-            pointer
-        }
-        _ => panic!("Call instruction's gas input should be a HeapArray"),
+    let l2_gas_offset = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset,
+        _ => panic!("Call instruction's gas input should be a basic MemoryAddress"),
     };
-    let address_offset = match &inputs[1] {
+    let da_gas_offset = match &inputs[1] {
+        ValueOrArray::MemoryAddress(offset) => offset,
+        _ => panic!("Call instruction's gas input should be a basic MemoryAddress"),
+    };
+    let address_offset = match &inputs[2] {
         ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Call instruction's target address input should be a basic MemoryAddress",),
     };
     // The args are a slice, and this is represented as a (Field, HeapVector).
     // The field is the length (memory address) and the HeapVector has the data and length again.
     // This is an ACIR internal representation detail that leaks to the SSA.
-    // Observe that below, we use `inputs[3]` and therefore skip the length field.
-    let args = &inputs[3];
+    // Observe that below, we use `inputs[4]` and therefore skip the length field.
+    let args = &inputs[4];
     let (args_offset_ptr, args_size_offset) = match args {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
@@ -630,14 +628,16 @@ fn handle_external_call(
         opcode,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(gas_offset_ptr)
+                .direct_operand(l2_gas_offset)
+                .direct_operand(da_gas_offset)
                 .direct_operand(address_offset)
                 .indirect_operand(args_offset_ptr)
                 .direct_operand(args_size_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: gas_offset_ptr.to_usize() as u16 },
+            AvmOperand::U16 { value: l2_gas_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: da_gas_offset.to_usize() as u16 },
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },
