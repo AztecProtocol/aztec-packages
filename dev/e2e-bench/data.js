@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745425717938,
+  "lastUpdate": 1745426232624,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "489c6cf66bdf9eaba7e1c98d9e2004fe703b22cc",
-          "message": "feat: track rewards and slots (#13546)\n\nThis PR adds metrics to track rewards for sequencers/provers and slots\nfor sequencers.",
-          "timestamp": "2025-04-17T11:18:15Z",
-          "tree_id": "2ba9cf4d0ee50f07dca264ce6f95b4090235e78a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/489c6cf66bdf9eaba7e1c98d9e2004fe703b22cc"
-        },
-        "date": 1744891835627,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10191,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2738257871053794,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 162367,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1937,6 +1898,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 148316,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d4d503a9ac16006a20002ee7ca1f654a9873dbdd",
+          "message": "feat: exec opcode spec table (#13594)\n\nThis adds some foundational stuff for the execution instruction\nspecfication table and a basic use-case within the execution loop.\n\n### Trace Changes\n- A precomputed table for the exec instruction specs.\n- Register information in execution trace and supports up to 7 operands\nin addressing.\n\n### Simulation\n- Adds the (temporary) `set_inputs` and `set_output` so that\n`TaggedValue` that are needed in the execution registers can be emitted\nas part of the ExecutionEvent.\n\n### Tracegen\n- Added new tables `SUBTRACE_INFO_MAP` `REGISTER_INFO_MAP`, these\ncontain information used in tracegen when placing values into their\nrespective registers\n- Updated `ExecutionTraceBuilder::process` to properly handle placing\nthe `inputs/outputs` from the execution event into respective registers.\nNOTE: Operands likely need the same treatment but this hasnt been done\nyet.\n\n### Testing\n- There is a new `ExecutionConstrainingTest` that tests the basic\ndecoding and allocation of registers for a simple `ADD`",
+          "timestamp": "2025-04-23T15:36:12Z",
+          "tree_id": "8e4a53e9092171cfd2952af35c18d33d92ccda20",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d4d503a9ac16006a20002ee7ca1f654a9873dbdd"
+        },
+        "date": 1745426223795,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9354,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2678010002902963,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 141964,
             "unit": "us"
           }
         ]
