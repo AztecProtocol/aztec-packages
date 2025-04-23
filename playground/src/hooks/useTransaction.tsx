@@ -39,11 +39,15 @@ export function useTransaction() {
     setTransactionModalStatus(modalStatus);
 
     try {
-      notifications.show('Proving transaction...');
+      notifications.show('Proving transaction...', {
+        severity: 'info',
+      });
       const provenInteraction = await interaction.prove(opts);
 
       if (showNotification) {
-        notifications.show('Proof generated successfully, sending transaction...');
+        notifications.show('Proof generated successfully, sending transaction...', {
+          severity: 'success',
+        });
       }
 
       txHash = await provenInteraction.getTxHash();
@@ -54,7 +58,9 @@ export function useTransaction() {
 
       receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 120 });
       if (showNotification) {
-        notifications.show('Transaction mined successfully.');
+        notifications.show('Transaction mined successfully.', {
+          severity: 'success',
+        });
       }
 
       await walletDB.storeTx({

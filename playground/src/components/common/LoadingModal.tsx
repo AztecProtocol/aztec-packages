@@ -6,8 +6,9 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorIcon from '@mui/icons-material/Error';
 import Button from '@mui/material/Button';
-import { Box, Dialog } from '@mui/material';
+import { Box, Dialog, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import { TxStatus } from '@aztec/aztec.js';
+import { dialogBody } from '../../styles/common';
 
 const TX_ERRORS = [
   'error',
@@ -202,6 +203,11 @@ const minimizedModal = css({
   },
 });
 
+const minimizedModalIcon = css({
+  width: '48px',
+  height: '48px',
+});
+
 const minimizedTitle = css({
   fontWeight: 500,
   fontSize: '16px',
@@ -257,48 +263,52 @@ export function LoadingModal() {
   function renderModal() {
     return (
       <Dialog open={true} onClose={minimizeModal}>
-        <IconButton css={closeButton} onClick={handleClose}>
-          <CloseIcon />
-        </IconButton>
-        <IconButton
-          css={minimizeButton}
-          onClick={minimizeModal}
-        >
-          <span css={{ width: '24px', height: '24px', position: 'relative', top: '-2px', fontWeight: '600' }}>–</span>
-        </IconButton>
-        <div css={contentGroup}>
-          <Typography css={[titleText, isError && { color: '#FF7764' }]}>
-            {isError
-              ? 'Error'
-              : isProving
-                ? 'Generating proof for transaction...'
-                : 'Sending transaction to Aztec network...'}
-          </Typography>
-          {isError ? (
-            <>
-              <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
-              <div css={buttonContainer}>
-                <Button variant="contained" color="primary" onClick={minimizeModal}>
-                  Close
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <Typography css={subtitleText}>
-                {isProving
-                  ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
-                  : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
-              </Typography>
-              <span css={loader}></span>
-              <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
-              <div css={logContainer}>
-                <Typography css={logTitle}>Don't click away! This is what we're currently working on:</Typography>
-                <Typography css={logText}>{logs?.[0]?.message}</Typography>
-              </div>
-            </>
-          )}
-        </div>
+        <DialogContent css={dialogBody} sx={{ width: '600px' }}>
+
+          <IconButton css={closeButton} onClick={handleClose}>
+            <CloseIcon />
+          </IconButton>
+          <IconButton
+            css={minimizeButton}
+            onClick={minimizeModal}
+          >
+            <span css={{ width: '24px', height: '24px', position: 'relative', top: '-2px', fontWeight: '600' }}>–</span>
+          </IconButton>
+
+          <div css={contentGroup}>
+            <Typography css={[titleText, isError && { color: '#FF7764' }]}>
+              {isError
+                ? 'Error'
+                : isProving
+                  ? 'Generating proof for transaction...'
+                  : 'Sending transaction to Aztec network...'}
+            </Typography>
+            {isError ? (
+              <>
+                <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
+                <div css={buttonContainer}>
+                  <Button variant="contained" color="primary" onClick={minimizeModal}>
+                    Close
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Typography css={subtitleText}>
+                  {isProving
+                    ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
+                    : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
+                </Typography>
+                <span css={loader}></span>
+                <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
+                <div css={logContainer}>
+                  <Typography css={logTitle}>This is what we're currently working on:</Typography>
+                  <Typography css={logText}>{logs?.[0]?.message}</Typography>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
       </Dialog>
     );
   }
@@ -313,13 +323,15 @@ export function LoadingModal() {
     const errorMessage = currentTx?.error;
     const subtitle = hasError ? errorMessage : lastLog;
 
+    console.log({ hasError })
+
     return (
       <div css={minimizedModal} onClick={() => setTransactionModalStatus('open')}>
         {!hasError && (
-          <span css={[loader, { width: '24px', height: '24px' }]}></span>
+          <span css={[loader, minimizedModalIcon]}></span>
         )}
         {hasError && (
-          <ErrorIcon fontSize="large" style={{ color: 'var(--mui-palette-error-main)' }} />
+          <ErrorIcon css={minimizedModalIcon} style={{ color: 'var(--mui-palette-error-main)' }} />
         )}
 
         <Box>
