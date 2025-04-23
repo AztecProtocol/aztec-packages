@@ -2,6 +2,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 import TerserPlugin from 'terser-webpack-plugin';
+import NodePolyfillPlugin from 'node-polyfill-webpack-plugin';
 
 /**
  * @type {import('webpack').Configuration}
@@ -17,11 +18,17 @@ export default {
     // Force inclusion of inlined wasm files without mangling await import statements.
     barretenberg: { import: './src/barretenberg_wasm/fetch_code/browser/barretenberg.ts', filename: 'barretenberg.js' },
     "barretenberg-threads": { import: './src/barretenberg_wasm/fetch_code/browser/barretenberg-threads.ts', filename: 'barretenberg-threads.js' },
-    // // Force inclusion of worker threads without mangling worker import statements.
-    // main: { import: './src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.ts', filename: 'main.worker.js' },
-    // thread: { import: './src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts', filename: 'thread.worker.js' },
+    // Force inclusion of worker threads without mangling worker import statements.
+    main: { import: './src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.ts', filename: 'main.worker.js' },
+    thread: { import: './src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts', filename: 'thread.worker.js' },
   },
   module: {
+    parser: {
+      javascript: {
+        importMeta: false,
+        url: false,
+      },
+    },
     rules: [
       {
         test: /\.wasm\.gz$/,
@@ -62,9 +69,7 @@ export default {
       }),
     ],
     splitChunks: {
-      // Cannot use async due to https://github.com/webpack/webpack/issues/17014
-      // messing with module workers loaded asynchronously.
-      chunks: /barretenberg.*.js/,
+      chunks: 'async',
     },
     runtimeChunk: false
   },
@@ -73,6 +78,9 @@ export default {
   },
   plugins: [
     new webpack.DefinePlugin({ 'process.env.NODE_DEBUG': false }),
+    new NodePolyfillPlugin({
+			onlyAliases: ['process'],
+		}),
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
     new webpack.NormalModuleReplacementPlugin(/\/node\/(.*)\.js$/, function (resource) {
       resource.request = resource.request.replace('/node/', '/browser/');

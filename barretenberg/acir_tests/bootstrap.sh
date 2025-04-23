@@ -149,10 +149,10 @@ function test_cmds_internal {
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
-  echo BROWSER=chrome THREAD_MODEL=mt $run_test_browser verify_honk_proof
-  echo BROWSER=chrome THREAD_MODEL=st $run_test_browser 1_mul
-  echo BROWSER=webkit THREAD_MODEL=mt $run_test_browser verify_honk_proof
-  echo BROWSER=webkit THREAD_MODEL=st $run_test_browser 1_mul
+  echo BROWSER=chrome $run_test_browser verify_honk_proof
+  echo BROWSER=chrome $run_test_browser 1_mul
+  echo BROWSER=webkit $run_test_browser verify_honk_proof
+  echo BROWSER=webkit $run_test_browser 1_mul
   # echo ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
   # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
@@ -187,7 +187,7 @@ function test_cmds_internal {
 
   # prove and verify using bb.js classes
   echo SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul
-  echo SYS=ultra_honk FLOW=bbjs_prove_verify THREAD_MODEL=mt $run_test assert_statement
+  echo SYS=ultra_honk FLOW=bbjs_prove_verify $run_test assert_statement
 
   # prove with bb.js and verify with solidity verifier
   echo SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test 1_mul
