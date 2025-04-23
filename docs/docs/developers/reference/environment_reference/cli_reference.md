@@ -35,6 +35,25 @@ Note: Most commands accept a `--rpc-url` option to specify the Aztec node URL, a
 - [`aztec get-block`](#get-block)
 - [`aztec start --pxe`](#pxe-options)
 
+Example usage:
+
+```bash
+# Start the sandbox
+aztec start --sandbox
+
+# Start with custom ports
+aztec start --sandbox --port 8081
+
+# Start specific components
+aztec start --pxe
+
+# Start with Ethereum options
+aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled false --l1-chain-id 31337
+
+# Start with storage options
+aztec start --node --data-directory /path/to/data --data-store-map-size-kb 134217728 --registry-address <value>
+```
+
 ## Starting
 
 ### start
@@ -47,14 +66,14 @@ aztec start [options]
 
 Options:
 
-#### Network Options
-
-- `--network <value>`: Network to run Aztec on.
-
 #### Sandbox Options
 
 - `-sb, --sandbox`: Starts the Aztec Sandbox.
-- `--sandbox.noPXE [value]`: Do not expose PXE service on sandbox start.
+- `--sandbox.noPXE [value]`: Do not expose PXE service on sandbox start. (default: false)
+
+#### Network Options
+
+- `--network <value>`: Network to run Aztec on, e.g. `alpha-testnet`. By default connects to sandbox (local network)
 
 #### API Options
 
@@ -97,6 +116,27 @@ Options:
 - `--node.world-state-block-check-interval-ms <value>`: Frequency in which to check for blocks in ms (default: 100).
 - `--node.sync-mode <value>`: Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data (default: snapshot).
 - `--node.snapshots-url <value>`: Base URL for downloading snapshots for snapshot sync.
+
+##### Example Usage
+
+Here is an example of how to start a node that connects to the alpha-testnet.
+
+```bash
+aztec-up 0.85.0-alpha-testnet.2
+
+export DATA_DIRECTORY=/any/directory/to/store/node/data
+export BLOB_SINK_URL=<blob-sink-url>
+export LOG_LEVEL=info
+export IP=Your_IP_address_here
+
+aztec start --node --network alpha-testnet
+    --l1-rpc-urls ...
+    --l1-consensus-host-urls ...
+    --l1-consensus-host-api-keys ...
+    --l1-consensus-host-api-key-headers X...
+    --p2p.p2pIp $IP
+    --archiver
+```
 
 #### P2P Subsystem Options
 
@@ -163,7 +203,7 @@ Options:
 - `--pxe.api-key <value>`: API Key required by the external network's node.
 - `--pxe.node-url <value>`: Custom Aztec Node URL to connect to.
 
-#### Example Usage
+##### Example Usage
 
 ```bash
 aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true --l1-chain-id $L1_CHAIN_ID
@@ -381,38 +421,6 @@ aztec start --network alpha-testnet --l1-rpc-urls https://example.com --l1-conse
 - `--faucet.eth-amount <value>`: How much eth the faucet should drip per call (default: 1.0).
 - `--faucet.l1-assets <value>`: Which other L1 assets the faucet is able to drip.
 
-Example usage:
-
-```bash
-# Start the sandbox
-aztec start --sandbox
-
-# Start with custom ports
-aztec start --port 8081
-
-# Start with Ethereum options
-aztec start --l1-rpc-urls http://localhost:8545,http://localhost:8546 --l1-chain-id 31337
-
-# Start with storage options
-aztec start --data-directory /path/to/data --data-store-map-size-kb 134217728
-
-# Start specific components
-aztec start --node --pxe
-
-# Start with environment variables
-export AZTEC_PORT=8081
-aztec start
-
-# Start faucet with custom options
-aztec start --faucet --faucet.api-server-port 8082 --faucet.eth-amount 2.0
-
-# Start sequencer with custom options
-aztec start --sequencer --sequencer.max-txs-per-block 64 --sequencer.min-txs-per-block 2
-
-# Start node with custom options
-aztec start --node --node.sync-mode full --node.world-state-block-check-interval-ms 200
-```
-
 ### Test
 
 Runs tests written in contracts.
@@ -423,7 +431,6 @@ aztec test [options]
 
 Options:
 
-- `--workdir <path>`: Sets the working directory inside the container (default: current directory).
 - `-e, --env <key=value>`: Set environment variables (can be used multiple times).
 - `--no-tty`: Run the container without a TTY.
 - `--rm`: Automatically remove the container when it exits.
@@ -431,6 +438,10 @@ Options:
 - `-t, --tty`: Allocate a pseudo-TTY.
 
 ## Account Management
+
+Consider using the [`aztec-wallet`](./cli_wallet_reference.md) for account management (or contract interaction) related actions, since it has a PXE internally and manages aliases to get you started quicker.
+
+`aztec` cli requires you to have a PXE running already (either as part of when you run the sandbox by default or just a separate PXE)
 
 ### create-account
 
@@ -1210,7 +1221,7 @@ Options:
 
 ### bridge-fee-juice
 
-Mints L1 Fee Juice and pushes them to L2.
+Mints L1 Fee Juice and bridges them to L2.
 
 ```bash
 aztec bridge-fee-juice [options] <amount> <recipient>
@@ -1367,7 +1378,7 @@ aztec preload-crs
 
 ### get-canonical-sponsored-fpc-address
 
-Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI.
+Gets the canonical SponsoredFPC address for current testnet running on the same version as this CLI.
 
 ```bash
 aztec get-canonical-sponsored-fpc-address
