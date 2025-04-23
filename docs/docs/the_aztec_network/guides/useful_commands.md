@@ -1,7 +1,6 @@
 ---
 sidebar_position: 5
 title: Useful commands
-draft: true
 ---
 
 These commands are useful to sequencer operators. If you're trying to do something that is not listed here, ask in the appropriate discord channel.
