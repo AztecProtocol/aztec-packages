@@ -69,16 +69,19 @@ struct TreeDBStats {
     DBStats blockIndicesDBStats;
 
     TreeDBStats() = default;
-    TreeDBStats(uint64_t mapSize)
+    TreeDBStats(uint64_t mapSize, uint64_t physicalFileSize)
         : mapSize(mapSize)
+        , physicalFileSize(physicalFileSize)
     {}
     TreeDBStats(uint64_t mapSize,
+                uint64_t physicalFileSize,
                 const DBStats& blockStats,
                 const DBStats& nodesStats,
                 const DBStats& leafPreimagesDBStats,
                 const DBStats& leafIndicesStats,
                 const DBStats& blockIndicesStats)
         : mapSize(mapSize)
+        , physicalFileSize(physicalFileSize)
         , blocksDBStats(blockStats)
         , nodesDBStats(nodesStats)
         , leafPreimagesDBStats(leafPreimagesDBStats)
@@ -90,7 +93,13 @@ struct TreeDBStats {
 
     ~TreeDBStats() = default;
 
-    MSGPACK_FIELDS(mapSize, blocksDBStats, nodesDBStats, leafPreimagesDBStats, leafIndicesDBStats, blockIndicesDBStats)
+    MSGPACK_FIELDS(mapSize,
+                   physicalFileSize,
+                   blocksDBStats,
+                   nodesDBStats,
+                   leafPreimagesDBStats,
+                   leafIndicesDBStats,
+                   blockIndicesDBStats)
 
     bool operator==(const TreeDBStats& other) const
     {
