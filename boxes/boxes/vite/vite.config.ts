@@ -17,7 +17,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
           source,
         );
       if (m) {
-        return `${nodeModulesPath}/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
+        return `./node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
       }
     },
   };
