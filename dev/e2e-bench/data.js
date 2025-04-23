@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745448911103,
+  "lastUpdate": 1745452754446,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "58c143b4fcdbd323fad178549c27042815ce4de0",
-          "message": "fix: discv5 test failure (#13653)\n\n## Overview\n\nBase config was being passed to the bootstrap node by reference, which\nwas overriding the p2pbroadcast port on start up, which meant the port\nwas not being updated in the test.\n\nI didnt experience this in the broadcast pr as i ran the tests\nindividually\n\n----------\nalso renaming getAllPeers to getKadValues as private peers can be peers\nbut not in the kad, so the name no longer fits after the private peers\npr",
-          "timestamp": "2025-04-17T16:35:08Z",
-          "tree_id": "e8ba6bd78a0e9c2633e73f2c62a72a8518cb51ae",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/58c143b4fcdbd323fad178549c27042815ce4de0"
-        },
-        "date": 1744912264241,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10403,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.27951933854543726,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 169860,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1937,6 +1898,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 148832,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "75146596+Sarkoxed@users.noreply.github.com",
+            "name": "Sarkoxed",
+            "username": "Sarkoxed"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2de3bc51beeeb59e9e68b4f6ec1f40c6cdcda50d",
+          "message": "feat: SMT Verificaiton Module: Data Structures (#13658)\n\nThis pr adds new Symbolic objects: Tuple, Array and Set \n\n# Data Structures\n\n- Added `STuple`, `SymArray`, `SymSet` classes to ease up lookup tables\nand ROM/RAM arrays symbolic translation\n- Reflected new symbolic objects in `UltraCircuit`, `STerm` and `Solver`\n\n- Added tests for all of the new structures\n- Added pretty print for these structures\n\n# Bool\n\nadded tests for symbolic bool class\n\n# Solver\n\n- Added a few more default solver configurations to use. \n- Added `ff_bitsum` option to solver config. It allows solver to\nunderstand bitsums (namely constraints of the form `b0 + 2 * b1 + 4 * b2\n+ ... == X`)\n- Added few more debug solver options\n- Added few options to handle arrays and sets\n- Fixed a bug: `lookup_enabled` was not handled properly",
+          "timestamp": "2025-04-23T22:33:22Z",
+          "tree_id": "dd58a8ef4b06a0b8894d687f33380fa325dcdc8e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2de3bc51beeeb59e9e68b4f6ec1f40c6cdcda50d"
+        },
+        "date": 1745452746114,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8996,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2575493509627581,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 136035,
             "unit": "us"
           }
         ]
