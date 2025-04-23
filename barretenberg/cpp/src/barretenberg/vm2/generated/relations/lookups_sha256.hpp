@@ -40,15 +40,16 @@ class lookup_sha256_round_constant_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._sha256_perform_round() == 1 || in._precomputed_sel_sha256_compression() == 1);
+        return (in.get(ColumnAndShifts::sha256_perform_round) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_sha256_compression) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._sha256_perform_round());
-        const auto is_table_entry = View(in._precomputed_sel_sha256_compression());
+        const auto is_operation = View(in.get(ColumnAndShifts::sha256_perform_round));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_sha256_compression));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -64,14 +65,14 @@ class lookup_sha256_round_constant_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_sha256_round_constant_inv(),
-                                     in._lookup_sha256_round_constant_counts(),
-                                     in._sha256_perform_round(),
-                                     in._precomputed_sel_sha256_compression(),
-                                     in._sha256_round_count(),
-                                     in._sha256_round_constant(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_sha256_compression_round_constant());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_sha256_round_constant_inv),
+                                     in.get(ColumnAndShifts::lookup_sha256_round_constant_counts),
+                                     in.get(ColumnAndShifts::sha256_perform_round),
+                                     in.get(ColumnAndShifts::precomputed_sel_sha256_compression),
+                                     in.get(ColumnAndShifts::sha256_round_count),
+                                     in.get(ColumnAndShifts::sha256_round_constant),
+                                     in.get(ColumnAndShifts::precomputed_clk),
+                                     in.get(ColumnAndShifts::precomputed_sha256_compression_round_constant));
     }
 };
 

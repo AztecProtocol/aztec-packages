@@ -46,15 +46,15 @@ class lookup_scalar_mul_to_radix_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._scalar_mul_sel() == 1 || in._to_radix_sel() == 1);
+        return (in.get(ColumnAndShifts::scalar_mul_sel) == 1 || in.get(ColumnAndShifts::to_radix_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._scalar_mul_sel());
-        const auto is_table_entry = View(in._to_radix_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::scalar_mul_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::to_radix_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -70,18 +70,18 @@ class lookup_scalar_mul_to_radix_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_scalar_mul_to_radix_inv(),
-                                     in._lookup_scalar_mul_to_radix_counts(),
-                                     in._scalar_mul_sel(),
-                                     in._to_radix_sel(),
-                                     in._scalar_mul_scalar(),
-                                     in._scalar_mul_bit(),
-                                     in._scalar_mul_bit_idx(),
-                                     in._scalar_mul_bit_radix(),
-                                     in._to_radix_value(),
-                                     in._to_radix_limb(),
-                                     in._to_radix_limb_index(),
-                                     in._to_radix_radix());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_scalar_mul_to_radix_inv),
+                                     in.get(ColumnAndShifts::lookup_scalar_mul_to_radix_counts),
+                                     in.get(ColumnAndShifts::scalar_mul_sel),
+                                     in.get(ColumnAndShifts::to_radix_sel),
+                                     in.get(ColumnAndShifts::scalar_mul_scalar),
+                                     in.get(ColumnAndShifts::scalar_mul_bit),
+                                     in.get(ColumnAndShifts::scalar_mul_bit_idx),
+                                     in.get(ColumnAndShifts::scalar_mul_bit_radix),
+                                     in.get(ColumnAndShifts::to_radix_value),
+                                     in.get(ColumnAndShifts::to_radix_limb),
+                                     in.get(ColumnAndShifts::to_radix_limb_index),
+                                     in.get(ColumnAndShifts::to_radix_radix));
     }
 };
 
@@ -144,15 +144,15 @@ class lookup_scalar_mul_double_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._scalar_mul_not_end() == 1 || in._ecc_sel() == 1);
+        return (in.get(ColumnAndShifts::scalar_mul_not_end) == 1 || in.get(ColumnAndShifts::ecc_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._scalar_mul_not_end());
-        const auto is_table_entry = View(in._ecc_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::scalar_mul_not_end));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::ecc_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -168,28 +168,28 @@ class lookup_scalar_mul_double_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_scalar_mul_double_inv(),
-                                     in._lookup_scalar_mul_double_counts(),
-                                     in._scalar_mul_not_end(),
-                                     in._ecc_sel(),
-                                     in._scalar_mul_temp_x(),
-                                     in._scalar_mul_temp_y(),
-                                     in._scalar_mul_temp_inf(),
-                                     in._scalar_mul_temp_x_shift(),
-                                     in._scalar_mul_temp_y_shift(),
-                                     in._scalar_mul_temp_inf_shift(),
-                                     in._scalar_mul_temp_x_shift(),
-                                     in._scalar_mul_temp_y_shift(),
-                                     in._scalar_mul_temp_inf_shift(),
-                                     in._ecc_r_x(),
-                                     in._ecc_r_y(),
-                                     in._ecc_r_is_inf(),
-                                     in._ecc_p_x(),
-                                     in._ecc_p_y(),
-                                     in._ecc_p_is_inf(),
-                                     in._ecc_q_x(),
-                                     in._ecc_q_y(),
-                                     in._ecc_q_is_inf());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_scalar_mul_double_inv),
+                                     in.get(ColumnAndShifts::lookup_scalar_mul_double_counts),
+                                     in.get(ColumnAndShifts::scalar_mul_not_end),
+                                     in.get(ColumnAndShifts::ecc_sel),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_x),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_y),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_inf),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_x_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_y_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_inf_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_x_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_y_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_inf_shift),
+                                     in.get(ColumnAndShifts::ecc_r_x),
+                                     in.get(ColumnAndShifts::ecc_r_y),
+                                     in.get(ColumnAndShifts::ecc_r_is_inf),
+                                     in.get(ColumnAndShifts::ecc_p_x),
+                                     in.get(ColumnAndShifts::ecc_p_y),
+                                     in.get(ColumnAndShifts::ecc_p_is_inf),
+                                     in.get(ColumnAndShifts::ecc_q_x),
+                                     in.get(ColumnAndShifts::ecc_q_y),
+                                     in.get(ColumnAndShifts::ecc_q_is_inf));
     }
 };
 
@@ -252,15 +252,15 @@ class lookup_scalar_mul_add_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._scalar_mul_should_add() == 1 || in._ecc_sel() == 1);
+        return (in.get(ColumnAndShifts::scalar_mul_should_add) == 1 || in.get(ColumnAndShifts::ecc_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._scalar_mul_should_add());
-        const auto is_table_entry = View(in._ecc_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::scalar_mul_should_add));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::ecc_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -276,28 +276,28 @@ class lookup_scalar_mul_add_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_scalar_mul_add_inv(),
-                                     in._lookup_scalar_mul_add_counts(),
-                                     in._scalar_mul_should_add(),
-                                     in._ecc_sel(),
-                                     in._scalar_mul_res_x(),
-                                     in._scalar_mul_res_y(),
-                                     in._scalar_mul_res_inf(),
-                                     in._scalar_mul_res_x_shift(),
-                                     in._scalar_mul_res_y_shift(),
-                                     in._scalar_mul_res_inf_shift(),
-                                     in._scalar_mul_temp_x(),
-                                     in._scalar_mul_temp_y(),
-                                     in._scalar_mul_temp_inf(),
-                                     in._ecc_r_x(),
-                                     in._ecc_r_y(),
-                                     in._ecc_r_is_inf(),
-                                     in._ecc_p_x(),
-                                     in._ecc_p_y(),
-                                     in._ecc_p_is_inf(),
-                                     in._ecc_q_x(),
-                                     in._ecc_q_y(),
-                                     in._ecc_q_is_inf());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_scalar_mul_add_inv),
+                                     in.get(ColumnAndShifts::lookup_scalar_mul_add_counts),
+                                     in.get(ColumnAndShifts::scalar_mul_should_add),
+                                     in.get(ColumnAndShifts::ecc_sel),
+                                     in.get(ColumnAndShifts::scalar_mul_res_x),
+                                     in.get(ColumnAndShifts::scalar_mul_res_y),
+                                     in.get(ColumnAndShifts::scalar_mul_res_inf),
+                                     in.get(ColumnAndShifts::scalar_mul_res_x_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_res_y_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_res_inf_shift),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_x),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_y),
+                                     in.get(ColumnAndShifts::scalar_mul_temp_inf),
+                                     in.get(ColumnAndShifts::ecc_r_x),
+                                     in.get(ColumnAndShifts::ecc_r_y),
+                                     in.get(ColumnAndShifts::ecc_r_is_inf),
+                                     in.get(ColumnAndShifts::ecc_p_x),
+                                     in.get(ColumnAndShifts::ecc_p_y),
+                                     in.get(ColumnAndShifts::ecc_p_is_inf),
+                                     in.get(ColumnAndShifts::ecc_q_x),
+                                     in.get(ColumnAndShifts::ecc_q_y),
+                                     in.get(ColumnAndShifts::ecc_q_is_inf));
     }
 };
 

@@ -46,15 +46,16 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_start() == 1);
+        return (in.get(ColumnAndShifts::class_id_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._class_id_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::class_id_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -70,18 +71,18 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_class_id_derivation_class_id_poseidon2_0_inv(),
-                                     in._lookup_class_id_derivation_class_id_poseidon2_0_counts(),
-                                     in._class_id_derivation_sel(),
-                                     in._poseidon2_hash_start(),
-                                     in._class_id_derivation_temp_constant_for_lookup(),
-                                     in._class_id_derivation_artifact_hash(),
-                                     in._class_id_derivation_private_function_root(),
-                                     in._class_id_derivation_class_id(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_class_id_derivation_class_id_poseidon2_0_inv),
+                                     in.get(ColumnAndShifts::lookup_class_id_derivation_class_id_poseidon2_0_counts),
+                                     in.get(ColumnAndShifts::class_id_derivation_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_start),
+                                     in.get(ColumnAndShifts::class_id_derivation_temp_constant_for_lookup),
+                                     in.get(ColumnAndShifts::class_id_derivation_artifact_hash),
+                                     in.get(ColumnAndShifts::class_id_derivation_private_function_root),
+                                     in.get(ColumnAndShifts::class_id_derivation_class_id),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -146,15 +147,16 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::class_id_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._class_id_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::class_id_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -170,18 +172,18 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_class_id_derivation_class_id_poseidon2_1_inv(),
-                                     in._lookup_class_id_derivation_class_id_poseidon2_1_counts(),
-                                     in._class_id_derivation_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._class_id_derivation_public_bytecode_commitment(),
-                                     in._precomputed_zero(),
-                                     in._precomputed_zero(),
-                                     in._class_id_derivation_class_id(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_class_id_derivation_class_id_poseidon2_1_inv),
+                                     in.get(ColumnAndShifts::lookup_class_id_derivation_class_id_poseidon2_1_counts),
+                                     in.get(ColumnAndShifts::class_id_derivation_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::class_id_derivation_public_bytecode_commitment),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::class_id_derivation_class_id),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
