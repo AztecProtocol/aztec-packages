@@ -89,55 +89,55 @@ class RecursiveCircuit {
         return { output, verification_key };
     };
 
-    // static bool check_pairing_point_accum_public_inputs(Builder& builder, const bb::pairing::miller_lines* lines)
-    // {
-    //     if (builder.contains_pairing_point_accumulator &&
-    //         builder.pairing_point_accumulator_public_input_indices.size() == 16) {
-    //         const auto& inputs = builder.public_inputs;
-    //         const auto recover_fq_from_public_inputs =
-    //             [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
-    //                 const uint256_t l0 = builder.get_variable(inputs[idx0]);
-    //                 const uint256_t l1 = builder.get_variable(inputs[idx1]);
-    //                 const uint256_t l2 = builder.get_variable(inputs[idx2]);
-    //                 const uint256_t l3 = builder.get_variable(inputs[idx3]);
+    static bool check_pairing_point_accum_public_inputs(Builder& builder, const bb::pairing::miller_lines* lines)
+    {
+        if (builder.contains_pairing_point_accumulator &&
+            builder.pairing_point_accumulator_public_input_indices.size() == 16) {
+            const auto& inputs = builder.public_inputs;
+            const auto recover_fq_from_public_inputs =
+                [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
+                    const uint256_t l0 = builder.get_variable(inputs[idx0]);
+                    const uint256_t l1 = builder.get_variable(inputs[idx1]);
+                    const uint256_t l2 = builder.get_variable(inputs[idx2]);
+                    const uint256_t l3 = builder.get_variable(inputs[idx3]);
 
-    //                 const uint256_t limb = l0 + (l1 << NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-    //                                        (l2 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-    //                                        (l3 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
-    //                 return outer_scalar_field(limb);
-    //             };
+                    const uint256_t limb = l0 + (l1 << NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                                           (l2 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                                           (l3 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+                    return outer_scalar_field(limb);
+                };
 
-    //         const auto x0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[0],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[1],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[2],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[3]);
-    //         const auto y0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[4],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[5],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[6],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[7]);
-    //         const auto x1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[8],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[9],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[10],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[11]);
-    //         const auto y1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[12],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[13],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[14],
-    //                                                       builder.pairing_point_accumulator_public_input_indices[15]);
-    //         g1::affine_element P_affine[2]{
-    //             { x0, y0 },
-    //             { x1, y1 },
-    //         };
+            const auto x0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[0],
+                                                          builder.pairing_point_accumulator_public_input_indices[1],
+                                                          builder.pairing_point_accumulator_public_input_indices[2],
+                                                          builder.pairing_point_accumulator_public_input_indices[3]);
+            const auto y0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[4],
+                                                          builder.pairing_point_accumulator_public_input_indices[5],
+                                                          builder.pairing_point_accumulator_public_input_indices[6],
+                                                          builder.pairing_point_accumulator_public_input_indices[7]);
+            const auto x1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[8],
+                                                          builder.pairing_point_accumulator_public_input_indices[9],
+                                                          builder.pairing_point_accumulator_public_input_indices[10],
+                                                          builder.pairing_point_accumulator_public_input_indices[11]);
+            const auto y1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[12],
+                                                          builder.pairing_point_accumulator_public_input_indices[13],
+                                                          builder.pairing_point_accumulator_public_input_indices[14],
+                                                          builder.pairing_point_accumulator_public_input_indices[15]);
+            g1::affine_element P_affine[2]{
+                { x0, y0 },
+                { x1, y1 },
+            };
 
-    //         pairing_target_field result = bb::pairing::reduced_ate_pairing_batch_precomputed(P_affine, lines, 2);
+            pairing_target_field result = bb::pairing::reduced_ate_pairing_batch_precomputed(P_affine, lines, 2);
 
-    //         return (result == pairing_target_field::one());
-    //     }
-    //     if (builder.contains_pairing_point_accumulator &&
-    //         builder.pairing_point_accumulator_public_input_indices.size() != 16) {
-    //         return false;
-    //     }
-    //     return true;
-    // }
+            return (result == pairing_target_field::one());
+        }
+        if (builder.contains_pairing_point_accumulator &&
+            builder.pairing_point_accumulator_public_input_indices.size() != 16) {
+            return false;
+        }
+        return true;
+    }
     static void check_pairing(const circuit_outputs& circuit_output)
     {
         auto g2_lines = bb::srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
