@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745426232624,
+  "lastUpdate": 1745436027790,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "53c070d3954b927a2718f32f4823dc51d8764bda",
-          "message": "fix: make translator use ultra rather than eccvm ops (#13489)\n\nWhile attempting to implement the consistency check between the Merge\nand Translator Verifier I realised that the TranslatorCircuitBuilder is\nconstructed using the VMops, redundantly converted to UltraOps. This PR\naddressed the issue and attempts a small cleanup on the\n`UltraEccOpsTable`.\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1266",
-          "timestamp": "2025-04-17T14:34:14Z",
-          "tree_id": "5382cecaf1f714013616d2c47bbc18a23b497754",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/53c070d3954b927a2718f32f4823dc51d8764bda"
-        },
-        "date": 1744903759848,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9706,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2608001243494993,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 145365,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1937,6 +1898,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 141964,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "65a9f339f894c6c7c0e56a68bf018a8ead6c7b20",
+          "message": "fix: no exports of simulator should depend on jest-mock-extended (#13694)\n\nFixes https://github.com/AztecProtocol/aztec-packages/issues/13655\n\nOther components (tests in `bb-prover`, `prover-client`) use\n`SimpleContractDataSource` and `PublicTxSimulationTester`. These are NOT\nmeant to depend on `jest-mock-extended`, but `SimpleContractDataSource`\nimported `avm/fixtures/index.ts` for `getFunctionSelector`. And that\n`index.ts` imported `jest-mock-extended`.\n\nInstead of having a bunch of utilities into `avm/fixtures/index.ts`, I\nmoved them into `initializers.ts` (needs jest) and `utils.ts` (pure\nutils, doesn't need jest). And then `SimpleContractDataSource` imports\n`utils.ts` and has no dependency on `jest-mock-extended`.\n\nOther components that depend on `SimpleContractDataSource` or\n`PublicTxSimulationTester` now explicitly import them from\n`simulator/public/fixtures` since they're no longer in\n`simulator/server`.\n\nRemoved dependency of `ivc-integration/src/witgen.ts` on\n`PublicTxSimulationTester` at the cost of small code-duplication.\n\n---------\n\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
+          "timestamp": "2025-04-23T18:21:33Z",
+          "tree_id": "35848bc0855ea62a3bd2ffd88bf869850e86df45",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/65a9f339f894c6c7c0e56a68bf018a8ead6c7b20"
+        },
+        "date": 1745436019332,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9950,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2848583271352909,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 152928,
             "unit": "us"
           }
         ]
