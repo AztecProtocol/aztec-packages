@@ -248,8 +248,10 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Check for a failure flag in the recursive verifier circuit
         {
-            // inefficiently check finalized size
+            stdlib::recursion::aggregation_state<OuterBuilder>::add_default_pairing_points_to_public_inputs(
+                folding_circuit);
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
+            // inefficiently check finalized size
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->proving_key.circuit_size);
