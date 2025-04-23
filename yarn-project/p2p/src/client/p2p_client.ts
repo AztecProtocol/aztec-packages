@@ -194,9 +194,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   /** Identifies a p2p client. */
   isP2PClient(): true;
 
-  /** Identifies a p2p client. */
-  isP2PClient(): true;
-
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
 };
 
