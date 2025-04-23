@@ -1,6 +1,7 @@
 import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
 import { Fr } from '@aztec/aztec.js';
+import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { AztecContext } from '../../../aztecEnv';
 import { useContext, useState } from 'react';
@@ -299,6 +300,7 @@ export function Landing() {
   const [isLoadingPrivateTokens, setIsLoadingPrivateTokens] = useState(false);
 
   const { sendTx } = useTransaction();
+  const notifications = useNotifications();
 
   async function handleContractButtonClick(contractValue: string) {
     let contractArtifactJSON;
@@ -321,6 +323,8 @@ export function Landing() {
 
   async function handleCreateAccountButtonClick() {
     setIsCreatingAccount(true);
+    let accountDeployNotification: string;
+
     try {
       const salt = Fr.random();
       const secretKey = Fr.random();
@@ -334,6 +338,9 @@ export function Landing() {
         alias: 'My Account 1',
         salt,
         signingKey,
+      });
+      notifications.show('Account generated and saved to PXE', {
+        autoHideDuration: 3000,
       });
 
       const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
@@ -351,19 +358,26 @@ export function Landing() {
       };
       // onClose(accountWallet, publiclyDeploy, deployMethod, opts);
 
+      accountDeployNotification = notifications.show('Deploying account...');
       const deploymentResult = await sendTx(`Deployment of account`, deployMethod, accountWallet.getAddress(), opts);
       if (deploymentResult) {
-        // setAccounts([
-        //   ...accounts,
-        //   { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
-        // ]);
-        // setWallet(accountWallet);
+        notifications.close(accountDeployNotification);
+        notifications.show('Account deployed successfully', {
+          autoHideDuration: 3000,
+        });
       } else {
         // Temporarily remove from accounts if deployment fails
         await walletDB.deleteAccount(accountWallet.getAddress());
+
+        notifications.close(accountDeployNotification);
+        notifications.show('Account deployment failed', {
+          autoHideDuration: 3000,
+          severity: 'error',
+        });
       }
     } catch (e) {
       console.error(e);
+      notifications.close(accountDeployNotification);
       setIsCreatingAccount(false);
     } finally {
       setIsCreatingAccount(false);
@@ -399,7 +413,7 @@ export function Landing() {
                 (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
             </Box>
             <Button variant="contained" css={featureCardButton} onClick={handleCreateAccountButtonClick}>
-              {isCreatingAccount ? <CircularProgress size={20} variant="determinate" /> : 'Create Account'}
+              {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
             </Button>
           </div>
 
@@ -419,7 +433,7 @@ export function Landing() {
               await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
               setIsLoadingPrivateVoting(false);
             }}>
-              {isLoadingPrivateVoting ? <CircularProgress /> : 'Check it out'}
+              {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
             </Button>
           </div>
 
@@ -440,7 +454,7 @@ export function Landing() {
               await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
               setIsLoadingPrivateTokens(false);
             }}>
-              {isLoadingPrivateTokens ? <CircularProgress /> : 'Check it out'}
+              {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
             </Button>
           </div>
         </div>
