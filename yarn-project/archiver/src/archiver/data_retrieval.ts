@@ -324,7 +324,7 @@ async function getBlockFromRollupTx(
   // The blob source gives us blockFields, and we must construct the body from them:
   const body = Body.fromBlobFields(blockFields);
 
-  const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)).readUInt32BE(0));
+  const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
   const stateReference = StateReference.fromBuffer(Buffer.from(hexToBytes(decodedArgs.stateReference)));
 
