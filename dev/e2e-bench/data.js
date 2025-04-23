@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745400522859,
+  "lastUpdate": 1745403507232,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "70c58ab773c7e8e2ed2bcc4eb7acbeec31477200",
-          "message": "fix: update metric name to avoid conflicts (#13629)\n\nFix #13626",
-          "timestamp": "2025-04-16T18:00:31Z",
-          "tree_id": "deff475860a9797291468cfb79f8dac7115500ad",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/70c58ab773c7e8e2ed2bcc4eb7acbeec31477200"
-        },
-        "date": 1744830382307,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9490,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.25497669895436603,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 140365,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1935,6 +1896,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 145854,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ec468d91dae8d8d3f9555641c42de56eb6c8f53a",
+          "message": "refactor(avm): less codegen for lookups (#13741)\n\nCreate some reasonable base class to avoid lots of codegen.",
+          "timestamp": "2025-04-23T08:56:00Z",
+          "tree_id": "b63c3e9379789cf7f48fbd5e62cc48ff8625a644",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec468d91dae8d8d3f9555641c42de56eb6c8f53a"
+        },
+        "date": 1745403498762,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8941,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2559672361937672,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137880,
             "unit": "us"
           }
         ]
