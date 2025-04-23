@@ -4,11 +4,11 @@ import {
   type ContractInstanceWithAddress,
   Fr,
   SponsoredFeePaymentMethod,
+  Tx,
   TxStatus,
   type Wallet,
 } from '@aztec/aztec.js';
 import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
-import { asyncMap } from '@aztec/foundation/async-map';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -40,7 +40,7 @@ const pxeOptions = {
 
 const TX_FLOOD_SIZE = 100;
 const TX_MEMPOOL_LIMIT = 25;
-const CONCURRENCY = 5;
+const CONCURRENCY = 25;
 
 describe('mempool limiter test', () => {
   // we need a node to change its mempoolTxSize for this test
@@ -52,6 +52,7 @@ describe('mempool limiter test', () => {
   let accountSalt: Fr;
   let tokenInstance: ContractInstanceWithAddress;
   let tokenContractAddress: AztecAddress;
+  let sampleTx: Tx;
 
   let fee: UserFeeOptions;
 
@@ -95,7 +96,7 @@ describe('mempool limiter test', () => {
     debugLogger.debug(`Preparing account and token contract`);
 
     // set a large pool size so that deploy txs fit
-    await nodeAdmin.setConfig({ maxTxPoolSize: 1e8 });
+    await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
 
     const pxe = await createPXEService(node, pxeOptions);
 
@@ -120,6 +121,9 @@ describe('mempool limiter test', () => {
 
     const tokenDeploy = TokenContract.deploy(wallet, wallet.getAddress(), 'TEST', 'T', 18);
     const token = await tokenDeploy.register({ contractAddressSalt: Fr.ONE });
+    tokenContractAddress = token.address;
+    tokenInstance = token.instance;
+
     const tokenMeta = await pxe.getContractMetadata(token.address);
     if (!tokenMeta.isContractInitialized) {
       await tokenDeploy.send({ contractAddressSalt: Fr.ONE, fee }).wait();
@@ -134,14 +138,12 @@ describe('mempool limiter test', () => {
       debugLogger.info(`Token contract already deployed at: ${token.address}`);
     }
 
-    tokenContractAddress = token.address;
-    tokenInstance = token.instance;
-
     debugLogger.debug(`Calculating mempool limits`);
 
-    const sampleTx = await token.methods
+    const proventx = await token.methods
       .transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0)
       .prove({ fee });
+    sampleTx = proventx.getPlainDataTx();
     const sampleTxSize = sampleTx.getSize();
     const maxTxPoolSize = TX_MEMPOOL_LIMIT * sampleTxSize;
 
@@ -154,31 +156,22 @@ describe('mempool limiter test', () => {
   }, 240_000);
 
   afterAll(async () => {
+    await nodeAdmin.setConfig({ maxTxPoolSize: 1e9 });
     forwardProcesses.forEach(p => p.kill());
   });
 
   it('evicts txs to keep mempool under specified limit', async () => {
-    const pxes = await timesAsync(TX_FLOOD_SIZE, async () => createPXEService(node, pxeOptions));
-
-    await asyncMap(pxes, pxe => registerSponsoredFPC(pxe));
-
-    const wallets = await asyncPool(CONCURRENCY, pxes, async pxe => {
-      const acct = await getSchnorrAccount(pxe, accountSecretKey, deriveSigningKey(accountSecretKey), accountSalt);
-      await acct.register();
-      return acct.getWallet();
+    const txs = await timesAsync(TX_FLOOD_SIZE, async () => {
+      const tx = Tx.fromBuffer(sampleTx.toBuffer());
+      // this only works on unproven networks, otherwise this will fail verification
+      tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
+      await tx.getTxHash(true);
+      return tx;
     });
 
-    const txs = await asyncPool(CONCURRENCY, wallets, async wallet => {
-      await wallet.registerContract({ instance: tokenInstance, artifact: TokenContract.artifact });
-      const token = await TokenContract.at(tokenContractAddress, wallet);
-      return token.methods.transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0).prove({ fee });
-    });
-
-    await asyncPool(CONCURRENCY, txs, async tx => node.sendTx(tx.getPlainDataTx()));
+    await asyncPool(CONCURRENCY, txs, async tx => node.sendTx(tx));
     const receipts = await asyncPool(CONCURRENCY, txs, async tx => node.getTxReceipt(await tx.getTxHash()));
     const pending = receipts.reduce((count, receipt) => (receipt.status === TxStatus.PENDING ? count + 1 : count), 0);
     expect(pending).toBeLessThanOrEqual(TX_MEMPOOL_LIMIT);
-
-    await asyncMap(pxes, pxe => pxe.stop());
   }, 600_000);
 });
