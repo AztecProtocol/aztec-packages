@@ -24,14 +24,6 @@ export class BlockRootOrBlockMergePublicInputs {
      */
     public newArchive: AppendOnlyTreeSnapshot,
     /**
-     * Identifier of the previous block before the range.
-     */
-    public previousBlockHash: Fr,
-    /**
-     * Identifier of the last block in the range.
-     */
-    public endBlockHash: Fr,
-    /**
      * Global variables for the first block in the range.
      */
     public startGlobalVariables: GlobalVariables,
@@ -76,8 +68,6 @@ export class BlockRootOrBlockMergePublicInputs {
     return new BlockRootOrBlockMergePublicInputs(
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
@@ -97,8 +87,6 @@ export class BlockRootOrBlockMergePublicInputs {
     return serializeToBuffer(
       this.previousArchive,
       this.newArchive,
-      this.previousBlockHash,
-      this.endBlockHash,
       this.startGlobalVariables,
       this.endGlobalVariables,
       this.outHash,

@@ -150,6 +150,7 @@ export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
 export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size';
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 export const WORLD_STATE_DB_MAP_SIZE = 'aztec.world_state.db_map_size';
+export const WORLD_STATE_DB_PHYSICAL_SIZE = 'aztec.world_state.db_physical_size';
 export const WORLD_STATE_TREE_SIZE = 'aztec.world_state.tree_size';
 export const WORLD_STATE_UNFINALISED_HEIGHT = 'aztec.world_state.unfinalised_height';
 export const WORLD_STATE_FINALISED_HEIGHT = 'aztec.world_state.finalised_height';

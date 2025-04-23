@@ -23,7 +23,7 @@ import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { makeTestP2PClient, makeTestP2PClients } from '../test-helpers/make-test-p2p-clients.js';
 
-const TEST_TIMEOUT = 80000;
+const TEST_TIMEOUT = 120000;
 
 const NUMBER_OF_PEERS = 2;
 
@@ -325,11 +325,11 @@ describe('p2p client integration', () => {
             archive: Fr.random(),
             txHashes: [TxHash.random()],
           };
-          const blockProposal = await makeBlockProposal(dummyPayload);
+          const blockProposal = makeBlockProposal(dummyPayload);
           client1.client.broadcastProposal(blockProposal);
 
           // client 1 sends an attestation
-          const attestation = await mockAttestation(
+          const attestation = mockAttestation(
             Secp256k1Signer.random(),
             Number(dummyPayload.header!.getSlot()),
             dummyPayload.archive,
@@ -427,11 +427,11 @@ describe('p2p client integration', () => {
             archive: Fr.random(),
             txHashes: [TxHash.random()],
           };
-          const blockProposal = await makeBlockProposal(dummyPayload);
+          const blockProposal = makeBlockProposal(dummyPayload);
           client1.client.broadcastProposal(blockProposal);
 
           // client 1 sends an attestation
-          const attestation = await mockAttestation(
+          const attestation = mockAttestation(
             Secp256k1Signer.random(),
             Number(dummyPayload.header!.getSlot()),
             dummyPayload.archive,
