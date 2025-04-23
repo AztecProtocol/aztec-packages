@@ -1,5 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, MerkleTreeId, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -12,7 +13,7 @@ import type { L2BlockNumber } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { join } from 'path';
-import type { Hex, PublicClient } from 'viem';
+import type { Hex } from 'viem';
 
 import {
   type EndToEndContext,
@@ -40,7 +41,7 @@ export type EpochsTestOpts = Partial<
  */
 export class EpochsTestContext {
   public context!: EndToEndContext;
-  public l1Client!: PublicClient;
+  public l1Client!: ViemClient;
   public rollup!: RollupContract;
   public constants!: L1RollupConstants;
   public logger!: Logger;
@@ -92,7 +93,7 @@ export class EpochsTestContext {
     this.proverNodes = context.proverNode ? [context.proverNode] : [];
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
-    this.l1Client = context.deployL1ContractsValues.publicClient;
+    this.l1Client = context.deployL1ContractsValues.l1Client;
     this.rollup = RollupContract.getFromConfig(context.config);
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.

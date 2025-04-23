@@ -15,7 +15,7 @@ import {
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
@@ -366,9 +366,9 @@ export class BotFactory {
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
+    const extendedClient = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-    const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
+    const portal = await L1FeeJuicePortalManager.new(this.pxe, extendedClient, this.log);
     const mintAmount = await portal.getTokenManager().getMintAmount();
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 

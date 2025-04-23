@@ -142,8 +142,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
 using TestTypes = testing::Types<
     PaddingTestParams<bb::stdlib::bn254<bb::MegaCircuitBuilder_<bb::field<bb::Bn254FrParams>>>, bb::MegaCircuitBuilder>,
-    PaddingTestParams<stdlib::bn254<bb::UltraCircuitBuilder>, bb::UltraCircuitBuilder>,
-    PaddingTestParams<stdlib::bn254<bb::CircuitSimulatorBN254>, bb::CircuitSimulatorBN254>>;
+    PaddingTestParams<stdlib::bn254<bb::UltraCircuitBuilder>, bb::UltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(PaddingIndicatorArrayTest, TestTypes);
 

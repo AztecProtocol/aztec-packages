@@ -8,3 +8,4 @@ compiler_version = ">=0.18.0"
 types = { path = "../types" }
 parity_lib = { path = "../parity-lib" }
 blob = { path = "../blob" }
+poseidon = { tag = "v0.1.0", git = "https://github.com/noir-lang/poseidon" }
