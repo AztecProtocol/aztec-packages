@@ -27,6 +27,8 @@ contract InitiateWithdrawTest is StakingBase {
       _amount: MINIMUM_STAKE
     });
 
+    // Progress into the next epoch
+    staking.cheat__progressEpoch();
     _;
   }
 
@@ -117,6 +119,12 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(exit.recipient, RECIPIENT);
     info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.EXITING);
+
+    // The active attester count should not change until we reach the next epoch
+    assertEq(staking.getActiveAttesterCount(), 1);
+
+    // Move to next epoch for changes to take effect
+    staking.cheat__progressEpoch();
     assertEq(staking.getActiveAttesterCount(), 0);
   }
 
@@ -128,6 +136,12 @@ contract InitiateWithdrawTest is StakingBase {
     staking.cheat__SetStatus(ATTESTER, Status.LIVING);
     staking.cheat__RemoveAttester(ATTESTER);
 
+    // The active attester count should not change until we reach the next epoch
+    assertEq(staking.getActiveAttesterCount(), 1);
+
+    // Progress into the next epoch for changes to take effect
+    staking.cheat__progressEpoch();
+
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
     Exit memory exit = staking.getExit(ATTESTER);
@@ -135,6 +149,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(exit.recipient, address(0));
     ValidatorInfo memory info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.LIVING);
+
     assertEq(staking.getActiveAttesterCount(), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));

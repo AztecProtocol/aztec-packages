@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 /**
  * @file translator_builder.hpp
@@ -469,10 +475,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
                                                      const Fq previous_accumulator,
                                                      const Fq batching_challenge_v,
                                                      const Fq evaluation_input_x);
-    static AccumulationInput compute_witness_values_for_one_ecc_op(const ECCVMOperation& ecc_op,
-                                                                   const Fq previous_accumulator,
-                                                                   const Fq batching_challenge_v,
-                                                                   const Fq evaluation_input_x);
 };
 
 } // namespace bb

@@ -15,12 +15,14 @@ import {
   type Gossipable,
   P2PClientType,
   PeerErrorSeverity,
-  TopicTypeMap,
+  TopicType,
+  createTopicString,
   getTopicTypeForClientType,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { DatabasePublicStateSource, MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import type { ENR } from '@chainsafe/enr';
@@ -57,6 +59,7 @@ import {
 } from '../../msg_validators/tx_validator/index.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
+import { getVersions } from '../../versioning.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
 import { gossipScoreThresholds } from '../gossipsub/scoring.js';
@@ -95,6 +98,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private attestationValidator: AttestationValidator;
   private blockProposalValidator: BlockProposalValidator;
 
+  private protocolVersion = '';
+  private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
+
   // Request and response sub service
   public reqresp: ReqResp;
 
@@ -126,6 +132,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protected logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
+
+    const versions = getVersions(config);
+    this.protocolVersion = compressComponentVersions(versions);
+    logger.info(`Started libp2p service with protocol version ${this.protocolVersion}`);
+
+    this.topicStrings[TopicType.tx] = createTopicString(TopicType.tx, this.protocolVersion);
+    this.topicStrings[TopicType.block_proposal] = createTopicString(TopicType.block_proposal, this.protocolVersion);
+    this.topicStrings[TopicType.block_attestation] = createTopicString(
+      TopicType.block_attestation,
+      this.protocolVersion,
+    );
 
     const peerScoring = new PeerScoring(config);
     this.reqresp = new ReqResp(config, node, peerScoring);
@@ -198,6 +215,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
     }
 
+    const versions = getVersions(config);
+    const protocolVersion = compressComponentVersions(versions);
+
+    const txTopic = createTopicString(TopicType.tx, protocolVersion);
+    const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
+    const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -251,24 +275,24 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           fastMsgIdFn: fastMsgIdFn,
           dataTransform: new SnappyTransform(),
           metricsRegister: otelMetricsAdapter,
-          metricsTopicStrToLabel: metricsTopicStrToLabels(),
+          metricsTopicStrToLabel: metricsTopicStrToLabels(protocolVersion),
           asyncValidation: true,
           scoreThresholds: gossipScoreThresholds,
           scoreParams: createPeerScoreParams({
             // IPColocation factor can be disabled for local testing - default to -5
             IPColocationFactorWeight: config.debugDisableColocationPenalty ? 0 : -5.0,
             topics: {
-              [Tx.p2pTopic]: createTopicScoreParams({
+              [txTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              [BlockAttestation.p2pTopic]: createTopicScoreParams({
+              [blockAttestationTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
               }),
-              [BlockProposal.p2pTopic]: createTopicScoreParams({
+              [blockProposalTopic]: createTopicScoreParams({
                 topicWeight: 1,
                 invalidMessageDeliveriesWeight: -20,
                 invalidMessageDeliveriesDecay: 0.5,
@@ -324,7 +348,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // Subscribe to standard GossipSub topics by default
     for (const topic of getTopicTypeForClientType(this.clientType)) {
-      this.subscribeToTopic(TopicTypeMap[topic].p2pTopic);
+      this.subscribeToTopic(this.topicStrings[topic]);
     }
 
     // Create request response protocol handlers
@@ -434,7 +458,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[] | undefined> {
+  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
     return this.reqresp.sendBatchRequest(protocol, requests);
   }
 
@@ -483,13 +507,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param data - The message data
    */
   protected async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
-    if (msg.topic === Tx.p2pTopic) {
+    if (msg.topic === this.topicStrings[TopicType.tx]) {
       await this.handleGossipedTx(msg, msgId, source);
     }
-    if (msg.topic === BlockAttestation.p2pTopic && this.clientType === P2PClientType.Full) {
+    if (msg.topic === this.topicStrings[TopicType.block_attestation] && this.clientType === P2PClientType.Full) {
       await this.processAttestationFromPeer(msg, msgId, source);
     }
-    if (msg.topic == BlockProposal.p2pTopic) {
+    if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
       await this.processBlockFromPeer(msg, msgId, source);
     }
 
@@ -884,6 +908,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
     const severity = await this.blockProposalValidator.validate(block);
     if (severity) {
+      this.logger.debug(`Penalizing peer ${peerId} for block proposal validation failure`);
       this.peerManager.penalizePeer(peerId, severity);
       return false;
     }
@@ -901,7 +926,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const identifier = await message.p2pMessageIdentifier().then(i => i.toString());
     this.logger.trace(`Sending message ${identifier}`, { p2pMessageIdentifier: identifier });
 
-    const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
+    const recipientsNum = await this.publishToTopic(this.topicStrings[parent.p2pTopic], message.toBuffer());
     this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, {
       p2pMessageIdentifier: identifier,
       sourcePeer: this.node.peerId.toString(),

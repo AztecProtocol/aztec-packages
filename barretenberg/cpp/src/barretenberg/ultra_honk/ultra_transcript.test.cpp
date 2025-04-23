@@ -183,8 +183,18 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     }
 };
 
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = ::testing::Types<UltraFlavor,
+                                     UltraKeccakFlavor,
+                                     UltraStarknetFlavor,
+                                     UltraStarknetZKFlavor,
+                                     UltraRollupFlavor,
+                                     UltraZKFlavor,
+                                     UltraKeccakZKFlavor>;
+#else
 using FlavorTypes =
     ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+#endif
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
 
 /**

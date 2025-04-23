@@ -59,7 +59,9 @@ export default defineConfig(({ mode }) => {
       //   ],
       // }),
       bundlesize({
-        limits: [{ name: 'assets/index-*', limit: '1600kB' }],
+        // Bump log:
+        // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
+        limits: [{ name: 'assets/index-*', limit: '1700kB' }],
       }),
     ],
     define: {

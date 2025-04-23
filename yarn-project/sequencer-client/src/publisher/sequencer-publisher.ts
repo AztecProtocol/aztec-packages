@@ -41,8 +41,6 @@ type L1ProcessArgs = {
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
-  /** The L2 block's leaf in the archive tree. */
-  blockHash: Buffer;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -136,6 +134,10 @@ export class SequencerPublisher {
     this.slashingProposerContract = deps.slashingProposerContract;
   }
 
+  public getRollupContract(): RollupContract {
+    return this.rollupContract;
+  }
+
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
     this.getSlashPayload = callback;
   }
@@ -180,6 +182,10 @@ export class SequencerPublisher {
     const currentL2Slot = this.getCurrentL2Slot();
     this.log.debug(`Current L2 slot: ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
+    const validActions = validRequests.map(x => x.action);
+    const expiredActions = requestsToProcess
+      .filter(request => request.lastValidL2Slot < currentL2Slot)
+      .map(x => x.action);
 
     if (validRequests.length !== requestsToProcess.length) {
       this.log.warn(`Some requests were expired for slot ${currentL2Slot}`, {
@@ -224,7 +230,7 @@ export class SequencerPublisher {
         this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
-      return result;
+      return { result, expiredActions, validActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
@@ -403,13 +409,12 @@ export class SequencerPublisher {
   ): Promise<boolean> {
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      blockHash: (await block.header.hash()).toBuffer(),
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -486,7 +491,6 @@ export class SequencerPublisher {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
         },
-        blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,
       },
       attestations,
@@ -554,7 +558,6 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
     const startBlock = await this.l1TxUtils.getBlockNumber();
-    const blockHash = await block.hash();
 
     return this.addRequest({
       action: 'propose',
@@ -606,7 +609,6 @@ export class SequencerPublisher {
           this.log.error(`Rollup process tx reverted. ${errorMsg ?? 'No error message'}`, undefined, {
             ...block.getStats(),
             txHash: receipt.transactionHash,
-            blockHash,
             slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
           });
         }

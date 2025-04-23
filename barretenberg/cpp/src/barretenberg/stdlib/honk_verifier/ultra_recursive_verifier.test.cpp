@@ -45,6 +45,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
     using AggState = aggregation_state<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
+    using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -223,11 +224,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         } else {
             native_result = native_verifier.verify_proof(inner_proof);
         }
-        auto pcs_verification_key = std::make_shared<typename InnerFlavor::VerifierCommitmentKey>();
-        bool result = pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+        NativeVerifierCommitmentKey pcs_vkey{};
+        bool result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         info("input pairing points result: ", result);
-        auto recursive_result = native_verifier.verification_key->verification_key->pcs_verification_key->pairing_check(
-            pairing_points.P0.get_value(), pairing_points.P1.get_value());
+        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
@@ -239,7 +239,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
-        if constexpr (!IsSimulator<OuterBuilder>) {
+        {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
@@ -292,10 +292,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
-                auto pcs_verification_key = std::make_shared<typename InnerFlavor::VerifierCommitmentKey>();
+                NativeVerifierCommitmentKey pcs_vkey{};
                 AggState pairing_points = output.agg_obj;
-                bool result =
-                    pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+                bool result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
                 EXPECT_FALSE(result);
             }
         }
@@ -308,8 +307,6 @@ using Flavors = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                               MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 

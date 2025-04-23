@@ -44,15 +44,15 @@ class lookup_poseidon2_hash_poseidon2_perm_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._poseidon2_hash_sel() == 1 || in._poseidon2_perm_sel() == 1);
+        return (in.get(ColumnAndShifts::poseidon2_hash_sel) == 1 || in.get(ColumnAndShifts::poseidon2_perm_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._poseidon2_hash_sel());
-        const auto is_table_entry = View(in._poseidon2_perm_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::poseidon2_hash_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_perm_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -68,26 +68,26 @@ class lookup_poseidon2_hash_poseidon2_perm_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_poseidon2_hash_poseidon2_perm_inv(),
-                                     in._lookup_poseidon2_hash_poseidon2_perm_counts(),
-                                     in._poseidon2_hash_sel(),
-                                     in._poseidon2_perm_sel(),
-                                     in._poseidon2_hash_a_0(),
-                                     in._poseidon2_hash_a_1(),
-                                     in._poseidon2_hash_a_2(),
-                                     in._poseidon2_hash_a_3(),
-                                     in._poseidon2_hash_b_0(),
-                                     in._poseidon2_hash_b_1(),
-                                     in._poseidon2_hash_b_2(),
-                                     in._poseidon2_hash_b_3(),
-                                     in._poseidon2_perm_a_0(),
-                                     in._poseidon2_perm_a_1(),
-                                     in._poseidon2_perm_a_2(),
-                                     in._poseidon2_perm_a_3(),
-                                     in._poseidon2_perm_b_0(),
-                                     in._poseidon2_perm_b_1(),
-                                     in._poseidon2_perm_b_2(),
-                                     in._poseidon2_perm_b_3());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_poseidon2_hash_poseidon2_perm_inv),
+                                     in.get(ColumnAndShifts::lookup_poseidon2_hash_poseidon2_perm_counts),
+                                     in.get(ColumnAndShifts::poseidon2_hash_sel),
+                                     in.get(ColumnAndShifts::poseidon2_perm_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_a_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_a_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_a_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_a_3),
+                                     in.get(ColumnAndShifts::poseidon2_hash_b_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_b_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_b_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_b_3),
+                                     in.get(ColumnAndShifts::poseidon2_perm_a_0),
+                                     in.get(ColumnAndShifts::poseidon2_perm_a_1),
+                                     in.get(ColumnAndShifts::poseidon2_perm_a_2),
+                                     in.get(ColumnAndShifts::poseidon2_perm_a_3),
+                                     in.get(ColumnAndShifts::poseidon2_perm_b_0),
+                                     in.get(ColumnAndShifts::poseidon2_perm_b_1),
+                                     in.get(ColumnAndShifts::poseidon2_perm_b_2),
+                                     in.get(ColumnAndShifts::poseidon2_perm_b_3));
     }
 };
 

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./translator_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -62,6 +68,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
     using Sumcheck = SumcheckVerifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
@@ -133,7 +140,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                                sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    VerifierCommitmentKey pcs_vkey{};
+    auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
 
     return verified && consistency_checked;
 }

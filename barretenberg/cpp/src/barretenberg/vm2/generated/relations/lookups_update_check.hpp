@@ -46,15 +46,15 @@ class lookup_update_check_shared_mutable_slot_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::update_check_sel) == 1 || in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::update_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -70,18 +70,18 @@ class lookup_update_check_shared_mutable_slot_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_update_check_shared_mutable_slot_poseidon2_inv(),
-                                     in._lookup_update_check_shared_mutable_slot_poseidon2_counts(),
-                                     in._update_check_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._update_check_updated_class_ids_slot(),
-                                     in._update_check_address(),
-                                     in._precomputed_zero(),
-                                     in._update_check_shared_mutable_slot(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_update_check_shared_mutable_slot_poseidon2_inv),
+                                     in.get(ColumnAndShifts::lookup_update_check_shared_mutable_slot_poseidon2_counts),
+                                     in.get(ColumnAndShifts::update_check_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::update_check_updated_class_ids_slot),
+                                     in.get(ColumnAndShifts::update_check_address),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::update_check_shared_mutable_slot),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -146,15 +146,15 @@ class lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::update_check_sel) == 1 || in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::update_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -170,18 +170,19 @@ class lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_update_check_shared_mutable_leaf_slot_poseidon2_inv(),
-                                     in._lookup_update_check_shared_mutable_leaf_slot_poseidon2_counts(),
-                                     in._update_check_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._update_check_public_leaf_index_domain_separator(),
-                                     in._update_check_deployer_protocol_contract_address(),
-                                     in._update_check_shared_mutable_hash_slot(),
-                                     in._update_check_shared_mutable_leaf_slot(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_update_check_shared_mutable_leaf_slot_poseidon2_inv),
+            in.get(ColumnAndShifts::lookup_update_check_shared_mutable_leaf_slot_poseidon2_counts),
+            in.get(ColumnAndShifts::update_check_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_end),
+            in.get(ColumnAndShifts::update_check_public_leaf_index_domain_separator),
+            in.get(ColumnAndShifts::update_check_deployer_protocol_contract_address),
+            in.get(ColumnAndShifts::update_check_shared_mutable_hash_slot),
+            in.get(ColumnAndShifts::update_check_shared_mutable_leaf_slot),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -244,15 +245,15 @@ class lookup_update_check_update_hash_public_data_read_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_sel() == 1 || in._public_data_read_sel() == 1);
+        return (in.get(ColumnAndShifts::update_check_sel) == 1 || in.get(ColumnAndShifts::public_data_read_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_sel());
-        const auto is_table_entry = View(in._public_data_read_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::update_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::public_data_read_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -268,16 +269,16 @@ class lookup_update_check_update_hash_public_data_read_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_update_check_update_hash_public_data_read_inv(),
-                                     in._lookup_update_check_update_hash_public_data_read_counts(),
-                                     in._update_check_sel(),
-                                     in._public_data_read_sel(),
-                                     in._update_check_update_hash(),
-                                     in._update_check_shared_mutable_leaf_slot(),
-                                     in._update_check_public_data_tree_root(),
-                                     in._public_data_read_value(),
-                                     in._public_data_read_slot(),
-                                     in._public_data_read_root());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_update_check_update_hash_public_data_read_inv),
+                                     in.get(ColumnAndShifts::lookup_update_check_update_hash_public_data_read_counts),
+                                     in.get(ColumnAndShifts::update_check_sel),
+                                     in.get(ColumnAndShifts::public_data_read_sel),
+                                     in.get(ColumnAndShifts::update_check_update_hash),
+                                     in.get(ColumnAndShifts::update_check_shared_mutable_leaf_slot),
+                                     in.get(ColumnAndShifts::update_check_public_data_tree_root),
+                                     in.get(ColumnAndShifts::public_data_read_value),
+                                     in.get(ColumnAndShifts::public_data_read_slot),
+                                     in.get(ColumnAndShifts::public_data_read_root));
     }
 };
 
@@ -342,15 +343,16 @@ class lookup_update_check_update_hash_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_hash_not_zero() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::update_check_hash_not_zero) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::update_check_hash_not_zero));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -366,18 +368,18 @@ class lookup_update_check_update_hash_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_update_check_update_hash_poseidon2_inv(),
-                                     in._lookup_update_check_update_hash_poseidon2_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._poseidon2_hash_end(),
-                                     in._update_check_update_preimage_metadata(),
-                                     in._update_check_update_preimage_pre_class_id(),
-                                     in._update_check_update_preimage_post_class_id(),
-                                     in._update_check_update_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_update_check_update_hash_poseidon2_inv),
+                                     in.get(ColumnAndShifts::lookup_update_check_update_hash_poseidon2_counts),
+                                     in.get(ColumnAndShifts::update_check_hash_not_zero),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::update_check_update_preimage_metadata),
+                                     in.get(ColumnAndShifts::update_check_update_preimage_pre_class_id),
+                                     in.get(ColumnAndShifts::update_check_update_preimage_post_class_id),
+                                     in.get(ColumnAndShifts::update_check_update_hash),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -435,15 +437,16 @@ class lookup_update_check_update_hi_metadata_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_hash_not_zero() == 1 || in._range_check_sel() == 1);
+        return (in.get(ColumnAndShifts::update_check_hash_not_zero) == 1 ||
+                in.get(ColumnAndShifts::range_check_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._range_check_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::update_check_hash_not_zero));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::range_check_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -459,14 +462,14 @@ class lookup_update_check_update_hi_metadata_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_update_check_update_hi_metadata_range_inv(),
-                                     in._lookup_update_check_update_hi_metadata_range_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._range_check_sel(),
-                                     in._update_check_update_hi_metadata(),
-                                     in._update_check_update_hi_metadata_bit_size(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_update_check_update_hi_metadata_range_inv),
+                                     in.get(ColumnAndShifts::lookup_update_check_update_hi_metadata_range_counts),
+                                     in.get(ColumnAndShifts::update_check_hash_not_zero),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::update_check_update_hi_metadata),
+                                     in.get(ColumnAndShifts::update_check_update_hi_metadata_bit_size),
+                                     in.get(ColumnAndShifts::range_check_value),
+                                     in.get(ColumnAndShifts::range_check_rng_chk_bits));
     }
 };
 
@@ -525,15 +528,16 @@ class lookup_update_check_update_lo_metadata_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_hash_not_zero() == 1 || in._range_check_sel() == 1);
+        return (in.get(ColumnAndShifts::update_check_hash_not_zero) == 1 ||
+                in.get(ColumnAndShifts::range_check_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._range_check_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::update_check_hash_not_zero));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::range_check_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -549,14 +553,14 @@ class lookup_update_check_update_lo_metadata_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_update_check_update_lo_metadata_range_inv(),
-                                     in._lookup_update_check_update_lo_metadata_range_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._range_check_sel(),
-                                     in._update_check_update_block_of_change(),
-                                     in._update_check_block_number_bit_size(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_update_check_update_lo_metadata_range_inv),
+                                     in.get(ColumnAndShifts::lookup_update_check_update_lo_metadata_range_counts),
+                                     in.get(ColumnAndShifts::update_check_hash_not_zero),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::update_check_update_block_of_change),
+                                     in.get(ColumnAndShifts::update_check_block_number_bit_size),
+                                     in.get(ColumnAndShifts::range_check_value),
+                                     in.get(ColumnAndShifts::range_check_rng_chk_bits));
     }
 };
 
@@ -615,15 +619,16 @@ class lookup_update_check_block_of_change_cmp_range_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_hash_not_zero() == 1 || in._range_check_sel() == 1);
+        return (in.get(ColumnAndShifts::update_check_hash_not_zero) == 1 ||
+                in.get(ColumnAndShifts::range_check_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._range_check_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::update_check_hash_not_zero));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::range_check_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -639,14 +644,14 @@ class lookup_update_check_block_of_change_cmp_range_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_update_check_block_of_change_cmp_range_inv(),
-                                     in._lookup_update_check_block_of_change_cmp_range_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._range_check_sel(),
-                                     in._update_check_block_of_change_subtraction(),
-                                     in._update_check_block_number_bit_size(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_update_check_block_of_change_cmp_range_inv),
+                                     in.get(ColumnAndShifts::lookup_update_check_block_of_change_cmp_range_counts),
+                                     in.get(ColumnAndShifts::update_check_hash_not_zero),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::update_check_block_of_change_subtraction),
+                                     in.get(ColumnAndShifts::update_check_block_number_bit_size),
+                                     in.get(ColumnAndShifts::range_check_value),
+                                     in.get(ColumnAndShifts::range_check_rng_chk_bits));
     }
 };
 

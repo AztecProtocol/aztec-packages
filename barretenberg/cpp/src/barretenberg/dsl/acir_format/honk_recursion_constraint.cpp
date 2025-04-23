@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -70,14 +76,10 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     }
 
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Key field is the whether the proof contains an aggregation object.
-        builder.assert_equal(builder.add_variable(1), key_fields[offset++].witness_index);
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE + i),
-                                 key_fields[offset].witness_index);
-            offset++;
-        }
+        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE),
+                             key_fields[offset].witness_index);
+        offset++;
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
@@ -97,9 +99,12 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Using SMALL_DUMMY_VALUE might resolve this
+    // issue.
+    fr SMALL_DUMMY_VALUE(2); // arbtirary small value that shouldn't cause builder problems.
     // The aggregation object
     for (size_t i = 0; i < AggregationObject::PUBLIC_INPUTS_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(SMALL_DUMMY_VALUE), proof_fields[offset].witness_index);
         offset++;
     }
 

@@ -2,7 +2,14 @@ import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import {
+  L1TxUtils,
+  RollupContract,
+  type ViemPublicClient,
+  type ViemWalletClient,
+  getExpectedAddress,
+  getL1ContractsConfigEnvVars,
+} from '@aztec/ethereum';
 import { ChainMonitor, EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -184,7 +191,6 @@ export class P2PNetworkTest {
 
   async applyBaseSnapshots() {
     await this.addBootstrapNode();
-
     await this.snapshotManager.snapshot(
       'add-validators',
       async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {
@@ -232,13 +238,7 @@ export class P2PNetworkTest {
         }
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-          hash: await deployL1ContractsValues.walletClient.sendTransaction({
-            to: this.baseAccount.address,
-            value: 1n,
-            account: this.baseAccount,
-          }),
-        });
+        await this._sendDummyTx(deployL1ContractsValues.publicClient, deployL1ContractsValues.walletClient);
 
         // Set the system time in the node, only after we have warped the time and waited for a block
         // Time is only set in the NEXT block
@@ -284,13 +284,10 @@ export class P2PNetworkTest {
       'remove-inital-validator',
       async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-        const receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-          hash: await deployL1ContractsValues.walletClient.sendTransaction({
-            to: this.baseAccount.address,
-            value: 1n,
-            account: this.baseAccount,
-          }),
-        });
+        const { receipt } = await this._sendDummyTx(
+          deployL1ContractsValues.publicClient,
+          deployL1ContractsValues.walletClient,
+        );
         const block = await deployL1ContractsValues.publicClient.getBlock({
           blockNumber: receipt.blockNumber,
         });
@@ -299,6 +296,21 @@ export class P2PNetworkTest {
         await aztecNode.stop();
       },
     );
+  }
+
+  async sendDummyTx() {
+    return await this._sendDummyTx(
+      this.ctx.deployL1ContractsValues.publicClient,
+      this.ctx.deployL1ContractsValues.walletClient,
+    );
+  }
+
+  private async _sendDummyTx(publicClient: ViemPublicClient, walletClient: ViemWalletClient) {
+    const l1TxUtils = new L1TxUtils(publicClient, walletClient);
+    return await l1TxUtils.sendAndMonitorTransaction({
+      to: walletClient.account!.address,
+      value: 1n,
+    });
   }
 
   async setup() {

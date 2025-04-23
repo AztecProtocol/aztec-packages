@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/std_array.hpp"
@@ -750,15 +756,15 @@ class ECCVMFlavor {
       public:
         bool operator==(const VerificationKey&) const = default;
 
+        // IPA verification key requires one more point.
+        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key =
+            std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
+
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()
             : VerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
-            // IPA verification key requires one more point.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
-            // how many points they need
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
 
             // Populate the commitments of the precomputed polynomials using the fixed VK data
             for (auto [vk_commitment, fixed_commitment] :
@@ -773,10 +779,6 @@ class ECCVMFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            // IPA verification key requires one more point.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
-            // how many points they need
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
             this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
             this->log_circuit_size = CONST_ECCVM_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
