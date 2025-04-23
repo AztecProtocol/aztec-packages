@@ -1,11 +1,11 @@
 #!/bin/sh
-cat >dest/cjs/package.json <<!EOF
+cat >dest/node-cjs/package.json <<!EOF
 {
     "type": "commonjs"
 }
 !EOF
 
-DIR="./dest/cjs"
+DIR="./dest/node-cjs"
 
 # Iterate over all .js files in the directory
 for FILE in $(find "$DIR" -name "*.js"); do

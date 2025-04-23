@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
       // viteStaticCopy({
       //   targets: [
       //     {
-      //       src: "../barretenberg/ts/dest/esm/barretenberg_wasm/*.gz",
+      //       src: "../barretenberg/ts/dest/node/barretenberg_wasm/*.gz",
       //       dest: "assets/",
       //     },
       //   ],

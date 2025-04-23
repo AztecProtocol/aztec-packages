@@ -132,7 +132,7 @@ function test_cmds_internal {
 
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
-  local bbjs_bin="../ts/dest/esm/main.js"
+  local bbjs_bin="../ts/dest/node/main.js"
 
   # barretenberg-acir-tests-sol:
   echo "docker_isolate 'FLOW=sol $run_test assert_statement'"
@@ -203,7 +203,7 @@ function test_cmds_internal {
 }
 
 function ultra_honk_wasm_memory {
-  VERBOSE=1 BIN=../ts/dest/esm/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify \
+  VERBOSE=1 BIN=../ts/dest/node/main.js SYS=ultra_honk_deprecated FLOW=prove_then_verify \
     ./scripts/run_test.sh verify_honk_proof &> ./bench-out/ultra_honk_rec_wasm_memory.txt
 }
 
