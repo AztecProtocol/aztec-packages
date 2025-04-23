@@ -76,7 +76,10 @@ namespace bb {
  *
  */
 class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
+
+    // The scalar field of BN254
     using Fr = bb::fr;
+    // The base (coordinate) field of BN254
     using Fq = bb::fq;
 
   public:
@@ -222,7 +225,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // highest to a more restrictive range (0 <= a < 2¹⁴ && 0 <= 4*a < 2¹⁴ ) ~ ( 0 <= a < 2¹² )
     static constexpr size_t NUM_MICRO_LIMBS = 6;
 
-    // Number of limbs used to decompose a 254-bit value for modular arithmetic
+    // Number of limbs used to decompose a 254-bit value for modular arithmetic. This will represent an Fq value as 4 Fr
+    // limbs to be representable inside a circuit defined overF r.
     static constexpr size_t NUM_BINARY_LIMBS = 4;
 
     // Number of limbs used for computation of a result modulo 2²⁷²
