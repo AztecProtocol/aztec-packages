@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -53,8 +59,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
     class VerificationKey
         : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        bool contains_ipa_claim;                                // needs to be a circuit constant
-        IPAClaimPubInputIndices ipa_claim_public_input_indices; // needs to be a circuit constant
+        PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
 
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
@@ -63,10 +68,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-            : contains_ipa_claim(native_key->contains_ipa_claim)
-            , ipa_claim_public_input_indices(native_key->ipa_claim_public_input_indices)
         {
-            this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
@@ -75,6 +77,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
             this->pairing_point_accumulator_public_input_indices =
                 native_key->pairing_point_accumulator_public_input_indices;
+            this->ipa_claim_public_input_key = native_key->ipa_claim_public_input_key;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -102,10 +105,9 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
-            contains_ipa_claim = bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            for (uint32_t& idx : this->ipa_claim_public_input_indices) {
-                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            }
+
+            this->ipa_claim_public_input_key.start_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);

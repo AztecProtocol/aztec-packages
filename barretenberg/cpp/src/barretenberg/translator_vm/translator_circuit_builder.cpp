@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file translator_circuit_builder.cpp
  * @author @Rumata888
@@ -544,81 +550,35 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput 
     bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { ASSERT(std::get<i>(wires).size() == num_gates); });
 }
 
-/**
- * @brief Given an ECCVM operation, previous accumulator and necessary challenges, compute witnesses for one
- * accumulation
- *
- * @tparam Fq
- * @return TranslatorCircuitBuilder::AccumulationInput
- */
-
-TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_witness_values_for_one_ecc_op(
-    const ECCVMOperation& ecc_op,
-    const Fq previous_accumulator,
-    const Fq batching_challenge_v,
-    const Fq evaluation_input_x)
-{
-    // Get the Opcode value
-    Fr op(ecc_op.op_code.value());
-    Fr p_x_lo(0);
-    Fr p_x_hi(0);
-    Fr p_y_lo(0);
-    Fr p_y_hi(0);
-
-    // Split P.x and P.y into their representations in bn254 transcript
-    // if we have a point at infinity, set x/y to zero
-    // in the biggroup_goblin class we use `assert_equal` statements to validate
-    // the original in-circuit coordinate values are also zero
-    const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
-
-    p_x_lo = Fr(uint256_t(x_256).slice(0, 2 * NUM_LIMB_BITS));
-    p_x_hi = Fr(uint256_t(x_256).slice(2 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS));
-    p_y_lo = Fr(uint256_t(y_256).slice(0, 2 * NUM_LIMB_BITS));
-    p_y_hi = Fr(uint256_t(y_256).slice(2 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS));
-
-    // Generate the full witness values
-    return generate_witness_values(op,
-                                   p_x_lo,
-                                   p_x_hi,
-                                   p_y_lo,
-                                   p_y_hi,
-                                   Fr(ecc_op.z1),
-                                   Fr(ecc_op.z2),
-                                   previous_accumulator,
-                                   batching_challenge_v,
-                                   evaluation_input_x);
-}
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1266): Evaluate whether this method can reuse existing data
-// in the op queue for improved efficiency
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
     using Fq = bb::fq;
-    const auto& eccvm_ops = ecc_op_queue->get_eccvm_ops();
+    const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
-    if (eccvm_ops.empty()) {
+    if (ultra_ops.empty()) {
         return;
     }
-    // Rename for ease of use
-    auto x = evaluation_input_x;
-    auto v = batching_challenge_v;
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 0; i < eccvm_ops.size(); i++) {
-        const auto& ecc_op = eccvm_ops[eccvm_ops.size() - 1 - i];
-        current_accumulator *= x;
-        const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
+    for (size_t i = 0; i < ultra_ops.size(); i++) {
+        const auto& ultra_op = ultra_ops[ultra_ops.size() - 1 - i];
+        current_accumulator *= evaluation_input_x;
+        const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
-            (Fq(ecc_op.op_code.value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
+            Fq(ultra_op.op_code.value()) +
+            batching_challenge_v *
+                (x_256 + batching_challenge_v *
+                             (y_256 + batching_challenge_v *
+                                          (uint256_t(ultra_op.z_1) + batching_challenge_v * uint256_t(ultra_op.z_2))));
         accumulator_trace.push_back(current_accumulator);
     }
 
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
 
-    for (const auto& eccvm_op : eccvm_ops) {
+    for (const auto& ultra_op : ultra_ops) {
         Fq previous_accumulator = 0;
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {
@@ -626,7 +586,16 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             accumulator_trace.pop_back();
         }
         // Compute witness values
-        auto one_accumulation_step = compute_witness_values_for_one_ecc_op(eccvm_op, previous_accumulator, v, x);
+        AccumulationInput one_accumulation_step = generate_witness_values(ultra_op.op_code.value(),
+                                                                          ultra_op.x_lo,
+                                                                          ultra_op.x_hi,
+                                                                          ultra_op.y_lo,
+                                                                          ultra_op.y_hi,
+                                                                          ultra_op.z_1,
+                                                                          ultra_op.z_2,
+                                                                          previous_accumulator,
+                                                                          batching_challenge_v,
+                                                                          evaluation_input_x);
 
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);

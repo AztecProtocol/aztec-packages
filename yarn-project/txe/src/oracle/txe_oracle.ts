@@ -112,7 +112,6 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/nati
 import { TXENode } from '../node/txe_node.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import { TXEPublicTreesDB } from '../util/txe_public_dbs.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 1;
@@ -945,9 +944,13 @@ export class TXE implements TypedOracle {
     // See note at revert below.
     const checkpoint = await ForkCheckpoint.new(db);
     try {
-      const treesDB = new TXEPublicTreesDB(db, this);
       const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-      const simulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, /*doMerkleOperations=*/ true);
+      const simulator = new PublicTxSimulator(
+        this.baseFork,
+        contractsDB,
+        globalVariables,
+        /*doMerkleOperations=*/ false,
+      );
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
       const firstNullifier = usedTxRequestHashForNonces

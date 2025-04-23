@@ -167,6 +167,8 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = ProverCoordinati
 
     /** Identifies a p2p client. */
     isP2PClient(): true;
+
+    updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
   };
 
 /**
@@ -200,6 +202,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   private blockStream;
 
+  private config: P2PConfig;
+
   /**
    * In-memory P2P client constructor.
    * @param store - The client's instance of the KV store.
@@ -221,10 +225,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   ) {
     super(telemetry, 'P2PClient');
 
-    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = {
+    this.config = {
       ...getP2PDefaultConfig(),
       ...config,
     };
+
+    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } =
+      this.config;
     this.keepProvenTxsFor = keepProvenTxsInPoolFor;
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
@@ -254,6 +261,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return this.synchedBlockHashes.getAsync(number);
+  }
+
+  public async updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
+    if (typeof config.maxTxPoolSize === 'number' && this.config.maxTxPoolSize !== config.maxTxPoolSize) {
+      await this.txPool.setMaxTxPoolSize(config.maxTxPoolSize);
+      this.config.maxTxPoolSize = config.maxTxPoolSize;
+    }
   }
 
   public async getL2Tips(): Promise<L2Tips> {
@@ -445,12 +459,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
-    await this.txPool.addTxs(txs);
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const txs = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
+
+    // Some transactions may return undefined, so we filter them out
+    const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
+    await this.txPool.addTxs(filteredTxs);
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
     this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
-    return txs as Tx[];
+
+    // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
+    return txs;
   }
 
   public getPendingTxs(): Promise<Tx[]> {
@@ -533,7 +552,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes);
-    return txs.filter((tx): tx is Tx => !!tx).concat(missingTxs);
+    const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
+    return txs.filter((tx): tx is Tx => !!tx).concat(fetchedMissingTxs);
   }
 
   /**

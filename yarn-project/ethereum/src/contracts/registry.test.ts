@@ -48,7 +48,6 @@ describe('Registry', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     deployedAddresses = omit(
@@ -79,6 +78,10 @@ describe('Registry', () => {
     }
     {
       const address = await registry.getRollupAddress(deployedVersion);
+      expect(address).toEqual(rollupAddress);
+    }
+    {
+      const address = await registry.getRollupAddress(0);
       expect(address).toEqual(rollupAddress);
     }
   });
@@ -127,7 +130,6 @@ describe('Registry', () => {
         vkTreeRoot,
         protocolContractTreeRoot,
         genesisArchiveRoot: Fr.random(),
-        genesisBlockHash: Fr.random(),
       },
       deployedAddresses,
       logger,

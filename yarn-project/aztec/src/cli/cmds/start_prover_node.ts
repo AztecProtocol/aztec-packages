@@ -72,9 +72,8 @@ export async function startProverNode(
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
-  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
@@ -120,6 +119,6 @@ export async function startProverNode(
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  proverNode.start();
+  await proverNode.start();
   return { config: proverConfig };
 }

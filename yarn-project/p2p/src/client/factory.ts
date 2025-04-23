@@ -64,7 +64,7 @@ export const createP2PClient = async <T extends P2PClientType>(
     config = await configureP2PClientAddresses(_config);
 
     // Create peer discovery service
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, store);
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
     const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
     const discoveryService = new DiscV5Service(
       peerId,

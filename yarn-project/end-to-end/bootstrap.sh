@@ -90,11 +90,13 @@ function test_cmds {
 
   # p2p sub-tests
   echo "$prefix simple e2e_p2p/gossip_network"
+  echo "$prefix simple e2e_p2p/gossip_network_no_cheat"
   echo "$prefix simple e2e_p2p/rediscovery"
   echo "$prefix simple e2e_p2p/reqresp"
   echo "$prefix simple e2e_p2p/reex"
   echo "$prefix simple e2e_p2p/slashing"
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
+  echo "$prefix simple e2e_p2p/add_rollup"
   echo "$prefix simple e2e_p2p/validators_sentinel"
 
   echo "$prefix simple e2e_private_voting_contract"

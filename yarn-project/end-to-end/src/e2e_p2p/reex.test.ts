@@ -131,9 +131,7 @@ describe('e2e_p2p_reex', () => {
         const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
         const newProposal = new BlockProposal(
           proposal.payload,
-          await signer.signMessage(
-            await getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal),
-          ),
+          await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
         );
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
@@ -215,8 +213,8 @@ describe('e2e_p2p_reex', () => {
         }
 
         // Start a fresh slot and resume proposals
-        await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-        await t.syncMockSystemTime();
+        const [ts] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+        t.ctx.dateProvider.setTime(Number(ts) * 1000);
 
         await resumeProposals();
 

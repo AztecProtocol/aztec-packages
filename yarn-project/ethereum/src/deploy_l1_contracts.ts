@@ -209,8 +209,6 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   protocolContractTreeRoot: Fr;
   /** The genesis root of the archive tree. */
   genesisArchiveRoot: Fr;
-  /** The hash of the genesis block header. */
-  genesisBlockHash: Fr;
   /** The salt for CREATE2 deployment. */
   salt: number | undefined;
   /** The initial validators for the rollup contract. */
@@ -349,53 +347,63 @@ export const deploySharedContracts = async (
 
   txHashes.push(setGovernanceTxHash);
 
-  /* -------------------------------------------------------------------------- */
-  /*                          CHEAT CODES START HERE                            */
-  /* -------------------------------------------------------------------------- */
+  let feeAssetHandlerAddress: EthAddress | undefined = undefined;
+  let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
 
-  const feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
-    clients.walletClient.account.address,
-    feeAssetAddress.toString(),
-    BigInt(1e18),
-  ]);
-  logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
+  // Only if not on mainnet will we deploy the handlers
+  if (clients.publicClient.chain.id !== 1) {
+    /* -------------------------------------------------------------------------- */
+    /*                          CHEAT CODES START HERE                            */
+    /* -------------------------------------------------------------------------- */
 
-  const { txHash } = await deployer.sendTransaction({
-    to: feeAssetAddress.toString(),
-    data: encodeFunctionData({
-      abi: l1Artifacts.feeAsset.contractAbi,
-      functionName: 'addMinter',
-      args: [feeAssetHandlerAddress.toString()],
-    }),
-  });
-  logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
-  txHashes.push(txHash);
+    feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
+      clients.walletClient.account.address,
+      feeAssetAddress.toString(),
+      BigInt(1e18),
+    ]);
+    logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
-  // BEWARE: Down here we are NOT setting up the rollup nor the withdrawer here.
-  const stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
-    clients.walletClient.account.address,
-    stakingAssetAddress.toString(),
-    EthAddress.ZERO.toString(), // rollup,
-    EthAddress.ZERO.toString(), // withdrawer,
-    args.minimumStake, // depositAmount,
-    BigInt(60 * 60 * 24), // mintInterval,
-    BigInt(10), // depositsPerMint,
-    [], // canAddValidator,
-  ]);
-  logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
+    const { txHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'addMinter',
+        args: [feeAssetHandlerAddress.toString()],
+      }),
+    });
+    logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
+    txHashes.push(txHash);
 
-  const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
-    to: stakingAssetAddress.toString(),
-    data: encodeFunctionData({
-      abi: l1Artifacts.stakingAsset.contractAbi,
-      functionName: 'addMinter',
-      args: [stakingAssetHandlerAddress.toString()],
-    }),
-  });
-  logger.verbose(
-    `Added staking asset handler ${stakingAssetHandlerAddress} as minter on staking asset in ${stakingMinterTxHash}`,
-  );
-  txHashes.push(stakingMinterTxHash);
+    // Only if on sepolia will we deploy the staking asset handler
+    // Should not be deployed to devnet since it would cause caos with sequencers there etc.
+    if ([11155111, foundry.id].includes(clients.publicClient.chain.id)) {
+      const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
+
+      stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
+        clients.walletClient.account.address,
+        stakingAssetAddress.toString(),
+        registryAddress.toString(),
+        AMIN.toString(), // withdrawer,
+        BigInt(60 * 60 * 24), // mintInterval,
+        BigInt(10), // depositsPerMint,
+        [AMIN.toString()], // isUnhinged,
+      ]);
+      logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
+
+      const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
+        to: stakingAssetAddress.toString(),
+        data: encodeFunctionData({
+          abi: l1Artifacts.stakingAsset.contractAbi,
+          functionName: 'addMinter',
+          args: [stakingAssetHandlerAddress.toString()],
+        }),
+      });
+      logger.verbose(
+        `Added staking asset handler ${stakingAssetHandlerAddress} as minter on staking asset in ${stakingMinterTxHash}`,
+      );
+      txHashes.push(stakingMinterTxHash);
+    }
+  }
 
   /* -------------------------------------------------------------------------- */
   /*                           CHEAT CODES END HERE                             */
@@ -408,6 +416,36 @@ export const deploySharedContracts = async (
   logger.verbose(`Deployed shared contracts`);
 
   const registry = new RegistryContract(clients.publicClient, registryAddress);
+
+  /* -------------------------------------------------------------------------- */
+  /*                      FUND REWARD DISTRIBUTOR START                         */
+  /* -------------------------------------------------------------------------- */
+
+  const rewardDistributorAddress = await registry.getRewardDistributor();
+
+  const rewardDistributor = getContract({
+    address: rewardDistributorAddress.toString(),
+    abi: l1Artifacts.rewardDistributor.contractAbi,
+    client: clients.publicClient,
+  });
+
+  const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+
+  const funding = blockReward * 200000n;
+  const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
+    to: feeAssetAddress.toString(),
+    data: encodeFunctionData({
+      abi: l1Artifacts.feeAsset.contractAbi,
+      functionName: 'mint',
+      args: [rewardDistributorAddress.toString(), funding],
+    }),
+  });
+
+  logger.verbose(`Funded reward distributor with ${funding} fee asset in ${fundRewardDistributorTxHash}`);
+
+  /* -------------------------------------------------------------------------- */
+  /*                      FUND REWARD DISTRIBUTOR STOP                          */
+  /* -------------------------------------------------------------------------- */
 
   return {
     feeAssetAddress,
@@ -432,7 +470,7 @@ export const deploySharedContracts = async (
  */
 export const deployRollupForUpgrade = async (
   clients: L1Clients,
-  args: DeployL1ContractsArgs,
+  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize'>,
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
@@ -479,7 +517,7 @@ export const deployUpgradePayload = async (
 export const deployRollup = async (
   clients: L1Clients,
   deployer: L1Deployer,
-  args: DeployL1ContractsArgs,
+  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize'>,
   addresses: Pick<
     L1ContractAddresses,
     'feeJuiceAddress' | 'registryAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'
@@ -503,7 +541,6 @@ export const deployRollup = async (
     vkTreeRoot: args.vkTreeRoot.toString(),
     protocolContractTreeRoot: args.protocolContractTreeRoot.toString(),
     genesisArchiveRoot: args.genesisArchiveRoot.toString(),
-    genesisBlockHash: args.genesisBlockHash.toString(),
   };
   logger.verbose(`Rollup config args`, rollupConfigArgs);
   const rollupArgs = [

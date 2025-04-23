@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include <array>
 #include <cstddef>
@@ -44,19 +50,7 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
      * @param input
      * @return State
      */
-    static State permutation(Builder* builder, const State& input)
-        requires(!IsSimulator<Builder>);
-    static State permutation(Builder* builder, const State& input)
-        requires IsSimulator<Builder>;
-
-    static void add_round_constants(State& input, const RoundConstants& rc)
-        requires IsSimulator<Builder>;
-    static void apply_sbox(State& input)
-        requires IsSimulator<Builder>;
-    static void apply_single_sbox(field_t<Builder>& input)
-        requires IsSimulator<Builder>;
-    static void matrix_multiplication_internal(State& input)
-        requires IsSimulator<Builder>;
+    static State permutation(Builder* builder, const State& input);
 
     /**
      * @brief Separate function to do just the first linear layer (equivalent to external matrix mul).

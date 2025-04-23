@@ -2,11 +2,16 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -88,6 +93,21 @@ void RangeCheckTraceBuilder::process(
 
         row++;
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> RangeCheckTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_diff_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_dyn_rng_chk_pow_2_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r0_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r1_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r2_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r3_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r4_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r5_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r6_is_u16_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_range_check_r7_is_u16_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

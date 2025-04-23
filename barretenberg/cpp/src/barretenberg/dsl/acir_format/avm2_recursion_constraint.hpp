@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #ifndef DISABLE_AZTEC_VM
 #pragma once
 
@@ -17,7 +23,7 @@ stdlib::recursion::aggregation_state<Builder> create_avm2_recursion_constraints(
     const stdlib::recursion::aggregation_state<Builder>& input_aggregation_object,
     bool has_valid_witness_assignments);
 
-HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
+HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
     const stdlib::recursion::aggregation_state<Builder>& input_aggregation_object,

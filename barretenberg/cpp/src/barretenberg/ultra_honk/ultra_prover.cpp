@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "ultra_prover.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
@@ -84,6 +90,10 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
+#ifdef STARTKNET_GARAGA_FLAVORS
+template class DeciderVerifier_<UltraStarknetFlavor>;
+template class DeciderVerifier_<UltraStarknetZKFlavor>;
+#endif
 template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<UltraRollupFlavor>;
 template class UltraProver_<MegaFlavor>;

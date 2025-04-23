@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #ifndef DISABLE_AZTEC_VM
 
 #include "avm2_recursion_constraint.hpp"
@@ -8,8 +14,8 @@
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
@@ -192,7 +198,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
+HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
     const aggregation_state_ct& input_aggregation_object,
@@ -224,12 +230,10 @@ HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
     // Execute the Goblin AVM2 recursive verifier
     RecursiveVerifier verifier(builder, key_fields);
 
-    auto output_agg_object = verifier.verify_proof(
+    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output = verifier.verify_proof(
         proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_aggregation_object);
 
-    return { .agg_obj = output_agg_object.aggregation_object,
-             .ipa_claim = output_agg_object.ipa_claim,
-             .ipa_proof = output_agg_object.ipa_proof };
+    return output;
 }
 
 } // namespace acir_format

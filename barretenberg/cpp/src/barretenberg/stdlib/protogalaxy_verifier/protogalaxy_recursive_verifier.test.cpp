@@ -246,7 +246,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Check for a failure flag in the recursive verifier circuit
 
-        if constexpr (!IsSimulator<OuterBuilder>) {
+        {
             // inefficiently check finalized size
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
@@ -269,6 +269,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
      */
     static void test_full_protogalaxy_recursive()
     {
+        using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
         // Create two arbitrary circuits for the first round of folding
         InnerBuilder builder1;
         create_function_circuit(builder1);
@@ -335,12 +336,11 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // check that the result agrees.
         InnerDeciderVerifier native_decider_verifier(verifier_accumulator);
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
-        auto recursive_result =
-            native_decider_verifier.accumulator->verification_key->pcs_verification_key->pairing_check(
-                pairing_points.P0.get_value(), pairing_points.P1.get_value());
+        NativeVerifierCommitmentKey pcs_vkey{};
+        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(native_result, recursive_result);
 
-        if constexpr (!IsSimulator<OuterBuilder>) {
+        {
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(decider_circuit);
             OuterProver prover(decider_pk);
             auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
@@ -463,14 +463,11 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
                   verifier_circuit_2.get_estimated_num_finalized_gates());
 
         // The circuit blocks (selectors + wires) fully determine the circuit - check that they are identical
-        if constexpr (!IsSimulator<OuterBuilder>) {
-            EXPECT_EQ(verifier_circuit_1.blocks, verifier_circuit_2.blocks);
-        }
+        EXPECT_EQ(verifier_circuit_1.blocks, verifier_circuit_2.blocks);
     }
 };
 
-using FlavorTypes =
-    testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+using FlavorTypes = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 TYPED_TEST_SUITE(ProtogalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(ProtogalaxyRecursiveTests, InnerCircuit)
