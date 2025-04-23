@@ -19,7 +19,7 @@ In this section, you can explore how governance works on Aztec, the types of nod
   </Card>
 </div>
 
-## Decentralization Components
+<!-- ## Decentralization Components
 
 <div className="card-container">
   <Card shadow='tl' link='the_aztec_network/concepts/provers-and-sequencers/index'>
@@ -30,7 +30,7 @@ In this section, you can explore how governance works on Aztec, the types of nod
       How sequencers propose and produce blocks
     </CardBody>
   </Card>
-</div>
+</div> -->
 
 ## Run a node
 
