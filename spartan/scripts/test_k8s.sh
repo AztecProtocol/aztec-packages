@@ -47,6 +47,9 @@ OVERRIDES="${OVERRIDES:-}"
 if [ "$target" = "kind" ]; then
   echo "Deploying to kind"
   export K8S="local"
+elif [ "$target" = "local" ]; then
+  echo "Using local credentials"
+  export K8S="local"
 elif [ "$target" = "gke" ]; then
   echo "Deploying to GKE"
   export K8S="gcloud"

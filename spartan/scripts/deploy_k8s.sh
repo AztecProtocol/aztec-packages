@@ -27,6 +27,7 @@ helm_instance="${6:-spartan}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
+clear_chaos_mesh="${CLEAR_CHAOS_MESH:-}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 install_timeout=${INSTALL_TIMEOUT:-30m}
 overrides="${OVERRIDES:-}"
@@ -83,7 +84,7 @@ function generate_overrides {
 }
 
 # if we don't have a chaos values, remove any existing chaos experiments
-if [ -z "$chaos_values" ]; then
+if [ -z "$chaos_values" && -n "$clear_chaos_mesh" ]; then
   echo "Deleting existing network chaos experiments..."
   kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
 fi
