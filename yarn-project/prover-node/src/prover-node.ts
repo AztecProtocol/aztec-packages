@@ -83,7 +83,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   ) {
     this.l1Metrics = new L1Metrics(
       telemetryClient.getMeter('ProverNodeL1Metrics'),
-      publisher.l1TxUtils.client as ViemPublicClient,
+      publisher.l1TxUtils.client as unknown as ViemPublicClient,
       [publisher.getSenderAddress()],
     );
 

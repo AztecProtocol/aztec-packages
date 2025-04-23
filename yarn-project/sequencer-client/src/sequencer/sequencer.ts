@@ -115,7 +115,7 @@ export class Sequencer {
     );
     this.l1Metrics = new L1Metrics(
       telemetry.getMeter('SequencerL1Metrics'),
-      publisher.l1TxUtils.client as ViemPublicClient,
+      publisher.l1TxUtils.client as unknown as ViemPublicClient,
       [publisher.getSenderAddress()],
     );
 

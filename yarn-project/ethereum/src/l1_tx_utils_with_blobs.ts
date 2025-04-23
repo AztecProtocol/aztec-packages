@@ -3,7 +3,6 @@ import { Blob } from '@aztec/blob-lib';
 import { formatGwei } from 'viem';
 
 import { type GasPrice, L1TxUtils } from './l1_tx_utils.js';
-import { isExtendedClient } from './types.js';
 
 export class L1TxUtilsWithBlobs extends L1TxUtils {
   /**
@@ -14,9 +13,6 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
    * @returns The hash of the cancellation transaction
    */
   override async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
-    if (!isExtendedClient(this.client)) {
-      throw new Error('Cannot send transaction from public client');
-    }
     const account = this.client.account;
 
     // Get gas price with higher priority fee for cancellation
