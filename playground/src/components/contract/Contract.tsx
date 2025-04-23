@@ -181,7 +181,7 @@ export function ContractComponent() {
     setOpenCreateContractDialog(false);
     if (contract && publiclyDeploy) {
       const deploymentResult = await sendTx(
-        `deploy ${currentContractArtifact.name}`,
+        `Deploy ${currentContractArtifact.name}`,
         interaction,
         contract.address,
         opts,

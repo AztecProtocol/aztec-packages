@@ -141,7 +141,7 @@ export function AccountSelector() {
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
     if (accountWallet && publiclyDeploy) {
-      const deploymentResult = await sendTx(`Deployment of account`, interaction, accountWallet.getAddress(), opts);
+      const deploymentResult = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
       if (deploymentResult) {
         setAccounts([
           ...accounts,

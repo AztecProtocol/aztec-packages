@@ -1,4 +1,5 @@
 import { VERSION } from './constants';
+import { AztecAddress, type NoirCompiledContract } from '@aztec/aztec.js';
 
 export type Network = {
   nodeURL: string;
@@ -6,6 +7,8 @@ export type Network = {
   description: string;
   hasTestAccounts: boolean;
   hasSponsoredFPC: boolean;
+  sponsoredFPCAddress?: AztecAddress;
+  sponsoredFPCContractArtifact?: NoirCompiledContract;
 };
 
 export const NETWORKS: Network[] = [
