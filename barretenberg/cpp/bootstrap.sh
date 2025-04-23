@@ -180,7 +180,8 @@ function test_cmds {
       while read -r test; do
         local prefix=$hash
         # A little extra resource for these tests.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ClientIVCKernelCapacity|AvmRecursiveTests) ]]; then
+        # IPARecursiveTests fail with 2 threads.
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ClientIVCKernelCapacity|AvmRecursiveTests|IPARecursiveTests) ]]; then
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
