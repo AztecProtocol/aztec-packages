@@ -2,6 +2,8 @@ aztec:
   slotDuration: 24
   epochDuration: 4
   proofSubmissionWindow: 8
+  testAccounts: true
+  sponsoredFPC: true
 
 ethereum:
   acceleratedTestDeployments: true
