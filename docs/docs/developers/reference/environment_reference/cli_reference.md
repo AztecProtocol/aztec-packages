@@ -859,7 +859,7 @@ Options:
   - `messageLeafIndex`: The index of the claim in the l1toL2Message tree.
   - `feeRecipient`: Recipient of the fee.
   - Format: --payment method=name,asset=address,fpc=address ... (default: "method=fee_juice")
-- `-i, --increased-fees <da=1,l2=1>`: The amounts by which the fees are increased (default: {"feePerDaGas":"0x0000000000000000000000000000000000000000000000000000000000000001","feePerL2Gas":"0x0000000000000000000000000000000000000000000000000000000000000001"})
+- `-i, --increased-fees <da=1,l2=1>`: The amounts by which the fees are increased (default: "feePerDaGas":"0x0000000000000000000000000000000000000000000000000000000000000001","feePerL2Gas":"0x0000000000000000000000000000000000000000000000000000000000000001")
 - `--max-fees-per-gas <da=100,l2=100>`: Maximum fees per gas unit for DA and L2 computation.
 
 ### get-block
