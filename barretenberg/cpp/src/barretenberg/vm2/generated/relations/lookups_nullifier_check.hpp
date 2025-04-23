@@ -46,15 +46,15 @@ class lookup_nullifier_check_low_leaf_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._nullifier_check_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::nullifier_check_sel) == 1 || in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._nullifier_check_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::nullifier_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -70,18 +70,18 @@ class lookup_nullifier_check_low_leaf_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_nullifier_check_low_leaf_poseidon2_inv(),
-                                     in._lookup_nullifier_check_low_leaf_poseidon2_counts(),
-                                     in._nullifier_check_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._nullifier_check_low_leaf_nullifier(),
-                                     in._nullifier_check_low_leaf_next_nullifier(),
-                                     in._nullifier_check_low_leaf_next_index(),
-                                     in._nullifier_check_low_leaf_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_poseidon2_inv),
+                                     in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_poseidon2_counts),
+                                     in.get(ColumnAndShifts::nullifier_check_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_nullifier),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_next_nullifier),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_next_index),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_hash),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -145,15 +145,16 @@ class lookup_nullifier_check_updated_low_leaf_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._nullifier_check_write() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::nullifier_check_write) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._nullifier_check_write());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::nullifier_check_write));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -169,18 +170,18 @@ class lookup_nullifier_check_updated_low_leaf_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_nullifier_check_updated_low_leaf_poseidon2_inv(),
-                                     in._lookup_nullifier_check_updated_low_leaf_poseidon2_counts(),
-                                     in._nullifier_check_write(),
-                                     in._poseidon2_hash_end(),
-                                     in._nullifier_check_low_leaf_nullifier(),
-                                     in._nullifier_check_write_low_leaf_next_nullifier(),
-                                     in._nullifier_check_write_low_leaf_next_index(),
-                                     in._nullifier_check_updated_low_leaf_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_nullifier_check_updated_low_leaf_poseidon2_inv),
+                                     in.get(ColumnAndShifts::lookup_nullifier_check_updated_low_leaf_poseidon2_counts),
+                                     in.get(ColumnAndShifts::nullifier_check_write),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_nullifier),
+                                     in.get(ColumnAndShifts::nullifier_check_write_low_leaf_next_nullifier),
+                                     in.get(ColumnAndShifts::nullifier_check_write_low_leaf_next_index),
+                                     in.get(ColumnAndShifts::nullifier_check_updated_low_leaf_hash),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -248,15 +249,15 @@ class lookup_nullifier_check_low_leaf_merkle_check_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._nullifier_check_sel() == 1 || in._merkle_check_start() == 1);
+        return (in.get(ColumnAndShifts::nullifier_check_sel) == 1 || in.get(ColumnAndShifts::merkle_check_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._nullifier_check_sel());
-        const auto is_table_entry = View(in._merkle_check_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::nullifier_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::merkle_check_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -272,24 +273,24 @@ class lookup_nullifier_check_low_leaf_merkle_check_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_nullifier_check_low_leaf_merkle_check_inv(),
-                                     in._lookup_nullifier_check_low_leaf_merkle_check_counts(),
-                                     in._nullifier_check_sel(),
-                                     in._merkle_check_start(),
-                                     in._nullifier_check_write(),
-                                     in._nullifier_check_low_leaf_hash(),
-                                     in._nullifier_check_updated_low_leaf_hash(),
-                                     in._nullifier_check_low_leaf_index(),
-                                     in._nullifier_check_tree_height(),
-                                     in._nullifier_check_root(),
-                                     in._nullifier_check_intermediate_root(),
-                                     in._merkle_check_write(),
-                                     in._merkle_check_read_node(),
-                                     in._merkle_check_write_node(),
-                                     in._merkle_check_index(),
-                                     in._merkle_check_path_len(),
-                                     in._merkle_check_read_root(),
-                                     in._merkle_check_write_root());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_merkle_check_inv),
+                                     in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_merkle_check_counts),
+                                     in.get(ColumnAndShifts::nullifier_check_sel),
+                                     in.get(ColumnAndShifts::merkle_check_start),
+                                     in.get(ColumnAndShifts::nullifier_check_write),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_hash),
+                                     in.get(ColumnAndShifts::nullifier_check_updated_low_leaf_hash),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_index),
+                                     in.get(ColumnAndShifts::nullifier_check_tree_height),
+                                     in.get(ColumnAndShifts::nullifier_check_root),
+                                     in.get(ColumnAndShifts::nullifier_check_intermediate_root),
+                                     in.get(ColumnAndShifts::merkle_check_write),
+                                     in.get(ColumnAndShifts::merkle_check_read_node),
+                                     in.get(ColumnAndShifts::merkle_check_write_node),
+                                     in.get(ColumnAndShifts::merkle_check_index),
+                                     in.get(ColumnAndShifts::merkle_check_path_len),
+                                     in.get(ColumnAndShifts::merkle_check_read_root),
+                                     in.get(ColumnAndShifts::merkle_check_write_root));
     }
 };
 
@@ -350,15 +351,16 @@ class lookup_nullifier_check_low_leaf_nullifier_validation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._nullifier_check_leaf_not_exists() == 1 || in._ff_gt_sel_gt() == 1);
+        return (in.get(ColumnAndShifts::nullifier_check_leaf_not_exists) == 1 ||
+                in.get(ColumnAndShifts::ff_gt_sel_gt) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._nullifier_check_leaf_not_exists());
-        const auto is_table_entry = View(in._ff_gt_sel_gt());
+        const auto is_operation = View(in.get(ColumnAndShifts::nullifier_check_leaf_not_exists));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::ff_gt_sel_gt));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -374,16 +376,17 @@ class lookup_nullifier_check_low_leaf_nullifier_validation_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_nullifier_check_low_leaf_nullifier_validation_inv(),
-                                     in._lookup_nullifier_check_low_leaf_nullifier_validation_counts(),
-                                     in._nullifier_check_leaf_not_exists(),
-                                     in._ff_gt_sel_gt(),
-                                     in._nullifier_check_nullifier(),
-                                     in._nullifier_check_low_leaf_nullifier(),
-                                     in._nullifier_check_one(),
-                                     in._ff_gt_a(),
-                                     in._ff_gt_b(),
-                                     in._ff_gt_result());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_nullifier_validation_inv),
+            in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_nullifier_validation_counts),
+            in.get(ColumnAndShifts::nullifier_check_leaf_not_exists),
+            in.get(ColumnAndShifts::ff_gt_sel_gt),
+            in.get(ColumnAndShifts::nullifier_check_nullifier),
+            in.get(ColumnAndShifts::nullifier_check_low_leaf_nullifier),
+            in.get(ColumnAndShifts::nullifier_check_one),
+            in.get(ColumnAndShifts::ff_gt_a),
+            in.get(ColumnAndShifts::ff_gt_b),
+            in.get(ColumnAndShifts::ff_gt_result));
     }
 };
 
@@ -444,15 +447,16 @@ class lookup_nullifier_check_low_leaf_next_nullifier_validation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._nullifier_check_next_nullifier_is_nonzero() == 1 || in._ff_gt_sel_gt() == 1);
+        return (in.get(ColumnAndShifts::nullifier_check_next_nullifier_is_nonzero) == 1 ||
+                in.get(ColumnAndShifts::ff_gt_sel_gt) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._nullifier_check_next_nullifier_is_nonzero());
-        const auto is_table_entry = View(in._ff_gt_sel_gt());
+        const auto is_operation = View(in.get(ColumnAndShifts::nullifier_check_next_nullifier_is_nonzero));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::ff_gt_sel_gt));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -468,16 +472,17 @@ class lookup_nullifier_check_low_leaf_next_nullifier_validation_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_nullifier_check_low_leaf_next_nullifier_validation_inv(),
-                                     in._lookup_nullifier_check_low_leaf_next_nullifier_validation_counts(),
-                                     in._nullifier_check_next_nullifier_is_nonzero(),
-                                     in._ff_gt_sel_gt(),
-                                     in._nullifier_check_low_leaf_next_nullifier(),
-                                     in._nullifier_check_nullifier(),
-                                     in._nullifier_check_one(),
-                                     in._ff_gt_a(),
-                                     in._ff_gt_b(),
-                                     in._ff_gt_result());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_next_nullifier_validation_inv),
+            in.get(ColumnAndShifts::lookup_nullifier_check_low_leaf_next_nullifier_validation_counts),
+            in.get(ColumnAndShifts::nullifier_check_next_nullifier_is_nonzero),
+            in.get(ColumnAndShifts::ff_gt_sel_gt),
+            in.get(ColumnAndShifts::nullifier_check_low_leaf_next_nullifier),
+            in.get(ColumnAndShifts::nullifier_check_nullifier),
+            in.get(ColumnAndShifts::nullifier_check_one),
+            in.get(ColumnAndShifts::ff_gt_a),
+            in.get(ColumnAndShifts::ff_gt_b),
+            in.get(ColumnAndShifts::ff_gt_result));
     }
 };
 
@@ -542,15 +547,16 @@ class lookup_nullifier_check_new_leaf_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._nullifier_check_write() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::nullifier_check_write) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._nullifier_check_write());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::nullifier_check_write));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -566,18 +572,18 @@ class lookup_nullifier_check_new_leaf_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_nullifier_check_new_leaf_poseidon2_inv(),
-                                     in._lookup_nullifier_check_new_leaf_poseidon2_counts(),
-                                     in._nullifier_check_write(),
-                                     in._poseidon2_hash_end(),
-                                     in._nullifier_check_nullifier(),
-                                     in._nullifier_check_low_leaf_next_nullifier(),
-                                     in._nullifier_check_low_leaf_next_index(),
-                                     in._nullifier_check_new_leaf_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_nullifier_check_new_leaf_poseidon2_inv),
+                                     in.get(ColumnAndShifts::lookup_nullifier_check_new_leaf_poseidon2_counts),
+                                     in.get(ColumnAndShifts::nullifier_check_write),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::nullifier_check_nullifier),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_next_nullifier),
+                                     in.get(ColumnAndShifts::nullifier_check_low_leaf_next_index),
+                                     in.get(ColumnAndShifts::nullifier_check_new_leaf_hash),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -641,15 +647,16 @@ class lookup_nullifier_check_new_leaf_merkle_check_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._nullifier_check_write() == 1 || in._merkle_check_start() == 1);
+        return (in.get(ColumnAndShifts::nullifier_check_write) == 1 ||
+                in.get(ColumnAndShifts::merkle_check_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._nullifier_check_write());
-        const auto is_table_entry = View(in._merkle_check_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::nullifier_check_write));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::merkle_check_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -665,24 +672,24 @@ class lookup_nullifier_check_new_leaf_merkle_check_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_nullifier_check_new_leaf_merkle_check_inv(),
-                                     in._lookup_nullifier_check_new_leaf_merkle_check_counts(),
-                                     in._nullifier_check_write(),
-                                     in._merkle_check_start(),
-                                     in._nullifier_check_one(),
-                                     in._precomputed_zero(),
-                                     in._nullifier_check_new_leaf_hash(),
-                                     in._nullifier_check_tree_size_before_write(),
-                                     in._nullifier_check_tree_height(),
-                                     in._nullifier_check_intermediate_root(),
-                                     in._nullifier_check_write_root(),
-                                     in._merkle_check_write(),
-                                     in._merkle_check_read_node(),
-                                     in._merkle_check_write_node(),
-                                     in._merkle_check_index(),
-                                     in._merkle_check_path_len(),
-                                     in._merkle_check_read_root(),
-                                     in._merkle_check_write_root());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_nullifier_check_new_leaf_merkle_check_inv),
+                                     in.get(ColumnAndShifts::lookup_nullifier_check_new_leaf_merkle_check_counts),
+                                     in.get(ColumnAndShifts::nullifier_check_write),
+                                     in.get(ColumnAndShifts::merkle_check_start),
+                                     in.get(ColumnAndShifts::nullifier_check_one),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::nullifier_check_new_leaf_hash),
+                                     in.get(ColumnAndShifts::nullifier_check_tree_size_before_write),
+                                     in.get(ColumnAndShifts::nullifier_check_tree_height),
+                                     in.get(ColumnAndShifts::nullifier_check_intermediate_root),
+                                     in.get(ColumnAndShifts::nullifier_check_write_root),
+                                     in.get(ColumnAndShifts::merkle_check_write),
+                                     in.get(ColumnAndShifts::merkle_check_read_node),
+                                     in.get(ColumnAndShifts::merkle_check_write_node),
+                                     in.get(ColumnAndShifts::merkle_check_index),
+                                     in.get(ColumnAndShifts::merkle_check_path_len),
+                                     in.get(ColumnAndShifts::merkle_check_read_root),
+                                     in.get(ColumnAndShifts::merkle_check_write_root));
     }
 };
 

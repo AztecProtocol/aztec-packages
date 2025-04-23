@@ -234,7 +234,7 @@ pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
 }
 
 pub fn poseidon2_hash<let N: u32>(inputs: [Field; N]) -> Field {
-    std::hash::poseidon2::Poseidon2::hash(inputs, N)
+    poseidon::poseidon2::Poseidon2::hash(inputs, N)
 }
 
 #[no_predicates]
@@ -256,7 +256,7 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
     sponge.squeeze()
 }
 
-// NB the below is the same as std::hash::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check,
+// NB the below is the same as poseidon::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check,
 // and absorbing in chunks of 3 below.
 #[no_predicates]
 pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
@@ -462,7 +462,7 @@ fn poseidon_chunks_matches_fixed() {
         input[i] = 3;
     }
     let sub_chunk_hash = poseidon2_hash_subarray(input, in_len);
-    let fixed_len_hash = std::hash::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
+    let fixed_len_hash = poseidon::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
     assert(sub_chunk_hash == fixed_len_hash);
 }
 
@@ -474,7 +474,7 @@ fn poseidon_chunks_matches_variable() {
         input[i] = 3;
     }
     let variable_chunk_hash = poseidon2_cheaper_variable_hash(input, in_len);
-    let variable_len_hash = std::hash::poseidon2::Poseidon2::hash(input, in_len);
+    let variable_len_hash = poseidon::poseidon2::Poseidon2::hash(input, in_len);
     assert(variable_chunk_hash == variable_len_hash);
 }
 

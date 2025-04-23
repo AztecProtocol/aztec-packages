@@ -190,7 +190,6 @@ export class P2PNetworkTest {
 
   async applyBaseSnapshots() {
     await this.addBootstrapNode();
-
     await this.snapshotManager.snapshot(
       'add-validators',
       async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {

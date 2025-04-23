@@ -78,9 +78,7 @@ describe('spartan_upgrade_rollup_version', () => {
       debugLogger.info(`L1 Client address: ${l1Client.account.address}`);
       const initialTestAccounts = await getInitialTestAccounts();
 
-      const { genesisBlockHash, genesisArchiveRoot, fundingNeeded } = await getGenesisValues(
-        initialTestAccounts.map(a => a.address),
-      );
+      const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialTestAccounts.map(a => a.address));
 
       const rollup = new RollupContract(l1Client, originalL1ContractAddresses.rollupAddress.toString());
       const { rollup: newRollup } = await deployRollupForUpgrade(
@@ -90,7 +88,6 @@ describe('spartan_upgrade_rollup_version', () => {
           vkTreeRoot: getVKTreeRoot(),
           protocolContractTreeRoot,
           genesisArchiveRoot,
-          genesisBlockHash,
           ethereumSlotDuration: 12,
           aztecSlotDuration: 24,
           aztecEpochDuration: 4,
@@ -99,8 +96,6 @@ describe('spartan_upgrade_rollup_version', () => {
           minimumStake: BigInt(100e18),
           slashingQuorum: 6,
           slashingRoundSize: 10,
-          governanceProposerQuorum: 6,
-          governanceProposerRoundSize: 10,
           manaTarget: BigInt(100e6),
           provingCostPerMana: BigInt(100),
           feeJuicePortalInitialBalance: fundingNeeded,

@@ -50,7 +50,6 @@ describe('Forwarder', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
 
     govProposerAddress = deployed.l1ContractAddresses.governanceProposerAddress;
