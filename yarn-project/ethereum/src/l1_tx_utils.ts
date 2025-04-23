@@ -28,7 +28,7 @@ import {
   hexToBytes,
 } from 'viem';
 
-import type { ExtendedViemWalletClient, ViemClient } from './types.js';
+import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -523,6 +523,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     debugMaxGasLimit: boolean = false,
   ) {
     super(client, logger, config, debugMaxGasLimit);
+    if (!isExtendedClient(this.client)) {
+      throw new Error('L1TxUtils has to be instantiated with a wallet client.');
+    }
   }
 
   public getSenderAddress() {
