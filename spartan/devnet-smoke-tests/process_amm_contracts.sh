@@ -112,7 +112,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       -ca $token_0_address \
       --args $current_user_address $amm_address $amount_0_max secrets:add-liquidity-nonce \
       -f $current_user_address \
-      -a add_liquidity_token_1
+      -a add_liquidity_token_0
 
     aztec-wallet \
       create-authwit transfer_to_public $amm_address \
