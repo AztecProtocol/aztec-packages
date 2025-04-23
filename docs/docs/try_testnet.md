@@ -28,8 +28,6 @@ Follow the [getting started on testnet guide](./developers/guides/local_env/gett
 
 ## Additional information
 
-| Parameter | Value |
-|-----------|-------|
 | Chain ID | `11155111` |
 | Rollup Version | `150103439` |
 | Node ENR | `enr:-MK4QGMeY-XZOb8V-1f6rDbm_E3SGk8JqvlveqFtQ80WLUbnOapCMv3fh4UAh1SeYw5KfcqPFfk_F99cnO8jDIfS_AwGhWF6dGVjsDAwLTExMTU1MTExLThkMWNjNzAyLTE1MDEwMzQzOS0wYjZiNWY2Yy0wZWE1MWRhNIJpZIJ2NIJpcIQia0KqiXNlY3AyNTZrMaEDmQTk2B2UCjSyvQfvs1SSSYE3namSE7IzmWU_vFrHP5KDdGNwgp3Qg3VkcIKd0A` |
