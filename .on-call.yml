@@ -1,0 +1,28 @@
+start_date: "2025-04-22"
+names:
+  - adam: &adam "U04BM8H25NJ"
+  - alex: &alex "U05QWV669JB"
+  - charlie: &charlie "UKUMA5J7K"
+  - grego: &grego "U0689QRCE9L"
+  - lasse: &lasse "U03E5SYLY3Z"
+  - leila: &leila "UBLTU1NJ3"
+  - luke: &luke "U03JYU7AQET"
+  - mitch: &mitch "U06AY5G1NRK"
+  - palla: &palla "U04TPBU26E8"
+  - phil: &phil "U02G4KAD57Y"
+  - sean: &sean "U04DT239VQU"
+  - tom: &tom "U04LLT331NK"
+  - sergei: &sergei "U05RR81391B"
+  - spyros: &spyros "U03FCET0DQE"
+  - jan: &jan "U03FGA0BWNR"
+  - esau: &esau "U067FJ9A4Q1"
+members:
+  - *phil
+  - *alex
+  - *palla
+  - *sean
+  - *spyros
+  - *lasse
+  - *esau
+  - *jan
+  - *grego
