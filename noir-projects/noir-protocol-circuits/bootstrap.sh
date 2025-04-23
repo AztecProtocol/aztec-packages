@@ -201,7 +201,62 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function bench {
+  rm -rf bench-out && mkdir -p bench-out
+  local hash=$(hash)
+  if cache_download noir-protocol-circuits-bench-results-$hash.tar.gz; then
+    return
+  fi
+
+  local MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "../client_ivc_circuits.json")
+  local ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "../rollup_honk_circuits.json")
+
+  outdir=$(mktemp -d)
+  trap "rm -rf $outdir" EXIT
+  for artifact in "./target"/*.json; do
+    [[ "$artifact" =~ _simulated ]] && continue
+
+    (
+      # Determine if the circuit is a mega honk circuit.
+      IS_MEGA_HONK_CIRCUIT="false"
+      for pattern in $MEGA_HONK_CIRCUIT_PATTERNS; do
+          if echo "$artifact" | grep -qE "$pattern"; then
+              IS_MEGA_HONK_CIRCUIT="true"
+              break
+          fi
+      done
+
+      IS_ROLLUP_HONK_CIRCUIT="false"
+      for pattern in $ROLLUP_HONK_CIRCUIT_PATTERNS; do
+          if echo "$artifact" | grep -qE "$pattern"; then
+              IS_ROLLUP_HONK_CIRCUIT="true"
+              break
+          fi
+      done
+
+      local circuit_name=$(basename -- $artifact .json)
+      if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
+            $BB gates -b "${artifact}" --scheme client_ivc > $outdir/$circuit_name
+        elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
+            $BB gates -b "${artifact}" --scheme ultra_honk --honk_recursion 2 > $outdir/$circuit_name
+        else
+            $BB gates -b "${artifact}" --scheme ultra_honk --honk_recursion 1 > $outdir/$circuit_name
+      fi
+    ) &
+  done
+  wait # wait for parallel processes to finish
+
+  local metrics=$(jq '.functions[0] | .name = (input_filename | split ("/")[-1])' $outdir/*)
+  echo $metrics | jq -s 'map({ name, unit: "opcodes", value: .acir_opcodes })' > ./bench-out/protocol-circuits-opcodes-bench.json
+  echo $metrics | jq -s 'map({ name, unit: "gates", value: .circuit_size })' > ./bench-out/protocol-circuits-gates-bench.json
+
+  cache_upload noir-protocol-circuits-bench-results-$hash.tar.gz ./bench-out/*
+}
+
 case "$cmd" in
+  "bench")
+    bench
+    ;;
   "clean")
     git clean -fdx
     ;;

@@ -250,6 +250,7 @@ case "$cmd" in
     git config --global user.name "AztecBot"
     # Run benchmark logic for github actions.
     bb_hash=$(barretenberg/bootstrap.sh hash)
+    npc_hash=$(noir-projects/noir-protocol-circuits/bootstrap.sh hash)
     yp_hash=$(yarn-project/bootstrap.sh hash)
 
     if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
@@ -259,6 +260,7 @@ case "$cmd" in
     fi
 
     prev_bb_hash=$(AZTEC_CACHE_COMMIT=HEAD^ barretenberg/bootstrap.sh hash)
+    prev_npc_hash=$(AZTEC_CACHE_COMMIT=HEAD^ noir-projects/noir-protocol-circuits/bootstrap.sh hash)
     prev_yp_hash=$(AZTEC_CACHE_COMMIT=HEAD^ yarn-project/bootstrap.sh hash)
 
     # barretenberg benchmarks.
@@ -267,6 +269,14 @@ case "$cmd" in
       echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
     else
       cache_download barretenberg-bench-results-$bb_hash.tar.gz
+    fi
+
+    # noir-protocol-circuits benchmarks.
+    if [ "$npc_hash" == "$prev_npc_hash" ]; then
+      echo "No changes since last master, skipping noir-protocol-circuits benchmark publishing."
+      echo "SKIP_NPC_BENCH=true" >> $GITHUB_ENV
+    else
+      cache_download noir-protocol-circuits-bench-results-$npc_hash.tar.gz
     fi
 
     # yarn-project benchmarks.
