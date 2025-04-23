@@ -79,8 +79,9 @@ export default {
   plugins: [
     new webpack.DefinePlugin({ 'process.env.NODE_DEBUG': false }),
     new NodePolyfillPlugin({
-			onlyAliases: ['process', 'buffer'],
+			onlyAliases: ['process'],
 		}),
+    new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
     new webpack.NormalModuleReplacementPlugin(/\/node\/(.*)\.js$/, function (resource) {
       resource.request = resource.request.replace('/node/', '/browser/');
     }),

@@ -25,6 +25,13 @@ export default {
   experiments: {
     outputModule: true,
   },
+  optimization: {
+    splitChunks: {
+      // Cannot use async due to https://github.com/webpack/webpack/issues/17014
+      // messing with module workers loaded asynchronously.
+      chunks: /barretenberg.*.js/,
+    },
+  },
   plugins: [
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),
     new webpack.DefinePlugin({ "process.env.NODE_DEBUG": false }),
