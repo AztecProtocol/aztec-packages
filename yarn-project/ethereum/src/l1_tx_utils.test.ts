@@ -9,16 +9,17 @@ import { type Abi, createPublicClient, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { createExtendedL1Client } from './client.js';
+import { createExtendedL1Client, getPublicClient } from './client.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
-import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
+import { L1TxUtils, ReadOnlyL1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
-import type { ExtendedViemWalletClient } from './types.js';
+import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
+const logger = createLogger('ethereum:test:l1_tx_utils');
 // Simple contract that just returns 42
 const SIMPLE_CONTRACT_BYTECODE = '0x69602a60005260206000f3600052600a6016f3';
 
@@ -34,7 +35,6 @@ describe('GasUtils', () => {
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
   const initialBaseFee = WEI_CONST; // 1 gwei
-  const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
     const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
@@ -621,4 +621,69 @@ describe('GasUtils', () => {
     // Verify the original transaction is no longer present
     await expect(l1Client.getTransaction({ hash: txHash })).rejects.toThrow();
   }, 10_000);
+});
+
+describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
+  let publicClient: ViemClient;
+  let walletClient: ExtendedViemWalletClient;
+
+  beforeAll(async () => {
+    const { rpcUrl } = await startAnvil({ l1BlockTime: 1 });
+
+    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+    const privKeyRaw = hdAccount.getHdKey().privateKey;
+    if (!privKeyRaw) {
+      throw new Error('Failed to get private key');
+    }
+    const privKey = Buffer.from(privKeyRaw).toString('hex');
+    const account = privateKeyToAccount(`0x${privKey}`);
+
+    walletClient = createExtendedL1Client([rpcUrl], account, foundry);
+    publicClient = getPublicClient({ l1RpcUrls: [rpcUrl], l1ChainId: 31337 });
+  });
+
+  it('ReadOnlyL1TxUtils can be instantiated with public client but not wallet methods', () => {
+    const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger);
+    expect(readOnlyUtils).toBeDefined();
+    expect(readOnlyUtils.client).toBe(publicClient);
+
+    // Verify wallet-specific methods are not available
+    expect(readOnlyUtils).not.toHaveProperty('getSenderAddress');
+    expect(readOnlyUtils).not.toHaveProperty('getSenderBalance');
+    expect(readOnlyUtils).not.toHaveProperty('sendTransaction');
+    expect(readOnlyUtils).not.toHaveProperty('monitorTransaction');
+    expect(readOnlyUtils).not.toHaveProperty('sendAndMonitorTransaction');
+  });
+
+  it('L1TxUtils can be instantiated with wallet client and has write methods', () => {
+    const l1TxUtils = new L1TxUtils(walletClient, logger);
+    expect(l1TxUtils).toBeDefined();
+    expect(l1TxUtils.client).toBe(walletClient);
+
+    // Verify wallet-specific methods are available
+    expect(l1TxUtils.getSenderAddress).toBeDefined();
+    expect(l1TxUtils.getSenderBalance).toBeDefined();
+    expect(l1TxUtils.sendTransaction).toBeDefined();
+    expect(l1TxUtils.monitorTransaction).toBeDefined();
+    expect(l1TxUtils.sendAndMonitorTransaction).toBeDefined();
+  });
+
+  it('L1TxUtils inherits all read-only methods from ReadOnlyL1TxUtils', () => {
+    const l1TxUtils = new L1TxUtils(walletClient, logger);
+
+    // Verify all read-only methods are available
+    expect(l1TxUtils.getBlock).toBeDefined();
+    expect(l1TxUtils.getBlockNumber).toBeDefined();
+    expect(l1TxUtils.getGasPrice).toBeDefined();
+    expect(l1TxUtils.estimateGas).toBeDefined();
+    expect(l1TxUtils.getTransactionStats).toBeDefined();
+    expect(l1TxUtils.simulateGasUsed).toBeDefined();
+    expect(l1TxUtils.bumpGasLimit).toBeDefined();
+  });
+
+  it('L1TxUtils cannot be instantiated with public client', () => {
+    expect(() => {
+      new L1TxUtils(publicClient as any, logger);
+    }).toThrow();
+  });
 });

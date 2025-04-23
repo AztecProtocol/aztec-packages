@@ -31,5 +31,5 @@ export type ViemClient = ViemPublicClient | ExtendedViemWalletClient;
 export type ViemContract<TAbi extends Abi> = GetContractReturnType<TAbi, ExtendedViemWalletClient>;
 
 export function isExtendedClient(client: ViemClient): client is ExtendedViemWalletClient {
-  return 'account' in client;
+  return 'account' in client && client.account !== undefined;
 }

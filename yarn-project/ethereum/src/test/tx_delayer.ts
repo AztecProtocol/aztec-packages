@@ -99,7 +99,7 @@ export function withDelayer<T extends ViemClient>(
   opts: { ethereumSlotDuration: bigint | number },
 ): { client: T; delayer: Delayer } {
   if (!isExtendedClient(client)) {
-    throw new Error('Client must be an extended viem client');
+    throw new Error('withDelayer has to be instantiated with a wallet viem client.');
   }
   const logger = createLogger('ethereum:tx_delayer');
   const delayer = new DelayerImpl(opts);
