@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745377355828,
+  "lastUpdate": 1745395873267,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "60e73f987f850ad0db8fcdce3e9e9d092f2fc0d0",
-          "message": "chore: Fetch rollup address using version as index (#13620)\n\nIf fetching the rollup address given a version identifier fails, it\ntries again using it as an index instead.",
-          "timestamp": "2025-04-16T16:43:39Z",
-          "tree_id": "c230c80adfb26d86a4c41c3d290518f687d5d1db",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/60e73f987f850ad0db8fcdce3e9e9d092f2fc0d0"
-        },
-        "date": 1744825246881,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9538,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.25627134419958003,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 140922,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1935,6 +1896,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 151344,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e7eb85a8e0f67821debfdd18bb4dedd5113d359",
+          "message": "feat!: remove slice read from CALL (#13729)\n\nChanges the opcode operands of CALL:\n### Old\n`INDIRECT_8, gasOffset, addrOffset, argsOffset, argsSizeOffset`\n\n### New\n`INDIRECT_16, l2GasOffset, daGasOffset, addrOffset, argsOffset,\nargsSizeOffset`",
+          "timestamp": "2025-04-23T06:55:16Z",
+          "tree_id": "0d47f3f3cb3e584e1bd0a99f45d3e6d543919b52",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7e7eb85a8e0f67821debfdd18bb4dedd5113d359"
+        },
+        "date": 1745395862173,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9224,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2640806481172898,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 149377,
             "unit": "us"
           }
         ]
