@@ -208,10 +208,12 @@ jq -c '.accounts[]' state.json | while read -r account; do
       create-secret \
       -a burn-nonce
 
+    current_user_liquidity_token_balance=$(get_private_balance "$liquidity_token_address" "$current_user_address")
+
     aztec-wallet \
       create-authwit transfer_to_public $amm_address \
       -ca $token_liquidity_address \
-      --args $current_user_address $amm_address $liquidity_token_balance secrets:burn-nonce \
+      --args $current_user_address $amm_address $((current_user_liquidity_token_balance/8)) secrets:burn-nonce \
       -f $current_user_address \
       -a remove_liquidity
 
@@ -221,7 +223,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
     aztec-wallet $prover_to_use_for_amm_flow \
       send remove_liquidity \
       -ca $amm_address \
-      --args $((liquidity_token_balance/8)) $amount_0_min $amount_1_min secrets:burn-nonce \
+      --args $((current_user_liquidity_token_balance/8)) $amount_0_min $amount_1_min secrets:burn-nonce \
       -aw remove_liquidity \
       -f $current_user_address \
       $fee_method_override
