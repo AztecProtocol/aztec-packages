@@ -15,7 +15,7 @@ import {
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
 
 export type L1GovernanceContractAddresses = Pick<
   L1ContractAddresses,
@@ -133,6 +133,9 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
 
   constructor(address: Hex, public override readonly client: ExtendedViemWalletClient) {
     super(address, client);
+    if (!isExtendedClient(client)) {
+      throw new Error('GovernanceContract has to be instantiated with a wallet client.');
+    }
     this.governanceContract = getContract({ address, abi: GovernanceAbi, client });
   }
 
