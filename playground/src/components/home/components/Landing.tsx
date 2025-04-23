@@ -145,6 +145,10 @@ const featureCardButton = css({
   width: '205px',
   height: '56px',
   display: 'flex',
+  '&:disabled': {
+    backgroundColor: 'var(--mui-palette-primary-main)',
+    opacity: 0.5,
+  },
 });
 
 // Account Abstraction icon
@@ -345,7 +349,7 @@ export function Landing() {
       notifications.show('Account created and saved to PXE.');
 
       const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
-      const feePaymentMethod = await prepareForFeePayment(pxe, network.sponsoredFPCAddress);
+      const feePaymentMethod = await prepareForFeePayment(pxe, network.sponsoredFPCAddress, network.sponsoredFPCContractArtifact);
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {

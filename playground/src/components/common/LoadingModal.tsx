@@ -194,6 +194,7 @@ const minimizedModal = css({
   alignItems: 'center',
   gap: '12px',
   cursor: 'pointer',
+  overflow: 'hidden',
   transition: 'all 0.3s ease',
   '&:hover': {
     transform: 'translateY(-2px)',
@@ -241,6 +242,11 @@ export function LoadingModal() {
     }
 
     setCurrentTx(null);
+    setTransactionModalStatus('closed');
+  };
+
+  const minimizeModal = () => {
+    setTransactionModalStatus('minimized');
   };
 
   const isError = TX_ERRORS.includes(currentTx?.status);
@@ -248,13 +254,13 @@ export function LoadingModal() {
 
   function renderModal() {
     return (
-      <Dialog open={true} onClose={handleClose}>
+      <Dialog open={true} onClose={minimizeModal}>
         <IconButton css={closeButton} onClick={handleClose}>
           <CloseIcon />
         </IconButton>
         <IconButton
           css={minimizeButton}
-          onClick={() => setTransactionModalStatus('minimized')}
+          onClick={minimizeModal}
         >
           <span css={{ width: '24px', height: '24px', position: 'relative', top: '-2px', fontWeight: '600' }}>–</span>
         </IconButton>
@@ -270,7 +276,7 @@ export function LoadingModal() {
             <>
               <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
               <div css={buttonContainer}>
-                <Button variant="contained" color="primary" onClick={handleClose}>
+                <Button variant="contained" color="primary" onClick={minimizeModal}>
                   Close
                 </Button>
               </div>
@@ -301,18 +307,16 @@ export function LoadingModal() {
       lastLog = lastLog.slice(0, 100) + '...';
     }
 
-    const txStatus = currentTx?.status;
-    const isLoading = txStatus === 'simulating' || txStatus === 'proving' || txStatus === 'sending';
-    const isError = txStatus === 'error';
+    const hasError = currentTx?.status === 'error';
     const errorMessage = currentTx?.error;
-    const subtitle = isError ? errorMessage : lastLog;
+    const subtitle = hasError ? errorMessage : lastLog;
 
     return (
       <div css={minimizedModal} onClick={() => setTransactionModalStatus('open')}>
-        {isLoading && (
+        {!hasError && (
           <span css={[loader, { width: '24px', height: '24px' }]}></span>
         )}
-        {isError && (
+        {hasError && (
           <ErrorIcon fontSize="large" style={{ color: 'var(--mui-palette-error-main)' }} />
         )}
 
