@@ -7,7 +7,7 @@ use_sponsored_fpc=true
 # each to a randomly selected account.
 
 jq -c '.accounts[]' state.json | while read -r account; do
-  current_user_address=$(echo $account | jq -r '.address')
+  current_user_address=$(echo "$account" | jq -r '.address')
   account_needs_setup=$(echo "$account" | jq -r '.needs_setup')
 
   # We should use the sponsored fpc flow for one account at least, this flag is true at the start
@@ -20,8 +20,8 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
     echo "Processing nft contract at $nft_address"
     aztec-wallet \
-      register-contract "$nft_address" NFT \
-      -f "$current_user_address"
+      register-contract $nft_address NFT \
+      -f $current_user_address
 
   done
 
@@ -67,8 +67,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
             simulate get_private_nfts \
             -ca $nft_address \
             --args $current_user_address 0 \
-            -f $current_user_address \
-            | get_simulation_result)
+            -f $current_user_address)
 
           echo "Private Nfts: $private_nfts"
 
@@ -103,9 +102,9 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
     private_nfts=$(aztec-wallet \
       simulate get_private_nfts \
-      -ca "$nft_address" \
-      --args "$current_user_address" 0 \
-      -f "$current_user_address" \
+      -ca $nft_address \
+      --args $current_user_address 0 \
+      -f $current_user_address \
       | get_simulation_result)
 
     nft_array=$(echo "$private_nfts" | jq -c -R 'split(" ") | map(select(length > 0))')
@@ -126,9 +125,9 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
       aztec-wallet $prover_to_use_for_transfer \
         send transfer_in_private \
-        -ca "$nft_address" \
-        --args "$current_user_address" "$random_other_account_address" "$current_nft" 0 \
-        -f "$current_user_address" \
+        -ca $nft_address \
+        --args $current_user_address $random_other_account_address $current_nft 0 \
+        -f $current_user_address \
         $fee_method_override
 
       should_prove_transfer=false
