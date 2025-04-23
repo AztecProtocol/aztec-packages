@@ -223,6 +223,14 @@ Generates a secret key and deploys an account contract. Uses a Schnorr single-ke
 aztec-wallet create-account -a master_yoda
 ```
 
+#### Testnet Example
+
+```bash
+aztec-wallet create-account --register-only -a main -n $AZTEC_NODE_URL
+aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --from main -n $AZTEC_NODE_URL --salt 0 -a sponsoredfpc
+aztec-wallet create-account -n $AZTEC_NODE_URL --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
+```
+
 ### Deploy account
 
 Deploys an already registered aztec account that can be used for sending transactions.
@@ -262,6 +270,14 @@ aztec-wallet deploy-account [options]
 $ aztec-wallet create-account --register-only -a master_yoda
 ...
 $ aztec-wallet deploy-account -f master_yoda
+```
+
+When you are deploying an account on testnet, you need to either bridge fee juice or pay for the account deployment with an FPC to pay for the deployment. When using an FPC, you need to create an account, regsiter the FPC, and then you can use it. For example:
+
+```bash
+aztec-wallet create-account --register-only -a main -n $AZTEC_NODE_URL
+aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --from main -n $AZTEC_NODE_URL --salt 0 -a sponsoredfpc
+aztec-wallet deploy-account -n $AZTEC_NODE_URL --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
 ```
 
 ## Contracts Actions
@@ -335,7 +351,7 @@ aztec-wallet register-contract [options] [address] [artifact]
 - `--init <string>`: The contract initializer function to call (default: "constructor")
 - `-k, --public-key <string>`: Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key
 - `-s, --salt <hex string>`: Optional deployment salt as a hex string for generating the deployment address
-- `--deployer <string>`: The address of the account that deployed the contract
+  Sends a transaction by calling a function on an Aztec contract.
 - `--args [args...]`: Constructor arguments (default: [])
 - `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: `PXE_URL`)
 - `-f, --from <string>`: Alias or address of the account to simulate from
@@ -349,7 +365,7 @@ aztec-wallet register-contract <address> <artifact> -a <alias>
 
 ### Send Transaction
 
-Calls a function on an Aztec contract.
+Sends a transaction by calling a function on an Aztec contract.
 
 ```bash
 aztec-wallet send [options] <functionName>
@@ -393,6 +409,12 @@ aztec-wallet send [options] <functionName>
 ```bash
 aztec-wallet send --from master_yoda --contract-address jedi_order --args "luke skywalker" train_jedi
 ```
+
+:::note
+
+On testnet, you might sometimes see a `transaction failed: timeout error`. This is not an actual failure - your transaction has been sent to the mempool and it is just timed out waiting to be mined. You can use `aztec-wallet get-tx <txhash>` to check status.
+
+:::
 
 ### Simulate Transaction
 
@@ -624,7 +646,7 @@ aztec-wallet cancel-tx <txHash>
 
 ### Register Sender
 
-Registers a sender's address in the wallet, so the note synching process will look for notes sent by them.
+Registers a sender's address in the wallet, so the note syncing process will look for notes sent by them.
 
 ```bash
 aztec-wallet register-sender [options] [address]
