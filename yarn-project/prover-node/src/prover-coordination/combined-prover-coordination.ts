@@ -70,9 +70,6 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
     private readonly log = createLogger('aztec:prover-node:combined-prover-coordination'),
   ) {}
 
-  // getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-  //   throw new Error('Method not implemented.');
-  // }
   public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
     const pool = this.p2p ? new P2PCoordinationPool(this.p2p) : new InMemoryCoordinationPool();
     await this.#gatherTxs(txHashes, pool);
@@ -91,9 +88,6 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
 
   async #gatherTxs(txHashes: TxHash[], pool: CoordinationPool): Promise<void> {
     const notFound = await pool.getUnavailableTxsFromPool(txHashes);
-    if (notFound.length === 0) {
-      return;
-    }
     const txsToFind = new Set(notFound.map(tx => tx.toString()));
     await this.#gatherTxsFromAllNodes(txsToFind, pool);
     if (txsToFind.size === 0) {
@@ -103,6 +97,9 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
   }
 
   async #gatherTxsFromAllNodes(txsToFind: Set<string>, pool: CoordinationPool) {
+    if (txsToFind.size === 0) {
+      return;
+    }
     if (this.aztecNodes.length === 0) {
       this.log.warn('No Aztec nodes available for tx gathering');
       return;
@@ -112,17 +109,22 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
     const allTxs: string[] = [...txsToFind];
     const txsPerNode = Math.ceil(allTxs.length / this.aztecNodes.length);
     const txSets: Set<string>[] = [];
-    while (allTxs.length) {
+    for (let i = 0; i < this.aztecNodes.length; i++) {
       const batch = allTxs.splice(0, txsPerNode);
       txSets.push(new Set(batch));
     }
 
+    // There should not be any txs left, but if there are, we add them to the last set
+    allTxs.forEach(tx => txSets[txSets.length - 1].add(tx));
+
     for (let i = 0; i < txSets.length; i++) {
+      const nodePromises = [];
       for (let j = 0; j < this.aztecNodes.length; j++) {
         // The node is always given the same set location, we then shuffle the sets to ensure that
         // we ask all nodes for txs before giving up
-        await this.#gatherTxsFromNode(txSets[j], this.aztecNodes[j], pool);
+        nodePromises.push(this.#gatherTxsFromNode(txSets[j], this.aztecNodes[j], pool));
       }
+      await Promise.all(nodePromises);
       // now shuffle the sets
       const first = txSets.shift();
       txSets.push(first!);
@@ -147,13 +149,18 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
     }
 
     await asyncPool(this.options.txGatheringMaxParallelRequests, batches, async batch => {
-      const txs = (await aztecNode.getTxsByHash(batch.map(b => TxHash.fromString(b)))).filter(
-        tx => tx !== undefined,
-      ) as Tx[];
-      totalTxsGathered += txs.length;
-      await pool.addTxs(txs);
-      const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-      hashes.forEach(hash => txsToFind.delete(hash.toString()));
+      try {
+        const txs = (await aztecNode.getTxsByHash(batch.map(b => TxHash.fromString(b)))).filter(
+          tx => tx !== undefined,
+        ) as Tx[];
+        const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+        await pool.addTxs(txs);
+        hashes.forEach(hash => txsToFind.delete(hash.toString()));
+        totalTxsGathered += txs.length;
+      } catch (err) {
+        this.log.error(`Error gathering txs from aztec node: ${err}`);
+        return;
+      }
     });
     this.log.info(`Gathered ${totalTxsGathered} of ${totalTxsRequired} txs`);
   }
