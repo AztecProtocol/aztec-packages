@@ -56,8 +56,19 @@ When using `aztec-wallet`, the Aztec network node to connect to can be specified
 aztec-wallet --node-url <string> ...
 ```
 
-The string currently defaults to the the local sandbox: `http://host.docker.internal:8080`, or can be a bootnode url.
-More conveniently, this can be specified via the environment variable: `AZTEC_NODE_URL`.
+If the node url is not provided, the command defaults to the the local sandbox: `http://host.docker.internal:8080`.
+
+:::info Tip
+If specifying the node url for every command, it is convenient to make an alias for it with your node url:
+
+```
+NODE_URL=http://x.x.x.x
+alias aztec-wallet-node=aztec-wallet -n $NODE_URL
+```
+
+Now you can use the alias for future commands: `aztec-wallet-node ...`
+
+:::
 
 The equivalent using aztec.js - create a PXE pointing to the desired url:
 
@@ -143,8 +154,8 @@ Via the CLI:
 The alias set earlier can be confirmed using: `aztec-wallet get-alias accounts:main`, this is specified here in `--from main`.
 
 ```bash
-SPONSORED_FPC_ADDRESS=<address>
-aztec-wallet register-contract SPONSORED_FPC_ADDRESS SponsoredFPC --from main # Need to specify account that wishes to register the contract
+SPONSORED_FPC_ADDRESS=<0x...aztec_address...>
+aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --salt 0 --from main -a sponsoredfpc  # Need to specify account that wishes to register the contract
 aztec-wallet deploy-account --from main --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc
 ```
 
@@ -170,6 +181,7 @@ Options for payment via the sponsored fpc that can be used in multiple commands:
 - .js: `{ fee: { paymentMethod: new SponsoredFeePaymentMethod(sponseredFPCAddress) }}`
 :::
 
+Once proofs have been generated locally, you will need to wait for the transaction to be included in a block.
 **Congratulations! You have successfully created an account on Aztec!**
 
 This contract now exists in the sandbox network, or on testnet if you specified a node url.
@@ -227,16 +239,16 @@ Options for explicitly stating fee_juice from the sender which is the default pa
 - .js: `{ fee: { paymentMethod: new FeeJuicePaymentMethod(<fee payer address>) }`
 :::
 
-### Bridging Fee Juice
+### Bridging Fee Juice (Sandbox)
 
 The sandbox allows free-minting on it's L1 to be bridged and claimed on its Aztec node.
-For testnet you'll first need an L1 account with the fee asset to send the fees to the Aztec bridge.
+For testnet you'll first need an L1 account with the fee asset to send the fees to the Aztec bridge, as well as specify `--l1-rpc-urls`.
 
 We'll register a new account `accBFJ` and bridge fee-juice to it.
 
 ```bash
 aztec-wallet create-account -a accBFJ --register-only
-aztec-wallet bridge-fee-juice 1000000000000000000 accBFJ --mint --no-wait
+aztec-wallet bridge-fee-juice 1000000000000000000 accBFJ --mint --no-wait # (additionally for testnet) --l1-rpc-urls <string>
 ```
 
 You'll have to wait for two blocks to pass for bridged fee juice to be ready on Aztec. For the sandbox you can do this by putting through two arbitrary transactions. Eg:
