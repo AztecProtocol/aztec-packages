@@ -55,7 +55,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr zero = Fr::from_witness(&builder, 0);
 
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(zero);
+            compute_padding_indicator_array<Curve, domain_size>(zero);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
@@ -67,7 +67,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr N = Fr::from_witness(&builder, domain_size);
 
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(N);
+            compute_padding_indicator_array<Curve, domain_size>(N);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_TRUE(CircuitChecker::check(builder));
@@ -82,7 +82,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr x = Fr::from_witness(&builder, scalar_raw);
 
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(x);
+            compute_padding_indicator_array<Curve, domain_size>(x);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
@@ -94,7 +94,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
         auto get_gate_count = [](const uint32_t& scalar_raw) -> size_t {
             Builder builder;
             Fr x = Fr::from_witness(&builder, scalar_raw);
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(x);
+            auto result = compute_padding_indicator_array<Curve, domain_size>(x);
 
             size_t gate_count = builder.get_estimated_num_finalized_gates();
             // Create a witness = 2^(idx)
