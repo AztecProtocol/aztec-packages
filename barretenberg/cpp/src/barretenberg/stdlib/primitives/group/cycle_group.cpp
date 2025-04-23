@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "../field/field.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -1590,8 +1596,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        // Merge all tags of scalars (we don't have to account for CircuitSimulator in cycle_group yet, because it
-        // breaks)
+        // Merge all tags of scalars
         tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
@@ -1999,6 +2004,5 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/
 template class cycle_group<bb::StandardCircuitBuilder>;
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
-template class cycle_group<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

@@ -1,4 +1,5 @@
 import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
+import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
@@ -9,7 +10,6 @@ import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
-import type { PublicClient } from 'viem';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_L1_SLOTS } from './epochs_test.js';
@@ -18,7 +18,7 @@ jest.setTimeout(1000 * 60 * 10);
 
 describe('e2e_epochs/epochs_proof_fails', () => {
   let context: EndToEndContext;
-  let l1Client: PublicClient;
+  let l1Client: ViemClient;
   let rollup: RollupContract;
   let constants: L1RollupConstants;
   let logger: Logger;

@@ -1,6 +1,6 @@
 export { Crs, GrumpkinCrs } from './crs/index.js';
 export {
-  BackendOptions,
+  type BackendOptions,
   Barretenberg,
   BarretenbergSync,
   BarretenbergVerifier,
@@ -10,4 +10,4 @@ export {
 } from './barretenberg/index.js';
 
 export { RawBuffer, Fr } from './types/index.js';
-export { splitHonkProof, reconstructHonkProof, deflattenFields, ProofData } from './proof/index.js';
+export { splitHonkProof, reconstructHonkProof, deflattenFields, type ProofData } from './proof/index.js';
