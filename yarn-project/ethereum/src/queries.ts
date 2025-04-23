@@ -4,7 +4,7 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import type { Hex } from 'viem';
 
 import type { L1ContractsConfig } from './config.js';
-import { GovernanceContract } from './contracts/governance.js';
+import { ReadOnlyGovernanceContract } from './contracts/governance.js';
 import { GovernanceProposerContract } from './contracts/governance_proposer.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { ViemPublicClient } from './types.js';
@@ -21,7 +21,7 @@ export async function getL1ContractsConfig(
     genesisArchiveTreeRoot: `0x${string}`;
   }
 > {
-  const governance = new GovernanceContract(addresses.governanceAddress.toString(), publicClient, undefined);
+  const governance = new ReadOnlyGovernanceContract(addresses.governanceAddress.toString(), publicClient);
   const governanceProposerAddress = await governance.getGovernanceProposerAddress();
   const governanceProposer = new GovernanceProposerContract(publicClient, governanceProposerAddress.toString());
   const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());

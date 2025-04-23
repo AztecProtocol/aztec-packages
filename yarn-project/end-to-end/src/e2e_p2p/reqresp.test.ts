@@ -140,7 +140,7 @@ describe('e2e_p2p_reqresp_tx', () => {
   async function getProposerIndexes() {
     // Get the nodes for the next set of slots
     const rollupContract = new RollupContract(
-      t.ctx.deployL1ContractsValues.publicClient,
+      t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     );
 

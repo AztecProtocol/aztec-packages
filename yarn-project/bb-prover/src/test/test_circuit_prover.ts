@@ -356,17 +356,21 @@ export class TestCircuitProver implements ServerCircuitProver {
       // TODO(#10323): Native ACVM simulator does not support foreign call handler so we use the wasm simulator
       // when simulating block root rollup and single tx block root rollup circuits or when the native ACVM simulator
       // is not provided.
-      witness = await this.wasmSimulator.executeProtocolCircuit(
-        witnessMap,
-        getSimulatedServerCircuitArtifact(artifactName),
-        foreignCallHandler,
-      );
+      witness = (
+        await this.wasmSimulator.executeProtocolCircuit(
+          witnessMap,
+          getSimulatedServerCircuitArtifact(artifactName),
+          foreignCallHandler,
+        )
+      ).witness;
     } else {
-      witness = await this.simulationProvider.executeProtocolCircuit(
-        witnessMap,
-        getSimulatedServerCircuitArtifact(artifactName),
-        undefined, // Native ACM simulator does not support foreign call handler
-      );
+      witness = (
+        await this.simulationProvider.executeProtocolCircuit(
+          witnessMap,
+          getSimulatedServerCircuitArtifact(artifactName),
+          undefined, // Native ACM simulator does not support foreign call handler
+        )
+      ).witness;
     }
 
     const result = convertOutput(witness);

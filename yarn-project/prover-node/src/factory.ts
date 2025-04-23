@@ -1,7 +1,7 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { L1TxUtils, RollupContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -63,11 +63,11 @@ export async function createProverNode(
 
   const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
   const chain = createEthereumChain(rpcUrls, chainId);
-  const { publicClient, walletClient } = createL1Clients(rpcUrls, publisherPrivateKey, chain.chainInfo);
+  const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey, chain.chainInfo);
 
-  const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+  const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
 
-  const l1TxUtils = deps.l1TxUtils ?? new L1TxUtils(publicClient, walletClient, log, config);
+  const l1TxUtils = deps.l1TxUtils ?? new L1TxUtils(l1Client, log, config);
   const publisher = deps.publisher ?? new ProverNodePublisher(config, { telemetry, rollupContract, l1TxUtils });
 
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
