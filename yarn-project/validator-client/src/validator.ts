@@ -129,7 +129,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       throw new InvalidValidatorPrivateKeyError();
     }
 
-    const privateKey = validatePrivateKey(config.validatorPrivateKey);
+    const privateKey = validatePrivateKey(config.validatorPrivateKey.getValue());
     const localKeyStore = new LocalKeyStore(privateKey);
 
     const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, dateProvider, telemetry);
