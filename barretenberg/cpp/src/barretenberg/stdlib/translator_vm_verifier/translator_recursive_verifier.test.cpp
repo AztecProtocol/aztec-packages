@@ -118,7 +118,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
 
-        if constexpr (!IsSimulator<OuterBuilder>) {
+        {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
@@ -185,9 +185,8 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
     };
 };
 
-using FlavorTypes = testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                   TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                   TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+using FlavorTypes =
+    testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(TranslatorRecursiveTests, FlavorTypes);
 

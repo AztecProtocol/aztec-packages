@@ -103,8 +103,6 @@ describe('spartan_upgrade_rollup_version', () => {
           minimumStake: BigInt(100e18),
           slashingQuorum: 6,
           slashingRoundSize: 10,
-          governanceProposerQuorum: 6,
-          governanceProposerRoundSize: 10,
           manaTarget: BigInt(100e6),
           provingCostPerMana: BigInt(100),
           feeJuicePortalInitialBalance: fundingNeeded,
