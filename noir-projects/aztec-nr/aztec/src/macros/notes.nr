@@ -282,7 +282,7 @@ comptime fn index_note_fields(
         } else {
             indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
         }
-        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], true);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, true);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
         counter += serialization_fields.len();
     }

@@ -76,7 +76,6 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
-    "@msgpack/msgpack": "^3.0.0-beta2",
     "commander": "^12.1.0",
     "pako": "^2.1.0",
     "source-map-support": "^0.5.21",

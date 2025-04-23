@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -120,7 +126,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));

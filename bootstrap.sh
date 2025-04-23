@@ -187,7 +187,8 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  projects=(
+  # These projects are dependant on each other and must be built linearly
+  dependent_projects=(
     noir
     barretenberg
     avm-transpiler
@@ -195,17 +196,24 @@ function build {
     # Relies on noir-projects for verifier solidity generation.
     l1-contracts
     yarn-project
+  )
+  # These projects rely on the output of the dependant projects and can be built in parallel
+  non_dependent_projects=(
     boxes
     playground
-    # docs
+    docs
     release-image
     spartan
     aztec-up
   )
 
-  for project in "${projects[@]}"; do
+  echo_header "Building dependent projects in serial"
+  for project in "${dependent_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
+
+  echo_header "build non-dependent projects in parallel"
+  parallel --line-buffer --tag --halt now,fail=1 '{}/bootstrap.sh ${1:-}' ::: ${non_dependent_projects[@]}
 }
 
 function bench {
@@ -248,7 +256,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   docs, playground => publish if dist tag is latest. TODO Link build in github release.
+  #   playground => publish if dist tag is latest. TODO Link build in github release.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -270,7 +278,7 @@ function release {
     boxes
     aztec-up
     playground
-    # docs
+    # docs # released here /.github/workflows/docs-deploy.yml
     release-image
   )
   if [ $(arch) == arm64 ]; then

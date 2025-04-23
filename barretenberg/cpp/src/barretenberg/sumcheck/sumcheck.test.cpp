@@ -374,8 +374,19 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 };
 
 // Define the FlavorTypes
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = testing::Types<UltraFlavor,
+                                   UltraZKFlavor,
+                                   UltraKeccakFlavor,
+                                   UltraKeccakZKFlavor,
+                                   UltraStarknetFlavor,
+                                   UltraStarknetZKFlavor,
+                                   MegaFlavor,
+                                   MegaZKFlavor>;
+#else
 using FlavorTypes =
     testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, MegaFlavor, MegaZKFlavor>;
+#endif
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 

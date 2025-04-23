@@ -1,7 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "bincode.hpp"
-#include "msgpack.hpp"
 #include "serde.hpp"
 
 namespace Acir {

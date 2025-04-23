@@ -39,10 +39,6 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
         "input blocks have different archive tree snapshots",
     );
     assert(
-        left.end_block_hash.eq(right.previous_block_hash),
-        "input block hashes do not follow on from each other",
-    );
-    assert(
         left.end_global_variables.chain_id == right.start_global_variables.chain_id,
         "input blocks have different chain id",
     );

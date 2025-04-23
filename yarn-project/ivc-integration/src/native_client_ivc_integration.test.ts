@@ -9,8 +9,6 @@ import { getWorkingDirectory } from './bb_working_directory.js';
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
 
-/* eslint-disable camelcase */
-
 const logger = createLogger('ivc-integration:test:native');
 
 jest.setTimeout(120_000);

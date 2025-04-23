@@ -48,7 +48,6 @@ describe('Registry', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     deployedAddresses = omit(
@@ -131,7 +130,6 @@ describe('Registry', () => {
         vkTreeRoot,
         protocolContractTreeRoot,
         genesisArchiveRoot: Fr.random(),
-        genesisBlockHash: Fr.random(),
       },
       deployedAddresses,
       logger,

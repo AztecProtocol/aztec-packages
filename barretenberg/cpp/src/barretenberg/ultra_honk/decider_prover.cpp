@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "decider_prover.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/op_count.hpp"
@@ -117,6 +123,10 @@ template class DeciderProver_<UltraFlavor>;
 template class DeciderProver_<UltraZKFlavor>;
 template class DeciderProver_<UltraRollupFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class DeciderProver_<UltraStarknetFlavor>;
+template class DeciderProver_<UltraStarknetZKFlavor>;
+#endif
 template class DeciderProver_<UltraKeccakZKFlavor>;
 template class DeciderProver_<MegaFlavor>;
 template class DeciderProver_<MegaZKFlavor>;
