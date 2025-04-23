@@ -24,6 +24,7 @@ export interface TxSource {
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 }
 
+// Wraps the p2p client into a coordination pool
 class P2PCoordinationPool<T extends P2PClientType = P2PClientType.Full> implements CoordinationPool {
   constructor(private readonly p2p: P2P<T>) {}
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
@@ -40,23 +41,26 @@ class P2PCoordinationPool<T extends P2PClientType = P2PClientType.Full> implemen
   }
 }
 
+// Wraps an in memory tx pool into a coordination pool. Used for testing when no p2p/tx pool is available.
 class InMemoryCoordinationPool implements CoordinationPool {
   private txs: Map<string, Tx> = new Map();
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return Promise.resolve(txHashes.map(hash => this.txs.get(hash.toString())));
   }
   getUnavailableTxsFromPool(txHashes: TxHash[]): Promise<TxHash[]> {
-    return Promise.resolve(txHashes.filter(hash => !this.txs.has(hash.toString())));
+    const unavailable = txHashes.filter(hash => !this.txs.has(hash.toString()));
+    return Promise.resolve(unavailable);
   }
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.getTxsByHash(txHashes);
   }
-  addTxs(txs: Tx[]): Promise<void> {
-    txs.forEach(tx => this.txs.set(tx.getTxHash().toString(), tx));
-    return Promise.resolve();
+  async addTxs(txs: Tx[]): Promise<void> {
+    const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    txs.forEach((tx, index) => this.txs.set(hashes[index].toString(), tx));
   }
 }
 
+// Class to implement combined transaction retrieval from p2p and any available nodes
 export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.Full> implements ProverCoordination {
   constructor(
     public readonly p2p: P2P<T> | undefined,
@@ -89,46 +93,23 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
   async #gatherTxs(txHashes: TxHash[], pool: CoordinationPool): Promise<void> {
     const notFound = await pool.getUnavailableTxsFromPool(txHashes);
     const txsToFind = new Set(notFound.map(tx => tx.toString()));
+    if (txsToFind.size === 0) {
+      return;
+    }
+    this.log.info(`Gathering ${txsToFind.size} txs from any available nodes`);
     await this.#gatherTxsFromAllNodes(txsToFind, pool);
     if (txsToFind.size === 0) {
       return;
     }
+    this.log.info(`Gathering ${txsToFind.size} txs from p2p network`);
     await pool.getTxsByHash([...txsToFind].map(tx => TxHash.fromString(tx)));
   }
 
   async #gatherTxsFromAllNodes(txsToFind: Set<string>, pool: CoordinationPool) {
-    if (txsToFind.size === 0) {
+    if (txsToFind.size === 0 || this.aztecNodes.length === 0) {
       return;
     }
-    if (this.aztecNodes.length === 0) {
-      this.log.warn('No Aztec nodes available for tx gathering');
-      return;
-    }
-    // Split the txs into sets (one per node) and then shuffle the sets
-    // We do this to ensure that we ask all nodes for txs before giving up
-    const allTxs: string[] = [...txsToFind];
-    const txsPerNode = Math.ceil(allTxs.length / this.aztecNodes.length);
-    const txSets: Set<string>[] = [];
-    for (let i = 0; i < this.aztecNodes.length; i++) {
-      const batch = allTxs.splice(0, txsPerNode);
-      txSets.push(new Set(batch));
-    }
-
-    // There should not be any txs left, but if there are, we add them to the last set
-    allTxs.forEach(tx => txSets[txSets.length - 1].add(tx));
-
-    for (let i = 0; i < txSets.length; i++) {
-      const nodePromises = [];
-      for (let j = 0; j < this.aztecNodes.length; j++) {
-        // The node is always given the same set location, we then shuffle the sets to ensure that
-        // we ask all nodes for txs before giving up
-        nodePromises.push(this.#gatherTxsFromNode(txSets[j], this.aztecNodes[j], pool));
-      }
-      await Promise.all(nodePromises);
-      // now shuffle the sets
-      const first = txSets.shift();
-      txSets.push(first!);
-    }
+    await Promise.all(this.aztecNodes.map(aztecNode => this.#gatherTxsFromNode(txsToFind, aztecNode, pool)));
   }
 
   async #gatherTxsFromNode(txsToFind: Set<string>, aztecNode: TxSource, pool: CoordinationPool) {
@@ -139,7 +120,6 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
       return;
     }
     let totalTxsGathered = 0;
-    this.log.info(`Gathering a total of ${totalTxsRequired} txs from aztec node`);
 
     const batches: string[][] = [];
     const allTxs: string[] = [...txsToFind];
@@ -162,6 +142,6 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
         return;
       }
     });
-    this.log.info(`Gathered ${totalTxsGathered} of ${totalTxsRequired} txs`);
+    this.log.info(`Gathered ${totalTxsGathered} of ${totalTxsRequired} txs from a node`);
   }
 }
