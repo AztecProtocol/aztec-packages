@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745436027790,
+  "lastUpdate": 1745448911103,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9d941b6b55e03d2f5ad96b00fd488a71e6082f3f",
-          "message": "fix(avm): cpp addressing (#13652)\n\nfix(avm): cpp addressing\n\ntesting for addressing",
-          "timestamp": "2025-04-17T15:00:08Z",
-          "tree_id": "94bb248508c49d688c6ebec36bbc37a320590322",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9d941b6b55e03d2f5ad96b00fd488a71e6082f3f"
-        },
-        "date": 1744906514101,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10089,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2710760989221743,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 159782,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1937,6 +1898,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 152928,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "sergei iakovenko",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9a3bb461448b1657345a56cbdb493e6330006222",
+          "message": "fix: remove insecure dummy round derivation from sumcheck and shplemini (#13488)\n\nRemove all insecure dummy round derivations from Sumcheck and Shplemini.\nAchieved by using `padding_indicator_array` introduced in\nhttps://github.com/AztecProtocol/aztec-packages/pull/13417 that takes\nwitness `log_circuit_size` as an argument, which getting range\nconstrained and constrained to be the log of `circuit_size` by means of\na method `constrain_log_circuit_size` introduced in this PR.\nAs a result, UltraRecursiveVerifier is no longer using unconstrained\nwitnesses related to the padding.\n\nI incorporated some changes into AVM recursive verifier, but it's still\ninsecure due to an mle evaluation for public inputs that requires\n`log_circuit_size`.\n\n---------\n\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
+          "timestamp": "2025-04-23T21:20:48Z",
+          "tree_id": "751131886918533a4cccad6e9e75b9bc8db97e28",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9a3bb461448b1657345a56cbdb493e6330006222"
+        },
+        "date": 1745448902841,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9131,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26141173315194843,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 148832,
             "unit": "us"
           }
         ]
