@@ -107,7 +107,7 @@ contract Registry is IRegistry, Ownable {
 
 This contract distributes ERC20 rewards only to the instance the Registry contract says is canonical. This is separated from the Registry and the Issuer so that the distribution logic can be changed without replacing the Registry.
 
-In practice, the flow is expected to be such that infrequently, the Aztec Governance votes that the Issuer smart contract mints a quantity of Hypothetical Asset and sends them to the Distribution contract. The rollup contract will call the `claim(_to)` on the Distribution contract which checks that the calling Rollup is the current canonical Rollup before releasing a Hypothetical Asset to the rollup.
+In practice, the following flow is expected. Infrequently, the Aztec Governance votes for the Issuer smart contract to mint a quantity of Hypothetical Asset and send them to the Distribution contract. The rollup contract will call `claim(_to)` on the Distribution contract. This checks that the calling Rollup is the current canonical Rollup before releasing a Hypothetical Asset to the rollup.
 
 The Rollup smart contract implements custom logic for how to split `BLOCK_REWARDS` amongst the proposers/committee/provers who provide real work in the form of electricity and hardware intensive computational resources to the Rollup smart contract.
 

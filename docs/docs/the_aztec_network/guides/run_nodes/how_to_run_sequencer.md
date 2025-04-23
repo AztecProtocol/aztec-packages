@@ -79,8 +79,13 @@ You'll need Sepolia ETH to cover gas costs. Here are some options:
 
 To boot up a sequencer using `aztec start`, run the following command:
 
-```
-aztec start --network alpha-testnet --l1-rpc-urls https://example.com --l1-consensus-host-urls https://example.com --sequencer.blobSinkUrl http://34.82.117.158:5052  --sequencer.validatorPrivateKey 0xYourPrivateKey --sequencer.coinbase 0xYourAddress --p2p.p2pIp 999.99.999.99
+```bash
+aztec start --network alpha-testnet \
+  --l1-rpc-urls https://example.com \
+  --l1-consensus-host-urls https://example.com \
+  --sequencer.validatorPrivateKey 0xYourPrivateKey \
+  --sequencer.coinbase 0xYourAddress
+  --p2p.p2pIp 999.99.999.99
 ```
 
 :::tip
@@ -138,7 +143,7 @@ aztec start --network alpha-testnet --archiver --node --sequencer # other flags.
 
 If you would like to run in a docker compose, you can use a configuration like the one below:
 
-```
+```yml
 name: aztec-node
 services:
   network_mode: host # Optional, run with host networking
@@ -147,7 +152,7 @@ services:
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
-      DATA_DIRECTORY: /var/lib/aztec
+      DATA_DIRECTORY: /data
       VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY
       P2P_IP: $P2P_IP
       LOG_LEVEL: debug
@@ -159,7 +164,7 @@ services:
       - 8080:8080
 
   volumes:
-    - aztec_data:/var/lib/aztec
+    - /home/my-node/node:/data # Local directory
 ```
 
 ## Troubleshooting
