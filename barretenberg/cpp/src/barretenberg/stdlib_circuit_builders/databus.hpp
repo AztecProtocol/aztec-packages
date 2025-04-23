@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
@@ -99,8 +100,8 @@ struct DatabusPropagationData {
     {
         DatabusPropagationData data;
         // Kernel return data is the first public input, followed by app return data
-        data.kernel_return_data_commitment_pub_input_key.start_idx = 0;
-        data.app_return_data_commitment_pub_input_key.start_idx = 8;
+        data.kernel_return_data_commitment_pub_input_key.start_idx = PAIRING_POINT_ACCUMULATOR_SIZE;
+        data.app_return_data_commitment_pub_input_key.start_idx = PAIRING_POINT_ACCUMULATOR_SIZE + 8;
         data.is_kernel = true;
         return data;
     }
