@@ -104,10 +104,11 @@ jq -c '.accounts[]' state.json | while read -r account; do
       simulate get_private_nfts \
       -ca $nft_address \
       --args $current_user_address 0 \
-      -f $current_user_address \
-      | get_simulation_result)
+      -f $current_user_address)
 
-    nft_array=$(echo "$private_nfts" | jq -c -R 'split(" ") | map(select(length > 0))')
+    processed_nfts=$(echo "$private_nfts" | grep -o '[0-9]\+n' | sed 's/n$//' | grep -v '^0$')
+
+    nft_array=$(echo "$processed_nfts" | jq -R -s 'split("\n") | map(select(length > 0))')
     nft_count=$(echo "$nft_array" | jq '. | length')
 
     # We take the minimum of nfts_to_send, and nft_count
