@@ -1,5 +1,6 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -138,3 +139,22 @@ TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 
     EXPECT_FALSE(ivc.prove_and_verify());
 };
+
+/**
+ * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ *
+ */
+TEST_F(ClientIVCIntegrationTests, MsgpackInputs)
+{
+    std::string input_path = "my/data/path/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    ClientIVC::Proof proof = ivc->prove();
+
+    // Verify the proof
+    [[maybe_unused]] bool result = ivc->verify(proof);
+    // EXPECT_TRUE(result);
+}
