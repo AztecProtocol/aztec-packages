@@ -93,13 +93,13 @@ describe('e2e_p2p_network', () => {
     const rollup = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const stakingAssetHandler = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!.toString(),
       abi: StakingAssetHandlerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     expect((await rollup.read.getAttesters()).length).toBe(0);
@@ -148,8 +148,8 @@ describe('e2e_p2p_network', () => {
     expect(attesters.length).toBe(NUM_NODES);
 
     // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await t.ctx.deployL1ContractsValues.l1Client.sendTransaction({
         to: t.baseAccount.address,
         value: 1n,
         account: t.baseAccount,

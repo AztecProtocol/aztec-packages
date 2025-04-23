@@ -7,7 +7,7 @@ import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/runni
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
-import { InboxAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
   PrivateFunctionBroadcastedEvent,
@@ -535,7 +535,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
       // TODO(md): Retrieve from blob sink then from consensus client, then from peers
       const retrievedBlocks = await retrieveBlocksFromRollup(
-        this.rollup.getContract(),
+        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
         this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier

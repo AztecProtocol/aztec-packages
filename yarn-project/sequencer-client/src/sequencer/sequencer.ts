@@ -1,5 +1,6 @@
 import { type L2Block, retryUntil } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import type { ViemPublicClient } from '@aztec/ethereum';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -105,9 +106,11 @@ export class Sequencer {
       this.publisher.getRollupContract(),
       'Sequencer',
     );
-    this.l1Metrics = new L1Metrics(telemetry.getMeter('SequencerL1Metrics'), publisher.l1TxUtils.publicClient, [
-      publisher.getSenderAddress(),
-    ]);
+    this.l1Metrics = new L1Metrics(
+      telemetry.getMeter('SequencerL1Metrics'),
+      publisher.l1TxUtils.client as unknown as ViemPublicClient,
+      [publisher.getSenderAddress()],
+    );
 
     // Register the block builder with the validator client for re-execution
     this.validatorClient?.registerBlockBuilder(this.buildBlockFromProposal.bind(this));

@@ -105,7 +105,7 @@ export class L2Block {
   }
 
   get number(): number {
-    return Number(this.header.globalVariables.blockNumber.toBigInt());
+    return this.header.getBlockNumber();
   }
 
   /**

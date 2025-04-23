@@ -6,7 +6,7 @@ use crate::{
     },
     hash::poseidon2_hash_with_separator,
     point::POINT_LENGTH,
-    traits::{Deserialize, Hash, Serialize, ToField},
+    traits::{Deserialize, Hash, Serialize},
 };
 
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
