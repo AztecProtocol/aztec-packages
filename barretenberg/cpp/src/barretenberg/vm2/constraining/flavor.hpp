@@ -167,6 +167,7 @@ class AvmFlavor {
     class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
+
         auto get_wires() { return WireEntities<DataType>::get_all(); }
         static const auto& get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
@@ -305,7 +306,7 @@ class AvmFlavor {
         ProverPolynomials(ProvingKey& proving_key);
 
         size_t get_polynomial_size() const { return execution_input.size(); }
-        // This is only used in VM1 check_circuit. Remove.
+        // This is only used in check_circuit. Remove.
         AllConstRefValues get_standard_row(size_t row_idx) const
         {
             return [row_idx](auto&... entities) -> AllConstRefValues {
