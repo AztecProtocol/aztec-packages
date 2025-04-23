@@ -43,8 +43,8 @@ source "$SCRIPT_DIR/register_senders.sh"
 print_header "Processing token contracts"
 source "$SCRIPT_DIR/process_token_contracts.sh"
 
-print_header "Processing AMM contracts"
-source "$SCRIPT_DIR/process_amm_contracts.sh"
+# print_header "Processing AMM contracts"
+# source "$SCRIPT_DIR/process_amm_contracts.sh"
 
 print_header "Processing NFT contracts"
 source "$SCRIPT_DIR/process_nft_contracts.sh"

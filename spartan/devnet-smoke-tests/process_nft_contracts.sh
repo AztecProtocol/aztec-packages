@@ -88,7 +88,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
   other_accounts=$(jq -c \
     --arg curr "$current_user_address" \
-    '[.accounts[] | select(.address != $curr)]' state.json)
+    '.accounts[] | select(.address != $curr)' state.json)
 
   other_accounts_count=$(echo "$other_accounts" | jq -s 'length')
   if [ "$other_accounts_count" -eq 0 ]; then
