@@ -802,7 +802,7 @@ export async function createAndSyncProverNode(
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
     ...aztecNodeConfig,
-    proverCoordinationNodeUrl: undefined,
+    proverCoordinationNodeUrls: [],
     dataDirectory: undefined,
     realProofs: false,
     proverAgentCount: 2,

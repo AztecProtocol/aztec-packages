@@ -5,7 +5,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { Maybe } from '@aztec/foundation/types';
-import type { P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -21,7 +20,6 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
@@ -75,7 +73,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
-    protected readonly coordination: ProverCoordination & Maybe<Service>,
+    protected readonly coordination: ProverCoordination,
     protected readonly epochsMonitor: EpochMonitor,
     options: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -110,14 +108,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   public getProverId() {
     return this.prover.getProverId();
-  }
-
-  public getP2P() {
-    const asP2PClient = this.coordination as P2P<P2PClientType.Prover>;
-    if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
-      return asP2PClient;
-    }
-    return undefined;
   }
 
   /**
@@ -296,7 +286,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       }
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
       this.log.verbose(`Fetching ${txHashes.length} tx hashes for block number ${blockNumber} from coordination`);
-      await this.coordination.getTxsByHash(txHashes); // This stores the txs in the tx pool, no need to persist them here
+      await this.coordination.gatherTxs(txHashes); // This stores the txs in the tx pool, no need to persist them here
       this.lastBlockNumber = blockNumber;
     }
   }

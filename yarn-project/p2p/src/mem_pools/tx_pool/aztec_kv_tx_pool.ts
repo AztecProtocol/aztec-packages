@@ -218,6 +218,28 @@ export class AztecKVTxPool implements TxPool {
     return undefined;
   }
 
+  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    return await this.#store.transactionAsync(async () => {
+      const txs = await Promise.all(txHashes.map(txHash => this.#txs.getAsync(txHash.toString())));
+      return txs.map(buffer => {
+        return buffer ? Tx.fromBuffer(buffer) : undefined;
+      });
+    });
+  }
+
+  async getUnavailableTxs(txHashes: TxHash[]): Promise<TxHash[]> {
+    const results = await this.#store.transactionAsync(async () => {
+      return await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
+    });
+    return txHashes
+      .map((txHash, index) => {
+        if (!results[index]) {
+          return txHash;
+        }
+      })
+      .filter(txHash => txHash !== undefined) as TxHash[];
+  }
+
   /**
    * Checks if an archived tx exists and returns it.
    * @param txHash - The tx hash.

@@ -68,7 +68,7 @@ describe('e2e_snapshot_sync', () => {
         ...context.config,
         dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
         p2pEnabled: true, // So we don't need prover coordination
-        proverCoordinationNodeUrl: undefined,
+        proverCoordinationNodeUrls: [],
         proverNodeMaxPendingJobs: 10,
         proverNodeMaxParallelBlocksPerEpoch: 32,
         proverNodePollingIntervalMs: 200,

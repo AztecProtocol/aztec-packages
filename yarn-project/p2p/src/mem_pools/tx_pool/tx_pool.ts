@@ -18,6 +18,20 @@ export interface TxPool {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
+   * Checks if transactions exist in the pool and returns them.
+   * @param txHashes - The hashes of the transactions
+   * @returns The transactions, if found, 'undefined' otherwise.
+   */
+  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+
+  /**
+   * Checks if transactions exist in the pool and returns the hashes of those that don't
+   * @param txHashes - The hashes of the transactions to check for
+   * @returns The transaction hashes if not found
+   */
+  getUnavailableTxs(txHashes: TxHash[]): Promise<TxHash[]>;
+
+  /**
    * Checks if an archived transaction exists in the pool and returns it.
    * @param txHash - The hash of the transaction, used as an ID.
    * @returns The transaction, if found, 'undefined' otherwise.
