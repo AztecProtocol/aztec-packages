@@ -86,7 +86,12 @@ impl PublicContext {
     ) -> [Field] {
         let calldata = args.push_front(function_selector.to_field());
 
-        call(gas_for_call(gas_opts), contract_address, calldata);
+        call(
+            gas_opts.l2_gas.unwrap_or(MAX_FIELD_VALUE),
+            gas_opts.da_gas.unwrap_or(MAX_FIELD_VALUE),
+            contract_address,
+            calldata,
+        );
         // Use success_copy to determine whether the call succeeded
         let success = success_copy();
 
@@ -107,7 +112,12 @@ impl PublicContext {
     ) -> [Field] {
         let calldata = args.push_front(function_selector.to_field());
 
-        call_static(gas_for_call(gas_opts), contract_address, calldata);
+        call_static(
+            gas_opts.l2_gas.unwrap_or(MAX_FIELD_VALUE),
+            gas_opts.da_gas.unwrap_or(MAX_FIELD_VALUE),
+            contract_address,
+            calldata,
+        );
         // Use success_copy to determine whether the call succeeded
         let success = success_copy();
 
@@ -245,13 +255,6 @@ impl PublicContext {
     }
 }
 
-// Helper functions
-fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
-    // It's ok to use the max possible gas here, because the gas will be
-    // capped by the gas left in the (STATIC)CALL instruction.
-    [user_gas.l2_gas.unwrap_or(MAX_FIELD_VALUE), user_gas.da_gas.unwrap_or(MAX_FIELD_VALUE)]
-}
-
 // Unconstrained opcode wrappers (do not use directly).
 unconstrained fn address() -> AztecAddress {
     address_opcode()
@@ -310,12 +313,22 @@ unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> 
 unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
     send_l2_to_l1_msg_opcode(recipient, content)
 }
-unconstrained fn call(gas: [Field; 2], address: AztecAddress, args: [Field]) {
-    call_opcode(gas, address, args)
+unconstrained fn call(
+    l2_gas_allocation: Field,
+    da_gas_allocation: Field,
+    address: AztecAddress,
+    args: [Field],
+) {
+    call_opcode(l2_gas_allocation, da_gas_allocation, address, args)
 }
 
-unconstrained fn call_static(gas: [Field; 2], address: AztecAddress, args: [Field]) {
-    call_static_opcode(gas, address, args)
+unconstrained fn call_static(
+    l2_gas_allocation: Field,
+    da_gas_allocation: Field,
+    address: AztecAddress,
+    args: [Field],
+) {
+    call_static_opcode(l2_gas_allocation, da_gas_allocation, address, args)
 }
 
 pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
@@ -441,14 +454,16 @@ unconstrained fn revert_opcode(revertdata: [Field]) {}
 
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode(
-    gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
+    l2_gas_allocation: Field,
+    da_gas_allocation: Field,
     address: AztecAddress,
     args: [Field],
 ) {}
 
 #[oracle(avmOpcodeStaticCall)]
 unconstrained fn call_static_opcode(
-    gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
+    l2_gas_allocation: Field,
+    da_gas_allocation: Field,
     address: AztecAddress,
     args: [Field],
 ) {}

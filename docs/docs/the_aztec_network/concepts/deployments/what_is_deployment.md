@@ -60,7 +60,7 @@ contract Issuer is Ownable {
 
 ## Registry Contract
 
-The governance of Aztec will be community driven - the Aztec community will be able to  decide whether to upgrade or migrate to a new rollup instance. Portals / apps donʼt need to follow along with the Aztec governance and can specify the specific instance (i.e. “versionˮ) of the rollup that they view as canonical.
+The governance of Aztec will be community driven - the Aztec community will be able to decide whether to upgrade or migrate to a new rollup instance. Portals / apps donʼt need to follow along with the Aztec governance and can specify the specific instance (i.e. “versionˮ) of the rollup that they view as canonical.
 
 Therefore it will be necessary to keep track onchain of what versions of the rollup have existed as well as what version the Aztec governance views as the current canonical rollup. Only the current canonical rollup from the perspective of Aztec governance will be eligible to claim any further Hypothetical Asset rewards.
 
@@ -107,9 +107,9 @@ contract Registry is IRegistry, Ownable {
 
 This contract distributes ERC20 rewards only to the instance the Registry contract says is canonical. This is separated from the Registry and the Issuer so that the distribution logic can be changed without replacing the Registry.
 
-In practice, the flow is expected to be such that infrequently, the Aztec Governance votes that the Issuer smart contract mints a quantity of Hypothetical Asset and sends them to the Distribution contract. The rollup contract will call the `claim(_to)` on the Distribution contract which checks that the calling Rollup is the current canonical Rollup before releasing a Hypothetical Asset to the rollup. 
+In practice, the following flow is expected. Infrequently, the Aztec Governance votes for the Issuer smart contract to mint a quantity of Hypothetical Asset and send them to the Distribution contract. The rollup contract will call `claim(_to)` on the Distribution contract. This checks that the calling Rollup is the current canonical Rollup before releasing a Hypothetical Asset to the rollup.
 
-The Rollup smart contract implements custom logic for how to split `BLOCK_REWARDS` amongst the proposers/committee/provers who provide real work in the form of electricity and hardware intensive computational resources to the Rollup smart contract. 
+The Rollup smart contract implements custom logic for how to split `BLOCK_REWARDS` amongst the proposers/committee/provers who provide real work in the form of electricity and hardware intensive computational resources to the Rollup smart contract.
 
 ```mermaid
 flowchart TD
@@ -142,13 +142,13 @@ contract RewardDistribution is Ownable {
 
 Rollup contacts implementations should not revert if the `claim()` call reverts because the rollup is no longer canonical. Otherwise, no one could sequence the rollup anymore.
 
-The separation of Distribution and Issuer is primarily for code hygiene purposes. 
+The separation of Distribution and Issuer is primarily for code hygiene purposes.
 
 The protocol inflation rate is defined in the Issuer smart contract as the constant `RATE`. It is not possible to change this inflation rate once the Issuer smart contract has been deployed. Aztec Governance can vote on a proposal to deploy a new Issuer smart contract that contains a new `RATE`
 
-The Aztec Governance will choose how often to call `mint()` on the Issuer smart contract which will send any Hypothetical Assets to the Distribution smart contract. The Distribution smart contract defines a `BLOCK_REWARD` constant value (again cannot be changed). Every epoch, the Rollup contract can call the Distribution smart contract to claim `BLOCK_REWARD` of Hypothetical Assets from the Distribution contract. 
+The Aztec Governance will choose how often to call `mint()` on the Issuer smart contract which will send any Hypothetical Assets to the Distribution smart contract. The Distribution smart contract defines a `BLOCK_REWARD` constant value (again cannot be changed). Every epoch, the Rollup contract can call the Distribution smart contract to claim `BLOCK_REWARD` of Hypothetical Assets from the Distribution contract.
 
-Both `RATE` and `BLOCK_REWARD` will be set upon deployment of the Aztec Rollup by the Aztec Governance. Both values are immutable and cannot be changed without re-deploying a new smart contract and a successful vote by Aztec Governance to switch to the new smart contracts. 
+Both `RATE` and `BLOCK_REWARD` will be set upon deployment of the Aztec Rollup by the Aztec Governance. Both values are immutable and cannot be changed without re-deploying a new smart contract and a successful vote by Aztec Governance to switch to the new smart contracts.
 
 ## Proposals contract
 
@@ -201,7 +201,7 @@ If the quorum has been reahed, anyone can call `pushProposal(uint256 _roundNumbe
 
 ## Governance contract
 
-This contract is the “assembly of Aztec citizensˮ that is the final arbiter of whether to enact the proposals from the Proposals Contract or not.  
+This contract is the “assembly of Aztec citizensˮ that is the final arbiter of whether to enact the proposals from the Proposals Contract or not.
 
 This contract decides what is the canonical instance which gets block rewards.
 
