@@ -95,8 +95,6 @@ void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path
 
     const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(input_path);
     info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-    // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
-    static constexpr size_t MAGIC_NUMBER = 16;
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
@@ -108,8 +106,8 @@ void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path
     ivc.accumulate(circuit_0);
 
     // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 = circuit_producer.create_next_circuit(
-        ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
+    MegaCircuitBuilder circuit_1 =
+        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
     ivc.accumulate(circuit_1);
 
     // Construct the hiding circuit and its VK (stored internally in the IVC)
