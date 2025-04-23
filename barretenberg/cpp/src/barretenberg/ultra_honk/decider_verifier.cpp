@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -90,9 +96,11 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 template class DeciderVerifier_<UltraFlavor>;
 template class DeciderVerifier_<UltraZKFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
+#ifdef STARTKNET_GARAGA_FLAVORS
 template class DeciderVerifier_<UltraStarknetFlavor>;
-template class DeciderVerifier_<UltraKeccakZKFlavor>;
 template class DeciderVerifier_<UltraStarknetZKFlavor>;
+#endif
+template class DeciderVerifier_<UltraKeccakZKFlavor>;
 template class DeciderVerifier_<UltraRollupFlavor>;
 template class DeciderVerifier_<MegaFlavor>;
 template class DeciderVerifier_<MegaZKFlavor>;

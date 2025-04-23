@@ -14,8 +14,13 @@ export default (_, argv) => ({
   module: {
     rules: [
       {
-        test: /\.ts?$/,
-        use: 'ts-loader',
+        test: /\.tsx?$/,
+        loader: 'ts-loader',
+        exclude: /node_modules|\.d\.ts(.map)?$/
+      },
+      {
+          test: /\.d\.ts(.map)?$/,
+          loader: 'ignore-loader'
       },
     ],
   },

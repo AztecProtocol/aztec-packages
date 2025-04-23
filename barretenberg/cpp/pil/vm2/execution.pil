@@ -10,6 +10,7 @@ include "range_check.pil";
 include "bitwise.pil";
 include "merkle_check.pil";
 include "memory.pil";
+include "keccakf1600.pil";
 include "precomputed.pil";
 include "sha256.pil";
 include "ecc.pil";

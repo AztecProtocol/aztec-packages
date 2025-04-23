@@ -21,6 +21,11 @@ template <typename FF_> struct AvmFullRow {
         static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
         return reinterpret_cast<const FF*>(this)[static_cast<size_t>(col)];
     }
+
+    // These are the names used by AllEntities, etc.
+    // TODO(fcarreiro): Clean up duplication.
+    FF& get(ColumnAndShifts col) { return get_column(col); }
+    const FF& get(ColumnAndShifts col) const { return get_column(col); }
 };
 
 } // namespace bb::avm2
