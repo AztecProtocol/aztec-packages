@@ -15,7 +15,12 @@ export default {
     rules: [
       {
         test: /\.tsx?$/,
-        use: [{ loader: 'ts-loader' }],
+        loader: 'ts-loader',
+        exclude: /node_modules|\.d\.ts(.map)?$/,
+      },
+      {
+        test: /\.d\.ts(.map)?$/,
+        loader: 'ignore-loader',
       },
     ],
   },

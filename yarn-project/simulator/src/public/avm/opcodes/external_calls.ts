@@ -9,16 +9,18 @@ abstract class ExternalCall extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
-    OperandType.UINT8, // Indirect
-    OperandType.UINT16,
-    OperandType.UINT16,
-    OperandType.UINT16,
-    OperandType.UINT16,
+    OperandType.UINT16, // Indirect
+    OperandType.UINT16, // L2 gas offset
+    OperandType.UINT16, // DA gas offset
+    OperandType.UINT16, // Address offset
+    OperandType.UINT16, // Args offset
+    OperandType.UINT16, // Args size offset
   ];
 
   constructor(
     private indirect: number,
-    private gasOffset: number,
+    private l2GasOffset: number,
+    private daGasOffset: number,
     private addrOffset: number,
     private argsOffset: number,
     private argsSizeOffset: number,
@@ -28,10 +30,12 @@ abstract class ExternalCall extends Instruction {
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory;
-    const operands = [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset];
+    const operands = [this.l2GasOffset, this.daGasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [gasOffset, addrOffset, argsOffset, argsSizeOffset] = addressing.resolve(operands, memory);
-    memory.checkTags(TypeTag.FIELD, gasOffset, gasOffset + 1);
+    const [l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset] = addressing.resolve(operands, memory);
+    // TODO: Should be U32
+    memory.checkTags(TypeTag.FIELD, l2GasOffset);
+    memory.checkTags(TypeTag.FIELD, daGasOffset);
     memory.checkTag(TypeTag.FIELD, addrOffset);
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
 
@@ -49,9 +53,11 @@ abstract class ExternalCall extends Instruction {
     // Gas allocation is capped by the amount of gas left in the current context.
     // We have to do some dancing here because the gas allocation is a field,
     // but in the machine state we track gas as a number.
-    const allocatedL2Gas = Number(BigIntMin(memory.get(gasOffset).toBigInt(), BigInt(context.machineState.l2GasLeft)));
+    const allocatedL2Gas = Number(
+      BigIntMin(memory.get(l2GasOffset).toBigInt(), BigInt(context.machineState.l2GasLeft)),
+    );
     const allocatedDaGas = Number(
-      BigIntMin(memory.get(gasOffset + 1).toBigInt(), BigInt(context.machineState.daGasLeft)),
+      BigIntMin(memory.get(daGasOffset).toBigInt(), BigInt(context.machineState.daGasLeft)),
     );
     const allocatedGas = { l2Gas: allocatedL2Gas, daGas: allocatedDaGas };
     context.machineState.consumeGas(allocatedGas);

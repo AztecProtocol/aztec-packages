@@ -196,7 +196,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let original_params = f.parameters();
     let args_len = original_params
         .map(|(name, typ): (Quoted, Type)| {
-            generate_serialize_to_fields(name, typ, &[], false).0.len()
+            generate_serialize_to_fields(name, typ, false).0.len()
         })
         .fold(0, |acc: u32, val: u32| acc + val);
 

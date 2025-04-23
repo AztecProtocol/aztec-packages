@@ -25,7 +25,7 @@ import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Slot, Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
+import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
@@ -290,7 +290,6 @@ contract ValidatorSelectionTest is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      blockHash: bytes32(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });

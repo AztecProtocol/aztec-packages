@@ -45,8 +45,6 @@ impl Eq for FeeRecipient {
 pub struct BlockRootOrBlockMergePublicInputs {
     pub previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
     pub new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
-    pub previous_block_hash: Field, // Identifier of the previous block before the range
-    pub end_block_hash: Field, // Identifier of the last block in the range
     pub start_global_variables: GlobalVariables, // Global variables for the first block in the range
     pub end_global_variables: GlobalVariables, // Global variables for the last block in the range
     pub out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
@@ -68,8 +66,6 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
         BlockRootOrBlockMergePublicInputs {
             previous_archive: AppendOnlyTreeSnapshot::zero(),
             new_archive: AppendOnlyTreeSnapshot::zero(),
-            previous_block_hash: 0,
-            end_block_hash: 0,
             start_global_variables: GlobalVariables::empty(),
             end_global_variables: GlobalVariables::empty(),
             out_hash: 0,
@@ -86,8 +82,6 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
     fn eq(self, other: Self) -> bool {
         (self.previous_archive.eq(other.previous_archive))
             & (self.new_archive.eq(other.new_archive))
-            & (self.previous_block_hash == other.previous_block_hash)
-            & (self.end_block_hash == other.end_block_hash)
             & (self.start_global_variables.eq(other.start_global_variables))
             & (self.end_global_variables.eq(other.end_global_variables))
             & (self.out_hash == other.out_hash)
@@ -106,8 +100,6 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
 
         fields.extend_from_array(self.previous_archive.serialize());
         fields.extend_from_array(self.new_archive.serialize());
-        fields.push(self.previous_block_hash as Field);
-        fields.push(self.end_block_hash as Field);
         fields.extend_from_array(self.start_global_variables.serialize());
         fields.extend_from_array(self.end_global_variables.serialize());
         fields.push(self.out_hash as Field);
@@ -134,8 +126,6 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
         let item = Self {
             previous_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
             new_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
-            previous_block_hash: reader.read(),
-            end_block_hash: reader.read(),
             start_global_variables: reader.read_struct(GlobalVariables::deserialize),
             end_global_variables: reader.read_struct(GlobalVariables::deserialize),
             out_hash: reader.read(),
