@@ -122,6 +122,16 @@ export function describeTxPool(getTxPool: () => TxPool) {
     expect(requestedTxs).toEqual(expect.arrayContaining([tx1, tx3]));
   });
 
+  it('Returns a large number of transactions by their hash', async () => {
+    const numTxs = 1000;
+    const txs = await Promise.all(Array.from({ length: numTxs }, (_, i) => mockTx(i)));
+    const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    await pool.addTxs(txs);
+    const requestedTxs = await pool.getTxsByHash(hashes);
+    expect(requestedTxs).toHaveLength(numTxs);
+    expect(requestedTxs).toEqual(expect.arrayContaining(txs));
+  });
+
   it('Returns hashes of unavailable txs', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);

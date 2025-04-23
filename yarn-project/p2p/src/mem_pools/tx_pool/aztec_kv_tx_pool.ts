@@ -219,23 +219,19 @@ export class AztecKVTxPool implements TxPool {
   }
 
   async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return await this.#store.transactionAsync(async () => {
-      const txs = await Promise.all(txHashes.map(txHash => this.#txs.getAsync(txHash.toString())));
-      return txs.map((buffer, index) => {
-        if (buffer) {
-          const tx = Tx.fromBuffer(buffer);
-          tx.setTxHash(txHashes[index]);
-          return tx;
-        }
-        return undefined;
-      });
+    const txs = await Promise.all(txHashes.map(txHash => this.#txs.getAsync(txHash.toString())));
+    return txs.map((buffer, index) => {
+      if (buffer) {
+        const tx = Tx.fromBuffer(buffer);
+        tx.setTxHash(txHashes[index]);
+        return tx;
+      }
+      return undefined;
     });
   }
 
   async getUnavailableTxs(txHashes: TxHash[]): Promise<TxHash[]> {
-    const results = await this.#store.transactionAsync(async () => {
-      return await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
-    });
+    const results = await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
     return txHashes
       .map((txHash, index) => {
         if (!results[index]) {
