@@ -1881,7 +1881,7 @@ The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to
 
 ### [Aztec.nr] get_public_key oracle replaced with get_ivpk_m
 
-When implementing changes according to a new key scheme we had to change oracles.
+When implementing changes according to a [new key scheme](https://yp-aztec.netlify.app/docs/addresses-and-keys/keys) we had to change oracles.
 What used to be called encryption public key is now master incoming viewing public key.
 
 ```diff
@@ -2378,7 +2378,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-```rust title="prelude" showLineNumbers
+```rust title="prelude" showLineNumbers 
 pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
@@ -2400,8 +2400,8 @@ pub use dep::protocol_types::{
     traits::{Deserialize, Serialize},
 };
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.2/noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22</a></sub></sup>
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22</a></sub></sup>
 
 ### `internal` is now a macro
 
@@ -3038,7 +3038,7 @@ impl Storage {
 The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`.
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.2", directory="yarn-project/aztec-nr/aztec" }
 ```
 
 ### [Aztec.nr] key type definition in Map
@@ -3128,8 +3128,8 @@ const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0", directory="yarn-project/aztec-nr/aztec" }
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0", directory="yarn-project/noir-protocol-circuits/crates/types"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.2", directory="yarn-project/aztec-nr/aztec" }
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.2", directory="yarn-project/noir-protocol-circuits/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress
