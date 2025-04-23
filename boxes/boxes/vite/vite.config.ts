@@ -17,7 +17,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
           source,
         );
       if (m) {
-        return `./node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
+        return `${nodeModulesPath}/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
       }
     },
   };
@@ -59,8 +59,7 @@ export default defineConfig(({ mode }) => {
       alias: {
         // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
         "vite-plugin-node-polyfills/shims/process": path.resolve(
-          __dirname,
-          "node_modules",
+          nodeModulesPath,
           "vite-plugin-node-polyfills",
           "shims",
           "process",
