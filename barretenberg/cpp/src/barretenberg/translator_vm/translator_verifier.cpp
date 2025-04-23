@@ -102,7 +102,10 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, FF{ 1 });
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
@@ -122,7 +125,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(TranslatorFlavor::CONST_TRANSLATOR_LOG_N,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),

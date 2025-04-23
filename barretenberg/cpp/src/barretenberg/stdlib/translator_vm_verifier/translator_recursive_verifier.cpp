@@ -107,7 +107,13 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    FF one{ 1 };
+    one.convert_constant_to_fixed_witness(builder);
+
+    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, one);
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -122,7 +128,7 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(TranslatorFlavor::CONST_TRANSLATOR_LOG_N,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),

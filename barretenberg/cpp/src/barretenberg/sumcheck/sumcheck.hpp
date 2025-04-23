@@ -703,25 +703,9 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
-            // The recursive logic differs from the native one because of a hack making Sumcheck circuits in
-            // Ultra, Mega, and their derivatives constant. Note that there's no artificial padding in
-            // Translator
-            bool checked(true);
-            if constexpr (IsRecursiveFlavor<Flavor> && Flavor::USE_PADDING) {
-                checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
-                round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
-                gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
-
-            } else {
-                // This condition is needed to prevent updating the target total sum in dummy rounds when USE_PADDING =
-                // true. It is always satisfied when Sumcheck is instantiated with ECCVM or Translator
-                // Recursive Flavors.
-                if (round_idx < multivariate_d) {
-                    checked = round.check_sum(round_univariate);
-                    round.compute_next_target_sum(round_univariate, round_challenge);
-                    gate_separators.partially_evaluate(round_challenge);
-                }
-            }
+            const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
+            round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
+            gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
 
             verified = verified && checked;
         }
@@ -742,13 +726,9 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         if constexpr (Flavor::HasZK) {
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-            if constexpr (IsRecursiveFlavor<Flavor> && Flavor::USE_PADDING) {
-                correcting_factor =
-                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
-            } else {
-                correcting_factor =
-                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
-            }
+
+            correcting_factor =
+                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
 
             full_honk_purported_value =
                 full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;

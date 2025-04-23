@@ -82,18 +82,6 @@ template <typename FF> struct GateSeparatorPolynomial {
     FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
 
     /**
-     * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
-     */
-    FF univariate_eval(const FF& challenge, const FF& indicator) const
-    {
-        // For the Ultra Recursive flavor to ensure constant size proofs, we perform constant amount of hashing
-        // producing 28 gate betas and we need to use the betas in the dummy rounds to ensure the permutation related
-        // selectors stay the same regardless of real circuit size.
-        FF one{ 1 };
-        return (one + indicator * challenge * (betas[current_element_idx] - one));
-    }
-
-    /**
      * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$
      * @details Update the constant \f$c_{i} \to c_{i+1} \f$ multiplying it by \f$pow_{\beta}\f$'s factor \f$\left(
      * (1-X_i) + X_i\cdot \beta_i\right)\vert_{X_i = u_i}\f$ computed by \ref univariate_eval.

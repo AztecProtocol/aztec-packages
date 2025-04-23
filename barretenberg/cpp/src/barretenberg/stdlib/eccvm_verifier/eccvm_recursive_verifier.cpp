@@ -89,8 +89,15 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
+
+    FF one{ 1 };
+    one.convert_constant_to_fixed_witness(builder);
+
+    std::array<FF, CONST_ECCVM_LOG_N> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, one);
+
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
-        Shplemini::compute_batch_opening_claim(CONST_ECCVM_LOG_N,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),

@@ -531,20 +531,20 @@ template <typename Curve> class GeminiVerifier_ {
      * In the case of interleaving, the first "negative" evaluation has to be corrected by the contribution from \f$
      * P_{-}(-r^s)\f$, where \f$ s \f$ is the size of the group to be interleaved.
      *
-     * @param log_n The log of the size of the polynomial being opened.
+     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to CONST_PROOF_SIZE_LOG_N.
      * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return \f$ A_0(r), A_1(r^2), \ldots, A_{d-1}(r^{2^{d-1}})\f$.
      */
-    static std::vector<Fr> compute_fold_pos_evaluations(
-        const size_t log_n,
-        const Fr& batched_evaluation,
-        std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
-        std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
-        std::span<const Fr> fold_neg_evals,
-        Fr p_neg = Fr(0))
+    template <size_t virtual_log_n>
+    static std::vector<Fr> compute_fold_pos_evaluations(const std::array<Fr, virtual_log_n>& padding_indicator_array,
+                                                        const Fr& batched_evaluation,
+                                                        std::span<const Fr> evaluation_point, // size = virtual_log_n
+                                                        std::span<const Fr> challenge_powers, // size = virtual_log_n
+                                                        std::span<const Fr> fold_neg_evals,   // size = virtual_log_n
+                                                        Fr p_neg = Fr(0))
     {
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 
@@ -556,14 +556,12 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         std::vector<Fr> fold_pos_evaluations;
-        fold_pos_evaluations.reserve(log_n);
-        // Either a computed eval of A_i at r^{2^i}, or 0
-        Fr value_to_emplace;
+        fold_pos_evaluations.reserve(virtual_log_n);
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
         // Solve the sequence of linear equations
-        for (size_t l = log_n; l != 0; --l) {
+        for (size_t l = virtual_log_n; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾
             const Fr& challenge_power = challenge_powers[l - 1];
             // Get uₗ₋₁
@@ -575,10 +573,13 @@ template <typename Curve> class GeminiVerifier_ {
             // Divide by the denominator
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
 
-            eval_pos_prev = eval_pos;
-            value_to_emplace = eval_pos_prev;
-
-            fold_pos_evaluations.emplace_back(value_to_emplace);
+            // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
+            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+            eval_pos_prev =
+                padding_indicator_array[l - 1] * eval_pos + (Fr{ 1 } - padding_indicator_array[l - 1]) * eval_pos_prev;
+            // If current index is bigger than log_n, we emplace 0, which is later multiplied against
+            // Commitment::one().
+            fold_pos_evaluations.emplace_back(padding_indicator_array[l - 1] * eval_pos_prev);
         }
 
         std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
@@ -608,50 +609,6 @@ template <typename Curve> class GeminiVerifier_ {
      * \f$.
      * @return \f A_{i}}(r^{2^{i}})\f$ \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
      */
-    template <size_t virtual_log_n>
-    static std::vector<Fr> compute_fold_pos_evaluations(
-        const std::array<Fr, virtual_log_n>& padding_indicator_array,
-        const Fr& batched_evaluation,
-        std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
-        std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
-        std::span<const Fr> fold_neg_evals)
-        requires Curve::is_stdlib_type
-    {
-        std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
-
-        Fr eval_pos_prev = batched_evaluation;
-
-        std::vector<Fr> fold_pos_evaluations;
-        fold_pos_evaluations.reserve(virtual_log_n);
-        // Either a computed eval of A_i at r^{2^i}, or 0
-        Fr value_to_emplace;
-
-        // Solve the sequence of linear equations
-        for (size_t l = virtual_log_n; l != 0; --l) {
-            // Get r²⁽ˡ⁻¹⁾
-            const Fr& challenge_power = challenge_powers[l - 1];
-            // Get uₗ₋₁
-            const Fr& u = evaluation_point[l - 1];
-            const Fr& eval_neg = evals[l - 1];
-            // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
-            // Compute the numerator
-            Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
-            // Divide by the denominator
-            eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
-
-            // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
-            eval_pos_prev =
-                padding_indicator_array[l - 1] * eval_pos + (Fr{ 1 } - padding_indicator_array[l - 1]) * eval_pos_prev;
-            // If current index is bigger than log_n, we emplace 0, which is later multiplied against
-            // Commitment::one().
-            fold_pos_evaluations.emplace_back(padding_indicator_array[l - 1] * eval_pos_prev);
-        }
-
-        std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
-
-        return fold_pos_evaluations;
-    }
 };
 
 } // namespace bb
