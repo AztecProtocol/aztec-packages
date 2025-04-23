@@ -39,7 +39,6 @@ export class CrossChainMessagingTest {
   pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
 
-  // publicClient!: ViemPublicClient | undefined;
   l1Client!: ExtendedViemWalletClient | undefined;
 
   user1Wallet!: AccountWallet;
