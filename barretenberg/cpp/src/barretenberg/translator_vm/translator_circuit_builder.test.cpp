@@ -130,6 +130,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
     // Check that the circuit passes
     EXPECT_TRUE(CircuitChecker::check(circuit_builder));
-    // Check the accumulation rxesult stored as 4 limbs in the circuit is consistent with the value computed by hand.
+    // Check the accumulation result stored as 4 limbs in the circuit and then reconstructed is consistent with the
+    // value computed by hand.
     EXPECT_EQ(result, CircuitChecker::get_computation_result(circuit_builder));
 }

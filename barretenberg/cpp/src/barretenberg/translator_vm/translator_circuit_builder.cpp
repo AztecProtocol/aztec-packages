@@ -52,7 +52,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::generate_w
         (TranslatorCircuitBuilder::NUM_QUOTIENT_BITS % NUM_LIMB_BITS) % MICRO_LIMB_BITS;
 
     /**
-     * @brief A small function to transform a uint512_t element into its 4 68-bit limbs in Fr& scalars
+     * @brief A small function to transform a uint512_t element into its 4 68-bit limbs in Fr scalars
      *
      * @details Split and integer stored in uint512_T into 4 68-bit chunks (we assume that it is lower than 2²⁷²),
      * convert to Fr
