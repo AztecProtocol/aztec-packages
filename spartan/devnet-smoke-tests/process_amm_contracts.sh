@@ -173,7 +173,8 @@ jq -c '.accounts[]' state.json | while read -r account; do
       simulate get_amount_out_for_exact_in \
       -ca $amm_address \
       --args $amm_public_balance_token_0_after_adding_liquidity $amm_public_balance_token_1_after_adding_liquidity $amount_in \
-      -f $current_user_address)
+      -f $current_user_address \
+      | get_simulation_result)
 
     echo "Amount out min for swap: $amount_out_exact"
 
