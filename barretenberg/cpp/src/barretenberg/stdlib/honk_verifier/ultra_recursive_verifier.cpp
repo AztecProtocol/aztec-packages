@@ -87,11 +87,9 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually vk stores public input key directly.
-    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0] };
+    // Extract the aggregation object from the public inputs
     AggregationObject nested_agg_obj =
-        PublicAggState::reconstruct(verification_key->public_inputs, pairing_point_public_input_key);
+        PublicAggState::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));

@@ -176,9 +176,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
-        proving_key.pairing_point_accumulator_public_input_indices =
-            circuit.pairing_point_accumulator_public_input_indices;
-        proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
+        proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
         if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
