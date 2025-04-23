@@ -7,7 +7,7 @@ import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { ViemClient } from '../types.js';
-import { GovernanceContract } from './governance.js';
+import { ReadOnlyGovernanceContract } from './governance.js';
 import { RollupContract } from './rollup.js';
 
 export class RegistryContract {
@@ -65,7 +65,7 @@ export class RegistryContract {
     Pick<L1ContractAddresses, 'governanceProposerAddress' | 'governanceAddress'>
   > {
     const governanceAddress = await this.registry.read.getGovernance();
-    const governance = new GovernanceContract(governanceAddress, this.client);
+    const governance = new ReadOnlyGovernanceContract(governanceAddress, this.client);
     const governanceProposerAddress = await governance.getGovernanceProposerAddress();
     return {
       governanceAddress: governance.address,
