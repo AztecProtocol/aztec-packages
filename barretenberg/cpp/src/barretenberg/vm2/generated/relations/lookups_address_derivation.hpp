@@ -46,15 +46,16 @@ class lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings 
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_start() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -70,18 +71,19 @@ class lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings 
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_salted_initialization_hash_poseidon2_0_inv(),
-                                     in._lookup_address_derivation_salted_initialization_hash_poseidon2_0_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_start(),
-                                     in._address_derivation_partial_address_domain_separator(),
-                                     in._address_derivation_salt(),
-                                     in._address_derivation_init_hash(),
-                                     in._address_derivation_salted_init_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_salted_initialization_hash_poseidon2_0_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_salted_initialization_hash_poseidon2_0_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_start),
+            in.get(ColumnAndShifts::address_derivation_partial_address_domain_separator),
+            in.get(ColumnAndShifts::address_derivation_salt),
+            in.get(ColumnAndShifts::address_derivation_init_hash),
+            in.get(ColumnAndShifts::address_derivation_salted_init_hash),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -147,15 +149,16 @@ class lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings 
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -171,18 +174,19 @@ class lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings 
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_salted_initialization_hash_poseidon2_1_inv(),
-                                     in._lookup_address_derivation_salted_initialization_hash_poseidon2_1_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._address_derivation_deployer_addr(),
-                                     in._precomputed_zero(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_salted_init_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_salted_initialization_hash_poseidon2_1_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_salted_initialization_hash_poseidon2_1_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_end),
+            in.get(ColumnAndShifts::address_derivation_deployer_addr),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::address_derivation_salted_init_hash),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -248,15 +252,16 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -272,18 +277,19 @@ class lookup_address_derivation_partial_address_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_partial_address_poseidon2_inv(),
-                                     in._lookup_address_derivation_partial_address_poseidon2_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._address_derivation_partial_address_domain_separator(),
-                                     in._address_derivation_class_id(),
-                                     in._address_derivation_salted_init_hash(),
-                                     in._address_derivation_partial_address(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_partial_address_poseidon2_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_partial_address_poseidon2_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_end),
+            in.get(ColumnAndShifts::address_derivation_partial_address_domain_separator),
+            in.get(ColumnAndShifts::address_derivation_class_id),
+            in.get(ColumnAndShifts::address_derivation_salted_init_hash),
+            in.get(ColumnAndShifts::address_derivation_partial_address),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -348,15 +354,16 @@ class lookup_address_derivation_public_keys_hash_poseidon2_0_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_start() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -372,18 +379,19 @@ class lookup_address_derivation_public_keys_hash_poseidon2_0_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_0_inv(),
-                                     in._lookup_address_derivation_public_keys_hash_poseidon2_0_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_start(),
-                                     in._address_derivation_public_keys_hash_domain_separator(),
-                                     in._address_derivation_nullifier_key_x(),
-                                     in._address_derivation_nullifier_key_y(),
-                                     in._address_derivation_public_keys_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_0_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_0_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_start),
+            in.get(ColumnAndShifts::address_derivation_public_keys_hash_domain_separator),
+            in.get(ColumnAndShifts::address_derivation_nullifier_key_x),
+            in.get(ColumnAndShifts::address_derivation_nullifier_key_y),
+            in.get(ColumnAndShifts::address_derivation_public_keys_hash),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -448,15 +456,16 @@ class lookup_address_derivation_public_keys_hash_poseidon2_1_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_sel() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -472,18 +481,19 @@ class lookup_address_derivation_public_keys_hash_poseidon2_1_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_1_inv(),
-                                     in._lookup_address_derivation_public_keys_hash_poseidon2_1_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_sel(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_incoming_viewing_key_x(),
-                                     in._address_derivation_incoming_viewing_key_y(),
-                                     in._address_derivation_public_keys_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_1_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_1_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_sel),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::address_derivation_incoming_viewing_key_x),
+            in.get(ColumnAndShifts::address_derivation_incoming_viewing_key_y),
+            in.get(ColumnAndShifts::address_derivation_public_keys_hash),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -548,15 +558,16 @@ class lookup_address_derivation_public_keys_hash_poseidon2_2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_sel() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -572,18 +583,19 @@ class lookup_address_derivation_public_keys_hash_poseidon2_2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_2_inv(),
-                                     in._lookup_address_derivation_public_keys_hash_poseidon2_2_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_sel(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_outgoing_viewing_key_x(),
-                                     in._address_derivation_outgoing_viewing_key_y(),
-                                     in._address_derivation_public_keys_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_2_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_2_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_sel),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::address_derivation_outgoing_viewing_key_x),
+            in.get(ColumnAndShifts::address_derivation_outgoing_viewing_key_y),
+            in.get(ColumnAndShifts::address_derivation_public_keys_hash),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -648,15 +660,16 @@ class lookup_address_derivation_public_keys_hash_poseidon2_3_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_sel() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -672,18 +685,19 @@ class lookup_address_derivation_public_keys_hash_poseidon2_3_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_3_inv(),
-                                     in._lookup_address_derivation_public_keys_hash_poseidon2_3_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_sel(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_tagging_key_x(),
-                                     in._address_derivation_tagging_key_y(),
-                                     in._address_derivation_public_keys_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_3_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_3_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_sel),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::address_derivation_tagging_key_x),
+            in.get(ColumnAndShifts::address_derivation_tagging_key_y),
+            in.get(ColumnAndShifts::address_derivation_public_keys_hash),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -748,15 +762,16 @@ class lookup_address_derivation_public_keys_hash_poseidon2_4_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -772,18 +787,19 @@ class lookup_address_derivation_public_keys_hash_poseidon2_4_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_public_keys_hash_poseidon2_4_inv(),
-                                     in._lookup_address_derivation_public_keys_hash_poseidon2_4_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._precomputed_zero(),
-                                     in._precomputed_zero(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_public_keys_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_4_inv),
+            in.get(ColumnAndShifts::lookup_address_derivation_public_keys_hash_poseidon2_4_counts),
+            in.get(ColumnAndShifts::address_derivation_sel),
+            in.get(ColumnAndShifts::poseidon2_hash_end),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::precomputed_zero),
+            in.get(ColumnAndShifts::address_derivation_public_keys_hash),
+            in.get(ColumnAndShifts::poseidon2_hash_input_0),
+            in.get(ColumnAndShifts::poseidon2_hash_input_1),
+            in.get(ColumnAndShifts::poseidon2_hash_input_2),
+            in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -848,15 +864,16 @@ class lookup_address_derivation_preaddress_poseidon2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -872,18 +889,18 @@ class lookup_address_derivation_preaddress_poseidon2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_preaddress_poseidon2_inv(),
-                                     in._lookup_address_derivation_preaddress_poseidon2_counts(),
-                                     in._address_derivation_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._address_derivation_preaddress_domain_separator(),
-                                     in._address_derivation_public_keys_hash(),
-                                     in._address_derivation_partial_address(),
-                                     in._address_derivation_preaddress(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_address_derivation_preaddress_poseidon2_inv),
+                                     in.get(ColumnAndShifts::lookup_address_derivation_preaddress_poseidon2_counts),
+                                     in.get(ColumnAndShifts::address_derivation_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::address_derivation_preaddress_domain_separator),
+                                     in.get(ColumnAndShifts::address_derivation_public_keys_hash),
+                                     in.get(ColumnAndShifts::address_derivation_partial_address),
+                                     in.get(ColumnAndShifts::address_derivation_preaddress),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -950,15 +967,15 @@ class lookup_address_derivation_preaddress_scalar_mul_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._scalar_mul_start() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 || in.get(ColumnAndShifts::scalar_mul_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._scalar_mul_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::scalar_mul_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -974,24 +991,24 @@ class lookup_address_derivation_preaddress_scalar_mul_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_preaddress_scalar_mul_inv(),
-                                     in._lookup_address_derivation_preaddress_scalar_mul_counts(),
-                                     in._address_derivation_sel(),
-                                     in._scalar_mul_start(),
-                                     in._address_derivation_preaddress(),
-                                     in._address_derivation_g1_x(),
-                                     in._address_derivation_g1_y(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_preaddress_public_key_x(),
-                                     in._address_derivation_preaddress_public_key_y(),
-                                     in._precomputed_zero(),
-                                     in._scalar_mul_scalar(),
-                                     in._scalar_mul_point_x(),
-                                     in._scalar_mul_point_y(),
-                                     in._scalar_mul_point_inf(),
-                                     in._scalar_mul_res_x(),
-                                     in._scalar_mul_res_y(),
-                                     in._scalar_mul_res_inf());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_address_derivation_preaddress_scalar_mul_inv),
+                                     in.get(ColumnAndShifts::lookup_address_derivation_preaddress_scalar_mul_counts),
+                                     in.get(ColumnAndShifts::address_derivation_sel),
+                                     in.get(ColumnAndShifts::scalar_mul_start),
+                                     in.get(ColumnAndShifts::address_derivation_preaddress),
+                                     in.get(ColumnAndShifts::address_derivation_g1_x),
+                                     in.get(ColumnAndShifts::address_derivation_g1_y),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::address_derivation_preaddress_public_key_x),
+                                     in.get(ColumnAndShifts::address_derivation_preaddress_public_key_y),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::scalar_mul_scalar),
+                                     in.get(ColumnAndShifts::scalar_mul_point_x),
+                                     in.get(ColumnAndShifts::scalar_mul_point_y),
+                                     in.get(ColumnAndShifts::scalar_mul_point_inf),
+                                     in.get(ColumnAndShifts::scalar_mul_res_x),
+                                     in.get(ColumnAndShifts::scalar_mul_res_y),
+                                     in.get(ColumnAndShifts::scalar_mul_res_inf));
     }
 };
 
@@ -1060,15 +1077,15 @@ class lookup_address_derivation_address_ecadd_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._address_derivation_sel() == 1 || in._ecc_sel() == 1);
+        return (in.get(ColumnAndShifts::address_derivation_sel) == 1 || in.get(ColumnAndShifts::ecc_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._address_derivation_sel());
-        const auto is_table_entry = View(in._ecc_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::address_derivation_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::ecc_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -1084,28 +1101,28 @@ class lookup_address_derivation_address_ecadd_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_address_derivation_address_ecadd_inv(),
-                                     in._lookup_address_derivation_address_ecadd_counts(),
-                                     in._address_derivation_sel(),
-                                     in._ecc_sel(),
-                                     in._address_derivation_preaddress_public_key_x(),
-                                     in._address_derivation_preaddress_public_key_y(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_incoming_viewing_key_x(),
-                                     in._address_derivation_incoming_viewing_key_y(),
-                                     in._precomputed_zero(),
-                                     in._address_derivation_address(),
-                                     in._address_derivation_address_y(),
-                                     in._precomputed_zero(),
-                                     in._ecc_p_x(),
-                                     in._ecc_p_y(),
-                                     in._ecc_p_is_inf(),
-                                     in._ecc_q_x(),
-                                     in._ecc_q_y(),
-                                     in._ecc_q_is_inf(),
-                                     in._ecc_r_x(),
-                                     in._ecc_r_y(),
-                                     in._ecc_r_is_inf());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_address_derivation_address_ecadd_inv),
+                                     in.get(ColumnAndShifts::lookup_address_derivation_address_ecadd_counts),
+                                     in.get(ColumnAndShifts::address_derivation_sel),
+                                     in.get(ColumnAndShifts::ecc_sel),
+                                     in.get(ColumnAndShifts::address_derivation_preaddress_public_key_x),
+                                     in.get(ColumnAndShifts::address_derivation_preaddress_public_key_y),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::address_derivation_incoming_viewing_key_x),
+                                     in.get(ColumnAndShifts::address_derivation_incoming_viewing_key_y),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::address_derivation_address),
+                                     in.get(ColumnAndShifts::address_derivation_address_y),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::ecc_p_x),
+                                     in.get(ColumnAndShifts::ecc_p_y),
+                                     in.get(ColumnAndShifts::ecc_p_is_inf),
+                                     in.get(ColumnAndShifts::ecc_q_x),
+                                     in.get(ColumnAndShifts::ecc_q_y),
+                                     in.get(ColumnAndShifts::ecc_q_is_inf),
+                                     in.get(ColumnAndShifts::ecc_r_x),
+                                     in.get(ColumnAndShifts::ecc_r_y),
+                                     in.get(ColumnAndShifts::ecc_r_is_inf));
     }
 };
 

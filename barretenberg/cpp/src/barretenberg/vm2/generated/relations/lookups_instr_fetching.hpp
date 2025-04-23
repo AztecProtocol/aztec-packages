@@ -40,15 +40,15 @@ class lookup_instr_fetching_pc_abs_diff_positive_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel() == 1 || in._range_check_sel() == 1);
+        return (in.get(ColumnAndShifts::instr_fetching_sel) == 1 || in.get(ColumnAndShifts::range_check_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel());
-        const auto is_table_entry = View(in._range_check_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::instr_fetching_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::range_check_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -64,14 +64,14 @@ class lookup_instr_fetching_pc_abs_diff_positive_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_pc_abs_diff_positive_inv(),
-                                     in._lookup_instr_fetching_pc_abs_diff_positive_counts(),
-                                     in._instr_fetching_sel(),
-                                     in._range_check_sel(),
-                                     in._instr_fetching_pc_abs_diff(),
-                                     in._instr_fetching_pc_size_in_bits(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_instr_fetching_pc_abs_diff_positive_inv),
+                                     in.get(ColumnAndShifts::lookup_instr_fetching_pc_abs_diff_positive_counts),
+                                     in.get(ColumnAndShifts::instr_fetching_sel),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::instr_fetching_pc_abs_diff),
+                                     in.get(ColumnAndShifts::instr_fetching_pc_size_in_bits),
+                                     in.get(ColumnAndShifts::range_check_value),
+                                     in.get(ColumnAndShifts::range_check_rng_chk_bits));
     }
 };
 
@@ -128,15 +128,16 @@ class lookup_instr_fetching_instr_abs_diff_positive_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in.get(ColumnAndShifts::instr_fetching_sel) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_8) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
+        const auto is_operation = View(in.get(ColumnAndShifts::instr_fetching_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_8));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -152,12 +153,12 @@ class lookup_instr_fetching_instr_abs_diff_positive_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_instr_abs_diff_positive_inv(),
-                                     in._lookup_instr_fetching_instr_abs_diff_positive_counts(),
-                                     in._instr_fetching_sel(),
-                                     in._precomputed_sel_range_8(),
-                                     in._instr_fetching_instr_abs_diff(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_instr_fetching_instr_abs_diff_positive_inv),
+                                     in.get(ColumnAndShifts::lookup_instr_fetching_instr_abs_diff_positive_counts),
+                                     in.get(ColumnAndShifts::instr_fetching_sel),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_8),
+                                     in.get(ColumnAndShifts::instr_fetching_instr_abs_diff),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -216,15 +217,16 @@ class lookup_instr_fetching_tag_value_validation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel_has_tag() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in.get(ColumnAndShifts::instr_fetching_sel_has_tag) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_8) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel_has_tag());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
+        const auto is_operation = View(in.get(ColumnAndShifts::instr_fetching_sel_has_tag));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_8));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -240,14 +242,14 @@ class lookup_instr_fetching_tag_value_validation_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_tag_value_validation_inv(),
-                                     in._lookup_instr_fetching_tag_value_validation_counts(),
-                                     in._instr_fetching_sel_has_tag(),
-                                     in._precomputed_sel_range_8(),
-                                     in._instr_fetching_tag_value(),
-                                     in._instr_fetching_tag_out_of_range(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_sel_mem_tag_out_of_range());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_instr_fetching_tag_value_validation_inv),
+                                     in.get(ColumnAndShifts::lookup_instr_fetching_tag_value_validation_counts),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_has_tag),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_8),
+                                     in.get(ColumnAndShifts::instr_fetching_tag_value),
+                                     in.get(ColumnAndShifts::instr_fetching_tag_out_of_range),
+                                     in.get(ColumnAndShifts::precomputed_clk),
+                                     in.get(ColumnAndShifts::precomputed_sel_mem_tag_out_of_range));
     }
 };
 
@@ -310,15 +312,15 @@ class lookup_instr_fetching_bytecode_size_from_bc_dec_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel() == 1 || in._bc_decomposition_sel() == 1);
+        return (in.get(ColumnAndShifts::instr_fetching_sel) == 1 || in.get(ColumnAndShifts::bc_decomposition_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel());
-        const auto is_table_entry = View(in._bc_decomposition_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::instr_fetching_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::bc_decomposition_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -334,16 +336,16 @@ class lookup_instr_fetching_bytecode_size_from_bc_dec_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_bytecode_size_from_bc_dec_inv(),
-                                     in._lookup_instr_fetching_bytecode_size_from_bc_dec_counts(),
-                                     in._instr_fetching_sel(),
-                                     in._bc_decomposition_sel(),
-                                     in._instr_fetching_bytecode_id(),
-                                     in._precomputed_zero(),
-                                     in._instr_fetching_bytecode_size(),
-                                     in._bc_decomposition_id(),
-                                     in._bc_decomposition_pc(),
-                                     in._bc_decomposition_bytes_remaining());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_instr_fetching_bytecode_size_from_bc_dec_inv),
+                                     in.get(ColumnAndShifts::lookup_instr_fetching_bytecode_size_from_bc_dec_counts),
+                                     in.get(ColumnAndShifts::instr_fetching_sel),
+                                     in.get(ColumnAndShifts::bc_decomposition_sel),
+                                     in.get(ColumnAndShifts::instr_fetching_bytecode_id),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::instr_fetching_bytecode_size),
+                                     in.get(ColumnAndShifts::bc_decomposition_id),
+                                     in.get(ColumnAndShifts::bc_decomposition_pc),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_remaining));
     }
 };
 
@@ -460,15 +462,16 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel_pc_in_range() == 1 || in._bc_decomposition_sel() == 1);
+        return (in.get(ColumnAndShifts::instr_fetching_sel_pc_in_range) == 1 ||
+                in.get(ColumnAndShifts::bc_decomposition_sel) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel_pc_in_range());
-        const auto is_table_entry = View(in._bc_decomposition_sel());
+        const auto is_operation = View(in.get(ColumnAndShifts::instr_fetching_sel_pc_in_range));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::bc_decomposition_sel));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -484,90 +487,90 @@ class lookup_instr_fetching_bytes_from_bc_dec_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_bytes_from_bc_dec_inv(),
-                                     in._lookup_instr_fetching_bytes_from_bc_dec_counts(),
-                                     in._instr_fetching_sel_pc_in_range(),
-                                     in._bc_decomposition_sel(),
-                                     in._instr_fetching_bytecode_id(),
-                                     in._instr_fetching_pc(),
-                                     in._instr_fetching_bytes_to_read(),
-                                     in._instr_fetching_bd0(),
-                                     in._instr_fetching_bd1(),
-                                     in._instr_fetching_bd2(),
-                                     in._instr_fetching_bd3(),
-                                     in._instr_fetching_bd4(),
-                                     in._instr_fetching_bd5(),
-                                     in._instr_fetching_bd6(),
-                                     in._instr_fetching_bd7(),
-                                     in._instr_fetching_bd8(),
-                                     in._instr_fetching_bd9(),
-                                     in._instr_fetching_bd10(),
-                                     in._instr_fetching_bd11(),
-                                     in._instr_fetching_bd12(),
-                                     in._instr_fetching_bd13(),
-                                     in._instr_fetching_bd14(),
-                                     in._instr_fetching_bd15(),
-                                     in._instr_fetching_bd16(),
-                                     in._instr_fetching_bd17(),
-                                     in._instr_fetching_bd18(),
-                                     in._instr_fetching_bd19(),
-                                     in._instr_fetching_bd20(),
-                                     in._instr_fetching_bd21(),
-                                     in._instr_fetching_bd22(),
-                                     in._instr_fetching_bd23(),
-                                     in._instr_fetching_bd24(),
-                                     in._instr_fetching_bd25(),
-                                     in._instr_fetching_bd26(),
-                                     in._instr_fetching_bd27(),
-                                     in._instr_fetching_bd28(),
-                                     in._instr_fetching_bd29(),
-                                     in._instr_fetching_bd30(),
-                                     in._instr_fetching_bd31(),
-                                     in._instr_fetching_bd32(),
-                                     in._instr_fetching_bd33(),
-                                     in._instr_fetching_bd34(),
-                                     in._instr_fetching_bd35(),
-                                     in._instr_fetching_bd36(),
-                                     in._bc_decomposition_id(),
-                                     in._bc_decomposition_pc(),
-                                     in._bc_decomposition_bytes_to_read(),
-                                     in._bc_decomposition_bytes(),
-                                     in._bc_decomposition_bytes_pc_plus_1(),
-                                     in._bc_decomposition_bytes_pc_plus_2(),
-                                     in._bc_decomposition_bytes_pc_plus_3(),
-                                     in._bc_decomposition_bytes_pc_plus_4(),
-                                     in._bc_decomposition_bytes_pc_plus_5(),
-                                     in._bc_decomposition_bytes_pc_plus_6(),
-                                     in._bc_decomposition_bytes_pc_plus_7(),
-                                     in._bc_decomposition_bytes_pc_plus_8(),
-                                     in._bc_decomposition_bytes_pc_plus_9(),
-                                     in._bc_decomposition_bytes_pc_plus_10(),
-                                     in._bc_decomposition_bytes_pc_plus_11(),
-                                     in._bc_decomposition_bytes_pc_plus_12(),
-                                     in._bc_decomposition_bytes_pc_plus_13(),
-                                     in._bc_decomposition_bytes_pc_plus_14(),
-                                     in._bc_decomposition_bytes_pc_plus_15(),
-                                     in._bc_decomposition_bytes_pc_plus_16(),
-                                     in._bc_decomposition_bytes_pc_plus_17(),
-                                     in._bc_decomposition_bytes_pc_plus_18(),
-                                     in._bc_decomposition_bytes_pc_plus_19(),
-                                     in._bc_decomposition_bytes_pc_plus_20(),
-                                     in._bc_decomposition_bytes_pc_plus_21(),
-                                     in._bc_decomposition_bytes_pc_plus_22(),
-                                     in._bc_decomposition_bytes_pc_plus_23(),
-                                     in._bc_decomposition_bytes_pc_plus_24(),
-                                     in._bc_decomposition_bytes_pc_plus_25(),
-                                     in._bc_decomposition_bytes_pc_plus_26(),
-                                     in._bc_decomposition_bytes_pc_plus_27(),
-                                     in._bc_decomposition_bytes_pc_plus_28(),
-                                     in._bc_decomposition_bytes_pc_plus_29(),
-                                     in._bc_decomposition_bytes_pc_plus_30(),
-                                     in._bc_decomposition_bytes_pc_plus_31(),
-                                     in._bc_decomposition_bytes_pc_plus_32(),
-                                     in._bc_decomposition_bytes_pc_plus_33(),
-                                     in._bc_decomposition_bytes_pc_plus_34(),
-                                     in._bc_decomposition_bytes_pc_plus_35(),
-                                     in._bc_decomposition_bytes_pc_plus_36());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_instr_fetching_bytes_from_bc_dec_inv),
+                                     in.get(ColumnAndShifts::lookup_instr_fetching_bytes_from_bc_dec_counts),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_pc_in_range),
+                                     in.get(ColumnAndShifts::bc_decomposition_sel),
+                                     in.get(ColumnAndShifts::instr_fetching_bytecode_id),
+                                     in.get(ColumnAndShifts::instr_fetching_pc),
+                                     in.get(ColumnAndShifts::instr_fetching_bytes_to_read),
+                                     in.get(ColumnAndShifts::instr_fetching_bd0),
+                                     in.get(ColumnAndShifts::instr_fetching_bd1),
+                                     in.get(ColumnAndShifts::instr_fetching_bd2),
+                                     in.get(ColumnAndShifts::instr_fetching_bd3),
+                                     in.get(ColumnAndShifts::instr_fetching_bd4),
+                                     in.get(ColumnAndShifts::instr_fetching_bd5),
+                                     in.get(ColumnAndShifts::instr_fetching_bd6),
+                                     in.get(ColumnAndShifts::instr_fetching_bd7),
+                                     in.get(ColumnAndShifts::instr_fetching_bd8),
+                                     in.get(ColumnAndShifts::instr_fetching_bd9),
+                                     in.get(ColumnAndShifts::instr_fetching_bd10),
+                                     in.get(ColumnAndShifts::instr_fetching_bd11),
+                                     in.get(ColumnAndShifts::instr_fetching_bd12),
+                                     in.get(ColumnAndShifts::instr_fetching_bd13),
+                                     in.get(ColumnAndShifts::instr_fetching_bd14),
+                                     in.get(ColumnAndShifts::instr_fetching_bd15),
+                                     in.get(ColumnAndShifts::instr_fetching_bd16),
+                                     in.get(ColumnAndShifts::instr_fetching_bd17),
+                                     in.get(ColumnAndShifts::instr_fetching_bd18),
+                                     in.get(ColumnAndShifts::instr_fetching_bd19),
+                                     in.get(ColumnAndShifts::instr_fetching_bd20),
+                                     in.get(ColumnAndShifts::instr_fetching_bd21),
+                                     in.get(ColumnAndShifts::instr_fetching_bd22),
+                                     in.get(ColumnAndShifts::instr_fetching_bd23),
+                                     in.get(ColumnAndShifts::instr_fetching_bd24),
+                                     in.get(ColumnAndShifts::instr_fetching_bd25),
+                                     in.get(ColumnAndShifts::instr_fetching_bd26),
+                                     in.get(ColumnAndShifts::instr_fetching_bd27),
+                                     in.get(ColumnAndShifts::instr_fetching_bd28),
+                                     in.get(ColumnAndShifts::instr_fetching_bd29),
+                                     in.get(ColumnAndShifts::instr_fetching_bd30),
+                                     in.get(ColumnAndShifts::instr_fetching_bd31),
+                                     in.get(ColumnAndShifts::instr_fetching_bd32),
+                                     in.get(ColumnAndShifts::instr_fetching_bd33),
+                                     in.get(ColumnAndShifts::instr_fetching_bd34),
+                                     in.get(ColumnAndShifts::instr_fetching_bd35),
+                                     in.get(ColumnAndShifts::instr_fetching_bd36),
+                                     in.get(ColumnAndShifts::bc_decomposition_id),
+                                     in.get(ColumnAndShifts::bc_decomposition_pc),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_to_read),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_1),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_2),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_3),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_4),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_5),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_6),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_7),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_8),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_9),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_10),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_11),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_12),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_13),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_14),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_15),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_16),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_17),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_18),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_19),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_20),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_21),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_22),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_23),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_24),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_25),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_26),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_27),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_28),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_29),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_30),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_31),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_32),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_33),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_34),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_35),
+                                     in.get(ColumnAndShifts::bc_decomposition_bytes_pc_plus_36));
     }
 };
 
@@ -647,15 +650,16 @@ class lookup_instr_fetching_wire_instruction_info_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._instr_fetching_sel_pc_in_range() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in.get(ColumnAndShifts::instr_fetching_sel_pc_in_range) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_8) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._instr_fetching_sel_pc_in_range());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
+        const auto is_operation = View(in.get(ColumnAndShifts::instr_fetching_sel_pc_in_range));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_8));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -671,58 +675,58 @@ class lookup_instr_fetching_wire_instruction_info_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_instr_fetching_wire_instruction_info_inv(),
-                                     in._lookup_instr_fetching_wire_instruction_info_counts(),
-                                     in._instr_fetching_sel_pc_in_range(),
-                                     in._precomputed_sel_range_8(),
-                                     in._instr_fetching_bd0(),
-                                     in._instr_fetching_opcode_out_of_range(),
-                                     in._instr_fetching_exec_opcode(),
-                                     in._instr_fetching_instr_size(),
-                                     in._instr_fetching_sel_has_tag(),
-                                     in._instr_fetching_sel_tag_is_op2(),
-                                     in._instr_fetching_sel_op_dc_0(),
-                                     in._instr_fetching_sel_op_dc_1(),
-                                     in._instr_fetching_sel_op_dc_2(),
-                                     in._instr_fetching_sel_op_dc_3(),
-                                     in._instr_fetching_sel_op_dc_4(),
-                                     in._instr_fetching_sel_op_dc_5(),
-                                     in._instr_fetching_sel_op_dc_6(),
-                                     in._instr_fetching_sel_op_dc_7(),
-                                     in._instr_fetching_sel_op_dc_8(),
-                                     in._instr_fetching_sel_op_dc_9(),
-                                     in._instr_fetching_sel_op_dc_10(),
-                                     in._instr_fetching_sel_op_dc_11(),
-                                     in._instr_fetching_sel_op_dc_12(),
-                                     in._instr_fetching_sel_op_dc_13(),
-                                     in._instr_fetching_sel_op_dc_14(),
-                                     in._instr_fetching_sel_op_dc_15(),
-                                     in._instr_fetching_sel_op_dc_16(),
-                                     in._instr_fetching_sel_op_dc_17(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_opcode_out_of_range(),
-                                     in._precomputed_exec_opcode(),
-                                     in._precomputed_instr_size(),
-                                     in._precomputed_sel_has_tag(),
-                                     in._precomputed_sel_tag_is_op2(),
-                                     in._precomputed_sel_op_dc_0(),
-                                     in._precomputed_sel_op_dc_1(),
-                                     in._precomputed_sel_op_dc_2(),
-                                     in._precomputed_sel_op_dc_3(),
-                                     in._precomputed_sel_op_dc_4(),
-                                     in._precomputed_sel_op_dc_5(),
-                                     in._precomputed_sel_op_dc_6(),
-                                     in._precomputed_sel_op_dc_7(),
-                                     in._precomputed_sel_op_dc_8(),
-                                     in._precomputed_sel_op_dc_9(),
-                                     in._precomputed_sel_op_dc_10(),
-                                     in._precomputed_sel_op_dc_11(),
-                                     in._precomputed_sel_op_dc_12(),
-                                     in._precomputed_sel_op_dc_13(),
-                                     in._precomputed_sel_op_dc_14(),
-                                     in._precomputed_sel_op_dc_15(),
-                                     in._precomputed_sel_op_dc_16(),
-                                     in._precomputed_sel_op_dc_17());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_instr_fetching_wire_instruction_info_inv),
+                                     in.get(ColumnAndShifts::lookup_instr_fetching_wire_instruction_info_counts),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_pc_in_range),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_8),
+                                     in.get(ColumnAndShifts::instr_fetching_bd0),
+                                     in.get(ColumnAndShifts::instr_fetching_opcode_out_of_range),
+                                     in.get(ColumnAndShifts::instr_fetching_exec_opcode),
+                                     in.get(ColumnAndShifts::instr_fetching_instr_size),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_has_tag),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_tag_is_op2),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_0),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_1),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_2),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_3),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_4),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_5),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_6),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_7),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_8),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_9),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_10),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_11),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_12),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_13),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_14),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_15),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_16),
+                                     in.get(ColumnAndShifts::instr_fetching_sel_op_dc_17),
+                                     in.get(ColumnAndShifts::precomputed_clk),
+                                     in.get(ColumnAndShifts::precomputed_opcode_out_of_range),
+                                     in.get(ColumnAndShifts::precomputed_exec_opcode),
+                                     in.get(ColumnAndShifts::precomputed_instr_size),
+                                     in.get(ColumnAndShifts::precomputed_sel_has_tag),
+                                     in.get(ColumnAndShifts::precomputed_sel_tag_is_op2),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_0),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_1),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_2),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_3),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_4),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_5),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_6),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_7),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_8),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_9),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_10),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_11),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_12),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_13),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_14),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_15),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_16),
+                                     in.get(ColumnAndShifts::precomputed_sel_op_dc_17));
     }
 };
 

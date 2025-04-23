@@ -40,15 +40,15 @@ class lookup_range_check_dyn_rng_chk_pow_2_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel() == 1 || in._precomputed_sel_range_8() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel) == 1 || in.get(ColumnAndShifts::precomputed_sel_range_8) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_8));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -64,14 +64,14 @@ class lookup_range_check_dyn_rng_chk_pow_2_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_dyn_rng_chk_pow_2_inv(),
-                                     in._lookup_range_check_dyn_rng_chk_pow_2_counts(),
-                                     in._range_check_sel(),
-                                     in._precomputed_sel_range_8(),
-                                     in._range_check_dyn_rng_chk_bits(),
-                                     in._range_check_dyn_rng_chk_pow_2(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_power_of_2());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_dyn_rng_chk_pow_2_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_dyn_rng_chk_pow_2_counts),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_8),
+                                     in.get(ColumnAndShifts::range_check_dyn_rng_chk_bits),
+                                     in.get(ColumnAndShifts::range_check_dyn_rng_chk_pow_2),
+                                     in.get(ColumnAndShifts::precomputed_clk),
+                                     in.get(ColumnAndShifts::precomputed_power_of_2));
     }
 };
 
@@ -127,15 +127,16 @@ class lookup_range_check_dyn_diff_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -151,12 +152,12 @@ class lookup_range_check_dyn_diff_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_dyn_diff_is_u16_inv(),
-                                     in._lookup_range_check_dyn_diff_is_u16_counts(),
-                                     in._range_check_sel(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_dyn_diff(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_dyn_diff_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_dyn_diff_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_dyn_diff),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -212,15 +213,16 @@ class lookup_range_check_r0_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel_r0_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel_r0_16_bit_rng_lookup) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r0_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel_r0_16_bit_rng_lookup));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -236,12 +238,12 @@ class lookup_range_check_r0_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r0_is_u16_inv(),
-                                     in._lookup_range_check_r0_is_u16_counts(),
-                                     in._range_check_sel_r0_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r0(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r0_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r0_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel_r0_16_bit_rng_lookup),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r0),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -296,15 +298,16 @@ class lookup_range_check_r1_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel_r1_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel_r1_16_bit_rng_lookup) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r1_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel_r1_16_bit_rng_lookup));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -320,12 +323,12 @@ class lookup_range_check_r1_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r1_is_u16_inv(),
-                                     in._lookup_range_check_r1_is_u16_counts(),
-                                     in._range_check_sel_r1_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r1(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r1_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r1_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel_r1_16_bit_rng_lookup),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r1),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -380,15 +383,16 @@ class lookup_range_check_r2_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel_r2_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel_r2_16_bit_rng_lookup) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r2_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel_r2_16_bit_rng_lookup));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -404,12 +408,12 @@ class lookup_range_check_r2_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r2_is_u16_inv(),
-                                     in._lookup_range_check_r2_is_u16_counts(),
-                                     in._range_check_sel_r2_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r2(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r2_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r2_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel_r2_16_bit_rng_lookup),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r2),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -464,15 +468,16 @@ class lookup_range_check_r3_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel_r3_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel_r3_16_bit_rng_lookup) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r3_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel_r3_16_bit_rng_lookup));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -488,12 +493,12 @@ class lookup_range_check_r3_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r3_is_u16_inv(),
-                                     in._lookup_range_check_r3_is_u16_counts(),
-                                     in._range_check_sel_r3_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r3(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r3_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r3_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel_r3_16_bit_rng_lookup),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r3),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -548,15 +553,16 @@ class lookup_range_check_r4_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel_r4_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel_r4_16_bit_rng_lookup) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r4_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel_r4_16_bit_rng_lookup));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -572,12 +578,12 @@ class lookup_range_check_r4_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r4_is_u16_inv(),
-                                     in._lookup_range_check_r4_is_u16_counts(),
-                                     in._range_check_sel_r4_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r4(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r4_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r4_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel_r4_16_bit_rng_lookup),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r4),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -632,15 +638,16 @@ class lookup_range_check_r5_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel_r5_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel_r5_16_bit_rng_lookup) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r5_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel_r5_16_bit_rng_lookup));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -656,12 +663,12 @@ class lookup_range_check_r5_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r5_is_u16_inv(),
-                                     in._lookup_range_check_r5_is_u16_counts(),
-                                     in._range_check_sel_r5_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r5(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r5_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r5_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel_r5_16_bit_rng_lookup),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r5),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -716,15 +723,16 @@ class lookup_range_check_r6_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel_r6_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel_r6_16_bit_rng_lookup) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r6_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel_r6_16_bit_rng_lookup));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -740,12 +748,12 @@ class lookup_range_check_r6_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r6_is_u16_inv(),
-                                     in._lookup_range_check_r6_is_u16_counts(),
-                                     in._range_check_sel_r6_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r6(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r6_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r6_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel_r6_16_bit_rng_lookup),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r6),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 
@@ -800,15 +808,16 @@ class lookup_range_check_r7_is_u16_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._range_check_sel() == 1 || in._precomputed_sel_range_16() == 1);
+        return (in.get(ColumnAndShifts::range_check_sel) == 1 ||
+                in.get(ColumnAndShifts::precomputed_sel_range_16) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
+        const auto is_operation = View(in.get(ColumnAndShifts::range_check_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::precomputed_sel_range_16));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -824,12 +833,12 @@ class lookup_range_check_r7_is_u16_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_range_check_r7_is_u16_inv(),
-                                     in._lookup_range_check_r7_is_u16_counts(),
-                                     in._range_check_sel(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r7(),
-                                     in._precomputed_clk());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_range_check_r7_is_u16_inv),
+                                     in.get(ColumnAndShifts::lookup_range_check_r7_is_u16_counts),
+                                     in.get(ColumnAndShifts::range_check_sel),
+                                     in.get(ColumnAndShifts::precomputed_sel_range_16),
+                                     in.get(ColumnAndShifts::range_check_u16_r7),
+                                     in.get(ColumnAndShifts::precomputed_clk));
     }
 };
 

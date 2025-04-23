@@ -46,15 +46,16 @@ class lookup_public_data_read_low_leaf_poseidon2_0_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._public_data_read_sel() == 1 || in._poseidon2_hash_start() == 1);
+        return (in.get(ColumnAndShifts::public_data_read_sel) == 1 ||
+                in.get(ColumnAndShifts::poseidon2_hash_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._public_data_read_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::public_data_read_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -70,18 +71,18 @@ class lookup_public_data_read_low_leaf_poseidon2_0_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_public_data_read_low_leaf_poseidon2_0_inv(),
-                                     in._lookup_public_data_read_low_leaf_poseidon2_0_counts(),
-                                     in._public_data_read_sel(),
-                                     in._poseidon2_hash_start(),
-                                     in._public_data_read_low_leaf_slot(),
-                                     in._public_data_read_low_leaf_value(),
-                                     in._public_data_read_low_leaf_next_index(),
-                                     in._public_data_read_low_leaf_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_poseidon2_0_inv),
+                                     in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_poseidon2_0_counts),
+                                     in.get(ColumnAndShifts::public_data_read_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_start),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_slot),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_value),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_next_index),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_hash),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -146,15 +147,15 @@ class lookup_public_data_read_low_leaf_poseidon2_1_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._public_data_read_sel() == 1 || in._poseidon2_hash_end() == 1);
+        return (in.get(ColumnAndShifts::public_data_read_sel) == 1 || in.get(ColumnAndShifts::poseidon2_hash_end) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._public_data_read_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
+        const auto is_operation = View(in.get(ColumnAndShifts::public_data_read_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::poseidon2_hash_end));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -170,18 +171,18 @@ class lookup_public_data_read_low_leaf_poseidon2_1_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_public_data_read_low_leaf_poseidon2_1_inv(),
-                                     in._lookup_public_data_read_low_leaf_poseidon2_1_counts(),
-                                     in._public_data_read_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._public_data_read_low_leaf_next_slot(),
-                                     in._precomputed_zero(),
-                                     in._precomputed_zero(),
-                                     in._public_data_read_low_leaf_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_poseidon2_1_inv),
+                                     in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_poseidon2_1_counts),
+                                     in.get(ColumnAndShifts::public_data_read_sel),
+                                     in.get(ColumnAndShifts::poseidon2_hash_end),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_next_slot),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::precomputed_zero),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_hash),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_0),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_1),
+                                     in.get(ColumnAndShifts::poseidon2_hash_input_2),
+                                     in.get(ColumnAndShifts::poseidon2_hash_output));
     }
 };
 
@@ -246,15 +247,15 @@ class lookup_public_data_read_low_leaf_membership_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._public_data_read_sel() == 1 || in._merkle_check_start() == 1);
+        return (in.get(ColumnAndShifts::public_data_read_sel) == 1 || in.get(ColumnAndShifts::merkle_check_start) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._public_data_read_sel());
-        const auto is_table_entry = View(in._merkle_check_start());
+        const auto is_operation = View(in.get(ColumnAndShifts::public_data_read_sel));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::merkle_check_start));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -270,18 +271,18 @@ class lookup_public_data_read_low_leaf_membership_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_public_data_read_low_leaf_membership_inv(),
-                                     in._lookup_public_data_read_low_leaf_membership_counts(),
-                                     in._public_data_read_sel(),
-                                     in._merkle_check_start(),
-                                     in._public_data_read_low_leaf_hash(),
-                                     in._public_data_read_low_leaf_index(),
-                                     in._public_data_read_tree_height(),
-                                     in._public_data_read_root(),
-                                     in._merkle_check_read_node(),
-                                     in._merkle_check_index(),
-                                     in._merkle_check_path_len(),
-                                     in._merkle_check_read_root());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_membership_inv),
+                                     in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_membership_counts),
+                                     in.get(ColumnAndShifts::public_data_read_sel),
+                                     in.get(ColumnAndShifts::merkle_check_start),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_hash),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_index),
+                                     in.get(ColumnAndShifts::public_data_read_tree_height),
+                                     in.get(ColumnAndShifts::public_data_read_root),
+                                     in.get(ColumnAndShifts::merkle_check_read_node),
+                                     in.get(ColumnAndShifts::merkle_check_index),
+                                     in.get(ColumnAndShifts::merkle_check_path_len),
+                                     in.get(ColumnAndShifts::merkle_check_read_root));
     }
 };
 
@@ -342,15 +343,16 @@ class lookup_public_data_read_low_leaf_slot_validation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._public_data_read_leaf_not_exists() == 1 || in._ff_gt_sel_gt() == 1);
+        return (in.get(ColumnAndShifts::public_data_read_leaf_not_exists) == 1 ||
+                in.get(ColumnAndShifts::ff_gt_sel_gt) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._public_data_read_leaf_not_exists());
-        const auto is_table_entry = View(in._ff_gt_sel_gt());
+        const auto is_operation = View(in.get(ColumnAndShifts::public_data_read_leaf_not_exists));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::ff_gt_sel_gt));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -366,16 +368,16 @@ class lookup_public_data_read_low_leaf_slot_validation_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_public_data_read_low_leaf_slot_validation_inv(),
-                                     in._lookup_public_data_read_low_leaf_slot_validation_counts(),
-                                     in._public_data_read_leaf_not_exists(),
-                                     in._ff_gt_sel_gt(),
-                                     in._public_data_read_slot(),
-                                     in._public_data_read_low_leaf_slot(),
-                                     in._public_data_read_one(),
-                                     in._ff_gt_a(),
-                                     in._ff_gt_b(),
-                                     in._ff_gt_result());
+        return std::forward_as_tuple(in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_slot_validation_inv),
+                                     in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_slot_validation_counts),
+                                     in.get(ColumnAndShifts::public_data_read_leaf_not_exists),
+                                     in.get(ColumnAndShifts::ff_gt_sel_gt),
+                                     in.get(ColumnAndShifts::public_data_read_slot),
+                                     in.get(ColumnAndShifts::public_data_read_low_leaf_slot),
+                                     in.get(ColumnAndShifts::public_data_read_one),
+                                     in.get(ColumnAndShifts::ff_gt_a),
+                                     in.get(ColumnAndShifts::ff_gt_b),
+                                     in.get(ColumnAndShifts::ff_gt_result));
     }
 };
 
@@ -436,15 +438,16 @@ class lookup_public_data_read_low_leaf_next_slot_validation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._public_data_read_next_slot_is_nonzero() == 1 || in._ff_gt_sel_gt() == 1);
+        return (in.get(ColumnAndShifts::public_data_read_next_slot_is_nonzero) == 1 ||
+                in.get(ColumnAndShifts::ff_gt_sel_gt) == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
     static inline auto compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        const auto is_operation = View(in._public_data_read_next_slot_is_nonzero());
-        const auto is_table_entry = View(in._ff_gt_sel_gt());
+        const auto is_operation = View(in.get(ColumnAndShifts::public_data_read_next_slot_is_nonzero));
+        const auto is_table_entry = View(in.get(ColumnAndShifts::ff_gt_sel_gt));
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -460,16 +463,17 @@ class lookup_public_data_read_low_leaf_next_slot_validation_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_public_data_read_low_leaf_next_slot_validation_inv(),
-                                     in._lookup_public_data_read_low_leaf_next_slot_validation_counts(),
-                                     in._public_data_read_next_slot_is_nonzero(),
-                                     in._ff_gt_sel_gt(),
-                                     in._public_data_read_low_leaf_next_slot(),
-                                     in._public_data_read_slot(),
-                                     in._public_data_read_one(),
-                                     in._ff_gt_a(),
-                                     in._ff_gt_b(),
-                                     in._ff_gt_result());
+        return std::forward_as_tuple(
+            in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_next_slot_validation_inv),
+            in.get(ColumnAndShifts::lookup_public_data_read_low_leaf_next_slot_validation_counts),
+            in.get(ColumnAndShifts::public_data_read_next_slot_is_nonzero),
+            in.get(ColumnAndShifts::ff_gt_sel_gt),
+            in.get(ColumnAndShifts::public_data_read_low_leaf_next_slot),
+            in.get(ColumnAndShifts::public_data_read_slot),
+            in.get(ColumnAndShifts::public_data_read_one),
+            in.get(ColumnAndShifts::ff_gt_a),
+            in.get(ColumnAndShifts::ff_gt_b),
+            in.get(ColumnAndShifts::ff_gt_result));
     }
 };
 

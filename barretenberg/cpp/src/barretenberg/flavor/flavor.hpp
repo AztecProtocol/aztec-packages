@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file flavor.hpp
  * @brief Base class templates for structures that contain data parameterized by the fundamental polynomials of a Honk
@@ -331,9 +337,11 @@ class UltraZKFlavor;
 class UltraRollupFlavor;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
+#ifdef STARKNET_GARAGA_FLAVORS
 class UltraStarknetFlavor;
-class UltraKeccakZKFlavor;
 class UltraStarknetZKFlavor;
+#endif
+class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class TranslatorFlavor;
@@ -372,8 +380,13 @@ namespace bb {
 template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
+#ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
 concept IsUltraHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+#else
+template <typename T>
+concept IsUltraHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+#endif
 template <typename T>
 concept IsUltraFlavor = IsUltraHonkFlavor<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
 
@@ -385,7 +398,6 @@ template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
                                     MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                     MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                     MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -398,16 +410,13 @@ concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFl
 template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                       UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                        MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                         MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                         MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                        TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
                                         AvmRecursiveFlavor_<UltraCircuitBuilder>,
                                         AvmRecursiveFlavor_<MegaCircuitBuilder>,
@@ -418,8 +427,7 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
-
-
+#ifdef STARKNET_GARAGA_FLAVORS
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
@@ -432,13 +440,28 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            MegaZKFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                                            UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+#else
+template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
+                                                           // Note(md): must be here to use oink prover
+                                                           UltraKeccakFlavor,
+                                                           UltraKeccakZKFlavor,
+                                                           UltraRollupFlavor,
+                                                           UltraZKFlavor,
+                                                           MegaFlavor,
+                                                           MegaZKFlavor,
+                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                                                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
+                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>,
+                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
+                                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
+#endif
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
