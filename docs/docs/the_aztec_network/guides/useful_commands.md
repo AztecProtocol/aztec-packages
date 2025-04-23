@@ -26,7 +26,7 @@ The Registry contract for a particular deployment can be retrieved from the [Cha
 
 Run
 
-```
+```bash
 cast call <RegistryContractAddress> "getCanonicalRollup()" --rpc-url https://example.com
 ```
 
@@ -40,7 +40,7 @@ The rest of the guide will omit the `--rpc-url` flag for legibility.
 
 Run
 
-```
+```bash
 cast call <RollupAddress> "getAttesters()" --rpc-url
 ```
 
@@ -48,7 +48,7 @@ cast call <RollupAddress> "getAttesters()" --rpc-url
 
 Run
 
-```
+```bash
 cast call <RollupAddress> "getInfo(address)" <ValidatorAddress>
 ```
 
@@ -67,7 +67,7 @@ This will return in order: 1) the validator's balance 2) their `withdrawer` addr
 
 First get the Governance contract from the Registry, and query it for the GovernanceProposer contract.
 
-```
+```bash
 cast call <RegistryAddress> "getGovernance()"
 cast call <GovernanceAddress> "governanceProposer()"
 ```
@@ -76,7 +76,7 @@ cast call <GovernanceAddress> "governanceProposer()"
 
 Run
 
-```
+```bash
 cast call <GovernanceProposerAddress> "M()" # The size of any signalling round in L2 blocks.
 cast call <GovernanceProposerAddress> "N()" # The number of signals that must be received in any single signalling round.
 ```
@@ -85,7 +85,7 @@ cast call <GovernanceProposerAddress> "N()" # The number of signals that must be
 
 You can check how many signals a `payload` has received in a specific round. To do so, you need the rollup address, the payload address and the round number. To find the round number at a specific point in time, you can compute it using an L2 slot number.
 
-```
+```bash
 cast call <GovernanceProposerAddress> "computeRound(uint256)" <SlotNumber> # returns a round number (in hex)
 cast call <GovernanceProposerAddress> "yeaCount(address,uint256,address)" <RollupAddress> <RoundNumber> <PayloadAddress> # round number should is an integer
 ```
