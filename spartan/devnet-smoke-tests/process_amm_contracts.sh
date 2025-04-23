@@ -112,14 +112,14 @@ jq -c '.accounts[]' state.json | while read -r account; do
       -ca $token_0_address \
       --args $current_user_address $amm_address $amount_0_max secrets:add-liquidity-nonce \
       -f $current_user_address \
-      -a amm-lp-token-0
+      -a add_liquidity_token_1
 
     aztec-wallet \
       create-authwit transfer_to_public $amm_address \
       -ca $token_1_address \
       --args $current_user_address $amm_address $amount_1_max secrets:add-liquidity-nonce \
       -f $current_user_address \
-      -a amm-lp-token-1
+      -a add_liquidity_token_1
 
     prover_to_use_for_amm_flow=$(get_prover "$should_prove_flow")
 
@@ -127,8 +127,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       send add_liquidity \
       -ca $amm_address \
       --args $amount_0_max $amount_1_max $amount_0_min $amount_1_min secrets:add-liquidity-nonce \
-      -aw amm-lp-token-0 \
-      -aw amm-lp-token-1 \
+      -aw authwits:add_liquidity_token_0,authwits:add_liquidity_token_1 \
       -f $current_user_address \
       $fee_method_override
 
@@ -174,7 +173,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       -ca $token_0_address \
       --args $current_user_address $amm_address $amount_in secrets:swap-nonce \
       -f $current_user_address \
-      -a amm-swapper-token-0
+      -a swap_token_0
 
     amount_out_exact=$(aztec-wallet \
       simulate get_amount_out_for_exact_in \
@@ -188,7 +187,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       send swap_exact_tokens_for_tokens \
       --ca $amm_address \
       --args $token_0_address $token_1_address $amount_in $(amount_out_exact / 2) secrets:swap-nonce \
-      -aw amm-swapper-token-0 \
+      -aw authwits:swap_token_0 \
       -f $current_user_address \
       $fee_method_override
 
@@ -213,7 +212,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       -ca $token_liquidity_address \
       --args $current_user_address $amm_address $liquidity_token_balance secrets:burn-nonce \
       -f $current_user_address \
-      -a amm-burn-token-liquidity
+      -a remove_liquidity
 
     amount_0_min=1
     amount_1_min=1
@@ -222,7 +221,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       send remove_liquidity \
       --ca $amm_address \
       --args $((liquidity_token_balance/8)) $amount_0_min $amount_1_min secrets:burn-nonce \
-      -aw amm-burn-token-liquidity \
+      -aw remove_liquidity \
       -f $current_user_address \
       $fee_method_override
 
@@ -234,7 +233,13 @@ jq -c '.accounts[]' state.json | while read -r account; do
     assert_lt "$current_user_private_balance_token_0_after_swap" "$current_user_private_balance_token_0_after_remove_liquidity"
     assert_lt "$current_user_private_balance_token_1_after_swap" "$current_user_private_balance_token_1_after_remove_liquidity"
 
-    # Check public balances of AMM ?
+    amm_public_balance_token_0_after_removing_liquidity=$(get_public_balance "$token_0_address" "$amm_address" "$current_user_address")
+
+    amm_public_balance_token_1_after_removing_liquidity=$(get_public_balance "$token_1_address" "$amm_address" "$current_user_address")
+
+    # We check that amm public token balances after removing liquidity are less than before
+    assert_lt "$amm_public_balance_token_0_after_removing_liquidity" "$amm_public_balance_token_0_after_adding_liquidity"
+    assert_lt "$amm_public_balance_token_1_after_removing_liquidity" "$amm_public_balance_token_1_after_adding_liquidity"
 
     should_prove_flow=false
   done

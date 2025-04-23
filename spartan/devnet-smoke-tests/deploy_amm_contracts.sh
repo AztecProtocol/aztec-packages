@@ -44,6 +44,12 @@ if [ "$amm_contract_count" -lt "$max_amm_contracts" ]; then
       -f $admin_and_minter_address \
       | get_contract_address)
 
+    aztec-wallet $prover_to_use_when_deploying_amm \
+      send set_minter \
+      -ca $token_liquidity_address \
+      --args $amm_address true \
+      -f $admin_and_minter_address
+
     new_amm_contract=$(jq -n \
       --arg token_0_address "$token_0_address" \
       --arg token_1_address "$token_1_address" \
