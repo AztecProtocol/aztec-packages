@@ -7,7 +7,6 @@ import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
 import { LoadingModal } from '../common/LoadingModal';
-import { Button } from '@mui/material';
 
 const layout = css({
   display: 'flex',
@@ -41,7 +40,7 @@ const headerFrame = css({
   borderRadius: '10px',
   display: 'flex',
   alignItems: 'center',
-  padding: '12px 36px',
+  padding: '12px 24px',
   flexWrap: 'wrap',
   '@media (max-width: 1200px)': {
     margin: '12px 12px 24px 12px',
@@ -50,7 +49,7 @@ const headerFrame = css({
 });
 
 const logo = css({
-  height: '60px',
+  height: '50px',
   objectFit: 'contain',
   marginRight: '2rem',
   '@media (max-width: 1200px)': {
@@ -68,7 +67,7 @@ const headerTitle = css({
   fontFamily: '"Space Grotesk", sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
-  fontSize: '42px',
+  fontSize: '36px',
   lineHeight: '48px',
   display: 'flex',
   height: '60px',
