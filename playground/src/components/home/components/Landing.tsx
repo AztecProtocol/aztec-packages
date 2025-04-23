@@ -323,7 +323,6 @@ export function Landing() {
 
   async function handleCreateAccountButtonClick() {
     setIsCreatingAccount(true);
-    let accountDeployNotification: string;
 
     try {
       const salt = Fr.random();
@@ -332,16 +331,17 @@ export function Landing() {
       const accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
       const accountWallet = await accountManager.getWallet();
       await accountManager.register();
+
+      const accountCount = (await walletDB.listAliases('accounts')).length;
+      const accountName = `My Account ${accountCount + 1}`;
       await walletDB.storeAccount(accountWallet.getAddress(), {
         type: 'ecdsasecp256r1',
         secretKey: accountWallet.getSecretKey(),
-        alias: 'My Account 1',
+        alias: accountName,
         salt,
         signingKey,
       });
-      notifications.show('Account generated and saved to PXE', {
-        autoHideDuration: 3000,
-      });
+      notifications.show('Account created and saved to PXE.');
 
       const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
       const feePaymentMethod = await prepareForFeePayment(pxe);
@@ -358,26 +358,18 @@ export function Landing() {
       };
       // onClose(accountWallet, publiclyDeploy, deployMethod, opts);
 
-      accountDeployNotification = notifications.show('Deploying account...');
-      const deploymentResult = await sendTx(`Deployment of account`, deployMethod, accountWallet.getAddress(), opts);
+      const deploymentResult = await sendTx(`Account Deployment`, deployMethod, accountWallet.getAddress(), opts, {
+        openPopup: false,
+      });
+
       if (deploymentResult) {
-        notifications.close(accountDeployNotification);
-        notifications.show('Account deployed successfully', {
-          autoHideDuration: 3000,
-        });
+        notifications.show(`Account ${accountName} deployed successfully.`);
       } else {
         // Temporarily remove from accounts if deployment fails
         await walletDB.deleteAccount(accountWallet.getAddress());
-
-        notifications.close(accountDeployNotification);
-        notifications.show('Account deployment failed', {
-          autoHideDuration: 3000,
-          severity: 'error',
-        });
       }
     } catch (e) {
       console.error(e);
-      notifications.close(accountDeployNotification);
       setIsCreatingAccount(false);
     } finally {
       setIsCreatingAccount(false);
@@ -412,7 +404,7 @@ export function Landing() {
                 highly flexible and programmable user identities that unlock features like gas sponsorship, nonce abstraction
                 (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
             </Box>
-            <Button variant="contained" css={featureCardButton} onClick={handleCreateAccountButtonClick}>
+            <Button variant="contained" css={featureCardButton} onClick={handleCreateAccountButtonClick} disabled={isCreatingAccount}>
               {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
             </Button>
           </div>
@@ -428,11 +420,16 @@ export function Landing() {
                 calls a public function to update the vote count transparently. </div>
             </Box>
 
-            <Button variant="contained" css={featureCardButton} onClick={async () => {
-              setIsLoadingPrivateVoting(true);
-              await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
-              setIsLoadingPrivateVoting(false);
-            }}>
+            <Button
+              variant="contained"
+              css={featureCardButton}
+              onClick={async () => {
+                setIsLoadingPrivateVoting(true);
+                await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
+                setIsLoadingPrivateVoting(false);
+              }}
+              disabled={isLoadingPrivateVoting}
+            >
               {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
             </Button>
           </div>

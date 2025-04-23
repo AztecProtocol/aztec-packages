@@ -104,11 +104,13 @@ export const AztecContext = createContext<{
   logsOpen: boolean;
   drawerOpen: boolean;
   showContractInterface: boolean;
+  transactionModalStatus: 'open' | 'closed' | 'minimized';
   currentContractArtifact: ContractArtifact;
   totalLogCount: number;
   setTotalLogCount: (count: number) => void;
   setShowContractInterface: (showContractInterface: boolean) => void;
   setConnecting: (connecting: boolean) => void;
+  setTransactionModalStatus: (transactionModalStatus: 'open' | 'closed' | 'minimized') => void;
   setDrawerOpen: (drawerOpen: boolean) => void;
   setLogsOpen: (logsOpen: boolean) => void;
   setLogs: (logs: Log[]) => void;
@@ -137,9 +139,11 @@ export const AztecContext = createContext<{
   logsOpen: false,
   drawerOpen: false,
   showContractInterface: false,
+  transactionModalStatus: 'closed',
   setTotalLogCount: () => {},
   setShowContractInterface: () => {},
   setConnecting: () => {},
+  setTransactionModalStatus: () => {},
   setDrawerOpen: () => {},
   setLogsOpen: () => {},
   setLogs: () => {},

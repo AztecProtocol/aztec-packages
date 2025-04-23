@@ -8,7 +8,12 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <Global styles={globalStyle}></Global>
-      <NotificationsProvider>
+      <NotificationsProvider slotProps={{
+        snackbar: {
+          anchorOrigin: { vertical: 'top', horizontal: 'right' },
+          autoHideDuration: 5000,
+        }
+      }}>
         <Home />
       </NotificationsProvider>
     </ThemeProvider>
