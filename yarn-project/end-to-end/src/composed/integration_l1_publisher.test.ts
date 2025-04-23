@@ -458,6 +458,7 @@ describe('L1Publisher integration', () => {
             {
               header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
+              stateReference: `0x${block.header.state.toBuffer().toString('hex')}`,
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
@@ -465,7 +466,6 @@ describe('L1Publisher integration', () => {
             },
             [],
             Blob.getEthBlobEvaluationInputs(blobs),
-            `0x${block.header.state.toBuffer().toString('hex')}`,
           ],
         });
         const expectedData = encodeFunctionData({
