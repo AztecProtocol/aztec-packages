@@ -621,11 +621,6 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
      *
      */
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-    /**
-     * @brief Number of variables in Prover Polynomials.
-     *
-     */
-    size_t multivariate_d;
 
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
@@ -638,24 +633,9 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
     std::vector<Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
 
-    // Native Ultra, Mega, and AVM Verifiers instantiate sumcheck with circuit size, optionally a different target sum
-    // than 0 can be specified.
-    explicit SumcheckVerifier(size_t multivariate_d, std::shared_ptr<Transcript> transcript, FF target_sum = 0)
-        : multivariate_d(multivariate_d)
-        , transcript(transcript)
-        , round(target_sum){};
-
-    // Recursive Verifiers without padding use the fixed log of the circuit size to determine the number of sumcheck
-    // rounds. Recursive Verifiers **with padding** are not permitted to use multivariate_d.
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript, FF target_sum = 0)
         : transcript(transcript)
-        , round(target_sum)
-    {
-        if constexpr (!Flavor::USE_PADDING) {
-            // If the circuit sizes are genuinely fixed, use the log of the const fixed size.
-            this->multivariate_d = virtual_log_n;
-        }
-    };
+        , round(target_sum){};
     /**
      * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
      * final round, then use purported evaluations to generate purported full Honk relation value and check against
@@ -673,7 +653,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
     {
         bool verified(true);
 
-        // Pad gate challenges for Protogalaxy DeciderVerifier
+        // Pad gate challenges for Protogalaxy DeciderVerifier and AVM
         if constexpr (Flavor::USE_PADDING) {
             round.pad_gate_challenges(gate_challenges);
         }

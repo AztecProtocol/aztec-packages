@@ -92,6 +92,9 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             size_t num_frs_read = 0;
 
             this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. log_circuit_size must be a
+            // witness to make the Recursive Verifier circuit constant. Seems that other members also need to be turned
+            // into witnesses.
             this->log_circuit_size =
                 FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);

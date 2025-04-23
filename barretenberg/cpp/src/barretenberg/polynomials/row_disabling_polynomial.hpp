@@ -174,9 +174,12 @@ template <typename FF> struct RowDisablingPolynomial {
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
+
     /**
-     * @brief stdlib version of the above that ensures that the verifier's work does not depend on `log_circuit_size`.
+     * @brief A variant of the above that uses `padding_indicator_array`.
      *
+     * @param multivariate_challenge Sumcheck evaluation challenge
+     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      */
     template <size_t virtual_log_n>
     static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,

@@ -100,6 +100,8 @@ template <typename FF> struct GateSeparatorPolynomial {
      * @details Update the constant \f$c_{i} \to c_{i+1} \f$ multiplying it by \f$pow_{\beta}\f$'s factor \f$\left(
      * (1-X_i) + X_i\cdot \beta_i\right)\vert_{X_i = u_i}\f$ computed by \ref univariate_eval.
      * @param challenge \f$ i \f$-th verifier challenge \f$ u_{i}\f$
+     * @param indicator An entry of `padding_indicator_array`, which is equal to 1 when round_idx < log_circuit_size
+     * and is 0 otherwise.
      */
     void partially_evaluate(const FF& challenge, const FF& indicator)
     {

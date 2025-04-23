@@ -442,10 +442,11 @@ template <typename Curve> class GeminiVerifier_ {
             p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
             p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
         }
+        std::vector<Fr> padding_indicator_array(log_n, Fr{ 1 });
 
         // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
         std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
-            log_n, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
+            padding_indicator_array, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
         // Extract the evaluation A₀(r) = A₀₊(r) + P₊(r^s)
         auto full_a_0_pos = gemini_fold_pos_evaluations[0];
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
@@ -531,21 +532,30 @@ template <typename Curve> class GeminiVerifier_ {
      * In the case of interleaving, the first "negative" evaluation has to be corrected by the contribution from \f$
      * P_{-}(-r^s)\f$, where \f$ s \f$ is the size of the group to be interleaved.
      *
+     * This method uses `padding_indicator_array`, whose i-th entry is FF{1} if i < log_n and 0 otherwise.
+     * We use these entries to either assign `eval_pos_prev` the value `eval_pos` computed in the current iteration of
+     * the loop, or to propagate the batched evaluation of the multilinear polynomials to the next iteration. This
+     * ensures the correctnes of the computation of the required positive evaluations.
+     *
+     * To ensure that dummy evaluations cannot be used to tamper with the final batch_mul result, we multiply dummy
+     * positive evaluations by the entries of `padding_indicator_array`.
+     *
      * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to CONST_PROOF_SIZE_LOG_N.
      * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
-     * @return \f$ A_0(r), A_1(r^2), \ldots, A_{d-1}(r^{2^{d-1}})\f$.
+     * @return \f A_{i}}(r^{2^{i}})\f$ \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
      */
-    template <size_t virtual_log_n>
-    static std::vector<Fr> compute_fold_pos_evaluations(const std::array<Fr, virtual_log_n>& padding_indicator_array,
+    static std::vector<Fr> compute_fold_pos_evaluations(std::span<const Fr> padding_indicator_array,
                                                         const Fr& batched_evaluation,
                                                         std::span<const Fr> evaluation_point, // size = virtual_log_n
                                                         std::span<const Fr> challenge_powers, // size = virtual_log_n
                                                         std::span<const Fr> fold_neg_evals,   // size = virtual_log_n
                                                         Fr p_neg = Fr(0))
     {
+        const size_t virtual_log_n = evaluation_point.size();
+
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 
         Fr eval_pos_prev = batched_evaluation;
@@ -586,29 +596,6 @@ template <typename Curve> class GeminiVerifier_ {
 
         return fold_pos_evaluations;
     }
-    /**
-     * @brief A method to compute \f$ A_0(r), A_1(r^2), \ldots, A_{d-1}(r^{2^{d-1}})\f$ padded to `virtual_log_n` >= d.
-     * Required in the stdlib context by the Flavors with USE_PADDING = true.
-     *
-     * @details The main difference from the non-padding method is that instead of using `log_n`, this method uses
-     * `padding_indicator_array` of field elements computed in-circuit.
-     * Since i-th entry of this array is FF{1} if i < log_n and 0 otherwise, we use these entries to either assign
-     * `eval_pos_prev` the value `eval_pos` computed in the current iteration of the loop, or to propagate the batched
-     * evaluation of the multilinear polynomials to the next iteration. This ensures the correctnes of the computation
-     * of the required positive evaluations.
-     *
-     * To ensure that dummy evaluations cannot be used to tamper with the final batch_mul result, we multiply dummy
-     * positive evaluations by the entries of `padding_indicator_array`.
-     *
-     * @tparam virtual_log_n The fixed log circuit size determined by Flavor.
-     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
-     * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
-     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to `virtual_log_n` size.
-     * @param challenge_powers Powers of \f$ r^{2^i}\f$ for  \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
-     * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$ for \f$i = 0, \ldots,\text{virtual_log_n} - 1
-     * \f$.
-     * @return \f A_{i}}(r^{2^{i}})\f$ \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.
-     */
 };
 
 } // namespace bb

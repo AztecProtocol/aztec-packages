@@ -83,7 +83,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
