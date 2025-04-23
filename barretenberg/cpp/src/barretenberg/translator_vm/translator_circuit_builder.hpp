@@ -387,6 +387,15 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         });
     }
 
+    /**
+     * @brief Ensures the accumulation input is well-formed  and can be used to create a gate.
+
+    * @details There are two main types
+     * of checks: that members of the AccumulationInput are within the appropriate ranges and that the members
+     * containing `*limbs` have been constructed appropriately from the original values, also present in the input.
+     *
+     * @param acc_step
+     */
     static void assert_well_formed_accumulation_input(const AccumulationInput& acc_step);
 
     /**
