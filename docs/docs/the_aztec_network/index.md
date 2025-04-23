@@ -22,7 +22,7 @@ In this section, you can explore how governance works on Aztec, the types of nod
 ## Decentralization Components
 
 <div className="card-container">
-  <Card shadow='tl' link='the_aztec_network/concepts/provers-and-sequencers'>
+  <Card shadow='tl' link='the_aztec_network/concepts/provers-and-sequencers/index'>
     <CardHeader>
       <h3>Sequencers</h3>
     </CardHeader>

@@ -35,7 +35,6 @@ The archiver component complements this process by maintaining historical chain 
 Before following this guide, make sure you:
 
 - Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
-- Understand how [Provers and Sequencers](../../concepts/provers-and-sequencers/) work
 - Are running a Linux or MacOS machine with access to a terminal
 
 ## Setting Up Your Sequencer

@@ -63,6 +63,7 @@ const config = {
           },
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
+          exclude: !process.env.PROTOCOL_SPECS ? ['protocol-specs/**'] : [],
 
           remarkPlugins: [math],
           rehypePlugins: [
