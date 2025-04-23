@@ -4,8 +4,9 @@ import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
+import ErrorIcon from '@mui/icons-material/Error';
 import Button from '@mui/material/Button';
-import { Dialog } from '@mui/material';
+import { Box, Dialog } from '@mui/material';
 import { TxStatus } from '@aztec/aztec.js';
 
 const TX_ERRORS = [
@@ -21,6 +22,12 @@ const closeButton = css({
   position: 'absolute',
   top: '10px',
   right: '10px',
+});
+
+const minimizeButton = css({
+  position: 'absolute',
+  top: '10px',
+  right: '60px',
 });
 
 // Content group styling
@@ -173,9 +180,45 @@ const funFacts = [
   'While you wait for this proof, check out somethinghappened.wtf',
 ];
 
+const minimizedModal = css({
+  position: 'fixed',
+  bottom: '64px',
+  right: '20px',
+  width: '350px',
+  height: '64px',
+  backgroundColor: 'white',
+  padding: '14px 16px',
+  borderRadius: '8px',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  cursor: 'pointer',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+  },
+});
+
+const minimizedTitle = css({
+  fontWeight: 500,
+  fontSize: '16px',
+});
+
+const minimizedLog = css({
+  fontWeight: 300,
+  fontSize: '12px',
+  color: 'var(--mui-palette-text-secondary)',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  lineHeight: '1.2',
+  display: 'block',
+  maxHeight: '2.4em',
+});
 
 export function LoadingModal() {
-  const { currentTx, setCurrentTx, logs } = useContext(AztecContext);
+  const { currentTx, setCurrentTx, logs, transactionModalStatus, setTransactionModalStatus } = useContext(AztecContext);
   const [currentFunFact, setCurrentFunFact] = useState(0);
 
   useEffect(() => {
@@ -203,44 +246,89 @@ export function LoadingModal() {
   const isError = TX_ERRORS.includes(currentTx?.status);
   const isProving = currentTx?.status === 'proving';
 
-  return (
-    <Dialog open={!!currentTx && currentTx.status !== TxStatus.SUCCESS} onClose={handleClose}>
-      <IconButton css={closeButton} onClick={handleClose}>
-        <CloseIcon />
-      </IconButton>
-      <div css={contentGroup}>
-        <Typography css={[titleText, isError && { color: '#FF7764' }]}>
-          {isError
-            ? 'Error'
-            : isProving
-            ? 'Generating proof for transaction...'
-            : 'Sending transaction to Aztec network...'}
-        </Typography>
-        {isError ? (
-          <>
-            <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
-            <div css={buttonContainer}>
-              <Button variant="contained" color="primary" onClick={handleClose}>
-                Close
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <Typography css={subtitleText}>
-              {isProving
-                ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
-                : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
-            </Typography>
-            <span css={loader}></span>
-            <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
-            <div css={logContainer}>
-              <Typography css={logTitle}>Don't click away! This is what we're currently working on:</Typography>
-              <Typography css={logText}>{logs?.[0]?.message}</Typography>
-            </div>
-          </>
+  function renderModal() {
+    return (
+      <Dialog open={true} onClose={handleClose}>
+        <IconButton css={closeButton} onClick={handleClose}>
+          <CloseIcon />
+        </IconButton>
+        <IconButton
+          css={minimizeButton}
+          onClick={() => setTransactionModalStatus('minimized')}
+        >
+          <span css={{ width: '24px', height: '24px', position: 'relative', top: '-2px', fontWeight: '600' }}>–</span>
+        </IconButton>
+        <div css={contentGroup}>
+          <Typography css={[titleText, isError && { color: '#FF7764' }]}>
+            {isError
+              ? 'Error'
+              : isProving
+                ? 'Generating proof for transaction...'
+                : 'Sending transaction to Aztec network...'}
+          </Typography>
+          {isError ? (
+            <>
+              <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
+              <div css={buttonContainer}>
+                <Button variant="contained" color="primary" onClick={handleClose}>
+                  Close
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Typography css={subtitleText}>
+                {isProving
+                  ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
+                  : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
+              </Typography>
+              <span css={loader}></span>
+              <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
+              <div css={logContainer}>
+                <Typography css={logTitle}>Don't click away! This is what we're currently working on:</Typography>
+                <Typography css={logText}>{logs?.[0]?.message}</Typography>
+              </div>
+            </>
+          )}
+        </div>
+      </Dialog>
+    );
+  }
+
+  function renderMinimizedModal() {
+    let lastLog = logs?.[0]?.message;
+    if (lastLog?.length > 100) {
+      lastLog = lastLog.slice(0, 100) + '...';
+    }
+
+    const txStatus = currentTx?.status;
+    const isLoading = txStatus === 'simulating' || txStatus === 'proving' || txStatus === 'sending';
+    const isError = txStatus === 'error';
+    const errorMessage = currentTx?.error;
+    const subtitle = isError ? errorMessage : lastLog;
+
+    return (
+      <div css={minimizedModal} onClick={() => setTransactionModalStatus('open')}>
+        {isLoading && (
+          <span css={[loader, { width: '24px', height: '24px' }]}></span>
         )}
+        {isError && (
+          <ErrorIcon fontSize="large" style={{ color: 'var(--mui-palette-error-main)' }} />
+        )}
+
+        <Box>
+          <Typography css={minimizedTitle}>{currentTx?.name || 'Transaction'}</Typography>
+          <Typography css={minimizedLog}>{subtitle}</Typography>
+        </Box>
       </div>
-    </Dialog>
-  );
+    );
+  }
+
+  if (transactionModalStatus === 'open') {
+    return renderModal();
+  } else if (transactionModalStatus === 'minimized') {
+    return renderMinimizedModal();
+  }
+
+  return null;
 }

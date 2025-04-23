@@ -117,6 +117,7 @@ export default function Home() {
   const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [showContractInterface, setShowContractInterface] = useState(false);
+  const [transactionModalStatus, setTransactionModalStatus] = useState<'open' | 'closed' | 'minimized'>('closed');
   const [node, setAztecNode] = useState(null);
   const [isPXEInitialized, setPXEInitialized] = useState(false);
   const [walletAlias, setWalletAlias] = useState('');
@@ -148,6 +149,7 @@ export default function Home() {
     drawerOpen,
     showContractInterface,
     totalLogCount,
+    transactionModalStatus,
     setTotalLogCount,
     setNetwork,
     setConnecting,
@@ -164,6 +166,7 @@ export default function Home() {
     setWalletAlias,
     setCurrentContractArtifact,
     setCurrentContractAddress,
+    setTransactionModalStatus,
   };
 
   return (
