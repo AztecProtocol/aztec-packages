@@ -470,7 +470,7 @@ export const deploySharedContracts = async (
  */
 export const deployRollupForUpgrade = async (
   clients: L1Clients,
-  args: DeployL1ContractsArgs,
+  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize'>,
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
@@ -517,7 +517,7 @@ export const deployUpgradePayload = async (
 export const deployRollup = async (
   clients: L1Clients,
   deployer: L1Deployer,
-  args: DeployL1ContractsArgs,
+  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize'>,
   addresses: Pick<
     L1ContractAddresses,
     'feeJuiceAddress' | 'registryAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress'

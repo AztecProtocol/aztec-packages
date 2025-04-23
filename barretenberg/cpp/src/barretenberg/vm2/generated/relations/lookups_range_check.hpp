@@ -3,6 +3,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 #include <cstddef>
 #include <string_view>
@@ -12,21 +13,10 @@ namespace bb::avm2 {
 
 /////////////////// lookup_range_check_dyn_rng_chk_pow_2 ///////////////////
 
-class lookup_range_check_dyn_rng_chk_pow_2_settings {
-  public:
+struct lookup_range_check_dyn_rng_chk_pow_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_DYN_RNG_CHK_POW_2";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_range_check_dyn_rng_chk_pow_2_counts;
@@ -37,85 +27,19 @@ class lookup_range_check_dyn_rng_chk_pow_2_settings {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_power_of_2
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel() == 1 || in._precomputed_sel_range_8() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_8());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_dyn_rng_chk_pow_2_inv(),
-                                     in._lookup_range_check_dyn_rng_chk_pow_2_counts(),
-                                     in._range_check_sel(),
-                                     in._precomputed_sel_range_8(),
-                                     in._range_check_dyn_rng_chk_bits(),
-                                     in._range_check_dyn_rng_chk_pow_2(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_power_of_2());
-    }
 };
 
+using lookup_range_check_dyn_rng_chk_pow_2_settings = lookup_settings<lookup_range_check_dyn_rng_chk_pow_2_settings_>;
 template <typename FF_>
-class lookup_range_check_dyn_rng_chk_pow_2_relation
-    : public GenericLookupRelation<lookup_range_check_dyn_rng_chk_pow_2_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_dyn_rng_chk_pow_2_settings;
-    static constexpr std::string_view NAME = lookup_range_check_dyn_rng_chk_pow_2_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_dyn_rng_chk_pow_2_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_dyn_rng_chk_pow_2_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_dyn_rng_chk_pow_2_relation =
+    lookup_relation_base<FF_, lookup_range_check_dyn_rng_chk_pow_2_settings>;
 
 /////////////////// lookup_range_check_dyn_diff_is_u16 ///////////////////
 
-class lookup_range_check_dyn_diff_is_u16_settings {
-  public:
+struct lookup_range_check_dyn_diff_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_DYN_DIFF_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_dyn_diff_is_u16_counts;
@@ -124,83 +48,19 @@ class lookup_range_check_dyn_diff_is_u16_settings {
         ColumnAndShifts::range_check_dyn_diff
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_dyn_diff_is_u16_inv(),
-                                     in._lookup_range_check_dyn_diff_is_u16_counts(),
-                                     in._range_check_sel(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_dyn_diff(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_dyn_diff_is_u16_settings = lookup_settings<lookup_range_check_dyn_diff_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_dyn_diff_is_u16_relation
-    : public GenericLookupRelation<lookup_range_check_dyn_diff_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_dyn_diff_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_dyn_diff_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_dyn_diff_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_dyn_diff_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_dyn_diff_is_u16_relation =
+    lookup_relation_base<FF_, lookup_range_check_dyn_diff_is_u16_settings>;
 
 /////////////////// lookup_range_check_r0_is_u16 ///////////////////
 
-class lookup_range_check_r0_is_u16_settings {
-  public:
+struct lookup_range_check_r0_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R0_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r0_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r0_is_u16_counts;
@@ -209,82 +69,18 @@ class lookup_range_check_r0_is_u16_settings {
         ColumnAndShifts::range_check_u16_r0
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel_r0_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r0_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r0_is_u16_inv(),
-                                     in._lookup_range_check_r0_is_u16_counts(),
-                                     in._range_check_sel_r0_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r0(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r0_is_u16_settings = lookup_settings<lookup_range_check_r0_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r0_is_u16_relation : public GenericLookupRelation<lookup_range_check_r0_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r0_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r0_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r0_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r0_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r0_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r0_is_u16_settings>;
 
 /////////////////// lookup_range_check_r1_is_u16 ///////////////////
 
-class lookup_range_check_r1_is_u16_settings {
-  public:
+struct lookup_range_check_r1_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R1_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r1_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r1_is_u16_counts;
@@ -293,82 +89,18 @@ class lookup_range_check_r1_is_u16_settings {
         ColumnAndShifts::range_check_u16_r1
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel_r1_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r1_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r1_is_u16_inv(),
-                                     in._lookup_range_check_r1_is_u16_counts(),
-                                     in._range_check_sel_r1_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r1(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r1_is_u16_settings = lookup_settings<lookup_range_check_r1_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r1_is_u16_relation : public GenericLookupRelation<lookup_range_check_r1_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r1_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r1_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r1_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r1_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r1_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r1_is_u16_settings>;
 
 /////////////////// lookup_range_check_r2_is_u16 ///////////////////
 
-class lookup_range_check_r2_is_u16_settings {
-  public:
+struct lookup_range_check_r2_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R2_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r2_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r2_is_u16_counts;
@@ -377,82 +109,18 @@ class lookup_range_check_r2_is_u16_settings {
         ColumnAndShifts::range_check_u16_r2
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel_r2_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r2_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r2_is_u16_inv(),
-                                     in._lookup_range_check_r2_is_u16_counts(),
-                                     in._range_check_sel_r2_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r2(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r2_is_u16_settings = lookup_settings<lookup_range_check_r2_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r2_is_u16_relation : public GenericLookupRelation<lookup_range_check_r2_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r2_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r2_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r2_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r2_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r2_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r2_is_u16_settings>;
 
 /////////////////// lookup_range_check_r3_is_u16 ///////////////////
 
-class lookup_range_check_r3_is_u16_settings {
-  public:
+struct lookup_range_check_r3_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R3_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r3_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r3_is_u16_counts;
@@ -461,82 +129,18 @@ class lookup_range_check_r3_is_u16_settings {
         ColumnAndShifts::range_check_u16_r3
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel_r3_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r3_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r3_is_u16_inv(),
-                                     in._lookup_range_check_r3_is_u16_counts(),
-                                     in._range_check_sel_r3_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r3(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r3_is_u16_settings = lookup_settings<lookup_range_check_r3_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r3_is_u16_relation : public GenericLookupRelation<lookup_range_check_r3_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r3_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r3_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r3_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r3_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r3_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r3_is_u16_settings>;
 
 /////////////////// lookup_range_check_r4_is_u16 ///////////////////
 
-class lookup_range_check_r4_is_u16_settings {
-  public:
+struct lookup_range_check_r4_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R4_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r4_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r4_is_u16_counts;
@@ -545,82 +149,18 @@ class lookup_range_check_r4_is_u16_settings {
         ColumnAndShifts::range_check_u16_r4
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel_r4_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r4_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r4_is_u16_inv(),
-                                     in._lookup_range_check_r4_is_u16_counts(),
-                                     in._range_check_sel_r4_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r4(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r4_is_u16_settings = lookup_settings<lookup_range_check_r4_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r4_is_u16_relation : public GenericLookupRelation<lookup_range_check_r4_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r4_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r4_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r4_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r4_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r4_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r4_is_u16_settings>;
 
 /////////////////// lookup_range_check_r5_is_u16 ///////////////////
 
-class lookup_range_check_r5_is_u16_settings {
-  public:
+struct lookup_range_check_r5_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R5_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r5_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r5_is_u16_counts;
@@ -629,82 +169,18 @@ class lookup_range_check_r5_is_u16_settings {
         ColumnAndShifts::range_check_u16_r5
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel_r5_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r5_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r5_is_u16_inv(),
-                                     in._lookup_range_check_r5_is_u16_counts(),
-                                     in._range_check_sel_r5_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r5(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r5_is_u16_settings = lookup_settings<lookup_range_check_r5_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r5_is_u16_relation : public GenericLookupRelation<lookup_range_check_r5_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r5_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r5_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r5_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r5_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r5_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r5_is_u16_settings>;
 
 /////////////////// lookup_range_check_r6_is_u16 ///////////////////
 
-class lookup_range_check_r6_is_u16_settings {
-  public:
+struct lookup_range_check_r6_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R6_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel_r6_16_bit_rng_lookup;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r6_is_u16_counts;
@@ -713,82 +189,18 @@ class lookup_range_check_r6_is_u16_settings {
         ColumnAndShifts::range_check_u16_r6
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel_r6_16_bit_rng_lookup() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel_r6_16_bit_rng_lookup());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r6_is_u16_inv(),
-                                     in._lookup_range_check_r6_is_u16_counts(),
-                                     in._range_check_sel_r6_16_bit_rng_lookup(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r6(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r6_is_u16_settings = lookup_settings<lookup_range_check_r6_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r6_is_u16_relation : public GenericLookupRelation<lookup_range_check_r6_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r6_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r6_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r6_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r6_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r6_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r6_is_u16_settings>;
 
 /////////////////// lookup_range_check_r7_is_u16 ///////////////////
 
-class lookup_range_check_r7_is_u16_settings {
-  public:
+struct lookup_range_check_r7_is_u16_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_RANGE_CHECK_R7_IS_U16";
     static constexpr std::string_view RELATION_NAME = "range_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::range_check_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
     static constexpr Column COUNTS = Column::lookup_range_check_r7_is_u16_counts;
@@ -797,63 +209,10 @@ class lookup_range_check_r7_is_u16_settings {
         ColumnAndShifts::range_check_u16_r7
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._range_check_sel() == 1 || in._precomputed_sel_range_16() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._range_check_sel());
-        const auto is_table_entry = View(in._precomputed_sel_range_16());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_range_check_r7_is_u16_inv(),
-                                     in._lookup_range_check_r7_is_u16_counts(),
-                                     in._range_check_sel(),
-                                     in._precomputed_sel_range_16(),
-                                     in._range_check_u16_r7(),
-                                     in._precomputed_clk());
-    }
 };
 
+using lookup_range_check_r7_is_u16_settings = lookup_settings<lookup_range_check_r7_is_u16_settings_>;
 template <typename FF_>
-class lookup_range_check_r7_is_u16_relation : public GenericLookupRelation<lookup_range_check_r7_is_u16_settings, FF_> {
-  public:
-    using Settings = lookup_range_check_r7_is_u16_settings;
-    static constexpr std::string_view NAME = lookup_range_check_r7_is_u16_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_range_check_r7_is_u16_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_range_check_r7_is_u16_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_range_check_r7_is_u16_relation = lookup_relation_base<FF_, lookup_range_check_r7_is_u16_settings>;
 
 } // namespace bb::avm2
