@@ -1,5 +1,4 @@
 import { createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 import {
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
@@ -165,7 +164,6 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
 
-    const timer = new Timer();
     const outputWitness = await this.simulationProvider
       .executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler)
       .catch((err: Error) => {
@@ -175,12 +173,12 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
         });
         throw err;
       });
-    const output = convertOutputs(outputWitness, compiledCircuit.abi);
+    const output = convertOutputs(outputWitness.witness, compiledCircuit.abi);
 
     this.log.debug(`Simulated ${circuitType}`, {
       eventName: 'circuit-simulation',
       circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
-      duration: timer.ms(),
+      duration: outputWitness.duration,
       inputSize: inputs.toBuffer().length,
       outputSize: output.toBuffer().length,
     } satisfies CircuitSimulationStats);
@@ -203,18 +201,17 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
-    const timer = new Timer();
     const outputWitness = await this.simulationProvider.executeProtocolCircuit(
       witnessMap,
       compiledCircuit,
       foreignCallHandler,
     );
-    const output = convertOutputs(outputWitness, compiledCircuit.abi);
+    const output = convertOutputs(outputWitness.witness, compiledCircuit.abi);
 
     this.log.debug(`Generated witness for ${circuitType}`, {
       eventName: 'circuit-witness-generation',
       circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
-      duration: timer.ms(),
+      duration: outputWitness.duration,
       inputSize: inputs.toBuffer().length,
       outputSize: output.toBuffer().length,
     } satisfies CircuitWitnessGenerationStats);
@@ -225,7 +222,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     const kernelOutput: PrivateKernelSimulateOutput<O> = {
       publicInputs: output,
       verificationKey,
-      outputWitness,
+      outputWitness: outputWitness.witness,
       bytecode,
     };
     return kernelOutput;
