@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react({ jsxImportSource: '@emotion/react' }),
-      nodePolyfillsFix({ include: ['buffer', 'path', 'process'] }),
+      nodePolyfillsFix({ include: ['buffer', 'path'] }),
       // This is unnecessary unless BB_WASM_PATH is defined (default would be /assets/barretenberg.wasm.gz)
       // Left as an example of how to use a different bb wasm file than the default lazily loaded one
       // viteStaticCopy({
@@ -78,20 +78,6 @@ export default defineConfig(({ mode }) => {
     build: {
       // Required by vite-plugin-bundle-size
       sourcemap: 'hidden',
-    },
-    resolve: {
-      alias: {
-        // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
-        'vite-plugin-node-polyfills/shims/process': path.resolve(
-          __dirname,
-          'node_modules',
-          'vite-plugin-node-polyfills',
-          'shims',
-          'process',
-          'dist',
-          'index.cjs',
-        ),
-      },
     },
   };
 });

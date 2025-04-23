@@ -2,6 +2,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 import TerserPlugin from 'terser-webpack-plugin';
+import NodePolyfillPlugin from 'node-polyfill-webpack-plugin';
 
 /**
  * @type {import('webpack').Configuration}
@@ -77,7 +78,9 @@ export default {
   },
   plugins: [
     new webpack.DefinePlugin({ 'process.env.NODE_DEBUG': false }),
-    new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
+    new NodePolyfillPlugin({
+			onlyAliases: ['process', 'buffer'],
+		}),
     new webpack.NormalModuleReplacementPlugin(/\/node\/(.*)\.js$/, function (resource) {
       resource.request = resource.request.replace('/node/', '/browser/');
     }),

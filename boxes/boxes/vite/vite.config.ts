@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
-import path from "path";
 
 const nodeModulesPath = `${searchForWorkspaceRoot(process.cwd())}/node_modules`;
 
@@ -54,19 +53,6 @@ export default defineConfig(({ mode }) => {
       "process.env": JSON.stringify({
         AZTEC_NODE_URL: env.AZTEC_NODE_URL,
       }),
-    },
-    resolve: {
-      alias: {
-        // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
-        "vite-plugin-node-polyfills/shims/process": path.resolve(
-          nodeModulesPath,
-          "vite-plugin-node-polyfills",
-          "shims",
-          "process",
-          "dist",
-          "index.cjs",
-        ),
-      },
     },
   };
 });
