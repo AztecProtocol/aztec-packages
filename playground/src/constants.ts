@@ -1,3 +1,5 @@
+export const BLOCK_EXPLORER_TX_URL = 'https://aztecscan.xyz/tx-effects/';
+
 export const PREDEFINED_CONTRACTS = {
   SIMPLE_VOTING: 'simple_voting',
   SIMPLE_TOKEN: 'simple_token',

@@ -6,6 +6,7 @@ import { convertFromUTF8BufferAsString, formatFrAsString } from '../../../utils/
 import { type UserTx } from '../../../utils/txs';
 import { TxHash } from '@aztec/aztec.js';
 import Divider from '@mui/material/Divider';
+import { BLOCK_EXPLORER_TX_URL } from '../../../constants';
 
 const txPanel = css({
   width: '100%',
@@ -21,14 +22,23 @@ const txData = css({
   alignItems: 'center',
   padding: '0.5rem',
   backgroundColor: 'var(--mui-palette-primary-light)',
+  color: 'var(--mui-palette-text-primary)',
   borderRadius: '0.5rem',
   margin: '0.5rem',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': {
+    textDecoration: 'none',
+    color: 'var(--mui-palette-text-primary)',
+  },
 });
 
 export function TxsPanel({ ...props }) {
   const [transactions, setTransactions] = useState([]);
 
-  const { currentTx, currentContractAddress, walletDB } = useContext(AztecContext);
+  console.log(transactions)
+
+  const { currentTx, currentContractAddress, walletDB, transactionModalStatus } = useContext(AztecContext);
 
   useEffect(() => {
     const refreshTransactions = async () => {
@@ -56,12 +66,13 @@ export function TxsPanel({ ...props }) {
       }
       setTransactions(txs);
     };
+
     if (currentContractAddress && walletDB) {
       refreshTransactions();
     } else {
       setTransactions([]);
     }
-  }, [currentContractAddress, currentTx]);
+  }, [currentContractAddress, currentTx, transactionModalStatus]);
 
   return (
     <>
@@ -71,7 +82,12 @@ export function TxsPanel({ ...props }) {
           <Divider sx={{ marginBottom: '0.5rem' }} />
           <div css={[txPanel, transactions.length > 0 && { minHeight: '75px' }]} {...props}>
             {transactions.map(tx => (
-              <div css={txData} key={tx.txHash ?? ''}>
+              <a
+                css={txData}
+                key={tx.txHash ?? ''}
+                href={`${BLOCK_EXPLORER_TX_URL}/${tx.txHash}`}
+                target="_blank"
+              >
                 <div css={{ display: 'flex' }}>
                   <Typography variant="body2">
                     {tx.txHash ? formatFrAsString(tx.txHash.toString()) : '()'}
@@ -86,7 +102,7 @@ export function TxsPanel({ ...props }) {
                 <Typography variant="body2">
                   {tx.name}@{formatFrAsString(tx.contractAddress.toString())}
                 </Typography>
-              </div>
+              </a>
             ))}
           </div>
         </>
