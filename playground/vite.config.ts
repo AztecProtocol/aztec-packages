@@ -81,6 +81,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
+        // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
         'vite-plugin-node-polyfills/shims/process': path.resolve(
           __dirname,
           'node_modules',
