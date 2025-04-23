@@ -29,7 +29,7 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
+        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
 
     constrain_log_circuit_size(padding_indicator_array, accumulator->verification_key->circuit_size);
 

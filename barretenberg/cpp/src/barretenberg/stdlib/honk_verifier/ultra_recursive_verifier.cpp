@@ -93,7 +93,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // multivariate evaluations at u
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
+        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
 
     constrain_log_circuit_size(padding_indicator_array, key->circuit_size);
 

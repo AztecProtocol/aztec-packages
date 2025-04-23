@@ -28,9 +28,11 @@ namespace bb::stdlib {
  * \f$ [b_0(x-1), \ldots, b_{N-1}(x-1)] \f$ only depends on \f$ N \f$ adding ~\f$ 4\cdot N \f$ gates to the circuit.
  *
  */
-template <typename Fr, size_t virtual_log_n>
-static std::array<Fr, virtual_log_n> compute_padding_indicator_array(const Fr& log_n)
+template <typename Curve, size_t virtual_log_n>
+static std::array<typename Curve::ScalarField, virtual_log_n> compute_padding_indicator_array(
+    const typename Curve::ScalarField& log_n)
 {
+    using Fr = typename Curve::ScalarField;
     // Create a domain of size `virtual_log_n` and compute Lagrange denominators
     using Data = BarycentricDataRunTime<Fr, virtual_log_n, /*num_evals=*/1>;
 
@@ -53,7 +55,9 @@ static std::array<Fr, virtual_log_n> compute_padding_indicator_array(const Fr& l
 
     // To ensure 0 < log_n < N, note that suffix[1] = \prod_{i=1}^{N-1} (x - 1 - i), therefore we just need to ensure
     // that this product is 0.
-    suffix[0].assert_equal(Fr{ 0 });
+    if constexpr (Curve::is_stdlib_type) {
+        suffix[0].assert_equal(Fr{ 0 });
+    }
 
     // 3) Combine prefixes & suffixes to get L_i(x-1):
     //    L_i(x-1) = (1 / lagrange_denominators[i]) * prefix[i] * suffix[i+1].

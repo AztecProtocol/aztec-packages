@@ -50,7 +50,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
         size_t N = 1 << log_circuit_size;
         const auto padding_indicator_array =
-            stdlib::compute_padding_indicator_array<Fr, CONST_PROOF_SIZE_LOG_N>(Fr(log_circuit_size));
+            stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(Fr(log_circuit_size));
         constexpr size_t NUM_POLYS = 5;
         constexpr size_t NUM_SHIFTED = 2;
         constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 1;

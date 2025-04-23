@@ -111,7 +111,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     // unconstrained
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     const auto padding_indicator_array =
-        stdlib::compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
     auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");

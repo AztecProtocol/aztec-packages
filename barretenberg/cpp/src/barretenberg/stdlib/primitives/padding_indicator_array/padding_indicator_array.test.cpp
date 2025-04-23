@@ -11,14 +11,15 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 
-template <typename Fr_, typename Builder_> struct PaddingTestParams {
-    using Fr = Fr_;
+template <typename Curve_, typename Builder_> struct PaddingTestParams {
+    using Curve = Curve_;
     using Builder = Builder_;
 };
 
 template <typename Param> class PaddingIndicatorArrayTest : public testing::Test {
   public:
-    using Fr = typename Param::Fr;
+    using Curve = typename Param::Curve;
+    using Fr = typename Curve::ScalarField;
     using Builder = typename Param::Builder;
 
     static constexpr size_t domain_size = 25;
@@ -29,7 +30,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Builder builder;
             Fr x = Fr::from_witness(&builder, idx);
 
-            auto result = compute_padding_indicator_array<Fr, domain_size>(x);
+            auto result = compute_padding_indicator_array<Curve, domain_size>(x);
             EXPECT_TRUE(result[idx - 1].get_value() == 1);
 
             info("num gates = ", builder.get_estimated_num_finalized_gates());
@@ -54,7 +55,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr zero = Fr::from_witness(&builder, 0);
 
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, domain_size>(zero);
+            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(zero);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
@@ -66,7 +67,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr N = Fr::from_witness(&builder, domain_size);
 
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, domain_size>(N);
+            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(N);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_TRUE(CircuitChecker::check(builder));
@@ -81,7 +82,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr x = Fr::from_witness(&builder, scalar_raw);
 
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, domain_size>(x);
+            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(x);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
@@ -93,7 +94,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
         auto get_gate_count = [](const uint32_t& scalar_raw) -> size_t {
             Builder builder;
             Fr x = Fr::from_witness(&builder, scalar_raw);
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, domain_size>(x);
+            [[maybe_unused]] auto result = compute_padding_indicator_array<Curve, domain_size>(x);
 
             size_t gate_count = builder.get_estimated_num_finalized_gates();
             // Create a witness = 2^(idx)
@@ -120,7 +121,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Builder builder;
             Fr x = Fr::from_witness(&builder, idx);
 
-            auto result = compute_padding_indicator_array<Fr, domain_size>(x);
+            auto result = compute_padding_indicator_array<Curve, domain_size>(x);
             EXPECT_TRUE(result[idx - 1].get_value() == 1);
 
             info("num gates = ", builder.get_estimated_num_finalized_gates());
@@ -140,10 +141,9 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 };
 
 using TestTypes = testing::Types<
-    PaddingTestParams<bb::stdlib::bn254<bb::MegaCircuitBuilder_<bb::field<bb::Bn254FrParams>>>::ScalarField,
-                      bb::MegaCircuitBuilder>,
-    PaddingTestParams<stdlib::bn254<bb::UltraCircuitBuilder>::ScalarField, bb::UltraCircuitBuilder>,
-    PaddingTestParams<stdlib::bn254<bb::CircuitSimulatorBN254>::ScalarField, bb::CircuitSimulatorBN254>>;
+    PaddingTestParams<bb::stdlib::bn254<bb::MegaCircuitBuilder_<bb::field<bb::Bn254FrParams>>>, bb::MegaCircuitBuilder>,
+    PaddingTestParams<stdlib::bn254<bb::UltraCircuitBuilder>, bb::UltraCircuitBuilder>,
+    PaddingTestParams<stdlib::bn254<bb::CircuitSimulatorBN254>, bb::CircuitSimulatorBN254>>;
 
 TYPED_TEST_SUITE(PaddingIndicatorArrayTest, TestTypes);
 
