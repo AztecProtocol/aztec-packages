@@ -227,12 +227,10 @@ function build {
     aztec-up
   )
 
-  echo_header "Building dependent projects in serial"
   for project in "${dependent_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
 
-  echo_header "build non-dependent projects in parallel"
   parallel --line-buffer --tag --halt now,fail=1 '{}/bootstrap.sh ${1:-}' ::: ${non_dependent_projects[@]}
 }
 
