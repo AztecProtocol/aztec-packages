@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
 import bundlesize from 'vite-plugin-bundlesize';
+import path from 'path';
 
 // Only required for alternative bb wasm file, left as reference
 // import { viteStaticCopy } from "vite-plugin-static-copy";
@@ -47,13 +48,13 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react({ jsxImportSource: '@emotion/react' }),
-      nodePolyfillsFix({ include: ['buffer', 'path'] }),
+      nodePolyfillsFix({ include: ['buffer', 'path', 'process'] }),
       // This is unnecessary unless BB_WASM_PATH is defined (default would be /assets/barretenberg.wasm.gz)
       // Left as an example of how to use a different bb wasm file than the default lazily loaded one
       // viteStaticCopy({
       //   targets: [
       //     {
-      //       src: "../barretenberg/ts/dest/node/barretenberg_wasm/*.gz",
+      //       src: "../barretenberg/ts/dest/esm/barretenberg_wasm/*.gz",
       //       dest: "assets/",
       //     },
       //   ],
@@ -77,6 +78,19 @@ export default defineConfig(({ mode }) => {
     build: {
       // Required by vite-plugin-bundle-size
       sourcemap: 'hidden',
+    },
+    resolve: {
+      alias: {
+        'vite-plugin-node-polyfills/shims/process': path.resolve(
+          __dirname,
+          'node_modules',
+          'vite-plugin-node-polyfills',
+          'shims',
+          'process',
+          'dist',
+          'index.cjs',
+        ),
+      },
     },
   };
 });

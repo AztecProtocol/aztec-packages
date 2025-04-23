@@ -9,4 +9,4 @@ cd $(dirname $0)/..
 
 export NODE_OPTIONS="--no-warnings --experimental-vm-modules"
 
-./node_modules/.bin/jest --testRegex '\.test\.js$' --rootDir ./dest/node --runInBand $1
+./node_modules/.bin/jest --testRegex '\.test\.js$' --rootDir ./dest/esm --runInBand $1

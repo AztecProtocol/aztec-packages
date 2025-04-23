@@ -99,7 +99,6 @@ __metadata:
     "@types/node": "npm:^20.11.17"
     assert: "npm:^2.1.0"
     html-webpack-plugin: "npm:^5.6.0"
-    ignore-loader: "npm:^0.1.2"
     stream-browserify: "npm:^3.0.0"
     ts-loader: "npm:^9.5.1"
     typescript: "npm:^5.0.4"

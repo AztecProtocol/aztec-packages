@@ -18,10 +18,16 @@ export default {
     barretenberg: { import: './src/barretenberg_wasm/fetch_code/browser/barretenberg.ts', filename: 'barretenberg.js' },
     "barretenberg-threads": { import: './src/barretenberg_wasm/fetch_code/browser/barretenberg-threads.ts', filename: 'barretenberg-threads.js' },
     // // Force inclusion of worker threads without mangling worker import statements.
-    // main: { import: './src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.ts', filename: 'main.worker.js' },
-    // thread: { import: './src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts', filename: 'thread.worker.js' },
+    main: { import: './src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.ts', filename: 'main.worker.js' },
+    thread: { import: './src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts', filename: 'thread.worker.js' },
   },
   module: {
+    parser: {
+      javascript: {
+        importMeta: false,
+        url: false,
+      },
+    },
     rules: [
       {
         test: /\.wasm\.gz$/,
@@ -62,9 +68,7 @@ export default {
       }),
     ],
     splitChunks: {
-      // Cannot use async due to https://github.com/webpack/webpack/issues/17014
-      // messing with module workers loaded asynchronously.
-      chunks: /barretenberg.*.js/,
+      chunks: 'async',
     },
     runtimeChunk: false
   },

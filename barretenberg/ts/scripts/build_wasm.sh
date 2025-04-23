@@ -14,7 +14,7 @@ fi
 # We need to take two copies for both esm and cjs builds. You can't use symlinks when publishing.
 # This probably isn't a big deal however due to compression.
 # When building the browser bundle, both wasms are inlined directly.
-mkdir -p ./dest/node/barretenberg_wasm
-mkdir -p ./dest/node-cjs/barretenberg_wasm
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
+mkdir -p ./dest/esm/barretenberg_wasm
+mkdir -p ./dest/cjs/barretenberg_wasm
+cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/esm/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/cjs/barretenberg_wasm/barretenberg-threads.wasm.gz

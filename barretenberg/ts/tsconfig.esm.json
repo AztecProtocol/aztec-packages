@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dest/esm",
+    "tsBuildInfoFile": "/dev/null",
+  }
+}

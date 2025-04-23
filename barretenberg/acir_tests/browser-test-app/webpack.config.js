@@ -14,21 +14,12 @@ export default {
       {
         test: /\.tsx?$/,
         loader: 'ts-loader',
-        exclude: /node_modules|\.d\.ts(.map)?$/
-      },
-      {
-          test: /\.d\.ts(.map)?$/,
-          loader: 'ignore-loader'
       },
     ],
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
-    publicPath: "/",
     filename: "[name].js",
-    library: {
-      type: 'module',
-    },
     chunkFormat: 'module',
   },
   experiments: {
