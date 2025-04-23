@@ -53,9 +53,7 @@ export class GovernanceContract {
 
   constructor(address: Hex, public readonly client: ViemClient) {
     this.publicGovernance = getContract({ address, abi: GovernanceAbi, client: client });
-    this.walletGovernance = isExtendedClient(client)
-      ? getContract({ address, abi: GovernanceAbi, client: client })
-      : undefined;
+    this.walletGovernance = isExtendedClient(client) ? getContract({ address, abi: GovernanceAbi, client }) : undefined;
   }
 
   public get address() {
@@ -90,9 +88,6 @@ export class GovernanceContract {
   }
 
   public async deposit(onBehalfOf: Hex, amount: bigint) {
-    if (!isExtendedClient(this.client)) {
-      throw new Error('Wallet client is required for this operation');
-    }
     const walletGovernance = this.assertWalletGovernance();
     const depositTx = await walletGovernance.write.deposit([onBehalfOf, amount]);
     await this.client.waitForTransactionReceipt({ hash: depositTx });
