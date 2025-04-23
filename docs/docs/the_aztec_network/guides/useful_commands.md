@@ -19,7 +19,7 @@ The Registry contract is your entrypoint into almost all other contracts for a p
 
 Assume there are two "deployments" of Aztec i.e. an `alpha-testnet` and a `ignition-testnet`. Then each deployment will have a unique Registry contract that does not change with upgrades. If a governance upgrade on `alpha-testnet` deploys a new rollup contract, the Registry contract for the `alpha-testnet` deployment will not change.
 
-The Registry contract for a particular deployment can be retrieved from the [Chain Info](../..link) page.
+<!-- The Registry contract for a particular deployment can be retrieved from the [Chain Info](../..link) page. -->
 
 ### Get the Rollup contract
 
