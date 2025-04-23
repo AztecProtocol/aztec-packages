@@ -82,13 +82,9 @@ jq -c '.accounts[]' state.json | while read -r account; do
     # Getting initial balances
 
     amm_public_balance_token_0_initial=$(get_public_balance "$token_0_address" "$amm_address" "$current_user_address")
-
     amm_public_balance_token_1_initial=$(get_public_balance "$token_1_address" "$amm_address" "$current_user_address")
-
     current_user_private_balance_token_0_initial=$(get_private_balance "$token_0_address" "$current_user_address")
-
     current_user_private_balance_token_1_initial=$(get_private_balance "$token_1_address" "$current_user_address")
-
     current_user_liquidity_token_balance_initial=$(get_private_balance "$token_liquidity_address" "$current_user_address")
 
     echo "Balances for account $current_user_address"
@@ -132,7 +128,6 @@ jq -c '.accounts[]' state.json | while read -r account; do
       $fee_method_override
 
     current_user_private_balance_token_0_after_adding_liquidity=$(get_private_balance "$token_0_address" "$current_user_address")
-
     current_user_private_balance_token_1_after_adding_liquidity=$(get_private_balance "$token_1_address" "$current_user_address")
 
     echo "Balances for account $current_user_address after adding liquidity"
@@ -144,7 +139,6 @@ jq -c '.accounts[]' state.json | while read -r account; do
     assert_lt "$current_user_private_balance_token_1_after_adding_liquidity" "$current_user_private_balance_token_1_initial"
 
     amm_public_balance_token_0_after_adding_liquidity=$(get_public_balance "$token_0_address" "$amm_address" "$current_user_address")
-
     amm_public_balance_token_1_after_adding_liquidity=$(get_public_balance "$token_1_address" "$amm_address" "$current_user_address")
 
     echo "Balances for AMM $amm_address after adding liquidity"
@@ -192,14 +186,20 @@ jq -c '.accounts[]' state.json | while read -r account; do
       $fee_method_override
 
     current_user_private_balance_token_0_after_swap=$(get_private_balance "$token_0_address" "$current_user_address")
-
     current_user_private_balance_token_1_after_swap=$(get_private_balance "$token_1_address" "$current_user_address")
+
+    amm_public_balance_token_0_after_swap=$(get_public_balance "$token_0_address" "$amm_address" "$current_user_address")
+    amm_public_balance_token_1_after_swap=$(get_public_balance "$token_1_address" "$amm_address" "$current_user_address")
 
     # We check that our token 0 balance after the swap is equal to the value before the swap subtracted by the amount swapped
     assert_eq $((current_user_private_balance_token_0_after_adding_liquidity - amount_in)) "$current_user_private_balance_token_0_after_swap"
 
     #We check that our token 1 balance after the swap is greater than before the swap
     assert_lt "$current_user_private_balance_token_1_after_adding_liquidity" "$current_user_private_balance_token_1_after_swap"
+
+    # We check that our public balances for Token 0 the AMM have increased by the same amount as our private balances have decreased for the account, and vice versa for Token 1
+    assert_eq $((amm_public_balance_token_0_after_swap - amm_public_balance_token_0_after_adding_liquidity)) $((current_user_private_balance_token_0_after_adding_liquidity - current_user_private_balance_token_0_after_swap))
+    assert_eq $((amm_public_balance_token_1_after_adding_liquidity - amm_public_balance_token_1_after_swap)) $((current_user_private_balance_token_1_after_swap - current_user_private_balance_token_1_after_adding_liquidity))
 
     # Remove liquidity
 
@@ -225,21 +225,23 @@ jq -c '.accounts[]' state.json | while read -r account; do
       -f $current_user_address \
       $fee_method_override
 
-    current_user_private_balance_token_0_after_remove_liquidity=$(get_private_balance "$token_0_address" "$current_user_address")
-
-    current_user_private_balance_token_1_after_remove_liquidity=$(get_private_balance "$token_1_address" "$current_user_address")
+    current_user_private_balance_token_0_after_removing_liquidity=$(get_private_balance "$token_0_address" "$current_user_address")
+    current_user_private_balance_token_1_after_removing_liquidity=$(get_private_balance "$token_1_address" "$current_user_address")
 
     # We check that our token balances after removing liquidity are greater than before
-    assert_lt "$current_user_private_balance_token_0_after_swap" "$current_user_private_balance_token_0_after_remove_liquidity"
-    assert_lt "$current_user_private_balance_token_1_after_swap" "$current_user_private_balance_token_1_after_remove_liquidity"
+    assert_lt "$current_user_private_balance_token_0_after_swap" "$current_user_private_balance_token_0_after_removing_liquidity"
+    assert_lt "$current_user_private_balance_token_1_after_swap" "$current_user_private_balance_token_1_after_removing_liquidity"
 
     amm_public_balance_token_0_after_removing_liquidity=$(get_public_balance "$token_0_address" "$amm_address" "$current_user_address")
-
     amm_public_balance_token_1_after_removing_liquidity=$(get_public_balance "$token_1_address" "$amm_address" "$current_user_address")
 
     # We check that amm public token balances after removing liquidity are less than before
     assert_lt "$amm_public_balance_token_0_after_removing_liquidity" "$amm_public_balance_token_0_after_adding_liquidity"
     assert_lt "$amm_public_balance_token_1_after_removing_liquidity" "$amm_public_balance_token_1_after_adding_liquidity"
+
+    # We check that our public balances for the AMM have increased by the same amount as our private balances have decreased for the account
+    assert_eq $((amm_public_balance_token_0_after_swap - amm_public_balance_token_0_after_removing_liquidity)) $((current_user_private_balance_token_0_after_removing_liquidity - current_user_private_balance_token_0_after_swap))
+    assert_eq $((amm_public_balance_token_1_after_swap - amm_public_balance_token_1_after_removing_liquidity)) $((current_user_private_balance_token_1_after_removing_liquidity - current_user_private_balance_token_1_after_swap))
 
     should_prove_flow=false
   done
