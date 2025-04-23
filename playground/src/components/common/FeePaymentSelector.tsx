@@ -35,7 +35,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
     switch (method) {
       case 'sponsored_fpc': {
         const { prepareForFeePayment } = await import('../../utils/sponsoredFPC');
-        const feePaymentMethod = await prepareForFeePayment(pxe);
+        const feePaymentMethod = await prepareForFeePayment(pxe, network.sponsoredFPCAddress);
         setFeePaymentMethod(feePaymentMethod);
         break;
       }

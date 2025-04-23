@@ -15,18 +15,14 @@ export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAdd
   });
 }
 
-export async function getSponsoredFPCAddress(): Promise<AztecAddress> {
-  return (await getSponsoredFPCInstance()).address;
-}
-
-export async function prepareForFeePayment(pxe: PXE): Promise<SponsoredFeePaymentMethod> {
+export async function prepareForFeePayment(pxe: PXE, sponsoredFPCAddress?: AztecAddress): Promise<SponsoredFeePaymentMethod> {
   try {
     const sponsoredFPC = await getSponsoredFPCInstance();
     await pxe.registerContract({
       instance: sponsoredFPC,
       artifact: SponsoredFPCContract.artifact,
     });
-    return new SponsoredFeePaymentMethod(sponsoredFPC.address);
+    return new SponsoredFeePaymentMethod(sponsoredFPCAddress ?? sponsoredFPC.address);
   } catch (error) {
     console.error('Error preparing SponsoredFeePaymentMethod:', error);
     throw error;

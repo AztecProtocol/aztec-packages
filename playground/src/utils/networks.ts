@@ -1,4 +1,5 @@
 import { VERSION } from './constants';
+import { AztecAddress } from '@aztec/aztec.js';
 
 export type Network = {
   nodeURL: string;
@@ -6,6 +7,7 @@ export type Network = {
   description: string;
   hasTestAccounts: boolean;
   hasSponsoredFPC: boolean;
+  sponsoredFPCAddress?: AztecAddress;
 };
 
 export const NETWORKS: Network[] = [
@@ -15,6 +17,7 @@ export const NETWORKS: Network[] = [
     description: 'Public testnet',
     hasTestAccounts: false,
     hasSponsoredFPC: true,
+    sponsoredFPCAddress: AztecAddress.fromString('0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5'),
   },
   {
     nodeURL: 'http://34.169.170.55:8080',
@@ -22,6 +25,7 @@ export const NETWORKS: Network[] = [
     description: 'Public development network',
     hasTestAccounts: false,
     hasSponsoredFPC: true,
+    sponsoredFPCAddress: AztecAddress.fromString('0x2742bae7b298acd9ae3f09ff48f6e6254f1e28bb71fbec9b6e79fe9955adf83c'),
   },
   {
     nodeURL: 'http://localhost:8080',

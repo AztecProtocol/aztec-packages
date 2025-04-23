@@ -134,7 +134,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   ) => {
     setOpenCreateAuthwitDialog(false);
     if (isPublic && interaction && opts) {
-      onSendTxRequested(`${fn.name} public authwit`, interaction, contract?.address, opts);
+      onSendTxRequested(`Authwit ${fn.name}`, interaction, contract?.address, opts);
     }
   };
 
