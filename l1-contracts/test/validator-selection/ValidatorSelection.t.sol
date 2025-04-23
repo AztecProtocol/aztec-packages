@@ -292,6 +292,7 @@ contract ValidatorSelectionTest is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -304,6 +305,7 @@ contract ValidatorSelectionTest is DecoderBase {
 
       ProposePayload memory proposePayload = ProposePayload({
         archive: args.archive,
+        stateReference: args.stateReference,
         oracleInput: args.oracleInput,
         headerHash: HeaderLib.hash(header),
         txHashes: args.txHashes
@@ -345,14 +347,14 @@ contract ValidatorSelectionTest is DecoderBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.blobInputs, new bytes(0));
+      rollup.propose(args, signatures, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.blobInputs, new bytes(0));
+      rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

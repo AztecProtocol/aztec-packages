@@ -6,7 +6,6 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, L2Block } from '@aztec/stdlib/block';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -29,20 +28,33 @@ import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
 
 export type RetrievedL2Block = {
   l2BlockNumber: bigint;
-  archive: AppendOnlyTreeSnapshot;
+  archiveRoot: Fr;
+  stateReference: StateReference;
   header: ProposedBlockHeader;
   body: Body;
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
   signatures: Signature[];
-  // TODO: Remove stateReference from calldata and fetch it from the updated world state.
-  stateReference: StateReference;
 };
 
 export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
-  const { l2BlockNumber, l1, body, archive, stateReference, chainId, version, signatures } = retrievedBlock;
-  const proposedHeader = retrievedBlock.header;
+  const {
+    l2BlockNumber,
+    archiveRoot,
+    stateReference,
+    header: proposedHeader,
+    body,
+    l1,
+    chainId,
+    version,
+    signatures,
+  } = retrievedBlock;
+
+  const archive = new AppendOnlyTreeSnapshot(
+    archiveRoot,
+    Number(l2BlockNumber + 1n), // nextAvailableLeafIndex
+  );
 
   const globalVariables = GlobalVariables.from({
     chainId,
@@ -276,10 +288,11 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, signatures, _blobInput, stateReferenceHex] = rollupArgs! as readonly [
+  const [decodedArgs, signatures, _blobInput] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
+      stateReference: Hex;
       blockHash: Hex;
       oracleInput: {
         feeAssetPriceModifier: bigint;
@@ -287,7 +300,6 @@ async function getBlockFromRollupTx(
       txHashes: Hex[];
     },
     ViemSignature[],
-    Hex,
     Hex,
   ];
 
@@ -312,21 +324,16 @@ async function getBlockFromRollupTx(
   // The blob source gives us blockFields, and we must construct the body from them:
   const body = Body.fromBlobFields(blockFields);
 
-  const archive = AppendOnlyTreeSnapshot.fromBuffer(
-    Buffer.concat([
-      Buffer.from(hexToBytes(decodedArgs.archive)), // L2Block.archive.root
-      numToUInt32BE(Number(l2BlockNumber + 1n)), // L2Block.archive.nextAvailableLeafIndex
-    ]),
-  );
+  const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)).readUInt32BE(0));
 
-  const stateReference = StateReference.fromBuffer(Buffer.from(hexToBytes(stateReferenceHex)));
+  const stateReference = StateReference.fromBuffer(Buffer.from(hexToBytes(decodedArgs.stateReference)));
 
   return {
     l2BlockNumber,
-    archive,
+    archiveRoot,
+    stateReference,
     header,
     body,
-    stateReference,
     signatures: signatures.map(Signature.fromViemSignature),
   };
 }

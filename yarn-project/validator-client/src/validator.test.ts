@@ -72,6 +72,7 @@ describe('ValidationService', () => {
       header.globalVariables.blockNumber,
       header.toPropose(),
       archive,
+      header.state,
       txs,
     );
 

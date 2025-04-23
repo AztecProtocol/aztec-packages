@@ -10,7 +10,7 @@ import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ValidatorClientConfig } from './config.js';
@@ -56,6 +56,7 @@ export interface Validator {
     blockNumber: Fr,
     header: ProposedBlockHeader,
     archive: Fr,
+    stateReference: StateReference,
     txs: TxHash[],
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
@@ -319,6 +320,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     blockNumber: Fr,
     header: ProposedBlockHeader,
     archive: Fr,
+    stateReference: StateReference,
     txs: TxHash[],
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
@@ -326,7 +328,13 @@ export class ValidatorClient extends WithTracer implements Validator {
       return Promise.resolve(undefined);
     }
 
-    const newProposal = await this.validationService.createBlockProposal(blockNumber, header, archive, txs);
+    const newProposal = await this.validationService.createBlockProposal(
+      blockNumber,
+      header,
+      archive,
+      stateReference,
+      txs,
+    );
     this.previousProposal = newProposal;
     return newProposal;
   }

@@ -236,6 +236,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
+      stateReference: new bytes(0),
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
       txHashes: txHashes
     });
@@ -251,6 +252,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       ProposePayload memory proposePayload = ProposePayload({
         archive: proposeArgs.archive,
+        stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
         headerHash: headerHash,
         txHashes: proposeArgs.txHashes
@@ -319,9 +321,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         targets[0] = address(rollup);
 
         bytes[] memory data = new bytes[](1);
-        data[0] = abi.encodeCall(
-          IRollupCore.propose, (b.proposeArgs, b.signatures, b.blobInputs, new bytes(0))
-        );
+        data[0] = abi.encodeCall(IRollupCore.propose, (b.proposeArgs, b.signatures, b.blobInputs));
 
         address caller = proposerToAttester[proposer];
         vm.prank(caller);

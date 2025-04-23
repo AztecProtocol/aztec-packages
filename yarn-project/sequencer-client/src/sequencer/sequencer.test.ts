@@ -77,8 +77,6 @@ describe('sequencer', () => {
   let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
-  const archive = Fr.random();
-
   const mockedSig = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27);
   const committee = [EthAddress.random()];
 
@@ -87,7 +85,7 @@ describe('sequencer', () => {
   const getAttestations = () => {
     const attestation = new BlockAttestation(
       block.header.globalVariables.blockNumber,
-      new ConsensusPayload(block.header.toPropose(), archive, []),
+      ConsensusPayload.fromBlock(block),
       mockedSig,
     );
     (attestation as any).sender = committee[0];
@@ -95,11 +93,7 @@ describe('sequencer', () => {
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(
-      block.header.globalVariables.blockNumber,
-      new ConsensusPayload(block.header.toPropose(), archive, [TxHash.random()]),
-      mockedSig,
-    );
+    return new BlockProposal(block.header.globalVariables.blockNumber, ConsensusPayload.fromBlock(block), mockedSig);
   };
 
   const processTxs = async (txs: Tx[]) => {

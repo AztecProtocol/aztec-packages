@@ -147,8 +147,7 @@ interface IRollupCore {
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _blobInput,
-    bytes calldata _stateReference
+    bytes calldata _blobInput
   ) external;
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;

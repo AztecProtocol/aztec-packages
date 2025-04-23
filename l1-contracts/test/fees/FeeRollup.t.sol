@@ -216,14 +216,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
+            stateReference: new bytes(0),
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.blobInputs,
-          new bytes(0)
+          b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
       }
@@ -319,14 +319,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
+            stateReference: new bytes(0),
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
             txHashes: b.txHashes
           }),
           b.signatures,
-          b.blobInputs,
-          new bytes(0)
+          b.blobInputs
         );
 
         FeeHeader memory feeHeader = rollup.getFeeHeader(nextSlot.unwrap());

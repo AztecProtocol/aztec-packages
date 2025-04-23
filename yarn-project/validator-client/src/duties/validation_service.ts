@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
 import { BlockAttestation, BlockProposal, ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
 
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
@@ -23,13 +23,14 @@ export class ValidationService {
     blockNumber: Fr,
     header: ProposedBlockHeader,
     archive: Fr,
+    stateReference: StateReference,
     txs: TxHash[],
   ): Promise<BlockProposal> {
     const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
 
     return BlockProposal.createProposalFromSigner(
       blockNumber,
-      new ConsensusPayload(header, archive, txs),
+      new ConsensusPayload(header, archive, stateReference, txs),
       payloadSigner,
     );
   }

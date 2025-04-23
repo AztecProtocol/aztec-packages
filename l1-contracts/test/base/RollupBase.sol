@@ -183,6 +183,7 @@ contract RollupBase is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
@@ -190,7 +191,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, signatures, blobInputs, new bytes(0));
+    rollup.propose(args, signatures, blobInputs);
 
     if (_revertMsg.length > 0) {
       return;

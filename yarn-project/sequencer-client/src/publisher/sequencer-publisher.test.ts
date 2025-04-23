@@ -217,6 +217,7 @@ describe('SequencerPublisher', () => {
       {
         header: toHex(header),
         archive: toHex(archive),
+        stateReference: toHex(l2Block.header.state.toBuffer()),
         blockHash: toHex(blockHash),
         oracleInput: {
           feeAssetPriceModifier: 0n,
@@ -225,7 +226,6 @@ describe('SequencerPublisher', () => {
       },
       [],
       blobInput,
-      toHex(l2Block.header.state.toBuffer()),
     ] as const;
     expect(forwarder.forward).toHaveBeenCalledWith(
       [

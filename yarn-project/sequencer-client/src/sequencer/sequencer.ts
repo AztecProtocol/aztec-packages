@@ -686,6 +686,7 @@ export class Sequencer {
       block.header.globalVariables.blockNumber,
       block.header.toPropose(),
       block.archive.root,
+      block.header.state,
       txHashes,
     );
     if (!proposal) {

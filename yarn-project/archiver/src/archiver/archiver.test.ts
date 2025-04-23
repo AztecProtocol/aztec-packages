@@ -613,6 +613,7 @@ async function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toPropose().toBuffer());
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
+  const stateReference = toHex(l2Block.header.state.toBuffer());
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
@@ -620,12 +621,12 @@ async function makeRollupTx(l2Block: L2Block) {
       {
         header,
         archive,
+        stateReference,
         oracleInput: { feeAssetPriceModifier: 0n },
         txHashes: [],
       },
       [],
       blobInput,
-      toHex(l2Block.header.state.toBuffer()),
     ],
   });
 

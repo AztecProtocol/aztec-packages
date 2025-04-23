@@ -210,10 +210,7 @@ contract RollupCore is
   function propose(
     ProposeArgs calldata _args,
     Signature[] memory _signatures,
-    bytes calldata _blobInput,
-    // TODO: Temporary sending it as calldata so that the block source can reconstruct the full block header.
-    // Should be removed once the block source can refer to the world state to access the state reference.
-    bytes calldata _stateReference
+    bytes calldata _blobInput
   ) external override(IRollupCore) {
     ExtRollupLib.propose(_args, _signatures, _blobInput, checkBlob);
   }

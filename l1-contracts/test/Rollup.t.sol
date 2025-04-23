@@ -212,11 +212,12 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0]));
-    rollup.propose(args, signatures, data.blobInputs, new bytes(0));
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testInvalidBlobProof() public setUpFor("mixed_block_1") {
@@ -239,11 +240,12 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobProof.selector, blobHashes[0]));
-    rollup.propose(args, signatures, blobInput, new bytes(0));
+    rollup.propose(args, signatures, blobInput);
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -303,10 +305,11 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs, new bytes(0));
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -332,10 +335,11 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, data.blobInputs, new bytes(0));
+    rollup.propose(args, signatures, data.blobInputs);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -408,10 +412,11 @@ contract RollupTest is RollupBase {
       ProposeArgs memory args = ProposeArgs({
         header: header,
         archive: data.archive,
+        stateReference: new bytes(0),
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, signatures, data.blobInputs, new bytes(0));
+      rollup.propose(args, signatures, data.blobInputs);
       assertEq(testERC20.balanceOf(data.decodedHeader.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -675,10 +680,11 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, signatures, new bytes(144), new bytes(0));
+    rollup.propose(args, signatures, new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
