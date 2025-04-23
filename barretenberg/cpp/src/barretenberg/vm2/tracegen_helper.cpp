@@ -23,6 +23,7 @@
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
@@ -63,6 +64,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_integral_tag_length(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
                            precomputed_builder.process_wire_instruction_spec(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/exec_instruction_spec",
+                           precomputed_builder.process_exec_instruction_spec(trace));
             AVM_TRACK_TIME("tracegen/precomputed/to_radix_safe_limbs",
                            precomputed_builder.process_to_radix_safe_limbs(trace));
             AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
@@ -273,6 +276,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                         nullifier_tree_check_trace_builder.process(events.nullifier_tree_check_events, trace));
                     clear_events(events.nullifier_tree_check_events);
                 },
+                [&]() {
+                    MemoryTraceBuilder memory_trace_builder;
+                    AVM_TRACK_TIME("tracegen/memory", memory_trace_builder.process(events.memory, trace));
+                    clear_events(events.memory);
+                },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -292,7 +300,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                                                   MerkleCheckTraceBuilder::lookup_jobs(),
                                                   PublicDataTreeReadTraceBuilder::lookup_jobs(),
                                                   UpdateCheckTraceBuilder::lookup_jobs(),
-                                                  NullifierTreeCheckTraceBuilder::lookup_jobs());
+                                                  NullifierTreeCheckTraceBuilder::lookup_jobs(),
+                                                  MemoryTraceBuilder::lookup_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

@@ -187,7 +187,8 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  projects=(
+  # These projects are dependant on each other and must be built linearly
+  dependent_projects=(
     noir
     barretenberg
     avm-transpiler
@@ -195,6 +196,9 @@ function build {
     # Relies on noir-projects for verifier solidity generation.
     l1-contracts
     yarn-project
+  )
+  # These projects rely on the output of the dependant projects and can be built in parallel
+  non_dependent_projects=(
     boxes
     playground
     docs
@@ -203,9 +207,13 @@ function build {
     aztec-up
   )
 
-  for project in "${projects[@]}"; do
+  echo_header "Building dependent projects in serial"
+  for project in "${dependent_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
+
+  echo_header "build non-dependent projects in parallel"
+  parallel --line-buffer --tag --halt now,fail=1 '{}/bootstrap.sh ${1:-}' ::: ${non_dependent_projects[@]}
 }
 
 function bench {
@@ -332,6 +340,10 @@ case "$cmd" in
       else
         echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
       fi
+    fi
+
+    if [ "$REF_NAME" = "master" ]; then
+      docs/bootstrap.sh release-docs
     fi
     ;;
   test|test_cmds|bench|release|release_dryrun)

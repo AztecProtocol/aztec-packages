@@ -32,8 +32,8 @@ describe('Conversion Opcodes', () => {
         /*dstOffset=*/ 0x5678,
       );
 
-      expect(ToRadixBE.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(ToRadixBE.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should decompose correctly to bytes - direct', async () => {

@@ -1,5 +1,5 @@
 import { type AztecAddress, EthAddress, ProvenTx, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
-import { RollupContract } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -12,7 +12,7 @@ import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
-import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
+import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from './e2e_prover_test.js';
 
@@ -32,9 +32,9 @@ describe('full_prover', () => {
   let recipient: AztecAddress;
 
   let rollup: RollupContract;
-  let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
-  let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
-  let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
+  let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, ExtendedViemWalletClient>;
+  let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
+  let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, ExtendedViemWalletClient>;
 
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
@@ -47,24 +47,24 @@ describe('full_prover', () => {
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
     [sender, recipient] = accounts.map(a => a.address);
 
-    rollup = new RollupContract(t.l1Contracts.publicClient, t.l1Contracts.l1ContractAddresses.rollupAddress);
+    rollup = new RollupContract(t.l1Contracts.l1Client, t.l1Contracts.l1ContractAddresses.rollupAddress);
 
     rewardDistributor = getContract({
       abi: RewardDistributorAbi,
       address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
-      client: t.l1Contracts.publicClient,
+      client: t.l1Contracts.l1Client,
     });
 
     feeJuicePortal = getContract({
       abi: FeeJuicePortalAbi,
       address: t.l1Contracts.l1ContractAddresses.feeJuicePortalAddress.toString(),
-      client: t.l1Contracts.publicClient,
+      client: t.l1Contracts.l1Client,
     });
 
     feeJuiceToken = getContract({
       abi: TestERC20Abi,
       address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
-      client: t.l1Contracts.publicClient,
+      client: t.l1Contracts.l1Client,
     });
   }, 120_000);
 

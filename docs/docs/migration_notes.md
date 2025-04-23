@@ -1881,7 +1881,7 @@ The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to
 
 ### [Aztec.nr] get_public_key oracle replaced with get_ivpk_m
 
-When implementing changes according to a [new key scheme](https://yp-aztec.netlify.app/docs/addresses-and-keys/keys) we had to change oracles.
+When implementing changes according to a new key scheme we had to change oracles.
 What used to be called encryption public key is now master incoming viewing public key.
 
 ```diff

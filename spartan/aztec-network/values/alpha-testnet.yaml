@@ -24,6 +24,7 @@ network:
 
 blobSink:
   enabled: true
+  archiveApiUrl: "https://api.sepolia.blobscan.com"
   dataStoreConfig:
     dataDir: "/data"
     storageSize: "128Gi"

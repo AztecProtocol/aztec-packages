@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./translator_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -175,6 +181,5 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
-template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 } // namespace bb

@@ -34,7 +34,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     l2Bridge = crossChainTestHarness.l2Bridge;
     l2Token = crossChainTestHarness.l2Token;
     rollup = new RollupContract(
-      crossChainTestHarness!.publicClient,
+      crossChainTestHarness!.l1Client,
       crossChainTestHarness!.l1ContractAddresses.rollupAddress,
     );
 

@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
+#include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -212,6 +213,53 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
                 trace.set(C::precomputed_sel_tag_is_op2, static_cast<uint32_t>(wire_opcode), 1);
             }
         }
+    }
+}
+
+void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trace)
+{
+    using C = Column;
+
+    uint32_t row = 0;
+    for (const auto& [exec_opcode, exec_instruction_spec] : EXEC_INSTRUCTION_SPEC) {
+        auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
+        uint8_t alu_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0;
+        uint8_t bitwise_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0;
+        uint8_t poseidon_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0;
+        uint8_t to_radix_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0;
+        uint8_t ecc_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0;
+
+        auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
+
+        trace.set(row,
+                  { { { C::precomputed_exec_opcode_value, static_cast<uint32_t>(exec_opcode) },
+                      { C::precomputed_exec_opcode_base_l2_gas, exec_instruction_spec.gas_cost.base_l2 },
+                      { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
+                      { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
+                      { C::precomputed_exec_opcode_dynamic_da_gas, exec_instruction_spec.gas_cost.dyn_da },
+                      // Memory Access for registers
+                      { C::precomputed_mem_op_reg1, register_info.is_active(0) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg2, register_info.is_active(1) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg3, register_info.is_active(2) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg4, register_info.is_active(3) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg5, register_info.is_active(4) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg6, register_info.is_active(5) ? 1 : 0 },
+                      { C::precomputed_mem_op_reg7, register_info.is_active(6) ? 1 : 0 },
+                      { C::precomputed_rw_1, register_info.is_write(0) ? 1 : 0 },
+                      { C::precomputed_rw_2, register_info.is_write(1) ? 1 : 0 },
+                      { C::precomputed_rw_3, register_info.is_write(2) ? 1 : 0 },
+                      { C::precomputed_rw_4, register_info.is_write(3) ? 1 : 0 },
+                      { C::precomputed_rw_5, register_info.is_write(4) ? 1 : 0 },
+                      { C::precomputed_rw_6, register_info.is_write(5) ? 1 : 0 },
+                      { C::precomputed_rw_7, register_info.is_write(6) ? 1 : 0 },
+                      // Gadget / Subtrace Selectors
+                      { C::precomputed_sel_dispatch_alu, alu_sel },
+                      { C::precomputed_sel_dispatch_bitwise, bitwise_sel },
+                      { C::precomputed_sel_dispatch_poseidon_perm, poseidon_sel },
+                      { C::precomputed_sel_dispatch_to_radix, to_radix_sel },
+                      { C::precomputed_sel_dispatch_ecc, ecc_sel },
+                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
+        row++;
     }
 }
 

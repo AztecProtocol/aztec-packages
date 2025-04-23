@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
@@ -166,8 +172,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
 
         if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
-            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
+            proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
             proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
