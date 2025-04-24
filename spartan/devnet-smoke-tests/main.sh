@@ -28,11 +28,11 @@ source "$SCRIPT_DIR/register_existing_accounts_from_state.sh"
 print_header "Creating new accounts"
 source "$SCRIPT_DIR/create_new_accounts.sh"
 
-# print_header "Deploying token contracts"
-# source "$SCRIPT_DIR/deploy_token_contracts.sh"
+print_header "Deploying token contracts"
+source "$SCRIPT_DIR/deploy_token_contracts.sh"
 
-# print_header "Deploying AMM contracts"
-# source "$SCRIPT_DIR/deploy_amm_contracts.sh"
+print_header "Deploying AMM contracts"
+source "$SCRIPT_DIR/deploy_amm_contracts.sh"
 
 print_header "Deploying NFT contracts"
 source "$SCRIPT_DIR/deploy_nft_contracts.sh"
@@ -40,11 +40,11 @@ source "$SCRIPT_DIR/deploy_nft_contracts.sh"
 print_header "Registering senders"
 source "$SCRIPT_DIR/register_senders.sh"
 
-# print_header "Processing token contracts"
-# source "$SCRIPT_DIR/process_token_contracts.sh"
+print_header "Processing token contracts"
+source "$SCRIPT_DIR/process_token_contracts.sh"
 
-# print_header "Processing AMM contracts"
-# source "$SCRIPT_DIR/process_amm_contracts.sh"
+print_header "Processing AMM contracts"
+source "$SCRIPT_DIR/process_amm_contracts.sh"
 
 print_header "Processing NFT contracts"
 source "$SCRIPT_DIR/process_nft_contracts.sh"
