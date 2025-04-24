@@ -81,9 +81,7 @@ describe('prover-node', () => {
       maxPendingJobs: 3,
       pollingIntervalMs: 10,
       maxParallelBlocksPerEpoch: 32,
-      txGatheringMaxParallelRequests: 10,
       txGatheringIntervalMs: 100,
-      txGatheringTimeoutMs: 1000,
     };
 
     // World state returns a new mock db every time it is asked to fork
