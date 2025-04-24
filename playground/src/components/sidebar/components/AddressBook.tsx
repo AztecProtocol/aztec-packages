@@ -1,9 +1,10 @@
 import { useContext, useState } from 'react';
 import { AddSendersDialog } from './AddSenderDialog';
-import Button from '@mui/material/Button';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import { AztecContext } from '../../../aztecEnv';
 import type { AztecAddress } from '@aztec/aztec.js';
+import { navbarButtonStyle } from '../../../styles/common';
+import { IconButton, Tooltip } from '@mui/material';
 
 export function AddressBook() {
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
@@ -22,10 +23,14 @@ export function AddressBook() {
     <>
       {wallet && walletDB && isPXEInitialized && (
         <>
-          <Button variant="contained" onClick={() => setOpenAddSendersDialog(true)} endIcon={<ContactsIcon />}>
-            Contacts
-          </Button>
-          {openAddSendersDialog && <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />}
+          <div css={navbarButtonStyle} style={{ padding: '10px' }}>
+            <Tooltip title="Add Contacts">
+              <IconButton onClick={() => setOpenAddSendersDialog(true)}>
+                <ContactsIcon color='inherit' />
+              </IconButton>
+            </Tooltip>
+            {openAddSendersDialog && <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />}
+          </div>
         </>
       )}
     </>

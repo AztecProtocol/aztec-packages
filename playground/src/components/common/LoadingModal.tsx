@@ -6,7 +6,7 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorIcon from '@mui/icons-material/Error';
 import Button from '@mui/material/Button';
-import { Box, Dialog, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { Box, Dialog, DialogContent } from '@mui/material';
 import { TxStatus } from '@aztec/aztec.js';
 import { dialogBody } from '../../styles/common';
 
@@ -40,7 +40,6 @@ const contentGroup = css({
   padding: '2rem',
   textWrap: 'wrap',
   minHeight: '550px',
-  width: '600px',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   wordBreak: 'break-word',
@@ -197,6 +196,7 @@ const minimizedModal = css({
   cursor: 'pointer',
   overflow: 'hidden',
   transition: 'all 0.3s ease',
+  border: '1px solid #dedede',
   '&:hover': {
     transform: 'translateY(-2px)',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
@@ -206,9 +206,11 @@ const minimizedModal = css({
 const minimizedModalIcon = css({
   width: '48px',
   height: '48px',
+  display: 'block',
 });
 
 const minimizedTitle = css({
+  width: '300px',
   fontWeight: 500,
   fontSize: '16px',
   height: '20px',
@@ -218,6 +220,7 @@ const minimizedTitle = css({
 const minimizedLog = css({
   fontWeight: 300,
   fontSize: '12px',
+  width: '300px',
   color: 'var(--mui-palette-text-secondary)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -263,7 +266,7 @@ export function LoadingModal() {
   function renderModal() {
     return (
       <Dialog open={true} onClose={minimizeModal}>
-        <DialogContent css={dialogBody} sx={{ width: '600px' }}>
+        <DialogContent css={dialogBody}>
 
           <IconButton css={closeButton} onClick={handleClose}>
             <CloseIcon />
@@ -323,12 +326,12 @@ export function LoadingModal() {
     const errorMessage = currentTx?.error;
     const subtitle = hasError ? errorMessage : lastLog;
 
-    console.log({ hasError })
-
     return (
       <div css={minimizedModal} onClick={() => setTransactionModalStatus('open')}>
         {!hasError && (
-          <span css={[loader, minimizedModalIcon]}></span>
+          <div css={minimizedModalIcon}>
+            <span css={[loader]}></span>
+          </div>
         )}
         {hasError && (
           <ErrorIcon css={minimizedModalIcon} style={{ color: 'var(--mui-palette-error-main)' }} />

@@ -1,52 +1,23 @@
 import { useContext, useEffect, useState } from 'react';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
-import Select, { type SelectChangeEvent } from '@mui/material/Select';
+import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { AddNetworksDialog } from './AddNetworkDialog';
-import { css } from '@emotion/react';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { AztecContext, AztecEnv, WebLogger } from '../../../aztecEnv';
 import { NetworkDB, WalletDB } from '../../../utils/storage';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
-import { select } from '../../../styles/common';
+import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import { NETWORKS } from '../../../utils/networks';
+import { useNotifications } from '@toolpad/core/useNotifications';
+import NetworkIcon from '@mui/icons-material/Public';
 
-const modalContainer = css({
-  padding: '10px 0',
-});
 
-const errorMessageStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '12px',
-  marginTop: '12px',
-  backgroundColor: 'rgba(211, 47, 47, 0.1)',
-  borderRadius: '8px',
-  color: '#d32f2f',
-  fontSize: '14px',
-  lineHeight: '1.4',
-});
-
-const errorIcon = css({
-  fontSize: '20px',
-});
-
-const loadingContainer = css({
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '20px 0',
-  gap: '10px',
-});
-
-interface NetworkSelectorProps {}
-
-export function NetworkSelector({}: NetworkSelectorProps) {
+export function NetworkSelector() {
   const {
     setConnecting,
     setPXE,
@@ -69,6 +40,8 @@ export function NetworkSelector({}: NetworkSelectorProps) {
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [isOpen, setOpen] = useState(false);
 
+  const notifications = useNotifications();
+
   useEffect(() => {
     const initNetworkStore = async () => {
       await AztecEnv.initNetworkStore();
@@ -82,7 +55,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     if (isNetworkStoreInitialized && !network) {
       handleNetworkChange(NETWORKS[0].nodeURL);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNetworkStoreInitialized]);
 
   useEffect(() => {
@@ -107,30 +80,39 @@ export function NetworkSelector({}: NetworkSelectorProps) {
   }, [isNetworkStoreInitialized]);
 
   const handleNetworkChange = async (nodeURL: string) => {
-    setConnecting(true);
-    setPXEInitialized(false);
-    const network = networks.find(network => network.nodeURL === nodeURL);
-    const node = await AztecEnv.connectToNode(network.nodeURL);
-    setAztecNode(node);
-    setNetwork(network);
-    setWallet(null);
-    setCurrentContractAddress(null);
-    setCurrentContractArtifact(null);
-    setShowContractInterface(false);
-    const pxe = await AztecEnv.initPXE(node, setLogs, setTotalLogCount);
-    const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
-    const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
-    const walletDBStore = await createStore(
-      `wallet-${rollupAddress}`,
-      { dataDirectory: 'wallet', dataStoreMapSizeKB: 2e10 },
-      walletLogger,
-    );
-    const walletDB = WalletDB.getInstance();
-    walletDB.init(walletDBStore, walletLogger.info);
-    setPXE(pxe);
-    setWalletDB(walletDB);
-    setPXEInitialized(true);
-    setConnecting(false);
+    try {
+      setConnecting(true);
+      setPXEInitialized(false);
+      const network = networks.find(network => network.nodeURL === nodeURL);
+      const node = await AztecEnv.connectToNode(network.nodeURL);
+      setAztecNode(node);
+      setNetwork(network);
+      setWallet(null);
+      setCurrentContractAddress(null);
+      setCurrentContractArtifact(null);
+      setShowContractInterface(false);
+      const pxe = await AztecEnv.initPXE(node, setLogs, setTotalLogCount);
+      const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
+      const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
+      const walletDBStore = await createStore(
+        `wallet-${rollupAddress}`,
+        { dataDirectory: 'wallet', dataStoreMapSizeKB: 2e10 },
+        walletLogger,
+      );
+      const walletDB = WalletDB.getInstance();
+      walletDB.init(walletDBStore, walletLogger.info);
+      setPXE(pxe);
+      setWalletDB(walletDB);
+      setPXEInitialized(true);
+      setConnecting(false);
+    } catch (error) {
+      console.error(error);
+      setConnecting(false);
+      setNetwork(null);
+      notifications.show('Failed to connect to network', {
+        severity: 'error',
+      });
+    }
   };
 
   const handleNetworkAdded = async (network?: string, alias?: string) => {
@@ -153,51 +135,23 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     setOpenAddNetworksDialog(false);
   };
 
-  // // Renders the appropriate error message based on network type
-  // const renderErrorMessage = () => {
-  //   if (isSandboxError) {
-  //     return (
-  //       <>
-  //         {errorText}
-  //         <br /> Do you have a sandbox running? Check out the{' '}
-  //         <Link href="https://docs.aztec.network" target="_blank" rel="noopener">
-  //           docs
-  //         </Link>
-  //       </>
-  //     );
-  //   } else if (isTestnetError) {
-  //     return (
-  //       <>
-  //         {errorText}
-  //         <br />
-  //         <br /> Testnet may be down. Please see our Discord for updates.
-  //       </>
-  //     );
-  //   } else {
-  //     return (
-  //       <>
-  //         {errorText}
-  //         <br />
-  //         <br /> Are your network details correct? Please reach out on Discord for help troubleshooting.
-  //       </>
-  //     );
-  //   }
-  // };
 
   return (
-    <>
+    <div css={navbarButtonStyle}>
       {connecting ? (
-        <div css={loadingContainer}>
-          <CircularProgress size={24} />
+        <div css={navbarSelectLabel}>
+          <CircularProgress size={20} color="primary" />
           <Typography variant="body2">Connecting to network...</Typography>
         </div>
       ) : (
-        <div css={modalContainer}>
-          <FormControl css={select}>
+        <>
+          <NetworkIcon />
+          <FormControl css={navbarSelect}>
             <Select
               fullWidth
               value={network?.nodeURL || ''}
               displayEmpty
+              variant="outlined"
               IconComponent={KeyboardArrowDownIcon}
               open={isOpen}
               onOpen={() => setOpen(true)}
@@ -207,7 +161,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
                   return `Connecting to ${network?.name}...`;
                 }
                 if (selected && network?.nodeURL) {
-                  return `${network.name}@${network.nodeURL}`;
+                  return `${network.name}`;
                 }
                 return 'Select Network';
               }}
@@ -239,16 +193,9 @@ export function NetworkSelector({}: NetworkSelectorProps) {
               </MenuItem>
             </Select>
           </FormControl>
-
-          {/* {connectionError && (
-        <div css={errorMessageStyle}>
-          <ErrorOutlineIcon css={errorIcon} />
-          <div>{renderErrorMessage()}</div>
-        </div>
-      )} */}
-        </div>
+        </>
       )}
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
-    </>
+    </div>
   );
 }

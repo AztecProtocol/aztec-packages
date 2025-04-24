@@ -18,7 +18,7 @@ export function CopyToClipboardButton({ data, disabled }: { data: string; disabl
       </IconButton>
       <Snackbar
         message="Copied to clipboard"
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         autoHideDuration={2000}
         onClose={() => setOpen(false)}
         open={open}

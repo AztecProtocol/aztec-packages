@@ -298,6 +298,7 @@ export function Landing() {
     walletDB,
     pxe,
     network,
+    setWallet,
   } = useContext(AztecContext);
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
@@ -346,7 +347,9 @@ export function Landing() {
         salt,
         signingKey,
       });
-      notifications.show('Account created and saved to PXE.');
+      notifications.show('Account created. Deploying...', {
+        severity: 'success'
+      });
 
       const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
       const feePaymentMethod = await prepareForFeePayment(pxe, network.sponsoredFPCAddress, network.sponsoredFPCContractArtifact);
@@ -374,7 +377,11 @@ export function Landing() {
       );
 
       if (deploymentResult) {
-        notifications.show(`Account ${accountName} deployed successfully.`);
+        notifications.show(`Account "${accountName}" deployed successfully.`, {
+          severity: 'success'
+        });
+
+        setWallet(await accountManager.getWallet());
       } else {
         // Temporarily remove from accounts if deployment fails
         await walletDB.deleteAccount(accountWallet.getAddress());

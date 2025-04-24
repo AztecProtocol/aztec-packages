@@ -1,6 +1,6 @@
 import { css } from '@emotion/react';
 import { ContractComponent } from '../contract/Contract';
-import { SidebarComponent } from '../sidebar/Sidebar';
+import { NavBar } from '../sidebar/NavBar';
 import { useState } from 'react';
 import { AztecContext } from '../../aztecEnv';
 import { LogPanel } from '../logPanel/LogPanel';
@@ -189,8 +189,10 @@ export default function Home() {
         </a>
       </div>
       <AztecContext.Provider value={AztecContextInitialValue}>
+        <div css={{ position: 'relative' }}>
+          <NavBar />
+        </div>
         <div css={contentLayout}>
-          <SidebarComponent />
           {showContractInterface ? <ContractComponent /> : <Landing />}
         </div>
         <LogPanel />
