@@ -49,6 +49,7 @@ pub(crate) mod tests {
         block_root::block_root_rollup_inputs::BlockRootRollupInputs,
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
+    use blob::blob_batching_public_inputs::BatchingBlobCommitment;
     use std::hash::poseidon2::Poseidon2;
     use types::{
         hash::accumulate_sha256, tests::utils::assert_array_eq, utils::arrays::array_concat,
@@ -61,6 +62,7 @@ pub(crate) mod tests {
     impl TestBuilder {
         pub fn new() -> Self {
             let inputs = RollupFixtureBuilder::new_for_block_root();
+            // TODO(MW): batching
             inputs.mock_evaluate_blobs();
             TestBuilder { inputs }
         }
@@ -133,18 +135,28 @@ pub(crate) mod tests {
             0x0000000000000000000000000000000000000000000000000000000004000001,
             0x0000000000000000000000000000000000000000000000000000000000000045,
         ];
-        let expected_blob_commitment = [
-            0x008c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb98,
-            0x0000000000000000000000000000006aaa0680f21270e7d8de4e19da5164f95c,
-        ];
-        let expected_blobs_hash =
-            0x00a965619c8668b834755678b32d023b9c5e8588ce449f44f7fa9335455b5cc5;
-        let expected_challenge_z =
-            0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3;
+
+        // Blob commitment with value:
+        // x: 0x0c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb986aaa0680f21270e7d8de4e19da5164f95c,
+        // y: 0x07896936b96e9af0ecd6ef882c14dcc6e8d075ea61d11ae9df4bfab87396547b5e01b8a35d9a720733acdd92421f24e9,
+        let mut injected_blob_commitment = BatchingBlobCommitment::from_limbs(
+            [
+                0x0680f21270e7d8de4e19da5164f95c,
+                0xd68525bae655508412bb53bb986aaa,
+                0x581c8fdba12c0d7597911dead2d937,
+                0x0c32fe,
+            ],
+            [
+                0x01b8a35d9a720733acdd92421f24e9,
+                0x75ea61d11ae9df4bfab87396547b5e,
+                0x36b96e9af0ecd6ef882c14dcc6e8d0,
+                0x078969,
+            ],
+        );
+        let injected_blob_commitment_fields = injected_blob_commitment.to_compressed_fields();
 
         let mut builder = TestBuilder::new_with_blobs_fields(blob_fields_0, blob_fields_1);
-        builder.inputs.blob_commitments[0].inner = expected_blob_commitment;
-        builder.inputs.blobs_hash = expected_blobs_hash;
+        builder.inputs.blob_commitments[0] = injected_blob_commitment.point;
 
         let output = builder.execute();
 
@@ -161,16 +173,17 @@ pub(crate) mod tests {
         assert(end_sponge_blob.eq(expected_sponge));
 
         let hashed_tx_effects = expected_sponge.squeeze();
-        let computed_challenge_z = Poseidon2::hash(
-            [hashed_tx_effects, expected_blob_commitment[0], expected_blob_commitment[1]],
+        // TODO(MW): more asserts
+        let expected_challenge_z = Poseidon2::hash(
+            [
+                hashed_tx_effects,
+                injected_blob_commitment_fields[0],
+                injected_blob_commitment_fields[1],
+            ],
             3,
         );
-        assert_eq(computed_challenge_z, expected_challenge_z);
-        assert_eq(output.blob_public_inputs[0].inner[0].z, expected_challenge_z);
-        assert_eq(
-            output.blob_public_inputs[0].inner[0].kzg_commitment.inner,
-            expected_blob_commitment,
-        );
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.z, expected_challenge_z);
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.c, injected_blob_commitment.point);
     }
 
     #[test(should_fail_with = "block's first blob sponge was not empty")]

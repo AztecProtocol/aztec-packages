@@ -46,6 +46,18 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
         left.end_global_variables.version == right.start_global_variables.version,
         "input blocks have different chain version",
     );
+    assert(
+        left.blob_public_inputs.end_blob_accumulator.eq(
+            right.blob_public_inputs.start_blob_accumulator,
+        ),
+        "input blocks have different blob accumulators",
+    );
+    assert(
+        left.blob_public_inputs.final_blob_challenges.eq(
+            right.blob_public_inputs.final_blob_challenges,
+        ),
+        "input blocks have different epoch blob challenges",
+    );
 
     if right.is_padding() {
         assert(
@@ -82,33 +94,6 @@ pub fn accumulate_blocks_fees(
     // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
     // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
     array_merge(left.fees, right.fees)
-}
-
-// TODO: This fn will be obselete once we have integrated accumulation of blob PIs
-// The goal is to acc. the commitments and openings s.t. one set verifies the opening of many blobs
-// How we accumulate is being worked on by @Mike
-pub fn accumulate_blob_public_inputs(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) -> [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION] {
-    let left_len = array_length(left.blob_public_inputs);
-    let right_len = array_length(right.blob_public_inputs);
-    assert(
-        left_len + right_len <= AZTEC_MAX_EPOCH_DURATION,
-        "too many blob public input structs accumulated in rollup",
-    );
-    // NB: The below is cheaper than array_merge because assigning BlockBlobPublicInputs is cheaper than calling .equals
-    let mut add_from_left = true;
-    let mut result = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-    for i in 0..result.len() {
-        add_from_left &= i != left_len;
-        if (add_from_left) {
-            result[i] = left.blob_public_inputs[i];
-        } else {
-            result[i] = right.blob_public_inputs[i - left_len];
-        }
-    }
-    result
 }
 
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {

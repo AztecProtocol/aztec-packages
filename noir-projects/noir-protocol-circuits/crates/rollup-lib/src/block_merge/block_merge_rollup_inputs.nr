@@ -8,6 +8,7 @@ use dep::types::{
     },
     traits::Empty,
 };
+use blob::blob_batching_public_inputs::BlockBlobPublicInputs;
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
     BLOCK_ROOT_ROLLUP_INDEX,
@@ -53,18 +54,11 @@ impl BlockMergeRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
-        // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
-        // For now, we do them individually
-        // How we accumulate is being worked on by @Mike
-        // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
-        let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
-
-        // TODO(MW): Batching here will consist of checks:
-        // - left.end_blob_accumulator == right.start_blob_accumulator
-        // - left.challenge_z == right.challenge_z
-        // - left.challenge_gamma == right.challenge_gamma
-        // (^should probably exist in assert_prev_block_rollups_follow_on_from_each_other())
-        // then assigning this.start_blob_accumulator = left.start_blob_accumulator & this.end_blob_accumulator = right.end_blob_accumulator
+        let blob_public_inputs = BlockBlobPublicInputs {
+            start_blob_accumulator: left.blob_public_inputs.start_blob_accumulator,
+            end_blob_accumulator: right.blob_public_inputs.end_blob_accumulator,
+            final_blob_challenges: left.blob_public_inputs.final_blob_challenges,
+        };
 
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.previous_archive,
@@ -164,16 +158,18 @@ mod tests {
         let outputs = inputs.block_merge_rollup_circuit();
 
         assert_eq(
-            outputs.blob_public_inputs[0],
+            outputs.blob_public_inputs.start_blob_accumulator,
             inputs.previous_rollup_data[0]
                 .block_root_or_block_merge_public_inputs
-                .blob_public_inputs[0],
+                .blob_public_inputs
+                .start_blob_accumulator,
         );
         assert_eq(
-            outputs.blob_public_inputs[1],
+            outputs.blob_public_inputs.end_blob_accumulator,
             inputs.previous_rollup_data[1]
                 .block_root_or_block_merge_public_inputs
-                .blob_public_inputs[0],
+                .blob_public_inputs
+                .end_blob_accumulator,
         );
     }
 

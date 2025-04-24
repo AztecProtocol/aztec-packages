@@ -7,7 +7,7 @@ use types::{
         BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX,
         BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
-    traits::Empty,
+    traits::{Empty, is_empty},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
@@ -58,23 +58,10 @@ impl RootRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
-        // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
-        // For now, we do them individually
-        // How we accumulate is being worked on by @Mike
-        // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
-        let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
-
-        // TODO(MW): Batching here will consist of checks:
-        // - left.end_blob_accumulator == right.start_blob_accumulator
-        // - left.challenge_z == right.challenge_z
-        // - left.challenge_gamma == right.challenge_gamma
-        // (^should probably exist in assert_prev_block_rollups_follow_on_from_each_other())
-        // Then:
-        // - Validate first (left.start_blob_accumulator) acc is empty
-        // - final_acc := right.end_blob_accumulator.finalize()
-        // - Validate final_acc.z = challenge_z
-        // - Validate final_acc.gamma = challenge_gamma
-        // => Validated public inputs from acc are: { v, z, y, C } (gamma is not required)
+        assert(
+            is_empty(left.blob_public_inputs.start_blob_accumulator),
+            "Epoch did not start with empty blob state.",
+        );
 
         RootRollupPublicInputs {
             previous_archive: left.previous_archive,
@@ -86,7 +73,9 @@ impl RootRollupInputs {
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: self.prover_id,
-            blob_public_inputs,
+            blob_public_inputs: right.blob_public_inputs.end_blob_accumulator.finalize_and_validate(
+                left.blob_public_inputs.final_blob_challenges,
+            ),
         }
     }
 }
