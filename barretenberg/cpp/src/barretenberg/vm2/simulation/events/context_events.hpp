@@ -39,7 +39,7 @@ struct ContextEvent {
 
 struct ContextStackEvent {
     uint32_t id;
-    // uint32_t parent_id;
+    uint32_t parent_id;
 
     // State
     uint32_t next_pc;

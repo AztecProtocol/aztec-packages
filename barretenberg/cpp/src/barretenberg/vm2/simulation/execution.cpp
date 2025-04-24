@@ -226,6 +226,7 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 void Execution::emit_context_snapshot(ContextInterface& context)
 {
     ctx_stack_events.emit({ .id = context.get_context_id(),
+                            .parent_id = context.get_parent_id(),
                             .next_pc = context.get_next_pc(),
                             .msg_sender = context.get_msg_sender(),
                             .contract_addr = context.get_address(),

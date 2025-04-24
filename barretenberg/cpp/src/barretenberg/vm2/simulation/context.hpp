@@ -31,6 +31,7 @@ class ContextInterface {
     virtual bool halted() const = 0;
     virtual void halt() = 0;
     virtual uint32_t get_context_id() const = 0;
+    virtual uint32_t get_parent_id() const = 0;
 
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
@@ -118,6 +119,7 @@ class BaseContext : public ContextInterface {
         uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
 
         std::vector<FF> retrieved_returndata;
+        retrieved_returndata.reserve(write_size);
         for (uint32_t i = 0; i < write_size; i++) {
             retrieved_returndata.push_back(child_memory.get(get_last_rd_offset() + i));
         }
@@ -162,6 +164,7 @@ class EnqueuedCallContext : public BaseContext {
         , calldata(calldata.begin(), calldata.end())
     {}
 
+    uint32_t get_parent_id() const override { return 0; } // No parent context for the top-level context.
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
@@ -220,12 +223,14 @@ class NestedContext : public BaseContext {
         , parent_context(parent_context)
     {}
 
+    uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
+
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
         return {
             .id = get_context_id(),
-            .parent_id = parent_context.get_context_id(),
+            .parent_id = get_parent_id(),
             .pc = get_pc(),
             .next_pc = get_next_pc(),
             .msg_sender = get_msg_sender(),
@@ -248,6 +253,7 @@ class NestedContext : public BaseContext {
         uint32_t read_size = std::min(cd_offset + cd_size, calldata_size);
 
         std::vector<FF> retrieved_calldata;
+        retrieved_calldata.reserve(read_size);
         for (uint32_t i = 0; i < read_size; i++) {
             retrieved_calldata.push_back(parent_context.get_memory().get(parent_cd_offset + i));
         }
