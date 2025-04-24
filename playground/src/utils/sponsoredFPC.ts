@@ -12,9 +12,7 @@ import { SPONSORED_FPC_SALT } from '@aztec/constants';
 
 export async function getSponsoredFPCArtifact(version?: string): Promise<ContractArtifact> {
   if (version) {
-    const artifact = (
-      await import('../assets/artifacts/0.85.0-alpha-testnet.2/sponsored_fpc_contract-SponsoredFPC.json')
-    ).default;
+    const artifact = (await import(`../assets/artifacts/${version}/sponsored_fpc_contract-SponsoredFPC.json`)).default;
     return loadContractArtifact(artifact);
   } else {
     const contract = (await import('@aztec/noir-contracts.js/SponsoredFPC')).SponsoredFPCContract;
