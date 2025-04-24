@@ -233,6 +233,15 @@ pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 11;
+pub global BLS12_FR_LIMBS: u32 = 3; // TODO(MW): get this from bignum
+pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(MW): get this from bignum
+pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS;
+pub global BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3 /* v_acc, z_acc, and gamma_acc */
+    + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
+    + BLS12_POINT /* c_acc */;
+pub global BLOCK_BLOB_PUBLIC_INPUTS: u32 = 2 * BLOB_ACCUMULATOR_PUBLIC_INPUTS /* start and end accumulators */
+    + 1 /* z */
+    + BLS12_FR_LIMBS /* gamma */;
 pub global BLOB_PUBLIC_INPUTS: u32 = 6;
 pub global BLOB_PUBLIC_INPUTS_BYTES: u32 = 112; // = commitment (48) + z (32) + y (32)
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
@@ -442,7 +451,7 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
+    + BLOCK_BLOB_PUBLIC_INPUTS /* blob_public_inputs */;
 // + 6 for end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 6
