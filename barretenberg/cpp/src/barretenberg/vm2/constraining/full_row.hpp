@@ -1,31 +1,27 @@
 #pragma once
 
+#include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/constraining/entities.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
-template <typename FF_> struct AvmFullRow {
-    using FF = FF_;
-
+// A bulky full row, mostly for testing purposes.
+struct AvmFullRow {
+    using DataType = FF;
     FF AVM2_ALL_ENTITIES;
 
-    // Risky but oh so efficient.
-    FF& get_column(ColumnAndShifts col)
-    {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
-        return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
-    }
+    FF& get(ColumnAndShifts col);
+    const FF& get(ColumnAndShifts col) const;
+};
 
-    const FF& get_column(ColumnAndShifts col) const
-    {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
-        return reinterpret_cast<const FF*>(this)[static_cast<size_t>(col)];
-    }
+// A full row made up of references to fields.
+// It can be constructed, e.g., from a full row or a trace.
+struct AvmFullRowConstRef {
+    using DataType = const FF;
+    const FF& AVM2_ALL_ENTITIES;
 
-    // These are the names used by AllEntities, etc.
-    // TODO(fcarreiro): Clean up duplication.
-    FF& get(ColumnAndShifts col) { return get_column(col); }
-    const FF& get(ColumnAndShifts col) const { return get_column(col); }
+    static AvmFullRowConstRef from_full_row(const AvmFullRow& full_row);
 };
 
 } // namespace bb::avm2

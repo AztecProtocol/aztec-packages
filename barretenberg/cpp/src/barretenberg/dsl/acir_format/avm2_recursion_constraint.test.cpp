@@ -151,7 +151,6 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
  */
 TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 {
-
     // Generate AVM proof, verification key and public inputs
     InnerCircuitData avm_prover_output = create_inner_circuit_data();
 
