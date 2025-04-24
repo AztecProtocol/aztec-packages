@@ -64,6 +64,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_integral_tag_length(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
                            precomputed_builder.process_wire_instruction_spec(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/exec_instruction_spec",
+                           precomputed_builder.process_exec_instruction_spec(trace));
             AVM_TRACK_TIME("tracegen/precomputed/to_radix_safe_limbs",
                            precomputed_builder.process_to_radix_safe_limbs(trace));
             AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",

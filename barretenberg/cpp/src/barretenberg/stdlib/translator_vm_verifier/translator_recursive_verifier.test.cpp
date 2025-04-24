@@ -1,4 +1,5 @@
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
@@ -74,7 +75,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         InnerBF evaluation_challenge_x = InnerBF::random_element();
 
         auto circuit_builder = InnerBuilder(batching_challenge_v, evaluation_challenge_x, op_queue);
-        EXPECT_TRUE(circuit_builder.check_circuit());
+        EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         InnerProver prover{ proving_key, prover_transcript };
         auto proof = prover.construct_proof();

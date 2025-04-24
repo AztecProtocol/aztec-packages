@@ -9,7 +9,7 @@ import { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { ungzip } from 'pako';
 
-import { BBPrivateKernelProver } from '../prover/bb_private_kernel_prover.js';
+import { BBPrivateKernelProver } from '../bb_private_kernel_prover.js';
 
 export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
   constructor(

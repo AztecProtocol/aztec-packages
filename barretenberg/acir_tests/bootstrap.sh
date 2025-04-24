@@ -144,10 +144,10 @@ function test_cmds {
 
   # bb.js browser tests. Isolate because server.
   local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-  echo "$prefix:NAME=chrome_mt_verify_honk_proof BROWSER=chrome THREAD_MODEL=mt $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=chrome_st_1_mul BROWSER=chrome THREAD_MODEL=st $run_test_browser 1_mul"
-  echo "$prefix:NAME=webkit_mt_verify_honk_proof BROWSER=webkit THREAD_MODEL=mt $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=webkit_st_1_mul BROWSER=webkit THREAD_MODEL=st $run_test_browser 1_mul"
+  echo "$prefix:NAME=chrome_verify_honk_proof BROWSER=chrome $run_test_browser verify_honk_proof"
+  echo "$prefix:NAME=chrome_1_mul BROWSER=chrome $run_test_browser 1_mul"
+  echo "$prefix:NAME=webkit_verify_honk_proof BROWSER=webkit $run_test_browser verify_honk_proof"
+  echo "$prefix:NAME=webkit_1_mul BROWSER=webkit $run_test_browser 1_mul"
 
   # bb.js tests.
   local prefix=$tests_hash
@@ -185,7 +185,7 @@ function test_cmds {
 
   # prove and verify using bb.js classes
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul"
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify THREAD_MODEL=mt $run_test assert_statement"
+  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test assert_statement"
 
   # prove with bb.js and verify with solidity verifier
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test 1_mul"

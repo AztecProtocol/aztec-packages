@@ -83,14 +83,14 @@ import {
   generateTubeProof,
   verifyAvmProof,
   verifyProof,
-} from '../bb/execute.js';
-import type { ACVMConfig, BBConfig } from '../config.js';
-import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
-import { ProverInstrumentation } from '../instrumentation.js';
-import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
-import { PRIVATE_TAIL_CIVC_VK, PUBLIC_TAIL_CIVC_VK } from '../verifier/bb_verifier.js';
-import { readProofAsFields, writeClientIVCProofToOutputDirectory } from './proof_utils.js';
+} from '../../bb/execute.js';
+import type { ACVMConfig, BBConfig } from '../../config.js';
+import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
+import { ProverInstrumentation } from '../../instrumentation.js';
+import { mapProtocolArtifactNameToCircuitName } from '../../stats.js';
+import { extractAvmVkData, extractVkData } from '../../verification_key/verification_key_data.js';
+import { PRIVATE_TAIL_CIVC_VK, PUBLIC_TAIL_CIVC_VK } from '../../verifier/bb_verifier.js';
+import { readProofAsFields, writeClientIVCProofToOutputDirectory } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
 

@@ -4,7 +4,7 @@ sidebar_position: 4
 tags: [fees]
 ---
 
-import { Why_Fees } from '@site/src/components/Snippets/snippets';
+import { Why_Fees } from '@site/src/components/Snippets/general_snippets';
 
 <Why_Fees />
 
@@ -46,7 +46,7 @@ More information about the design/choices can be found in the fees section of th
 
 As part of a transaction the follow gas settings are available to be defined by the user.
 
-import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/src/components/Snippets/snippets';
+import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/src/components/Snippets/general_snippets';
 
 <Gas_Settings />
 

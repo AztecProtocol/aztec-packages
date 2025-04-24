@@ -1,3 +1,4 @@
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -63,7 +64,7 @@ TEST_F(TranslatorTests, Basic)
     // Generate a circuit and its verification key (computed at runtime from the proving key)
     CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
 
-    EXPECT_TRUE(circuit_builder.check_circuit());
+    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
     auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
     TranslatorProver prover{ proving_key, prover_transcript };
     auto proof = prover.construct_proof();

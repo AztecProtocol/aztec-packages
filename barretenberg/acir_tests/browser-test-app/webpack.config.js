@@ -14,25 +14,23 @@ export default {
       {
         test: /\.tsx?$/,
         loader: 'ts-loader',
-        exclude: /node_modules|\.d\.ts(.map)?$/
-      },
-      {
-          test: /\.d\.ts(.map)?$/,
-          loader: 'ignore-loader'
       },
     ],
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
-    publicPath: "/",
     filename: "[name].js",
-    library: {
-      type: 'module',
-    },
     chunkFormat: 'module',
   },
   experiments: {
     outputModule: true,
+  },
+  optimization: {
+    splitChunks: {
+      // Cannot use async due to https://github.com/webpack/webpack/issues/17014
+      // messing with module workers loaded asynchronously.
+      chunks: /barretenberg.*.js/,
+    },
   },
   plugins: [
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),
@@ -46,10 +44,6 @@ export default {
     client: {
       logging: "none",
       overlay: false,
-    },
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
 };

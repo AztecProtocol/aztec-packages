@@ -1,7 +1,7 @@
 // This circuit aggregates a single Honk proof from `assert_statement`.
 global SIZE_OF_PROOF_IF_LOGN_IS_28: u32 = 466 + 69;
 global ROLLUP_HONK_IDENTIFIER: u32 = 5;
-global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 129;
+global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 113;
 fn main(
     verification_key: [Field; ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS],
     // This is the proof without public inputs attached.
