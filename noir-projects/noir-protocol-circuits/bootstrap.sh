@@ -158,7 +158,7 @@ function build {
   rm -rf target
   mkdir -p $key_dir
 
-  [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
+  [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
 
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
@@ -201,6 +201,11 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function format {
+  [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
+  $NARGO fmt
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -219,7 +224,7 @@ case "$cmd" in
     shift
     compile $1
     ;;
-  test|test_cmds)
+  test|test_cmds|format)
     $cmd
     ;;
   *)
