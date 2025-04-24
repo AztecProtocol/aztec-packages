@@ -73,8 +73,6 @@ To learn more about using the faucet or the sponsored fee payment method, read t
 - There will be no 'test accounts' automatically deployed, so you may need to change your Aztec.js scripts and tests
 - Transactions take longer to be mined on testnet than in sandbox, so you may see timeout errors. The transaction is still sent and is still visible on a block explorer - it just needs more time for it to be mined. It is worth noting this when handling errors in your apps, so that users do not think their transaction has failed
 
-//TODO difference between testnet /sandbox (local vs remote, # nodes, block times, proving, etc)
-
 ## Next Steps
 
 To play more with the Aztec testnet, check out these:
