@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
@@ -21,6 +22,11 @@ struct ExecutionEvent {
     Instruction wire_instruction;
     ExecutionOpCode opcode;
     std::vector<Operand> resolved_operands;
+
+    // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.
+    std::vector<TaggedValue> inputs;
+    // todo(ilyas): this is a vector because GETCONTRACTINSTANCE has 2 outputs, we should change this to 1
+    std::vector<TaggedValue> output;
 
     // Sub-events.
     AddressingEvent addressing_event;

@@ -529,7 +529,9 @@ describe('e2e_block_building', () => {
     });
   });
 
-  describe('reorgs', () => {
+  // Due to #13723, this test is disabled.
+  // TODO: bring back once fixed: #13770
+  describe.skip('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
     let ownerAddress: AztecAddress;

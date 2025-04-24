@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "acir_composer.hpp"
@@ -7,6 +13,7 @@
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
@@ -254,8 +261,11 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t c
     *out = to_heap_buffer(to_buffer(proof));
 }
 
-WASM_EXPORT void acir_prove_ultra_starknet_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* acir_vec,
+                                                [[maybe_unused]] uint8_t const* witness_vec,
+                                                [[maybe_unused]] uint8_t** out)
 {
+#ifdef STARKNET_GARAGA_FLAVORS
     // Lambda function to ensure things get freed before proving.
     UltraStarknetProver prover = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
@@ -269,6 +279,9 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk(uint8_t const* acir_vec, uint8_t
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
+#else
+    throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
+#endif
 }
 
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
@@ -297,8 +310,11 @@ WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t
     *result = verifier.verify_proof(proof);
 }
 
-WASM_EXPORT void acir_verify_ultra_starknet_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
+WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const* proof_buf,
+                                                 [[maybe_unused]] uint8_t const* vk_buf,
+                                                 [[maybe_unused]] bool* result)
 {
+#ifdef STARKNET_GARAGA_FLAVORS
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraStarknetFlavor>;
 
@@ -308,6 +324,9 @@ WASM_EXPORT void acir_verify_ultra_starknet_honk(uint8_t const* proof_buf, uint8
     Verifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
+#else
+    throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
+#endif
 }
 
 WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out)
@@ -345,8 +364,10 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_
     *out = to_heap_buffer(to_buffer(vk));
 }
 
-WASM_EXPORT void acir_write_vk_ultra_starknet_honk(uint8_t const* acir_vec, uint8_t** out)
+WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t const* acir_vec,
+                                                   [[maybe_unused]] uint8_t** out)
 {
+#ifdef STARKNET_GARAGA_FLAVORS
     using DeciderProvingKey = DeciderProvingKey_<UltraStarknetFlavor>;
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
 
@@ -361,6 +382,9 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_honk(uint8_t const* acir_vec, uint
     VerificationKey vk(proving_key.proving_key);
     vinfo("Constructed UltraStarknetHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
+#else
+    throw_or_abort("bb wasm was not compiled with starknet garaga flavors!");
+#endif
 }
 
 WASM_EXPORT void acir_honk_solidity_verifier(uint8_t const* proof_buf, uint8_t const* vk_buf, uint8_t** out)

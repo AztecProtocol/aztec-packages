@@ -1,4 +1,5 @@
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
@@ -74,7 +75,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         InnerBF evaluation_challenge_x = InnerBF::random_element();
 
         auto circuit_builder = InnerBuilder(batching_challenge_v, evaluation_challenge_x, op_queue);
-        EXPECT_TRUE(circuit_builder.check_circuit());
+        EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         InnerProver prover{ proving_key, prover_transcript };
         auto proof = prover.construct_proof();
@@ -118,7 +119,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
 
-        if constexpr (!IsSimulator<OuterBuilder>) {
+        {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
@@ -185,9 +186,8 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
     };
 };
 
-using FlavorTypes = testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                   TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                   TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+using FlavorTypes =
+    testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(TranslatorRecursiveTests, FlavorTypes);
 

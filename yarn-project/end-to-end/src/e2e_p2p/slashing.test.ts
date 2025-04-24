@@ -55,7 +55,7 @@ describe('e2e_p2p_slashing', () => {
     await t.setup();
     await t.removeInitialNode();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.publicClient, t.ctx.deployL1ContractsValues.walletClient);
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {
@@ -73,26 +73,26 @@ describe('e2e_p2p_slashing', () => {
     }
 
     const rollup = new RollupContract(
-      t.ctx.deployL1ContractsValues!.publicClient,
+      t.ctx.deployL1ContractsValues!.l1Client,
       t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
     );
 
     const slasherContract = getContract({
       address: getAddress(await rollup.getSlasher()),
       abi: SlasherAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const slashingProposer = getContract({
       address: getAddress(await slasherContract.read.PROPOSER()),
       abi: SlashingProposerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const slashFactory = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
       abi: SlashFactoryAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const getRoundAndSlotNumber = async () => {
@@ -306,7 +306,7 @@ describe('e2e_p2p_slashing', () => {
 
     t.logger.info(`Execute payload for ${sInfo.roundNumber} at ${sInfo.info[1]}, SLASHING!`);
 
-    const { result } = await t.ctx.deployL1ContractsValues.publicClient.simulateContract({
+    const { result } = await t.ctx.deployL1ContractsValues.l1Client.simulateContract({
       address: getAddress(slashingProposer.address),
       abi: SlashingProposerAbi,
       functionName: 'executeProposal',

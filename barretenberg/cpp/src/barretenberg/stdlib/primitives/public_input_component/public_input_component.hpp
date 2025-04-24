@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -54,9 +60,8 @@ class PublicInputComponent {
     {
         // Ensure that the key has been set
         if (!key.is_set()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1284): determine when/whether a check of this
-            // form is needed: info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
-            // ASSERT(false);
+            info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
+            ASSERT(false);
         }
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it

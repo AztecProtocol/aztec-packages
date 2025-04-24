@@ -1,3 +1,5 @@
+
+#ifdef STARKNET_GARAGA_FLAVORS
 #pragma once
 
 #include "barretenberg/ext/starknet/transcript/transcript.hpp"
@@ -11,3 +13,4 @@ class UltraStarknetFlavor : public UltraKeccakFlavor {
 };
 
 } // namespace bb
+#endif
