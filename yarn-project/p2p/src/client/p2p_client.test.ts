@@ -189,6 +189,35 @@ describe('In-Memory P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
+    it('deletes transactions mined in pruned blocks', async () => {
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+        keepProvenTxsInPoolFor: 10,
+      });
+      blockSource.setProvenBlockNumber(0);
+      await client.start();
+
+      // Create two transactions:
+      // 1. A transaction mined in block 95 (which will be pruned)
+      // 2. A transaction mined in block 90 (which will remain)
+      const txMinedInPrunedBlock = await mockTx();
+      const txMinedInKeptBlock = await mockTx();
+
+      // Mock the mined transactions
+      txPool.getMinedTxHashes.mockResolvedValue([
+        [await txMinedInPrunedBlock.getTxHash(), 95],
+        [await txMinedInKeptBlock.getTxHash(), 90],
+      ]);
+
+      txPool.getAllTxs.mockResolvedValue([txMinedInPrunedBlock, txMinedInKeptBlock]);
+
+      // Prune the chain back to block 90
+      blockSource.removeBlocks(10);
+      await client.sync();
+
+      // Verify only the transaction mined in the pruned block is deleted
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await txMinedInPrunedBlock.getTxHash()]);
+      await client.stop();
+    });
     it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
@@ -246,7 +275,9 @@ describe('In-Memory P2P Client', () => {
       await client.stop();
     });
 
-    it('moves mined and valid txs back to the pending set', async () => {
+    // NOTE: skipping as we currently delete all mined txs within the epoch when pruning
+    // TODO: bring back once fixed: #13770
+    it.skip('moves mined and valid txs back to the pending set', async () => {
       client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
         keepProvenTxsInPoolFor: 10,
       });

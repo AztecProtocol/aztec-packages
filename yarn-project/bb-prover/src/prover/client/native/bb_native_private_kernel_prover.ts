@@ -8,10 +8,10 @@ import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../bb/execute.js';
-import type { BBConfig } from '../config.js';
-import { BBPrivateKernelProver } from './bb_private_kernel_prover.js';
-import { readClientIVCProofFromOutputDirectory } from './proof_utils.js';
+import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../../../bb/execute.js';
+import type { BBConfig } from '../../../config.js';
+import { readClientIVCProofFromOutputDirectory } from '../../proof_utils.js';
+import { BBPrivateKernelProver } from '../bb_private_kernel_prover.js';
 
 /**
  * This proof creator implementation uses the native bb binary.
