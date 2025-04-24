@@ -245,12 +245,14 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     fold_output.accumulator = nullptr;
 
     ClientCircuit builder{ goblin.op_queue };
-    // The translator circuit builder computes the batched evaluation of the column polynomials (derived from
-    // processing the ultra_op version op_queue). at a random challenge x. This result (referred to as
-    // accumulated_result in translator) is included in the translator proof and, on the verifier side, checked against
-    // the same computation performed by ECCVM (this is done in verify_translation). To prevent leaking information
-    // about the actual accumulated_result when the proof is sent to the rollup, a random but valid operation is added
-    // to the op queue.
+
+    // Translator circuit builder computes the evaluation at some random challenge x of a batched polynomial derived
+    // from processing the ultra_op version of op_queue. This result (referred to as accumulated_result in translator)
+    // is included in the translator proof and, on the verifier side, checked against the same computation performed by
+    // ECCVM (this is done in verify_translation). To prevent leaking information about the actual accumulated_result
+    // (and implicitly about the ops) when the proof is sent to the rollup, a random but valid operation is added to the
+    // op queue, to ensure the polynomial over Grumpkin, whose evaluation is accumulated_result, has at least one random
+    // coefficient.
     Point random_point = Point::random_element();
     FF random_scalar = FF::random_element();
     builder.queue_ecc_mul_accum(random_point, random_scalar);
