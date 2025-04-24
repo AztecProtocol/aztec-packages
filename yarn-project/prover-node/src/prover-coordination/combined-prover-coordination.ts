@@ -130,9 +130,7 @@ export class CombinedProverCoordination implements ProverCoordination {
 
     await asyncPool(this.options.txGatheringMaxParallelRequestsPerNode, batches, async batch => {
       try {
-        const txs = (await aztecNode.getTxsByHash(batch.map(b => TxHash.fromString(b)))).filter(
-          tx => tx !== undefined,
-        ) as Tx[];
+        const txs = (await aztecNode.getTxsByHash(batch.map(b => TxHash.fromString(b)))).filter((tx): tx is Tx => !!tx);
         const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
         await pool.addTxs(txs);
         hashes.forEach(hash => txsToFind.delete(hash.toString()));
@@ -142,6 +140,6 @@ export class CombinedProverCoordination implements ProverCoordination {
         return;
       }
     });
-    this.log.info(`Gathered ${totalTxsGathered} of ${totalTxsRequired} txs from a node`);
+    this.log.verbose(`Gathered ${totalTxsGathered} of ${totalTxsRequired} txs from a node`);
   }
 }

@@ -74,7 +74,7 @@ describe('e2e_snapshot_sync', () => {
         proverNodePollingIntervalMs: 200,
         txGatheringIntervalMs: 1000,
         txGatheringBatchSize: 10,
-        txGatheringMaxParallelRequestsPerNode: 100,
+        txGatheringMaxParallelRequestsPerNode: 10,
         proverAgentCount: 1,
         realProofs: false,
         ...config,
