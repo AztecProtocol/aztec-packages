@@ -109,7 +109,7 @@ const redactedPaths = [
   'l1PrivateKey',
   'senderPrivateKey',
   // blob sink
-  'l1ConsensusHostApiKey',
+  'l1ConsensusHostApiKeys',
   // sensitive options used in the CLI
   'privateKey',
   'mnemonic',

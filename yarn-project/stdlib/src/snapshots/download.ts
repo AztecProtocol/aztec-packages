@@ -2,8 +2,6 @@ import { fromEntries, getEntries, maxBy } from '@aztec/foundation/collection';
 import { jsonParseWithSchemaSync } from '@aztec/foundation/json-rpc';
 import type { ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
-import { join } from 'path';
-
 import {
   SnapshotDataKeys,
   type SnapshotDataUrls,
@@ -40,15 +38,16 @@ export async function getLatestSnapshotMetadata(
 }
 
 export function getBasePath(metadata: SnapshotsIndexMetadata): string {
-  return `aztec-${metadata.l1ChainId}-${metadata.l2Version}-${metadata.rollupAddress}`;
+  return `aztec-${metadata.l1ChainId}-${metadata.rollupVersion}-${metadata.rollupAddress}`;
 }
 
 export function getSnapshotIndexPath(metadata: SnapshotsIndexMetadata): string {
   return `${getBasePath(metadata)}/index.json`;
 }
 
-export function makeSnapshotLocalPaths(baseDir: string): SnapshotDataUrls {
-  return fromEntries(SnapshotDataKeys.map(key => [key, join(baseDir, `${key}.db`)]));
+export function makeSnapshotPaths(baseDir: string): SnapshotDataUrls {
+  // We do not use path.join since that screws up protocol prefixes
+  return fromEntries(SnapshotDataKeys.map(key => [key, `${baseDir}/${key}.db`]));
 }
 
 export async function downloadSnapshot(

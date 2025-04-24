@@ -7,7 +7,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { getLatestSnapshotMetadata } from './download.js';
 import type { SnapshotDataUrls, SnapshotMetadata, SnapshotsIndex, SnapshotsIndexMetadata } from './types.js';
-import { uploadSnapshot } from './upload.js';
+import { uploadSnapshotToIndex } from './upload.js';
 
 describe('snapshots', () => {
   let store: MockProxy<FileStore>;
@@ -47,7 +47,7 @@ describe('snapshots', () => {
     store = mock<FileStore>();
     store.upload.mockImplementation(dest => Promise.resolve(dest));
     rollup = EthAddress.random();
-    metadata = { l1ChainId: 1, l2Version: 2, rollupAddress: rollup };
+    metadata = { l1ChainId: 1, rollupVersion: 2, rollupAddress: rollup };
     snapshots = times(5, makeSnapshotMetadata);
     index = { ...metadata, snapshots };
   });
@@ -76,7 +76,7 @@ describe('snapshots', () => {
         return Promise.resolve('index.json');
       });
 
-      const uploaded = await uploadSnapshot(
+      const uploaded = await uploadSnapshotToIndex(
         makeDataPaths(1, '/local/'),
         { archiver: 1, worldState: 1 },
         { ...metadata, l1BlockNumber: 1, l2BlockHash: '0x1', l2BlockNumber: 1 },
@@ -111,7 +111,7 @@ describe('snapshots', () => {
         return Promise.resolve('index.json');
       });
 
-      const uploaded = await uploadSnapshot(
+      const uploaded = await uploadSnapshotToIndex(
         makeDataPaths(6, '/local/'),
         { archiver: 1, worldState: 1 },
         { ...metadata, l1BlockNumber: 6, l2BlockHash: '0x6', l2BlockNumber: 6 },

@@ -52,14 +52,16 @@ impl BlockRootRollupOutputComposer {
         let constants = self.merged_rollup.constants;
 
         // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.
-        let new_block_header =
-            self.create_new_block_header(constants, self.merged_rollup.end, blob_data.blobs_hash);
+        let new_block_hash = self
+            .create_new_block_header(constants, self.merged_rollup.end, blob_data.blobs_hash)
+            .hash();
+        let new_archive = self.update_archive(constants.last_archive, new_block_hash);
 
         let block_blob_public_inputs = self.get_block_blob_public_inputs(blob_data);
 
         self.finish_with_new_values(
             constants,
-            new_block_header,
+            new_archive,
             self.merged_rollup.out_hash,
             block_blob_public_inputs,
             self.merged_rollup.accumulated_fees,
@@ -73,14 +75,17 @@ impl BlockRootRollupOutputComposer {
         empty_effect_blob_public_input: BlobPublicInputs,
         is_padding: bool,
     ) -> BlockRootOrBlockMergePublicInputs {
-        let new_block_header = if is_padding {
-            self.data.previous_block_header
+        let new_archive = if is_padding {
+            constants.last_archive
         } else {
-            self.create_new_block_header(
-                constants,
-                self.data.previous_block_header.state.partial,
-                empty_effect_blobs_hash,
-            )
+            let new_block_hash = self
+                .create_new_block_header(
+                    constants,
+                    self.data.previous_block_header.state.partial,
+                    empty_effect_blobs_hash,
+                )
+                .hash();
+            self.update_archive(constants.last_archive, new_block_hash)
         };
 
         let mut block_blob_public_inputs = BlockBlobPublicInputs::empty();
@@ -90,7 +95,7 @@ impl BlockRootRollupOutputComposer {
 
         self.finish_with_new_values(
             constants,
-            new_block_header,
+            new_archive,
             0 /* out_hash */,
             block_blob_public_inputs,
             0, /* accumulated_fees */
@@ -100,42 +105,23 @@ impl BlockRootRollupOutputComposer {
     fn finish_with_new_values(
         self,
         constants: ConstantRollupData,
-        new_block_header: BlockHeader,
+        new_archive: AppendOnlyTreeSnapshot,
         out_hash: Field,
         block_blob_public_inputs: BlockBlobPublicInputs,
         accumulated_fees: Field,
     ) -> BlockRootOrBlockMergePublicInputs {
-        let previous_block_hash = self.data.previous_block_header.hash();
-        let end_block_hash = new_block_header.hash();
-
-        let previous_archive = constants.last_archive;
-        let new_archive = if end_block_hash == previous_block_hash {
-            // If the block hash hasn't changed, the archive remains the same.
-            // This scenario only applies to padding blocks.
-            // For non-padding blocks, create_new_block_header will be called. And the next_available_leaf_index of the
-            // l1_to_l2_message_tree will be incremented when a new block header is created. So the block hash will
-            // always be different.
-            previous_archive
-        } else {
-            self.update_archive(constants.last_archive, end_block_hash)
-        };
-
         let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
-        if accumulated_fees != 0 {
-            fees[0] = FeeRecipient {
-                recipient: constants.global_variables.coinbase,
-                value: accumulated_fees,
-            };
-        }
+        fees[0] = FeeRecipient {
+            recipient: constants.global_variables.coinbase,
+            value: accumulated_fees,
+        };
 
         let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
         blob_public_inputs[0] = block_blob_public_inputs;
 
         BlockRootOrBlockMergePublicInputs {
-            previous_archive, // archive before this block was added
+            previous_archive: constants.last_archive, // archive before this block was added
             new_archive, // archive once this block was added
-            previous_block_hash,
-            end_block_hash, // current newest block hash = this block hash
             start_global_variables: constants.global_variables, // we have asserted that left.constants == right.constants => ...
             end_global_variables: constants.global_variables, // ...with a current block range of 1, we only have 1 set of constants
             out_hash,

@@ -1,17 +1,17 @@
-use crate::discovery::private_notes::MAX_NOTE_PACKED_LEN;
+use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 use dep::protocol_types::{
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS},
 };
 
-/// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them
-/// available for later querying via the `get_notes` oracle.
-pub unconstrained fn sync_notes() {
-    sync_notes_oracle();
+/// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
+/// them available for later processing in Noir by storing them in a capsule array.
+pub unconstrained fn sync_notes(pending_tagged_log_array_base_slot: Field) {
+    sync_notes_oracle(pending_tagged_log_array_base_slot);
 }
 
 #[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle() {}
+unconstrained fn sync_notes_oracle(pending_tagged_log_array_base_slot: Field) {}
 
 /// Informs PXE of a note's existence so that it can later be retrieved by the `getNotes` oracle. The note will be
 /// scoped to `contract_address`, meaning other contracts will not be able to access it unless authorized.

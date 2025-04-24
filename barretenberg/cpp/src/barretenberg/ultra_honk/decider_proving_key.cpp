@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "decider_proving_key.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
@@ -22,7 +28,7 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
     size_t total_num_gates =
-        MASKING_OFFSET + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+        NUM_DISABLED_ROWS_IN_SUMCHECK + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -331,6 +337,10 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 template class DeciderProvingKey_<UltraFlavor>;
 template class DeciderProvingKey_<UltraZKFlavor>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class DeciderProvingKey_<UltraStarknetFlavor>;
+template class DeciderProvingKey_<UltraStarknetZKFlavor>;
+#endif
 template class DeciderProvingKey_<UltraKeccakZKFlavor>;
 template class DeciderProvingKey_<UltraRollupFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;

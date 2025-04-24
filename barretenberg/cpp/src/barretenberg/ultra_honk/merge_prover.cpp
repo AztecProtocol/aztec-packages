@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "merge_prover.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 
@@ -8,9 +14,7 @@ namespace bb {
  * @details We require an SRS at least as large as the current ultra ecc ops table
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
-template <class Flavor>
-MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                   std::shared_ptr<CommitmentKey> commitment_key)
+MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key)
     : op_queue(op_queue)
     , pcs_commitment_key(commitment_key ? commitment_key
                                         : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
@@ -30,7 +34,7 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  * @return honk::proof
  */
-template <typename Flavor> MergeProver_<Flavor>::MergeProof MergeProver_<Flavor>::construct_proof()
+MergeProver::MergeProof MergeProver::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 
@@ -100,9 +104,4 @@ template <typename Flavor> MergeProver_<Flavor>::MergeProof MergeProver_<Flavor>
 
     return transcript->proof_data;
 }
-
-template class MergeProver_<UltraFlavor>;
-template class MergeProver_<MegaFlavor>;
-template class MergeProver_<MegaZKFlavor>;
-
 } // namespace bb

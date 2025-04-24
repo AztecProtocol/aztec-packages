@@ -5,6 +5,7 @@ import { type Command, Option } from 'commander';
 
 import {
   ETHEREUM_HOSTS,
+  MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
   makePxeOption,
@@ -13,6 +14,8 @@ import {
   parseEthereumAddress,
   pxeOption,
 } from '../../utils/commands.js';
+
+export { addL1Validator } from './update_l1_validators.js';
 
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
@@ -24,8 +27,6 @@ const l1RpcUrlsOption = new Option(
   .argParser((arg: string) => arg.split(',').map(url => url.trim()));
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
-  const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
-
   program
     .command('deploy-l1-contracts')
     .description('Deploys all necessary Ethereum contracts for Aztec.')
@@ -68,7 +69,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
 
   program
     .command('deploy-new-rollup')
-    .description('Deploys a new rollup contract and a payload to upgrade the registry with it.')
+    .description('Deploys a new rollup contract and adds it to the registry (if you are the owner).')
     .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
@@ -76,13 +77,14 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
+      MNEMONIC ?? 'test test test test test test test test test test test junk',
     )
     .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
+    .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
@@ -97,6 +99,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.mnemonicIndex,
         options.salt,
         options.testAccounts,
+        options.sponsoredFpc,
         options.json,
         initialValidators,
         log,
@@ -278,16 +281,16 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .command('add-l1-validator')
     .description('Adds a validator to the L1 rollup contract.')
     .addOption(l1RpcUrlsOption)
-    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option('-pk, --private-key <string>', 'The private key to use sending the transaction', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
-      'The mnemonic to use in deployment',
+      'The mnemonic to use sending the transaction',
       'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
-    .option('--validator <address>', 'ethereum address of the validator', parseEthereumAddress)
-    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
-    .option('--withdrawer <address>', 'ethereum address of the withdrawer', parseEthereumAddress)
+    .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
+    .option('--proposer-eoa <address>', 'ethereum address of the proposer EOA', parseEthereumAddress)
+    .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
       await addL1Validator({
@@ -295,9 +298,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
-        validatorAddress: options.validator,
-        rollupAddress: options.rollup,
-        withdrawerAddress: options.withdrawer,
+        attesterAddress: options.attester,
+        proposerEOAAddress: options.proposerEoa,
+        stakingAssetHandlerAddress: options.stakingAssetHandler,
         log,
         debugLogger,
       });
@@ -412,8 +415,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'test test test test test test test test test test test junk',
     )
     .requiredOption('--verifier <verifier>', 'Either mock or real', 'real')
-    .option('--bb <path>', 'Path to bb binary', BB_BINARY_PATH)
-    .option('--bb-working-dir <path>', 'Path to bb working directory', BB_WORKING_DIRECTORY)
     .action(async options => {
       const { deployMockVerifier, deployUltraHonkVerifier } = await import('./deploy_l1_verifier.js');
       if (options.verifier === 'mock') {
@@ -435,8 +436,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
           options.l1PrivateKey,
           options.mnemonic,
           options.rpcUrl,
-          options.bb,
-          options.bbWorkingDir,
           log,
           debugLogger,
         );

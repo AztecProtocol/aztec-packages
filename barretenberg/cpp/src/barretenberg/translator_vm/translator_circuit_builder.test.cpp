@@ -1,6 +1,7 @@
 #include "translator_circuit_builder.hpp"
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include <array>
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -9,6 +10,7 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
+using CircuitChecker = TranslatorCircuitChecker;
 /**
  * @brief Check that a single accumulation gate is created correctly
  *
@@ -69,7 +71,7 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
     // Submit one accumulation step in the builder
     circuit_builder.create_accumulation_gate(single_accumulation_step);
     // Check if the circuit fails
-    EXPECT_TRUE(circuit_builder.check_circuit());
+    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
 }
 
 /**
@@ -105,16 +107,16 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Get an inverse
     Fq x_inv = x.invert();
     // Compute the batched evaluation of polynomials (multiplying by inverse to go from lower to higher)
-    const auto& eccvm_ops = op_queue->get_eccvm_ops();
-    for (const auto& ecc_op : eccvm_ops) {
-        op_accumulator = op_accumulator * x_inv + ecc_op.get_opcode_value();
+    const auto& ultra_ops = op_queue->get_ultra_ops();
+    for (const auto& ecc_op : ultra_ops) {
+        op_accumulator = op_accumulator * x_inv + ecc_op.op_code.value();
         const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();
         p_x_accumulator = p_x_accumulator * x_inv + x_u256;
         p_y_accumulator = p_y_accumulator * x_inv + y_u256;
-        z_1_accumulator = z_1_accumulator * x_inv + ecc_op.z1;
-        z_2_accumulator = z_2_accumulator * x_inv + ecc_op.z2;
+        z_1_accumulator = z_1_accumulator * x_inv + uint256_t(ecc_op.z_1);
+        z_2_accumulator = z_2_accumulator * x_inv + uint256_t(ecc_op.z_2);
     }
-    Fq x_pow = x.pow(eccvm_ops.size() - 1);
+    Fq x_pow = x.pow(ultra_ops.size() - 1);
 
     // Multiply by an appropriate power of x to get rid of the inverses
     Fq result = ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
@@ -127,7 +129,8 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Create circuit builder and feed the queue inside
     auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
     // Check that the circuit passes
-    EXPECT_TRUE(circuit_builder.check_circuit());
-    // Check the computation result is in line with what we've computed
-    EXPECT_EQ(result, circuit_builder.get_computation_result());
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    // Check the accumulation result stored as 4 limbs in the circuit and then reconstructed is consistent with the
+    // value computed by hand.
+    EXPECT_EQ(result, CircuitChecker::get_computation_result(circuit_builder));
 }

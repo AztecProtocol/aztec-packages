@@ -3,6 +3,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 #include <cstddef>
 #include <string_view>
@@ -12,21 +13,10 @@ namespace bb::avm2 {
 
 /////////////////// lookup_merkle_check_merkle_poseidon2_read ///////////////////
 
-class lookup_merkle_check_merkle_poseidon2_read_settings {
-  public:
+struct lookup_merkle_check_merkle_poseidon2_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_READ";
     static constexpr std::string_view RELATION_NAME = "merkle_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::merkle_check_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_read_counts;
@@ -45,91 +35,20 @@ class lookup_merkle_check_merkle_poseidon2_read_settings {
         ColumnAndShifts::poseidon2_hash_input_len,
         ColumnAndShifts::poseidon2_hash_output
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._merkle_check_sel() == 1 || in._poseidon2_hash_end() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._merkle_check_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_merkle_check_merkle_poseidon2_read_inv(),
-                                     in._lookup_merkle_check_merkle_poseidon2_read_counts(),
-                                     in._merkle_check_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._merkle_check_read_left_node(),
-                                     in._merkle_check_read_right_node(),
-                                     in._precomputed_zero(),
-                                     in._merkle_check_constant_2(),
-                                     in._merkle_check_read_output_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_input_len(),
-                                     in._poseidon2_hash_output());
-    }
 };
 
+using lookup_merkle_check_merkle_poseidon2_read_settings =
+    lookup_settings<lookup_merkle_check_merkle_poseidon2_read_settings_>;
 template <typename FF_>
-class lookup_merkle_check_merkle_poseidon2_read_relation
-    : public GenericLookupRelation<lookup_merkle_check_merkle_poseidon2_read_settings, FF_> {
-  public:
-    using Settings = lookup_merkle_check_merkle_poseidon2_read_settings;
-    static constexpr std::string_view NAME = lookup_merkle_check_merkle_poseidon2_read_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_merkle_check_merkle_poseidon2_read_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_merkle_check_merkle_poseidon2_read_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_merkle_check_merkle_poseidon2_read_relation =
+    lookup_relation_base<FF_, lookup_merkle_check_merkle_poseidon2_read_settings>;
 
 /////////////////// lookup_merkle_check_merkle_poseidon2_write ///////////////////
 
-class lookup_merkle_check_merkle_poseidon2_write_settings {
-  public:
+struct lookup_merkle_check_merkle_poseidon2_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE";
     static constexpr std::string_view RELATION_NAME = "merkle_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::merkle_check_write;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_write_counts;
@@ -148,73 +67,12 @@ class lookup_merkle_check_merkle_poseidon2_write_settings {
         ColumnAndShifts::poseidon2_hash_input_len,
         ColumnAndShifts::poseidon2_hash_output
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._merkle_check_write() == 1 || in._poseidon2_hash_end() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._merkle_check_write());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_merkle_check_merkle_poseidon2_write_inv(),
-                                     in._lookup_merkle_check_merkle_poseidon2_write_counts(),
-                                     in._merkle_check_write(),
-                                     in._poseidon2_hash_end(),
-                                     in._merkle_check_write_left_node(),
-                                     in._merkle_check_write_right_node(),
-                                     in._precomputed_zero(),
-                                     in._merkle_check_constant_2(),
-                                     in._merkle_check_write_output_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_input_len(),
-                                     in._poseidon2_hash_output());
-    }
 };
 
+using lookup_merkle_check_merkle_poseidon2_write_settings =
+    lookup_settings<lookup_merkle_check_merkle_poseidon2_write_settings_>;
 template <typename FF_>
-class lookup_merkle_check_merkle_poseidon2_write_relation
-    : public GenericLookupRelation<lookup_merkle_check_merkle_poseidon2_write_settings, FF_> {
-  public:
-    using Settings = lookup_merkle_check_merkle_poseidon2_write_settings;
-    static constexpr std::string_view NAME = lookup_merkle_check_merkle_poseidon2_write_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_merkle_check_merkle_poseidon2_write_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_merkle_check_merkle_poseidon2_write_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_merkle_check_merkle_poseidon2_write_relation =
+    lookup_relation_base<FF_, lookup_merkle_check_merkle_poseidon2_write_settings>;
 
 } // namespace bb::avm2

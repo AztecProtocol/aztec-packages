@@ -10,7 +10,7 @@ import {
   createPXEClient,
   waitForPXE,
 } from '@aztec/aztec.js';
-import { createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import {
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
@@ -29,8 +29,8 @@ import { getContract } from 'viem';
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const { ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
-const { walletClient, publicClient } = createL1Clients(ETHEREUM_HOSTS.split(','), MNEMONIC);
-const ownerEthAddress = walletClient.account.address;
+const l1Client = createExtendedL1Client(ETHEREUM_HOSTS.split(','), MNEMONIC);
+const ownerEthAddress = l1Client.account.address;
 
 const MINT_AMOUNT = BigInt(1e15);
 
@@ -43,35 +43,29 @@ const setupSandbox = async () => {
 };
 
 async function deployTestERC20(): Promise<EthAddress> {
-  const constructorArgs = ['Test Token', 'TEST', walletClient.account.address];
+  const constructorArgs = ['Test Token', 'TEST', l1Client.account.address];
 
-  return await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, constructorArgs).then(
+  return await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, constructorArgs).then(
     ({ address }) => address,
   );
 }
 
 async function deployFeeAssetHandler(l1TokenContract: EthAddress): Promise<EthAddress> {
-  const constructorArgs = [walletClient.account.address, l1TokenContract.toString(), MINT_AMOUNT];
-  return await deployL1Contract(
-    walletClient,
-    publicClient,
-    FeeAssetHandlerAbi,
-    FeeAssetHandlerBytecode,
-    constructorArgs,
-  ).then(({ address }) => address);
+  const constructorArgs = [l1Client.account.address, l1TokenContract.toString(), MINT_AMOUNT];
+  return await deployL1Contract(l1Client, FeeAssetHandlerAbi, FeeAssetHandlerBytecode, constructorArgs).then(
+    ({ address }) => address,
+  );
 }
 
 async function deployTokenPortal(): Promise<EthAddress> {
-  return await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode, []).then(
-    ({ address }) => address,
-  );
+  return await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode, []).then(({ address }) => address);
 }
 
 async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress) {
   const contract = getContract({
     address: l1TokenContract.toString(),
     abi: TestERC20Abi,
-    client: walletClient,
+    client: l1Client,
   });
   await contract.write.addMinter([l1TokenHandler.toString()]);
 }
@@ -109,7 +103,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const feeAssetHandler = await deployFeeAssetHandler(l1TokenContract);
     await addMinter(l1TokenContract, feeAssetHandler);
 
-    const l1TokenManager = new L1TokenManager(l1TokenContract, feeAssetHandler, publicClient, walletClient, logger);
+    const l1TokenManager = new L1TokenManager(l1TokenContract, feeAssetHandler, l1Client, logger);
     // docs:end:deploy-l1-token
 
     // Deploy L1 portal contract
@@ -120,7 +114,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const l1Portal = getContract({
       address: l1PortalContractAddress.toString(),
       abi: TokenPortalAbi,
-      client: walletClient,
+      client: l1Client,
     });
     // docs:end:deploy-portal
     // Deploy L2 bridge contract
@@ -153,8 +147,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       l1TokenContract,
       feeAssetHandler,
       l1ContractAddresses.outboxAddress,
-      publicClient,
-      walletClient,
+      l1Client,
       logger,
     );
     // docs:end:setup-portal
@@ -196,7 +189,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:setup-withdrawal
 
     // docs:start:l2-withdraw
-    const l2ToL1Message = l1PortalManager.getL2ToL1MessageLeaf(
+    const l2ToL1Message = await l1PortalManager.getL2ToL1MessageLeaf(
       withdrawAmount,
       EthAddress.fromString(ownerEthAddress),
       l2BridgeContract.address,

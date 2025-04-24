@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
@@ -348,6 +354,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
   private:
     bool_ct _is_infinity;
 };
+
+using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,
+                                      bb::stdlib::goblin_field<MegaCircuitBuilder>,
+                                      stdlib::field_t<MegaCircuitBuilder>,
+                                      bb::g1>;
 
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)

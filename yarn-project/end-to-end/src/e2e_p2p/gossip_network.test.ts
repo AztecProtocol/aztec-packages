@@ -48,6 +48,7 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
       },
     });
 
@@ -125,7 +126,7 @@ describe('e2e_p2p_network', () => {
     const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.signatures.filter(s => !s.isEmpty).map(sig => new BlockAttestation(payload, sig));
-    const signers = await Promise.all(attestations.map(att => att.getSender().then(s => s.toString())));
+    const signers = attestations.map(att => att.getSender().toString());
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right

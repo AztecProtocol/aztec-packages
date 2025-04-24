@@ -41,8 +41,6 @@ type L1ProcessArgs = {
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
-  /** The L2 block's leaf in the archive tree. */
-  blockHash: Buffer;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -122,7 +120,8 @@ export class SequencerPublisher {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
 
-    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
+    this.blobSinkClient =
+      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
@@ -133,6 +132,10 @@ export class SequencerPublisher {
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
+  }
+
+  public getRollupContract(): RollupContract {
+    return this.rollupContract;
   }
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
@@ -179,6 +182,10 @@ export class SequencerPublisher {
     const currentL2Slot = this.getCurrentL2Slot();
     this.log.debug(`Current L2 slot: ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
+    const validActions = validRequests.map(x => x.action);
+    const expiredActions = requestsToProcess
+      .filter(request => request.lastValidL2Slot < currentL2Slot)
+      .map(x => x.action);
 
     if (validRequests.length !== requestsToProcess.length) {
       this.log.warn(`Some requests were expired for slot ${currentL2Slot}`, {
@@ -223,7 +230,7 @@ export class SequencerPublisher {
         this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
-      return result;
+      return { result, expiredActions, validActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
@@ -336,15 +343,17 @@ export class SequencerPublisher {
     const cachedLastVote = this.myLastVotes[voteType];
     this.myLastVotes[voteType] = slotNumber;
 
+    const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
+
     this.addRequest({
-      action: voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote',
+      action,
       request: base.createVoteRequest(payload.toString()),
       lastValidL2Slot: slotNumber,
       onResult: (_request, result) => {
         if (!result || result.receipt.status !== 'success') {
           this.myLastVotes[voteType] = cachedLastVote;
         } else {
-          this.log.info(`Cast [${voteType}] vote for slot ${slotNumber}`);
+          this.log.info(`Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round}`);
         }
       },
     });
@@ -400,13 +409,12 @@ export class SequencerPublisher {
   ): Promise<boolean> {
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
-      blockHash: (await block.header.hash()).toBuffer(),
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -445,12 +453,15 @@ export class SequencerPublisher {
   }
 
   private async prepareProposeTx(encodedData: L1ProcessArgs, timestamp: bigint) {
+    if (!this.l1TxUtils.client.account) {
+      throw new Error('L1 TX utils needs to be initialized with an account wallet.');
+    }
     const kzg = Blob.getViemKzgInstance();
     const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
-        this.l1TxUtils.walletClient.account,
+        this.l1TxUtils.client.account,
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({
@@ -483,7 +494,6 @@ export class SequencerPublisher {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
         },
-        blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,
       },
       attestations,
@@ -551,7 +561,6 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
     const startBlock = await this.l1TxUtils.getBlockNumber();
-    const blockHash = await block.hash();
 
     return this.addRequest({
       action: 'propose',
@@ -603,7 +612,6 @@ export class SequencerPublisher {
           this.log.error(`Rollup process tx reverted. ${errorMsg ?? 'No error message'}`, undefined, {
             ...block.getStats(),
             txHash: receipt.transactionHash,
-            blockHash,
             slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
           });
         }

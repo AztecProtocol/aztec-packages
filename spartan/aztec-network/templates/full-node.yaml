@@ -102,12 +102,16 @@ spec:
               value: "--max-old-space-size={{ .Values.fullNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.fullNode.service.nodePort }}"
+            - name: AZTEC_ADMIN_PORT
+              value: "{{ .Values.fullNode.service.adminPort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.fullNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.fullNode.p2p.enabled }}"
+            - name: P2P_MAX_TX_POOL_SIZE
+              value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.fullNode.p2p.floodPublish }}"
             - name: COINBASE
@@ -156,12 +160,17 @@ spec:
               value: "{{ .Values.aztec.testAccounts }}"
             - name: SPONSORED_FPC
               value: "{{ .Values.aztec.sponsoredFPC }}"
+            - name: SYNC_SNAPSHOTS_URL
+              value: "{{ .Values.snapshots.syncUrl }}"
+            - name: SENTINEL_ENABLED
+              value: "{{ .Values.fullNode.sentinelEnabled }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
           ports:
             - containerPort: {{ .Values.fullNode.service.nodePort }}
+            - containerPort: {{ .Values.fullNode.service.adminPort }}
             - containerPort: {{ .Values.fullNode.service.p2pPort }}
             - containerPort: {{ .Values.fullNode.service.p2pPort }}
               protocol: UDP
@@ -222,6 +231,25 @@ spec:
     {{- end }}
     - port: {{ .Values.fullNode.service.nodePort }}
       name: node
+---
+# Internal service for accessing the admin port
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node-admin
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+    app: full-node
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: full-node
+  # The admin port is restricted from public access thanks to terraform/gke-cluster/firewall.tf
+  ports:
+    - port: {{ .Values.fullNode.service.adminPort }}
+      targetPort: {{ .Values.fullNode.service.adminPort }}
+      name: admin
 ---
 {{- if hasKey .Values.fullNode "fixedExternalIP" }}
 apiVersion: networking.gke.io/v1beta2

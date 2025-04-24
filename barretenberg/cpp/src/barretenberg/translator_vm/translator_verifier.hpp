@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -20,10 +26,13 @@ class TranslatorVerifier {
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;
 
-    std::shared_ptr<VerificationKey> key;
+    // Default construct fixed VK
+    std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
+
+    TranslatorVerifier(const std::shared_ptr<Transcript>& transcript);
 
     TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                        const std::shared_ptr<Transcript>& transcript);

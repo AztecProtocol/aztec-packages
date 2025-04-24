@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -46,6 +52,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
+    static constexpr bool USE_PADDING = MegaFlavor::USE_PADDING;
     static constexpr size_t NUM_WIRES = MegaFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -117,15 +126,12 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices =
-                native_key->pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
             this->databus_propagation_data = native_key->databus_propagation_data;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
@@ -151,12 +157,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value()));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->contains_pairing_point_accumulator =
-                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
-                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            }
+            this->pairing_inputs_public_input_key.start_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());

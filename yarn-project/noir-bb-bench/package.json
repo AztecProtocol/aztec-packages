@@ -20,8 +20,6 @@
     "build:app": "tsc -b && rm -rf dest && webpack && cp ../../barretenberg/favicon.ico dest",
     "build:dev": "tsc -b --watch",
     "serve:app": "./serve.sh",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -45,9 +43,9 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "webpack": "^5.90.3",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.2.0"
+    "webpack": "^5.99.6",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.1"
   },
   "files": [
     "dest",

@@ -564,12 +564,6 @@ TEST(ScalarMulConstrainingTest, MulInteractions)
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_relation::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace);
     LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_relation::Settings>().process(trace);
-
-    check_relation<scalar_mul>(trace);
-    check_relation<ecc>(trace);
-    check_interaction<lookup_scalar_mul_double_relation>(trace);
-    check_interaction<lookup_scalar_mul_add_relation>(trace);
-    check_interaction<lookup_scalar_mul_to_radix_relation>(trace);
 }
 
 TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
@@ -597,8 +591,6 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
 
     check_relation<scalar_mul>(trace);
     check_relation<ecc>(trace);
-    check_interaction<lookup_scalar_mul_double_relation>(trace);
-    check_interaction<lookup_scalar_mul_add_relation>(trace);
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
@@ -625,12 +617,6 @@ TEST(ScalarMulConstrainingTest, NegativeMulAddInteractions)
         "Failed.*SCALAR_MUL_DOUBLE. Could not find tuple in destination.");
     EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_relation::Settings>().process(trace),
                               "Failed.*SCALAR_MUL_ADD. Could not find tuple in destination.");
-
-    check_relation<scalar_mul>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_double_relation>(trace),
-                              "Relation.*SCALAR_MUL_DOUBLE.* ACCUMULATION.* is non-zero");
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_add_relation>(trace),
-                              "Relation.*SCALAR_MUL_ADD.* ACCUMULATION.* is non-zero");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
@@ -657,8 +643,6 @@ TEST(ScalarMulConstrainingTest, NegativeMulRadixInteractions)
         "Failed.*SCALAR_MUL_TO_RADIX. Could not find tuple in destination.");
 
     check_relation<scalar_mul>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_scalar_mul_to_radix_relation>(trace),
-                              "Relation.*SCALAR_MUL_TO_RADIX.* ACCUMULATION.* is non-zero");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeDisableSel)

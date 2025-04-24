@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
@@ -154,21 +154,17 @@ export async function waitTxs(txs: SentTx[], context: EndToEndContext, txWaitOpt
  * @param startingBlock - First l2 block to process.
  * @returns The new PXE.
  */
-export async function createNewPXE(
-  node: AztecNode,
-  contract: BenchmarkingContract,
-  startingBlock: number = INITIAL_L2_BLOCK_NUM,
-): Promise<PXEService> {
+export async function createNewPXE(node: AztecNode, contract: BenchmarkingContract): Promise<PXEService> {
   const l1Contracts = await node.getL1ContractAddresses();
-  const { l1ChainId, protocolVersion } = await node.getNodeInfo();
+  const { l1ChainId, rollupVersion } = await node.getNodeInfo();
   const pxeConfig = {
-    l2StartingBlock: startingBlock,
+    l2BlockBatchSize: 200,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts,
     l1ChainId,
-    version: protocolVersion,
+    rollupVersion,
   } as PXEServiceConfig;
   const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);

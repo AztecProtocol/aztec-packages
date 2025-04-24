@@ -1,4 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
@@ -11,6 +20,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
+#include <chrono>
 
 namespace bb {
 /**
@@ -67,7 +77,9 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
-                circuit.blocks.summarize();
+                if (verbose_logging) {
+                    circuit.blocks.summarize();
+                }
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 overflow_size = circuit.blocks.overflow.size();
                 dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
@@ -76,7 +88,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             }
         }
 
-        info("Finalized circuit size: ", circuit.num_gates);
         circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
@@ -142,7 +153,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, MASKING_OFFSET);
+                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
         }
 
         {
@@ -161,14 +172,11 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
 
         if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
-            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
+            proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
             proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
-        proving_key.pairing_point_accumulator_public_input_indices =
-            circuit.pairing_point_accumulator_public_input_indices;
-        proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
+        proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
         if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;

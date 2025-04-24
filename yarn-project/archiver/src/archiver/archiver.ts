@@ -4,13 +4,14 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
-import { InboxAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
   PrivateFunctionBroadcastedEvent,
-  UnconstrainedFunctionBroadcastedEvent,
+  UtilityFunctionBroadcastedEvent,
 } from '@aztec/protocol-contracts/class-registerer';
 import {
   ContractInstanceDeployedEvent,
@@ -19,7 +20,6 @@ import {
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type InBlock,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -31,10 +31,10 @@ import {
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
+  type UtilityFunctionWithMembershipProof,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
-  isValidUnconstrainedFunctionMembershipProof,
+  isValidUtilityFunctionMembershipProof,
 } from '@aztec/stdlib/contract';
 import {
   type L1RollupConstants,
@@ -48,7 +48,7 @@ import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { InboxLeaf, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -151,7 +151,12 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       rollup.getL1GenesisTime(),
     ] as const);
 
-    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+    const {
+      aztecEpochDuration: epochDuration,
+      aztecSlotDuration: slotDuration,
+      ethereumSlotDuration,
+      aztecProofSubmissionWindow: proofSubmissionWindow,
+    } = config;
 
     const archiver = new Archiver(
       publicClient,
@@ -163,7 +168,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       },
       deps.blobSinkClient,
       await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
-      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
+      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration, proofSubmissionWindow },
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -178,8 +183,13 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       throw new Error('Archiver is already running');
     }
 
+    await this.blobSinkClient.testSources();
+
     if (blockUntilSynced) {
-      await this.syncSafe(blockUntilSynced);
+      while (!(await this.syncSafe(true))) {
+        this.log.info(`Retrying initial archiver sync in ${this.config.pollingIntervalMs}ms`);
+        await sleep(this.config.pollingIntervalMs);
+      }
     }
 
     this.runningPromise = new RunningPromise(
@@ -197,11 +207,24 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     this.runningPromise.start();
   }
 
+  public syncImmediate() {
+    if (!this.runningPromise) {
+      throw new Error('Archiver is not running');
+    }
+    return this.runningPromise.trigger();
+  }
+
   private async syncSafe(initialRun: boolean) {
     try {
       await this.sync(initialRun);
+      return true;
     } catch (error) {
-      this.log.error('Error during sync', { error });
+      if (error instanceof NoBlobBodiesFoundError) {
+        this.log.error(`Error syncing archiver: ${error.message}`);
+      } else {
+        this.log.error('Error during archiver sync', error);
+      }
+      return false;
     }
   }
 
@@ -313,15 +336,22 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber, currentL1Timestamp));
 
     if (canPrune) {
-      const localPendingSlotNumber = getSlotAtTimestamp(currentL1Timestamp, this.l1constants);
-      const localPendingEpochNumber = getEpochAtSlot(localPendingSlotNumber, this.l1constants);
+      const pruneFrom = provenBlockNumber + 1n;
+
+      const header = await this.getBlockHeader(Number(pruneFrom));
+      if (header === undefined) {
+        throw new Error(`Missing block header ${pruneFrom}`);
+      }
+
+      const pruneFromSlotNumber = header.globalVariables.slotNumber.toBigInt();
+      const pruneFromEpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
 
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
-        blockNumber: localPendingBlockNumber,
-        slotNumber: localPendingSlotNumber,
-        epochNumber: localPendingEpochNumber,
+        blockNumber: pruneFrom,
+        slotNumber: pruneFromSlotNumber,
+        epochNumber: pruneFromEpochNumber,
       });
 
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
@@ -501,7 +531,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
       // TODO(md): Retrieve from blob sink then from consensus client, then from peers
       const retrievedBlocks = await retrieveBlocksFromRollup(
-        this.rollup.getContract(),
+        this.rollup.getContract() as GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
         this.publicClient,
         this.blobSinkClient,
         searchStartBlock, // TODO(palla/reorg): If the L2 reorg was due to an L1 reorg, we need to start search earlier
@@ -984,7 +1014,7 @@ class ArchiverStoreHelper
   }
 
   /**
-   * Stores the functions that was broadcasted individually
+   * Stores the functions that were broadcasted individually
    *
    * @dev   Beware that there is not a delete variant of this, since they are added to contract classes
    *        and will be deleted as part of the class if needed.
@@ -994,17 +1024,17 @@ class ArchiverStoreHelper
    * @returns
    */
   async #storeBroadcastedIndividualFunctions(allLogs: ContractClassLog[], _blockNum: number) {
-    // Filter out private and unconstrained function broadcast events
+    // Filter out private and utility function broadcast events
     const privateFnEvents = allLogs
       .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log))
       .map(log => PrivateFunctionBroadcastedEvent.fromLog(log));
-    const unconstrainedFnEvents = allLogs
-      .filter(log => UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log))
-      .map(log => UnconstrainedFunctionBroadcastedEvent.fromLog(log));
+    const utilityFnEvents = allLogs
+      .filter(log => UtilityFunctionBroadcastedEvent.isUtilityFunctionBroadcastedEvent(log))
+      .map(log => UtilityFunctionBroadcastedEvent.fromLog(log));
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(
-      groupBy([...privateFnEvents, ...unconstrainedFnEvents], e => e.contractClassId.toString()),
+      groupBy([...privateFnEvents, ...utilityFnEvents], e => e.contractClassId.toString()),
     )) {
       const contractClassId = Fr.fromHexString(classIdString);
       const contractClass = await this.getContractClass(contractClassId);
@@ -1013,27 +1043,27 @@ class ArchiverStoreHelper
         continue;
       }
 
-      // Split private and unconstrained functions, and filter out invalid ones
+      // Split private and utility functions, and filter out invalid ones
       const allFns = classEvents.map(e => e.toFunctionWithMembershipProof());
       const privateFns = allFns.filter(
-        (fn): fn is ExecutablePrivateFunctionWithMembershipProof => 'unconstrainedFunctionsArtifactTreeRoot' in fn,
+        (fn): fn is ExecutablePrivateFunctionWithMembershipProof => 'utilityFunctionsTreeRoot' in fn,
       );
-      const unconstrainedFns = allFns.filter(
-        (fn): fn is UnconstrainedFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
+      const utilityFns = allFns.filter(
+        (fn): fn is UtilityFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
       );
 
       const privateFunctionsWithValidity = await Promise.all(
         privateFns.map(async fn => ({ fn, valid: await isValidPrivateFunctionMembershipProof(fn, contractClass) })),
       );
       const validPrivateFns = privateFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
-      const unconstrainedFunctionsWithValidity = await Promise.all(
-        unconstrainedFns.map(async fn => ({
+      const utilityFunctionsWithValidity = await Promise.all(
+        utilityFns.map(async fn => ({
           fn,
-          valid: await isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+          valid: await isValidUtilityFunctionMembershipProof(fn, contractClass),
         })),
       );
-      const validUnconstrainedFns = unconstrainedFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
-      const validFnCount = validPrivateFns.length + validUnconstrainedFns.length;
+      const validUtilityFns = utilityFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
+      const validFnCount = validPrivateFns.length + validUtilityFns.length;
       if (validFnCount !== allFns.length) {
         this.#log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);
       }
@@ -1042,7 +1072,7 @@ class ArchiverStoreHelper
       if (validFnCount > 0) {
         this.#log.verbose(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
       }
-      return await this.store.addFunctions(contractClassId, validPrivateFns, validUnconstrainedFns);
+      return await this.store.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
     }
     return true;
   }
@@ -1110,7 +1140,7 @@ class ArchiverStoreHelper
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.store.getTxEffect(txHash);
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {

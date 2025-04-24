@@ -1,8 +1,9 @@
 use crate::{macros::utils::AsStrQuote, note::note_getter_options::PropertySelector};
+use poseidon::poseidon2::Poseidon2Hasher;
 use protocol_types::meta::{derive_packable_and_get_packed_len, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
-    hash::{BuildHasherDefault, Hash, Hasher, poseidon2::Poseidon2Hasher},
+    hash::{BuildHasherDefault, Hash, Hasher},
     meta::{type_of, unquote},
 };
 
@@ -281,7 +282,7 @@ comptime fn index_note_fields(
         } else {
             indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
         }
-        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], true);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, true);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
         counter += serialization_fields.len();
     }

@@ -28,7 +28,7 @@ import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {Slasher} from "@aztec/core/staking/Slasher.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -65,7 +65,7 @@ contract RollupCore is
   bool public checkBlob = true;
 
   constructor(
-    IFeeJuicePortal _fpcJuicePortal,
+    IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     address _governance,
@@ -85,14 +85,27 @@ contract RollupCore is
     RollupStore storage rollupStore = STFLib.getStorage();
 
     rollupStore.config.proofSubmissionWindow = _config.aztecProofSubmissionWindow;
-    rollupStore.config.feeAsset = _fpcJuicePortal.UNDERLYING();
-    rollupStore.config.feeAssetPortal = _fpcJuicePortal;
+    rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.rewardDistributor = _rewardDistributor;
     rollupStore.config.epochProofVerifier = new MockVerifier();
-    rollupStore.config.version = 1;
-    rollupStore.config.inbox =
-      IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
-    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));
+    // @todo handle case where L1 forks and chainid is different
+    // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
+    uint256 version = uint32(
+      uint256(
+        keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))
+      )
+    );
+    rollupStore.config.version = version;
+
+    IInbox inbox = IInbox(
+      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT))
+    );
+
+    rollupStore.config.inbox = inbox;
+
+    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), version)));
+
+    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
@@ -163,7 +176,6 @@ contract RollupCore is
     external
     override(IStakingCore)
   {
-    setupEpoch();
     StakingLib.deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
@@ -172,7 +184,6 @@ contract RollupCore is
     override(IStakingCore)
     returns (bool)
   {
-    setupEpoch();
     return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 

@@ -23,7 +23,7 @@ import {
   PublicInputArgs,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -31,7 +31,8 @@ import {TestConstants} from "../harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IRewardDistributor, IRegistry} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
@@ -137,7 +138,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     fakeCanonical = new FakeCanonical(IERC20(address(asset)));
 
     rollup = new Rollup(
-      IFeeJuicePortal(address(fakeCanonical)),
+      asset,
       IRewardDistributor(address(fakeCanonical)),
       asset,
       address(this),
@@ -185,6 +186,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     asset.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     asset.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
+    asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
 
     asset.transferOwnership(address(fakeCanonical));
   }
@@ -217,6 +219,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     address proposer = rollup.getCurrentProposer();
 
+    uint256 version = rollup.getVersion();
+
     // Updating the header with important information!
     assembly {
       let headerRef := add(header, 0x20)
@@ -231,6 +235,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // Store the modified word back
       mstore(add(headerRef, 0x20), word)
 
+      mstore(add(headerRef, 0x0154), version)
       mstore(add(headerRef, 0x0174), bn)
       mstore(add(headerRef, 0x0194), slotNumber)
       mstore(add(headerRef, 0x01b4), ts)
@@ -244,7 +249,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
-      blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
       txHashes: txHashes
     });
@@ -285,8 +289,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   }
 
   function test_Benchmarking() public {
-    Slot nextSlot = Slot.wrap(1);
-    Epoch nextEpoch = Epoch.wrap(1);
+    // Do nothing for the first epoch
+    Slot nextSlot = Slot.wrap(EPOCH_DURATION + 1);
+    Epoch nextEpoch = Epoch.wrap(2);
 
     rollup.setProvingCostPerMana(
       EthValue.wrap(points[0].outputs.mana_base_fee_components_in_wei.proving_cost)
@@ -357,8 +362,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getBlock(start).archive,
           endArchive: rollup.getBlock(start + epochSize - 1).archive,
-          previousBlockHash: rollup.getBlock(start).blockHash,
-          endBlockHash: rollup.getBlock(start + epochSize - 1).blockHash,
           endTimestamp: Timestamp.wrap(0),
           outHash: bytes32(0),
           proverId: address(0)
@@ -380,7 +383,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
               args: args,
               fees: fees,
               blobPublicInputs: blobPublicInputs,
-              aggregationObject: "",
               proof: ""
             })
           );

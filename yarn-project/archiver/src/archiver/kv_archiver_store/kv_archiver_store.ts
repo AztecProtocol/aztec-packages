@@ -7,10 +7,11 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
+  ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -33,7 +34,7 @@ export const ARCHIVER_DB_VERSION = 1;
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
-export class KVArchiverDataStore implements ArchiverDataStore {
+export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSource {
   public static readonly SCHEMA_VERSION = ARCHIVER_DB_VERSION;
 
   #blockStore: BlockStore;
@@ -51,6 +52,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+  }
+
+  public getBlockNumber(): Promise<number> {
+    return this.getSynchedL2BlockNumber();
+  }
+
+  public async getContract(
+    address: AztecAddress,
+    blockNumber?: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    return this.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
@@ -117,9 +129,9 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    utilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, unconstrainedFunctions);
+    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
@@ -196,8 +208,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found).
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   getTxEffect(txHash: TxHash) {
     return this.#blockStore.getTxEffect(txHash);

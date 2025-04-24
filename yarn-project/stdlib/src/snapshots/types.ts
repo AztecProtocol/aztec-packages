@@ -27,7 +27,7 @@ export type SnapshotMetadata = {
 
 export type SnapshotsIndexMetadata = {
   l1ChainId: number;
-  l2Version: number;
+  rollupVersion: number;
   rollupAddress: EthAddress;
 };
 
@@ -35,9 +35,12 @@ export type SnapshotsIndex = SnapshotsIndexMetadata & {
   snapshots: SnapshotMetadata[];
 };
 
+export type UploadSnapshotMetadata = Pick<SnapshotMetadata, 'l2BlockNumber' | 'l2BlockHash' | 'l1BlockNumber'> &
+  Pick<SnapshotsIndex, 'l1ChainId' | 'rollupVersion' | 'rollupAddress'>;
+
 export const SnapshotsIndexSchema = z.object({
   l1ChainId: z.number(),
-  l2Version: z.number(),
+  rollupVersion: z.number(),
   rollupAddress: schemas.EthAddress,
   snapshots: z.array(
     z.object({
@@ -56,3 +59,12 @@ export const SnapshotsIndexSchema = z.object({
     }),
   ),
 }) satisfies ZodFor<SnapshotsIndex>;
+
+export const UploadSnapshotMetadataSchema = z.object({
+  l2BlockNumber: z.number(),
+  l2BlockHash: z.string(),
+  l1BlockNumber: z.number(),
+  l1ChainId: z.number(),
+  rollupVersion: z.number(),
+  rollupAddress: schemas.EthAddress,
+}) satisfies ZodFor<UploadSnapshotMetadata>;

@@ -1,11 +1,11 @@
-import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point, TxHash } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
 import type { TypedOracle } from '@aztec/simulator/client';
-import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
@@ -516,8 +516,8 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncNotes() {
-    await this.typedOracle.syncNotes();
+  async syncNotes(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+    await this.typedOracle.syncNotes(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 
@@ -539,7 +539,7 @@ export class TXEService {
       fromArray(content.slice(0, Number(BigInt(contentLength)))),
       fromSingle(noteHash),
       fromSingle(nullifier),
-      fromSingle(txHash),
+      new TxHash(fromSingle(txHash)),
       AztecAddress.fromField(fromSingle(recipient)),
     );
 
@@ -622,12 +622,38 @@ export class TXEService {
     return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBVecStorage.length));
   }
 
-  async getSharedSecret(address: ForeignCallSingle, ephPk: ForeignCallArray) {
+  async getSharedSecret(
+    address: ForeignCallSingle,
+    ephPKField0: ForeignCallSingle,
+    ephPKField1: ForeignCallSingle,
+    ephPKField2: ForeignCallSingle,
+  ) {
     const secret = await this.typedOracle.getSharedSecret(
       AztecAddress.fromField(fromSingle(address)),
-      Point.fromFields(fromArray(ephPk)),
+      Point.fromFields([fromSingle(ephPKField0), fromSingle(ephPKField1), fromSingle(ephPKField2)]),
     );
     return toForeignCallResult(secret.toFields().map(toSingle));
+  }
+
+  async storePrivateEventLog(
+    contractAddress: ForeignCallSingle,
+    recipient: ForeignCallSingle,
+    eventSelector: ForeignCallSingle,
+    logContent: ForeignCallArray,
+    txHash: ForeignCallSingle,
+    logIndexInTx: ForeignCallSingle,
+    txIndexInBlock: ForeignCallSingle,
+  ) {
+    await this.typedOracle.storePrivateEventLog(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      AztecAddress.fromField(fromSingle(recipient)),
+      EventSelector.fromField(fromSingle(eventSelector)),
+      fromArray(logContent),
+      new TxHash(fromSingle(txHash)),
+      fromSingle(logIndexInTx).toNumber(),
+      fromSingle(txIndexInBlock).toNumber(),
+    );
+    return toForeignCallResult([]);
   }
 
   // AVM opcodes
@@ -638,8 +664,8 @@ export class TXEService {
   }
 
   async avmOpcodeStorageRead(slot: ForeignCallSingle) {
-    const value = await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot));
-    return toForeignCallResult([toSingle(value)]);
+    const value = (await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot))).value;
+    return toForeignCallResult([toSingle(new Fr(value))]);
   }
 
   async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {
@@ -737,7 +763,8 @@ export class TXEService {
   }
 
   async avmOpcodeCall(
-    _gas: ForeignCallArray,
+    _l2Gas: ForeignCallSingle,
+    _daGas: ForeignCallSingle,
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
@@ -766,7 +793,8 @@ export class TXEService {
   }
 
   async avmOpcodeStaticCall(
-    _gas: ForeignCallArray,
+    _l2Gas: ForeignCallSingle,
+    _daGas: ForeignCallSingle,
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,

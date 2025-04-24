@@ -34,7 +34,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     l2Bridge = crossChainTestHarness.l2Bridge;
     l2Token = crossChainTestHarness.l2Token;
     rollup = new RollupContract(
-      crossChainTestHarness!.publicClient,
+      crossChainTestHarness!.l1Client,
       crossChainTestHarness!.l1ContractAddresses.rollupAddress,
     );
 
@@ -78,7 +78,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
-    const l2ToL1Message = crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
+    const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
     const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce, burnAuthwit);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 

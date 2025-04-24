@@ -23,7 +23,6 @@ import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
   bytes32 archive;
-  bytes32 blockHash;
   OracleInput oracleInput;
   bytes header;
   bytes32[] txHashes;
@@ -107,11 +106,8 @@ library ProposeLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
-    rollupStore.blocks[blockNumber] = BlockLog({
-      archive: _args.archive,
-      blockHash: _args.blockHash,
-      slotNumber: header.globalVariables.slotNumber
-    });
+    rollupStore.blocks[blockNumber] =
+      BlockLog({archive: _args.archive, slotNumber: header.globalVariables.slotNumber});
 
     FeeLib.writeFeeHeader(
       blockNumber,
@@ -229,23 +225,7 @@ library ProposeLib {
     view
     returns (ManaBaseFeeComponents memory)
   {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    // If we are not the canonical rollup, we cannot claim any fees, so we return 0s
-    // The congestion multiplier could be computed, but as it could only be used to guide
-    // might as well save the gas and anyone interested can do it off-chain.
-    if (address(this) != rollupStore.config.feeAssetPortal.canonicalRollup()) {
-      return ManaBaseFeeComponents({
-        congestionCost: 0,
-        provingCost: 0,
-        congestionMultiplier: 0,
-        dataCost: 0,
-        gasCost: 0
-      });
-    }
-
     uint256 blockOfInterest = STFLib.getEffectivePendingBlockNumber(_timestamp);
-
     return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
   }
 

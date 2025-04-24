@@ -4,8 +4,8 @@ import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/acco
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { setupCanonicalL2FeeJuice, setupSponsoredFPC } from '@aztec/cli/cli-utils';
-import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
+import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import {
   NULL_KEY,
   createEthereumChain,
@@ -16,7 +16,7 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -49,7 +49,12 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   hdAccount: HDAccount | PrivateKeyAccount,
   contractDeployLogger = logger,
-  opts: { assumeProvenThroughBlockNumber?: number; salt?: number; genesisArchiveRoot?: Fr; genesisBlockHash?: Fr } = {},
+  opts: {
+    assumeProvenThroughBlockNumber?: number;
+    salt?: number;
+    genesisArchiveRoot?: Fr;
+    feeJuicePortalInitialBalance?: bigint;
+  } = {},
 ) {
   const chain =
     aztecNodeConfig.l1RpcUrls.length > 0
@@ -66,12 +71,11 @@ export async function deployContractsToL1(
     {
       ...getL1ContractsConfigEnvVars(), // TODO: We should not need to be loading config from env again, caller should handle this
       ...aztecNodeConfig,
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
       salt: opts.salt,
+      feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
     },
   );
 
@@ -134,15 +138,15 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   const fundedAddresses = initialAccounts.length
     ? [...initialAccounts.map(a => a.address), bananaFPC, sponsoredFPC]
     : [];
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(fundedAddresses);
+  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(fundedAddresses);
 
   let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot,
-      genesisBlockHash,
       salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
+      feeJuicePortalInitialBalance: fundingNeeded,
     });
 
     const chain =
@@ -166,8 +170,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, { prefilledPublicData });
   const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
   const pxe = await createAztecPXE(node, pxeServiceConfig);
-
-  await setupCanonicalL2FeeJuice(pxe, aztecNodeConfig.l1Contracts.feeJuicePortalAddress, logger.info);
 
   if (initialAccounts.length) {
     userLog('Setting up funded test accounts...');

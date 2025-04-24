@@ -14,5 +14,5 @@ function getCurrentDir() {
 
 export function createThreadWorker() {
   const __dirname = getCurrentDir();
-  return new Worker(__dirname + `/thread.worker.js`);
+  return Promise.resolve(new Worker(__dirname + `/thread.worker.js`));
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "mega_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
@@ -161,10 +167,10 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
-    null_op_idx = this->zero_idx;
-    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-    equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+    null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index
+    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
+    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
+    equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
 }
 
 /**

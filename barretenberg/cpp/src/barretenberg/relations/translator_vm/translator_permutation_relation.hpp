@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/relations/relation_types.hpp"
 
@@ -13,6 +19,17 @@ template <typename FF_> class TranslatorPermutationRelationImpl {
         7, // grand product construction sub-relation
         3  // left-shiftable polynomial sub-relation
     };
+
+    /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
+        // non-trivial copy constraints.
+        return (in.z_perm - in.z_perm_shift).is_zero();
+    }
 
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }

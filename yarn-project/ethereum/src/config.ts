@@ -1,11 +1,19 @@
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
 
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+
+export type GenesisStateConfig = {
+  /** Whether to populate the genesis state with initial fee juice for the test accounts */
+  testAccounts: boolean;
+  /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
+  sponsoredFPC: boolean;
+};
 
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
@@ -43,8 +51,8 @@ export const DefaultL1ContractsConfig = {
   minimumStake: BigInt(100e18),
   slashingQuorum: 6,
   slashingRoundSize: 10,
-  governanceProposerQuorum: 6,
-  governanceProposerRoundSize: 10,
+  governanceProposerQuorum: 51,
+  governanceProposerRoundSize: 100,
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;
@@ -114,6 +122,23 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   ...l1TxUtilsConfigMappings,
 };
 
+export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> = {
+  testAccounts: {
+    env: 'TEST_ACCOUNTS',
+    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
+    ...booleanConfigHelper(false),
+  },
+  sponsoredFPC: {
+    env: 'SPONSORED_FPC',
+    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
+    ...booleanConfigHelper(false),
+  },
+};
+
 export function getL1ContractsConfigEnvVars(): L1ContractsConfig {
   return getConfigFromMappings(l1ContractsConfigMappings);
+}
+
+export function getGenesisStateConfigEnvVars(): GenesisStateConfig {
+  return getConfigFromMappings(genesisStateConfigMappings);
 }

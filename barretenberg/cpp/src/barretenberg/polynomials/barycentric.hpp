@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/fields/field.hpp"
 #include <array>
@@ -196,11 +202,17 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
                                                                                   const auto& lagrange_denominators)
     {
         std::array<Fr, domain_size * num_evals> result{}; // default init to 0 since below does not init all elements
-        for (size_t k = domain_size; k < num_evals; ++k) {
-            for (size_t j = 0; j < domain_size; ++j) {
-                Fr inv = lagrange_denominators[j];
-                inv *= (big_domain[k] - big_domain[j]);
-                result[k * domain_size + j] = inv;
+        if constexpr (num_evals == 1) {
+            result = lagrange_denominators;
+        } else {
+            // Used in Univariate's `extend_to` method to extend univariates given by > 4 evaluations ( deg>3 ) to a
+            // bigger evaluation domains.
+            for (size_t k = domain_size; k < num_evals; ++k) {
+                for (size_t j = 0; j < domain_size; ++j) {
+                    Fr inv = lagrange_denominators[j];
+                    inv *= (big_domain[k] - big_domain[j]);
+                    result[k * domain_size + j] = inv;
+                }
             }
         }
         return batch_invert(result);

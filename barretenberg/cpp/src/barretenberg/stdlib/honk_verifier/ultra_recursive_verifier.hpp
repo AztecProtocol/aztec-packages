@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
@@ -11,11 +17,9 @@
 
 namespace bb::stdlib::recursion::honk {
 
-template <typename Flavor> struct UltraRecursiveVerifierOutput {
-    using AggregationObject = aggregation_state<typename Flavor::Curve>;
-    using Builder = typename Flavor::CircuitBuilder;
-    AggregationObject agg_obj;
-    OpeningClaim<grumpkin<Builder>> ipa_opening_claim;
+template <typename Builder> struct UltraRecursiveVerifierOutput {
+    aggregation_state<Builder> agg_obj;
+    OpeningClaim<grumpkin<Builder>> ipa_claim;
     StdlibProof<Builder> ipa_proof;
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {
@@ -29,10 +33,10 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using AggregationObject = aggregation_state<typename Flavor::Curve>;
+    using AggregationObject = aggregation_state<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
-    using Output = UltraRecursiveVerifierOutput<Flavor>;
+    using Output = UltraRecursiveVerifierOutput<Builder>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);

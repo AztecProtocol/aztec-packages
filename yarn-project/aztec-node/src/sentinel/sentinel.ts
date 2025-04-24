@@ -52,6 +52,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
   protected async init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
     const startingBlock = await this.archiver.getBlockNumber();
+    this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
   }
 
@@ -122,7 +123,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     }
 
     if (targetSlot <= this.initialSlot) {
-      this.logger.debug(`Refusing to process slot ${targetSlot} given initial slot ${this.initialSlot}`);
+      this.logger.trace(`Refusing to process slot ${targetSlot} given initial slot ${this.initialSlot}`);
       return false;
     }
 
@@ -172,7 +173,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     // or all attestations for all proposals in the slot if no block was mined.
     const archive = this.slotNumberToArchive.get(slot);
     const attested = await this.p2p.getAttestationsForSlot(slot, archive);
-    const attestors = new Set(await Promise.all(attested.map(a => a.getSender().then(a => a.toString()))));
+    const attestors = new Set(attested.map(a => a.getSender().toString()));
 
     // We assume that there was a block proposal if at least one of the validators attested to it.
     // It could be the case that every single validator failed, and we could differentiate it by having

@@ -54,6 +54,7 @@ describe('sentinel', () => {
       slotDuration: 24,
       epochDuration: 32,
       ethereumSlotDuration: 12,
+      proofSubmissionWindow: 64,
     };
 
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts });
@@ -78,9 +79,7 @@ describe('sentinel', () => {
       signers = times(4, Secp256k1Signer.random);
       validators = signers.map(signer => signer.address);
       block = await randomPublishedL2Block(Number(slot));
-      attestations = await Promise.all(
-        signers.map(signer => makeBlockAttestation({ signer, archive: block.block.archive.root })),
-      );
+      attestations = signers.map(signer => makeBlockAttestation({ signer, archive: block.block.archive.root }));
       proposer = validators[0];
       committee = [...validators];
 

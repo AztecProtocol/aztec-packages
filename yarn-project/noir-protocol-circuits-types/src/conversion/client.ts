@@ -657,7 +657,10 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(privateKernelInnerData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(
+      privateKernelInnerData.verificationKey.keyAsFields,
+      CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+    ),
     vk_index: mapFieldToNoir(new Fr(privateKernelInnerData.vkIndex)),
     vk_path: mapTuple(privateKernelInnerData.vkPath, mapFieldToNoir),
   };

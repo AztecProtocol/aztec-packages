@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
@@ -23,7 +29,7 @@ class UltraZKFlavor : public UltraFlavor {
     /**
      * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
      * functions.
-     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
      */
     template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
       public:

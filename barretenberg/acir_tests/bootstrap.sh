@@ -38,12 +38,10 @@ function run_proof_generation {
   dump_fail "$prove_cmd"
 
   local vk_fields=$(cat "$outdir/vk_fields.json")
+  local public_inputs_fields=$(cat "$outdir/public_inputs_fields.json")
   local proof_fields=$(cat "$outdir/proof_fields.json")
-  local num_inner_public_inputs=$(( 16#$(echo "$vk_fields" | jq -r '.[1] | ltrimstr("0x")') - adjustment ))
 
-  echo "num_inner_public_inputs for $program = $num_inner_public_inputs"
-
-  generate_toml "$program" "$vk_fields" "$proof_fields" "$num_inner_public_inputs"
+  generate_toml "$program" "$vk_fields" "$proof_fields" "$public_inputs_fields"
 }
 
 function generate_toml {
@@ -56,15 +54,15 @@ function generate_toml {
 
   jq -nr \
       --arg key_hash "$key_hash" \
-      --argjson vkf "$vk_fields" \
-      --argjson prooff "$proof_fields" \
-      --argjson num_inner_public_inputs "$num_inner_public_inputs" \
+      --argjson vk_f "$vk_fields" \
+      --argjson public_inputs_f "$public_inputs_fields" \
+      --argjson proof_f "$proof_fields" \
       '[
         "key_hash = \($key_hash)",
-        "proof = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]",
-        "public_inputs = [\($prooff | .[:$num_inner_public_inputs] | map("\"" + . + "\"") | join(", "))]",
-        "verification_key = [\($vkf | map("\"" + . + "\"") | join(", "))]"
-        '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($prooff | .[$num_inner_public_inputs:] | map("\"" + . + "\"") | join(", "))]"' )"'
+        "proof = [\($proof_f | map("\"" + . + "\"") | join(", "))]",
+        "public_inputs = [\($public_inputs_f | map("\"" + . + "\"") | join(", "))]",
+        "verification_key = [\($vk_f | map("\"" + . + "\"") | join(", "))]"
+        '"$( [[ $program == *"double"* ]] && echo ',"proof_b = [\($proof_f | map("\"" + . + "\"") | join(", "))]"' )"'
       ] | join("\n")' > "$output_file"
 }
 
@@ -151,10 +149,10 @@ function test_cmds_internal {
 
   # barretenberg-acir-tests-bb.js:
   # Browser tests.
-  echo BROWSER=chrome THREAD_MODEL=mt $run_test_browser verify_honk_proof
-  echo BROWSER=chrome THREAD_MODEL=st $run_test_browser 1_mul
-  echo BROWSER=webkit THREAD_MODEL=mt $run_test_browser verify_honk_proof
-  echo BROWSER=webkit THREAD_MODEL=st $run_test_browser 1_mul
+  echo BROWSER=chrome $run_test_browser verify_honk_proof
+  echo BROWSER=chrome $run_test_browser 1_mul
+  echo BROWSER=webkit $run_test_browser verify_honk_proof
+  echo BROWSER=webkit $run_test_browser 1_mul
   # echo ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
   # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
@@ -181,14 +179,15 @@ function test_cmds_internal {
   for t in $honk_tests; do
     echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
   done
-  echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
+  echo SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement
+  echo SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
+  # echo SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
 
   # prove and verify using bb.js classes
   echo SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul
-  echo SYS=ultra_honk FLOW=bbjs_prove_verify THREAD_MODEL=mt $run_test assert_statement
+  echo SYS=ultra_honk FLOW=bbjs_prove_verify $run_test assert_statement
 
   # prove with bb.js and verify with solidity verifier
   echo SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test 1_mul
@@ -217,9 +216,6 @@ function run_benchmark {
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests
 function bench {
-  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1265) fix acir benchmarking
-  # LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
-
   export HARDWARE_CONCURRENCY=16
 
   rm -rf bench-out && mkdir -p bench-out

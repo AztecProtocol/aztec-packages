@@ -6,46 +6,7 @@ import re
 # Counters to be used for extracting benchmark data from JSON files.
 TIME_COUNTERS_USED = ["commit(t)", "Goblin::merge(t)"]
 
-# field op weights based on these numbers captured by Kesha (nanoseconds)
-#  *      cycle_waste                          :      0.5
-#  *      ff_addition                          :      3.8
-#  *      ff_from_montgomery                   :     19.1
-#  *      ff_invert                            :   7001.3
-#  *      ff_multiplication                    :     21.3
-#  *      ff_reduce                            :      5.1
-#  *      ff_sqr                               :     17.9
-#  *      ff_to_montgomery                     :     39.1
-#  *      parallel_for_field_element_addition  : 376060.9
-#  *      projective_point_accidental_doubling :    347.6
-#  *      projective_point_addition            :    348.6
-#  *      projective_point_doubling            :    194.2
-#  *      scalar_multiplication                :  50060.1
-#  *      sequential_copy                      :      3.3
-
-# Cody analyzed the following asm operations as not correlated with one another:
-FIELD_OPS_WEIGHTS = {
-    "fr::asm_add_with_coarse_reduction": 3.8,
-    "fr::asm_conditional_negate": 3.8,
-    "fr::asm_mul_with_coarse_reduction": 21.3,
-    "fr::asm_self_add_with_coarse_reduction": 3.8,
-    "fr::asm_self_mul_with_coarse_reduction": 21.3,
-    "fr::asm_self_reduce_once": 3.8,
-    "fr::asm_self_sqr_with_coarse_reduction": 21.3,
-    "fr::asm_self_sub_with_coarse_reduction": 3.8,
-    "fr::asm_sqr_with_coarse_reduction": 21.3,
-}
-
 MEMORY_PATTERN = re.compile(r"\(mem: ([\d.]+)MiB\)")
-
-def process_json_field_ops_weighted_sum(benchmark):
-    weighted_sum = 0
-    for key, weight in FIELD_OPS_WEIGHTS.items():
-        if key in benchmark:
-            count = int(benchmark[key])
-            if count is not None:
-                # Calculate the weighted sum of field operations
-                weighted_sum += count * weight
-    return weighted_sum
 
 def extract_memory_from_text(file_path):
     """
@@ -77,16 +38,6 @@ def process_json_file(file_path, prefix):
         if prefix != "":
             results.append(benchmark)
 
-        field_ops_heuristic = process_json_field_ops_weighted_sum(benchmark)
-        if field_ops_heuristic > 0:
-            # Add the field ops heuristic to the benchmark entry.
-            benchmark["field_ops_heuristic"] = field_ops_heuristic
-            results.append({
-                "name": "field_ops_heuristic",
-                "real_time": field_ops_heuristic,
-                "time_unit": "ns"
-            })
-
         # For each counter, if it exists in the benchmark, create a new entry.
         for counter in TIME_COUNTERS_USED:
             if counter in benchmark:
@@ -110,7 +61,7 @@ def modify_benchmark_data(file_paths):
             prefix = "wasm"
         elif "release" in file_path:
             prefix = "native"
-        elif "-ivc.json" in file_path:
+        elif "ivc-" in file_path:
             prefix = "ivc-"
         if file_path.endswith(".txt"):
             # Process text files to extract memory data.
@@ -123,7 +74,7 @@ def modify_benchmark_data(file_paths):
                 }
                 combined_results['benchmarks'].append(entry)
             else:
-                print(f"Warning: No memory value found in {file_path}")
+                print(f"Warning: No memory value found in {file_path}", file=sys.stderr)
         else:
             # Process JSON files to update benchmark entries.
             benchmarks = process_json_file(file_path, prefix)

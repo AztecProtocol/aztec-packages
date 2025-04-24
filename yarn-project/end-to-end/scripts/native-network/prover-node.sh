@@ -39,7 +39,7 @@ export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 # Set environment variables
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export DEBUG=${DEBUG:-""}
-export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
+export L1_CONSENSUS_HOST_URLS=${L1_CONSENSUS_HOST_URLS:-}
 export PROVER_AGENT_COUNT="1"
 export PROVER_AGENT_ENABLED="true"
 export PROVER_PUBLISHER_PRIVATE_KEY=${PROVER_PUBLISHER_PRIVATE_KEY:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}

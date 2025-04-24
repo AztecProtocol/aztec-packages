@@ -1,8 +1,0 @@
-[package]
-name = "easy_private_voting_contract"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../aztec-nr/aztec" }

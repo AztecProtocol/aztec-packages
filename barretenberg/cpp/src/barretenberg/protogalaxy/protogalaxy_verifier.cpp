@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
@@ -26,7 +32,7 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     if (!key->is_accumulator) {
         run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
     index++;
 

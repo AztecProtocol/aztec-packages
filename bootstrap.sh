@@ -6,7 +6,6 @@
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
-source $ci3/source_redis
 
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
@@ -77,13 +76,14 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
+  local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
+    if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       encourage_dev_container
-      echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
+      echo "$tool not in PATH or incorrect version (requires $foundry_version)."
       echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -i nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
+      echo "  foundryup -i $foundry_version"
       exit 1
     fi
   done
@@ -187,7 +187,8 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  projects=(
+  # These projects are dependant on each other and must be built linearly
+  dependent_projects=(
     noir
     barretenberg
     avm-transpiler
@@ -195,16 +196,24 @@ function build {
     # Relies on noir-projects for verifier solidity generation.
     l1-contracts
     yarn-project
+  )
+  # These projects rely on the output of the dependant projects and can be built in parallel
+  non_dependent_projects=(
     boxes
     playground
     docs
     release-image
+    spartan
     aztec-up
   )
 
-  for project in "${projects[@]}"; do
+  echo_header "Building dependent projects in serial"
+  for project in "${dependent_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
+
+  echo_header "build non-dependent projects in parallel"
+  parallel --line-buffer --tag --halt now,fail=1 '{}/bootstrap.sh ${1:-}' ::: ${non_dependent_projects[@]}
 }
 
 function bench {
@@ -247,7 +256,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   docs, playground => publish if dist tag is latest. TODO Link build in github release.
+  #   playground => publish if dist tag is latest. TODO Link build in github release.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -269,7 +278,7 @@ function release {
     boxes
     aztec-up
     playground
-    docs
+    # docs # released here /.github/workflows/docs-deploy.yml
     release-image
   )
   if [ $(arch) == arm64 ]; then
@@ -324,8 +333,17 @@ case "$cmd" in
       bench
       echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
     else
-      echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
       release
+      if [ "$CI_NIGHTLY" -eq 1 ]; then
+        echo_stderr -e "${yellow}Not benching $REF_NAME because it is a nightly release.${reset}"
+        test
+      else
+        echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
+      fi
+    fi
+
+    if [ "$REF_NAME" = "master" ]; then
+      docs/bootstrap.sh release-docs
     fi
     ;;
   test|test_cmds|bench|release|release_dryrun)

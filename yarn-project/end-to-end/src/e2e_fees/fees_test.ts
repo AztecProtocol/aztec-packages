@@ -10,7 +10,13 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
-import { type DeployL1ContractsArgs, RollupContract, createL1Clients, getPublicClient } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsArgs,
+  RollupContract,
+  createExtendedL1Client,
+  getPublicClient,
+  l1Artifacts,
+} from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -39,7 +45,6 @@ import {
   type SetupOptions,
   ensureAccountsPubliclyDeployed,
   getBalancesFn,
-  setupCanonicalFeeJuice,
   setupSponsoredFPC,
 } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
@@ -141,6 +146,26 @@ export class FeesTest {
     }
   }
 
+  async getBlockRewards() {
+    const rewardDistributor = getContract({
+      address: this.context.deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+      abi: l1Artifacts.rewardDistributor.contractAbi,
+      client: this.context.deployL1ContractsValues.l1Client,
+    });
+
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+
+    const balance = await this.feeJuiceBridgeTestHarness.getL1FeeJuiceBalance(
+      EthAddress.fromString(rewardDistributor.address),
+    );
+
+    const toDistribute = balance > blockReward ? blockReward : balance;
+    const sequencerBlockRewards = toDistribute / 2n;
+    const proverBlockRewards = toDistribute - sequencerBlockRewards;
+
+    return { sequencerBlockRewards, proverBlockRewards };
+  }
+
   async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, address);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
@@ -198,9 +223,7 @@ export class FeesTest {
   async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
       'setup_fee_juice',
-      async context => {
-        await setupCanonicalFeeJuice(context.pxe);
-      },
+      async () => {},
       async (_data, context) => {
         this.context = context;
 
@@ -212,8 +235,7 @@ export class FeesTest {
           aztecNode: context.aztecNode,
           aztecNodeAdmin: context.aztecNode,
           pxeService: context.pxe,
-          publicClient: context.deployL1ContractsValues.publicClient,
-          walletClient: context.deployL1ContractsValues.walletClient,
+          l1Client: context.deployL1ContractsValues.l1Client,
           wallet: this.aliceWallet,
           logger: this.logger,
         });
@@ -272,21 +294,18 @@ export class FeesTest {
         this.bananaFPC = bananaFPC;
 
         this.getCoinbaseBalance = async () => {
-          const { walletClient } = createL1Clients(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+          const l1Client = createExtendedL1Client(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
           const gasL1 = getContract({
             address: data.l1FeeJuiceAddress.toString(),
             abi: TestERC20Abi,
-            client: walletClient,
+            client: l1Client,
           });
           return await gasL1.read.balanceOf([this.coinbase.toString()]);
         };
 
         this.getCoinbaseSequencerRewards = async () => {
-          const publicClient = getPublicClient({
-            l1RpcUrls: context.aztecNodeConfig.l1RpcUrls,
-            l1ChainId: context.aztecNodeConfig.l1ChainId,
-          });
-          const rollup = new RollupContract(publicClient, data.rollupAddress);
+          const l1Client = createExtendedL1Client(context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+          const rollup = new RollupContract(l1Client, data.rollupAddress);
           return await rollup.getSequencerRewards(this.coinbase);
         };
 

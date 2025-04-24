@@ -8,7 +8,91 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-## [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
+### [PXE] Removed PXE_L2_STARTING_BLOCK environment variable
+
+PXE now fast-syncs by skipping finalized blocks and never downloads all blocks, so there is no longer a need to specify a starting block.
+
+### [Aztec.nr] Logs and messages renaming
+
+The following renamings have taken place:
+
+- `encrypted_logs` to `messages`: this module now handles much more than just encrypted logs (including unconstrained message delivery, message encoding, etc.)
+- `log_assembly_strategies` to `logs`
+- `discovery` moved to `messages`: given that what is discovered are messages
+- `default_aes128` removed
+
+Most contracts barely used these modules, the only frequent imports are the `encode_and_encrypt` functions:
+
+```diff
+- use dep::aztec::messages::logs::note::encode_and_encrypt_note;
++ use dep::aztec::messages::logs::note::encode_and_encrypt_note;
+```
+
+### [noir-contracts] Reference Noir contracts directory structure change
+
+`noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
+If you import contract from the directory make sure to update the paths accordingly.
+E.g. for a token contract:
+
+```diff
+#[dependencies]
+-token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/src/token_contract" }
++token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/app/src/token_contract" }
+```
+
+### [Aztec.nr] #[utility] contract functions
+
+Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and what was sometimes called 'top-level unconstrained': an unmarked unconstrained function in the contract module. These are now called `[#utility]` functions, and must be explicitly marked as such:
+
+```diff
++    #[utility]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+        storage.balances.at(owner).balance_of()
+    }
+```
+
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+
+All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
+
+Additionally, the `UnconstrainedContext` type has been renamed to `UtilityContext`. This led us to rename the `unkonstrained` method on `TestEnvironment` to `utility`, so any tests using it also need updating:
+
+```diff
+-     SharedMutable::new(env.unkonstrained(), storage_slot)
++     SharedMutable::new(env.utility(), storage_slot)
+```
+
+### [AuthRegistry] function name change
+
+As part of the broader transition from "top-level unconstrained" to "utility" name (detailed in the note above), the `unconstrained_is_consumable` function in AuthRegistry has been renamed to `utility_is_consumable`. The function's signature and behavior remain unchanged - only the name has been updated to align with the new convention. If you're currently using this function, a simple rename in your code will suffice.
+
+## 0.83.0
+
+### [aztec.js] AztecNode.getPrivateEvents API change
+
+The `getPrivateEvents` method signature has changed to require an address of a contract that emitted the event and use recipient addresses instead of viewing public keys:
+
+```diff
+- const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, 1, 1, [recipient.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey()]);
++ const events = await wallet.getPrivateEvents<Transfer>(token.address, TokenContract.events.Transfer, 1, 1, [recipient.getAddress()]);
+```
+
+### [portal contracts] Versions and Non-following message boxes
+
+The version number is no longer hard-coded to be `1` across all deployments (it not depends on where it is deployed to and with what genesis and logic).
+This means that if your portal were hard-coding `1` it will now fail when inserting into the `inbox` or consuming from the `outbox` because of a version mismatch.
+Instead you can get the real version (which don't change for a deployment) by reading the `VERSION` on inbox and outbox, or using `getVersion()` on the rollup.
+
+New Deployments of the protocol do not preserve former state/across each other.
+This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existant contracts.
+To solve, the portal should be linked to a specific deployment, e.g., a specific inbox.
+This can be done by storing the inbox/outbox/version at the time of deployment or initialize and not update them.
+
+Both of these issues were in the token portal and the uniswap portal, so if you used them as a template it is very likely that you will also have it.
+
+## 0.82.0
+
+### [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
 
 It's common that we need block metadata of a block in which leaves where inserted when querying indexes of these tree leaves.
 For this reason we now return that information along with the indexes.
@@ -16,11 +100,11 @@ This allows us to reduce the number of individual AztecNode queries.
 
 Along this change `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions wer removed as all its uses can now be replaced with the newly modified `findLeavesIndexes` function.
 
-## [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
+### [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
 
 This change was done to have consistent naming across codebase.
 
-## [aztec.js] Wallet interface and Authwit management
+### [aztec.js] Wallet interface and Authwit management
 
 The `Wallet` interface in `aztec.js` is undergoing transformations, trying to be friendlier to wallet builders and reducing the surface of its API. This means `Wallet` no longer extends `PXE`, and instead just implements a subset of the methods of the former. This is NOT going to be its final form, but paves the way towards better interfaces and starts to clarify what the responsibilities of the wallet are:
 
@@ -106,9 +190,13 @@ const witness = await wallet.createAuthWit({ caller, action });
 ++await wallet.lookupValidity(wallet.getAddress(), { caller, action }, witness);
 ```
 
+## 0.80.0
+
 ### [PXE] Concurrent contract function simulation disabled
 
 PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
+
+## 0.79.0
 
 ### [aztec.js] Changes to `BatchCall` and `BaseContractInteraction`
 
@@ -576,7 +664,7 @@ We're preparing to make log assembly more customisable. These paths have changed
 
 ```diff
 - use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-+ use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
++ use dep::aztec::messages::logs::note::encode_and_encrypt_note,
 ```
 
 And similar paths for `encode_and_encrypt_note_unconstrained`, and for events and partial notes.
@@ -1793,7 +1881,7 @@ The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to
 
 ### [Aztec.nr] get_public_key oracle replaced with get_ivpk_m
 
-When implementing changes according to a [new key scheme](https://yp-aztec.netlify.app/docs/addresses-and-keys/keys) we had to change oracles.
+When implementing changes according to a new key scheme we had to change oracles.
 What used to be called encryption public key is now master incoming viewing public key.
 
 ```diff

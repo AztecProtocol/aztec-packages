@@ -23,7 +23,7 @@ contract RegisterNewRollupVersionPayload is IPayload {
 
     res[0] = Action({
       target: address(REGISTRY),
-      data: abi.encodeWithSelector(IRegistry.upgrade.selector, ROLLUP)
+      data: abi.encodeWithSelector(IRegistry.addRollup.selector, ROLLUP)
     });
 
     return res;

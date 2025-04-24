@@ -1,5 +1,8 @@
-import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
-import { SimpleContractDataSource } from '@aztec/simulator/server';
+import {
+  PublicTxSimulationTester,
+  SimpleContractDataSource,
+  type TestEnqueuedCall,
+} from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
@@ -138,13 +141,12 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     // TODO: Placeholder for now. They get ignored in C++.
     const inputs = await makeAvmCircuitInputs();
 
-    const rawVkPath = path.join(proofRes.vkPath!, 'vk');
     return await verifyAvmProofV2(
       BB_PATH,
       this.bbWorkingDirectory,
       proofRes.proofPath!,
       inputs.publicInputs,
-      rawVkPath,
+      proofRes.vkPath!,
       this.logger,
     );
   }

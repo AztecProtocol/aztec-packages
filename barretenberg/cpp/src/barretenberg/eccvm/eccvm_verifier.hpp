@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 
@@ -16,6 +22,7 @@ class ECCVMVerifier {
     using PCS = typename Flavor::PCS;
 
   public:
+    ECCVMVerifier() = default;
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
         : key(verifier_key){};
 
@@ -32,7 +39,7 @@ class ECCVMVerifier {
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_OPENING_CLAIMS> opening_claims;
 
-    std::shared_ptr<VerificationKey> key;
+    std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;

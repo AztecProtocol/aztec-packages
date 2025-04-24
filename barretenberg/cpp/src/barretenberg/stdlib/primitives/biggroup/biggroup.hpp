@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
@@ -20,6 +26,9 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
+
+    // Number of bb::fr field elements used to represent a goblin element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
         field_t<Builder> positive_skew;
@@ -38,6 +47,34 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
 
     element(const element& other);
     element(element&& other) noexcept;
+
+    /**
+     * @brief Set the witness indices for the x and y coordinates to public
+     *
+     * @return uint32_t Index at which the representation is stored in the public inputs
+     */
+    uint32_t set_public() const
+    {
+        const uint32_t start_idx = x.set_public();
+        y.set_public();
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a biggroup element from limbs of its coordinates (generally stored in the public inputs)
+     *
+     * @param limbs
+     * @return element
+     */
+    static element reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        const size_t FRS_PER_FQ = Fq::PUBLIC_INPUTS_SIZE;
+        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
+        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
+
+        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+    }
 
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {

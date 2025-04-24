@@ -15,20 +15,32 @@ namespace bb::avm2::simulation {
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
-    alu.add(context, a_addr, b_addr, dst_addr);
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    MemoryValue c = alu.add(a, b);
+    memory.set(dst_addr, c);
+
+    set_inputs({ a, b });
+    set_outputs({ c });
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, MemoryValue value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
 {
-    context.get_memory().set(dst_addr, std::move(value), static_cast<MemoryTag>(tag));
+    TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
+    context.get_memory().set(dst_addr, tagged_value);
+    set_outputs({ tagged_value });
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
-    auto [value, tag] = memory.get(src_addr);
-    memory.set(dst_addr, value, tag);
+    auto v = memory.get(src_addr);
+    memory.set(dst_addr, v);
+
+    set_inputs({ v });
+    set_outputs({ v });
 }
 
 void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size)
@@ -40,7 +52,7 @@ void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddres
 
     // TODO: Read more stuff from call operands (e.g., calldata, gas)
     // TODO(ilyas): How will we tag check these?
-    const auto [contract_address, _] = memory.get(addr);
+    FF contract_address = memory.get(addr).as_ff();
 
     // We could load cd_size here, but to keep symmetry with cd_offset - we will defer the loads to a (possible)
     // calldatacopy
@@ -82,9 +94,11 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
 
     // TODO: in gadget.
     auto resolved_cond = memory.get(cond_addr);
-    if (!resolved_cond.value.is_zero()) {
+    if (!resolved_cond.as_ff().is_zero()) {
         context.set_next_pc(loc);
     }
+
+    set_inputs({ resolved_cond });
 }
 
 // This context interface is an top-level enqueued one
@@ -115,7 +129,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // Go from a wire instruction to an execution opcode.
             const WireInstructionSpec& wire_spec = instruction_info_db.get(instruction.opcode);
             context.set_next_pc(pc + wire_spec.size_in_bytes);
-            info("@", pc, " ", instruction.to_string());
+            debug("@", pc, " ", instruction.to_string());
             ExecutionOpCode opcode = wire_spec.exec_opcode;
             ex_event.opcode = opcode;
 
@@ -131,6 +145,9 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
+            // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
+            ex_event.inputs = get_inputs();
+            ex_event.output = get_outputs();
 
             // Move on to the next pc.
             context.set_pc(context.get_next_pc());
@@ -191,9 +208,9 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 {
     assert(resolved_operands.size() == sizeof...(Ts));
     auto operand_indices = std::make_index_sequence<sizeof...(Ts)>{};
-    using types = std::tuple<Ts...>;
     [f, this, &context, &resolved_operands]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (this->*f)(context, static_cast<std::tuple_element_t<Is, types>>(resolved_operands[Is])...);
+        // FIXME(fcarreiro): we go through FF here.
+        (this->*f)(context, static_cast<Ts>(resolved_operands.at(Is).as_ff())...);
     }(operand_indices);
 }
 

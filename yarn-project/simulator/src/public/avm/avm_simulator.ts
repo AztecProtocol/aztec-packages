@@ -7,20 +7,16 @@ import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { strict as assert } from 'assert';
 
 import { SideEffectLimitReachedError } from '../side_effect_errors.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import type { Gas } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
-import {
-  AvmExecutionError,
-  AvmRevertReason,
-  InvalidProgramCounterError,
-  revertReasonFromExceptionalHalt,
-  revertReasonFromExplicitRevert,
-} from './errors.js';
-import type { AvmPersistableStateManager } from './journal/journal.js';
+import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
+import { AvmExecutionError, AvmRevertReason, InvalidProgramCounterError } from './errors.js';
 import type { Instruction } from './opcodes/instruction.js';
+import { revertReasonFromExceptionalHalt, revertReasonFromExplicitRevert } from './revert_reason.js';
 import {
   INSTRUCTION_SET,
   type InstructionSet,
@@ -32,7 +28,7 @@ type OpcodeTally = {
   gas: Gas;
 };
 
-export class AvmSimulator {
+export class AvmSimulator implements AvmSimulatorInterface {
   private log: Logger;
   private bytecode: Buffer | undefined;
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
@@ -75,7 +71,7 @@ export class AvmSimulator {
   }
 
   public static async create(
-    stateManager: AvmPersistableStateManager,
+    stateManager: PublicPersistableStateManager,
     address: AztecAddress,
     sender: AztecAddress,
     transactionFee: Fr,

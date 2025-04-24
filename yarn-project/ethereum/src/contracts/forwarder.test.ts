@@ -10,11 +10,12 @@ import { type GetContractReturnType, encodeFunctionData, getContract } from 'vie
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
-import { createL1Clients, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
+import { deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import type { ViemPublicClient, ViemWalletClient } from '../types.js';
+import type { ExtendedViemWalletClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { ForwarderContract } from './forwarder.js';
 
@@ -26,52 +27,44 @@ describe('Forwarder', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let l2FeeJuiceAddress: Fr;
-  let walletClient: ViemWalletClient;
-  let publicClient: ViemPublicClient;
+  let l1Client: ExtendedViemWalletClient;
   let forwarder: ForwarderContract;
   let l1TxUtils: L1TxUtils;
   let govProposerAddress: EthAddress;
   let tokenAddress: EthAddress;
-  let tokenContract: GetContractReturnType<typeof TestERC20Abi, ViemPublicClient>;
+  let tokenContract: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
   beforeAll(async () => {
     logger = createLogger('ethereum:test:forwarder');
     // this is the 6th address that gets funded by the junk mnemonic
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
-    // Valid AztecAddress represented by its xCoord as a Fr
-    l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ walletClient, publicClient } = createL1Clients([rpcUrl], privateKey));
+    l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot,
       protocolContractTreeRoot,
-      l2FeeJuiceAddress,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
 
     govProposerAddress = deployed.l1ContractAddresses.governanceProposerAddress;
 
     forwarder = await ForwarderContract.create(
       privateKey.address,
-      walletClient,
-      publicClient,
+      l1Client,
       logger,
       deployed.l1ContractAddresses.rollupAddress.toString(),
     );
 
-    l1TxUtils = new L1TxUtils(publicClient, walletClient, logger);
+    l1TxUtils = new L1TxUtils(l1Client, logger);
 
     const { address: erc20Address, txHash: erc20TxHash } = await deployL1Contract(
-      walletClient,
-      publicClient,
+      l1Client,
       TestERC20Abi,
       TestERC20Bytecode,
       ['test', 'TST', privateKey.address],
@@ -80,16 +73,16 @@ describe('Forwarder', () => {
       logger,
     );
     expect(erc20TxHash).toBeDefined();
-    await publicClient.waitForTransactionReceipt({ hash: erc20TxHash! });
+    await l1Client.waitForTransactionReceipt({ hash: erc20TxHash! });
     tokenAddress = erc20Address;
     tokenContract = getContract({
       address: tokenAddress.toString(),
       abi: TestERC20Abi,
-      client: publicClient,
+      client: l1Client,
     });
 
     const addMinterHash = await tokenContract.write.addMinter([forwarder.getAddress()], { account: privateKey });
-    await publicClient.waitForTransactionReceipt({ hash: addMinterHash });
+    await l1Client.waitForTransactionReceipt({ hash: addMinterHash });
 
     logger.info(`Token address: ${tokenAddress}`);
   });
@@ -134,5 +127,10 @@ describe('Forwarder', () => {
     expect(err).toBeDefined();
     expect(err).toBeInstanceOf(FormattedViemError);
     expect(err.message).toMatch(/GovernanceProposer__OnlyProposerCanVote/);
+  });
+
+  it('gets expected address', () => {
+    const expected = ForwarderContract.expectedAddress('0x8048539a57619864fdcAE35282731809CD1f5E8D');
+    expect(expected).toBe('0xEB416A0f18CEf8Ce5C9dd4BceF4BeFfb771703c6');
   });
 });
