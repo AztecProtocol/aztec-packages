@@ -1,7 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -43,7 +50,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -67,6 +74,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         honk_proof = proof;
     }
     transcript = std::make_shared<Transcript>(honk_proof);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
+    // RecursiveDeciderVK here. Seems unnecessary.
     auto verification_key = std::make_shared<RecursiveDeciderVK>(builder, key);
     OinkVerifier oink_verifier{ builder, verification_key, transcript };
     oink_verifier.verify();
@@ -78,12 +87,9 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually vk stores public input key directly.
-    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0],
-                                                             true };
+    // Extract the aggregation object from the public inputs
     AggregationObject nested_agg_obj =
-        PublicAggState::reconstruct(verification_key->public_inputs, pairing_point_public_input_key);
+        PublicAggState::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
@@ -91,17 +97,21 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
-    Sumcheck sumcheck(log_circuit_size, transcript);
+
+    const auto padding_indicator_array =
+        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
+
+    constrain_log_circuit_size(padding_indicator_array, key->circuit_size);
+
+    auto sumcheck = Sumcheck(transcript);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-    SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
+    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
+        verification_key->relation_parameters, verification_key->alphas, gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
@@ -115,7 +125,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(log_circuit_size,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
@@ -136,15 +146,10 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
         using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
-
-        if (verification_key->verification_key->contains_ipa_claim) {
-            PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0],
-                                              true };
-            output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
-        }
+        output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs,
+                                                       verification_key->verification_key->ipa_claim_public_input_key);
     }
 
     return output;
@@ -156,7 +161,5 @@ template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuil
 template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
-template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 template class UltraRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
@@ -281,17 +287,7 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    uint32_t set_public() const
-    {
-        uint32_t public_input_index = 0;
-        if constexpr (IsSimulator<Builder>) {
-            auto value = normalize().get_value();
-            public_input_index = context->set_public_input(value);
-        } else {
-            public_input_index = context->set_public_input(normalize().witness_index);
-        }
-        return public_input_index;
-    }
+    uint32_t set_public() const { return context->set_public_input(normalize().witness_index); }
 
     /**
      * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "polynomial_store_wasm.hpp"
 #include "barretenberg/env/data_store.hpp"
 #include "barretenberg/polynomials/legacy_polynomial.hpp"

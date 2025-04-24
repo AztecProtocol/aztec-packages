@@ -6,12 +6,8 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  PublicProcessor,
-  PublicProcessorFactory,
-  PublicTxSimulationTester,
-  SimpleContractDataSource,
-} from '@aztec/simulator/server';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
+import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
