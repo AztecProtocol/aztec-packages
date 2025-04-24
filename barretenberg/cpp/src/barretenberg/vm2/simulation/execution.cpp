@@ -91,6 +91,12 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryA
     context.halt();
 }
 
+void Execution::revert(ContextInterface& context, MemoryAddress rev_offset, MemoryAddress rev_size_offset)
+{
+    set_execution_result({ .rd_offset = rev_offset, .rd_size = rev_size_offset, .success = false });
+    context.halt();
+}
+
 void Execution::jump(ContextInterface& context, uint32_t loc)
 {
     context.set_next_pc(loc);

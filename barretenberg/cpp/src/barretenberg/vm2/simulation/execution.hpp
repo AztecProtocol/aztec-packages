@@ -71,6 +71,7 @@ class Execution : public ExecutionInterface {
               MemoryAddress cd_offset,
               MemoryAddress cd_size);
     void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
+    void revert(ContextInterface& context, MemoryAddress rev_offset, MemoryAddress rev_size_offset);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
