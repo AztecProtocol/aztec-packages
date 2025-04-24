@@ -11,7 +11,7 @@ function test_cmds {
 
   # Longest-running tests first
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$prefix:TIMEOUT=15m:CPUS=8:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+    echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
