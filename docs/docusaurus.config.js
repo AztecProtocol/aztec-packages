@@ -241,6 +241,11 @@ const config = {
             position: "right",
           },
           {
+            to: "/try_testnet",
+            label: "Try Testnet",
+            position: "right",
+          },
+          {
             type: "dropdown",
             label: "Resources",
             position: "right",
