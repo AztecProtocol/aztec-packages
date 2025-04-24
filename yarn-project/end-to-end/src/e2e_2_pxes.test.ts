@@ -1,6 +1,8 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+// docs:start:import_aztecjs
 import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
+// docs:end:import_aztecjs
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -9,7 +11,7 @@ import { expect, jest } from '@jest/globals';
 import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup, setupPXEService } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);

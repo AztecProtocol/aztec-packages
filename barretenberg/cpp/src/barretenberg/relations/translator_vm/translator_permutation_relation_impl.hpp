@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 
@@ -18,6 +24,8 @@ namespace bb {
  * the first 4 numerator polynomials are interleaved range constraint polynomials and the last one is the constant
  * extra numerator
  *
+ * If operating in zero-knowledge, we mark the positions (via the lagrange_masking polynomial) that
+ * contain random values.
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
  * @param parameters contains beta, gamma, and public_input_delta, ....

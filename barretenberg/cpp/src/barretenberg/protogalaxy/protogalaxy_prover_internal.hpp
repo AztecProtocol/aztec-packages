@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/op_count.hpp"
@@ -505,10 +511,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     /**
      * @brief Compute the combiner quotient defined as $K$ polynomial in the paper.
-     *
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/764): generalize the computation of vanishing
-     * polynomials and Lagrange basis and use batch_invert.
-     *
      */
     static Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH, DeciderPKs::NUM> compute_combiner_quotient(
         FF perturbator_evaluation, ExtendedUnivariateWithRandomization combiner)

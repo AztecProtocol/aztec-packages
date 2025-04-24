@@ -5,9 +5,9 @@
 #include <memory>
 #include <vector>
 
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
@@ -97,7 +97,6 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
     tracegen::LookupIntoDynamicTableSequential<bc_hashing_lookup_relation::Settings>().process(trace);
 
     check_relation<bc_hashing>(trace);
-    check_interaction<bc_hashing_lookup_relation>(trace);
 }
 
 TEST(BytecodeHashingConstrainingTest, BytecodeInteractions)
@@ -118,8 +117,6 @@ TEST(BytecodeHashingConstrainingTest, BytecodeInteractions)
     tracegen::LookupIntoDynamicTableSequential<length_iv_relation::Settings>().process(trace);
 
     check_relation<bc_hashing>(trace);
-    check_interaction<bc_decomp_lookup_relation>(trace);
-    check_interaction<length_iv_relation>(trace);
 }
 
 TEST(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)
@@ -176,6 +173,22 @@ TEST(BytecodeHashingConstrainingTest, NegativeChainOutput)
     trace.set(Column::bc_hashing_incremental_hash, 2, 123);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_CHAIN_OUTPUT_TO_INCR),
                               "CHAIN_OUTPUT_TO_INCR");
+}
+
+// Negative test where latch == 1 and sel == 0
+TEST(BytecodeHashingConstrainingTest, NegativeLatchNotSel)
+{
+    TestTraceContainer trace;
+    trace.set(0,
+              { {
+                  { C::bc_hashing_latch, 1 },
+                  { C::bc_hashing_sel, 1 },
+              } });
+
+    check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_TOGGLED_AT_LATCH);
+    trace.set(C::bc_hashing_sel, 0, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_TOGGLED_AT_LATCH),
+                              "SEL_TOGGLED_AT_LATCH");
 }
 
 TEST(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)

@@ -2,12 +2,12 @@ import {
   type AccountWallet,
   type AztecAddress,
   Fr,
-  type FunctionCall,
   FunctionSelector,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { FunctionType } from '@aztec/stdlib/abi';
@@ -34,6 +34,7 @@ describe('e2e_fees failures', () => {
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
     t.setIsMarkingAsProven(false);
@@ -77,6 +78,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -95,15 +97,20 @@ describe('e2e_fees failures', () => {
 
     expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
 
+    const { sequencerBlockRewards } = await t.getBlockRewards();
+
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
     const feeAmount = txReceipt.transactionFee!;
     const expectedProverFee = await t.getProverFee(txReceipt.blockNumber!);
     const newSequencerRewards = await t.getCoinbaseSequencerRewards();
-    expect(newSequencerRewards).toEqual(currentSequencerRewards + feeAmount - expectedProverFee);
+    expect(newSequencerRewards).toEqual(
+      currentSequencerRewards + sequencerBlockRewards + feeAmount - expectedProverFee,
+    );
 
     // and thus we paid the fee
     await expectMapping(
@@ -324,7 +331,7 @@ describe('e2e_fees failures', () => {
 });
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
-  override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+  override async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     const maxFee = gasSettings.getFeeLimit();
     const nonce = Fr.random();
 
@@ -348,17 +355,21 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       true,
     );
 
-    return [
-      ...(await setPublicAuthWitInteraction.request()).calls,
-      {
-        name: 'fee_entrypoint_public',
-        to: this.paymentContract,
-        selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
-        type: FunctionType.PRIVATE,
-        isStatic: false,
-        args: [tooMuchFee, nonce],
-        returnTypes: [],
-      },
-    ];
+    return new ExecutionPayload(
+      [
+        ...(await setPublicAuthWitInteraction.request()).calls,
+        {
+          name: 'fee_entrypoint_public',
+          to: this.paymentContract,
+          selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
+          type: FunctionType.PRIVATE,
+          isStatic: false,
+          args: [tooMuchFee, nonce],
+          returnTypes: [],
+        },
+      ],
+      [],
+      [],
+    );
   }
 }

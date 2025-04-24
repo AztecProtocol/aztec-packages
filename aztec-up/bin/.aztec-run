@@ -13,7 +13,8 @@
 # Such stuff belongs in higher level e.g. `aztec` or `aztec-wallet` scripts.
 set -euo pipefail
 
-CONTAINER_NAME=$1
+# Can be overriden by env var CONTAINER_NAME, e.g. to start two sandboxes.
+CONTAINER_NAME=${CONTAINER_NAME:-$1}
 shift
 
 VERSION=${VERSION:-"latest"}
@@ -140,6 +141,7 @@ function run {
     ${arg_env_vars:-} \
     ${arg_host_binds:-} \
     ${arg_user:-} \
+    --entrypoint "" \
     aztecprotocol/aztec:$VERSION "${args[@]}"
 }
 

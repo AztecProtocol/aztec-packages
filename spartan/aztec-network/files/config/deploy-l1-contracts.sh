@@ -1,12 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -exu
 
 # If REGISTRY_CONTRACT_ADDRESS is already set, skip deployment and just write the file
 if [ -n "${REGISTRY_CONTRACT_ADDRESS:-}" ]; then
+  # make sure that the fee asset handler address is set
+  if [ -z "${FEE_ASSET_HANDLER_CONTRACT_ADDRESS:-}" ]; then
+    echo "Registry address is already set, but FeeAssetHandler address is not set. Exiting."
+    exit 1
+  fi
+  # make sure the slash factory address is set
+  if [ -z "${SLASH_FACTORY_CONTRACT_ADDRESS:-}" ]; then
+    echo "Registry address is already set, but SlashFactory address is not set. Exiting."
+    exit 1
+  fi
+
   echo "Registry address already set. Skipping deployment."
   # Write the addresses to a file in the shared volume
   cat <<EOF >/shared/contracts/contracts.env
 export REGISTRY_CONTRACT_ADDRESS=$REGISTRY_CONTRACT_ADDRESS
+export SLASH_FACTORY_CONTRACT_ADDRESS=$SLASH_FACTORY_CONTRACT_ADDRESS
+export FEE_ASSET_HANDLER_CONTRACT_ADDRESS=$FEE_ASSET_HANDLER_CONTRACT_ADDRESS
 EOF
   cat /shared/contracts/contracts.env
   exit 0
@@ -31,10 +44,17 @@ fi
 output=""
 MAX_RETRIES=5
 RETRY_DELAY=15
+
 TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
 TEST_ACCOUNTS_ARG=""
 if [ "$TEST_ACCOUNTS" = "true" ]; then
   TEST_ACCOUNTS_ARG="--test-accounts"
+fi
+
+SPONSORED_FPC=${SPONSORED_FPC:-false}
+SPONSORED_FPC_ARG=""
+if [ "$SPONSORED_FPC" = "true" ]; then
+  SPONSORED_FPC_ARG="--sponsored-fpc"
 fi
 
 ACCELERATED_TEST_DEPLOYMENTS_ARG=""
@@ -44,7 +64,7 @@ fi
 
 for attempt in $(seq 1 $MAX_RETRIES); do
   # Construct base command
-  base_cmd="LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts $TEST_ACCOUNTS_ARG $ACCELERATED_TEST_DEPLOYMENTS_ARG"
+  base_cmd="LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts $TEST_ACCOUNTS_ARG $ACCELERATED_TEST_DEPLOYMENTS_ARG $SPONSORED_FPC_ARG"
 
   # Add account - use private key if set, otherwise use mnemonic
   if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
@@ -72,11 +92,12 @@ echo "$output"
 # Extract contract addresses using grep and regex
 registry_address=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-fA-F0-9]{40}')
 slash_factory_address=$(echo "$output" | grep -oP 'SlashFactory Address: \K0x[a-fA-F0-9]{40}')
-
+fee_asset_handler_address=$(echo "$output" | grep -oP 'FeeAssetHandler Address: \K0x[a-fA-F0-9]{40}')
 # Write the addresses to a file in the shared volume
 cat <<EOF >/shared/contracts/contracts.env
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
 export SLASH_FACTORY_CONTRACT_ADDRESS=$slash_factory_address
+export FEE_ASSET_HANDLER_CONTRACT_ADDRESS=$fee_asset_handler_address
 EOF
 
 cat /shared/contracts/contracts.env

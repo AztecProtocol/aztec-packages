@@ -7,7 +7,7 @@ hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
 function build {
   echo_header "bb.js build"
-  denoise "yarn install"
+  yarn install
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
@@ -41,7 +41,7 @@ function test {
 }
 
 function release {
-  deploy_npm $(dist_tag) ${REF_NAME#v}
+  retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
 case "$cmd" in
@@ -59,7 +59,7 @@ case "$cmd" in
     echo "$hash"
     ;;
   "bench")
-    echo "ts/bootstrap.sh bench is empty"
+    # Empty handling just to make this command valid.
     ;;
   test|test_cmds|release)
     $cmd

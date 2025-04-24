@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-hash=$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns)
+hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 export GIT_COMMIT="0000000000000000000000000000000000000000"
 export SOURCE_DATE_EPOCH=0

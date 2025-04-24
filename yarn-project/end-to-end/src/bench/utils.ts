@@ -1,16 +1,12 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
 import type { MetricsType } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { writeFileSync } from 'fs';
-import { mkdirpSync } from 'fs-extra';
-import { globSync } from 'glob';
-import { join } from 'path';
 
 import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
@@ -36,6 +32,9 @@ export async function benchmarkSetup(
     await telemetry.flush();
     const data = telemetry.getMeters();
     const formatted = formatMetricsForGithubBenchmarkAction(data, opts.metrics);
+    if (formatted.length === 0) {
+      throw new Error(`No benchmark data generated. Please review your test setup.`);
+    }
     const benchOutput = opts.benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
     writeFileSync(benchOutput, JSON.stringify(formatted));
     context.logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);
@@ -89,30 +88,6 @@ function getMetricValues(points: BenchmarkDataPoint[]) {
     const values = points.map(point => point.value);
     return { value: mean(values), range: `± ${stdDev(values)}` };
   }
-}
-
-/**
- * Creates and returns a directory with the current job name and a random number.
- * @param index - Index to merge into the dir path.
- * @returns A path to a created dir.
- */
-export function makeDataDirectory(index: number) {
-  const testName = expect.getState().currentTestName!.split(' ')[0].replaceAll('/', '_');
-  const db = join('data', testName, index.toString(), `${randomInt(99)}`);
-  mkdirpSync(db);
-  return db;
-}
-
-/**
- * Returns the size in disk of a folder.
- * @param path - Path to the folder.
- * @returns Size in bytes.
- */
-export function getFolderSize(path: string): number {
-  return globSync('**', { stat: true, cwd: path, nodir: true, withFileTypes: true }).reduce(
-    (accum, file) => accum + (file as any as { /** Size */ size: number }).size,
-    0,
-  );
 }
 
 /**
@@ -179,21 +154,17 @@ export async function waitTxs(txs: SentTx[], context: EndToEndContext, txWaitOpt
  * @param startingBlock - First l2 block to process.
  * @returns The new PXE.
  */
-export async function createNewPXE(
-  node: AztecNode,
-  contract: BenchmarkingContract,
-  startingBlock: number = INITIAL_L2_BLOCK_NUM,
-): Promise<PXEService> {
+export async function createNewPXE(node: AztecNode, contract: BenchmarkingContract): Promise<PXEService> {
   const l1Contracts = await node.getL1ContractAddresses();
-  const { l1ChainId, protocolVersion } = await node.getNodeInfo();
+  const { l1ChainId, rollupVersion } = await node.getNodeInfo();
   const pxeConfig = {
-    l2StartingBlock: startingBlock,
+    l2BlockBatchSize: 200,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts,
     l1ChainId,
-    version: protocolVersion,
+    rollupVersion,
   } as PXEServiceConfig;
   const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);

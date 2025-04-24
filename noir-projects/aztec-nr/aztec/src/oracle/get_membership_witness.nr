@@ -1,5 +1,4 @@
-use crate::utils::array;
-use dep::protocol_types::constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT};
+use protocol_types::constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT};
 
 global NOTE_HASH_TREE_ID: Field = 1;
 global ARCHIVE_TREE_ID: Field = 4;
@@ -17,20 +16,11 @@ pub struct MembershipWitness<let N: u32, let M: u32> {
 }
 
 #[oracle(getMembershipWitness)]
-unconstrained fn get_membership_witness_oracle<let M: u32>(
+unconstrained fn get_membership_witness<let N: u32, let M: u32>(
     _block_number: u32,
     _tree_id: Field,
     _leaf_value: Field,
-) -> [Field; M] {}
-
-pub unconstrained fn get_membership_witness<let N: u32, let M: u32>(
-    block_number: u32,
-    tree_id: Field,
-    leaf_value: Field,
-) -> MembershipWitness<N, M> {
-    let fields: [Field; M] = get_membership_witness_oracle(block_number, tree_id, leaf_value);
-    MembershipWitness { index: fields[0], path: array::subarray(fields, 1) }
-}
+) -> MembershipWitness<N, M> {}
 
 // Note: get_nullifier_membership_witness function is implemented in get_nullifier_membership_witness.nr
 

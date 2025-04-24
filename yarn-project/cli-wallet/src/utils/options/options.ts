@@ -39,14 +39,18 @@ export function aliasedTxHashParser(txHash: string, db?: WalletDB) {
   }
 }
 
-export function aliasedAuthWitParser(witness: string, db?: WalletDB) {
-  try {
-    return AuthWitness.fromString(witness);
-  } catch (err) {
-    const prefixed = witness.includes(':') ? witness : `authwits:${witness}`;
-    const rawAuthWitness = db ? db.tryRetrieveAlias(prefixed) : witness;
-    return AuthWitness.fromString(rawAuthWitness);
-  }
+export function aliasedAuthWitParser(witnesses: string, db?: WalletDB) {
+  const parsedWitnesses = witnesses.split(',').map(witness => {
+    try {
+      return AuthWitness.fromString(witness);
+    } catch (err) {
+      const prefixed = witness.includes(':') ? witness : `authwits:${witness}`;
+      const rawAuthWitness = db ? db.tryRetrieveAlias(prefixed) : witness;
+      return AuthWitness.fromString(rawAuthWitness);
+    }
+  });
+
+  return parsedWitnesses;
 }
 
 export function aliasedAddressParser(defaultPrefix: AliasType, address: string, db?: WalletDB) {
@@ -79,6 +83,12 @@ export function createAccountOption(description: string, hide: boolean, db?: Wal
     .argParser(address => aliasedAddressParser('accounts', address, db));
 }
 
+export function createAuthwitnessOption(description: string, hide: boolean, db?: WalletDB) {
+  return new Option('-aw, --auth-witness <string,...>', description)
+    .hideHelp(hide)
+    .argParser(witness => aliasedAuthWitParser(witness, db));
+}
+
 export function createTypeOption(mandatory: boolean) {
   return new Option('-t, --type <string>', 'Type of account to create')
     .choices(AccountTypes)
@@ -101,6 +111,13 @@ export function createContractAddressOption(db?: WalletDB) {
   return new Option('-ca, --contract-address <address>', 'Aztec address of the contract.')
     .argParser(address => aliasedAddressParser('contracts', address, db))
     .makeOptionMandatory(true);
+}
+
+export function createDebugExecutionStepsDirOption() {
+  return new Option(
+    '--debug-execution-steps-dir <address>',
+    'Directory to write execution step artifacts for bb profiling/debugging.',
+  ).makeOptionMandatory(false);
 }
 
 export function artifactPathParser(filePath: string, db?: WalletDB) {
@@ -140,13 +157,6 @@ export function createArtifactOption(db?: WalletDB) {
     .makeOptionMandatory(false);
 }
 
-export function createProfileOption() {
-  return new Option(
-    '-p, --profile',
-    'Run the real prover and get the gate count for each function in the transaction.',
-  ).default(false);
-}
-
 async function contractArtifactFromWorkspace(pkg?: string, contractName?: string) {
   const cwd = process.cwd();
   try {
@@ -172,4 +182,8 @@ async function contractArtifactFromWorkspace(pkg?: string, contractName?: string
     );
   }
   return `${cwd}/${TARGET_DIR}/${bestMatch[0]}`;
+}
+
+export function cleanupAuthWitnesses(authWitnesses: AuthWitness[] | undefined): AuthWitness[] {
+  return authWitnesses?.filter(w => w !== undefined) ?? [];
 }

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Takes a google benchmark output .json file and summarizes the op counts to console.
+
+set -eu
+op_count_json="$1"
+num_lines="${2:-10}"
+if [ -z "$op_count_json" ]; then
+  echo "Usage: $0 <input_file> [number of lines]"
+  exit 1
+fi
+
+# Get the time in seconds, truncating to 3 decimal places
+jq -r '.benchmarks[0].real_time / 1e3' $op_count_json |
+  awk '{printf "%.9f\n", $1}' |
+  sed 's/^\./0./' |
+  xargs -I{} echo -e "{}\tTOTAL(s)"
+
+jq -r '.benchmarks[0] | to_entries[] |
+  select(.key | endswith("(t)")) |
+  {op: (.key | rtrimstr("(t)")), seconds: (.value / 1e9)} |
+  [.seconds,.op] | @tsv' $op_count_json |
+  sort -k1 -nr |
+  head -$num_lines

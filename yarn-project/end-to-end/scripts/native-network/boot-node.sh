@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 REPO=$(git rev-parse --show-toplevel)
@@ -16,11 +16,10 @@ export PORT=${PORT:-"8080"}
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
-export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
+export L1_CONSENSUS_HOST_URLS=${L1_CONSENSUS_HOST_URLS:-}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="true"
 export BLOB_SINK_URL="http://127.0.0.1:${BLOB_SINK_PORT:-5053}"
-export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
 export SEQ_MIN_TX_PER_BLOCK="1"
 export P2P_IP="127.0.0.1"
 export P2P_PORT="40400"

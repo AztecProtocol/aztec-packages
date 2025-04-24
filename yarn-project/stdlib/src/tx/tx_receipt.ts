@@ -1,9 +1,7 @@
-import type { Fr } from '@aztec/foundation/fields';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { L2BlockHash } from '../block/block_hash.js';
 import { type ZodFor, schemas } from '../schemas/schemas.js';
@@ -41,8 +39,6 @@ export class TxReceipt {
     public blockHash?: L2BlockHash,
     /** The block number in which the transaction was included. */
     public blockNumber?: number,
-    /** Information useful for testing/debugging, set when test flag is set to true in `waitOpts`. */
-    public debugInfo?: DebugInfo,
   ) {}
 
   static empty() {
@@ -58,7 +54,6 @@ export class TxReceipt {
         blockHash: L2BlockHash.schema.optional(),
         blockNumber: z.number().int().nonnegative().optional(),
         transactionFee: schemas.BigInt.optional(),
-        debugInfo: DebugInfoSchema.optional(),
       })
       .transform(TxReceipt.from);
   }
@@ -71,7 +66,6 @@ export class TxReceipt {
       fields.transactionFee,
       fields.blockHash,
       fields.blockNumber,
-      fields.debugInfo,
     );
   }
 
@@ -89,33 +83,3 @@ export class TxReceipt {
     }
   }
 }
-
-/**
- * Information useful for debugging/testing purposes included in the receipt when the debug flag is set to true
- * in `WaitOpts`.
- */
-interface DebugInfo {
-  /**
-   * New note hashes created by the transaction.
-   */
-  noteHashes: Fr[];
-  /**
-   * New nullifiers created by the transaction.
-   */
-  nullifiers: Fr[];
-  /**
-   * New public data writes created by the transaction.
-   */
-  publicDataWrites: PublicDataWrite[];
-  /**
-   * New L2 to L1 messages created by the transaction.
-   */
-  l2ToL1Msgs: Fr[];
-}
-
-const DebugInfoSchema = z.object({
-  noteHashes: z.array(schemas.Fr),
-  nullifiers: z.array(schemas.Fr),
-  publicDataWrites: z.array(PublicDataWrite.schema),
-  l2ToL1Msgs: z.array(schemas.Fr),
-});

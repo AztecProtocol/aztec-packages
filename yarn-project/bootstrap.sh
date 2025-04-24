@@ -5,10 +5,11 @@ cmd=${1:-}
 [ -n "$cmd" ] && shift
 
 function hash {
-  cache_content_hash \
-    ../noir/.rebuild_patterns \
-    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-    ../barretenberg/*/.rebuild_patterns
+  hash_str \
+    $(../noir/bootstrap.sh hash) \
+    $(cache_content_hash \
+      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+      ../barretenberg/*/.rebuild_patterns)
 }
 
 function compile_project {
@@ -31,12 +32,18 @@ function get_projects {
 }
 
 function format {
+  local arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn --check
+    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
 }
 
 function lint {
-  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache ./src"
+  local arg="--fix"
+  if [ "${1-}" == "--check" ]; then
+    arg=""
+    shift 1
+  fi
+  get_projects | parallel "cd {} && ../node_modules/.bin/eslint $@ --cache $arg ./src"
 }
 
 function compile_all {
@@ -53,6 +60,7 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
+    bb-prover \
     stdlib \
     ivc-integration \
     l1-artifacts \
@@ -65,10 +73,10 @@ function compile_all {
 
   get_projects | compile_project
 
-  cmds=(format)
+  cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
     # Fully type check and lint.
-    cmds+=('yarn tsc -b --emitDeclarationOnly && lint')
+    cmds+=('yarn tsc -b --emitDeclarationOnly && lint --check')
   else
     # We just need the type declarations required for downstream consumers.
     cmds+=('cd aztec.js && yarn tsc -b --emitDeclarationOnly')
@@ -76,7 +84,7 @@ function compile_all {
   parallel --joblog joblog.txt --tag denoise ::: "${cmds[@]}"
   cat joblog.txt
 
-  if [ "${CI:-0}" -eq 1 ]; then
+  if [ "$CI" -eq 1 ]; then
     cache_upload "yarn-project-$hash.tar.gz" $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
   fi
 }
@@ -86,29 +94,23 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  if [ "${CI:-0}" = 1 ]; then
-    # If in CI mode, retry as bcrypto can sometimes fail mysteriously.
-    # We set immutable since we don't expect the yarn.lock to change. Note that we have also added all package.json
-    # files to yarn immutablePatterns, so if they are also changed, this step will fail.
-    denoise "retry yarn install --immutable"
-  else
-    denoise "yarn install --no-immutable"
-  fi
+  npm_install_deps
   denoise "compile_all"
-  echo -e "${green}Yarn project successfully built!${reset}"
 }
 
 function test_cmds {
   local hash=$(hash)
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
-    if [[ ! "$test" =~ testbench ]]; then
-      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
-    else
+    if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
-      echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+      echo "$hash ISOLATE=1 CPUS=10 MEM=10g yarn-project/scripts/run_test.sh $test"
+    elif [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
+      # Add debug logging for tests that require a bit more info
+      echo "$hash ISOLATE=1 LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     fi
-
   done
 
   # Enable real proofs in prover-client integration tests only on CI full
@@ -128,7 +130,8 @@ function test_cmds {
   # prover-node|p2p|ethereum|aztec: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
     [[ "$test" == prover-client/src/test/* ]] && continue
-    echo $hash yarn-project/scripts/run_test.sh $test
+    # Enable debug logging for a subset of unit tests that are causing trouble.
+    echo "$hash yarn-project/scripts/run_test.sh $test"
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.
@@ -147,7 +150,7 @@ function release_packages {
   local packages=$(get_projects topological)
   local package_list=()
   for package in $packages; do
-    (cd $package && deploy_npm $1 $2)
+    (cd $package && retry "deploy_npm $1 $2")
     local package_name=$(jq -r .name "$package/package.json")
     package_list+=("$package_name@$2")
   done
@@ -196,8 +199,8 @@ case "$cmd" in
       get_projects | compile_project
     fi
     ;;
-  "lint")
-    lint "$@"
+  lint|format)
+    $cmd "$@"
     ;;
   test|test_cmds|hash|release|format)
     $cmd

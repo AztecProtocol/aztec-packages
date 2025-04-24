@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to extract the IP addresses of bootnodes in the given network, SSH into them, update their image tag before restarting them
 
@@ -50,4 +50,3 @@ while read -r REGION IP; do
 done < <(echo "$GCP_IP_OUTPUT" | jq -r 'to_entries | .[] | "\(.key) \(.value)"')
 
 rm -f $SSH_KEY_FILE
-

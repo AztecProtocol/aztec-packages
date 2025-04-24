@@ -1,4 +1,4 @@
-import type { ViemPublicClient } from '@aztec/ethereum';
+import type { ViemClient } from '@aztec/ethereum';
 import type { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -20,7 +20,7 @@ import { RollupCheatCodes } from './rollup_cheat_codes.js';
 export class AnvilTestWatcher {
   private isSandbox: boolean = false;
 
-  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private rollupCheatCodes: RollupCheatCodes;
 
   private filledRunningPromise?: RunningPromise;
@@ -34,13 +34,13 @@ export class AnvilTestWatcher {
   constructor(
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
-    publicClient: ViemPublicClient,
+    l1Client: ViemClient,
     private dateProvider?: TestDateProvider,
   ) {
     this.rollup = getContract({
       address: getAddress(rollupAddress.toString()),
       abi: RollupAbi,
-      client: publicClient,
+      client: l1Client,
     });
 
     this.rollupCheatCodes = new RollupCheatCodes(this.cheatcodes, {
@@ -70,11 +70,11 @@ export class AnvilTestWatcher {
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
     if (isAutoMining) {
-      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 1000);
+      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 200);
       this.filledRunningPromise.start();
-      this.mineIfOutdatedPromise = new RunningPromise(() => this.mineIfOutdated(), this.logger, 1000);
+      this.mineIfOutdatedPromise = new RunningPromise(() => this.mineIfOutdated(), this.logger, 200);
       this.mineIfOutdatedPromise.start();
-      this.markingAsProvenRunningPromise = new RunningPromise(() => this.markAsProven(), this.logger, 1000);
+      this.markingAsProvenRunningPromise = new RunningPromise(() => this.markAsProven(), this.logger, 200);
       this.markingAsProvenRunningPromise.start();
       this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
@@ -86,6 +86,12 @@ export class AnvilTestWatcher {
     await this.filledRunningPromise?.stop();
     await this.mineIfOutdatedPromise?.stop();
     await this.markingAsProvenRunningPromise?.stop();
+  }
+
+  async trigger() {
+    await this.filledRunningPromise?.trigger();
+    await this.mineIfOutdatedPromise?.trigger();
+    await this.markingAsProvenRunningPromise?.trigger();
   }
 
   async markAsProven() {

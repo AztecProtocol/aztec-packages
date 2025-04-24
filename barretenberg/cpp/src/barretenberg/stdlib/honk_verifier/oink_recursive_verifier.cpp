@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -43,15 +49,15 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    FF circuit_size = FF::from_witness(builder, verification_key->verification_key->circuit_size);
-    FF public_input_size = FF::from_witness(builder, verification_key->verification_key->num_public_inputs);
-    FF pub_inputs_offset = FF::from_witness(builder, verification_key->verification_key->pub_inputs_offset);
+    FF circuit_size = verification_key->verification_key->circuit_size;
+    FF public_input_size = verification_key->verification_key->num_public_inputs;
+    FF pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
     transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
     transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
     transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
     std::vector<FF> public_inputs;
-    for (size_t i = 0; i < verification_key->verification_key->num_public_inputs; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(static_cast<uint32_t>(public_input_size.get_value())); ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
     }
@@ -98,12 +104,13 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         }
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
     const FF public_input_delta = compute_public_input_delta<Flavor>(
         public_inputs,
         beta,
         gamma,
         circuit_size,
-        static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset));
+        static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset.get_value()));
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
@@ -128,7 +135,5 @@ template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<UltraCircuitBuild
 template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
-template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 template class OinkRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
@@ -47,7 +52,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 
-        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vks[circuit_idx], mock_vk);
+        ivc.accumulate(circuit, precomputed_vks[circuit_idx], mock_vk);
     }
 }
 

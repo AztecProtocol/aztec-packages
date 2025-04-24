@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -100,15 +106,11 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
      */
     DeciderVerificationKey get_value()
     {
-        auto native_honk_vk = std::make_shared<NativeVerificationKey>(verification_key->circuit_size,
-                                                                      verification_key->num_public_inputs);
-        native_honk_vk->pcs_verification_key = verification_key->pcs_verification_key == nullptr
-                                                   ? std::make_shared<VerifierCommitmentKey>()
-                                                   : verification_key->pcs_verification_key;
-        native_honk_vk->pub_inputs_offset = verification_key->pub_inputs_offset;
-        native_honk_vk->contains_pairing_point_accumulator = verification_key->contains_pairing_point_accumulator;
-        native_honk_vk->pairing_point_accumulator_public_input_indices =
-            verification_key->pairing_point_accumulator_public_input_indices;
+        auto native_honk_vk = std::make_shared<NativeVerificationKey>(
+            static_cast<uint64_t>(verification_key->circuit_size.get_value()),
+            static_cast<uint64_t>(verification_key->num_public_inputs.get_value()));
+        native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(verification_key->pub_inputs_offset.get_value());
+        native_honk_vk->pairing_inputs_public_input_key = verification_key->pairing_inputs_public_input_key;
         if constexpr (IsMegaFlavor<Flavor>) {
             native_honk_vk->databus_propagation_data = verification_key->databus_propagation_data;
         }
@@ -120,7 +122,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         DeciderVerificationKey decider_vk(native_honk_vk);
         decider_vk.is_accumulator = is_accumulator;
 
-        decider_vk.public_inputs = std::vector<NativeFF>(static_cast<size_t>(verification_key->num_public_inputs));
+        decider_vk.public_inputs = std::vector<NativeFF>(
+            static_cast<size_t>(static_cast<uint32_t>(verification_key->num_public_inputs.get_value())));
         for (auto [public_input, inst_public_input] : zip_view(public_inputs, decider_vk.public_inputs)) {
             inst_public_input = public_input.get_value();
         }

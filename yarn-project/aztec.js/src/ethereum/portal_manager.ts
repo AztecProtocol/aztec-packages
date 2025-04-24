@@ -1,10 +1,11 @@
-import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient, ViemContract } from '@aztec/ethereum';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import type { SiblingPath } from '@aztec/foundation/trees';
+import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts/FeeAssetHandlerAbi';
 import { FeeJuicePortalAbi } from '@aztec/l1-artifacts/FeeJuicePortalAbi';
 import { OutboxAbi } from '@aztec/l1-artifacts/OutboxAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
@@ -13,7 +14,9 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeSecretHash } from '@aztec/stdlib/hash';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
-import { type GetContractReturnType, type Hex, getContract, toFunctionSelector } from 'viem';
+import { type Hex, getContract, toFunctionSelector } from 'viem';
+
+import type { Wallet } from '../index.js';
 
 // docs:start:claim_type
 // docs:start:claim_type_amount
@@ -54,20 +57,39 @@ export async function generateClaimSecret(logger?: Logger): Promise<[Fr, Fr]> {
 
 /** Helper for managing an ERC20 on L1. */
 export class L1TokenManager {
-  private contract: GetContractReturnType<typeof TestERC20Abi, ViemWalletClient>;
+  private contract: ViemContract<typeof TestERC20Abi>;
+  private handler: ViemContract<typeof FeeAssetHandlerAbi> | undefined;
 
   public constructor(
     /** Address of the ERC20 contract. */
-    public readonly address: EthAddress,
-    private publicClient: ViemPublicClient,
-    private walletClient: ViemWalletClient,
+    public readonly tokenAddress: EthAddress,
+    /** Address of the handler/faucet contract. */
+    public readonly handlerAddress: EthAddress | undefined,
+    private readonly extendedClient: ExtendedViemWalletClient,
     private logger: Logger,
   ) {
     this.contract = getContract({
-      address: this.address.toString(),
+      address: this.tokenAddress.toString(),
       abi: TestERC20Abi,
-      client: this.walletClient,
+      client: this.extendedClient,
     });
+    if (this.handlerAddress) {
+      this.handler = getContract({
+        address: this.handlerAddress.toString(),
+        abi: FeeAssetHandlerAbi,
+        client: this.extendedClient,
+      });
+    }
+  }
+
+  /** Returns the amount of tokens available to mint via the handler.
+   * @throws if the handler is not provided.
+   */
+  public async getMintAmount() {
+    if (!this.handler) {
+      throw new Error('Minting handler was not provided');
+    }
+    return await this.handler.read.mintAmount();
   }
 
   /**
@@ -79,16 +101,18 @@ export class L1TokenManager {
   }
 
   /**
-   * Mints tokens for the given address. Returns once the tx has been mined.
-   * @param amount - Amount to mint.
+   * Mints a fixed amount of tokens for the given address. Returns once the tx has been mined.
    * @param address - Address to mint the tokens for.
    * @param addressName - Optional name of the address for logging.
    */
-  public async mint(amount: bigint, address: Hex, addressName?: string) {
-    this.logger.info(`Minting ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
-    await this.publicClient.waitForTransactionReceipt({
-      hash: await this.contract.write.mint([address, amount]),
-    });
+  public async mint(address: Hex, addressName?: string) {
+    if (!this.handler) {
+      throw new Error('Minting handler was not provided');
+    }
+    const mintAmount = await this.getMintAmount();
+    this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
+    // NOTE: the handler mints a fixed amount.
+    await this.handler.write.mint([address]);
   }
 
   /**
@@ -99,7 +123,7 @@ export class L1TokenManager {
    */
   public async approve(amount: bigint, address: Hex, addressName = '') {
     this.logger.info(`Approving ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
-    await this.publicClient.waitForTransactionReceipt({
+    await this.extendedClient.waitForTransactionReceipt({
       hash: await this.contract.write.approve([address, amount]),
     });
   }
@@ -108,20 +132,20 @@ export class L1TokenManager {
 /** Helper for interacting with the FeeJuicePortal on L1. */
 export class L1FeeJuicePortalManager {
   private readonly tokenManager: L1TokenManager;
-  private readonly contract: GetContractReturnType<typeof FeeJuicePortalAbi, ViemWalletClient>;
+  private readonly contract: ViemContract<typeof FeeJuicePortalAbi>;
 
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    private readonly publicClient: ViemPublicClient,
-    private readonly walletClient: ViemWalletClient,
+    handlerAddress: EthAddress,
+    private readonly extendedClient: ExtendedViemWalletClient,
     private readonly logger: Logger,
   ) {
-    this.tokenManager = new L1TokenManager(tokenAddress, publicClient, walletClient, logger);
+    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger);
     this.contract = getContract({
       address: portalAddress.toString(),
       abi: FeeJuicePortalAbi,
-      client: this.walletClient,
+      client: extendedClient,
     });
   }
 
@@ -136,20 +160,25 @@ export class L1FeeJuicePortalManager {
    * @param amount - Amount of tokens to send.
    * @param mint - Whether to mint the tokens before sending (only during testing).
    */
-  public async bridgeTokensPublic(to: AztecAddress, amount: bigint, mint = false): Promise<L2AmountClaim> {
+  public async bridgeTokensPublic(to: AztecAddress, amount: bigint | undefined, mint = false): Promise<L2AmountClaim> {
     const [claimSecret, claimSecretHash] = await generateClaimSecret();
+    const mintableAmount = await this.tokenManager.getMintAmount();
+    const amountToBridge = amount ?? mintableAmount;
     if (mint) {
-      await this.tokenManager.mint(amount, this.walletClient.account.address);
+      if (amountToBridge !== mintableAmount) {
+        throw new Error(`Minting amount must be ${mintableAmount}`);
+      }
+      await this.tokenManager.mint(this.extendedClient.account.address);
     }
 
-    await this.tokenManager.approve(amount, this.contract.address, 'FeeJuice Portal');
+    await this.tokenManager.approve(amountToBridge, this.contract.address, 'FeeJuice Portal');
 
     this.logger.info('Sending L1 Fee Juice to L2 to be claimed publicly');
-    const args = [to.toString(), amount, claimSecretHash.toString()] as const;
+    const args = [to.toString(), amountToBridge, claimSecretHash.toString()] as const;
 
     await this.contract.simulate.depositToAztecPublic(args);
 
-    const txReceipt = await this.publicClient.waitForTransactionReceipt({
+    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
       hash: await this.contract.write.depositToAztecPublic(args),
     });
 
@@ -162,13 +191,13 @@ export class L1FeeJuicePortalManager {
       'DepositToAztecPublic',
       log =>
         log.args.secretHash === claimSecretHash.toString() &&
-        log.args.amount === amount &&
+        log.args.amount === amountToBridge &&
         log.args.to === to.toString(),
       this.logger,
     );
 
     return {
-      claimAmount: amount,
+      claimAmount: amountToBridge,
       claimSecret,
       claimSecretHash,
       messageHash: log.args.key,
@@ -178,46 +207,53 @@ export class L1FeeJuicePortalManager {
 
   /**
    * Creates a new instance
-   * @param pxe - PXE client used for retrieving the L1 contract addresses.
-   * @param publicClient - L1 public client.
-   * @param walletClient - L1 wallet client.
+   * @param walletOrPxe - Wallet or PXE client used for retrieving the L1 contract addresses.
+   * @param extendedClient - Wallet client, extended with public actions.
    * @param logger - Logger.
    */
   public static async new(
-    pxe: PXE,
-    publicClient: ViemPublicClient,
-    walletClient: ViemWalletClient,
+    walletOrPxe: Wallet | PXE,
+    extendedClient: ExtendedViemWalletClient,
     logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
-      l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress },
-    } = await pxe.getNodeInfo();
+      l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress, feeAssetHandlerAddress },
+    } = await walletOrPxe.getNodeInfo();
 
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');
     }
+    if (!feeAssetHandlerAddress || feeAssetHandlerAddress.isZero()) {
+      throw new Error('Handler not deployed on L1, or handler address is zero');
+    }
 
-    return new L1FeeJuicePortalManager(feeJuicePortalAddress, feeJuiceAddress, publicClient, walletClient, logger);
+    return new L1FeeJuicePortalManager(
+      feeJuicePortalAddress,
+      feeJuiceAddress,
+      feeAssetHandlerAddress,
+      extendedClient,
+      logger,
+    );
   }
 }
 
 /** Helper for interacting with a test TokenPortal on L1 for sending tokens to L2. */
 export class L1ToL2TokenPortalManager {
-  protected readonly portal: GetContractReturnType<typeof TokenPortalAbi, ViemWalletClient>;
+  protected readonly portal: ViemContract<typeof TokenPortalAbi>;
   protected readonly tokenManager: L1TokenManager;
 
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    protected publicClient: ViemPublicClient,
-    protected walletClient: ViemWalletClient,
+    handlerAddress: EthAddress | undefined,
+    protected extendedClient: ExtendedViemWalletClient,
     protected logger: Logger,
   ) {
-    this.tokenManager = new L1TokenManager(tokenAddress, publicClient, walletClient, logger);
+    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger);
     this.portal = getContract({
       address: portalAddress.toString(),
       abi: TokenPortalAbi,
-      client: this.walletClient,
+      client: extendedClient,
     });
   }
 
@@ -242,8 +278,8 @@ export class L1ToL2TokenPortalManager {
       claimSecretHash.toString(),
     ]);
 
-    const txReceipt = await this.publicClient.waitForTransactionReceipt({
-      hash: await this.walletClient.writeContract(request),
+    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
+      hash: await this.extendedClient.writeContract(request),
     });
 
     const log = extractEvent(
@@ -267,6 +303,7 @@ export class L1ToL2TokenPortalManager {
     };
   }
 
+  // docs:start:bridge_tokens_private
   /**
    * Bridges tokens from L1 to L2 privately. Handles token approvals. Returns once the tx has been mined.
    * @param to - Address to send the tokens to on L2.
@@ -278,13 +315,14 @@ export class L1ToL2TokenPortalManager {
     amount: bigint,
     mint = false,
   ): Promise<L2AmountClaimWithRecipient> {
+    // docs:end:bridge_tokens_private
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
     const { request } = await this.portal.simulate.depositToAztecPrivate([amount, claimSecretHash.toString()]);
 
-    const txReceipt = await this.publicClient.waitForTransactionReceipt({
-      hash: await this.walletClient.writeContract(request),
+    const txReceipt = await this.extendedClient.waitForTransactionReceipt({
+      hash: await this.extendedClient.writeContract(request),
     });
 
     const log = extractEvent(
@@ -312,7 +350,11 @@ export class L1ToL2TokenPortalManager {
 
   private async bridgeSetup(amount: bigint, mint: boolean) {
     if (mint) {
-      await this.tokenManager.mint(amount, this.walletClient.account.address);
+      const mintableAmount = await this.tokenManager.getMintAmount();
+      if (amount !== mintableAmount) {
+        throw new Error(`Minting amount must be ${mintableAmount} for testing`);
+      }
+      await this.tokenManager.mint(this.extendedClient.account.address);
     }
     await this.tokenManager.approve(amount, this.portal.address, 'TokenPortal');
     return generateClaimSecret();
@@ -321,21 +363,21 @@ export class L1ToL2TokenPortalManager {
 
 /** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and bridging to L2. */
 export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
-  private readonly outbox: GetContractReturnType<typeof OutboxAbi, ViemWalletClient>;
+  private readonly outbox: ViemContract<typeof OutboxAbi>;
 
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
+    handlerAddress: EthAddress | undefined,
     outboxAddress: EthAddress,
-    publicClient: ViemPublicClient,
-    walletClient: ViemWalletClient,
+    extendedClient: ExtendedViemWalletClient,
     logger: Logger,
   ) {
-    super(portalAddress, tokenAddress, publicClient, walletClient, logger);
+    super(portalAddress, tokenAddress, handlerAddress, extendedClient, logger);
     this.outbox = getContract({
       address: outboxAddress.toString(),
       abi: OutboxAbi,
-      client: walletClient,
+      client: extendedClient,
     });
   }
 
@@ -373,7 +415,9 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       siblingPath.toBufferArray().map((buf: Buffer): Hex => `0x${buf.toString('hex')}`),
     ]);
 
-    await this.publicClient.waitForTransactionReceipt({ hash: await this.walletClient.writeContract(withdrawRequest) });
+    await this.extendedClient.waitForTransactionReceipt({
+      hash: await this.extendedClient.writeContract(withdrawRequest),
+    });
 
     const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([blockNumber, messageIndex]);
     if (!isConsumedAfter) {
@@ -388,12 +432,14 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
    * @param l2Bridge - Address of the L2 bridge.
    * @param callerOnL1 - Caller address on L1.
    */
-  public getL2ToL1MessageLeaf(
+  public async getL2ToL1MessageLeaf(
     amount: bigint,
     recipient: EthAddress,
     l2Bridge: AztecAddress,
     callerOnL1: EthAddress = EthAddress.ZERO,
-  ): Fr {
+  ): Promise<Fr> {
+    const version = await this.outbox.read.VERSION();
+
     const content = sha256ToField([
       Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
       recipient.toBuffer32(),
@@ -402,9 +448,9 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     ]);
     const leaf = sha256ToField([
       l2Bridge.toBuffer(),
-      new Fr(1).toBuffer(), // aztec version
+      new Fr(version).toBuffer(), // aztec version
       EthAddress.fromString(this.portal.address).toBuffer32() ?? Buffer.alloc(32, 0),
-      new Fr(this.publicClient.chain.id).toBuffer(), // chain id
+      new Fr(this.extendedClient.chain.id).toBuffer(), // chain id
       content.toBuffer(),
     ]);
 

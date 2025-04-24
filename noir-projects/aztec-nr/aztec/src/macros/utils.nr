@@ -18,6 +18,18 @@ pub(crate) comptime fn is_fn_public(f: FunctionDefinition) -> bool {
     f.has_named_attribute("public")
 }
 
+pub(crate) comptime fn is_fn_utility(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("utility")
+}
+
+pub(crate) comptime fn is_fn_contract_library_method(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("contract_library_method")
+}
+
+pub(crate) comptime fn is_fn_test(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("test")
+}
+
 pub(crate) comptime fn is_fn_view(f: FunctionDefinition) -> bool {
     f.has_named_attribute("view")
 }
@@ -58,7 +70,7 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
 pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $slice_name = $slice_name.push_back($name as Field); }
-    } else if typ.as_struct().is_some() {
+    } else if typ.as_data_type().is_some() {
         // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
         quote { $slice_name = $slice_name.append(aztec::protocol_types::traits::Serialize::serialize($name)); }
@@ -88,7 +100,7 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
 pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $hasher_name.add($name as Field); }
-    } else if typ.as_struct().is_some() {
+    } else if typ.as_data_type().is_some() {
         quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name)); }
     } else if typ.as_array().is_some() {
         let (element_type, _) = typ.as_array().unwrap();
@@ -131,8 +143,8 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         let array_len = array_len.as_constant().unwrap();
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".quoted_contents()
-    } else if typ.as_struct().is_some() {
-        let (s, generics) = typ.as_struct().unwrap();
+    } else if typ.as_data_type().is_some() {
+        let (s, generics) = typ.as_data_type().unwrap();
         let field_signatures = s
             .fields(generics)
             .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
@@ -195,7 +207,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
+pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
     // The event selector is computed from the type signature of the struct in the event, similar to how one might type
     // the constructor function. For example, given:
     //
@@ -238,7 +250,7 @@ pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
-    m.structs().any(|s: StructDefinition| {
+    m.structs().any(|s: TypeDefinition| {
         s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
     })
 }
@@ -248,7 +260,7 @@ pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
 }
 
 pub(crate) comptime fn is_note(typ: Type) -> bool {
-    typ.as_struct().map_or(false, |struc: (StructDefinition, [Type])| {
+    typ.as_data_type().map_or(false, |struc: (TypeDefinition, [Type])| {
         let (def, _) = struc;
         def.has_named_attribute("note")
             | def.has_named_attribute("partial_note")
@@ -273,8 +285,10 @@ pub(crate) comptime fn get_trait_impl_method(
     target_method: Quoted,
 ) -> TypedExpr {
     let trait_constraint = target_trait.as_trait_constraint();
-    typ.get_trait_impl(trait_constraint).expect(f"Type does not implement trait").methods().filter(
-        |m| m.name() == target_method,
-    )[0]
+    typ
+        .get_trait_impl(trait_constraint)
+        .expect(f"Type does not implement trait")
+        .methods()
+        .filter(|m| m.name() == target_method)[0]
         .as_typed_expr()
 }

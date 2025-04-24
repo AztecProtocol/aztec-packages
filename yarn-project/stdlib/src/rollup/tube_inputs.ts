@@ -5,15 +5,19 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 
+/**
+ * Inputs for the tube circuit, which turns a client IVC proof folding stack into an ultrahonk proof.
+ * 'usePublicTailVk' signifies if we should prove this with the public or private kernel tail client IVC VKs.
+ */
 export class TubeInputs {
-  constructor(public clientIVCData: ClientIvcProof) {}
+  constructor(public usePublicTailVk: boolean, public clientIVCData: ClientIvcProof) {}
 
   static from(fields: FieldsOf<TubeInputs>): TubeInputs {
     return new TubeInputs(...TubeInputs.getFields(fields));
   }
 
   static getFields(fields: FieldsOf<TubeInputs>) {
-    return [fields.clientIVCData] as const;
+    return [fields.usePublicTailVk, fields.clientIVCData] as const;
   }
 
   /**
@@ -39,7 +43,7 @@ export class TubeInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): TubeInputs {
     const reader = BufferReader.asReader(buffer);
-    return new TubeInputs(reader.readObject(ClientIvcProof));
+    return new TubeInputs(reader.readBoolean(), reader.readObject(ClientIvcProof));
   }
 
   isEmpty(): boolean {
@@ -55,7 +59,7 @@ export class TubeInputs {
   }
 
   static empty() {
-    return new TubeInputs(ClientIvcProof.empty());
+    return new TubeInputs(false, ClientIvcProof.empty());
   }
 
   /** Returns a hex representation for JSON serialization. */

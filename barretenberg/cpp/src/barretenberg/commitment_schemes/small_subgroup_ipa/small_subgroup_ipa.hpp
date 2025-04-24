@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
@@ -24,9 +30,9 @@ namespace bb {
  * - \f$ G \f$ is obtained by concatenating Libra polynomials used in ZK-Sumcheck. \f$ F \f$ is a concatenation of the
  *   consecutive powers of the sumcheck challenge entries. See details below and in the corresponding method's docs.
  *
- * - \f$ G \f$ is a concatenation of last MASKING_OFFSET coefficients of NUM_TRANSLATION_EVALUATIONS polynomials fed to
- *   TranslationData constructor. \f$ F \f$ consists of products \f$ x^i \cdot v^j \f$. See details below in the
- *   corresponding method's docs.
+ * - \f$ G \f$ is a concatenation of last NUM_DISABLED_ROWS_IN_SUMCHECK coefficients of NUM_TRANSLATION_EVALUATIONS
+ * polynomials fed to TranslationData constructor. \f$ F \f$ consists of products \f$ x^i \cdot v^j \f$. See details
+ * below in the corresponding method's docs.
  *
  * ## Constructing SmallSubgroupIPAProver
  *
@@ -48,7 +54,7 @@ namespace bb {
  * ### TranslationData Specifics
  *
  * Let \f$ G \f$ be the concatenated polynomial from the TranslationData class. Without masking, it is defined by
- * concatenating NUM_TRANSLATION_EVALUATIONS polynomials of size MASKING_OFFSET in the Lagrange
+ * concatenating NUM_TRANSLATION_EVALUATIONS polynomials of size NUM_DISABLED_ROWS_IN_SUMCHECK in the Lagrange
  * basis over \f$ H \f$. It is masked by adding \f$ (r_0 + r_1 X) Z_{H}(X)\f$, where \f$ Z_H(X) \f$ is the vanishing
  * polynomial for \f$ H \f$.
  *
@@ -306,7 +312,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * polynomial is concatenated from the products \f$ x^i \cdot v^j\f$. See the corresponding method for details.
      *
      * @param small_ipa_evaluations Evaluations of the SmallSubgroupIPA witness polynomials when \f$ G \f$ is a
-     * concatenation of the last MASKING_OFFSET entries in the NUM_TRANSLATION_EVALUATIONS polynomials.
+     * concatenation of the last NUM_DISABLED_ROWS_IN_SUMCHECK entries in the NUM_TRANSLATION_EVALUATIONS polynomials.
      * @param evaluation_challenge A random challenge sampled to obtain `small_ipa_evaluations`
      * @param evaluation_challenge_x Evaluation challenge for NUM_TRANSLATION_EVALUATIONS univariate polynomials
      * @param batching_challenge_v A challenge used to batch the evaluations at \f$ x \f$ .
@@ -443,10 +449,10 @@ static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coe
 }
 
 /**
- * @brief Denote \f$ M = \text{MASKING_OFFSET} \f$ and \f$ N = NUM_SMALL_IPA_EVALUTIONS\f$. Given an evaluation
- * challenge \f$ x \f$ and a batching challenge \f$v\f$, compute the polynomial whose  coefficients are given by the
- * vector \f$ (1, x , x^2 , \ldots, x^{M - 1 }, v\cdot x, \ldots, v^{N-1} \cdot x^{M-2}, v^{N-1}, \cdot x^{M-1}, 0,
- * \ldots, 0)\f$ in the Lagrange basis over the Small Subgroup.
+ * @brief Denote \f$ M = \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ and \f$ N = NUM_SMALL_IPA_EVALUTIONS\f$. Given an
+ * evaluation challenge \f$ x \f$ and a batching challenge \f$v\f$, compute the polynomial whose  coefficients are given
+ * by the vector \f$ (1, x , x^2 , \ldots, x^{M - 1 }, v\cdot x, \ldots, v^{N-1} \cdot x^{M-2}, v^{N-1}, \cdot x^{M-1},
+ * 0, \ldots, 0)\f$ in the Lagrange basis over the Small Subgroup.
  *
  * @tparam FF
  * @param evaluation_challenge_x
@@ -463,10 +469,10 @@ std::vector<typename Curve::ScalarField> compute_eccvm_challenge_coeffs(
 
     FF v_power = FF{ 1 };
     for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
-        const size_t start = MASKING_OFFSET * poly_idx;
+        const size_t start = NUM_DISABLED_ROWS_IN_SUMCHECK * poly_idx;
         coeffs_lagrange_basis[start] = v_power;
 
-        for (size_t idx = start + 1; idx < start + MASKING_OFFSET; idx++) {
+        for (size_t idx = start + 1; idx < start + NUM_DISABLED_ROWS_IN_SUMCHECK; idx++) {
             coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * evaluation_challenge_x;
         }
 

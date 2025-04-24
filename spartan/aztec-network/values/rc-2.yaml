@@ -5,16 +5,12 @@ aztec:
   realProofs: true
   # TODO: Will need to change these as ignition will be using them
   l1DeploymentMnemonic: ""
-  validatorKeyIndexStart: 0
-  proverKeyIndexStart: 48
-  botKeyIndexStart: 49
 
 images:
   aztec:
     pullPolicy: Always
 
 network:
-  setupL2Contracts: false
   public: true
 
 ethereum:

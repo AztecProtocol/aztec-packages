@@ -1,5 +1,5 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { RollupContract, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -35,11 +35,7 @@ export async function sequencers(opts: {
       })
     : undefined;
 
-  const rollup = getContract({
-    address: l1ContractAddresses.rollupAddress.toString(),
-    abi: RollupAbi,
-    client: publicClient,
-  });
+  const rollup = new RollupContract(publicClient, l1ContractAddresses.rollupAddress);
 
   const writeableRollup = walletClient
     ? getContract({
@@ -52,7 +48,7 @@ export async function sequencers(opts: {
   const who = (maybeWho as `0x{string}`) ?? walletClient?.account.address.toString();
 
   if (command === 'list') {
-    const sequencers = await rollup.read.getAttesters();
+    const sequencers = await rollup.getAttesters();
     if (sequencers.length === 0) {
       log(`No sequencers registered on rollup`);
     } else {
@@ -69,7 +65,7 @@ export async function sequencers(opts: {
     log(`Adding ${who} as sequencer`);
 
     const stakingAsset = getContract({
-      address: await rollup.read.getStakingAsset(),
+      address: await rollup.getStakingAsset(),
       abi: TestERC20Abi,
       client: walletClient,
     });
@@ -95,7 +91,7 @@ export async function sequencers(opts: {
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Removed in tx ${hash}`);
   } else if (command === 'who-next') {
-    const next = await rollup.read.getCurrentProposer();
+    const next = await rollup.getCurrentProposer();
     log(`Sequencer expected to build is ${next}`);
   } else {
     throw new Error(`Unknown command ${command}`);

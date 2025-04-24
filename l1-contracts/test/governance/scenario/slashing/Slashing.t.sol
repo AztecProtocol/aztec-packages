@@ -14,12 +14,12 @@ import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
+import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {SlashingProposer} from "@aztec/core/staking/SlashingProposer.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
@@ -51,10 +51,10 @@ contract SlashingScenario is TestBase {
     }
 
     testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this));
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    Registry registry = new Registry(address(this), testERC20);
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup({
-      _fpcJuicePortal: new MockFeeJuicePortal(),
+      _feeAsset: testERC20,
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
       _governance: address(this),

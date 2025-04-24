@@ -1,5 +1,6 @@
-#!/bin/bash
-# Create intermediate state in a directory. Uses a temp dir to ensure parallel safe and cleansup on exit.
+#!/usr/bin/env bash
+# Create intermediate state in a directory. Uses a temp dir to ensure parallel safe and cleans up on exit.
+# TODO this is unused
 set -eux
 
 CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
@@ -12,5 +13,7 @@ trap "rm -rf $outdir" EXIT
 
 flags="--scheme client_ivc -c $CRS_PATH ${VERBOSE:+-v}"
 
-$BIN prove $flags -b ./target/program.json ${INPUT_TYPE:---input_type compiletime_stack} -o $outdir
+parallel ::: \
+  "$BIN prove $flags -i target/ivc-inputs.msgpack $INFLAG --output_format proof -o $outdir" \
+  "$BIN write_vk $flags -i target/ivc-inputs.msgpack $INFLAG --verifier_type ivc -o $outdir"
 $BIN verify $flags -p $outdir/proof -k $outdir/vk

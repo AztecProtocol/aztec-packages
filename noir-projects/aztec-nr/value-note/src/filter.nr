@@ -17,7 +17,7 @@ pub fn filter_notes_min_sum(
         if notes[i].is_some() & full_field_less_than(sum, min_sum) {
             let retrieved_note = notes[i].unwrap_unchecked();
             selected[i] = Option::some(retrieved_note);
-            sum += retrieved_note.note.value;
+            sum += retrieved_note.note.value();
         }
     }
 

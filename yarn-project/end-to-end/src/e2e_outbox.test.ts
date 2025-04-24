@@ -7,12 +7,13 @@ import {
   type SiblingPath,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
+import { type DeployL1ContractsReturnType, RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { SHA256 } from '@aztec/merkle-tree';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { decodeEventLog, getContract } from 'viem';
@@ -22,32 +23,40 @@ import { setup } from './fixtures/utils.js';
 describe('E2E Outbox Tests', () => {
   let teardown: () => void;
   let aztecNode: AztecNode;
+  let aztecNodeAdmin: AztecNodeAdmin | undefined;
   const merkleSha256 = new SHA256();
   let contract: TestContract;
   let wallets: AccountWalletWithSecretKey[];
   let deployL1ContractsValues: DeployL1ContractsReturnType;
   let outbox: any;
   let cheatCodes: CheatCodes;
+  let version: number = 1;
 
   beforeEach(async () => {
-    ({ teardown, aztecNode, wallets, deployL1ContractsValues, cheatCodes } = await setup(1));
+    ({ teardown, aztecNode, wallets, deployL1ContractsValues, cheatCodes, aztecNodeAdmin } = await setup(1));
     outbox = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
-      client: deployL1ContractsValues.walletClient,
+      client: deployL1ContractsValues.l1Client,
     });
+
+    const rollup = new RollupContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+    );
+    version = Number(await rollup.getVersion());
 
     const receipt = await TestContract.deploy(wallets[0]).send({ contractAddressSalt: Fr.ZERO }).wait();
     contract = receipt.contract;
   });
 
-  afterAll(() => teardown());
+  afterEach(() => teardown());
 
   it('Inserts a new transaction with two out messages, and verifies sibling paths of both the new messages', async () => {
     // recipient2 = msg.sender, so we can consume it later
     const [[recipient1, content1], [recipient2, content2]] = [
       [EthAddress.random(), Fr.random()],
-      [EthAddress.fromString(deployL1ContractsValues.walletClient.account.address), Fr.random()],
+      [EthAddress.fromString(deployL1ContractsValues.l1Client.account.address), Fr.random()],
     ];
 
     const call = new BatchCall(wallets[0], [
@@ -106,10 +115,10 @@ describe('E2E Outbox Tests', () => {
     // Consume msg 2
     // Taken from l2_to_l1.test
     const msg2 = {
-      sender: { actor: contract.address.toString() as `0x${string}`, version: 1n },
+      sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
       recipient: {
         actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(deployL1ContractsValues.publicClient.chain.id),
+        chainId: BigInt(deployL1ContractsValues.l1Client.chain.id),
       },
       content: content2.toString() as `0x${string}`,
     };
@@ -123,7 +132,7 @@ describe('E2E Outbox Tests', () => {
       ],
       {} as any,
     );
-    const l1Receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+    const l1Receipt = await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
       hash: txHash,
     });
     // Consume call goes through
@@ -162,10 +171,10 @@ describe('E2E Outbox Tests', () => {
 
   it('Inserts two transactions with total four out messages, and verifies sibling paths of two new messages', async () => {
     // Force txs to be in the same block
-    await aztecNode.setConfig({ minTxsPerBlock: 2 });
+    await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
     const [[recipient1, content1], [recipient2, content2], [recipient3, content3], [recipient4, content4]] = [
       [EthAddress.random(), Fr.random()],
-      [EthAddress.fromString(deployL1ContractsValues.walletClient.account.address), Fr.random()],
+      [EthAddress.fromString(deployL1ContractsValues.l1Client.account.address), Fr.random()],
       [EthAddress.random(), Fr.random()],
       [EthAddress.random(), Fr.random()],
     ];
@@ -225,10 +234,10 @@ describe('E2E Outbox Tests', () => {
     // Consume msg 2
     // Taken from l2_to_l1.test
     const msg2 = {
-      sender: { actor: contract.address.toString() as `0x${string}`, version: 1n },
+      sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
       recipient: {
         actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(deployL1ContractsValues.publicClient.chain.id),
+        chainId: BigInt(deployL1ContractsValues.l1Client.chain.id),
       },
       content: content2.toString() as `0x${string}`,
     };
@@ -242,7 +251,7 @@ describe('E2E Outbox Tests', () => {
       ],
       {} as any,
     );
-    const l1Receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+    const l1Receipt = await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
       hash: txHash,
     });
     // Consume call goes through
@@ -281,11 +290,11 @@ describe('E2E Outbox Tests', () => {
 
   it('Inserts two out messages in two transactions and verifies sibling paths of both the new messages', async () => {
     // Force txs to be in the same block
-    await aztecNode.setConfig({ minTxsPerBlock: 2 });
+    await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
     // recipient2 = msg.sender, so we can consume it later
     const [[recipient1, content1], [recipient2, content2]] = [
       [EthAddress.random(), Fr.random()],
-      [EthAddress.fromString(deployL1ContractsValues.walletClient.account.address), Fr.random()],
+      [EthAddress.fromString(deployL1ContractsValues.l1Client.account.address), Fr.random()],
     ];
 
     const call0 = contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1);
@@ -342,10 +351,10 @@ describe('E2E Outbox Tests', () => {
     // Consume msg 2
     // Taken from l2_to_l1.test
     const msg2 = {
-      sender: { actor: contract.address.toString() as `0x${string}`, version: 1n },
+      sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
       recipient: {
         actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(deployL1ContractsValues.publicClient.chain.id),
+        chainId: BigInt(deployL1ContractsValues.l1Client.chain.id),
       },
       content: content2.toString() as `0x${string}`,
     };
@@ -361,7 +370,7 @@ describe('E2E Outbox Tests', () => {
       ],
       {} as any,
     );
-    const l1Receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+    const l1Receipt = await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
       hash: txHash,
     });
     // Consume call goes through
@@ -424,9 +433,9 @@ describe('E2E Outbox Tests', () => {
   function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO): Fr {
     const leaf = sha256ToField([
       contract.address,
-      new Fr(1), // aztec version
+      new Fr(version),
       recipient.toBuffer32(),
-      new Fr(deployL1ContractsValues.publicClient.chain.id), // chain id
+      new Fr(deployL1ContractsValues.l1Client.chain.id), // chain id
       content,
     ]);
 

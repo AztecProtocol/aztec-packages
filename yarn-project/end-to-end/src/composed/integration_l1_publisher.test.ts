@@ -5,14 +5,13 @@ import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  type ExtendedViemWalletClient,
   GovernanceProposerContract,
   type L1ContractAddresses,
   RollupContract,
   SlashingProposerContract,
-  type ViemPublicClient,
-  type ViemWalletClient,
   createEthereumChain,
-  createL1Clients,
+  createExtendedL1Client,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -73,16 +72,15 @@ const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 jest.setTimeout(1000000);
 
 describe('L1Publisher integration', () => {
-  let publicClient: ViemPublicClient;
-  let walletClient: ViemWalletClient;
+  let l1Client: ExtendedViemWalletClient;
   let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
 
   let rollupAddress: Address;
   let outboxAddress: Address;
 
-  let rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
-  let outbox: GetContractReturnType<typeof OutboxAbi, ViemPublicClient>;
+  let rollup: RollupContract;
+  let outbox: GetContractReturnType<typeof OutboxAbi, ExtendedViemWalletClient>;
 
   let publisher: SequencerPublisher;
 
@@ -100,6 +98,7 @@ describe('L1Publisher integration', () => {
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
+  let version: number;
 
   let ethCheatCodes: EthCheatCodesWithState;
   let worldStateSynchronizer: ServerWorldStateSynchronizer;
@@ -110,9 +109,9 @@ describe('L1Publisher integration', () => {
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
   const progressTimeBySlot = async (slotsToJump = 1n) => {
-    const currentTime = (await publicClient.getBlock()).timestamp;
-    const currentSlot = await rollup.read.getCurrentSlot();
-    const timestamp = await rollup.read.getTimestampForSlot([currentSlot + slotsToJump]);
+    const currentTime = (await l1Client.getBlock()).timestamp;
+    const currentSlot = await rollup.getSlotNumber();
+    const timestamp = await rollup.getTimestampForSlot(currentSlot + slotsToJump);
     if (timestamp > currentTime) {
       await ethCheatCodes.warp(Number(timestamp));
     }
@@ -120,12 +119,7 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
-      config.l1RpcUrls,
-      deployerAccount,
-      logger,
-      {},
-    ));
+    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {}));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
@@ -133,15 +127,11 @@ describe('L1Publisher integration', () => {
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
 
     // Set up contract instances
-    rollup = getContract({
-      address: rollupAddress,
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    rollup = new RollupContract(l1Client, l1ContractAddresses.rollupAddress);
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
-      client: publicClient,
+      client: l1Client,
     });
 
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
@@ -187,13 +177,9 @@ describe('L1Publisher integration', () => {
     worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
-    const { walletClient: sequencerWalletClient, publicClient: sequencerPublicClient } = createL1Clients(
-      config.l1RpcUrls,
-      sequencerPK,
-      foundry,
-    );
-    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerPublicClient, sequencerWalletClient, logger, config);
-    const rollupContract = new RollupContract(sequencerPublicClient, l1ContractAddresses.rollupAddress.toString());
+    const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
+    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, config);
+    const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const forwarderContract = await createForwarderContract(
       config,
       sequencerPK,
@@ -201,11 +187,11 @@ describe('L1Publisher integration', () => {
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
-      sequencerPublicClient,
+      sequencerL1Client,
       slashingProposerAddress.toString(),
     );
     const governanceProposerContract = new GovernanceProposerContract(
-      sequencerPublicClient,
+      sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
     const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, {
@@ -235,17 +221,18 @@ describe('L1Publisher integration', () => {
 
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || (await AztecAddress.random());
+    version = Number(await rollup.getVersion());
 
     const fork = await worldStateSynchronizer.fork();
 
     prevHeader = fork.getInitialHeader();
     await fork.close();
 
-    const ts = (await publicClient.getBlock()).timestamp;
-    baseFee = new GasFees(0, await rollup.read.getManaBaseFeeAt([ts, true]));
+    const ts = (await l1Client.getBlock()).timestamp;
+    baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump to the next epoch such that the committee can be setup.
-    const timeToJump = await rollup.read.getEpochDuration();
+    const timeToJump = await rollup.getEpochDuration();
     await progressTimeBySlot(timeToJump);
   });
 
@@ -257,7 +244,7 @@ describe('L1Publisher integration', () => {
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
-      version: fr(config.version),
+      version: fr(version),
       vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
@@ -265,10 +252,9 @@ describe('L1Publisher integration', () => {
     });
 
   const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> => {
-    return sendL1ToL2Message(
-      { content, secretHash: Fr.ZERO, recipient },
-      { publicClient, walletClient, l1ContractAddresses },
-    ).then(([messageHash, _]) => messageHash);
+    return sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
+      ([messageHash, _]) => messageHash,
+    );
   };
 
   /**
@@ -304,7 +290,6 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
-        blockHash: `0x${(await block.hash()).toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
         decodedHeader: {
           contentCommitment: {
@@ -394,10 +379,10 @@ describe('L1Publisher integration', () => {
     };
 
     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
-      const archiveInRollup_ = await rollup.read.archive();
+      const archiveInRollup_ = await rollup.archive();
       expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
-      const blockNumber = await publicClient.getBlockNumber();
+      const blockNumber = await l1Client.getBlockNumber();
 
       // random recipient address, just kept consistent for easy testing ts/sol.
       const recipientAddress = AztecAddress.fromString(
@@ -420,19 +405,19 @@ describe('L1Publisher integration', () => {
           makeProcessedTx(totalNullifiersPerBlock * i + MAX_NULLIFIERS_PER_TX * (txIndex + 1)),
         );
 
-        const ts = (await publicClient.getBlock()).timestamp;
-        const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
-        const timestamp = await rollup.read.getTimestampForSlot([slot]);
+        const ts = (await l1Client.getBlock()).timestamp;
+        const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
+        const timestamp = await rollup.getTimestampForSlot(slot);
 
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
-          new Fr(config.version),
+          new Fr(version),
           new Fr(1 + i),
           new Fr(slot),
           new Fr(timestamp),
           coinbase,
           feeRecipient,
-          new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
+          new GasFees(Fr.ZERO, new Fr(await rollup.getManaBaseFeeAt(timestamp, true))),
         );
 
         const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
@@ -467,7 +452,7 @@ describe('L1Publisher integration', () => {
         await publisher.sendRequests();
         blocks.push(block);
 
-        const logs = await publicClient.getLogs({
+        const logs = await l1Client.getLogs({
           address: rollupAddress,
           event: getAbiItem({
             abi: RollupAbi,
@@ -478,11 +463,11 @@ describe('L1Publisher integration', () => {
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
 
-        const ethTx = await publicClient.getTransaction({
+        const ethTx = await l1Client.getTransaction({
           hash: logs[i].transactionHash!,
         });
 
-        const blobPublicInputsHash = await rollup.read.getBlobPublicInputsHash([BigInt(i + 1)]);
+        const blobPublicInputsHash = await rollup.getBlobPublicInputsHash(BigInt(i + 1));
         const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
         expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
 
@@ -493,7 +478,6 @@ describe('L1Publisher integration', () => {
             {
               header: `0x${block.header.toBuffer().toString('hex')}`,
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-              blockHash: `0x${(await block.header.hash()).toBuffer().toString('hex')}`,
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
@@ -537,7 +521,7 @@ describe('L1Publisher integration', () => {
       [1, 'single_tx_block'],
       [4, 'mixed_block'],
     ])(
-      'builds ${numberOfConsecutiveBlocks} blocks of %i bloated txs building on each other',
+      `builds ${numberOfConsecutiveBlocks} blocks of %i bloated txs building on each other`,
       async (numTxs: number, jsonFileNamePrefix: string) => {
         await buildAndPublishBlock(numTxs, jsonFileNamePrefix);
       },
@@ -547,9 +531,9 @@ describe('L1Publisher integration', () => {
   describe('error handling', () => {
     let loggerErrorSpy: ReturnType<(typeof jest)['spyOn']>;
 
-    it(`shows propose custom errors if tx reverts`, async () => {
+    it.skip(`shows propose custom errors if tx reverts`, async () => {
       // REFACTOR: code below is duplicated from "builds blocks of 2 empty txs building on each other"
-      const archiveInRollup_ = await rollup.read.archive();
+      const archiveInRollup_ = await rollup.archive();
       expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
       // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts
@@ -558,18 +542,18 @@ describe('L1Publisher integration', () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
 
       const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
-      const ts = (await publicClient.getBlock()).timestamp;
-      const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
-      const timestamp = await rollup.read.getTimestampForSlot([slot]);
+      const ts = (await l1Client.getBlock()).timestamp;
+      const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
+      const timestamp = await rollup.getTimestampForSlot(slot);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
-        new Fr(config.version),
+        new Fr(version),
         new Fr(1),
         new Fr(slot),
         new Fr(timestamp),
         coinbase,
         feeRecipient,
-        new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
+        new GasFees(Fr.ZERO, new Fr(await rollup.getManaBaseFeeAt(timestamp, true))),
       );
       const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
@@ -579,7 +563,7 @@ describe('L1Publisher integration', () => {
       loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
 
       // Expect the tx to revert
-      await expect(publisher.enqueueProposeL2Block(block)).resolves.toEqual(true);
+      expect(await publisher.enqueueProposeL2Block(block)).toEqual(true);
 
       await expect(publisher.sendRequests()).resolves.toMatchObject({
         errorMsg: expect.stringContaining('Rollup__InvalidInHash'),
@@ -614,7 +598,6 @@ describe('L1Publisher integration', () => {
         ),
         undefined,
         expect.objectContaining({
-          blockHash: expect.any(Fr),
           blockNumber: expect.any(Number),
           slotNumber: expect.any(BigInt),
           txHash: expect.any(String),

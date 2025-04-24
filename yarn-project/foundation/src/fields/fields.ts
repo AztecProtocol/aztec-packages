@@ -437,6 +437,13 @@ export class Fq extends BaseField {
     return this.toString();
   }
 
+  toFields() {
+    // The following has to match the order of the limbs in EmbeddedCurveScalar struct in noir::std. This is because
+    // this function is used when returning Scalar from the getAddressSecret oracle and in Noir the values get deserialized
+    // using the intrinsic serialization of Noir (which follows the order of the fields/members in the struct).
+    return [this.lo, this.hi];
+  }
+
   static get schema() {
     return hexSchemaFor(Fq);
   }

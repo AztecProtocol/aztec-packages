@@ -57,9 +57,6 @@ describe('e2e_escrow_contract', () => {
 
     await mintTokensToPrivate(token, wallet, escrowContract.address, 100n);
 
-    // We allow our wallet to see the escrow contract's notes.
-    wallet.setScopes([wallet.getAddress(), escrowContract.address]);
-
     logger.info(`Token contract deployed at ${token.address}`);
   });
 

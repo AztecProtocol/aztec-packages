@@ -1,5 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { schemas } from '@aztec/foundation/schemas';
 import { L2Block } from '@aztec/stdlib/block';
@@ -35,6 +36,10 @@ export async function randomPublishedL2Block(l2BlockNumber: number): Promise<Pub
     timestamp: block.header.globalVariables.timestamp.toBigInt(),
     blockHash: Buffer32.random().toString(),
   };
-  const signatures = times(3, Signature.random);
+  // Create valid signatures
+  const signers = times(3, () => Secp256k1Signer.random());
+  const signatures = await Promise.all(
+    times(3, async i => signers[i].signMessage(Buffer32.fromField(await block.hash()))),
+  );
   return { block, l1, signatures };
 }

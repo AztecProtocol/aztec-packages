@@ -1,8 +1,4 @@
-import {
-  MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS,
-  PRIVATE_CONTEXT_INPUTS_LENGTH,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/constants';
+import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import {
@@ -23,10 +19,8 @@ import {
   CallContext,
   Capsule,
   CountedContractClassLog,
-  CountedPublicExecutionRequest,
   NoteAndSlot,
   PrivateCallExecutionResult,
-  PublicExecutionRequest,
   type TxContext,
 } from '@aztec/stdlib/tx';
 
@@ -37,12 +31,12 @@ import type { HashedValuesCache } from './hashed_values_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
-import { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
  * The execution oracle for the private part of a transaction.
  */
-export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
+export class PrivateExecutionOracle extends UtilityExecutionOracle {
   /**
    * New notes created during this execution.
    * It's possible that a note in this list has been nullified (in the same or other executions) and doesn't exist in the ExecutionNoteCache and the final proof data.
@@ -64,8 +58,6 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
   private nestedExecutions: PrivateCallExecutionResult[] = [];
-  private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
-  private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
   constructor(
     private readonly argsHash: Fr,
@@ -80,7 +72,7 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     private readonly noteCache: ExecutionNoteCache,
     executionDataProvider: ExecutionDataProvider,
     private provider: SimulationProvider,
-    private totalPublicArgsCount: number,
+    private totalPublicCalldataCount: number,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
@@ -100,8 +92,8 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
 
     const args = this.executionCache.getPreimage(this.argsHash);
 
-    if (args.length !== argumentsSize) {
-      throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args.length}`);
+    if (args?.length !== argumentsSize) {
+      throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args?.length}`);
     }
 
     const privateContextInputs = new PrivateContextInputs(
@@ -153,26 +145,12 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
   }
 
   /**
-   * Return the enqueued public function calls during this execution.
-   */
-  public getEnqueuedPublicFunctionCalls() {
-    return this.enqueuedPublicFunctionCalls;
-  }
-
-  /**
-   * Return the public teardown function call set during this execution.
-   */
-  public getPublicTeardownFunctionCall() {
-    return this.publicTeardownFunctionCall;
-  }
-
-  /**
    * Store values in the execution cache.
    * @param values - Values to store.
    * @returns The hash of the values.
    */
-  public override storeInExecutionCache(values: Fr[]): Promise<Fr> {
-    return this.executionCache.store(values);
+  public override storeInExecutionCache(values: Fr[], hash: Fr) {
+    return this.executionCache.store(values, hash);
   }
 
   /**
@@ -181,7 +159,11 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
    * @returns The values.
    */
   public override loadFromExecutionCache(hash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.executionCache.getPreimage(hash));
+    const preimage = this.executionCache.getPreimage(hash);
+    if (!preimage) {
+      throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
+    }
+    return Promise.resolve(preimage);
   }
 
   /**
@@ -413,7 +395,7 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
       this.noteCache,
       this.executionDataProvider,
       this.provider,
-      this.totalPublicArgsCount,
+      this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
       this.scopes,
@@ -440,131 +422,50 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     };
   }
 
+  #onNewPublicFunctionCall(calldataHash: Fr) {
+    const calldata = this.executionCache.getPreimage(calldataHash);
+    if (!calldata) {
+      throw new Error('Calldata for public call not found in cache');
+    }
+
+    this.totalPublicCalldataCount += calldata.length;
+    if (this.totalPublicCalldataCount > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
+      throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
+    }
+  }
+
   /**
-   * Creates a PublicExecutionRequest object representing the request to call a public function.
+   * Verify relevant information when a public function is enqueued.
    * @param targetContractAddress - The address of the contract to call.
-   * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The arguments hash to pass to the function.
+   * @param calldataHash - The hash of the function selector and arguments.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
-   * @returns The public call stack item with the request information.
    */
-  protected async createPublicExecutionRequest(
-    callType: 'enqueued' | 'teardown',
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
+  public override notifyEnqueuedPublicFunctionCall(
+    _targetContractAddress: AztecAddress,
+    calldataHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
   ) {
-    const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
-      targetContractAddress,
-      functionSelector,
-    );
-    const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
-    const args = this.executionCache.getPreimage(argsHash);
-
-    this.log.verbose(
-      `Created ${callType} public execution request to ${targetArtifact.name}@${targetContractAddress}`,
-      {
-        sideEffectCounter,
-        isStaticCall,
-        functionSelector,
-        targetContractAddress,
-        callType,
-      },
-    );
-
-    const request = PublicExecutionRequest.from({
-      args,
-      callContext: derivedCallContext,
-    });
-
-    if (callType === 'enqueued') {
-      this.enqueuedPublicFunctionCalls.push(new CountedPublicExecutionRequest(request, sideEffectCounter));
-    } else {
-      this.publicTeardownFunctionCall = request;
-    }
+    this.#onNewPublicFunctionCall(calldataHash);
+    return Promise.resolve();
   }
 
   /**
-   * Creates and enqueues a PublicExecutionRequest object representing the request to call a public function. No function
-   * is actually called, since that must happen on the sequencer side. All the fields related to the result
-   * of the execution are empty.
+   * Verify relevant information when a public teardown function is set.
    * @param targetContractAddress - The address of the contract to call.
-   * @param functionSelector - The function selector of the function to call.
    * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
-   * @returns The public call stack item with the request information.
    */
-  public override async enqueuePublicFunctionCall(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<Fr> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-    // WARNING: This is insecure and should be temporary!
-    // The oracle re-hashes the arguments and returns a new args_hash.
-    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-    // b) this is only temporary.
-    const newArgs = [functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
-    const newArgsHash = await this.executionCache.store(newArgs);
-    await this.createPublicExecutionRequest(
-      'enqueued',
-      targetContractAddress,
-      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-      newArgsHash,
-      sideEffectCounter,
-      isStaticCall,
-    );
-    this.totalPublicArgsCount += newArgs.length;
-    if (this.totalPublicArgsCount > MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS) {
-      throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS})`);
-    }
-    return newArgsHash;
-  }
-
-  /**
-   * Creates a PublicExecutionRequest and sets it as the public teardown function. No function
-   * is actually called, since that must happen on the sequencer side. All the fields related to the result
-   * of the execution are empty.
-   * @param targetContractAddress - The address of the contract to call.
-   * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The arguments hash to pass to the function.
-   * @param sideEffectCounter - The side effect counter at the start of the call.
-   * @param isStaticCall - Whether the call is a static call.
-   * @returns The public call stack item with the request information.
-   */
-  public override async setPublicTeardownFunctionCall(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
-    sideEffectCounter: number,
-    isStaticCall: boolean,
-  ): Promise<Fr> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-    // WARNING: This is insecure and should be temporary!
-    // The oracle rehashes the arguments and returns a new args_hash.
-    // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-    // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-    // b) this is only temporary.
-    const newArgsHash = await this.executionCache.store([
-      functionSelector.toField(),
-      ...this.executionCache.getPreimage(argsHash),
-    ]);
-    await this.createPublicExecutionRequest(
-      'teardown',
-      targetContractAddress,
-      FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-      newArgsHash,
-      sideEffectCounter,
-      isStaticCall,
-    );
-    return newArgsHash;
+  public override notifySetPublicTeardownFunctionCall(
+    _targetContractAddress: AztecAddress,
+    calldataHash: Fr,
+    _sideEffectCounter: number,
+    _isStaticCall: boolean,
+  ) {
+    this.#onNewPublicFunctionCall(calldataHash);
+    return Promise.resolve();
   }
 
   public override notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void> {
@@ -599,15 +500,8 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async syncNotes() {
-    const taggedLogsByRecipient = await this.executionDataProvider.syncTaggedLogs(
-      this.contractAddress,
-      this.historicalHeader.globalVariables.blockNumber.toNumber(),
-      this.scopes,
-    );
-    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.executionDataProvider.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
-    }
+  public override async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+    await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }

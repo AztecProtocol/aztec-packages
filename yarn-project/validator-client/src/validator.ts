@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -70,6 +71,8 @@ export class ValidatorClient extends WithTracer implements Validator {
   // Callback registered to: sequencer.buildBlock
   private blockBuilder?: BlockBuilderCallback = undefined;
 
+  private myAddress: EthAddress;
+  private lastEpoch: bigint | undefined;
   private epochCacheUpdateLoop: RunningPromise;
 
   private blockProposalValidator: BlockProposalValidator;
@@ -91,28 +94,28 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
-    // Refresh epoch cache every second to trigger commiteeChanged event
-    this.epochCacheUpdateLoop = new RunningPromise(
-      () =>
-        this.epochCache
-          .getCommittee()
-          .then(() => {})
-          .catch(err => log.error('Error updating validator committee', err)),
-      log,
-      1000,
-    );
-
-    // Listen to commiteeChanged event to alert operator when their validator has entered the committee
-    this.epochCache.on('committeeChanged', (newCommittee, epochNumber) => {
-      const me = this.keyStore.getAddress();
-      if (newCommittee.some(addr => addr.equals(me))) {
-        this.log.info(`Validator ${me.toString()} is on the validator committee for epoch ${epochNumber}`);
-      } else {
-        this.log.verbose(`Validator ${me.toString()} not on the validator committee for epoch ${epochNumber}`);
-      }
-    });
+    // Refresh epoch cache every second to trigger alert if participation in commitee changes
+    this.myAddress = this.keyStore.getAddress();
+    this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommiteeUpdate.bind(this), log, 1000);
 
     this.log.verbose(`Initialized validator with address ${this.keyStore.getAddress().toString()}`);
+  }
+
+  private async handleEpochCommiteeUpdate() {
+    try {
+      const { committee, epoch } = await this.epochCache.getCommittee('now');
+      if (epoch !== this.lastEpoch) {
+        const me = this.myAddress;
+        if (committee.some(addr => addr.equals(me))) {
+          this.log.info(`Validator ${me.toString()} is on the validator committee for epoch ${epoch}`);
+        } else {
+          this.log.verbose(`Validator ${me.toString()} not on the validator committee for epoch ${epoch}`);
+        }
+        this.lastEpoch = epoch;
+      }
+    } catch (err) {
+      this.log.error(`Error updating epoch committee`, err);
+    }
   }
 
   static new(
@@ -194,6 +197,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
     if (invalidProposal) {
       this.log.verbose(`Proposal is not valid, skipping attestation`);
+      this.metrics.incFailedAttestations('invalid_proposal');
       return undefined;
     }
 
@@ -207,6 +211,12 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal);
       }
     } catch (error: any) {
+      if (error instanceof Error) {
+        this.metrics.incFailedAttestations(error.name);
+      } else {
+        this.metrics.incFailedAttestations('unknown');
+      }
+
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation`, error, proposalInfo);
@@ -220,9 +230,10 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Provided all of the above checks pass, we can attest to the proposal
     this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
+    this.metrics.incAttestations();
 
     // If the above function does not throw an error, then we can attest to the proposal
-    return this.validationService.attestToProposal(proposal);
+    return this.doAttestToProposal(proposal);
   }
 
   /**
@@ -256,18 +267,18 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.log.verbose(`Transaction re-execution complete`);
 
     if (numFailedTxs > 0) {
-      await this.metrics.recordFailedReexecution(proposal);
+      this.metrics.recordFailedReexecution(proposal);
       throw new ReExFailedTxsError(numFailedTxs);
     }
 
     if (block.body.txEffects.length !== txHashes.length) {
-      await this.metrics.recordFailedReexecution(proposal);
+      this.metrics.recordFailedReexecution(proposal);
       throw new ReExTimeoutError();
     }
 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
-      await this.metrics.recordFailedReexecution(proposal);
+      this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();
     }
   }
@@ -327,15 +338,16 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
 
     const proposalId = proposal.archive.toString();
-    const myAttestation = await this.validationService.attestToProposal(proposal);
+    await this.doAttestToProposal(proposal);
+    const me = this.keyStore.getAddress();
 
     let attestations: BlockAttestation[] = [];
     while (true) {
-      const collectedAttestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot, proposalId))];
-      const oldSenders = await Promise.all(attestations.map(attestation => attestation.getSender()));
+      const collectedAttestations = await this.p2pClient.getAttestationsForSlot(slot, proposalId);
+      const oldSenders = attestations.map(attestation => attestation.getSender());
       for (const collected of collectedAttestations) {
-        const collectedSender = await collected.getSender();
-        if (!oldSenders.some(sender => sender.equals(collectedSender))) {
+        const collectedSender = collected.getSender();
+        if (!collectedSender.equals(me) && !oldSenders.some(sender => sender.equals(collectedSender))) {
           this.log.debug(`Received attestation for slot ${slot} from ${collectedSender.toString()}`);
         }
       }
@@ -354,6 +366,12 @@ export class ValidatorClient extends WithTracer implements Validator {
       this.log.debug(`Collected ${attestations.length} attestations so far`);
       await sleep(this.config.attestationPollingIntervalMs);
     }
+  }
+
+  private async doAttestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
+    const attestation = await this.validationService.attestToProposal(proposal);
+    await this.p2pClient.addAttestation(attestation);
+    return attestation;
   }
 }
 

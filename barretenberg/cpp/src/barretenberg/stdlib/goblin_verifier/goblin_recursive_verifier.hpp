@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
@@ -30,9 +36,9 @@ class GoblinRecursiveVerifier {
     using ECCVMVerifier = ECCVMRecursiveVerifier_<ECCVMFlavor>;
 
     // ECCVM and Translator verification keys
-    using VerifierInput = GoblinVerifier::VerifierInput;
+    using VerificationKey = Goblin::VerificationKey;
 
-    GoblinRecursiveVerifier(Builder* builder, VerifierInput& verification_keys)
+    GoblinRecursiveVerifier(Builder* builder, const VerificationKey& verification_keys)
         : builder(builder)
         , verification_keys(verification_keys){};
 
@@ -49,7 +55,7 @@ class GoblinRecursiveVerifier {
 
   private:
     Builder* builder;
-    VerifierInput verification_keys; // ECCVM and Translator verification keys
+    VerificationKey verification_keys; // ECCVM and Translator verification keys
 };
 
 } // namespace bb::stdlib::recursion::honk

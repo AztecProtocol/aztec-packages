@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Helper script for deploying local KIND scenarios.
 # Overrides refers to overriding values in the values yaml file
@@ -42,31 +42,19 @@ fi
 # Load the Docker image into kind
 flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
-function show_status_until_pxe_ready {
-  set +x   # don't spam with our commands
-  sleep 15 # let helm upgrade start
-  for i in {1..100}; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
-      break # we are up, stop showing status
-    fi
-    # show startup status
-    kubectl get pods -n "$namespace"
-  done
-}
-
-show_status_until_pxe_ready &
+# Start the deployment monitor in background
+./monitor_k8s_deployment.sh "$namespace" "$helm_instance" "app!=setup-l2-contracts" &
+status_monitor_pid=$!
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null || true
+  trap - SIGTERM
+  kill $status_monitor_pid 2>/dev/null || true
+  kill $(jobs -p) 2>/dev/null || true
+  rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-# if we don't have a chaos values, remove any existing chaos experiments
-if [ -z "$chaos_values" ]; then
-  echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
-fi
-
+# Function to generate Helm overrides from comma-separated string
 function generate_overrides {
   local overrides="$1"
   if [ -n "$overrides" ]; then
@@ -78,55 +66,68 @@ function generate_overrides {
   fi
 }
 
+# if we don't have a chaos values, remove any existing chaos experiments
+if [ -z "$chaos_values" ]; then
+  echo "Deleting existing network chaos experiments..."
+  kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
+fi
+
+# Initialize Helm set arguments
+helm_set_args=(
+  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
+)
+
 # Some configuration values are set in the eth-devnet/config/config.yaml file
 # and are used to generate the genesis.json file.
 # We need to read these values and pass them into the eth devnet create.sh script
 # so that it can generate the genesis.json and config.yaml file with the correct values.
 if [ "$sepolia_deployment" = "true" ]; then
   echo "Generating sepolia accounts..."
-  set +x
-  L1_ACCOUNTS_MNEMONIC=$(./prepare_sepolia_accounts.sh "$values_file" "$mnemonic_file")
-  set -x
-else
-  echo "Generating devnet config..."
-  ./generate_devnet_config.sh "$values_file"
-fi
+  # Split EXTERNAL_ETHEREUM_HOSTS by comma and take first host
+  # set +x
+  export ETHEREUM_HOST=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | cut -d',' -f1)
+  ./prepare_sepolia_accounts.sh "$values_file" 1 "$mnemonic_file"
+  L1_ACCOUNTS_MNEMONIC="$(cat "$mnemonic_file")"
 
-# Install the Helm chart
-echo "Cleaning up any existing Helm releases..."
-helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
-kubectl delete clusterrole "$helm_instance"-aztec-network-node 2>/dev/null || true
-kubectl delete clusterrolebinding "$helm_instance"-aztec-network-node 2>/dev/null || true
+  # Escape the EXTERNAL_ETHEREUM_HOSTS value for Helm
+  ESCAPED_HOSTS=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | sed 's/,/\\,/g' | sed 's/=/\\=/g')
 
-helm_set_args=(
-  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
-)
-
-# If this is a sepolia run, we need to write some values
-if [ "$sepolia_deployment" = "true" ]; then
-  set +x
   helm_set_args+=(
-    --set ethereum.execution.externalHosts="$EXTERNAL_ETHEREUM_HOSTS"
+    --set ethereum.execution.externalHosts="$ESCAPED_HOSTS"
     --set ethereum.beacon.externalHost="$EXTERNAL_ETHEREUM_CONSENSUS_HOST"
     --set aztec.l1DeploymentMnemonic="$L1_ACCOUNTS_MNEMONIC"
     --set ethereum.deployL1ContractsPrivateKey="$L1_DEPLOYMENT_PRIVATE_KEY"
   )
 
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKey="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
+    helm_set_args+=(--set "ethereum.beacon.apiKey=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY")
   fi
 
   if [ -n "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-}" ]; then
-    helm_set_args+=(--set ethereum.beacon.apiKeyHeader="$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
+    helm_set_args+=(--set "ethereum.beacon.apiKeyHeader=$EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER")
   fi
-  set -x
+  # set -x
+else
+  echo "Generating devnet config..."
+
+  # For each spartan run, we write genesis files into a different directory to prevent contention in ci
+  export GENESIS_PATH="out-$namespace"
+  helm_set_args+=(--set ethereum.genesisBasePath="$GENESIS_PATH")
+
+  ./generate_devnet_config.sh "$values_file"
 fi
 
+# Clean up any existing deployment
+echo "Cleaning up any existing Helm releases..."
+helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
+kubectl delete clusterrole "$helm_instance"-aztec-network-node 2>/dev/null || true
+kubectl delete clusterrolebinding "$helm_instance"-aztec-network-node 2>/dev/null || true
+
+# Install the Helm chart
 helm upgrade --install "$helm_instance" ../aztec-network \
   --namespace "$namespace" \
   --create-namespace \
   "${helm_set_args[@]}" \
-  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag" \
   $(generate_overrides "$overrides") \
   -f "../aztec-network/values/$values_file" \
   -f "../aztec-network/resources/$resources_file" \
@@ -134,8 +135,10 @@ helm upgrade --install "$helm_instance" ../aztec-network \
   --wait-for-jobs=true \
   --timeout="$install_timeout"
 
-kubectl wait pod -l app==pxe -l app.kubernetes.io/instance="$helm_instance" --for=condition=Ready -n "$namespace" --timeout=10m
+# Wait for PXE pods to be ready
+kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=10m
 
+# Configure network chaos if enabled
 if [ -n "$chaos_values" ]; then
   ../bootstrap.sh chaos-mesh
   ../bootstrap.sh network-shaping "$chaos_values"

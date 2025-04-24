@@ -80,6 +80,10 @@ http://{{ include "aztec-network.fullname" . }}-blob-sink.{{ .Release.Namespace 
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 
+{{- define "aztec-network.fullNodeAdminUrl" -}}
+http://{{ include "aztec-network.fullname" . }}-full-node-admin.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.fullNode.service.adminPort }}
+{{- end -}}
+
 {{- define "helpers.flag" -}}
 {{- $name := index . 0 -}}
 {{- $value := index . 1 -}}
@@ -218,7 +222,7 @@ nodeSelector:
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}
-if [ -n "${EXTERNAL_ETHEREUM_HOSTS}" ]; then
+if [ -n "${EXTERNAL_ETHEREUM_HOSTS:-}" ]; then
   export ETHEREUM_HOSTS="${EXTERNAL_ETHEREUM_HOSTS}"
 fi
 echo "Awaiting any ethereum node from: ${ETHEREUM_HOSTS}"
@@ -288,6 +292,8 @@ Combined wait-for-services and configure-env container for full nodes
       value: "{{ .Values.aztec.contracts.registryAddress }}"
     - name: SLASH_FACTORY_CONTRACT_ADDRESS
       value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
+    - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+      value: "{{ .Values.aztec.contracts.feeAssetHandlerContractAddress }}"
 {{- end -}}
 
 {{/*
@@ -373,3 +379,4 @@ Combined P2P, and Service Address Setup Container
     - name: config
       mountPath: /shared/config
 {{- end -}}
+

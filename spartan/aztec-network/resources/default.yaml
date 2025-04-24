@@ -1,40 +1,40 @@
 bootNode:
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
     limits:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "500m"
 
 validator:
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
     limits:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "500m"
 
 fullNode:
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
     limits:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "500m"
 
 proverNode:
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
     limits:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "500m"
 pxe:
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
     limits:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "500m"
 
 bot:
@@ -42,9 +42,9 @@ bot:
     spotEnabled: true
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
     limits:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "500m"
 
 proverAgent:

@@ -157,8 +157,11 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
 
         // When allowing chaining, ensure propagation is to one's self (and not to some other user).
         group_ct self = input_note_1.owner;
-        allow_chain_1.must_imply(output_note_1.owner == self, "inter-user chaining disallowed");
-        allow_chain_2.must_imply(output_note_2.owner == self, "inter-user chaining disallowed");
+
+        group_ct output_note_1_owner = output_note_1.owner;
+        group_ct output_note_2_owner = output_note_2.owner;
+        allow_chain_1.must_imply(output_note_1_owner == self, "inter-user chaining disallowed");
+        allow_chain_2.must_imply(output_note_2_owner == self, "inter-user chaining disallowed");
 
         // Prevent chaining from a partial claim note.
         is_defi_deposit.must_imply(!allow_chain_1, "cannot chain from a partial claim note");
@@ -190,7 +193,9 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
      */
 
     // Verify input notes have the same account public key and account_required.
-    input_note_1.owner.assert_equal(input_note_2.owner, "input note owners don't match");
+    group_ct input_note_1_owner = input_note_1.owner;
+    group_ct input_note_2_owner = input_note_2.owner;
+    input_note_1_owner.assert_equal(input_note_2_owner, "input note owners don't match");
     input_note_1.account_required.assert_equal(input_note_2.account_required,
                                                "input note account_required don't match");
 
@@ -199,7 +204,7 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
     inputs.account_private_key.assert_is_not_zero("account private key is zero");
     auto account_public_key = group_ct(grumpkin::g1::affine_one) *
                               group_ct::cycle_scalar::create_from_bn254_scalar(inputs.account_private_key);
-    account_public_key.assert_equal(input_note_1.owner, "account_private_key incorrect");
+    account_public_key.assert_equal(input_note_1_owner, "account_private_key incorrect");
     inputs.account_required.assert_equal(input_note_1.account_required, "account_required incorrect");
 
     // Verify output notes creator_pubkey is either account_public_key.x or 0.

@@ -1,5 +1,5 @@
 import { TimeoutError } from '../error/index.js';
-import { createLogger } from '../log/index.js';
+import { type Logger, createLogger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
@@ -49,7 +49,7 @@ export async function retry<Result>(
   fn: () => Promise<Result>,
   name = 'Operation',
   backoff = backoffGenerator(),
-  log = createLogger('foundation:retry'),
+  log: Logger = createLogger('foundation:retry'),
   failSilently = false,
 ) {
   while (true) {
@@ -64,8 +64,8 @@ export async function retry<Result>(
       if (s === undefined) {
         throw err;
       }
-      log.verbose(`${name} failed. Will retry in ${s}s...`);
-      !failSilently && log.error(`Error while retrying ${name}`, err);
+      log?.debug(`${name} failed. Will retry in ${s}s...`);
+      !failSilently && log?.error(`Error while retrying ${name}`, err);
       await sleep(s * 1000);
       continue;
     }
@@ -83,7 +83,12 @@ export async function retry<Result>(
  * @param interval - The optional interval, in seconds, between retry attempts. Defaults to 1 second.
  * @returns A Promise that resolves with the successful (truthy) result of the provided function, or rejects if timeout is exceeded.
  */
-export async function retryUntil<T>(fn: () => Promise<T | undefined>, name = '', timeout = 0, interval = 1) {
+export async function retryUntil<T>(
+  fn: () => (T | undefined) | Promise<T | undefined>,
+  name = '',
+  timeout = 0,
+  interval = 1,
+) {
   const timer = new Timer();
   while (true) {
     const result = await fn();

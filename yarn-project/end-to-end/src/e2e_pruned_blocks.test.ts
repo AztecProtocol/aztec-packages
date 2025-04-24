@@ -85,7 +85,8 @@ describe('e2e_pruned_blocks', () => {
     // We now make a historical query for the leaf index at the block number in which this first note was created and
     // check that we get a valid result, which indirectly means that the queried block has not yet been pruned.
     expect(
-      (await aztecNode.findLeavesIndexes(firstMintReceipt.blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [mintedNote!]))[0],
+      (await aztecNode.findLeavesIndexes(firstMintReceipt.blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [mintedNote!]))[0]!
+        .data,
     ).toBeGreaterThan(0);
 
     // We now mine dummy blocks, mark them as proven and wait for the node to process them, which should result in older

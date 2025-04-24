@@ -1,6 +1,6 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2TipsStore } from '@aztec/kv-store/stores';
+import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2Block, type L2BlockStream, randomPublishedL2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -14,7 +14,7 @@ import { Synchronizer } from './synchronizer.js';
 
 describe('Synchronizer', () => {
   let synchronizer: Synchronizer;
-  let tipsStore: L2TipsStore;
+  let tipsStore: L2TipsKVStore;
   let syncDataProvider: SyncDataProvider;
   let noteDataProvider: NoteDataProvider;
   let taggingDataProvider: TaggingDataProvider;
@@ -31,7 +31,7 @@ describe('Synchronizer', () => {
     const store = await openTmpStore('test');
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
-    tipsStore = new L2TipsStore(store, 'pxe');
+    tipsStore = new L2TipsKVStore(store, 'pxe');
     syncDataProvider = new SyncDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
     taggingDataProvider = new TaggingDataProvider(store);
@@ -64,7 +64,7 @@ describe('Synchronizer', () => {
       type: 'blocks-added',
       blocks: await timesParallel(5, randomPublishedL2Block),
     });
-    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', blockNumber: 3 });
+    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: 3, hash: '0x3' } });
 
     expect(removeNotesAfter).toHaveBeenCalledWith(3);
     expect(unnullifyNotesAfter).toHaveBeenCalledWith(3, 4);

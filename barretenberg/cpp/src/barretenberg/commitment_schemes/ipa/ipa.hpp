@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
@@ -531,7 +537,8 @@ template <typename Curve_> class IPA {
         msm_scalars.emplace_back(a_zero);
         msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, {-opening_claim.opening_pair.evaluation}));
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
-        ipa_relation.assert_equal(-opening_claim.commitment);
+        auto neg_commitment = -opening_claim.commitment;
+        ipa_relation.assert_equal(neg_commitment);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of a field_t.
         Fr stdlib_log_poly_length(static_cast<uint256_t>(log_poly_length));
@@ -587,8 +594,6 @@ template <typename Curve_> class IPA {
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/912): Return the proper VerifierAccumulator once
-    // implemented
     static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(Curve::is_stdlib_type)
@@ -727,7 +732,8 @@ template <typename Curve_> class IPA {
         msm_scalars.emplace_back(a_zero);
         msm_scalars.emplace_back(generator_challenge * a_zero.madd(b_zero, {-opening_claim.opening_pair.evaluation}));
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
-        ipa_relation.assert_equal(-opening_claim.commitment);
+        auto neg_commitment = -opening_claim.commitment;
+        ipa_relation.assert_equal(neg_commitment);
 
         return (ipa_relation.get_value() == -opening_claim.commitment.get_value());
     }

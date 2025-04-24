@@ -1,7 +1,0 @@
-[package]
-name = "u16_support"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.29.0"
-
-[dependencies]

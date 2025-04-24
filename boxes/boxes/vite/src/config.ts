@@ -23,6 +23,7 @@ export class PrivateEnv {
     const aztecNode = await createAztecNodeClient(nodeURL);
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
+    config.proverEnabled = false;
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
       ...config,

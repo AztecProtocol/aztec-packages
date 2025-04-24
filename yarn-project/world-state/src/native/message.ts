@@ -41,6 +41,8 @@ export enum WorldStateMessageType {
   COMMIT_CHECKPOINT,
   REVERT_CHECKPOINT,
 
+  COPY_STORES,
+
   CLOSE = 999,
 }
 
@@ -94,6 +96,8 @@ export interface DBStats {
 export interface TreeDBStats {
   /** The configured max size of the DB mapping file (effectively the max possible size of the DB) */
   mapSize: bigint;
+  /** The physical file size of the database on disk */
+  physicalFileSize: bigint;
   /** Stats for the 'blocks' DB */
   blocksDBStats: DBStats;
   /** Stats for the 'nodes' DB */
@@ -149,6 +153,7 @@ export function buildEmptyDBStats() {
 export function buildEmptyTreeDBStats() {
   return {
     mapSize: 0n,
+    physicalFileSize: 0n,
     blocksDBStats: buildEmptyDBStats(),
     nodesDBStats: buildEmptyDBStats(),
     leafIndicesDBStats: buildEmptyDBStats(),
@@ -240,6 +245,7 @@ export function sanitiseTreeDBStats(stats: TreeDBStats) {
   stats.blockIndicesDBStats = sanitiseDBStats(stats.blockIndicesDBStats);
   stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
+  stats.physicalFileSize = BigInt(stats.physicalFileSize);
   return stats;
 }
 
@@ -286,13 +292,13 @@ interface WithLeafIndex {
 
 export type SerializedLeafValue =
   | Buffer // Fr
-  | { value: Buffer } // NullifierLeaf
+  | { nullifier: Buffer } // NullifierLeaf
   | { value: Buffer; slot: Buffer }; // PublicDataTreeLeaf
 
 export type SerializedIndexedLeaf = {
-  value: Exclude<SerializedLeafValue, Buffer>;
+  leaf: Exclude<SerializedLeafValue, Buffer>;
   nextIndex: bigint | number;
-  nextValue: Buffer; // Fr
+  nextKey: Buffer; // Fr
 };
 
 interface WithLeafValues {
@@ -409,6 +415,11 @@ interface CreateForkResponse {
 
 interface DeleteForkRequest extends WithForkId {}
 
+interface CopyStoresRequest extends WithCanonicalForkId {
+  dstPath: string;
+  compact: boolean;
+}
+
 export type WorldStateRequestCategories = WithForkId | WithWorldStateRevision | WithCanonicalForkId;
 
 export function isWithForkId(body: WorldStateRequestCategories): body is WithForkId {
@@ -460,6 +471,8 @@ export type WorldStateRequest = {
   [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
 
+  [WorldStateMessageType.COPY_STORES]: CopyStoresRequest;
+
   [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
 };
 
@@ -499,6 +512,8 @@ export type WorldStateResponse = {
   [WorldStateMessageType.CREATE_CHECKPOINT]: void;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
   [WorldStateMessageType.REVERT_CHECKPOINT]: void;
+
+  [WorldStateMessageType.COPY_STORES]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };

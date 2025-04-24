@@ -1,4 +1,8 @@
-import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import {
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
@@ -78,6 +82,12 @@ export class PublicLog {
   }
 
   static get schema(): ZodFor<PublicLog> {
+    if (PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1 == PRIVATE_LOG_SIZE_IN_FIELDS) {
+      throw new Error(
+        'Constants got updated and schema for PrivateLog matches that of PublicLog. This needs to be updated now as Zod is no longer able to differentiate the 2 in TxScopedL2Log.',
+      );
+    }
+
     return z
       .object({
         contractAddress: AztecAddress.schema,

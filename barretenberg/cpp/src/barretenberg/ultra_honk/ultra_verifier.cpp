@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./ultra_verifier.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -32,39 +38,37 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         return fq(limb);
     };
 
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
+    // Parse out the nested IPA claim using key->ipa_claim_public_input_key and runs the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
-        if (verification_key->verification_key->contains_ipa_claim) {
 
-            constexpr size_t NUM_LIMBS = 4;
-            OpeningClaim<curve::Grumpkin> ipa_claim;
+        constexpr size_t NUM_LIMBS = 4;
+        OpeningClaim<curve::Grumpkin> ipa_claim;
 
-            std::array<FF, NUM_LIMBS> challenge_bigfield_limbs;
-            std::array<FF, NUM_LIMBS> evaluation_bigfield_limbs;
-            for (size_t k = 0; k < NUM_LIMBS; k++) {
-                challenge_bigfield_limbs[k] =
-                    verification_key
-                        ->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
-            }
-            for (size_t k = 0; k < NUM_LIMBS; k++) {
-                evaluation_bigfield_limbs[k] =
-                    verification_key->public_inputs[verification_key->verification_key
-                                                        ->ipa_claim_public_input_indices[NUM_LIMBS + k]];
-            }
-            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
-            ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
-            ipa_claim.commitment = {
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[8]],
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]]
-            };
+        // Extract the public inputs containing the IPA claim
+        std::array<FF, IPA_CLAIM_SIZE> ipa_claim_limbs;
+        const uint32_t start_idx = verification_key->verification_key->ipa_claim_public_input_key.start_idx;
+        for (size_t k = 0; k < IPA_CLAIM_SIZE; k++) {
+            ipa_claim_limbs[k] = verification_key->public_inputs[start_idx + k];
+        }
 
-            // verify the ipa_proof with this claim
-            ipa_transcript = std::make_shared<Transcript>(ipa_proof);
-            ipa_transcript->enable_manifest(); // Enable manifest for the verifier.
-            bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
-            if (!ipa_result) {
-                return false;
-            }
+        std::array<FF, NUM_LIMBS> challenge_bigfield_limbs;
+        std::array<FF, NUM_LIMBS> evaluation_bigfield_limbs;
+        for (size_t k = 0; k < NUM_LIMBS; k++) {
+            challenge_bigfield_limbs[k] = ipa_claim_limbs[k];
+        }
+        for (size_t k = 0; k < NUM_LIMBS; k++) {
+            evaluation_bigfield_limbs[k] = ipa_claim_limbs[NUM_LIMBS + k];
+        }
+        ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
+        ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
+        ipa_claim.commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
+
+        // verify the ipa_proof with this claim
+        ipa_transcript = std::make_shared<Transcript>(ipa_proof);
+        ipa_transcript->enable_manifest(); // Enable manifest for the verifier.
+        bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
+        if (!ipa_result) {
+            return false;
         }
     }
 
@@ -76,6 +80,10 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 template class UltraVerifier_<UltraFlavor>;
 template class UltraVerifier_<UltraZKFlavor>;
 template class UltraVerifier_<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class UltraVerifier_<UltraStarknetFlavor>;
+template class UltraVerifier_<UltraStarknetZKFlavor>;
+#endif
 template class UltraVerifier_<UltraKeccakZKFlavor>;
 template class UltraVerifier_<UltraRollupFlavor>;
 template class UltraVerifier_<MegaFlavor>;

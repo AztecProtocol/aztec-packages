@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+export NOIR_HASH=${NOIR_HASH-$(../noir/bootstrap.sh hash)}
+
 function build {
   echo_header "noir-projects build"
 
@@ -23,7 +25,8 @@ function build {
   parallel --tag --line-buffered --joblog joblog.txt --halt now,fail=1 denoise "'./{}/bootstrap.sh $cmd'" ::: \
     mock-protocol-circuits \
     noir-protocol-circuits \
-    noir-contracts
+    noir-contracts \
+    aztec-nr
 }
 
 function test_cmds {
@@ -43,7 +46,7 @@ case "$cmd" in
     $cmd
     ;;
   "hash")
-    cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
+    hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

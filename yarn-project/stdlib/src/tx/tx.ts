@@ -10,23 +10,26 @@ import { z } from 'zod';
 import type { GasSettings } from '../gas/gas_settings.js';
 import type { GetPublicLogsResponse } from '../interfaces/get_logs_response.js';
 import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
+import type { PublicCallRequest } from '../kernel/index.js';
 import type { ScopedLogHash } from '../kernel/log_hash.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
 import { Gossipable } from '../p2p/gossipable.js';
-import { TopicType, createTopicString } from '../p2p/topic_type.js';
+import { TopicType } from '../p2p/topic_type.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { TxStats } from '../stats/stats.js';
-import { PublicExecutionRequest } from './public_execution_request.js';
+import { HashedValues } from './hashed_values.js';
+import { PublicCallRequestWithCalldata } from './public_call_request_with_calldata.js';
 import { TxHash } from './tx_hash.js';
 
 /**
  * The interface of an L2 transaction.
  */
 export class Tx extends Gossipable {
-  static override p2pTopic: string;
+  static override p2pTopic = TopicType.tx;
   // For memoization
   private txHash: TxHash | undefined;
+  private calldataMap: Map<string, Fr[]> | undefined;
 
   constructor(
     /**
@@ -36,7 +39,6 @@ export class Tx extends Gossipable {
     /**
      * Proof from the private kernel circuit.
      * TODO(#7368): This client IVC object currently contains various VKs that will eventually be more like static data.
-     *
      */
     public readonly clientIvcProof: ClientIvcProof,
     /**
@@ -44,20 +46,11 @@ export class Tx extends Gossipable {
      */
     public contractClassLogs: ContractClassLog[],
     /**
-     * Enqueued public functions from the private circuit to be run by the sequencer.
+     * An array of calldata for the enqueued public function calls and the teardown function call.
      */
-    public readonly enqueuedPublicFunctionCalls: PublicExecutionRequest[],
-    /**
-     * Public function call to be run by the sequencer as part of teardown.
-     */
-    public readonly publicTeardownFunctionCall: PublicExecutionRequest,
+    public publicFunctionCalldata: HashedValues[],
   ) {
     super();
-  }
-
-  // Gossipable method
-  static {
-    this.p2pTopic = createTopicString(TopicType.tx);
   }
 
   // Gossipable method
@@ -66,29 +59,38 @@ export class Tx extends Gossipable {
   }
 
   hasPublicCalls() {
-    return this.data.numberOfPublicCallRequests() > 0;
+    return this.numberOfPublicCalls() > 0;
   }
 
-  getNonRevertiblePublicExecutionRequests(): PublicExecutionRequest[] {
-    const numRevertible = this.data.numberOfRevertiblePublicCallRequests();
-    return this.enqueuedPublicFunctionCalls.slice(numRevertible);
+  numberOfPublicCalls() {
+    return this.data.numberOfPublicCallRequests();
   }
 
-  getRevertiblePublicExecutionRequests(): PublicExecutionRequest[] {
-    const numRevertible = this.data.numberOfRevertiblePublicCallRequests();
-    return this.enqueuedPublicFunctionCalls.slice(0, numRevertible);
+  getNonRevertiblePublicCallRequestsWithCalldata(): PublicCallRequestWithCalldata[] {
+    return this.data.getNonRevertiblePublicCallRequests().map(r => this.#combinePublicCallRequestWithCallData(r));
   }
 
-  getPublicTeardownExecutionRequest(): PublicExecutionRequest | undefined {
-    return this.publicTeardownFunctionCall.isEmpty() ? undefined : this.publicTeardownFunctionCall;
+  getRevertiblePublicCallRequestsWithCalldata(): PublicCallRequestWithCalldata[] {
+    return this.data.getRevertiblePublicCallRequests().map(r => this.#combinePublicCallRequestWithCallData(r));
   }
 
-  getTotalPublicArgsCount(): number {
-    let count = this.enqueuedPublicFunctionCalls.reduce((acc, execRequest) => acc + execRequest.args.length, 0);
-    if (!this.publicTeardownFunctionCall.isEmpty()) {
-      count += this.publicTeardownFunctionCall.args.length;
-    }
-    return count;
+  getTeardownPublicCallRequestWithCalldata(): PublicCallRequestWithCalldata | undefined {
+    const request = this.data.getTeardownPublicCallRequest();
+    return request ? this.#combinePublicCallRequestWithCallData(request) : undefined;
+  }
+
+  getPublicCallRequestsWithCalldata(): PublicCallRequestWithCalldata[] {
+    const teardown = this.data.getTeardownPublicCallRequest();
+    const callRequests = [
+      ...this.data.getNonRevertiblePublicCallRequests(),
+      ...this.data.getRevertiblePublicCallRequests(),
+      ...(teardown ? [teardown] : []),
+    ];
+    return callRequests.map(r => this.#combinePublicCallRequestWithCallData(r));
+  }
+
+  getTotalPublicCalldataCount(): number {
+    return this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.values.length, 0);
   }
 
   getGasSettings(): GasSettings {
@@ -106,21 +108,7 @@ export class Tx extends Gossipable {
       reader.readObject(PrivateKernelTailCircuitPublicInputs),
       reader.readObject(ClientIvcProof),
       reader.readVectorUint8Prefix(ContractClassLog),
-      reader.readVectorUint8Prefix(PublicExecutionRequest),
-      reader.readObject(PublicExecutionRequest),
-    );
-  }
-
-  static newWithTxData(
-    data: PrivateKernelTailCircuitPublicInputs,
-    publicTeardownExecutionRequest?: PublicExecutionRequest,
-  ) {
-    return new Tx(
-      data,
-      ClientIvcProof.empty(),
-      [],
-      [],
-      publicTeardownExecutionRequest ? publicTeardownExecutionRequest : PublicExecutionRequest.empty(),
+      reader.readVectorUint8Prefix(HashedValues),
     );
   }
 
@@ -133,8 +121,7 @@ export class Tx extends Gossipable {
       this.data,
       this.clientIvcProof,
       serializeArrayOfBufferableToVector(this.contractClassLogs, 1),
-      serializeArrayOfBufferableToVector(this.enqueuedPublicFunctionCalls, 1),
-      this.publicTeardownFunctionCall,
+      serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
     ]);
   }
 
@@ -144,20 +131,13 @@ export class Tx extends Gossipable {
         data: PrivateKernelTailCircuitPublicInputs.schema,
         clientIvcProof: ClientIvcProof.schema,
         contractClassLogs: z.array(ContractClassLog.schema),
-        enqueuedPublicFunctionCalls: z.array(PublicExecutionRequest.schema),
-        publicTeardownFunctionCall: PublicExecutionRequest.schema,
+        publicFunctionCalldata: z.array(HashedValues.schema),
       })
       .transform(Tx.from);
   }
 
   static from(fields: FieldsOf<Tx>) {
-    return new Tx(
-      fields.data,
-      fields.clientIvcProof,
-      fields.contractClassLogs,
-      fields.enqueuedPublicFunctionCalls,
-      fields.publicTeardownFunctionCall,
-    );
+    return new Tx(fields.data, fields.clientIvcProof, fields.contractClassLogs, fields.publicFunctionCalldata);
   }
 
   /**
@@ -229,6 +209,16 @@ export class Tx extends Gossipable {
     this.txHash = hash;
   }
 
+  getCalldataMap(): Map<string, Fr[]> {
+    if (!this.calldataMap) {
+      const calldataMap = new Map();
+      this.publicFunctionCalldata.forEach(cd => calldataMap.set(cd.hash.toString(), cd.values));
+      this.calldataMap = calldataMap;
+    }
+
+    return this.calldataMap;
+  }
+
   /** Returns stats about this tx. */
   async getStats(): Promise<TxStats> {
     return {
@@ -245,12 +235,7 @@ export class Tx extends Gossipable {
 
       feePaymentMethod:
         // needsSetup? then we pay through a fee payment contract
-        this.data.forPublic?.needsSetup
-          ? // if the first call is to `approve_public_authwit`, then it's a public payment
-            this.data.getNonRevertiblePublicCallRequests().at(-1)!.functionSelector.toField().toBigInt() === 0x43417bb1n
-            ? 'fpc_public'
-            : 'fpc_private'
-          : 'fee_juice',
+        this.data.forPublic?.needsSetup ? 'fpc' : 'fee_juice',
     };
   }
 
@@ -259,8 +244,7 @@ export class Tx extends Gossipable {
       this.data.getSize() +
       this.clientIvcProof.clientIvcProofBuffer.length +
       arraySerializedSizeOfNonEmpty(this.contractClassLogs) +
-      arraySerializedSizeOfNonEmpty(this.enqueuedPublicFunctionCalls) +
-      arraySerializedSizeOfNonEmpty([this.publicTeardownFunctionCall])
+      this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.getSize(), 0)
     );
   }
 
@@ -304,17 +288,8 @@ export class Tx extends Gossipable {
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(tx.data.toBuffer());
     const clientIvcProof = ClientIvcProof.fromBuffer(tx.clientIvcProof.toBuffer());
     const contractClassLogs = tx.contractClassLogs.map(x => ContractClassLog.fromBuffer(x.toBuffer()));
-    const enqueuedPublicFunctionCalls = tx.enqueuedPublicFunctionCalls.map(x =>
-      PublicExecutionRequest.fromBuffer(x.toBuffer()),
-    );
-    const publicTeardownFunctionCall = PublicExecutionRequest.fromBuffer(tx.publicTeardownFunctionCall.toBuffer());
-    const clonedTx = new Tx(
-      publicInputs,
-      clientIvcProof,
-      contractClassLogs,
-      enqueuedPublicFunctionCalls,
-      publicTeardownFunctionCall,
-    );
+    const publicFunctionCalldata = tx.publicFunctionCalldata.map(cd => HashedValues.fromBuffer(cd.toBuffer()));
+    const clonedTx = new Tx(publicInputs, clientIvcProof, contractClassLogs, publicFunctionCalldata);
     if (tx.txHash) {
       clonedTx.setTxHash(TxHash.fromBuffer(tx.txHash.toBuffer()));
     }
@@ -332,8 +307,7 @@ export class Tx extends Gossipable {
       PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
       randomProof ? ClientIvcProof.random() : ClientIvcProof.empty(),
       [await ContractClassLog.random()],
-      [await PublicExecutionRequest.random()],
-      await PublicExecutionRequest.random(),
+      [HashedValues.random()],
     );
   }
 
@@ -353,6 +327,14 @@ export class Tx extends Gossipable {
    */
   public async filterRevertedLogs() {
     this.contractClassLogs = await this.getSplitContractClassLogs(false);
+  }
+
+  #combinePublicCallRequestWithCallData(request: PublicCallRequest) {
+    const calldataMap = this.getCalldataMap();
+    // Assume empty calldata if nothing is given for the hash.
+    // The verification of calldata vs hash should be handled outside of this class.
+    const calldata = calldataMap.get(request.calldataHash.toString()) ?? [];
+    return new PublicCallRequestWithCalldata(request, calldata);
   }
 }
 

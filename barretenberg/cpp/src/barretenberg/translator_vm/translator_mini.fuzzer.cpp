@@ -1,3 +1,10 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "translator_circuit_builder.hpp"
 
@@ -36,11 +43,12 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     Fr z_2 = Fr(*(uint256_t*)(buffer));
 
     bb::TranslatorCircuitBuilder::AccumulationInput single_accumulation_step =
-        bb::generate_witness_values(op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
+        bb::TranslatorCircuitBuilder::generate_witness_values(
+            op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
 
     auto circuit_builder = bb::TranslatorCircuitBuilder(v, x);
     circuit_builder.create_accumulation_gate(single_accumulation_step);
-    if (!circuit_builder.check_circuit()) {
+    if (!TranslatorCircuitChecker::check(circuit_builder)) {
         return 1;
     }
     return 0;

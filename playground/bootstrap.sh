@@ -1,21 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-hash=$(cache_content_hash \
-  .rebuild_patterns \
-  ../noir/.rebuild_patterns \
-  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-  ../barretenberg/*/.rebuild_patterns)
+hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
 function build {
   echo_header "playground build"
-  denoise yarn
+  npm_install_deps
 
   if ! cache_download playground-$hash.tar.gz; then
     denoise 'yarn build'
-    cache_upload playground-$hash.tar.gz $(git ls-files --others --ignored --exclude-standard | grep -v '^node_modules/')
+    cache_upload playground-$hash.tar.gz $(git ls-files --others --ignored --exclude-standard | grep -vE '^"?node_modules/')
   fi
 }
 
@@ -34,9 +30,9 @@ function release {
   echo_header "playground release"
   if [ $(dist_tag) != "latest" ]; then
     # TODO attach to github release
-    do_or_dryrun yarn netlify deploy --site aztec-playground --dir=dist
+    do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$REF_NAME
   else
-    do_or_dryrun yarn netlify deploy --site aztec-playground --prod --dir=dist
+    do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/
   fi
 }
 

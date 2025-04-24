@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/simulation/ecc.hpp"
 
-#include "gmock/gmock.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/common/field.hpp"

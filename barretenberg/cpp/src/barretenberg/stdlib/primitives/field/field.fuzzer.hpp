@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -648,7 +654,7 @@ template <typename Builder> class FieldBase {
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
                 *Data = instruction.id;
-                bb::fr::serialize_to_buffer(insturction.arguments.element.data, Data + 1);
+                bb::fr::serialize_to_buffer(instruction.arguments.element, Data + 1);
             }
 
             if constexpr (instruction_opcode == Instruction::OPCODE::ASSERT_ZERO ||

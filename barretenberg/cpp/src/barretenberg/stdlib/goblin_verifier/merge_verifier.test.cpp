@@ -31,8 +31,6 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
-    using MergeProver = MergeProver_<InnerFlavor>;
-    using MergeVerifier = MergeVerifier_<InnerFlavor>;
 
   public:
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
@@ -46,8 +44,6 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     static void test_recursive_merge_verification()
     {
         auto op_queue = std::make_shared<ECCOpQueue>();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/800) Testing cleanup
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
 
         InnerBuilder sample_circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(sample_circuit);
@@ -72,7 +68,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         bool verified_native = native_verifier.verify_proof(merge_proof);
         VerifierCommitmentKey pcs_verification_key;
         auto verified_recursive =
-            pcs_verification_key.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value());
+            pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(verified_native, verified_recursive);
         EXPECT_TRUE(verified_recursive);
 
@@ -89,9 +85,6 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     }
 };
 
-// Run the recursive verifier tests with Ultra and Mega builders
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1024): Ultra fails, possibly due to repeated points in
-// batch mul?
 using Builders = testing::Types<MegaCircuitBuilder, UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(RecursiveMergeVerifierTest, Builders);

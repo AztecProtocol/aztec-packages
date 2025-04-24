@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
 import bundlesize from 'vite-plugin-bundlesize';
+import path from 'path';
 
 // Only required for alternative bb wasm file, left as reference
 // import { viteStaticCopy } from "vite-plugin-static-copy";
@@ -25,7 +26,8 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
-    logLevel: 'error',
+    base: './',
+    logLevel: process.env.CI ? 'error' : undefined,
     server: {
       // Headers needed for bb WASM to work in multithreaded mode
       headers: {
@@ -58,6 +60,7 @@ export default defineConfig(({ mode }) => {
       //   ],
       // }),
       bundlesize({
+        // Bump log:
         limits: [{ name: 'assets/index-*', limit: '1600kB' }],
       }),
     ],

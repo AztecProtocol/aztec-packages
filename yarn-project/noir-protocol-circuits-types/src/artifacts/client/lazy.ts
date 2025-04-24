@@ -1,4 +1,4 @@
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import {
@@ -9,11 +9,11 @@ import {
 import type { ArtifactProvider, ClientProtocolArtifact } from '../types.js';
 
 export class LazyArtifactProvider implements ArtifactProvider {
-  getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit> {
+  getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuitWithName> {
     return getClientCircuitArtifact(ClientCircuitArtifactNames[artifact], false);
   }
 
-  getSimulatedClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit> {
+  getSimulatedClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuitWithName> {
     return getClientCircuitArtifact(ClientCircuitArtifactNames[artifact], true);
   }
 

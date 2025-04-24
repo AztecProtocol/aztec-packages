@@ -1,13 +1,10 @@
 use crate::{
-    context::{PublicContext, UnconstrainedContext},
+    context::{PublicContext, UtilityContext},
     history::public_storage::PublicStorageHistoricalRead,
     oracle,
 };
 use dep::protocol_types::{
-    address::AztecAddress,
-    block_header::BlockHeader,
-    hash::poseidon2_hash,
-    traits::{Packable, ToField},
+    address::AztecAddress, block_header::BlockHeader, hash::poseidon2_hash, traits::Packable,
 };
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.
@@ -46,8 +43,8 @@ where
         context.storage_read(storage_slot)
     }
 
-    pub unconstrained fn unconstrained_public_storage_read(
-        context: UnconstrainedContext,
+    pub unconstrained fn utility_public_storage_read(
+        context: UtilityContext,
         storage_slot: Field,
     ) -> T {
         context.storage_read(storage_slot)

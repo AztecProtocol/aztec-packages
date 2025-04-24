@@ -35,7 +35,7 @@ For quick reference:
 TODO: https://github.com/AztecProtocol/aztec-packages/issues/7600
 
 All available `bb` commands:
-https://github.com/AztecProtocol/aztec-packages/blob/barretenberg-v0.55.0/barretenberg/cpp/src/barretenberg/bb/main.cpp#L1369-L1512
+https://github.com/AztecProtocol/aztec-packages/blob/barretenberg-v0.55.0/barretenberg/cpp/src/barretenberg/bb/main.cpp#L654-L734
 
 #### FilePath vs Stdout
 

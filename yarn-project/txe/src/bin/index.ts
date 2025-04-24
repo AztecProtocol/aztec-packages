@@ -25,6 +25,7 @@ async function main() {
 
   const txeServer = createTXERpcServer(logger);
   const { port } = await startHttpRpcServer(txeServer, {
+    host: '127.0.0.1',
     port: TXE_PORT,
     timeoutMs: 1e3 * 60 * 5,
   });

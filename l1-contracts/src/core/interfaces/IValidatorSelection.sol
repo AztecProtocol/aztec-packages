@@ -11,6 +11,7 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
  * @param nextSeed - The seed used to influence the NEXT epoch
  */
 struct EpochData {
+  // TODO: remove in favor of commitment to comittee
   address[] committee;
   uint256 sampleSeed;
   uint256 nextSeed;
@@ -30,8 +31,13 @@ interface IValidatorSelectionCore {
 
 interface IValidatorSelection is IValidatorSelectionCore {
   // Likely changing to optimize in Pleistarchus
-  function getCurrentProposer() external view returns (address);
-  function getProposerAt(Timestamp _ts) external view returns (address);
+  function getCurrentProposer() external returns (address);
+  function getProposerAt(Timestamp _ts) external returns (address);
+
+  // Non view as uses transient storage
+  function getCurrentEpochCommittee() external returns (address[] memory);
+  function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
+  function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
@@ -42,9 +48,6 @@ interface IValidatorSelection is IValidatorSelectionCore {
 
   // Likely removal of these to replace with a size and indiviual getter
   // Get the current epoch committee
-  function getCurrentEpochCommittee() external view returns (address[] memory);
-  function getCommitteeAt(Timestamp _ts) external view returns (address[] memory);
-  function getEpochCommittee(Epoch _epoch) external view returns (address[] memory);
   function getAttesters() external view returns (address[] memory);
 
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);

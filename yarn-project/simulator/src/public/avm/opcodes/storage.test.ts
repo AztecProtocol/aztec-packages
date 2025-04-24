@@ -3,21 +3,21 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { SLoad, SStore } from './storage.js';
 
 describe('Storage Instructions', () => {
   let context: AvmContext;
-  let persistableState: MockProxy<AvmPersistableStateManager>;
+  let persistableState: MockProxy<PublicPersistableStateManager>;
   let address: AztecAddress;
 
   beforeEach(async () => {
     address = await AztecAddress.random();
-    persistableState = mock<AvmPersistableStateManager>();
+    persistableState = mock<PublicPersistableStateManager>();
     context = initContext({
       persistableState: persistableState,
       env: initExecutionEnvironment({ address }),
@@ -34,8 +34,8 @@ describe('Storage Instructions', () => {
       ]);
       const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x1234, /*slotOffset=*/ 0x3456);
 
-      expect(SStore.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SStore.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Sstore should Write into storage', async () => {
@@ -77,8 +77,8 @@ describe('Storage Instructions', () => {
       ]);
       const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x1234, /*dstOffset=*/ 0x3456);
 
-      expect(SLoad.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SLoad.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Sload should Read into storage', async () => {

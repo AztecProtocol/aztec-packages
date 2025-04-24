@@ -2,7 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -34,7 +34,7 @@ import {
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
 /**
@@ -43,8 +43,8 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
 export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
-    private dateProvider: DateProvider,
-    private telemetryClient: TelemetryClient = getTelemetryClient(),
+    private dateProvider: DateProvider = new DateProvider(),
+    protected telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
   /**
@@ -59,20 +59,18 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
   ): PublicProcessor {
-    const treesDB = new PublicTreesDB(merkleTree);
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
-      treesDB,
+      merkleTree,
       contractsDB,
       globalVariables,
       /*doMerkleOperations=*/ true,
       skipFeeEnforcement,
-      this.telemetryClient,
     );
 
     return new PublicProcessor(
       globalVariables,
-      treesDB,
+      merkleTree,
       contractsDB,
       publicTxSimulator,
       this.dateProvider,
@@ -81,20 +79,19 @@ export class PublicProcessorFactory {
   }
 
   protected createPublicTxSimulator(
-    treesDB: PublicTreesDB,
+    merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
-    telemetryClient: TelemetryClient,
-  ) {
-    return new PublicTxSimulator(
-      treesDB,
+  ): PublicTxSimulator {
+    return new TelemetryPublicTxSimulator(
+      merkleTree,
       contractsDB,
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,
-      telemetryClient,
+      this.telemetryClient,
     );
   }
 }
@@ -112,9 +109,10 @@ class PublicProcessorTimeoutError extends Error {
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
+
   constructor(
     protected globalVariables: GlobalVariables,
-    protected treesDB: PublicTreesDB,
+    private merkleTree: MerkleTreeWriteOperations,
     protected contractsDB: PublicContractsDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
@@ -131,7 +129,8 @@ export class PublicProcessor implements Traceable {
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
    * @param txs - Txs to process.
-   * @param processedTxHandler - Handler for processed txs in the context of block building or proving.
+   * @param limits - Limits for processing the txs.
+   * @param validator - Pre-process validator and nullifier cache to use for processing the txs.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(
@@ -142,14 +141,13 @@ export class PublicProcessor implements Traceable {
       maxBlockGas?: Gas;
       deadline?: Date;
     } = {},
-    validators: {
+    validator: {
       preprocessValidator?: TxValidator<Tx>;
-      postprocessValidator?: TxValidator<ProcessedTx>;
       nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
     } = {},
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
-    const { preprocessValidator, postprocessValidator, nullifierCache } = validators;
+    const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
     const timer = new Timer();
@@ -223,7 +221,7 @@ export class PublicProcessor implements Traceable {
       // We checkpoint the transaction here, then within the try/catch we
       // 1. Revert the checkpoint if the tx fails or needs to be discarded for any reason
       // 2. Commit the transaction in the finally block. Note that by using the ForkCheckpoint lifecycle only the first commit/revert takes effect
-      const checkpoint = await ForkCheckpoint.new(this.treesDB);
+      const checkpoint = await ForkCheckpoint.new(this.merkleTree);
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -242,36 +240,8 @@ export class PublicProcessor implements Traceable {
           continue;
         }
 
-        // Re-validate the transaction
-        if (postprocessValidator) {
-          // Only accept processed transactions that are not double-spends,
-          // public functions emitting nullifiers would pass earlier check but fail here.
-          // Note that we're checking all nullifiers generated in the private execution twice,
-          // we could store the ones already checked and skip them here as an optimization.
-          // TODO(palla/txs): Can we get into this case? AVM validates this. We should be able to remove it.
-          const result = await postprocessValidator.validateTx(processedTx);
-          if (result.result !== 'valid') {
-            const reason = result.reason.join(', ');
-            this.log.error(`Rejecting tx ${processedTx.hash} after processing: ${reason}.`);
-            failed.push({ tx, error: new Error(`Tx failed post-process validation: ${reason}`) });
-            // Need to revert the checkpoint here and don't go any further
-            await checkpoint.revert();
-            continue;
-          } else {
-            this.log.trace(`Tx ${txHash.toString()} is valid post processing.`);
-          }
-        }
-
-        if (!tx.hasPublicCalls()) {
-          // If there are no public calls, perform all tree insertions for side effects from private
-          // When there are public calls, the PublicTxSimulator & AVM handle tree insertions.
-          await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
-          // Add any contracts registered/deployed in this private-only tx to the block-level cache
-          // (add to tx-level cache and then commit to block-level cache)
-          await this.contractsDB.addNewContracts(tx);
-          this.contractsDB.commitContractsForTx();
-        }
-
+        // FIXME(fcarreiro): it's ugly to have to notify the validator of nullifiers.
+        // I'd rather pass the validators the processedTx as well and let them deal with it.
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
         returns = returns.concat(returnValues);
@@ -321,7 +291,7 @@ export class PublicProcessor implements Traceable {
     this.log.verbose(
       !tx.hasPublicCalls()
         ? `Processed tx ${processedTx.hash} with no public calls in ${time}ms`
-        : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls in ${time}ms`,
+        : `Processed tx ${processedTx.hash} with ${tx.numberOfPublicCalls()} public calls in ${time}ms`,
       {
         txHash: processedTx.hash,
         txFee: processedTx.txEffect.transactionFee.toBigInt(),
@@ -354,12 +324,12 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
-    await this.treesDB.appendLeaves(
+    await this.merkleTree.appendLeaves(
       MerkleTreeId.NOTE_HASH_TREE,
       padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
     try {
-      await this.treesDB.batchInsert(
+      await this.merkleTree.batchInsert(
         MerkleTreeId.NULLIFIER_TREE,
         padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
@@ -374,11 +344,6 @@ export class PublicProcessor implements Traceable {
       }
     }
 
-    // The only public data write should be for fee payment
-    await this.treesDB.sequentialInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
-    );
     const treeInsertionEnd = process.hrtime.bigint();
     this.metrics.recordTreeInsertions(Number(treeInsertionEnd - treeInsertionStart) / 1_000);
   }
@@ -420,14 +385,16 @@ export class PublicProcessor implements Traceable {
    * This is used in private only txs, since for txs with public calls
    * the avm handles the fee payment itself.
    */
-  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite> {
+  private async performFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite> {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    // This high-level db is used as a convenient helper. It could be done with the merkleTree directly.
+    const treesDB = new PublicTreesDB(this.merkleTree);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
-    const balance = await this.treesDB.storageRead(feeJuiceAddress, balanceSlot);
+    const balance = await treesDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
       throw new Error(
@@ -436,7 +403,7 @@ export class PublicProcessor implements Traceable {
     }
 
     const updatedBalance = balance.sub(txFee);
-    await this.treesDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
+    await treesDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
 
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
@@ -448,7 +415,7 @@ export class PublicProcessor implements Traceable {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
-    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
+    const feePaymentPublicDataWrite = await this.performFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
     const processedTx = await makeProcessedTxFromPrivateOnlyTx(
       tx,
@@ -467,6 +434,15 @@ export class PublicProcessor implements Traceable {
         .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
         .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
+
+    // Fee payment insertion has already been done. Do the rest.
+    await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
+
+    // Add any contracts registered/deployed in this private-only tx to the block-level cache
+    // (add to tx-level cache and then commit to block-level cache)
+    await this.contractsDB.addNewContracts(tx);
+    this.contractsDB.commitContractsForTx();
+
     return [processedTx, undefined];
   }
 
@@ -488,7 +464,7 @@ export class PublicProcessor implements Traceable {
       if (phase.reverted) {
         this.metrics.recordRevertedPhase(phase.phase);
       } else {
-        this.metrics.recordPhaseDuration(phase.phase, phase.durationMs);
+        this.metrics.recordPhaseDuration(phase.phase, phase.durationMs ?? 0);
       }
     });
 

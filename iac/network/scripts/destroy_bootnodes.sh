@@ -67,7 +67,7 @@ terraform apply \
   -var="peer_id_private_keys=$PRIVATE_KEYS_TF_ARG" \
   -var="machine_type=" \
   -var="project_id=$PROJECT_ID" \
-  -var="p2p_udp_port=$P2P_PORT" \
+  -var="p2p_port=$P2P_PORT" \
   -var="l1_chain_id=$L1_CHAIN_ID" \
   -var="image_tag=$TAG" \
   --destroy

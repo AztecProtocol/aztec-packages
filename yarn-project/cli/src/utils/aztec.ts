@@ -1,4 +1,4 @@
-import type { EthAddress, PXE } from '@aztec/aztec.js';
+import { EthAddress, type PXE } from '@aztec/aztec.js';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -6,11 +6,16 @@ import {
   getAllFunctionAbis,
   loadContractArtifact,
 } from '@aztec/aztec.js/abi';
-import type { DeployL1ContractsReturnType, L1ContractsConfig, RollupContract } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsReturnType,
+  type L1ContractsConfig,
+  RegistryContract,
+  RollupContract,
+} from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
@@ -48,7 +53,7 @@ export async function deployAztecContracts(
   salt: number | undefined,
   initialValidators: EthAddress[],
   genesisArchiveRoot: Fr,
-  genesisBlockHash: Fr,
+  feeJuicePortalInitialBalance: bigint,
   acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
   debugLogger: Logger,
@@ -69,14 +74,13 @@ export async function deployAztecContracts(
     chain.chainInfo,
     debugLogger,
     {
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot,
-      genesisBlockHash,
       salt,
       initialValidators,
       acceleratedTestDeployments,
+      feeJuicePortalInitialBalance,
       ...config,
     },
     config,
@@ -93,11 +97,11 @@ export async function deployNewRollupContracts(
   salt: number | undefined,
   initialValidators: EthAddress[],
   genesisArchiveRoot: Fr,
-  genesisBlockHash: Fr,
+  feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   logger: Logger,
-): Promise<{ payloadAddress: EthAddress; rollup: RollupContract }> {
-  const { createEthereumChain, deployRollupForUpgrade, createL1Clients } = await import('@aztec/ethereum');
+): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
+  const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
@@ -105,18 +109,24 @@ export async function deployNewRollupContracts(
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrls, chainId);
-  const clients = createL1Clients(rpcUrls, account, chain.chainInfo, mnemonicIndex);
+  const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
-  const { payloadAddress, rollup } = await deployRollupForUpgrade(
-    clients,
+  if (!initialValidators || initialValidators.length === 0) {
+    const registry = new RegistryContract(client, registryAddress);
+    const rollup = new RollupContract(client, await registry.getCanonicalAddress());
+    initialValidators = (await rollup.getAttesters()).map(str => EthAddress.fromString(str));
+    logger.info('Initializing new rollup with old attesters', { initialValidators });
+  }
+
+  const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
+    client,
     {
       salt,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       genesisArchiveRoot,
-      genesisBlockHash,
       initialValidators,
+      feeJuicePortalInitialBalance,
       ...config,
     },
     registryAddress,
@@ -124,7 +134,7 @@ export async function deployNewRollupContracts(
     config,
   );
 
-  return { payloadAddress, rollup };
+  return { rollup, slashFactoryAddress };
 }
 
 /**

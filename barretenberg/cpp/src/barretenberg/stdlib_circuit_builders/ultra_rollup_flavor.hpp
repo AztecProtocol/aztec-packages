@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
@@ -24,8 +30,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     class ProvingKey : public UltraFlavor::ProvingKey {
       public:
         using UltraFlavor::ProvingKey::ProvingKey;
-        bool contains_ipa_claim;
-        IPAClaimPubInputIndices ipa_claim_public_input_indices;
+        PublicComponentKey ipa_claim_public_input_key;
         HonkProof ipa_proof;
     };
 
@@ -37,11 +42,10 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         virtual ~VerificationKey() = default;
-        bool contains_ipa_claim;
-        IPAClaimPubInputIndices ipa_claim_public_input_indices;
+        PublicComponentKey ipa_claim_public_input_key;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -68,10 +72,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
-            serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
-            serialize_to_field_buffer(contains_ipa_claim, elements);
-            serialize_to_field_buffer(ipa_claim_public_input_indices, elements);
+            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
+            serialize_to_field_buffer(ipa_claim_public_input_key.start_idx, elements);
 
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
@@ -81,17 +83,13 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         }
 
         VerificationKey(ProvingKey& proving_key)
-            : contains_ipa_claim(proving_key.contains_ipa_claim)
-            , ipa_claim_public_input_indices(proving_key.ipa_claim_public_input_indices)
+            : ipa_claim_public_input_key(proving_key.ipa_claim_public_input_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices =
-                proving_key.pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
             if (proving_key.commitment_key == nullptr) {
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
@@ -106,10 +104,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
-                        const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
-                        const bool contains_ipa_claim,
-                        const IPAClaimPubInputIndices& ipa_claim_public_input_indices,
+                        const PublicComponentKey& pairing_inputs_public_input_key,
+                        const PublicComponentKey& ipa_claim_public_input_key,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -137,15 +133,13 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                         const Commitment& table_4,
                         const Commitment& lagrange_first,
                         const Commitment& lagrange_last)
-            : contains_ipa_claim(contains_ipa_claim)
-            , ipa_claim_public_input_indices(ipa_claim_public_input_indices)
+            : ipa_claim_public_input_key(ipa_claim_public_input_key)
         {
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -180,10 +174,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_pairing_point_accumulator,
-                       pairing_point_accumulator_public_input_indices,
-                       contains_ipa_claim,
-                       ipa_claim_public_input_indices,
+                       pairing_inputs_public_input_key,
+                       ipa_claim_public_input_key,
                        q_m,
                        q_c,
                        q_l,

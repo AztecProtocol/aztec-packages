@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
@@ -7,7 +8,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAddress, getContract, parseEventLogs } from 'viem';
+import { encodeFunctionData, getAddress, getContract, parseEventLogs } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
@@ -17,7 +18,7 @@ jest.setTimeout(1000000);
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
-const BOOT_NODE_UDP_PORT = 40600;
+const BOOT_NODE_UDP_PORT = 41000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slashing-'));
 
@@ -26,9 +27,11 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slashing-'));
 describe('e2e_p2p_slashing', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let l1TxUtils: L1TxUtils;
 
-  const slashingQuorum = 6;
-  const slashingRoundSize = 10;
+  const slashingQuorum = 3;
+  const slashingRoundSize = 5;
+  const slashingAmount = 1n;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -37,6 +40,7 @@ describe('e2e_p2p_slashing', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        listenAddress: '127.0.0.1',
         aztecEpochDuration: 1,
         ethereumSlotDuration: 4,
         aztecSlotDuration: 12,
@@ -50,6 +54,8 @@ describe('e2e_p2p_slashing', () => {
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
+
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {
@@ -66,52 +72,72 @@ describe('e2e_p2p_slashing', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const rollup = getContract({
-      address: t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues!.walletClient,
-    });
+    const rollup = new RollupContract(
+      t.ctx.deployL1ContractsValues!.l1Client,
+      t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+    );
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.read.getSlasher()),
+      address: getAddress(await rollup.getSlasher()),
       abi: SlasherAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const slashingProposer = getContract({
       address: getAddress(await slasherContract.read.PROPOSER()),
       abi: SlashingProposerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const slashFactory = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
       abi: SlashFactoryAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const slashingInfo = async () => {
-      const bn = await t.ctx.cheatCodes.eth.blockNumber();
-      const slotNumber = await rollup.read.getCurrentSlot();
-      const roundNumber = await slashingProposer.read.computeRound([slotNumber]);
+    const getRoundAndSlotNumber = async () => {
+      const slotNumber = await rollup.getSlotNumber();
+      return { roundNumber: await slashingProposer.read.computeRound([slotNumber]), slotNumber };
+    };
+
+    const debugRollup = async () => {
+      await t.ctx.cheatCodes.rollup.debugRollup();
+    };
+
+    /**
+     * Get the slashing info for a given round number.
+     * @param roundNumber - The round number to get the slashing info for.
+     * @returns The current block number, current slot number and the slashing info.
+     */
+    const slashingInfo = async (roundNumber: bigint) => {
       const instanceAddress = t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
       const info = await slashingProposer.read.rounds([instanceAddress, roundNumber]);
       const leaderVotes = await slashingProposer.read.yeaCount([instanceAddress, roundNumber, info[1]]);
+      const bn = await t.ctx.cheatCodes.eth.blockNumber();
+      const slotNumber = await rollup.getSlotNumber();
       return { bn, slotNumber, roundNumber, info, leaderVotes };
     };
 
     const waitUntilNextRound = async () => {
       t.logger.info(`Waiting for next round`);
       const roundSize = await slashingProposer.read.M();
-      const currentRound = (await rollup.read.getCurrentSlot()) / roundSize;
+      const currentRound = (await rollup.getSlotNumber()) / roundSize;
       const nextRoundSlot = currentRound * roundSize + roundSize;
-      while ((await rollup.read.getCurrentSlot()) < nextRoundSlot) {
+      while ((await rollup.getSlotNumber()) < nextRoundSlot) {
         await sleep(1000);
       }
     };
 
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
+
+    // Jump forward to an epoch in the future such that the validator set is not empty
+    const slotsInEpoch = await rollup.getEpochDuration();
+    const epochToJumpInto = 4n;
+    const timestamp = await rollup.getTimestampForSlot(slotsInEpoch * epochToJumpInto);
+    await t.ctx.cheatCodes.eth.warp(Number(timestamp));
+    // Send tx
+    await t.sendDummyTx();
 
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
@@ -138,15 +164,17 @@ describe('e2e_p2p_slashing', () => {
       }
       const sequencer = (seqClient as any).sequencer;
       const slasher = (sequencer as any).slasherClient;
-      slasher.slashingAmount = 1n;
+      slasher.slashingAmount = slashingAmount;
     }
+
+    await debugRollup();
 
     // wait a bit for peers to discover each other
     await sleep(4000);
 
-    let sInfo = await slashingInfo();
-
     const votesNeeded = await slashingProposer.read.N();
+
+    await debugRollup();
 
     // Produce blocks until we hit an issue with pruning.
     // Then we should jump in time to the next round so we are sure that we have the votes
@@ -160,7 +188,11 @@ describe('e2e_p2p_slashing', () => {
     const slasher = (sequencer as any).slasherClient;
     let slashEvents: any[] = [];
 
+    await debugRollup();
+
     t.logger.info(`Producing blocks until we hit a pruning event`);
+
+    await debugRollup();
 
     // Run for up to the slashing round size, or as long as needed to get a slash event
     // Variable because sometimes hit race-condition issues with attestations.
@@ -183,52 +215,117 @@ describe('e2e_p2p_slashing', () => {
       }
     }
 
+    await debugRollup();
+
     expect(slashEvents.length).toBeGreaterThan(0);
     await waitUntilNextRound();
+
+    // Get the round number where we expect to be seeing a bunch of votes.
+    const { roundNumber, slotNumber } = await getRoundAndSlotNumber();
+    let sInfo = await slashingInfo(roundNumber);
+
+    await debugRollup();
 
     // For the next round we will try to cast votes.
     // Stop early if we have enough votes.
     t.logger.info(`Waiting for votes to be cast`);
     for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info(`Waiting for block number to change`);
-      const slotNumber = await rollup.read.getCurrentSlot();
-      while (slotNumber === (await rollup.read.getCurrentSlot())) {
+      const slotNumber = await rollup.getSlotNumber();
+      while (slotNumber === (await rollup.getSlotNumber())) {
         await sleep(1000);
       }
 
-      sInfo = await slashingInfo();
+      sInfo = await slashingInfo(roundNumber);
       t.logger.info(`We have ${sInfo.leaderVotes} votes in round ${sInfo.roundNumber} on ${sInfo.info[1]}`);
-      if (sInfo.leaderVotes > votesNeeded) {
-        t.logger.info(`We have sufficient votes`);
+      if (sInfo.leaderVotes >= votesNeeded) {
+        // We need there to be an actual committee to slash for this round
+        const epoch = await rollup.getEpochNumberForSlotNumber(sInfo.slotNumber);
+        const committee = await rollup.getEpochCommittee(epoch);
+        if (committee.length > 0) {
+          t.logger.info(`We have sufficient votes, and a committee for epoch ${epoch}`);
+          break;
+        } else {
+          t.logger.info(`No committee found for epoch ${epoch}, waiting for next round`);
+        }
+      }
+    }
+
+    // Because of race-conditions when we start we cannot ACTUALLY rely on just the first slash event
+    // of the first node, since the nodes might get online at different times and don't agree on this.
+    // e.g., the first slash could happen before the second node even got online.
+    // Therefore we derive what we are actually looking for based on what people voted on.
+    // Normally, one of the agents voting should be making the slash happen, but right now,
+    // we don't have that in place.
+    const targetAddress = sInfo.info[1];
+
+    await debugRollup();
+
+    let targetEpoch = 0n;
+    for (let i = 0; i <= slotNumber; i++) {
+      const epoch = await rollup.getEpochNumberForSlotNumber(BigInt(i));
+      const [address, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([epoch, slashingAmount]);
+      if (address === targetAddress && !isDeployed) {
+        targetEpoch = epoch;
+        t.logger.info(`Target epoch found: ${targetEpoch}`);
         break;
       }
     }
 
-    t.logger.info('Deploy the actual payload for slashing!');
-    const slashEvent = slashEvents[0];
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: await slashFactory.write.createSlashPayload([slashEvent.epoch, slashEvent.amount], {
-        account: t.ctx.deployL1ContractsValues.walletClient.account,
+    await debugRollup();
+
+    await l1TxUtils.sendAndMonitorTransaction({
+      to: slashFactory.address,
+      data: encodeFunctionData({
+        abi: SlashFactoryAbi,
+        functionName: 'createSlashPayload',
+        args: [targetEpoch, slashingAmount],
       }),
     });
 
-    t.logger.info(`We jump in time to the next round to execute`);
+    await debugRollup();
+
+    t.logger.info(`Slash payload for ${targetEpoch}, ${slashingAmount} deployed at ${targetAddress}`);
+    t.logger.info(
+      `Committee for epoch ${targetEpoch}: ${(await rollup.getEpochCommittee(targetEpoch)).map(addr =>
+        addr.toLowerCase(),
+      )}`,
+    );
+
+    await debugRollup();
+
+    t.logger.info(`We wait until next round to execute the payload`);
     await waitUntilNextRound();
-    const attestersPre = await rollup.read.getAttesters();
+    const attestersPre = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.read.getInfo([attester]);
+      const attesterInfo = await rollup.getInfo(attester);
       // Check that status isValidating
       expect(attesterInfo.status).toEqual(1);
     }
 
-    t.logger.info(`Push the proposal, SLASHING!`);
-    const tx = await slashingProposer.write.executeProposal([sInfo.roundNumber], {
-      account: t.ctx.deployL1ContractsValues.walletClient.account,
+    t.logger.info(`Execute payload for ${sInfo.roundNumber} at ${sInfo.info[1]}, SLASHING!`);
+
+    const { result } = await t.ctx.deployL1ContractsValues.l1Client.simulateContract({
+      address: getAddress(slashingProposer.address),
+      abi: SlashingProposerAbi,
+      functionName: 'executeProposal',
+      args: [sInfo.roundNumber],
     });
-    const receipt = await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: tx,
+    t.logger.info(`Result: `, result);
+
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+      to: slashingProposer.address,
+      data: encodeFunctionData({
+        abi: SlashingProposerAbi,
+        functionName: 'executeProposal',
+        args: [sInfo.roundNumber],
+      }),
     });
+
+    t.logger.info(`Performed slash in ${receipt.transactionHash}`);
+
+    await debugRollup();
 
     const slashingEvents = parseEventLogs({
       abi: RollupAbi,
@@ -239,6 +336,8 @@ describe('e2e_p2p_slashing', () => {
       // Because TS is a little nagging bitch
       return (event.args as any).attester;
     });
+
+    t.logger.info(`Attesters slashed: ${attestersSlashed.map(addr => addr.toLowerCase())}`);
 
     // Convert attestersPre elements to lowercase for consistent comparison
     const normalizedAttestersPre = attestersPre.map(addr => addr.toLowerCase());
@@ -252,15 +351,29 @@ describe('e2e_p2p_slashing', () => {
     expect(sInfo.info[2]).toEqual(false);
     expect(infoPost[2]).toEqual(true);
 
-    const attestersPost = await rollup.read.getAttesters();
+    const attestersPost = await rollup.getAttesters();
+
+    // Attesters next epoch
+    await t.ctx.cheatCodes.rollup.advanceToNextEpoch();
+    // Send tx
+    await t.sendDummyTx();
+
+    // Slashed parties should be removed from the validator set in the next epoch
+    const attestersNextEpoch = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.read.getInfo([attester]);
+      const attesterInfo = await rollup.getInfo(attester);
       // Check that status is Living
       expect(attesterInfo.status).toEqual(2);
     }
-    const committee = await rollup.read.getEpochCommittee([slashEvent.epoch]);
+
+    await debugRollup();
+
+    // Committee should only update in the next epoch
+    const committee = await rollup.getEpochCommittee(targetEpoch);
     expect(attestersPre.length).toBe(committee.length);
-    expect(attestersPost.length).toBe(0);
+    expect(attestersPost.length).toBe(committee.length);
+
+    expect(attestersNextEpoch.length).toBe(0);
   }, 1_000_000);
 });

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
@@ -22,7 +28,7 @@ template <typename Builder> class field_t {
         , witness_index(IS_CONSTANT)
     {
         additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr(0);
+        multiplicative_constant = bb::fr::one();
     }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
@@ -31,7 +37,7 @@ template <typename Builder> class field_t {
         , witness_index(IS_CONSTANT)
     {
         additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr(0);
+        multiplicative_constant = bb::fr::one();
     }
 
     field_t(const unsigned int value)
@@ -39,7 +45,7 @@ template <typename Builder> class field_t {
         , witness_index(IS_CONSTANT)
     {
         additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr(0);
+        multiplicative_constant = bb::fr::one();
     }
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
@@ -48,20 +54,20 @@ template <typename Builder> class field_t {
         , witness_index(IS_CONSTANT)
     {
         additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr(0);
+        multiplicative_constant = bb::fr::one();
     }
 
     field_t(const bb::fr& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(bb::fr(1))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {}
 
     field_t(const uint256_t& value)
         : context(nullptr)
         , additive_constant(value)
-        , multiplicative_constant(bb::fr(1))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
     {}
 
@@ -188,9 +194,10 @@ template <typename Builder> class field_t {
     field_t operator-() const
     {
         field_t result(*this);
-        result.multiplicative_constant = -multiplicative_constant;
-        result.additive_constant = -additive_constant;
-
+        result.additive_constant.self_neg();
+        if (this->witness_index != IS_CONSTANT) {
+            result.multiplicative_constant.self_neg();
+        }
         return result;
     }
 
@@ -251,6 +258,7 @@ template <typename Builder> class field_t {
      * factors).
      *
      * If the witness_index of `this` is ever needed, `normalize` should be called first.
+     * but it's better to call `get_normalized_witness_index` in such case
      *
      * Will cost 1 constraint if the field element is not already normalized, as a new witness value would need to be
      * created.
@@ -279,15 +287,7 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    void set_public() const
-    {
-        if constexpr (IsSimulator<Builder>) {
-            auto value = normalize().get_value();
-            context->set_public_input(value);
-        } else {
-            context->set_public_input(normalize().witness_index);
-        }
-    }
+    uint32_t set_public() const { return context->set_public_input(normalize().witness_index); }
 
     /**
      * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the

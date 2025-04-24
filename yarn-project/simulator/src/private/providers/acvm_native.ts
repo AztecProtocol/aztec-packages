@@ -1,8 +1,10 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import type { WitnessMap } from '@aztec/noir-types';
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { WitnessMap } from '@aztec/noir-acvm_js';
+import type { ForeignCallHandler } from '@aztec/noir-protocol-circuits-types/types';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
@@ -121,14 +123,15 @@ export async function executeNativeCircuit(
       });
     });
 
-    const duration = new Timer();
+    const timer = new Timer();
     const output = await processPromise;
+    const duration = timer.ms();
     if (outputFilename) {
       const outputWitnessFileName = `${workingDirectory}/output-witness.gz`;
       await fs.copyFile(outputWitnessFileName, outputFilename);
     }
     const witness = parseIntoWitnessMap(output);
-    return { status: ACVM_RESULT.SUCCESS, witness, duration: duration.ms() };
+    return { status: ACVM_RESULT.SUCCESS, witness, duration };
   } catch (error) {
     return { status: ACVM_RESULT.FAILURE, reason: `${error}` };
   }
@@ -136,12 +139,21 @@ export async function executeNativeCircuit(
 
 export class NativeACVMSimulator implements SimulationProvider {
   constructor(private workingDirectory: string, private pathToAcvm: string, private witnessFilename?: string) {}
-  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+
+  async executeProtocolCircuit(
+    input: ACVMWitness,
+    artifact: NoirCompiledCircuitWithName,
+    callback: ForeignCallHandler | undefined,
+  ): Promise<ACVMSuccess> {
     // Execute the circuit on those initial witness values
+
+    if (callback) {
+      throw new Error('Native ACVM simulator does not support foreign calls. Ignoring callback.');
+    }
 
     const operation = async (directory: string) => {
       // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-      const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+      const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
       // Execute the circuit
       const result = await executeNativeCircuit(
         input,
@@ -155,15 +167,15 @@ export class NativeACVMSimulator implements SimulationProvider {
         throw new Error(`Failed to generate witness: ${result.reason}`);
       }
 
-      return result.witness;
+      return result;
     };
 
     return await runInDirectory(this.workingDirectory, operation, false, logger);
   }
 
   executeUserCircuit(
-    _acir: Buffer,
-    _initialWitness: ACVMWitness,
+    _input: ACVMWitness,
+    _artifact: FunctionArtifactWithContractName,
     _callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     throw new Error('Not implemented');

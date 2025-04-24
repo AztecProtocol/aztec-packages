@@ -322,6 +322,48 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     destination.to_usize() as u32,
                 ));
             }
+            BrilligOpcode::ConditionalMov { destination, source_a, source_b, condition } => {
+                // Move source_a to destination, if condition is true jump to the next brillig opcode, else move source_b to destination
+                avm_instrs.push(generate_mov_instruction(
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source_a)
+                            .direct_operand(destination)
+                            .build(),
+                    ),
+                    source_a.to_usize() as u32,
+                    destination.to_usize() as u32,
+                ));
+
+                unresolved_jumps.insert(
+                    UnresolvedPCLocation {
+                        instruction_index: avm_instrs.len(),
+                        immediate_index: 0,
+                    },
+                    Label::BrilligPC { pc: brillig_pcs_to_avm_pcs.len() as u32 }, // We want to jump to the next brillig opcode
+                );
+
+                avm_instrs.push(AvmInstruction {
+                    opcode: AvmOpcode::JUMPI_32,
+                    indirect: Some(
+                        AddressingModeBuilder::default().direct_operand(condition).build(),
+                    ),
+                    operands: vec![make_operand(16, &condition.to_usize())],
+                    immediates: vec![make_unresolved_pc()],
+                    ..Default::default()
+                });
+
+                avm_instrs.push(generate_mov_instruction(
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source_b)
+                            .direct_operand(destination)
+                            .build(),
+                    ),
+                    source_b.to_usize() as u32,
+                    destination.to_usize() as u32,
+                ));
+            }
             BrilligOpcode::Load { destination, source_pointer } => {
                 avm_instrs.push(generate_mov_instruction(
                     Some(
@@ -398,9 +440,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     &mut unresolved_jumps,
                 );
             }
-            _ => panic!(
-                "Transpiler doesn't know how to process {:?} brillig instruction",
-                brillig_instr
+            BrilligOpcode::JumpIfNot { .. } => panic!(
+                "Transpiler doesn't know how to process `BrilligOpcode::JumpIfNot` brillig instruction",
             ),
         }
 
@@ -474,17 +515,6 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
         };
         *value = resolved_location;
     }
-
-    // TEMPORARY: Add a "magic number" instruction to the end of the program.
-    // This makes it possible to know that the bytecode corresponds to the AVM.
-    // We are adding a MOV instruction that moves a value to itself.
-    // This should therefore not affect the program's execution.
-    avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::MOV_16,
-        indirect: Some(AddressingModeBuilder::default().build()),
-        operands: vec![AvmOperand::U16 { value: 0x18ca }, AvmOperand::U16 { value: 0x18ca }],
-        ..Default::default()
-    });
 
     dbg_print_avm_program(&avm_instrs);
 
@@ -564,33 +594,31 @@ fn handle_external_call(
     inputs: &[ValueOrArray],
     opcode: AvmOpcode,
 ) {
-    if !destinations.is_empty() || inputs.len() != 4 {
+    if !destinations.is_empty() || inputs.len() != 5 {
         panic!(
-            "Transpiler expects ForeignCall (Static)Call to have 0 destinations and 4 inputs, got {} and {}.",
+            "Transpiler expects ForeignCall (Static)Call to have 0 destinations and 5 inputs, got {} and {}.",
             destinations.len(),
             inputs.len()
         );
     }
 
-    let gas_offset_ptr = match &inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => {
-            assert!(
-                *size == 2,
-                "Call instruction's gas input should be a HeapArray of size 2 (`[l2Gas, daGas]`)"
-            );
-            pointer
-        }
-        _ => panic!("Call instruction's gas input should be a HeapArray"),
+    let l2_gas_offset = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset,
+        _ => panic!("Call instruction's gas input should be a basic MemoryAddress"),
     };
-    let address_offset = match &inputs[1] {
+    let da_gas_offset = match &inputs[1] {
+        ValueOrArray::MemoryAddress(offset) => offset,
+        _ => panic!("Call instruction's gas input should be a basic MemoryAddress"),
+    };
+    let address_offset = match &inputs[2] {
         ValueOrArray::MemoryAddress(offset) => offset,
         _ => panic!("Call instruction's target address input should be a basic MemoryAddress",),
     };
     // The args are a slice, and this is represented as a (Field, HeapVector).
     // The field is the length (memory address) and the HeapVector has the data and length again.
     // This is an ACIR internal representation detail that leaks to the SSA.
-    // Observe that below, we use `inputs[3]` and therefore skip the length field.
-    let args = &inputs[3];
+    // Observe that below, we use `inputs[4]` and therefore skip the length field.
+    let args = &inputs[4];
     let (args_offset_ptr, args_size_offset) = match args {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         _ => panic!("Call instruction's args input should be a HeapVector input"),
@@ -600,14 +628,16 @@ fn handle_external_call(
         opcode,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(gas_offset_ptr)
+                .direct_operand(l2_gas_offset)
+                .direct_operand(da_gas_offset)
                 .direct_operand(address_offset)
                 .indirect_operand(args_offset_ptr)
                 .direct_operand(args_size_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: gas_offset_ptr.to_usize() as u16 },
+            AvmOperand::U16 { value: l2_gas_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: da_gas_offset.to_usize() as u16 },
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },

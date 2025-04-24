@@ -1,7 +1,0 @@
-[package]
-name = "assert_message"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.23.0"
-
-[dependencies]

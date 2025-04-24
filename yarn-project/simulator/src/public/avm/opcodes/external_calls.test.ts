@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionSelector } from '@aztec/stdlib/abi';
 import { computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
@@ -7,18 +6,17 @@ import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
-import { markBytecodeAsAvm } from '../bytecode_utils.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
+  mockCheckNullifierExists,
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockGetNullifierIndex,
   mockTraceFork,
 } from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
@@ -32,7 +30,7 @@ describe('External Calls', () => {
   let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: PublicPersistableStateManager;
 
   beforeEach(() => {
     treesDB = mock<PublicTreesDB>();
@@ -47,26 +45,29 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
-        ...Buffer.from('12', 'hex'), // indirect (8 bit)
-        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // l2GasOffset
+        ...Buffer.from('5678', 'hex'), // daGasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x12,
-        /*gasOffset=*/ 0x1234,
+        /*indirect=*/ 0x1234,
+        /*l2GasOffset=*/ 0x1234,
+        /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
       );
 
-      expect(Call.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Call.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Call to non-existent bytecode returns failure', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const l2Gas = 2e6;
       const daGas = 3e6;
       const addrOffset = 2;
@@ -86,7 +87,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -106,7 +107,8 @@ describe('External Calls', () => {
     });
 
     it('Should execute a call correctly', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const l2Gas = 2e6;
       const daGas = 3e6;
       const addrOffset = 2;
@@ -118,25 +120,19 @@ describe('External Calls', () => {
       // Define dst offset for SuccessCopy
       const successDstOffset = 6;
 
-      const otherContextInstructionsBytecode = markBytecodeAsAvm(
-        encodeToBytecode([
-          new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, 0).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, argsSize).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, 2).as(Opcode.SET_8, Set.wireFormat8),
-          new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 3),
-          new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
-        ]),
-      );
-
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const otherContextInstructionsBytecode = encodeToBytecode([
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, 0).as(Opcode.SET_8, Set.wireFormat8),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, argsSize).as(Opcode.SET_8, Set.wireFormat8),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, 2).as(Opcode.SET_8, Set.wireFormat8),
+        new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 3),
+        new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
+      ]);
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
-      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
+      mockCheckNullifierExists(treesDB, true, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -146,7 +142,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -164,7 +160,8 @@ describe('External Calls', () => {
     });
 
     it('Should cap to available gas if allocated is bigger', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const l2Gas = 1e9;
       const daGas = 1e9;
       const addrOffset = 2;
@@ -174,27 +171,22 @@ describe('External Calls', () => {
       // Define dst offset for SuccessCopy
       const successDstOffset = 6;
 
-      const otherContextInstructionsBytecode = markBytecodeAsAvm(
-        encodeToBytecode([
-          new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT).as(
-            Opcode.GETENVVAR_16,
-            GetEnvVar.wireFormat16,
-          ),
-          new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, 1).as(Opcode.SET_8, Set.wireFormat8),
-          new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
-        ]),
-      );
-      mockGetNullifierIndex(treesDB, addr);
+      const otherContextInstructionsBytecode = encodeToBytecode([
+        new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT).as(
+          Opcode.GETENVVAR_16,
+          GetEnvVar.wireFormat16,
+        ),
+        new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, 1).as(Opcode.SET_8, Set.wireFormat8),
+        new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
+      ]);
+      mockCheckNullifierExists(treesDB, true, addr);
 
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
-      mockGetNullifierIndex(treesDB, contractInstance.address.toField());
+      mockCheckNullifierExists(treesDB, true, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -203,7 +195,14 @@ describe('External Calls', () => {
       context.machineState.memory.set(2, new Field(addr));
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, /*argsOffset=*/ 0, argsSizeOffset);
+      const instruction = new Call(
+        /*indirect=*/ 0,
+        l2GasOffset,
+        daGasOffset,
+        addrOffset,
+        /*argsOffset=*/ 0,
+        argsSizeOffset,
+      );
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -226,26 +225,29 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
-        ...Buffer.from('12', 'hex'), // indirect (8 bit)
-        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // l2GasOffset
+        ...Buffer.from('5678', 'hex'), // daGasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x12,
-        /*gasOffset=*/ 0x1234,
+        /*indirect=*/ 0x1234,
+        /*l2GasOffset=*/ 0x1234,
+        /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
       );
 
-      expect(StaticCall.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(StaticCall.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should fail if a static call attempts to touch storage', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const gas = [new Field(0n), new Field(0n), new Field(0n)];
       const addrOffset = 10;
       const addr = new Field(123456n);
@@ -255,7 +257,8 @@ describe('External Calls', () => {
       const argsSize = args.length;
       const argsSizeOffset = 60;
 
-      context.machineState.memory.setSlice(gasOffset, gas);
+      context.machineState.memory.set(l2GasOffset, gas[0]);
+      context.machineState.memory.set(daGasOffset, gas[1]);
       context.machineState.memory.set(addrOffset, addr);
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(argsOffset, args);
@@ -264,19 +267,23 @@ describe('External Calls', () => {
         new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0),
       ];
 
-      const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      mockGetNullifierIndex(treesDB, addr.toFr());
+      const otherContextInstructionsBytecode = encodeToBytecode(otherContextInstructions);
+      mockCheckNullifierExists(treesDB, true, addr.toFr());
 
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
 
-      const instruction = new StaticCall(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new StaticCall(
+        /*indirect=*/ 0,
+        l2GasOffset,
+        daGasOffset,
+        addrOffset,
+        argsOffset,
+        argsSizeOffset,
+      );
       await instruction.execute(context);
       // Ideally we'd mock the nested call.
       expect(context.machineState.collectedRevertInfo?.recursiveRevertReason.message).toMatch(
@@ -295,8 +302,8 @@ describe('External Calls', () => {
       ]);
       const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*copySize=*/ 0xa234);
 
-      expect(Return.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Return.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should return data from the return opcode', async () => {
@@ -329,8 +336,8 @@ describe('External Calls', () => {
         Revert.wireFormat16,
       );
 
-      expect(Revert.as(Revert.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Revert.as(Revert.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should return data and revert from the revert opcode', async () => {
@@ -358,8 +365,8 @@ describe('External Calls', () => {
       ]);
       const inst = new SuccessCopy(/*indirect=*/ 0x12, /*dstOffset=*/ 0x5678);
 
-      expect(SuccessCopy.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SuccessCopy.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should correctly copy success state for a successful call', async () => {

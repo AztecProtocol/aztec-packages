@@ -1,10 +1,12 @@
-import { type ExecutionError, executeCircuit } from '@aztec/noir-acvm_js';
-import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
+import { Timer } from '@aztec/foundation/timer';
+import { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
 import type { WitnessMap } from '@aztec/noir-types';
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
+import type { ACVMSuccess } from './acvm_native.js';
 import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
 
 /**
@@ -15,33 +17,36 @@ import { type SimulationProvider, enrichNoirError } from './simulation_provider.
  * It is only used in the context of server-side code executing simulated protocol circuits.
  */
 export class WASMSimulatorWithBlobs implements SimulationProvider {
-  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
-    // Execute the circuit on those initial witness values
-    //
+  async executeProtocolCircuit(
+    input: WitnessMap,
+    artifact: NoirCompiledCircuitWithName,
+    callback: ForeignCallHandler,
+  ): Promise<ACVMSuccess> {
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-    const decodedBytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
+    const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
     //
     // Execute the circuit
     try {
+      const timer = new Timer();
       const _witnessMap = await executeCircuit(
         decodedBytecode,
         input,
-        foreignCallHandler, // handle calls to debug_log and evaluate_blobs mock
+        callback, // handle calls to debug_log and evaluate_blobs mock
       );
-
-      return _witnessMap;
+      return { witness: _witnessMap, duration: timer.ms() } as ACVMSuccess;
     } catch (err) {
-      // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
+      // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
+      // assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        throw enrichNoirError(compiledCircuit, err as ExecutionError);
+        throw enrichNoirError(artifact, err as ExecutionError);
       }
       throw new Error(`Circuit execution failed: ${err}`);
     }
   }
 
   executeUserCircuit(
-    _acir: Buffer,
-    _initialWitness: ACVMWitness,
+    _input: ACVMWitness,
+    _artifact: FunctionArtifactWithContractName,
     _callback: ACIRCallback,
   ): Promise<ACIRExecutionResult> {
     throw new Error('Not implemented');

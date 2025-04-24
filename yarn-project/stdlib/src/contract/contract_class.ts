@@ -1,4 +1,3 @@
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -6,7 +5,7 @@ import { type ContractArtifact, type FunctionArtifact, FunctionSelector, Functio
 import { hashVK } from '../hash/hash.js';
 import { computeArtifactHash } from './artifact_hash.js';
 import { type ContractClassIdPreimage, computeContractClassIdWithPreimage } from './contract_class_id.js';
-import type { ContractClass, ContractClassWithId, PublicFunction } from './interfaces/index.js';
+import type { ContractClass, ContractClassWithId } from './interfaces/index.js';
 
 /** Contract artifact including its artifact hash */
 type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
@@ -19,31 +18,15 @@ export async function getContractClassFromArtifact(
   artifact: ContractArtifact | ContractArtifactWithHash,
 ): Promise<ContractClassWithId & ContractClassIdPreimage> {
   const artifactHash = 'artifactHash' in artifact ? artifact.artifactHash : await computeArtifactHash(artifact);
+
   const publicFunctions = artifact.functions.filter(f => f.functionType === FunctionType.PUBLIC);
-  // TODO(#8985): ContractArtifact.functions should ensure that the below only contains the public dispatch function
-  // So we can likely remove this and just use the below to assign the dispatch.
-  const artifactPublicFunctions: ContractClass['publicFunctions'] = await Promise.all(
-    publicFunctions.map(async f => ({
-      selector: await FunctionSelector.fromNameAndParameters(f.name, f.parameters),
-      bytecode: f.bytecode,
-    })),
-  );
-
-  artifactPublicFunctions.sort(cmpFunctionArtifacts);
-
-  let packedBytecode = Buffer.alloc(0);
-  let dispatchFunction: PublicFunction | undefined = undefined;
-  if (artifactPublicFunctions.length > 0) {
-    dispatchFunction = artifactPublicFunctions.find(f =>
-      f.selector.equals(FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR))),
+  if (publicFunctions.length > 1) {
+    throw new Error(
+      `Contract should contain at most one public function artifact. Received ${publicFunctions.length}.`,
     );
-    if (!dispatchFunction) {
-      throw new Error(
-        `A contract with public functions should define a public_dispatch(Field) function as its public entrypoint. Contract: ${artifact.name}`,
-      );
-    }
-    packedBytecode = dispatchFunction.bytecode;
   }
+
+  const packedBytecode = publicFunctions[0]?.bytecode ?? Buffer.alloc(0);
 
   const privateFunctions = artifact.functions.filter(f => f.functionType === FunctionType.PRIVATE);
   const privateArtifactFunctions: ContractClass['privateFunctions'] = await Promise.all(
@@ -55,8 +38,6 @@ export async function getContractClassFromArtifact(
   const contractClass: ContractClass = {
     version: 1,
     artifactHash,
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Remove public functions.
-    publicFunctions: dispatchFunction ? [dispatchFunction] : [],
     packedBytecode,
     privateFunctions: privateArtifactFunctions,
   };

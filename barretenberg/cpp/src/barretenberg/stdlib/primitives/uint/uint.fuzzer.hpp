@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
@@ -33,10 +39,19 @@ FastRandom VarianceRNG(0);
 template <typename Builder> class UintFuzzBase {
   private:
     typedef bb::stdlib::bool_t<Builder> bool_t;
-    typedef bb::stdlib::uint<Builder, uint8_t> uint_8_t;
-    typedef bb::stdlib::uint<Builder, uint16_t> uint_16_t;
-    typedef bb::stdlib::uint<Builder, uint32_t> uint_32_t;
-    typedef bb::stdlib::uint<Builder, uint64_t> uint_64_t;
+
+    using uint_8_t = typename std::conditional<HasPlookup<Builder>,
+                                               bb::stdlib::uint_plookup<Builder, uint8_t>,
+                                               bb::stdlib::uint<Builder, uint8_t>>::type;
+    using uint_16_t = typename std::conditional<HasPlookup<Builder>,
+                                                bb::stdlib::uint_plookup<Builder, uint16_t>,
+                                                bb::stdlib::uint<Builder, uint16_t>>::type;
+    using uint_32_t = typename std::conditional<HasPlookup<Builder>,
+                                                bb::stdlib::uint_plookup<Builder, uint32_t>,
+                                                bb::stdlib::uint<Builder, uint32_t>>::type;
+    using uint_64_t = typename std::conditional<HasPlookup<Builder>,
+                                                bb::stdlib::uint_plookup<Builder, uint64_t>,
+                                                bb::stdlib::uint<Builder, uint64_t>>::type;
     typedef bb::stdlib::field_t<Builder> field_t;
     typedef bb::stdlib::byte_array<Builder> byte_array_t;
 

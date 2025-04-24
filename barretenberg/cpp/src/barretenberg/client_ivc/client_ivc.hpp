@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/goblin/goblin.hpp"
@@ -5,11 +11,14 @@
 #include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <algorithm>
 
 namespace bb {
@@ -28,10 +37,12 @@ class ClientIVC {
   public:
     using Flavor = MegaFlavor;
     using MegaVerificationKey = Flavor::VerificationKey;
+    using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using DeciderProver = DeciderProver_<Flavor>;
@@ -44,6 +55,7 @@ class ClientIVC {
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
     using MegaVerifier = UltraVerifier_<Flavor>;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
@@ -56,9 +68,10 @@ class ClientIVC {
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
+    using AggregationObject = stdlib::recursion::aggregation_state<ClientCircuit>;
 
     /**
-     * @brief A full  proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
+     * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
      * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
      * proof).
      *
@@ -68,7 +81,33 @@ class ClientIVC {
         HonkProof mega_proof;
         GoblinProof goblin_proof;
 
-        size_t size() const { return mega_proof.size() + goblin_proof.size(); }
+        size_t size() const;
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
+        // and should leverage some kind of shared msgpack utility.
+        msgpack::sbuffer to_msgpack_buffer() const;
+
+        /**
+         * @brief Very quirky method to convert a msgpack buffer to a "heap" buffer
+         * @details This method results in a buffer that is double-size-prefixed with the buffer size. This is to mimmic
+         * the original bb.js behavior which did a *out_proof = to_heap_buffer(to_buffer(proof));
+         *
+         * @return uint8_t* Double size-prefixed msgpack buffer
+         */
+        uint8_t* to_msgpack_heap_buffer() const;
+
+        class DeserializationError : public std::runtime_error {
+          public:
+            DeserializationError(const std::string& msg)
+                : std::runtime_error(std::string("Client IVC Proof deserialization error: ") + msg)
+            {}
+        };
+
+        static Proof from_msgpack_buffer(uint8_t const*& buffer);
+        static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer);
+
+        void to_file_msgpack(const std::string& filename) const;
+        static Proof from_file_msgpack(const std::string& filename);
 
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
@@ -128,18 +167,11 @@ class ClientIVC {
 
     std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
 
-    GoblinProver goblin;
+    Goblin goblin;
 
     bool initialized = false; // Is the IVC accumulator initialized
 
-    ClientIVC(TraceSettings trace_settings = {})
-        : trace_usage_tracker(trace_settings)
-        , trace_settings(trace_settings)
-        , bn254_commitment_key(trace_settings.structure.has_value()
-                                   ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
-                                   : nullptr)
-        , goblin(bn254_commitment_key)
-    {}
+    ClientIVC(TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
@@ -159,17 +191,17 @@ class ClientIVC {
      * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
-                    const bool _one_circuit = false,
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
                     const bool mock_vk = false);
 
     Proof prove();
 
+    std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, MergeProof> construct_hiding_circuit_key();
     std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
-    bool verify(const Proof& proof);
+    bool verify(const Proof& proof) const;
 
     bool prove_and_verify();
 
@@ -178,11 +210,7 @@ class ClientIVC {
     std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
         std::vector<ClientCircuit> circuits);
 
-    VerificationKey get_vk() const
-    {
-        return { honk_vk,
-                 std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key()),
-                 std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key()) };
-    }
+    VerificationKey get_vk() const;
 };
+
 } // namespace bb

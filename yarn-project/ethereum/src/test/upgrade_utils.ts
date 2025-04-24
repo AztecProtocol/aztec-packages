@@ -4,28 +4,28 @@ import { TestERC20Abi as StakingAssetAbi } from '@aztec/l1-artifacts/TestERC20Ab
 
 import { type GetContractReturnType, type PrivateKeyAccount, getContract } from 'viem';
 
+import { extractProposalIdFromLogs } from '../contracts/governance.js';
 import { EthCheatCodes } from '../eth_cheat_codes.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
-import type { L1Clients } from '../types.js';
+import type { ExtendedViemWalletClient, ViemPublicClient } from '../types.js';
 
 export async function executeGovernanceProposal(
   proposalId: bigint,
-  governance: GetContractReturnType<typeof GovernanceAbi, L1Clients['publicClient']>,
+  governance: GetContractReturnType<typeof GovernanceAbi, ViemPublicClient>,
   voteAmount: bigint,
   privateKey: PrivateKeyAccount,
-  publicClient: L1Clients['publicClient'],
-  walletClient: L1Clients['walletClient'],
+  l1Client: ExtendedViemWalletClient,
   rpcUrls: string[],
   logger: Logger,
 ) {
   const proposal = await governance.read.getProposal([proposalId]);
 
-  const l1TxUtils = new L1TxUtils(publicClient, walletClient);
+  const l1TxUtils = new L1TxUtils(l1Client);
 
   const waitL1Block = async () => {
     await l1TxUtils.sendAndMonitorTransaction({
-      to: walletClient.account.address,
+      to: l1Client.account.address,
       value: 1n,
     });
   };
@@ -40,7 +40,7 @@ export async function executeGovernanceProposal(
 
   logger.info(`Voting`);
   const voteTx = await governance.write.vote([proposalId, voteAmount, true], { account: privateKey });
-  await publicClient.waitForTransactionReceipt({ hash: voteTx });
+  await l1Client.waitForTransactionReceipt({ hash: voteTx });
   logger.info(`Voted`);
 
   const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
@@ -50,7 +50,7 @@ export async function executeGovernanceProposal(
   await waitL1Block();
 
   const executeTx = await governance.write.execute([proposalId], { account: privateKey });
-  await publicClient.waitForTransactionReceipt({ hash: executeTx });
+  await l1Client.waitForTransactionReceipt({ hash: executeTx });
   logger.info(`Executed proposal`);
 }
 
@@ -58,9 +58,13 @@ export async function createGovernanceProposal(
   payloadAddress: `0x${string}`,
   addresses: L1ContractAddresses,
   privateKey: PrivateKeyAccount,
-  publicClient: L1Clients['publicClient'],
+  publicClient: ViemPublicClient,
   logger: Logger,
-): Promise<{ governance: GetContractReturnType<typeof GovernanceAbi, L1Clients['publicClient']>; voteAmount: bigint }> {
+): Promise<{
+  governance: GetContractReturnType<typeof GovernanceAbi, ViemPublicClient>;
+  voteAmount: bigint;
+  proposalId: bigint;
+}> {
   const token = getContract({
     address: addresses.stakingAssetAddress.toString(),
     abi: StakingAssetAbi,
@@ -92,9 +96,13 @@ export async function createGovernanceProposal(
   await publicClient.waitForTransactionReceipt({ hash: depositTx });
   logger.info(`Deposited tokens`);
 
-  await governance.write.proposeWithLock([payloadAddress, privateKey.address], {
+  const proposeTx = await governance.write.proposeWithLock([payloadAddress, privateKey.address], {
     account: privateKey,
   });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: proposeTx });
+  logger.info(`Proposed upgrade`);
 
-  return { governance, voteAmount };
+  const proposalId = extractProposalIdFromLogs(receipt.logs);
+
+  return { governance, voteAmount, proposalId };
 }

@@ -15,14 +15,20 @@ contract SlashPayload is IPayload {
   IValidatorSelection public immutable VALIDATOR_SELECTION;
   uint256 public immutable AMOUNT;
 
+  address[] public attesters;
+
   constructor(Epoch _epoch, IValidatorSelection _validatorSelection, uint256 _amount) {
     EPOCH = _epoch;
     VALIDATOR_SELECTION = _validatorSelection;
     AMOUNT = _amount;
+
+    address[] memory attesters_ = IValidatorSelection(VALIDATOR_SELECTION).getEpochCommittee(EPOCH);
+    for (uint256 i = 0; i < attesters_.length; i++) {
+      attesters.push(attesters_[i]);
+    }
   }
 
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
-    address[] memory attesters = IValidatorSelection(VALIDATOR_SELECTION).getEpochCommittee(EPOCH);
     IPayload.Action[] memory actions = new IPayload.Action[](attesters.length);
 
     for (uint256 i = 0; i < attesters.length; i++) {

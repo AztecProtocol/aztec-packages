@@ -2,8 +2,9 @@ use crate::macros::{
     functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},
     notes::NOTES,
     utils::{
-        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
-        is_fn_private, is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,
+        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,
+        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
     },
 };
 use protocol_types::meta::generate_serialize_to_fields;
@@ -97,10 +98,10 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    // All private functions perform note discovery, since they may need to access notes. This is slightly inefficient
-    // and could be improved by only doing it once we actually attempt to read any.
-    let note_discovery_call = if NOTES.len() > 0 {
-        create_note_discovery_call()
+    // All private functions perform message discovery, since they may need to access notes. This is slightly
+    // inefficient and could be improved by only doing it once we actually attempt to read any.
+    let message_discovery_call = if NOTES.len() > 0 {
+        create_message_discovery_call()
     } else {
         quote {}
     };
@@ -156,7 +157,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
-        $note_discovery_call
+        $message_discovery_call
     };
 
     let to_append = quote {
@@ -195,7 +196,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let original_params = f.parameters();
     let args_len = original_params
         .map(|(name, typ): (Quoted, Type)| {
-            generate_serialize_to_fields(name, typ, &[], false).0.len()
+            generate_serialize_to_fields(name, typ, false).0.len()
         })
         .fold(0, |acc: u32, val: u32| acc + val);
 
@@ -271,10 +272,21 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub(crate) comptime fn transform_unconstrained(f: FunctionDefinition) {
-    let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
+pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
+    // Check if function is marked as unconstrained
+    if !f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"Function {name} is annotated with #[utility] but not marked as unconstrained, add unconstrained keyword",
+        );
+    }
+
+    // Create utility context
+    let context_creation =
+        quote { let mut context = dep::aztec::context::utility_context::UtilityContext::new(); };
     let module_has_storage = module_has_storage(f.module());
 
+    // Initialize Storage if module has storage
     let storage_init = if module_has_storage {
         quote {
             // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
@@ -286,23 +298,27 @@ pub(crate) comptime fn transform_unconstrained(f: FunctionDefinition) {
         quote {}
     };
 
-    // All unconstrained functions perform note discovery, since they may need to access notes. This is slightly
-    // inefficient and could be improved by only doing it once we actually attempt to read any.
-    let note_discovery_call = if NOTES.len() > 0 {
-        create_note_discovery_call()
+    // All utility functions perform message discovery, since they may need to access private notes that would be
+    // found during this process. This is slightly inefficient and could be improved by only doing it once we actually
+    // attempt to read any.
+    let message_discovery_call = if NOTES.len() > 0 {
+        create_message_discovery_call()
     } else {
         quote {}
     };
 
+    // Inject context creation, storage initialization, and message discovery call at the beginning of the function
+    // body.
     let to_prepend = quote {
         $context_creation
         $storage_init
-        $note_discovery_call
+        $message_discovery_call
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
-    f.set_return_public(true);
     f.set_body(modified_body);
+
+    f.set_return_public(true);
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
@@ -341,17 +357,34 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
         .quoted_contents()
 }
 
-/// Injects a call to `aztec::discovery::discover_new_notes`, causing for new notes to be added to PXE and made
+/// Injects a call to `aztec::messages::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
 /// available for the current execution.
-pub(crate) comptime fn create_note_discovery_call() -> Quoted {
+pub(crate) comptime fn create_message_discovery_call() -> Quoted {
     quote {
-        /// Safety: note discovery returns nothing and is performed solely for its side-effects. It is therefore always
-        /// safe to call.
+        /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore
+        /// always safe to call.
         unsafe {
-            dep::aztec::discovery::discover_new_notes(
+            dep::aztec::messages::discovery::discover_new_messages(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
             );
         };
+    }
+}
+
+/// Checks if each function in the module is marked with either #[private], #[public], #[utility],
+/// #[contract_library_method], or #[test]. Non-macroified functions are not allowed in contracts.
+pub(crate) comptime fn check_each_fn_macroified(m: Module) {
+    for f in m.functions() {
+        let name = f.name();
+        if !is_fn_private(f)
+            & !is_fn_public(f)
+            & !is_fn_utility(f)
+            & !is_fn_contract_library_method(f)
+            & !is_fn_test(f) {
+            panic(
+                f"Function {name} must be marked as either #[private], #[public], #[utility], #[contract_library_method], or #[test]",
+            );
+        }
     }
 }

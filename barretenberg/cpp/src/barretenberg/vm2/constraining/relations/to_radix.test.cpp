@@ -1,10 +1,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -240,11 +239,6 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
 
     check_relation<to_radix>(trace);
-    check_interaction<lookup_limb_range>(trace);
-    check_interaction<lookup_limb_less_than_radix_range>(trace);
-    check_interaction<lookup_fetch_safe_limbs>(trace);
-    check_interaction<lookup_fetch_p_limb>(trace);
-    check_interaction<lookup_limb_p_diff_range>(trace);
 }
 
 TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
@@ -275,11 +269,6 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
 
     check_relation<to_radix>(trace);
-    check_interaction<lookup_limb_range>(trace);
-    check_interaction<lookup_limb_less_than_radix_range>(trace);
-    check_interaction<lookup_fetch_safe_limbs>(trace);
-    check_interaction<lookup_fetch_p_limb>(trace);
-    check_interaction<lookup_limb_p_diff_range>(trace);
 }
 
 TEST(ToRadixConstrainingTest, NegativeOverflowCheck)

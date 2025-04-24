@@ -165,7 +165,7 @@ const AbiErrorTypeSchema = z.union([
 export enum FunctionType {
   PRIVATE = 'private',
   PUBLIC = 'public',
-  UNCONSTRAINED = 'unconstrained',
+  UTILITY = 'utility',
 }
 
 /** The abi entry of a function. */
@@ -229,6 +229,11 @@ export interface FunctionArtifact extends FunctionAbi {
   debugSymbols: string;
   /** Debug metadata for the function. */
   debug?: FunctionDebugMetadata;
+}
+
+export interface FunctionArtifactWithContractName extends FunctionArtifact {
+  /** The name of the contract. */
+  contractName: string;
 }
 
 export const FunctionArtifactSchema = FunctionAbiSchema.and(
@@ -334,7 +339,7 @@ export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
 
-  /** The functions of the contract. Includes private and unconstrained functions, plus the public dispatch function. */
+  /** The functions of the contract. Includes private and utility functions, plus the public dispatch function. */
   functions: FunctionArtifact[];
 
   /** The public functions of the contract, excluding dispatch. */
@@ -395,7 +400,7 @@ export function getFunctionArtifactByName(artifact: ContractArtifact, functionNa
 export async function getFunctionArtifact(
   artifact: ContractArtifact,
   functionNameOrSelector: string | FunctionSelector,
-): Promise<FunctionArtifact> {
+): Promise<FunctionArtifactWithContractName> {
   let functionArtifact;
   if (typeof functionNameOrSelector === 'string') {
     functionArtifact = artifact.functions.find(f => f.name === functionNameOrSelector);
@@ -416,7 +421,7 @@ export async function getFunctionArtifact(
 
   const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
 
-  return { ...functionArtifact, debug: debugMetadata };
+  return { ...functionArtifact, debug: debugMetadata, contractName: artifact.name };
 }
 
 /** Gets all function abis */

@@ -1,6 +1,6 @@
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
@@ -10,14 +10,14 @@ import {
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';
 
-import type { ProverNodeMetrics } from '../metrics.js';
+import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
+import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';
 
 /**
  * Job that grabs a range of blocks from the unfinalised chain from L1, gets their txs given their hashes,
@@ -30,27 +30,25 @@ export class EpochProvingJob implements Traceable {
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;
+  private epochCheckPromise: RunningPromise | undefined;
   private deadlineTimeoutHandler: NodeJS.Timeout | undefined;
 
   public readonly tracer: Tracer;
 
   constructor(
-    private dbProvider: ForkMerkleTreeOperations,
-    private epochNumber: bigint,
-    private blocks: L2Block[],
-    private txs: Tx[],
+    private data: EpochProvingJobData,
+    private dbProvider: Pick<ForkMerkleTreeOperations, 'fork'>,
     private prover: EpochProver,
     private publicProcessorFactory: PublicProcessorFactory,
-    private publisher: ProverNodePublisher,
-    private l2BlockSource: L2BlockSource,
-    private l1ToL2MessageSource: L1ToL2MessageSource,
-    private metrics: ProverNodeMetrics,
+    private publisher: Pick<ProverNodePublisher, 'submitEpochProof'>,
+    private l2BlockSource: L2BlockSource | undefined,
+    private metrics: ProverNodeJobMetrics,
     private deadline: Date | undefined,
     private config: { parallelBlockLimit: number } = { parallelBlockLimit: 32 },
-    private cleanUp: (job: EpochProvingJob) => Promise<void> = () => Promise.resolve(),
   ) {
+    validateEpochProvingJobData(data);
     this.uuid = crypto.randomUUID();
-    this.tracer = metrics.client.getTracer('EpochProvingJob');
+    this.tracer = metrics.tracer;
   }
 
   public getId(): string {
@@ -62,17 +60,38 @@ export class EpochProvingJob implements Traceable {
   }
 
   public getEpochNumber(): bigint {
-    return this.epochNumber;
+    return this.data.epochNumber;
+  }
+
+  public getDeadline(): Date | undefined {
+    return this.deadline;
+  }
+
+  public getProvingData(): EpochProvingJobData {
+    return this.data;
+  }
+
+  private get epochNumber() {
+    return this.data.epochNumber;
+  }
+
+  private get blocks() {
+    return this.data.blocks;
+  }
+
+  private get txs() {
+    return this.data.txs;
   }
 
   /**
    * Proves the given epoch and submits the proof to L1.
    */
   @trackSpan('EpochProvingJob.run', function () {
-    return { [Attributes.EPOCH_NUMBER]: Number(this.epochNumber) };
+    return { [Attributes.EPOCH_NUMBER]: Number(this.data.epochNumber) };
   })
   public async run() {
     this.scheduleDeadlineStop();
+    await this.scheduleEpochCheck();
 
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
@@ -100,8 +119,8 @@ export class EpochProvingJob implements Traceable {
 
         const globalVariables = block.header.globalVariables;
         const txs = await this.getTxs(block);
-        const l1ToL2Messages = await this.getL1ToL2Messages(block);
-        const previousHeader = (await this.getBlockHeader(block.number - 1))!;
+        const l1ToL2Messages = this.getL1ToL2Messages(block);
+        const previousHeader = this.getBlockHeader(block.number - 1)!;
 
         this.log.verbose(`Starting processing block ${block.number}`, {
           number: block.number,
@@ -154,14 +173,18 @@ export class EpochProvingJob implements Traceable {
       this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
       if (err && err.name === 'HaltExecutionError') {
-        this.log.warn(`Halted execution of epoch ${epochNumber} prover job`, { uuid: this.uuid, epochNumber });
+        this.log.warn(`Halted execution of epoch ${epochNumber} prover job`, {
+          uuid: this.uuid,
+          epochNumber,
+          details: err.message,
+        });
         return;
       }
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
       this.state = 'failed';
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
-      await this.cleanUp(this);
+      await this.epochCheckPromise?.stop();
       await this.prover.stop();
       resolve();
     }
@@ -173,12 +196,12 @@ export class EpochProvingJob implements Traceable {
   }
 
   private checkState() {
-    if (this.state === 'timed-out' || this.state === 'stopped' || this.state === 'failed') {
+    if (this.state === 'timed-out' || this.state === 'stopped' || this.state === 'failed' || this.state === 'reorg') {
       throw new HaltExecutionError(this.state);
     }
   }
 
-  public async stop(state: EpochProvingJobState = 'stopped') {
+  public async stop(state: EpochProvingJobTerminalState = 'stopped') {
     this.state = state;
     this.prover.cancel();
     // TODO(palla/prover): Stop the publisher as well
@@ -207,12 +230,58 @@ export class EpochProvingJob implements Traceable {
     }
   }
 
-  /* Returns the header for the given block number, or the genesis block for block zero. */
-  private async getBlockHeader(blockNumber: number) {
-    if (blockNumber === 0) {
-      return (await this.dbProvider.fork()).getInitialHeader();
+  /**
+   * Kicks off a running promise that queries the archiver for the set of L2 blocks of the current epoch.
+   * If those change, stops the proving job with a `rerun` state, so the node re-enqueues it.
+   */
+  private async scheduleEpochCheck() {
+    const l2BlockSource = this.l2BlockSource;
+    if (!l2BlockSource) {
+      this.log.warn(`No L2 block source available, skipping epoch check`);
+      return;
     }
-    return this.l2BlockSource.getBlockHeader(blockNumber);
+
+    const intervalMs = Math.ceil((await l2BlockSource.getL1Constants()).ethereumSlotDuration / 2) * 1000;
+    this.epochCheckPromise = new RunningPromise(
+      async () => {
+        const blocks = await l2BlockSource.getBlockHeadersForEpoch(this.epochNumber);
+        const blockHashes = await Promise.all(blocks.map(block => block.hash()));
+        const thisBlockHashes = await Promise.all(this.blocks.map(block => block.hash()));
+        if (
+          blocks.length !== this.blocks.length ||
+          !blockHashes.every((block, i) => block.equals(thisBlockHashes[i]))
+        ) {
+          this.log.warn('Epoch blocks changed underfoot', {
+            uuid: this.uuid,
+            epochNumber: this.epochNumber,
+            oldBlockHashes: thisBlockHashes,
+            newBlockHashes: blockHashes,
+          });
+          void this.stop('reorg');
+        }
+      },
+      this.log,
+      intervalMs,
+    ).start();
+    this.log.verbose(`Scheduled epoch check for epoch ${this.epochNumber} every ${intervalMs}ms`);
+  }
+
+  /* Returns the header for the given block number based on the epoch proving job data. */
+  private getBlockHeader(blockNumber: number) {
+    const block = this.blocks.find(b => b.number === blockNumber);
+    if (block) {
+      return block.header;
+    }
+
+    if (blockNumber === Number(this.data.previousBlockHeader.getBlockNumber())) {
+      return this.data.previousBlockHeader;
+    }
+
+    throw new Error(
+      `Block header not found for block number ${blockNumber} (got ${this.blocks
+        .map(b => b.number)
+        .join(', ')} and previous header ${this.data.previousBlockHeader.getBlockNumber()})`,
+    );
   }
 
   private async getTxs(block: L2Block): Promise<Tx[]> {
@@ -224,7 +293,7 @@ export class EpochProvingJob implements Traceable {
   }
 
   private getL1ToL2Messages(block: L2Block) {
-    return this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(block.number));
+    return this.data.l1ToL2Messages[block.number];
   }
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
@@ -249,7 +318,7 @@ export class EpochProvingJob implements Traceable {
 }
 
 class HaltExecutionError extends Error {
-  constructor(state: EpochProvingJobState) {
+  constructor(public readonly state: EpochProvingJobState) {
     super(`Halted execution due to state ${state}`);
     this.name = 'HaltExecutionError';
   }

@@ -1,4 +1,4 @@
-use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `load`. If
 /// data was already stored at this slot, it is overwritten.

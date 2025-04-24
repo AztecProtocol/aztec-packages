@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include <array>
@@ -74,6 +80,13 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         for (size_t i = 0; i < rate; ++i) {
             output[i] = state[i];
         }
+        // variables with indices from rate to size of state - 1 won't be used anymore
+        // after permutation. But they aren't dangerous and needed to put in used witnesses
+        if constexpr (IsUltraBuilder<Builder>) {
+            for (size_t i = rate; i < t; i++) {
+                builder->update_used_witnesses(state[i].witness_index);
+            }
+        }
         return output;
     }
 
@@ -148,6 +161,15 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         std::array<field_t, out_len> output;
         for (size_t i = 0; i < out_len; ++i) {
             output[i] = sponge.squeeze();
+        }
+        // variables with indices won't be used in the circuit.
+        // but they aren't dangerous and needed to put in used witnesses
+        if constexpr (IsUltraBuilder<Builder>) {
+            for (const auto& elem : sponge.cache) {
+                if (elem.witness_index != IS_CONSTANT) {
+                    builder.update_used_witnesses(elem.witness_index);
+                }
+            }
         }
         return output;
     }

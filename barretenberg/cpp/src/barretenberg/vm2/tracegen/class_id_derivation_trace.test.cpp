@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -16,7 +16,6 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
 TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
 {
