@@ -1,5 +1,5 @@
 ---
-title: Paying fees
+title: All About Fees
 sidebar_position: 4
 tags: [fees, accounts, transactions, cli, contracts]
 ---
