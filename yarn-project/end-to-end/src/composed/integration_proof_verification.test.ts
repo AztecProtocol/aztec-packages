@@ -1,6 +1,6 @@
 import { fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { type ViemPublicClient, type ViemWalletClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -25,13 +25,12 @@ describe('proof_verification', () => {
   let proof: Proof;
   let publicInputs: RootRollupPublicInputs;
   let anvil: Anvil | undefined;
-  let walletClient: ViemWalletClient;
-  let publicClient: ViemPublicClient;
+  let l1Client: ExtendedViemWalletClient;
   let logger: Logger;
   let circuitVerifier: BBCircuitVerifier;
   let bbTeardown: () => Promise<void>;
   let acvmTeardown: () => Promise<void>;
-  let verifierContract: GetContractReturnType<typeof IVerifierAbi, typeof walletClient>;
+  let verifierContract: GetContractReturnType<typeof IVerifierAbi, typeof l1Client>;
 
   beforeAll(async () => {
     logger = getLogger();
@@ -52,17 +51,12 @@ describe('proof_verification', () => {
     acvmTeardown = acvm!.cleanup;
     logger.info('BB and ACVM initialized');
 
-    ({ publicClient, walletClient } = createL1Clients(rpcUrlList!, mnemonicToAccount(MNEMONIC)));
+    l1Client = createExtendedL1Client(rpcUrlList!, mnemonicToAccount(MNEMONIC));
 
-    const { address: verifierAddress } = await deployL1Contract(
-      walletClient,
-      publicClient,
-      HonkVerifierAbi,
-      HonkVerifierBytecode,
-    );
+    const { address: verifierAddress } = await deployL1Contract(l1Client, HonkVerifierAbi, HonkVerifierBytecode);
     logger.info(`Deployed honk verifier at ${verifierAddress}`);
 
-    verifierContract = getContract({ address: verifierAddress.toString(), client: publicClient, abi: IVerifierAbi });
+    verifierContract = getContract({ address: verifierAddress.toString(), client: l1Client, abi: IVerifierAbi });
     logger.info('Deployed verifier');
   });
 

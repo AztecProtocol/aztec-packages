@@ -31,10 +31,9 @@ impl EmptyBlockRootRollupInputs {
         let validator = BlockRootRollupInputsValidator::new(
             [], // previous_rollup_data
             [], // allowed_vk_indices
-            self.data.l1_to_l2_roots,
-            self.data.previous_block_header,
+            self.data,
         );
-        validator.validate_without_previous_rollups(self.is_padding);
+        validator.validate_without_previous_rollups(self.is_padding, self.constants.last_archive);
 
         let mut blob_public_input = BlobPublicInputs::empty();
         blob_public_input.kzg_commitment.inner = EMPTY_EFFECT_BLOB_COMMITMENT;
@@ -52,15 +51,17 @@ impl EmptyBlockRootRollupInputs {
 
 mod tests {
     use crate::{
-        abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs,
+        abis::block_root_or_block_merge_public_inputs::{
+            BlockRootOrBlockMergePublicInputs, FeeRecipient,
+        },
         block_root::empty_block_root_rollup_inputs::{
             EMPTY_EFFECT_BLOB_CHALLENGE_Z, EMPTY_EFFECT_BLOB_COMMITMENT, EMPTY_EFFECT_BLOBS_HASH,
             EmptyBlockRootRollupInputs,
         },
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
-    use std::hash::poseidon2::Poseidon2;
-    use types::{abis::sponge_blob::SpongeBlob, tests::utils::assert_array_eq};
+    use poseidon::poseidon2::Poseidon2;
+    use types::{abis::sponge_blob::SpongeBlob, address::EthAddress, tests::utils::assert_array_eq};
 
     pub struct TestBuilder {
         pub inputs: RollupFixtureBuilder,
@@ -90,10 +91,12 @@ mod tests {
         let output = builder.execute();
 
         assert(output.previous_archive != output.new_archive);
-        assert(output.previous_block_hash != output.end_block_hash);
         assert_eq(output.start_global_variables, output.end_global_variables);
         assert_eq(output.out_hash, 0);
-        assert_array_eq(output.fees, []);
+        assert_array_eq(
+            output.fees,
+            [FeeRecipient { recipient: builder.inputs.global_variables.coinbase, value: 0 }],
+        );
 
         // The below values are generated from block_building_helper.test.ts.
         let expected_empty_effect_blobs_hash =
@@ -130,14 +133,23 @@ mod tests {
     unconstrained fn correct_empty_block_root_rollup_output_for_padding() {
         let mut builder = TestBuilder::new();
         builder.is_padding = true;
+        builder.inputs.global_variables.coinbase = EthAddress::from_field(0);
 
         let output = builder.execute();
 
         assert_eq(output.previous_archive, output.new_archive);
-        assert_eq(output.previous_block_hash, output.end_block_hash);
         assert_eq(output.start_global_variables, output.end_global_variables);
         assert_eq(output.out_hash, 0);
         assert_array_eq(output.fees, []);
         assert_array_eq(output.blob_public_inputs, []);
+    }
+
+    #[test(should_fail_with = "hash of the previous block header is not the last leaf in the archive tree")]
+    unconstrained fn random_previous_block_header_fails() {
+        let mut builder = TestBuilder::new();
+
+        builder.inputs.previous_block_header.state.partial.note_hash_tree.root += 1;
+
+        let _ = builder.execute();
     }
 }

@@ -73,4 +73,10 @@ export interface TxPool {
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
   getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+
+  /**
+   * Configure the maximum size of the tx pool
+   * @param maxSizeBytes - The maximum size in bytes of the mempool. Set to undefined to disable it
+   */
+  setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void>;
 }

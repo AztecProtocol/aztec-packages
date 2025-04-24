@@ -93,13 +93,13 @@ describe('e2e_p2p_network', () => {
     const rollup = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const stakingAssetHandler = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!.toString(),
       abi: StakingAssetHandlerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     expect((await rollup.read.getAttesters()).length).toBe(0);
@@ -121,9 +121,9 @@ describe('e2e_p2p_network', () => {
       });
     }
 
-    const attesters = await rollup.read.getAttesters();
-    expect(attesters.length).toBe(validators.length);
-    expect(attesters.length).toBe(NUM_NODES);
+    // Changes do not take effect until the next epoch
+    const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
+    expect(attestersImmedatelyAfterAdding.length).toBe(0);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
@@ -142,9 +142,14 @@ describe('e2e_p2p_network', () => {
       t.logger.debug('Warp failed, time already satisfied');
     }
 
+    // Changes have now taken effect
+    const attesters = await rollup.read.getAttesters();
+    expect(attesters.length).toBe(validators.length);
+    expect(attesters.length).toBe(NUM_NODES);
+
     // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await t.ctx.deployL1ContractsValues.l1Client.sendTransaction({
         to: t.baseAccount.address,
         value: 1n,
         account: t.baseAccount,
@@ -200,7 +205,7 @@ describe('e2e_p2p_network', () => {
     const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.signatures.filter(s => !s.isEmpty).map(sig => new BlockAttestation(payload, sig));
-    const signers = await Promise.all(attestations.map(att => att.getSender().then(s => s.toString())));
+    const signers = attestations.map(att => att.getSender().toString());
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right

@@ -23,7 +23,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
 
     const rollup = new RollupContract(
-      crossChainTestHarness.publicClient,
+      crossChainTestHarness.l1Client,
       crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
     );
     version = Number(await rollup.getVersion());
@@ -65,7 +65,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ]);
 
     const wrongMessage = new L1ToL2Message(
-      new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
+      new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.l1Client.chain.id),
       new L2Actor(l2Bridge.address, version),
       wrongMessageContent,
       claim.claimSecretHash,

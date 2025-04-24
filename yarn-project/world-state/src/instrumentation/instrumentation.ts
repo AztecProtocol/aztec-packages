@@ -31,6 +31,7 @@ const durationTrackDenylist = new Set<WorldStateMessageType>([
 
 export class WorldStateInstrumentation {
   private dbMapSize: Gauge;
+  private dbPhysicalSize: Gauge;
   private treeSize: Gauge;
   private unfinalisedHeight: Gauge;
   private finalisedHeight: Gauge;
@@ -47,6 +48,11 @@ export class WorldStateInstrumentation {
     const meter = telemetry.getMeter('World State');
     this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE, {
       description: `The current configured map size for each merkle tree`,
+      valueType: ValueType.INT,
+    });
+
+    this.dbPhysicalSize = meter.createGauge(Metrics.WORLD_STATE_DB_PHYSICAL_SIZE, {
+      description: `The current physical disk space used for each database`,
       valueType: ValueType.INT,
     });
 
@@ -94,6 +100,9 @@ export class WorldStateInstrumentation {
 
   private updateTreeStats(treeDbStats: TreeDBStats, treeMeta: TreeMeta, tree: MerkleTreeId) {
     this.dbMapSize.record(Number(treeDbStats.mapSize), {
+      [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
+    });
+    this.dbPhysicalSize.record(Number(treeDbStats.physicalFileSize), {
       [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
     });
     this.treeSize.record(Number(treeMeta.size), {
