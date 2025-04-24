@@ -31,7 +31,7 @@ Before you begin, you'll need to install:
 Run this:
 
 ```sh
-bash -i <(curl -s https://install.aztec.network) && VERSION=#include_aztec_version aztec-up
+bash -i <(curl -s https://install.aztec.network)
 ```
 
 Then install the version of the network running the testnet:
