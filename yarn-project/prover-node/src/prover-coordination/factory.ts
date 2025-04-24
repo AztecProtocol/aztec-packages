@@ -59,7 +59,7 @@ export async function createProverCoordination(
   }
 
   let nodes: AztecNode[] = [];
-  if (config.proverCoordinationNodeUrls.length > 0) {
+  if (config.proverCoordinationNodeUrls && config.proverCoordinationNodeUrls.length > 0) {
     log.info('Using prover coordination via node urls');
     const versions = getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot());
     nodes = config.proverCoordinationNodeUrls.map(url =>
