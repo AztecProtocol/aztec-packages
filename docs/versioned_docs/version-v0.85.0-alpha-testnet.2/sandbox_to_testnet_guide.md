@@ -79,8 +79,6 @@ const receiptForBob = await bananaCoin
   .wait();
 ```
 
-To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/tutorials/codealong/first_fees.md).
-
 ## Some things to note
 
 - All contracts, including account contracts and the sponsored FPC, will need to be registered in the PXE
