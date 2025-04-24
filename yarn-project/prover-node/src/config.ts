@@ -40,10 +40,11 @@ export type ProverNodeConfig = ArchiverConfig &
   SpecificProverNodeConfig &
   GenesisStateConfig;
 
-type SpecificProverNodeConfig = {
+export type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
+  proverNodeFailedEpochStore: string | undefined;
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
   txGatheringMaxParallelRequestsPerNode: number;
@@ -64,6 +65,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     env: 'PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH',
     description: 'The Maximum number of blocks to process in parallel while proving an epoch',
     ...numberConfigHelper(32),
+  },
+  proverNodeFailedEpochStore: {
+    env: 'PROVER_NODE_FAILED_EPOCH_STORE',
+    description: 'File store where to upload node state when an epoch fails to be proven',
+    defaultValue: undefined,
   },
   txGatheringIntervalMs: {
     env: 'PROVER_NODE_TX_GATHERING_INTERVAL_MS',
