@@ -177,7 +177,8 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
         // Set the pairing point accumulator indices
         ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
-               "Honk circuit must output a pairing point accumulator");
+               "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a "
+               "default one through a method in aggregation_state.");
         proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
         if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
