@@ -7,17 +7,23 @@ This guide assumes you have an Aztec app on sandbox and you wish to deploy it on
 
 ## Main differences
 
-- The testnet is a remote environment. The sandbox runs locally. You will be running your app on a network of sequencers and other apps
-- The testnet always has proving enabled. Proving may take longer on testnet
+- The testnet is a remote environment. The sandbox runs locally. You will be running your contracts on a network of sequencers and other contracts and connecting to them via the Private Execution Environment (PXE).
+- The testnet always has proving enabled. Users will prove private transactions and network provers prove public execution of blocks. Proving may take longer on testnet
 - The testnet always has fees enabled. You will need to pay fees, or sponsor fees, when sending a transaction
-- Testnet block times are longer than sandbox, so your transaction may take longer to mine and be included in a block
+- Testnet block times are longer than sandbox (they are about 36 seconds on average, and much longer to settle on L1), so your transaction may take longer to mine and be included in a block
+
+:::warning
+
+The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.2`. Maintain version consistency when interacting with the testnet to reduce errors.
+
+:::
 
 ## Sandbox, nodes, and PXE
 
 To connect a local PXE to testnet, install the testnet version of the sandbox.
 
 ```sh
-VERSION=#include_aztec_version aztec-up
+VERSION=0.85.0-alpha-testnet.2 aztec-up
 ```
 
 When you run `aztec-wallet` commands, make sure to include a `node-url` option. An example:
@@ -45,7 +51,9 @@ import { createPXEService } from "@aztec/pxe/server";
 
 Then initialize the PXE:
 
-#include_code PXEcreate yarn-project/end-to-end/src/bench/utils.ts typescript
+```javascript
+const pxe = await createPXEService(node, pxeConfig);
+```
 
 ## Paying for fees
 
@@ -63,7 +71,13 @@ aztec-wallet create-account --payment method=fee_juice,feePayer=main --node-url 
 
 An example using Aztec.js:
 
-#include_code transaction_with_payment_method yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
+```javascript
+const receiptForBob = await bananaCoin
+  .withWallet(bobWallet)
+  .methods.transfer(alice, amountTransferToAlice)
+  .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
+  .wait();
+```
 
 To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/tutorials/codealong/first_fees.md).
 
