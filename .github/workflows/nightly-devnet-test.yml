@@ -1,9 +1,5 @@
 name: Devnet network tests
 on:
-  # TODO(ek): Remove this after testing
-  pull_request:
-    paths:
-      - '**.yml'
   workflow_dispatch:
   schedule:
     # Run nightly at 0300
