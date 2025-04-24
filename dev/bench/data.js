@@ -1,92 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745509418339,
+  "lastUpdate": 1745514027854,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ea12d56bbd83b127f27787695d398b40aa2a36f7",
-          "message": "fix: make the token use large notes first (#13545)\n\nThis fixes an issue @alexghr has encountered where the AMM bot crashes\ndue to trying to use too many small notes. There's other things to fix\n(make `transfer_to_public` recursive, have better max notes limits,\netc.), but this quick patch will fix most issues (unless someone needs\nto combine more than 15 notes for a transfer), so it's a good stopgap\nmeasure.\n\nThe fix is trivial, but adding tests for it is not, reflecting TXE's\npoor state of affairs. I wanted to test that regardless of the order in\nwhich two notes are created, we always consume the larger one first, but\na) was forced to write two separate tests, since it seems we lack\ncontrol over TXE's execution cache (notably transient nullified notes),\nand b) was forced to use the actual token contract and to call contract\nfunctions due to #13269. Usage of `set_contract_address` is also quite\nobscure.\n\nEach test could e.g. have looked like this, which is much simpler and\nhas way fewer moving pieces:\n\n```noir\nenv.private_tx(|context| => {\n    let storage_slot = 5;\n    let balance_set =\n        BalanceSet::new(context, storage_slot);\n\n    recipient_balance_set.add(owner, small_note_amount);\n    recipient_balance_set.add(owner, large_note_amount);\n});\n\nenv.private_tx(|context| => {\n    let storage_slot = 5;\n    let balance_set =\n        BalanceSet::new(context, storage_slot);\n\n    let emission = recipient_balance_set.sub(owner, small_note_amount);\n    assert_eq(emission.emission.unwrap().note.value, large_mint_amount - small_mint_amount);\n});\n```\n\nI guess we'd need to explicitly deal with note discovery via oracle\nhints in that case, but regardless it seems solvable. It'd also let us\ntest that this works for both transient and settled notes, or even a mix\n(which is something we should have extensive coverage of in the almost\nnon-existent note getter options tests).",
-          "timestamp": "2025-04-15T15:05:29Z",
-          "tree_id": "eb29cd8ce9439d0246d24970dd5d08cd63ff0ea0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ea12d56bbd83b127f27787695d398b40aa2a36f7"
-        },
-        "date": 1744732913990,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
-            "value": 87274,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
-            "value": 87274,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
-            "value": 52117,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
-            "value": 52117,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-mint-ivc-proof-wasm",
-            "value": 29497,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-mint-ivc-proof-wasm-memory",
-            "value": 29497,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
-            "value": 34134,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
-            "value": 34134,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmtoken-transfer-ivc-proof-wasm",
-            "value": 42740,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
-            "value": 42740,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4212,6 +4128,78 @@ window.BENCHMARK_DATA = {
             "value": 11966.047415000001,
             "unit": "ms/iter",
             "extra": "iterations: 1\ncpu: 11966051000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2231.75",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "dd59a7f3e2fc21777255e7c47a559cf7f5e84e4a",
+          "message": "fix(bb/cmake): LMDB build is NOT the father (#13797)\n\nWhen it comes to the lmdb.h file from lmdb dependency, the build has\nnothing to do with it. I got into wrong thinking assuming that @alexghr\nadded this because it was a generated header. This explains why this was\nseemingly pattern-following yet caused issues. Adding this line only\nencouraged cmake to clean this up thinking lmdb would build it - when\ninstead it failed, complaining about it missing\n\n(We had not hit the issue in a while, then Kesha said he was hitting it\nconsistently, which let us confirm this as a fix)",
+          "timestamp": "2025-04-24T15:38:29Z",
+          "tree_id": "e098ca91ef7bc3c0fb380a535e0ad852df65a299",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dd59a7f3e2fc21777255e7c47a559cf7f5e84e4a"
+        },
+        "date": 1745514019268,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17412.624287999963,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13744.460052999999 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2240147439,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 196049173,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19827.708418000155,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16704.656963999998 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56364.166660999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56364168000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4241.357553999933,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3646.7138170000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11967.519659999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11967524000 ms\nthreads: 1"
           },
           {
             "name": "wasmUltraHonkVerifierWasmMemory",
