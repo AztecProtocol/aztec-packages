@@ -1,4 +1,4 @@
-import { css } from '@mui/styled-engine';
+import { css, keyframes } from '@mui/styled-engine';
 
 export const dialogBody = css({
   display: 'flex',
@@ -76,4 +76,32 @@ export const navbarSelectLabel = css({
   gap: '12px',
   padding: '12px',
   maxWidth: '300px',
+});
+
+const loadingAnimationLayer1 = keyframes`
+  0% { box-shadow: 0px 0px 0 0px  }
+  90% , 100% { box-shadow: 20px 20px 0 -4px  }
+`;
+
+const loadingAnimationLayerTr = keyframes`
+  0% { transform:  translate(0, 0) scale(1) }
+  100% {  transform: translate(-25px, -25px) scale(1) }
+`;
+
+export const loader = css({
+  margin: '1rem',
+  position: 'relative',
+  width: '48px',
+  height: '48px',
+  background: 'var(--mui-palette-primary-main)',
+  transform: 'rotateX(65deg) rotate(45deg)',
+  color: 'var(--mui-palette-primary-dark)',
+  animation: `${loadingAnimationLayer1} 1s linear infinite alternate`,
+  ':after': {
+    content: '""',
+    position: 'absolute',
+    inset: 0,
+    background: 'var(--mui-palette-primary-light)',
+    animation: `${loadingAnimationLayerTr} 1s linear infinite alternate`,
+  },
 });

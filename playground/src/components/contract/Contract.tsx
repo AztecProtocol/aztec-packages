@@ -184,7 +184,7 @@ export function ContractComponent() {
         `Deploy ${currentContractArtifact.name}`,
         interaction,
         contract.address,
-        opts,
+        opts
       );
       // Temporarily ignore undeployed contracts
       if (deploymentResult) {

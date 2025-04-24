@@ -21,6 +21,7 @@ const landingPage = css({
   height: 'auto',
   minHeight: '100%',
   flex: 1,
+  transition: 'width 0.3s ease-in',
 });
 
 const cardsContainer = css({
@@ -371,9 +372,6 @@ export function Landing() {
         deployMethod,
         accountWallet.getAddress(),
         opts,
-        {
-          openPopup: false,
-        },
       );
 
       if (deploymentResult) {

@@ -32,7 +32,7 @@ export function useTransaction() {
       name,
       contractAddress,
     };
-    const modalStatus = (displayOptions?.openPopup ?? true) ? 'open' : 'minimized';
+    const modalStatus = (displayOptions?.openPopup ?? false) ? 'open' : 'minimized';
     const showNotification = (displayOptions?.showNotification ?? true) && (transactionModalStatus === 'minimized');
 
     setCurrentTx(tx);
@@ -56,7 +56,7 @@ export function useTransaction() {
         ...{ txHash, status: 'sending' },
       });
 
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 120 });
+      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 180 });
       if (showNotification) {
         notifications.show('Transaction mined successfully.', {
           severity: 'success',

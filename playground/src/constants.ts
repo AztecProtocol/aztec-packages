@@ -75,3 +75,19 @@ export const INFO_TEXT = {
     "Just like in Ethereum, you can load an existing contract instance (if you know it's ABI and address) or create a new one.",
   CONTACTS: 'Register contacts so you can discover notes sent by them',
 };
+
+export const FUN_FACTS = [
+  'Aztec has a super cool account abstraction model which you are utilizing right now.',
+  "You're generating a client-side proof directly in your browser, and it won't take forever!",
+  'Aztec enables programmable privacy across the entire Ethereum ecosystem.',
+  'Aztec uses zero-knowledge proofs to enable private transactions.',
+  'The Aztec protocol was founded in 2017.',
+  // "We're almost there...",
+  'Aztec Connect was the first private DeFi application.',
+  'Aztec invented PLONK which is really cool and underpins all modern zkVMs.',
+  'Aztec supports private, public, and hybrid smart contract execution.',
+  'Aztec enables privacy and full composability across private and public calls.',
+  'All Aztec transactions start off private (since account and transaction entrypoints are private).',
+  'Aztec is the first L2 to launch a decentralized testnet on day 1.',
+  'While you wait for this proof, check out somethinghappened.wtf.',
+];

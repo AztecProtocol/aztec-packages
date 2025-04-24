@@ -151,10 +151,25 @@ export class WalletDB {
     }
     await this.#transactionsPerContract.set(`${contractAddress.toString()}`, Buffer.from(txHash.toString()));
 
+    await this.#transactions.set(`${txHash.toString()}:hash`, Buffer.from(txHash.toString()));
     await this.#transactions.set(`${txHash.toString()}:name`, Buffer.from(name));
     await this.#transactions.set(`${txHash.toString()}:status`, Buffer.from(receipt.status.toString()));
     await this.#transactions.set(`${txHash.toString()}:date`, Buffer.from(Date.now().toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+  }
+
+  async retrieveAllTx() {
+    const result = [];
+    if (!this.#transactions) {
+      return result;
+    }
+
+    for await (const [key, txHash] of this.#transactions.entriesAsync()) {
+      if (key.endsWith(':hash')) {
+        result.push(txHash.toString());
+      }
+    }
+    return result;
   }
 
   async retrieveTxsPerContract(contractAddress: AztecAddress) {

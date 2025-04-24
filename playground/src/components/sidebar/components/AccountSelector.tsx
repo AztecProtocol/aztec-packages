@@ -82,12 +82,20 @@ export function AccountSelector() {
     }
   }, [wallet, walletDB, pxe]);
 
-  const handleAccountChange = async (event: SelectChangeEvent) => {
-    if (event.target.value == '') {
+  // If there is only one account, select it automatically
+  useEffect(() => {
+    if (!isAccountsLoading && !wallet && accounts?.length === 1) {
+      handleAccountChange(accounts[0].value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, wallet, isAccountsLoading]);
+
+  const handleAccountChange = async (address: string) => {
+    if (address == '') {
       return;
     }
     setIsAccountsLoading(true);
-    const accountAddress = AztecAddress.fromString(event.target.value);
+    const accountAddress = AztecAddress.fromString(address);
     const accountData = await walletDB.retrieveAccount(accountAddress);
     const type = convertFromUTF8BufferAsString(accountData.type);
     let accountManager: AccountManager;
@@ -158,7 +166,7 @@ export function AccountSelector() {
           open={isOpen}
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
-          onChange={handleAccountChange}
+          onChange={(e) => handleAccountChange(e.target.value)}
           disabled={isAccountsLoading}
         >
           {!isPXEInitialized && (

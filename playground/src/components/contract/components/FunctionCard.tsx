@@ -145,7 +145,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   ) => {
     setOpenSendTxDialog(false);
     if (name && interaction && opts) {
-      onSendTxRequested(name, interaction, contract.address, opts);
+      onSendTxRequested(`Execute ${name}`, interaction, contract.address, opts);
     }
   };
 

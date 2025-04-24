@@ -1,14 +1,13 @@
-import { useContext, useEffect, useState } from 'react';
-import { css, keyframes } from '@emotion/react';
+import { useCallback, useContext } from 'react';
+import { css } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import ErrorIcon from '@mui/icons-material/Error';
 import Button from '@mui/material/Button';
-import { Box, Dialog, DialogContent } from '@mui/material';
+import { Dialog, DialogContent, DialogTitle } from '@mui/material';
 import { TxStatus } from '@aztec/aztec.js';
-import { dialogBody } from '../../styles/common';
+import { dialogBody, loader } from '../../styles/common';
 
 const TX_ERRORS = [
   'error',
@@ -71,34 +70,6 @@ const subtitleText = css({
   fontSize: '16px',
   textAlign: 'center',
   color: 'rgba(0, 0, 0, 0.6)',
-});
-
-const loadingAnimationLayer1 = keyframes`
-  0% { box-shadow: 0px 0px 0 0px  }
-  90% , 100% { box-shadow: 20px 20px 0 -4px  }
-`;
-
-const loadingAnimationLayerTr = keyframes`
-  0% { transform:  translate(0, 0) scale(1) }
-  100% {  transform: translate(-25px, -25px) scale(1) }
-`;
-
-const loader = css({
-  margin: '1rem',
-  position: 'relative',
-  width: '48px',
-  height: '48px',
-  background: 'var(--mui-palette-primary-main)',
-  transform: 'rotateX(65deg) rotate(45deg)',
-  color: 'var(--mui-palette-primary-dark)',
-  animation: `${loadingAnimationLayer1} 1s linear infinite alternate`,
-  ':after': {
-    content: '""',
-    position: 'absolute',
-    inset: 0,
-    background: 'var(--mui-palette-primary-light)',
-    animation: `${loadingAnimationLayerTr} 1s linear infinite alternate`,
-  },
 });
 
 // Error message styling
@@ -164,82 +135,9 @@ const logText = css({
   color: 'rgba(0, 0, 0, 0.8)',
 });
 
-const funFacts = [
-  'Aztec has a super cool account abstraction model which you are utilizing right now',
-  "You're generating a client-side proof directly in your browser, and it won't take forever!",
-  'Aztec enables programmable privacy across the entire Ethereum ecosystem',
-  'Aztec uses zero-knowledge proofs to enable private transactions',
-  'The Aztec protocol was founded in 2017',
-  "We're almost there...",
-  'Aztec Connect was the first private DeFi application',
-  'Aztec invented PLONK which is really cool and underpins all modern zkVMs',
-  'Aztec supports private, public, and hybrid smart contract execution',
-  'Aztec enables privacy and full composability across private and public calls',
-  'All transactions on Aztec start off private (since all accounts and transaction entrypoints are private)',
-  'Aztec is the first L2 to launch a decentralized testnet on day 1',
-  'While you wait for this proof, check out somethinghappened.wtf',
-];
-
-const minimizedModal = css({
-  position: 'fixed',
-  bottom: '64px',
-  right: '20px',
-  width: '350px',
-  height: '64px',
-  backgroundColor: 'white',
-  padding: '14px 16px',
-  borderRadius: '8px',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  cursor: 'pointer',
-  overflow: 'hidden',
-  transition: 'all 0.3s ease',
-  border: '1px solid #dedede',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-  },
-});
-
-const minimizedModalIcon = css({
-  width: '48px',
-  height: '48px',
-  display: 'block',
-});
-
-const minimizedTitle = css({
-  width: '300px',
-  fontWeight: 500,
-  fontSize: '16px',
-  height: '20px',
-  marginBottom: '5px',
-});
-
-const minimizedLog = css({
-  fontWeight: 300,
-  fontSize: '12px',
-  width: '300px',
-  color: 'var(--mui-palette-text-secondary)',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  lineHeight: '1.2',
-  display: 'block',
-  height: '2.4em',
-});
 
 export function LoadingModal() {
   const { currentTx, setCurrentTx, logs, transactionModalStatus, setTransactionModalStatus } = useContext(AztecContext);
-  const [currentFunFact, setCurrentFunFact] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentFunFact(prev => (prev + 1) % funFacts.length);
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleClose = async () => {
     // Set error state to indicate deployment was cancelled
@@ -256,100 +154,69 @@ export function LoadingModal() {
     setTransactionModalStatus('closed');
   };
 
-  const minimizeModal = () => {
-    setTransactionModalStatus('minimized');
-  };
+  const minimizeModal = useCallback(() => {
+    if (currentTx?.status === 'error') {
+      setTransactionModalStatus('closed');
+    } else {
+      setTransactionModalStatus('minimized');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTx?.status]);
 
   const isError = TX_ERRORS.includes(currentTx?.status);
   const isProving = currentTx?.status === 'proving';
 
-  function renderModal() {
-    return (
-      <Dialog open={true} onClose={minimizeModal}>
-        <DialogContent css={dialogBody}>
+  return (
+    <Dialog open={transactionModalStatus === 'open'} onClose={minimizeModal}>
+      <DialogTitle>{currentTx?.name}</DialogTitle>
 
-          <IconButton css={closeButton} onClick={handleClose}>
-            <CloseIcon />
-          </IconButton>
+      <DialogContent css={dialogBody}>
+
+        <IconButton css={closeButton} onClick={handleClose}>
+          <CloseIcon />
+        </IconButton>
+        {currentTx?.status !== 'error' && (
           <IconButton
             css={minimizeButton}
             onClick={minimizeModal}
           >
             <span css={{ width: '24px', height: '24px', position: 'relative', top: '-2px', fontWeight: '600' }}>–</span>
           </IconButton>
-
-          <div css={contentGroup}>
-            <Typography css={[titleText, isError && { color: '#FF7764' }]}>
-              {isError
-                ? 'Error'
-                : isProving
-                  ? 'Generating proof for transaction...'
-                  : 'Sending transaction to Aztec network...'}
-            </Typography>
-            {isError ? (
-              <>
-                <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
-                <div css={buttonContainer}>
-                  <Button variant="contained" color="primary" onClick={minimizeModal}>
-                    Close
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <Typography css={subtitleText}>
-                  {isProving
-                    ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
-                    : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
-                </Typography>
-                <span css={loader}></span>
-                <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
-                <div css={logContainer}>
-                  <Typography css={logTitle}>This is what we're currently working on:</Typography>
-                  <Typography css={logText}>{logs?.[0]?.message}</Typography>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  function renderMinimizedModal() {
-    let lastLog = logs?.[0]?.message;
-    if (lastLog?.length > 100) {
-      lastLog = lastLog.slice(0, 100) + '...';
-    }
-
-    const hasError = currentTx?.status === 'error';
-    const errorMessage = currentTx?.error;
-    const subtitle = hasError ? errorMessage : lastLog;
-
-    return (
-      <div css={minimizedModal} onClick={() => setTransactionModalStatus('open')}>
-        {!hasError && (
-          <div css={minimizedModalIcon}>
-            <span css={[loader]}></span>
-          </div>
-        )}
-        {hasError && (
-          <ErrorIcon css={minimizedModalIcon} style={{ color: 'var(--mui-palette-error-main)' }} />
         )}
 
-        <Box>
-          <Typography css={minimizedTitle}>{currentTx?.name || 'Transaction'}</Typography>
-          <Typography css={minimizedLog}>{subtitle}</Typography>
-        </Box>
-      </div>
-    );
-  }
-
-  if (transactionModalStatus === 'open') {
-    return renderModal();
-  } else if (transactionModalStatus === 'minimized') {
-    return renderMinimizedModal();
-  }
-
-  return null;
+        <div css={contentGroup}>
+          <Typography css={[titleText, isError && { color: '#FF7764' }]}>
+            {isError
+              ? 'Error'
+              : isProving
+                ? 'Generating proof for transaction...'
+                : 'Sending transaction to Aztec network...'}
+          </Typography>
+          {isError ? (
+            <>
+              <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
+              <div css={buttonContainer}>
+                <Button variant="contained" color="primary" onClick={minimizeModal}>
+                  Close
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Typography css={subtitleText}>
+                {isProving
+                  ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
+                  : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
+              </Typography>
+              <span css={loader}></span>
+              <div css={logContainer}>
+                <Typography css={logTitle}>This is what we're currently working on:</Typography>
+                <Typography css={logText}>{logs?.[0]?.message}</Typography>
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }

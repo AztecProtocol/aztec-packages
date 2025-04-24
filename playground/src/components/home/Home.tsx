@@ -7,6 +7,7 @@ import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
 import { LoadingModal } from '../common/LoadingModal';
+import { SideBar } from '../sidebar/SideBar';
 
 const layout = css({
   display: 'flex',
@@ -19,10 +20,11 @@ const layout = css({
 
 const contentLayout = css({
   display: 'flex',
+  gap: '24px',
   flexDirection: 'row',
   position: 'relative',
   flexShrink: 0,
-  height: 'calc(100% - 220px)',
+  height: 'calc(100% - 280px)',
   minHeight: 0,
   overflow: 'auto',
   margin: '24px 60px',
@@ -189,11 +191,10 @@ export default function Home() {
         </a>
       </div>
       <AztecContext.Provider value={AztecContextInitialValue}>
-        <div css={{ position: 'relative' }}>
-          <NavBar />
-        </div>
+        <NavBar />
         <div css={contentLayout}>
           {showContractInterface ? <ContractComponent /> : <Landing />}
+          <SideBar />
         </div>
         <LogPanel />
         <LoadingModal />
