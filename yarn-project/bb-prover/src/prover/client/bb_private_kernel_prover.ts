@@ -33,7 +33,7 @@ import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 
-import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
+import { mapProtocolArtifactNameToCircuitName } from '../../stats.js';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   constructor(

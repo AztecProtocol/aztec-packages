@@ -1,6 +1,6 @@
 import type { Logger } from '@aztec/aztec.js';
-import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
+import { BBNativePrivateKernelProver } from '@aztec/bb-prover/client/native';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import { createLogger, logger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
