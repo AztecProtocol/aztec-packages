@@ -77,6 +77,7 @@ describe('e2e_snapshot_sync', () => {
         txGatheringMaxParallelRequestsPerNode: 10,
         proverAgentCount: 1,
         realProofs: false,
+        proverNodeFailedEpochStore: undefined,
         ...config,
       }),
     );

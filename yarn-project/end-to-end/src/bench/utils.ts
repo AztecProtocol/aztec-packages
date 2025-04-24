@@ -166,7 +166,9 @@ export async function createNewPXE(node: AztecNode, contract: BenchmarkingContra
     l1ChainId,
     rollupVersion,
   } as PXEServiceConfig;
+  // docs:start:PXEcreate
   const pxe = await createPXEService(node, pxeConfig);
+  // docs:end:PXEcreate
   await pxe.registerContract(contract);
   return pxe;
 }

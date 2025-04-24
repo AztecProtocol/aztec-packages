@@ -55,7 +55,6 @@ def modify_benchmark_data(file_paths):
     combined_results = {"benchmarks": []}
 
     for file_path in file_paths:
-        print("!")
         prefix = ""
         # Historical name compatibility:
         if "wasm" in file_path:
@@ -75,7 +74,7 @@ def modify_benchmark_data(file_paths):
                 }
                 combined_results['benchmarks'].append(entry)
             else:
-                print(f"Warning: No memory value found in {file_path}")
+                print(f"Warning: No memory value found in {file_path}", file=sys.stderr)
         else:
             # Process JSON files to update benchmark entries.
             benchmarks = process_json_file(file_path, prefix)
@@ -84,7 +83,6 @@ def modify_benchmark_data(file_paths):
 
 def main():
     file_paths = sys.argv[1::]
-    print(file_paths)
     final_data = modify_benchmark_data(file_paths)
 
     # Output the combined benchmark data as formatted JSON.

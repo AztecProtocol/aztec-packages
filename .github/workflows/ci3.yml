@@ -115,7 +115,6 @@ jobs:
 
       - name: Store barretenberg benchmark result
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_BB_BENCH != 'true'
-        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -131,7 +130,6 @@ jobs:
 
       - name: Store Example App IVC benchmark results
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
-        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -147,7 +145,6 @@ jobs:
 
       - name: Store yarn project benchmark result
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
-        continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: "End-to-end Benchmark"
