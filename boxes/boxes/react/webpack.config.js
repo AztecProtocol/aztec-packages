@@ -16,11 +16,6 @@ export default (_, argv) => ({
       {
         test: /\.tsx?$/,
         loader: 'ts-loader',
-        exclude: /node_modules|\.d\.ts(.map)?$/
-      },
-      {
-          test: /\.d\.ts(.map)?$/,
-          loader: 'ignore-loader'
       },
       {
         test: /\.css$/i,

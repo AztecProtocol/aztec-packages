@@ -2,6 +2,7 @@ import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
 import bundlesize from 'vite-plugin-bundlesize';
+import path from 'path';
 
 // Only required for alternative bb wasm file, left as reference
 // import { viteStaticCopy } from "vite-plugin-static-copy";
@@ -60,8 +61,7 @@ export default defineConfig(({ mode }) => {
       // }),
       bundlesize({
         // Bump log:
-        // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
-        limits: [{ name: 'assets/index-*', limit: '1700kB' }],
+        limits: [{ name: 'assets/index-*', limit: '1600kB' }],
       }),
     ],
     define: {

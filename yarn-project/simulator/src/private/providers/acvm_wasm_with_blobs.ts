@@ -1,3 +1,4 @@
+import { Timer } from '@aztec/foundation/timer';
 import { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
 import type { WitnessMap } from '@aztec/noir-types';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
@@ -5,6 +6,7 @@ import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
+import type { ACVMSuccess } from './acvm_native.js';
 import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
 
 /**
@@ -19,19 +21,19 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
     input: WitnessMap,
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler,
-  ): Promise<WitnessMap> {
+  ): Promise<ACVMSuccess> {
     // Decode the bytecode from base64 since the acvm does not know about base64 encoding
     const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
     //
     // Execute the circuit
     try {
+      const timer = new Timer();
       const _witnessMap = await executeCircuit(
         decodedBytecode,
         input,
         callback, // handle calls to debug_log and evaluate_blobs mock
       );
-
-      return _witnessMap;
+      return { witness: _witnessMap, duration: timer.ms() } as ACVMSuccess;
     } catch (err) {
       // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
       // assertion payload.

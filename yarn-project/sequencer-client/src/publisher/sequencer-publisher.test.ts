@@ -134,6 +134,11 @@ describe('SequencerPublisher', () => {
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
     (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
+    (l1TxUtils as any).client = {
+      account: {
+        address: '0x1234567890123456789012345678901234567890',
+      },
+    };
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
