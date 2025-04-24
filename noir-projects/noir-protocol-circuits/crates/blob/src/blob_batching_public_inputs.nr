@@ -1,15 +1,18 @@
 use bigcurve::{
     BigCurveTrait,
-    curves::bls12_381::{BLS12_381 as BLSPoint, BLS12_381_SCALAR_SLICES, BLS12_381Scalar},
+    curves::bls12_381::{BLS12_381, BLS12_381_SCALAR_SLICES, BLS12_381Scalar},
     ScalarFieldTrait,
 };
 use bigint::{BigNum, bignum::BigNumTrait, BLS12_381_Fq as Q, BLS12_381_Fr as F};
 use std::ops::{Add, Mul};
 use types::{
+    constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOCK_BLOB_PUBLIC_INPUTS, BLS12_FR_LIMBS},
     hash::{poseidon2_hash, sha256_to_field},
-    traits::Empty,
-    utils::{arrays::array_splice, field::{byte_to_bits_be, field_from_bytes}},
+    traits::{Deserialize, Empty, Serialize},
+    utils::{arrays::array_splice, field::{byte_to_bits_be, field_from_bytes}, reader::Reader},
 };
+
+pub type BLSPoint = BLS12_381;
 
 pub struct BatchingBlobCommitment {
     pub point: BLSPoint,
@@ -27,6 +30,30 @@ impl BatchingBlobCommitment {
             field_from_bytes::<17>(array_splice(self.compressed, 31), true),
         ]
     }
+
+    // Helper fn largely used in testing to simplify fixtures
+    pub fn from_limbs(x_limbs: [u128; 4], y_limbs: [u128; 4]) -> Self {
+        let x = Q { limbs: x_limbs };
+        let y = Q { limbs: y_limbs };
+        let point = BLSPoint { x, y, is_infinity: (x.is_zero()) & (y.is_zero()) };
+        compress_to_blob_commitment(point)
+    }
+
+    // The commitment for an empty blob is (0, 0), which is compressed to [192, 0, ..., 0]
+    // NOT [0, 0, ..., 0] due to the is_compressed flag:
+    pub fn empty_blob() -> Self {
+        Self {
+            point: BLSPoint {
+                x: Q { limbs: [0, 0, 0, 0] },
+                y: Q { limbs: [0, 0, 0, 0] },
+                is_infinity: true,
+            },
+            compressed: [
+                192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+        }
+    }
 }
 
 impl Eq for BatchingBlobCommitment {
@@ -42,7 +69,6 @@ impl Empty for BatchingBlobCommitment {
 }
 
 // TODO(MW): get_flags() and compress_to_bytes() will eventually be part of BigCurve.
-
 // Ideally we would impl like:
 // impl From<BLSPoint> for BlobCommitment {
 //     }
@@ -53,7 +79,6 @@ impl Empty for BatchingBlobCommitment {
 //     fn compress_to_bytes(self) -> [u8; 48] {
 //     }
 // }
-
 // So, e.g., can just call point.compress_to_bytes() in future. For now:
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
@@ -64,29 +89,38 @@ pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) 
     for i in 0..3 {
         assert_eq(most_sig_bits[i], 0, "Invalid BLS12-381 x coordinate given to compress().");
     }
+    compressed[0] = set_flags(flags, compressed[0]);
+    BatchingBlobCommitment { point, compressed }
+}
+
+// TODO: Will be part of bigcurve's compression functionality
+// Given a point in BLS12-381, returns [is_compressed, is_infinity, is_greater] and the point's x coordinate
+fn get_flags(point: BLSPoint) -> ([bool; 3], Q) {
+    let x = point.x;
+    let y = point.y;
+    let is_compressed = true;
+    let is_infinity = point.is_infinity;
+    let is_greater = y > -y;
+    let flags = [is_compressed, is_infinity, is_greater];
+    (flags, x)
+}
+
+// TODO: Will be part of bigcurve's compression functionality
+// Given [is_compressed, is_infinity, is_greater] and the point's most significant byte, returns that
+// byte with the flags set.
+fn set_flags(flags: [bool; 3], byte: u8) -> u8 {
     // Flip some bits (NB: this is probably not efficient but just easier to log/visualise for now)
     let mut flip = 0;
     // flags = [is_compressed, is_infinity, is_greater]
     // if (is_compressed) { flip most sig bit in u8 => byte |= 2**7 => byte |= 2 << 6 }
     // if (is_infinity) { flip next most sig bit in u8 => byte |= 2**6 => byte |= 2 << 5 }
-    // if (is_compressed) { flip next most sig bit in u8 => byte |= 2**5 => byte |= 2 << 4 }
+    // if (is_greater) { flip next most sig bit in u8 => byte |= 2**5 => byte |= 2 << 4 }
     for i in 0..3 {
         if flags[i] {
             flip += 2 << (6 - i);
         }
     }
-    compressed[0] |= flip;
-    BatchingBlobCommitment { point, compressed }
-}
-
-fn get_flags(point: BLSPoint) -> ([bool; 3], Q) {
-    let x = point.x;
-    let y = point.y;
-    let is_greater = y > -y;
-    let is_infinity = point.is_infinity;
-    let is_compressed = true;
-    let flags = [is_compressed, is_infinity, is_greater];
-    (flags, x)
+    byte | flip
 }
 
 // Will be included as .to_be_bytes() in bignum 0.7.0 TODO(#13609): remove when bumped
@@ -113,11 +147,16 @@ fn bignum_limbs_to_be_bytes<let N: u32, let MOD_BITS: u32>(
     result
 }
 
-// The outputs we care about from using the barycentric to evaluate a blob at z in blob.nr
+/**
+* The outputs we care about from using the barycentric to evaluate blob i at z:
+* - z_i = Challenge for one blob (=H(H(blob_i), C_i))
+* - y_i = Evaluation for one blob (=p_i(z))
+* - c_i = Commitment for one blob (=C_i)
+*/
 pub struct BlobAccumulationInputs {
-    pub z_i: Field, // Challenge for one blob (=H(H(blob_i), C_i))
-    pub y_i: F, // Evaluation for one blob (=p(z))
-    pub c_i: BatchingBlobCommitment, // Commitment for one blob (=C_i)
+    pub z_i: Field,
+    pub y_i: F,
+    pub c_i: BatchingBlobCommitment,
 }
 
 impl Empty for BlobAccumulationInputs {
@@ -140,8 +179,10 @@ impl Empty for BlobAccumulationInputs {
 *    the blob_sponge and validating blob_sponge.squeeze() vs H(input_elements).
 *  - We encompass all the blob elements in challenges (z_i) unique to each blob by using the above H(input_elements)
 *    and the blob's commitment (c_i).
+*
+* TODO(MW): Compress F and Q values to reduce number of public inputs (BLOB_ACCUMULATOR_PUBLIC_INPUTS)
 */
-pub struct BlobPublicInputsAcc {
+pub struct BlobAccumulatorPublicInputs {
     pub v: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
     pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub y: F, // Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y (BLS12Fr)
@@ -150,7 +191,7 @@ pub struct BlobPublicInputsAcc {
     pub gamma_pow: F, // gamma^i for current blob, used above (BLS12Fr)
 }
 
-impl BlobPublicInputsAcc {
+impl BlobAccumulatorPublicInputs {
     /**
     * LHS Accumulator: Current state of param accumulation from blob 0 to i-1
     * RHS Accumulator: Outputs from evaluation of blob i
@@ -202,20 +243,21 @@ impl BlobPublicInputsAcc {
         }
     }
 
-    // TODO(MW): bother with this as a separate fn? All values are final in 'last' circuit apart from gamma.
-    pub fn finalize(self) -> Self {
-        Self {
-            v: self.v,
-            z: self.z,
-            y: self.y,
-            c: self.c,
-            gamma: poseidon2_hash([self.gamma, self.z]),
-            gamma_pow: self.gamma_pow,
-        }
+    // Completes the final checks for the last accumulator state. This is called in the root rollup and
+    // exists here to avoid importing bignum's to_field in the rollup_lib.
+    pub fn finalize_and_validate(self, injected: FinalBlobBatchingChallenges) -> Self {
+        assert(self.z == injected.z, "Final blob challenge z mismatch.");
+        let gamma = poseidon2_hash([self.gamma, self.z]);
+        assert(
+            gamma == bigint::bignum::to_field(injected.gamma),
+            "Final blob challenge gamma mismatch.",
+        );
+        // TODO(MW): Return struct of just v, z, y, and C for final root PI
+        Self { v: self.v, z: self.z, y: self.y, c: self.c, gamma, gamma_pow: self.gamma_pow }
     }
 }
 
-impl Empty for BlobPublicInputsAcc {
+impl Empty for BlobAccumulatorPublicInputs {
     fn empty() -> Self {
         Self {
             v: 0,
@@ -228,7 +270,7 @@ impl Empty for BlobPublicInputsAcc {
     }
 }
 
-impl Eq for BlobPublicInputsAcc {
+impl Eq for BlobAccumulatorPublicInputs {
     fn eq(self, other: Self) -> bool {
         (self.v.eq(other.v))
             & (self.z.eq(other.z))
@@ -239,8 +281,148 @@ impl Eq for BlobPublicInputsAcc {
     }
 }
 
+impl Serialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
+    fn serialize(self) -> [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS] {
+        let mut fields: BoundedVec<Field, BLOB_ACCUMULATOR_PUBLIC_INPUTS> = BoundedVec::new();
+        fields.push(self.v);
+        fields.push(self.z);
+        fields.extend_from_array(self.y.limbs.map(|l| l as Field));
+        fields.extend_from_array(self.c.x.limbs.map(|l| l as Field));
+        fields.extend_from_array(self.c.y.limbs.map(|l| l as Field));
+        fields.push(self.gamma);
+        fields.extend_from_array(self.gamma_pow.limbs.map(|l| l as Field));
+        fields.storage()
+    }
+}
+
+impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
+    fn deserialize(fields: [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS]) -> Self {
+        let mut reader = Reader::new(fields);
+        let mut item = Self {
+            v: reader.read(),
+            z: reader.read(),
+            y: F { limbs: reader.read_array().map(|e| e as u128) },
+            c: BLSPoint {
+                x: Q { limbs: reader.read_array().map(|e| e as u128) },
+                y: Q { limbs: reader.read_array().map(|e| e as u128) },
+                is_infinity: false,
+            },
+            gamma: reader.read(),
+            gamma_pow: F { limbs: reader.read_array().map(|e| e as u128) },
+        };
+        if (item.c.x.eq(Q::zero())) & (item.c.y.eq(Q::zero())) {
+            item.c.is_infinity = true;
+        }
+        item
+    }
+}
+
+/**
+* Final values z and gamma are injected into each block root circuit. We ensure they are correct by:
+* - Checking equality in each block merge circuit and propagating up
+* - Checking final z_acc == z in root circuit
+* - Checking final gamma_acc == gamma in root circuit
+*
+*  - z = H(...H(H(z_0, z_1) z_2)..z_n)
+*    - where z_i = H(H(fields of blob_i), C_i),
+*    - used such that p_i(z) = y_i = Blob.evaluationY for all n blob polynomials p_i().
+*  - gamma = H(H(...H(H(y_0, y_1) y_2)..y_n), z)
+*    - used such that y = sum_i { gamma^i * y_i }, and C = sum_i { gamma^i * C_i }
+*      for all blob evaluations y_i (see above) and commitments C_i.
+*
+* Iteratively calculated by BlobAccumulatorPublicInputs.accumulate() below. See also precomputeBatchedBlobChallenges() in ts.
+*/
+pub struct FinalBlobBatchingChallenges {
+    pub z: Field,
+    pub gamma: F,
+}
+
+impl Empty for FinalBlobBatchingChallenges {
+    fn empty() -> Self {
+        Self { z: 0, gamma: F::zero() }
+    }
+}
+
+impl Eq for FinalBlobBatchingChallenges {
+    fn eq(self, other: Self) -> bool {
+        (self.z.eq(other.z)) & (self.gamma.eq(other.gamma))
+    }
+}
+
+impl Serialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
+    fn serialize(self) -> [Field; BLS12_FR_LIMBS + 1] {
+        let mut fields: BoundedVec<Field, BLS12_FR_LIMBS + 1> = BoundedVec::new();
+        fields.push(self.z);
+        fields.extend_from_array(self.gamma.limbs.map(|l| l as Field));
+        fields.storage()
+    }
+}
+
+impl Deserialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
+    fn deserialize(fields: [Field; BLS12_FR_LIMBS + 1]) -> Self {
+        let mut reader = Reader::new(fields);
+        let mut item =
+            Self { z: reader.read(), gamma: F { limbs: reader.read_array().map(|e| e as u128) } };
+        item
+    }
+}
+
+/**
+* - start_blob_accumulator: Accumulated opening proofs for all blobs before this block range.
+* - end_blob_accumulator: Accumulated opening proofs for all blobs after adding this block range.
+* - final_challenges: Final values z and gamma, shared across the epoch.
+*/
+pub struct BlockBlobPublicInputs {
+    pub start_blob_accumulator: BlobAccumulatorPublicInputs,
+    pub end_blob_accumulator: BlobAccumulatorPublicInputs,
+    pub final_blob_challenges: FinalBlobBatchingChallenges,
+}
+
+impl Empty for BlockBlobPublicInputs {
+    fn empty() -> Self {
+        Self {
+            start_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
+            end_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
+            final_blob_challenges: FinalBlobBatchingChallenges::empty(),
+        }
+    }
+}
+
+impl Eq for BlockBlobPublicInputs {
+    fn eq(self, other: Self) -> bool {
+        (self.start_blob_accumulator.eq(other.start_blob_accumulator))
+            & (self.end_blob_accumulator.eq(other.end_blob_accumulator))
+            & (self.final_blob_challenges.eq(other.final_blob_challenges))
+    }
+}
+
+impl Serialize<BLOCK_BLOB_PUBLIC_INPUTS> for BlockBlobPublicInputs {
+    fn serialize(self) -> [Field; BLOCK_BLOB_PUBLIC_INPUTS] {
+        let mut fields: BoundedVec<Field, BLOCK_BLOB_PUBLIC_INPUTS> = BoundedVec::new();
+        fields.extend_from_array(self.start_blob_accumulator.serialize());
+        fields.extend_from_array(self.end_blob_accumulator.serialize());
+        fields.extend_from_array(self.final_blob_challenges.serialize());
+        fields.storage()
+    }
+}
+
+impl Deserialize<BLOCK_BLOB_PUBLIC_INPUTS> for BlockBlobPublicInputs {
+    fn deserialize(fields: [Field; BLOCK_BLOB_PUBLIC_INPUTS]) -> Self {
+        let mut reader = Reader::new(fields);
+        let mut item = Self {
+            start_blob_accumulator: reader.read_struct(BlobAccumulatorPublicInputs::deserialize),
+            end_blob_accumulator: reader.read_struct(BlobAccumulatorPublicInputs::deserialize),
+            final_blob_challenges: reader.read_struct(FinalBlobBatchingChallenges::deserialize),
+        };
+        item
+    }
+}
+
 mod tests {
-    use crate::blob_batching_public_inputs::{compress_to_blob_commitment, get_flags};
+    use crate::blob_batching_public_inputs::{
+        BatchingBlobCommitment, BlockBlobPublicInputs, BLSPoint, compress_to_blob_commitment,
+        get_flags,
+    };
     use bigcurve::{
         BigCurveTrait,
         CurveParamsTrait,
@@ -248,6 +430,8 @@ mod tests {
     };
     use bigint::{BigNumTrait, BLS12_381_Fq as Q};
     use std::ops::{Add, Mul};
+    use types::traits::{Deserialize, Empty, Serialize};
+
     #[test]
     unconstrained fn point_compression() {
         let point = Point::offset_generator();
@@ -276,5 +460,19 @@ mod tests {
             reconstructed_y
         };
         assert_eq(reconstructed_y, point.y);
+    }
+
+    #[test]
+    unconstrained fn empty_blob_commitment() {
+        let expected = compress_to_blob_commitment(BLSPoint::point_at_infinity());
+        assert_eq(expected, BatchingBlobCommitment::empty_blob());
+    }
+
+    #[test]
+    unconstrained fn serialization_of_empty() {
+        let item = BlockBlobPublicInputs::empty();
+        let serialized = item.serialize();
+        let deserialized = BlockBlobPublicInputs::deserialize(serialized);
+        assert(item.eq(deserialized));
     }
 }
