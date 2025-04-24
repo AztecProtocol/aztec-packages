@@ -152,8 +152,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using Curve = TypeParam::Curve;
     using GeminiProver = GeminiProver_<Curve>;
-    static constexpr bool USE_PADDING = true;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -235,18 +234,19 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         ShplonkVerifier::compute_inverted_gemini_denominators(shplonk_eval_challenge, r_squares);
 
     Fr expected_constant_term_accumulator{ 0 };
+    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
     std::vector<Fr> gemini_fold_pos_evaluations =
-        GeminiVerifier_<Curve>::template compute_fold_pos_evaluations<USE_PADDING>(this->log_n,
-                                                                                   expected_constant_term_accumulator,
-                                                                                   mle_opening_point,
-                                                                                   r_squares,
-                                                                                   prover_evaluations,
-                                                                                   expected_constant_term_accumulator);
+        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(padding_indicator_array,
+                                                             expected_constant_term_accumulator,
+                                                             mle_opening_point,
+                                                             r_squares,
+                                                             prover_evaluations,
+                                                             expected_constant_term_accumulator);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
 
-    ShpleminiVerifier::batch_gemini_claims_received_from_prover(this->log_n,
+    ShpleminiVerifier::batch_gemini_claims_received_from_prover(padding_indicator_array,
                                                                 prover_commitments,
                                                                 prover_evaluations,
                                                                 gemini_fold_pos_evaluations,
@@ -272,8 +272,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using ZKData = ZKSumcheckData<TypeParam>;
     using Curve = TypeParam::Curve;
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    static constexpr bool USE_PADDING = true;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
@@ -289,10 +288,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
 
     // Generate multivariate challenge of size CONST_PROOF_SIZE_LOG_N
-    std::vector<Fr> const_size_mle_opening_point = this->random_evaluation_point(CONST_PROOF_SIZE_LOG_N);
-    // Truncate the multivariate challenge to evaluate prover polynomials (As in Sumcheck)
-    const std::vector<Fr> mle_opening_point(const_size_mle_opening_point.begin(),
-                                            const_size_mle_opening_point.begin() + this->log_n);
+    std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
 
     // Generate random prover polynomials, compute their evaluations and commitments
     MockClaimGenerator<Curve> mock_claims(this->n,
@@ -304,19 +300,19 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
 
     // Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     const Fr claimed_inner_product = SmallSubgroupIPAProver<TypeParam>::compute_claimed_inner_product(
-        zk_sumcheck_data, const_size_mle_opening_point, this->log_n);
+        zk_sumcheck_data, mle_opening_point, this->log_n);
 
     prover_transcript->template send_to_verifier("Libra:claimed_evaluation", claimed_inner_product);
 
     // Instantiate SmallSubgroupIPAProver, this prover sends commitments to Big Sum and Quotient polynomials
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
-        zk_sumcheck_data, const_size_mle_opening_point, claimed_inner_product, prover_transcript, ck);
+        zk_sumcheck_data, mle_opening_point, claimed_inner_product, prover_transcript, ck);
     small_subgroup_ipa_prover.prove();
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
     const auto opening_claim = ShpleminiProver::prove(this->n,
                                                       mock_claims.polynomial_batcher,
-                                                      const_size_mle_opening_point,
+                                                      mle_opening_point,
                                                       ck,
                                                       prover_transcript,
                                                       small_subgroup_ipa_prover.get_witness_polynomials());
@@ -354,9 +350,11 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->log_n,
+    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
-                                                                                    const_size_mle_opening_point,
+                                                                                    mle_opening_point,
                                                                                     this->vk()->get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     {},
@@ -391,8 +389,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     using CK = typename TypeParam::CommitmentKey;
 
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    static constexpr bool USE_PADDING = true;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
 
     std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
 
@@ -461,7 +458,9 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->log_n,
+    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     challenge,
                                                                                     this->vk()->get_g1_identity(),

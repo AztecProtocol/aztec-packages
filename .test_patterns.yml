@@ -42,9 +42,6 @@ tests:
     owners:
       - *luke
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    owners:
-      - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "Failed to fetch"
     owners:
       - *adam
@@ -197,11 +194,6 @@ tests:
     error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
-
-  - regex: "boxes/scripts/run_test.sh"
-    error_regex: "expect(locator).toBeVisible()"
-    owners:
-      - *esau
 
   # kind tests
   - regex: "spartan/bootstrap.sh"

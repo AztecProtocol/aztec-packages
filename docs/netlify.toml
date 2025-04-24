@@ -177,3 +177,7 @@
 [[redirects]]
     from = "/tutorials/codealong/contract_tutorials/token_bridge/*"
     to = "/tutorials/codealong/contract_tutorials/token_bridge"
+
+[[redirects]]
+    from = "/run_node/*"
+    to = "/the_aztec_network/guides/run_nodes"

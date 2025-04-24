@@ -236,9 +236,9 @@ library Constants {
   uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
   uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 535;
   uint256 internal constant TUBE_PROOF_LENGTH = 535;
-  uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
-  uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 129;
-  uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
+  uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 112;
+  uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 113;
+  uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 127;
   uint256 internal constant MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES = 96000;
   uint256 internal constant MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS = 21;
   uint256 internal constant MEM_TAG_FF = 0;
