@@ -1,5 +1,5 @@
-import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
+import { BBNativePrivateKernelProver } from '@aztec/bb-prover/client/native';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
