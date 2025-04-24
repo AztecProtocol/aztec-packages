@@ -1,92 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745526433259,
+  "lastUpdate": 1745531394009,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b30b5b3bf13cf0aa556fc25c7f57869044a6a4ed",
-          "message": "feat(avm): tagged value type in C++ (#13540)\n\nThe main new class is in `tagged_value.{hpp,cpp}`. You can see its use\nin `memory.{hpp,cpp}` and... everywhere. It was already all over the\nplace so it's a good thing that we tackle it now. It was a bit of a\npain.\n\n## AI generated description\n\nThis PR introduces a new `TaggedValue` class to replace the previous\nmemory value representation. The `TaggedValue` class encapsulates both a\nvalue and its type tag, providing a more robust and type-safe way to\nhandle different data types in the VM.\n\nKey changes:\n- Added `TaggedValue` class that uses a variant to store different\nnumeric types (uint1_t, uint8_t, uint16_t, etc.)\n- Implemented a new `uint1_t` class to represent boolean values\n- Updated memory operations to use `TaggedValue` instead of separate\nvalue and tag parameters\n- Modified bitwise operations to work with the new `TaggedValue` type\n- Updated all related code to use the new type system, including tests\nand simulation code",
-          "timestamp": "2025-04-15T16:09:36Z",
-          "tree_id": "41e26edd1182b5375e58a8477c0efab9eb06c569",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b30b5b3bf13cf0aa556fc25c7f57869044a6a4ed"
-        },
-        "date": 1744738051173,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
-            "value": 87566,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
-            "value": 2205,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
-            "value": 52963,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
-            "value": 1797,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-mint-ivc-proof-wasm",
-            "value": 29806,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-mint-ivc-proof-wasm-memory",
-            "value": 1793,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
-            "value": 33858,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
-            "value": 1784,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmtoken-transfer-ivc-proof-wasm",
-            "value": 42372,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
-            "value": 1876,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4456,6 +4372,150 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
             "value": 1798,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "helloworld@mcgee.cat",
+            "name": "Cat McGee",
+            "username": "catmcgee"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "115611990d3a57bba60b5dde06929452ddac6c3a",
+          "message": "feat(docs): \"try testnet\" collation page (#11299)\n\nCloses https://github.com/AztecProtocol/aztec-packages/issues/10493\nCloses https://github.com/AztecProtocol/aztec-packages/issues/10538\nCloses https://github.com/AztecProtocol/aztec-packages/issues/11723\n\nnot fully ready for review but i'd appreciate a look on the \"try\ntestnet\" and \"getting started with testnet\" pages\n\n---------\n\nCo-authored-by: Rahul Kothari <rahul.kothari.201@gmail.com>\nCo-authored-by: josh crites <critesjosh@gmail.com>\nCo-authored-by: Josh Crites <jc@joshcrites.com>",
+          "timestamp": "2025-04-24T20:38:35Z",
+          "tree_id": "baaa80f4982ace9166b414dd47fb379d807004a0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/115611990d3a57bba60b5dde06929452ddac6c3a"
+        },
+        "date": 1745531385145,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 24262,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof-memory",
+            "value": 1352,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
+            "value": 66757,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
+            "value": 2198,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 14615,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof-memory",
+            "value": 1012,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
+            "value": 41283,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
+            "value": 1835,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8191,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof-memory",
+            "value": 926,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm",
+            "value": 26719,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm-memory",
+            "value": 1750,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 9118,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof-memory",
+            "value": 937,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
+            "value": 28297,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
+            "value": 1794,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 10570,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof-memory",
+            "value": 941,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm",
+            "value": 36283,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
+            "value": 1827,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
