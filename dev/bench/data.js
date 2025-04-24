@@ -1,92 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745531394009,
+  "lastUpdate": 1745531908921,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a3a326ef99340a61e917b3c2f8a6484337c0ad7",
-          "message": "chore: mint block rewards for 200K blocks at deployment (#13537)\n\nFund the reward distributor with funds for 200K blocks as part of the\ndeployments.",
-          "timestamp": "2025-04-15T17:03:40Z",
-          "tree_id": "4f6853098244f141aa6da5921c51bdbc66e13de1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a3a326ef99340a61e917b3c2f8a6484337c0ad7"
-        },
-        "date": 1744740116347,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
-            "value": 88052,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
-            "value": 2234,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
-            "value": 51790,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
-            "value": 1857,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-mint-ivc-proof-wasm",
-            "value": 30001,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-mint-ivc-proof-wasm-memory",
-            "value": 1801,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
-            "value": 34076,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
-            "value": 1780,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmtoken-transfer-ivc-proof-wasm",
-            "value": 42793,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
-            "value": 1768,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4518,6 +4434,78 @@ window.BENCHMARK_DATA = {
             "value": 1827,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eadb87d8550fd069ab72705b0fe9ed6b355220ad",
+          "message": "feat: Add pairing points for all Honk circuits (#13701)\n\nWe add a couple of checks to enforce that honk circuits add exactly ONE\npairing point object to its public outputs. The first check is in the\nDeciderProvingKey constructor, which all flows use to create the proving\nkey from the circuit, and it checks that the pairing point object has\nbeen set in the builder. The second check happens in the\naggregation_state itself, where if we try to call set_public() and the\nbuilder already has one set, it will throw an error.\n\nThese checks require us to add pairing point objects to a lot of\ndifferent tests and also move around some of the logic to more proper\npositions (like from accumulate() to complete_kernel_circuit_logic()).\nPreviously, we had varying amounts of pairing point objects for Mega\ncircuits, but now that shouldn't be the case.",
+          "timestamp": "2025-04-24T20:58:53Z",
+          "tree_id": "181e85f3136a6c12d2953a7406ec7229d2932a86",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/eadb87d8550fd069ab72705b0fe9ed6b355220ad"
+        },
+        "date": 1745531900200,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17093.166455999835,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13589.7584 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2268215503,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199984531,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19843.91481900002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16846.306819 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56587.961841000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56587964000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4391.353231999801,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3727.2838279999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12120.8015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12120805000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2247.75",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
