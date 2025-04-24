@@ -105,6 +105,21 @@ describe('combined prover coordination', () => {
     expect(txPool.size).toEqual(10);
   });
 
+  it('does not ask nodes or p2p if txs are already in the pool', async () => {
+    const coordination = new CombinedProverCoordination(p2p, nodes);
+    const txs = await generateTransactions(10);
+    const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+
+    // Start with all txs in the pool
+    await setupTxPools(10, [], 0, txs);
+    await coordination.gatherTxs(hashes);
+
+    // All txs should now be in the pool
+    expect(txPool.size).toEqual(10);
+    expect(p2p.getTxsByHash).not.toHaveBeenCalled();
+    nodes.forEach(node => expect(node.getTxsByHash).not.toHaveBeenCalled());
+  });
+
   it('only gathers what it can', async () => {
     const coordination = new CombinedProverCoordination(p2p, nodes);
     const txs = await generateTransactions(10);
