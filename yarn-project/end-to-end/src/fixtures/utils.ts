@@ -48,6 +48,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -294,6 +295,8 @@ export type SetupOptions = {
   telemetryConfig?: Partial<TelemetryClientConfig> & { benchmark?: boolean };
   /** Public data that will be inserted in the tree in genesis */
   genesisPublicData?: PublicDataTreeLeaf[];
+  /** Specific config for the prover node, if set. */
+  proverNodeConfig?: Partial<ProverNodeConfig>;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -532,12 +535,9 @@ export async function setup(
       logger.verbose('Creating and syncing a simulated prover node...');
       const proverNodePrivateKey = getPrivateKeyFromIndex(2);
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-      proverNode = await createAndSyncProverNode(
-        proverNodePrivateKeyHex,
-        config,
-        aztecNode,
-        path.join(directoryToCleanup, randomBytes(8).toString('hex')),
-      );
+      const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
+      const proverNodeConfig = { ...config.proverNodeConfig, dataDirectory: proverNodeDataDirectory };
+      proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, config, proverNodeConfig, aztecNode);
     }
 
     logger.verbose('Creating a pxe...');
@@ -777,13 +777,13 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: number, 
 export async function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
+  proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'>,
   aztecNode: AztecNode,
-  dataDirectory: string,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
 ) {
   // Disable stopping the aztec node as the prover coordination test will kill it otherwise
   // This is only required when stopping the prover node for testing
-  const aztecNodeWithoutStop = {
+  const aztecNodeTxProvider = {
     getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
     getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
     stop: () => Promise.resolve(),
@@ -792,17 +792,15 @@ export async function createAndSyncProverNode(
   const blobSinkClient = createBlobSinkClient(aztecNodeConfig, {
     logger: createLogger('prover-node:blob-sink:client'),
   });
+
   // Creating temp store and archiver for simulated prover node
-  const archiverConfig = { ...aztecNodeConfig, dataDirectory };
-  const archiver = await createArchiver(archiverConfig, blobSinkClient, {
-    blockUntilSync: true,
-  });
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
+  const archiver = await createArchiver(archiverConfig, blobSinkClient, { blockUntilSync: true });
 
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
     ...aztecNodeConfig,
     proverCoordinationNodeUrls: [],
-    dataDirectory: undefined,
     realProofs: false,
     proverAgentCount: 2,
     publisherPrivateKey: proverNodePrivateKey,
@@ -812,17 +810,15 @@ export async function createAndSyncProverNode(
     txGatheringIntervalMs: 1000,
     txGatheringBatchSize: 10,
     txGatheringMaxParallelRequestsPerNode: 10,
+    proverNodeFailedEpochStore: undefined,
+    ...proverNodeConfig,
   };
 
   const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');
 
   const proverNode = await createProverNode(
     proverConfig,
-    {
-      aztecNodeTxProvider: aztecNodeWithoutStop,
-      archiver: archiver as Archiver,
-      l1TxUtils,
-    },
+    { aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
     { prefilledPublicData },
   );
   getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });

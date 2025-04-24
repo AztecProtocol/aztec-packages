@@ -45,7 +45,7 @@ _The sequencer has passed the transaction information – proofs of correct exec
 
 Transactions on Aztec start with a call from Aztec.js, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
 
-<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/835b87ead8e031ea78952f75c61b0526da290f54/docs/static/img/sandbox_sending_a_tx.png"><img src="@site/static/img/sandbox_sending_a_tx.png" alt="Sending a transaction" /></a>
+<Image img={require("@site/static/img/sandbox_sending_a_tx.png")} />
 
 See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg) for a more detailed overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
 
@@ -57,7 +57,7 @@ Transaction requests are how transactions are constructed and sent to the networ
 
 In Aztec.js:
 
-```javascript title="constructor" showLineNumbers 
+```javascript title="constructor" showLineNumbers
 constructor(
   /** Sender. */
   public origin: AztecAddress,
@@ -69,8 +69,8 @@ constructor(
   public txContext: TxContext,
 ) {}
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/stdlib/src/tx/tx_request.ts#L15-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx_request.ts#L15-L26</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/stdlib/src/tx/tx_request.ts#L15-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/tx/tx_request.ts#L15-L26</a></sub></sup>
 
 Where:
 
@@ -101,7 +101,7 @@ And fee utilities:
 
 ##### `create`
 
-```javascript title="create" showLineNumbers 
+```javascript title="create" showLineNumbers
 /**
  * Create a transaction execution request that represents this call, encoded and authenticated by the
  * user's wallet, ready to be simulated.
@@ -110,12 +110,12 @@ And fee utilities:
  */
 public override async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L36-L44" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L36-L44</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L36-L44" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L36-L44</a></sub></sup>
 
 ##### `simulate`
 
-```javascript title="simulate" showLineNumbers 
+```javascript title="simulate" showLineNumbers
 /**
  * Simulate a transaction and get its return values
  * Differs from prove in a few important ways:
@@ -127,12 +127,12 @@ public override async create(options: SendMethodOptions = {}): Promise<TxExecuti
  */
 public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L86-L97" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L86-L97</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L86-L97" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/contract_function_interaction.ts#L86-L97</a></sub></sup>
 
 ##### `prove`
 
-```javascript title="prove" showLineNumbers 
+```javascript title="prove" showLineNumbers
 /**
  * Proves a transaction execution request and returns a tx object ready to be sent.
  * @param options - optional arguments to be used in the creation of the transaction
@@ -140,12 +140,12 @@ public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
  */
 public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L56-L63" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L56-L63</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L56-L63" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L56-L63</a></sub></sup>
 
 ##### `send`
 
-```javascript title="send" showLineNumbers 
+```javascript title="send" showLineNumbers
 /**
  * Sends a transaction to the contract function with the specified options.
  * This function throws an error if called on a utility function.
@@ -157,12 +157,12 @@ public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
  */
 public send(options: SendMethodOptions = {}): SentTx {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L68-L79" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L68-L79</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L68-L79" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L68-L79</a></sub></sup>
 
 ##### `estimateGas`
 
-```javascript title="estimateGas" showLineNumbers 
+```javascript title="estimateGas" showLineNumbers
 /**
  * Estimates gas for a given tx request and returns gas limits for it.
  * @param opts - Options.
@@ -173,12 +173,12 @@ public async estimateGas(
   opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
 ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L87-L97" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L87-L97</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L87-L97" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L87-L97</a></sub></sup>
 
 ##### `getFeeOptions`
 
-```javascript title="getFeeOptions" showLineNumbers 
+```javascript title="getFeeOptions" showLineNumbers
 /**
  * Return fee options based on the user opts, estimating tx gas if needed.
  * @param executionPayload - Execution payload to get the fee for
@@ -192,8 +192,8 @@ protected async getFeeOptions(
   options: TxExecutionOptions,
 ): Promise<FeeOptions> {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L126-L139" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L126-L139</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L126-L139" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/base_contract_interaction.ts#L126-L139</a></sub></sup>
 
 ### Batch Transactions
 

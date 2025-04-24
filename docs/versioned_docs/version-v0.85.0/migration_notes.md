@@ -2400,8 +2400,8 @@ pub use dep::protocol_types::{
     traits::{Deserialize, Serialize},
 };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0/noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22</a></sub></sup>
 
 ### `internal` is now a macro
 

@@ -16,7 +16,7 @@ ExternalProject_Add(
     BUILD_COMMAND make -C libraries/liblmdb -e XCFLAGS=-fPIC liblmdb.a
     INSTALL_COMMAND ""
     UPDATE_COMMAND "" # No update step
-    BUILD_BYPRODUCTS ${LMDB_LIB} ${LMDB_HEADER}
+    BUILD_BYPRODUCTS ${LMDB_LIB}
 )
 
 add_library(lmdb STATIC IMPORTED GLOBAL)
