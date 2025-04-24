@@ -150,6 +150,8 @@ library EpochProofLib {
     //   out_hash: Field,
     //   proposedBlockHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
+    //   chain_id: Field,
+    //   version: Field,
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field,
@@ -194,6 +196,12 @@ library EpochProofLib {
       publicInputs[offset + i] = _fees[i];
     }
     offset += feesLength;
+
+    publicInputs[offset] = bytes32(block.chainid);
+    offset += 1;
+
+    publicInputs[offset] = bytes32(rollupStore.config.version);
+    offset += 1;
 
     // vk_tree_root
     publicInputs[offset] = rollupStore.config.vkTreeRoot;

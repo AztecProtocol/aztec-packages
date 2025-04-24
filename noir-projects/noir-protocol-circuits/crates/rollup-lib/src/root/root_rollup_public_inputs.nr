@@ -12,6 +12,8 @@ pub struct RootRollupPublicInputs {
     pub out_hash: Field,
     pub proposed_block_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION],
     pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION],
+    pub chain_id: Field,
+    pub version: Field,
     pub vk_tree_root: Field,
     pub protocol_contract_tree_root: Field,
     pub prover_id: Field,

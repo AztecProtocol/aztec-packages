@@ -75,6 +75,8 @@ impl RootRollupInputs {
             out_hash,
             proposed_block_header_hashes,
             fees,
+            chain_id: right.end_global_variables.chain_id,
+            version: right.end_global_variables.version,
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: self.prover_id,

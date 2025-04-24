@@ -435,6 +435,8 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.out_hash),
     mapTupleFromNoir(rootRollupPublicInputs.proposed_block_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
+    mapFieldFromNoir(rootRollupPublicInputs.chain_id),
+    mapFieldFromNoir(rootRollupPublicInputs.version),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),

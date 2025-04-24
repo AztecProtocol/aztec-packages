@@ -890,6 +890,8 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x700),
     fr(seed + 0x701),
     fr(seed + 0x702),
+    fr(seed + 0x703),
+    fr(seed + 0x704),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x800),
   );
 }

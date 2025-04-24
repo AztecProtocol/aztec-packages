@@ -461,6 +461,8 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LEN
     + 1 /* end_timestamp */
     + 1 /* end_block_number */
     + 1 /* out_hash */
+    + 1 /* chain_id */
+    + 1 /* version */
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */
