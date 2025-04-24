@@ -80,6 +80,10 @@ http://{{ include "aztec-network.fullname" . }}-blob-sink.{{ .Release.Namespace 
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
 {{- end -}}
 
+{{- define "aztec-network.fullNodeUrl" -}}
+http://{{ include "aztec-network.fullname" . }}-full-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.fullNode.service.nodePort }}
+{{- end -}}
+
 {{- define "aztec-network.fullNodeAdminUrl" -}}
 http://{{ include "aztec-network.fullname" . }}-full-node-admin.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.fullNode.service.adminPort }}
 {{- end -}}
