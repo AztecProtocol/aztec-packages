@@ -175,7 +175,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
-    auto sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
+    auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript);
     RelationSeparator verifier_alphas;
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
         verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
@@ -186,8 +186,12 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         verifier_gate_challenges[idx] =
             verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    auto verifier_output =
-        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges);
+    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+    for (size_t idx = 0; idx < padding_indicator_array.size(); idx++) {
+        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+    }
+    auto verifier_output = sumcheck_verifier.verify(
+        decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges, padding_indicator_array);
 
     auto verified = verifier_output.verified;
 

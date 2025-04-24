@@ -10,8 +10,6 @@ import {
   L1TxUtils,
   RegistryContract,
   RollupContract,
-  type ViemPublicClient,
-  type ViemWalletClient,
   defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
@@ -88,7 +86,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.setup();
     await t.removeInitialNode();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.publicClient, t.ctx.deployL1ContractsValues.walletClient);
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterAll(async () => {
@@ -108,13 +106,13 @@ describe('e2e_p2p_add_rollup', () => {
     const registry = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()),
       abi: RegistryAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const governanceProposer = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
       abi: GovernanceProposerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const roundSize = await governanceProposer.read.M();
@@ -122,15 +120,15 @@ describe('e2e_p2p_add_rollup', () => {
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
       abi: GovernanceAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const rollup = new RollupContract(
-      t.ctx.deployL1ContractsValues!.publicClient,
+      t.ctx.deployL1ContractsValues!.l1Client,
       t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
     );
 
-    const emperor = t.ctx.deployL1ContractsValues.walletClient.account;
+    const emperor = t.ctx.deployL1ContractsValues.l1Client.account;
 
     const waitL1Block = async () => {
       await l1TxUtils.sendAndMonitorTransaction({
@@ -160,10 +158,7 @@ describe('e2e_p2p_add_rollup', () => {
       initialTestAccounts.map(a => a.address),
     );
     const { rollup: newRollup } = await deployRollupForUpgrade(
-      {
-        walletClient: t.ctx.deployL1ContractsValues.walletClient as ExtendedViemWalletClient,
-        publicClient: t.ctx.deployL1ContractsValues.publicClient,
-      },
+      t.ctx.deployL1ContractsValues.l1Client,
       {
         salt: Math.floor(Math.random() * 1000000),
         vkTreeRoot: getVKTreeRoot(),
@@ -201,7 +196,7 @@ describe('e2e_p2p_add_rollup', () => {
       const stakingAsset = getContract({
         address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
         abi: TestERC20Abi,
-        client: t.ctx.deployL1ContractsValues.walletClient,
+        client: t.ctx.deployL1ContractsValues.l1Client,
       });
 
       const stakeNeeded = attesterInfos.reduce((acc, curr) => acc + curr.amount, 0n);
@@ -238,8 +233,7 @@ describe('e2e_p2p_add_rollup', () => {
     }
 
     const { address: newPayloadAddress } = await deployL1Contract(
-      t.ctx.deployL1ContractsValues.walletClient,
-      t.ctx.deployL1ContractsValues.publicClient,
+      t.ctx.deployL1ContractsValues.l1Client,
       RegisterNewRollupVersionPayloadAbi,
       RegisterNewRollupVersionPayloadBytecode,
       [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), newRollup.address],
@@ -288,10 +282,7 @@ describe('e2e_p2p_add_rollup', () => {
     const bridging = async (
       node: AztecNodeService,
       aliceAccount: InitialAccountData,
-      clients: {
-        walletClient: ViemWalletClient;
-        publicClient: ViemPublicClient;
-      },
+      l1Client: ExtendedViemWalletClient,
       l1ContractAddresses: L1ContractAddresses,
       rollupVersion: bigint,
       l1RpcUrls: string[],
@@ -315,13 +306,12 @@ describe('e2e_p2p_add_rollup', () => {
       const contentIntoRollup = Fr.random();
       const contentOutFromRollup = Fr.random();
 
-      const ethRecipient = EthAddress.fromString(clients.walletClient.account.address);
+      const ethRecipient = EthAddress.fromString(l1Client.account.address);
 
       const message = { recipient: testContract.address, content: contentIntoRollup, secretHash };
       const [message1Hash, actualMessage1Index] = await sendL1ToL2Message(message, {
-        walletClient: clients.walletClient,
-        publicClient: clients.publicClient,
-        l1ContractAddresses: l1ContractAddresses,
+        l1Client,
+        l1ContractAddresses,
       });
 
       let l2OutgoingReceipt;
@@ -361,7 +351,7 @@ describe('e2e_p2p_add_rollup', () => {
           },
           recipient: {
             actor: ethRecipient.toString() as Hex,
-            chainId: BigInt(clients.publicClient.chain.id),
+            chainId: BigInt(l1Client.chain.id),
           },
           content: contentOutFromRollup.toString() as Hex,
         };
@@ -370,7 +360,7 @@ describe('e2e_p2p_add_rollup', () => {
           testContract.address,
           new Fr(rollupVersion), // aztec version
           ethRecipient.toBuffer32(),
-          new Fr(clients.publicClient.chain.id), // chain id
+          new Fr(l1Client.chain.id), // chain id
           contentOutFromRollup,
         ]);
 
@@ -387,7 +377,7 @@ describe('e2e_p2p_add_rollup', () => {
         const outbox = getContract({
           address: l1ContractAddresses.outboxAddress.toString(),
           abi: OutboxAbi,
-          client: clients.walletClient,
+          client: l1Client,
         });
 
         const { receipt: txReceipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -432,10 +422,7 @@ describe('e2e_p2p_add_rollup', () => {
     await bridging(
       nodes[0],
       t.ctx.initialFundedAccounts[0],
-      {
-        walletClient: t.ctx.deployL1ContractsValues.walletClient,
-        publicClient: t.ctx.deployL1ContractsValues.publicClient,
-      },
+      t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses,
       BigInt(t.ctx.aztecNodeConfig.rollupVersion),
       t.ctx.aztecNodeConfig.l1RpcUrls,
@@ -473,7 +460,7 @@ describe('e2e_p2p_add_rollup', () => {
     const token = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
       abi: StakingAssetAbi,
-      client: t.ctx.deployL1ContractsValues.walletClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const stakeNeeded = 10000n * 10n ** 18n;
@@ -577,7 +564,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     const newVersion = await newRollup.getVersion();
     const addresses = await RegistryContract.collectAddresses(
-      t.ctx.deployL1ContractsValues.publicClient,
+      t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       newVersion,
     );
@@ -626,10 +613,7 @@ describe('e2e_p2p_add_rollup', () => {
     await bridging(
       nodes[0],
       initialTestAccounts[0],
-      {
-        walletClient: t.ctx.deployL1ContractsValues.walletClient,
-        publicClient: t.ctx.deployL1ContractsValues.publicClient,
-      },
+      t.ctx.deployL1ContractsValues.l1Client,
       newConfig.l1Contracts,
       BigInt(newConfig.rollupVersion),
       newConfig.l1RpcUrls,

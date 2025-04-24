@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "barretenberg/smt_verification/terms/bool.hpp"
+#include "barretenberg/smt_verification/terms/data_structures.hpp"
 #include "barretenberg/smt_verification/terms/term.hpp"
 
 #include "subcircuits.hpp"
