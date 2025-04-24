@@ -139,11 +139,14 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
     AvmTraceGenHelper trace_gen_helper;
 
+    const PublicInputs public_inputs = { .reverted = false };
+
     auto trace = trace_gen_helper.generate_trace({
             .alu = { { .operation = simulation::AluOperation::ADD, .a = MemoryValue::from<uint16_t>(1), .b = MemoryValue::from<uint16_t>(2), .c = MemoryValue::from<uint16_t>(3) }, },
-        });
+        },
+        public_inputs);
 
-    return std::make_pair<tracegen::TraceContainer, PublicInputs>(std::move(trace), { .reverted = false });
+    return std::make_pair<tracegen::TraceContainer, const PublicInputs>(std::move(trace), std::move(public_inputs));
 }
 
 bool skip_slow_tests()
