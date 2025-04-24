@@ -6,8 +6,10 @@ import { convertFromUTF8BufferAsString, formatFrAsString } from '../../../utils/
 import { type UserTx } from '../../../utils/txs';
 import { TxHash } from '@aztec/aztec.js';
 import { BLOCK_EXPLORER_TX_URL } from '../../../constants';
+import LaunchIcon from '@mui/icons-material/Launch';
 
 const txData = css({
+  position: 'relative',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
@@ -19,7 +21,19 @@ const txData = css({
   textDecoration: 'none',
   '&:hover': {
     textDecoration: 'none',
+    backgroundColor: 'var(--mui-palette-grey-400)',
     color: 'var(--mui-palette-text-primary)',
+  },
+});
+
+const launchIcon = css({
+  position: 'absolute',
+  right: '10px',
+  top: '10px',
+  fontSize: '16px',
+  visibility: 'hidden',
+  'a:hover &': {
+    visibility: 'visible',
   },
 });
 
@@ -73,10 +87,11 @@ export function TxsPanel({ ...props }) {
             href={`${BLOCK_EXPLORER_TX_URL}/${tx.txHash}`}
             target="_blank"
           >
+            <LaunchIcon css={launchIcon} />
+            <Typography variant="overline">
+              {tx.name}
+            </Typography>
             <div css={{ display: 'flex' }}>
-              {/* <Typography variant="overline">
-                {tx.name}
-              </Typography> */}
               <Typography variant="body2">
                 {tx.txHash ? formatFrAsString(tx.txHash.toString()) : '()'}
                 &nbsp;-&nbsp;
@@ -89,6 +104,7 @@ export function TxsPanel({ ...props }) {
             </div>
             {tx.contractAddress && (
               <Typography variant="body2">
+                sss
                 {tx.name}@{formatFrAsString(tx.contractAddress.toString())}
               </Typography>
             )}

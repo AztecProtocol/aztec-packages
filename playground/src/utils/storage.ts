@@ -308,6 +308,10 @@ export class NetworkDB {
 
   async listNetworks() {
     const result = [];
+    if (!this.#networks) {
+      return result;
+    }
+
     for await (const [key, value] of this.#networks.entriesAsync()) {
       result.push({ key, value: value.toString() });
     }
