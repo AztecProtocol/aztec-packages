@@ -1,11 +1,11 @@
 ---
-title: FaceID Wallet (Mac Only)
+title: Using FaceID to Sign Transactions (Mac Only)
 tags: [sandbox, wallet, cli]
 keywords: [wallet, cli wallet, faceid]
-importance: 3
+sidebar_position: 5
 ---
 
-In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](../../../reference/environment_reference/cli_wallet_reference.md). This enables fully private, native, and seedless account abstraction!
+In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](../../reference/environment_reference/cli_wallet_reference.md). This enables fully private, native, and seedless account abstraction!
 
 :::warning
 
@@ -15,7 +15,7 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 
 ## Prerequisites
 
-For this tutorial, we will need to have the [Sandbox](../../../reference/environment_reference/sandbox-reference.md) installed.
+For this tutorial, we will need to have the [Sandbox](../../reference/environment_reference/sandbox-reference.md) installed.
 
 We also need to install Secretive, a nice open-source package that allows us to store keys on the Secure Enclave. You can head to the [secretive releases page](https://github.com/maxgoedjen/secretive/releases) and get the last release's `zip`, unzip and move to Applications, or use [Homebrew](https://brew.sh/):
 
@@ -45,7 +45,7 @@ Make sure Secretive's "Secret Agent" is running.
 
 The Secure Enclave is a protected chip on most recent iPhones and Macs and it's meant to be airgapped. It is not safe to use in production.
 
-Fortunately, Aztec implements [Account Abstraction](../../../../aztec/concepts/accounts/index.md#what-is-account-abstraction) at the protocol level. You could write logic to allow someone else to recover your account, or use a different key or keys for recovery.
+Fortunately, Aztec implements [Account Abstraction](../../../aztec/concepts/accounts/index.md#what-is-account-abstraction) at the protocol level. You could write logic to allow someone else to recover your account, or use a different key or keys for recovery.
 
 :::
 
@@ -92,7 +92,7 @@ aztec-wallet deploy --from accounts:my-wallet token_contract@Token --args accoun
 You should get prompted to sign with TouchID or password. Once authorized, you should see `Contract stored in database with aliases last & devtoken`
 ```
 
-Check [the reference](../../../reference/environment_reference/cli_wallet_reference.md) for the whole set of commands, but these mean:
+Check [the reference](../../reference/environment_reference/cli_wallet_reference.md) for the whole set of commands, but these mean:
 
 - --from is the sender: our account `my-wallet`. We use the alias because it's easier than writing the key stored in our Secure Enclave. The wallet resolves the alias and knows where to grab it.
 - token_contract@Token is a shorthand to look in the `target` folder for our contract `token_contract-Token`
@@ -111,8 +111,8 @@ aztec-wallet simulate balance_of_public -ca contracts:devtoken --args accounts:n
 
 ### What next
 
-In this tutorial, we created an account with the Aztec's [CLI Wallet](../../../reference/environment_reference/cli_wallet_reference.md), using the Apple Mac's Secure Enclave to store the private key.
+In this tutorial, we created an account with the Aztec's [CLI Wallet](../../reference/environment_reference/cli_wallet_reference.md), using the Apple Mac's Secure Enclave to store the private key.
 
 You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the account contract.
 
-Next step is then to [code your own account contract!](../contract_tutorials/write_accounts_contract.md)
+Next step is then to [code your own account contract!](./contract_tutorials/write_accounts_contract.md)
