@@ -44,7 +44,7 @@ set -- "${args[@]}"
 
 function get_env_vars {
   docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
-  awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
+    awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
 case ${1:-} in
