@@ -183,7 +183,7 @@
     to = "/the_aztec_network/guides/run_nodes"
 
 [[redirects]]
-    from = "/developers/tutorials/codealong/contract_tutorials/uniswap"
+    from = "/developers/tutorials/codealong/contract_tutorials/uniswap/*"
     to = "/developers/tutorials/codealong/js_tutorials/uniswap"
 
 [[redirects]]
