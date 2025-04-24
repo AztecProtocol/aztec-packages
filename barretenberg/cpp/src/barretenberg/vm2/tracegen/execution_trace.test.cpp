@@ -117,6 +117,7 @@ TEST(ExecutionTraceGenTest, Call)
     EXPECT_THAT(trace.as_rows(),
                 AllOf(Contains(Field(&R::execution_sel, 1)),
                       Contains(Field(&R::execution_sel_call, 1)),
+                      Contains(Field(&R::execution_sel_enter_call, 1)),
                       Contains(Field(&R::execution_rop4, 10)),
                       Contains(Field(&R::execution_rop5, 20)),
                       Contains(Field(&R::execution_reg1, 10)),
@@ -133,9 +134,7 @@ TEST(ExecutionTraceGenTest, Call)
                       Contains(Field(&R::execution_rw3, 0)),
                       Contains(Field(&R::execution_is_static, 0)),
                       Contains(Field(&R::execution_context_id, 1)),
-                      Contains(Field(&R::execution_next_context_id, 2))
-
-                          ));
+                      Contains(Field(&R::execution_next_context_id, 2))));
 }
 
 } // namespace
