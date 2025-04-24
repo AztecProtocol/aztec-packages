@@ -94,15 +94,30 @@ export class CombinedProverCoordination implements ProverCoordination {
     const notFound = txHashes.filter((_, index) => !availability[index]);
     const txsToFind = new Set(notFound.map(tx => tx.toString()));
     if (txsToFind.size === 0) {
+      this.log.info(`Check for ${txHashes.length} txs found all in the pool}`);
       return;
     }
-    this.log.info(`Gathering ${txsToFind.size} txs from any available nodes`);
+    this.log.info(`Check for ${txHashes.length} txs found ${txsToFind.size} missing. Will gather from nodes and p2p`);
+    const originalToFind = txsToFind.size;
     await this.#gatherTxsFromAllNodes(txsToFind, pool);
     if (txsToFind.size === 0) {
+      this.log.info(`Found all ${originalToFind} txs directly from nodes`);
       return;
     }
-    this.log.verbose(`Gathering ${txsToFind.size} txs from p2p network`);
-    await pool.getTxsByHash([...txsToFind].map(tx => TxHash.fromString(tx)));
+    const toFindFromP2P = txsToFind.size;
+    this.log.verbose(`Gathering ${toFindFromP2P} txs from p2p network`);
+    const foundFromP2P = await pool.getTxsByHash([...txsToFind].map(tx => TxHash.fromString(tx)));
+    const numFoundFromNodes = originalToFind - toFindFromP2P;
+    const numNotFound = toFindFromP2P - foundFromP2P.length;
+    if (numNotFound === 0) {
+      this.log.info(
+        `Found all ${originalToFind} txs. ${numFoundFromNodes} from nodes, ${foundFromP2P.length} from p2p`,
+      );
+      return;
+    }
+    this.log.warn(
+      `Failed to find ${numNotFound} txs from any source. Found ${foundFromP2P.length} from p2p and ${numFoundFromNodes} from nodes`,
+    );
   }
 
   async #gatherTxsFromAllNodes(txsToFind: Set<string>, pool: CoordinationPool) {
