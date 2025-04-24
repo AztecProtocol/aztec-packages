@@ -44,7 +44,7 @@ template <typename FF> size_t Graph_<FF>::find_block_index(UltraCircuitBuilder& 
  *          5) Increments the gate count for each processed variable
  */
 template <typename FF>
-inline void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circuit_builder,
+inline void Graph_<FF>::process_gate_variables([[maybe_unused]] UltraCircuitBuilder& ultra_circuit_builder,
                                                std::vector<uint32_t>& gate_variables,
                                                size_t gate_index,
                                                size_t block_idx)
@@ -55,7 +55,6 @@ inline void Graph_<FF>::process_gate_variables(UltraCircuitBuilder& ultra_circui
         return;
     }
     for (auto& var_idx : gate_variables) {
-        var_idx = this->to_real(ultra_circuit_builder, var_idx);
         KeyPair key = std::make_pair(var_idx, block_idx);
         variable_gates[key].emplace_back(gate_index);
     }
@@ -568,6 +567,7 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
             continue;
         }
         std::vector<uint32_t> sorted_variables;
+        info("blk_idx == ", blk_idx);
         for (size_t gate_idx = 0; gate_idx < block_data[blk_idx].size(); gate_idx++) {
             auto arithmetic_gates_variables = get_arithmetic_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
@@ -1248,7 +1248,6 @@ void Graph_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_build
             ASSERT(gates.size() == 1);
             size_t gate_index = gates[0];
             UltraBlock block = block_data[key.second];
-            info("gate index == ", gate_index);
             info("---- printing variables in this gate");
             info("w_l == ",
                  block.w_l()[gate_index],
@@ -1259,19 +1258,58 @@ void Graph_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_build
                  " w_4 == ",
                  block.w_4()[gate_index]);
             info("---- printing gate selectors where variable with index ", key.first, " was found ----");
-            info("q_m == ", block.q_m()[gate_index]);
-            info("q_c == ", block.q_c()[gate_index]);
-            info("q_1 == ", block.q_1()[gate_index]);
-            info("q_2 == ", block.q_2()[gate_index]);
-            info("q_3 == ", block.q_3()[gate_index]);
-            info("q_4 == ", block.q_4()[gate_index]);
-            info("q_arith == ", block.q_arith()[gate_index]);
-            info("q_delta_range == ", block.q_delta_range()[gate_index]);
-            info("q_elliptic == ", block.q_elliptic()[gate_index]);
-            info("q_aux == ", block.q_aux()[gate_index]);
-            info("q_lookup_type == ", block.q_lookup_type()[gate_index]);
-            info("q_poseidon2_external == ", block.q_poseidon2_external()[gate_index]);
-            info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
+            auto q_m = block.q_m()[gate_index];
+            if (!q_m.is_zero()) {
+                info("q_m == ", q_m);
+            }
+            auto q_1 = block.q_1()[gate_index];
+            if (!q_1.is_zero()) {
+                info("q1 == ", q_1);
+            }
+            auto q_2 = block.q_2()[gate_index];
+            if (!q_2.is_zero()) {
+                info("q2 == ", q_2);
+            }
+            auto q_3 = block.q_3()[gate_index];
+            if (!q_3.is_zero()) {
+                info("q3 == ", q_3);
+            }
+            auto q_4 = block.q_4()[gate_index];
+            if (!q_4.is_zero()) {
+                info("q4 == ", q_4);
+            }
+            auto q_c = block.q_c()[gate_index];
+            if (!q_c.is_zero()) {
+                info("q_c == ", q_c);
+            }
+            auto q_arith = block.q_arith()[gate_index];
+            if (!q_arith.is_zero()) {
+                info("q_arith == ", q_arith);
+            }
+            auto q_delta_range = block.q_delta_range()[gate_index];
+            if (!q_delta_range.is_zero()) {
+                info("q_delta_range == ", q_delta_range);
+            }
+            auto q_elliptic = block.q_elliptic()[gate_index];
+            if (!q_elliptic.is_zero()) {
+                info("q_elliptic == ", q_elliptic);
+            }
+            auto q_aux = block.q_aux()[gate_index];
+            if (!q_aux.is_zero()) {
+                info("q_aux == ", q_aux);
+            }
+            auto q_lookup_type = block.q_lookup_type()[gate_index];
+            if (!q_lookup_type.is_zero()) {
+                info("q_lookup_type == ", q_lookup_type);
+            }
+            auto q_poseidon2_external = block.q_poseidon2_external()[gate_index];
+            if (!q_poseidon2_external.is_zero()) {
+                info("q_poseidon2_external == ", q_poseidon2_external);
+            }
+            auto q_poseidon2_internal = block.q_poseidon2_internal()[gate_index];
+            if (!q_poseidon2_internal.is_zero()) {
+                info("q_poseidon2_internal == ", q_poseidon2_internal);
+            }
             info("---- finished printing ----");
         }
     }
