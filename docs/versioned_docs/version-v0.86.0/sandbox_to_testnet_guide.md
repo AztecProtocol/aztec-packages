@@ -65,7 +65,7 @@ An example using Aztec.js:
 
 #include_code transaction_with_payment_method yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
 
-To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](//TODO).
+To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/tutorials/codealong/first_fees.md).
 
 ## Some things to note
 
