@@ -258,7 +258,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-full-node-cert
 spec:
   domains:
-  - aztec.network
+  - full-node.alpha-testnet.aztec.network
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -271,7 +271,7 @@ metadata:
     kubernetes.io/ingress.allow-http: "false"
 spec:
   rules:
-  - host: aztec.network
+  - host: full-node.alpha-testnet.aztec.network
     http:
       paths:
       - path: /
