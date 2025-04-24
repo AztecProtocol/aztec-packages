@@ -34,6 +34,10 @@ while [ "$#" -gt 0 ]; do
       export PXE_PROVER_ENABLED=1
       shift 2
       ;;
+    --help)
+      NO_PORT_FORWARDING=1
+      shift 1
+      ;;
     *)
       shift
       ;;
@@ -43,7 +47,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm aztecprotocol/aztec:$VERSION cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
+  docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
@@ -111,6 +115,11 @@ case ${1:-} in
         P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
 
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
+      fi
+
+      # unset PORTS_TO_EXPOSE if we're just running --help
+      if [ "${NO_PORT_FORWARDING:-0}" -eq 1 ]; then
+        export PORTS_TO_EXPOSE=""
       fi
 
       exec $(dirname $0)/.aztec-run aztec-start \
