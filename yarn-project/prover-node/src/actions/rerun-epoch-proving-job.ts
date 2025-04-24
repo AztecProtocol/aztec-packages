@@ -56,4 +56,5 @@ export async function rerunEpochProvingJob(
   log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
   await provingJob.run();
   log.info(`Completed job for epoch ${jobData.epochNumber} with status ${provingJob.getState()}`);
+  return provingJob.getState();
 }
