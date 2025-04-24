@@ -1,7 +1,6 @@
 ---
 title: Migrating from Sandbox to Testnet
 tags: [sandbox, testnet]
-draft: true
 ---
 
 This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md).
@@ -35,13 +34,13 @@ Instead of running a PXE locally, you can also use one directly with AztecJS in 
 In the browser:
 
 ```javascript
-import { createPXEService } from '@aztec/pxe/client/lazy';
+import { createPXEService } from "@aztec/pxe/client/lazy";
 ```
 
 In Node.js
 
 ```javascript
-import { createPXEService } from '@aztec/pxe/server';
+import { createPXEService } from "@aztec/pxe/server";
 ```
 
 Then initialize the PXE:
@@ -51,6 +50,7 @@ Then initialize the PXE:
 ## Paying for fees
 
 There are multiple ways to pay for fees on testnet:
+
 - The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet)
 - It is sponsored by your own contract
 - It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet
@@ -81,4 +81,4 @@ To play more with the Aztec testnet, check out these:
 
 - [Aztec Playground](https://play.aztec.network/)
 - [Ecosystem](https://www.aztec.network/ecosystem)
-- [Guide to run a node](../../../run_node/index.md)
+- [Guide to run a node](the_aztec_network/index.md)
