@@ -252,7 +252,7 @@ spec:
       name: admin
 ---
 {{- if hasKey .Values.fullNode "fixedExternalIP" }}
-apiVersion: networking.gke.io/v1beta2
+apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
   name: {{ include "aztec-network.fullname" . }}-full-node-cert
@@ -267,13 +267,15 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "gce"
     networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-full-node-cert
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.fullNode.fixedStaticIpName }}
+    kubernetes.io/ingress.allow-http: "false"
 spec:
   rules:
   - host: aztecprotocol.com
     http:
       paths:
-      - path: /*
-        pathType: ImplementationSpecific
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: {{ include "aztec-network.fullname" . }}-full-node

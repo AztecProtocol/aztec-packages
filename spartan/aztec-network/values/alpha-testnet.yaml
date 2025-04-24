@@ -45,6 +45,8 @@ bootNode:
   externalHost: "http://localhost:8080"
 
 fullNode:
+  fixedExternalIP: "34.111.170.103"
+  fixedStaticIpName: "alpha-testnet-full-node-ip"
   enabled: true
   replicas: 1
   maxOldSpaceSize: "8192"
