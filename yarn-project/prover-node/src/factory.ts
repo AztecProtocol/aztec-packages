@@ -2,6 +2,7 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
@@ -17,7 +18,7 @@ import { EpochMonitor } from './monitors/epoch-monitor.js';
 import type { TxSource } from './prover-coordination/combined-prover-coordination.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
-import { ProverNode, type ProverNodeOptions } from './prover-node.js';
+import { ProverNode } from './prover-node.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
@@ -79,14 +80,27 @@ export async function createProverNode(
     telemetry,
   });
 
-  const proverNodeConfig: ProverNodeOptions = {
-    maxPendingJobs: config.proverNodeMaxPendingJobs,
-    pollingIntervalMs: config.proverNodePollingIntervalMs,
-    maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
-    txGatheringIntervalMs: config.txGatheringIntervalMs,
+  const proverNodeConfig = {
+    ...pick(
+      config,
+      'proverNodeMaxPendingJobs',
+      'proverNodeMaxParallelBlocksPerEpoch',
+      'proverNodePollingIntervalMs',
+      'txGatheringMaxParallelRequests',
+      'txGatheringIntervalMs',
+      'txGatheringTimeoutMs',
+      'proverNodeFailedEpochStore',
+      'dataDirectory',
+      'l1ChainId',
+      'rollupVersion',
+    ),
   };
 
-  const epochMonitor = await EpochMonitor.create(archiver, proverNodeConfig, telemetry);
+  const epochMonitor = await EpochMonitor.create(
+    archiver,
+    { pollingIntervalMs: config.proverNodePollingIntervalMs },
+    telemetry,
+  );
 
   return new ProverNode(
     prover,

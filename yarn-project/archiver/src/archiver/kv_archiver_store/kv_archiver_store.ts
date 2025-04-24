@@ -7,6 +7,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
+  ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
@@ -33,7 +34,7 @@ export const ARCHIVER_DB_VERSION = 1;
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
-export class KVArchiverDataStore implements ArchiverDataStore {
+export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSource {
   public static readonly SCHEMA_VERSION = ARCHIVER_DB_VERSION;
 
   #blockStore: BlockStore;
@@ -51,6 +52,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+  }
+
+  public getBlockNumber(): Promise<number> {
+    return this.getSynchedL2BlockNumber();
+  }
+
+  public async getContract(
+    address: AztecAddress,
+    blockNumber?: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    return this.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
