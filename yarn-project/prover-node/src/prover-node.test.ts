@@ -17,7 +17,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -49,6 +49,7 @@ describe('prover-node', () => {
 
   // Blocks returned by the archiver
   let blocks: L2Block[];
+  let previousBlockHeader: BlockHeader;
 
   // Address of the publisher
   let address: EthAddress;
@@ -109,6 +110,7 @@ describe('prover-node', () => {
 
     // We create 3 fake blocks with 1 tx effect each
     blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
+    previousBlockHeader = await L2Block.random(19).then(b => b.header);
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocks.mockImplementation((from, limit) => {
@@ -128,6 +130,12 @@ describe('prover-node', () => {
       proven: { number: 0, hash: undefined },
       finalized: { number: 0, hash: undefined },
     });
+    l2BlockSource.getBlockHeader.mockImplementation(number =>
+      Promise.resolve(number === blocks[0].number - 1 ? previousBlockHeader : undefined),
+    );
+
+    // L1 to L2 message source returns no messages
+    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
 
     // Coordination plays along and returns a tx whenever requested
     mockCoordination.getTxsByHash.mockImplementation(hashes =>
