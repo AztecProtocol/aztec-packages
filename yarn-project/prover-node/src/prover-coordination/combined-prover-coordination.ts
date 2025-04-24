@@ -7,9 +7,7 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 export type CombinedCoordinationOptions = {
   // These options apply to http tx gathering only
   txGatheringBatchSize: number;
-  txGatheringMaxParallelRequests: number;
-  txGatheringTimeoutMs: number;
-  txGatheringIntervalMs: number;
+  txGatheringMaxParallelRequestsPerNode: number;
 };
 
 interface CoordinationPool {
@@ -65,9 +63,7 @@ export class CombinedProverCoordination implements ProverCoordination {
     public readonly aztecNodes: TxSource[],
     private readonly options: CombinedCoordinationOptions = {
       txGatheringBatchSize: 10,
-      txGatheringMaxParallelRequests: 10,
-      txGatheringTimeoutMs: 10000,
-      txGatheringIntervalMs: 1000,
+      txGatheringMaxParallelRequestsPerNode: 10,
     },
     private readonly log = createLogger('prover-node:combined-prover-coordination'),
   ) {}
@@ -105,7 +101,7 @@ export class CombinedProverCoordination implements ProverCoordination {
     if (txsToFind.size === 0) {
       return;
     }
-    this.log.info(`Gathering ${txsToFind.size} txs from p2p network`);
+    this.log.verbose(`Gathering ${txsToFind.size} txs from p2p network`);
     await pool.getTxsByHash([...txsToFind].map(tx => TxHash.fromString(tx)));
   }
 
@@ -132,7 +128,7 @@ export class CombinedProverCoordination implements ProverCoordination {
       batches.push(batch);
     }
 
-    await asyncPool(this.options.txGatheringMaxParallelRequests, batches, async batch => {
+    await asyncPool(this.options.txGatheringMaxParallelRequestsPerNode, batches, async batch => {
       try {
         const txs = (await aztecNode.getTxsByHash(batch.map(b => TxHash.fromString(b)))).filter(
           tx => tx !== undefined,

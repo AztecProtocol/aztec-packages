@@ -191,9 +191,7 @@ describe('combined prover coordination', () => {
   it('can gather a large amount of transactions in batches', async () => {
     const options: CombinedCoordinationOptions = {
       txGatheringBatchSize: 5,
-      txGatheringMaxParallelRequests: 2,
-      txGatheringTimeoutMs: 10000,
-      txGatheringIntervalMs: 1000,
+      txGatheringMaxParallelRequestsPerNode: 2,
     };
     const coordination = new CombinedProverCoordination(p2p, nodes, options);
     const txs = await generateTransactions(100);

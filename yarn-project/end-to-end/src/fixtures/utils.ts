@@ -809,9 +809,9 @@ export async function createAndSyncProverNode(
     proverNodeMaxPendingJobs: 10,
     proverNodeMaxParallelBlocksPerEpoch: 32,
     proverNodePollingIntervalMs: 200,
-    txGatheringTimeoutMs: 60000,
     txGatheringIntervalMs: 1000,
-    txGatheringMaxParallelRequests: 100,
+    txGatheringBatchSize: 10,
+    txGatheringMaxParallelRequestsPerNode: 10,
   };
 
   const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');

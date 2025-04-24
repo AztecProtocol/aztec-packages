@@ -291,9 +291,9 @@ export class FullProverTest {
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
-      txGatheringTimeoutMs: 60000,
       txGatheringIntervalMs: 1000,
-      txGatheringMaxParallelRequests: 100,
+      txGatheringBatchSize: 10,
+      txGatheringMaxParallelRequestsPerNode: 100,
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const { prefilledPublicData } = await getGenesisValues(

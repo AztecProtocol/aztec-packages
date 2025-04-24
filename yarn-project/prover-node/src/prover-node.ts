@@ -41,9 +41,7 @@ export type ProverNodeOptions = {
   pollingIntervalMs: number;
   maxPendingJobs: number;
   maxParallelBlocksPerEpoch: number;
-  txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
-  txGatheringMaxParallelRequests: number;
 };
 
 /**
@@ -89,9 +87,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
       maxParallelBlocksPerEpoch: 32,
-      txGatheringTimeoutMs: 60_000,
       txGatheringIntervalMs: 1_000,
-      txGatheringMaxParallelRequests: 100,
       ...compact(options),
     };
 

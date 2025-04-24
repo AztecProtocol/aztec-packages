@@ -41,10 +41,8 @@ export async function createProverCoordination(
   const log = createLogger('prover-node:prover-coordination');
 
   const coordinationConfig: CombinedCoordinationOptions = {
-    txGatheringBatchSize: 10,
-    txGatheringMaxParallelRequests: config.txGatheringMaxParallelRequests ?? 10,
-    txGatheringTimeoutMs: config.txGatheringTimeoutMs ?? 10000,
-    txGatheringIntervalMs: config.txGatheringIntervalMs ?? 1000,
+    txGatheringBatchSize: config.txGatheringBatchSize ?? 10,
+    txGatheringMaxParallelRequestsPerNode: config.txGatheringMaxParallelRequestsPerNode ?? 10,
   };
 
   if (deps.aztecNodeTxProvider) {

@@ -84,9 +84,7 @@ export async function createProverNode(
     maxPendingJobs: config.proverNodeMaxPendingJobs,
     pollingIntervalMs: config.proverNodePollingIntervalMs,
     maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
-    txGatheringMaxParallelRequests: config.txGatheringMaxParallelRequests,
     txGatheringIntervalMs: config.txGatheringIntervalMs,
-    txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
   const epochMonitor = await EpochMonitor.create(archiver, proverNodeConfig, telemetry);
