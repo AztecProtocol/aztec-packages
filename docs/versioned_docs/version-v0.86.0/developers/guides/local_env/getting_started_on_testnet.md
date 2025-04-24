@@ -34,11 +34,11 @@ Run this:
 bash -i <(curl -s https://install.aztec.network) && VERSION=#include_aztec_version aztec-up
 ```
 
-## Install Noir LSP
+Then install the version of the network running the testnet:
 
-Install the [Noir Language Support extension for VSCode](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir).
-
-Now we're ready!
+```bash
+aztec-up 0.85.0-alpha-testnet.2
+```
 
 ## Step 1: Deploy an account to testnet
 
