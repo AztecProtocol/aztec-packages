@@ -88,6 +88,8 @@ describe('prover-node', () => {
       proverNodePollingIntervalMs: 10,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       txGatheringIntervalMs: 100,
+      txGatheringBatchSize: 10,
+      txGatheringMaxParallelRequestsPerNode: 5,
       proverNodeFailedEpochStore: undefined,
     };
 
