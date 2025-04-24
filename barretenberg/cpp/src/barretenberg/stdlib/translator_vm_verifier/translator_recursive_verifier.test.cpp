@@ -51,7 +51,6 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        op_queue->append_nonzero_ops();
 
         for (size_t i = 0; i < num_ops; i++) {
             op_queue->add_accumulate(P1);

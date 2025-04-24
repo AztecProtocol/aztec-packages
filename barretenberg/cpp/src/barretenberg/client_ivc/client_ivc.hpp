@@ -39,6 +39,7 @@ class ClientIVC {
     using MegaVerificationKey = Flavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
+    using Point = Flavor::Curve::AffineElement;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
