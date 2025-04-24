@@ -131,7 +131,7 @@ aztec-wallet send mint_to_private \
 
 You should see confirmation that the tx hash is stored in the database.
 
-3. Make 2 of private tokens public:
+3. Send 2 private tokens to public:
 
 ```bash
 aztec-wallet send transfer_to_public \
