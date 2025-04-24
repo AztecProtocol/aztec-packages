@@ -738,36 +738,50 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param latestBlock - The block number the chain was pruned to.
    */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
-    const txsToDelete: TxHash[] = [];
+    // NOTE: temporary fix for alphanet, deleting ALL txs that were in the epoch from the pool #13723
+    // TODO: undo once fixed: #13770
+    const txsToDelete = new Set<TxHash>();
+    const minedTxs = await this.txPool.getMinedTxHashes();
+    for (const [txHash, blockNumber] of minedTxs) {
+      if (blockNumber > latestBlock) {
+        txsToDelete.add(txHash);
+      }
+    }
+
+    // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
-        txsToDelete.push(await tx.getTxHash());
+        const txHash = await tx.getTxHash();
+        txsToDelete.add(txHash);
       }
     }
 
     this.log.info(
       `Detected chain prune. Removing invalid txs count=${
-        txsToDelete.length
+        txsToDelete.size
       } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
     );
 
     // delete invalid txs (both pending and mined)
-    await this.txPool.deleteTxs(txsToDelete);
+    await this.txPool.deleteTxs(Array.from(txsToDelete));
 
     // everything left in the mined set was built against a block on the proven chain so its still valid
     // move back to pending the txs that were reorged out of the chain
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
-    const txsToMoveToPending: TxHash[] = [];
-    for (const [txHash, blockNumber] of await this.txPool.getMinedTxHashes()) {
-      if (blockNumber > latestBlock) {
-        txsToMoveToPending.push(txHash);
-      }
-    }
 
-    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    await this.txPool.markMinedAsPending(txsToMoveToPending);
+    // NOTE: given current fix for alphanet, the code below is redundant as all these txs will be deleted.
+    // TODO: bring back once fixed: #13770
+    // const txsToMoveToPending: TxHash[] = [];
+    // for (const [txHash, blockNumber] of minedTxs) {
+    //   if (blockNumber > latestBlock) {
+    //     txsToMoveToPending.push(txHash);
+    //   }
+    // }
+
+    // this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
+    // await this.txPool.markMinedAsPending(txsToMoveToPending);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added
