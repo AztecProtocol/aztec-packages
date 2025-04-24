@@ -40,6 +40,12 @@ Then install the version of the network running the testnet:
 aztec-up 0.85.0-alpha-testnet.2
 ```
 
+:::warning
+
+The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.2`. Maintain version consistency when interacting with the testnet to reduce errors.
+
+:::
+
 ## Step 1: Deploy an account to testnet
 
 Aztec uses account abstraction, which means:
