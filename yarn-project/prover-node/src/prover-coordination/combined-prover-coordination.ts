@@ -1,8 +1,7 @@
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import type { P2P } from '@aztec/p2p';
-import type { ProverCoordination } from '@aztec/stdlib/interfaces/server';
-import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { P2PClient, ProverCoordination } from '@aztec/stdlib/interfaces/server';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 export type CombinedCoordinationOptions = {
@@ -15,7 +14,7 @@ export type CombinedCoordinationOptions = {
 
 interface CoordinationPool {
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
-  getUnavailableTxsFromPool(txHashes: TxHash[]): Promise<TxHash[]>;
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
   addTxs(txs: Tx[]): Promise<void>;
 }
@@ -25,13 +24,13 @@ export interface TxSource {
 }
 
 // Wraps the p2p client into a coordination pool
-class P2PCoordinationPool<T extends P2PClientType = P2PClientType.Full> implements CoordinationPool {
-  constructor(private readonly p2p: P2P<T>) {}
+class P2PCoordinationPool implements CoordinationPool {
+  constructor(private readonly p2p: P2P) {}
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.p2p.getTxsByHash(txHashes);
   }
-  getUnavailableTxsFromPool(txHashes: TxHash[]): Promise<TxHash[]> {
-    return this.p2p.getUnavailableTxsFromPool(txHashes);
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
+    return this.p2p.hasTxsInPool(txHashes);
   }
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.p2p.getTxsByHashFromPool(txHashes);
@@ -47,9 +46,8 @@ class InMemoryCoordinationPool implements CoordinationPool {
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return Promise.resolve(txHashes.map(hash => this.txs.get(hash.toString())));
   }
-  getUnavailableTxsFromPool(txHashes: TxHash[]): Promise<TxHash[]> {
-    const unavailable = txHashes.filter(hash => !this.txs.has(hash.toString()));
-    return Promise.resolve(unavailable);
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
+    return Promise.resolve(txHashes.map(hash => this.txs.has(hash.toString())));
   }
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.getTxsByHash(txHashes);
@@ -61,9 +59,9 @@ class InMemoryCoordinationPool implements CoordinationPool {
 }
 
 // Class to implement combined transaction retrieval from p2p and any available nodes
-export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.Full> implements ProverCoordination {
+export class CombinedProverCoordination implements ProverCoordination {
   constructor(
-    public readonly p2p: P2P<T> | undefined,
+    public readonly p2p: P2P | undefined,
     public readonly aztecNodes: TxSource[],
     private readonly options: CombinedCoordinationOptions = {
       txGatheringBatchSize: 10,
@@ -71,13 +69,18 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
       txGatheringTimeoutMs: 10000,
       txGatheringIntervalMs: 1000,
     },
-    private readonly log = createLogger('aztec:prover-node:combined-prover-coordination'),
+    private readonly log = createLogger('prover-node:combined-prover-coordination'),
   ) {}
+
+  public getP2PClient(): P2PClient | undefined {
+    return this.p2p;
+  }
 
   public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
     const pool = this.p2p ? new P2PCoordinationPool(this.p2p) : new InMemoryCoordinationPool();
     await this.#gatherTxs(txHashes, pool);
-    const notFound = await pool.getUnavailableTxsFromPool(txHashes);
+    const availability = await pool.hasTxsInPool(txHashes);
+    const notFound = txHashes.filter((_, index) => !availability[index]);
     if (notFound.length > 0) {
       throw new Error(`Could not find txs: ${notFound.map(tx => tx.toString())}`);
     }
@@ -91,7 +94,8 @@ export class CombinedProverCoordination<T extends P2PClientType = P2PClientType.
   }
 
   async #gatherTxs(txHashes: TxHash[], pool: CoordinationPool): Promise<void> {
-    const notFound = await pool.getUnavailableTxsFromPool(txHashes);
+    const availability = await pool.hasTxsInPool(txHashes);
+    const notFound = txHashes.filter((_, index) => !availability[index]);
     const txsToFind = new Set(notFound.map(tx => tx.toString()));
     if (txsToFind.size === 0) {
       return;

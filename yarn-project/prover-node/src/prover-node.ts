@@ -113,6 +113,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     return this.prover.getProverId();
   }
 
+  public getP2P() {
+    return this.coordination.getP2PClient();
+  }
+
   /**
    * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
    * @param epochNumber - The epoch number that was just completed.

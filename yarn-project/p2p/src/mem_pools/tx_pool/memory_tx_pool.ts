@@ -106,8 +106,8 @@ export class InMemoryTxPool implements TxPool {
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return Promise.all(txHashes.map(txHash => this.getTxByHash(txHash)));
   }
-  getUnavailableTxs(txHashes: TxHash[]): Promise<TxHash[]> {
-    return Promise.resolve(txHashes.filter(txHash => !this.txs.has(txHash.toBigInt())));
+  hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return Promise.resolve(txHashes.map(txHash => this.txs.has(txHash.toBigInt())));
   }
 
   public getArchivedTxByHash(): Promise<Tx | undefined> {

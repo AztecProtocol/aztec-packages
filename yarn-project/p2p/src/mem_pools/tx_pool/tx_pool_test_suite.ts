@@ -132,7 +132,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     expect(requestedTxs).toEqual(expect.arrayContaining(txs));
   });
 
-  it('Returns hashes of unavailable txs', async () => {
+  it('Returns whether or not txs exist', async () => {
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
     const tx3 = await mockTx(3);
@@ -142,15 +142,15 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx4 = await mockTx(4);
     const tx5 = await mockTx(5);
 
-    const unavailableTxs = await pool.getUnavailableTxs([
+    const availability = await pool.hasTxs([
       await tx1.getTxHash(),
       await tx2.getTxHash(),
       await tx3.getTxHash(),
       await tx4.getTxHash(),
       await tx5.getTxHash(),
     ]);
-    expect(unavailableTxs).toHaveLength(2);
-    expect(unavailableTxs).toEqual(expect.arrayContaining([await tx4.getTxHash(), await tx5.getTxHash()]));
+    expect(availability).toHaveLength(5);
+    expect(availability).toEqual(expect.arrayContaining([true, true, true, false, false]));
   });
 
   it('Returns pending tx hashes sorted by priority', async () => {

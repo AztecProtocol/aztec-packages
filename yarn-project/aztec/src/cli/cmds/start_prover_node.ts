@@ -12,7 +12,7 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
-import { ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -105,8 +105,12 @@ export async function startProverNode(
 
   await preloadCrsDataForVerifying(proverConfig, userLog);
 
-  const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData }, services);
+  const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
+
+  if (proverNode.getP2P()) {
+    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
+  }
 
   if (!proverConfig.proverBrokerUrl) {
     services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];

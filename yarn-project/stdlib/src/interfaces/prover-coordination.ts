@@ -1,8 +1,6 @@
-import { z } from 'zod';
-
-import type { ApiSchemaFor } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
+import type { P2PClient } from './p2p.js';
 
 /** Provides basic operations for ProverNodes to interact with other nodes in the network. */
 export interface ProverCoordination {
@@ -14,9 +12,6 @@ export interface ProverCoordination {
   getTxsByHash(txHashes: TxHash[]): Promise<Tx[]>;
 
   gatherTxs(txHashes: TxHash[]): Promise<void>;
-}
 
-export const ProverCoordinationApiSchema: ApiSchemaFor<ProverCoordination> = {
-  getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
-  gatherTxs: z.function().args(z.array(TxHash.schema)).returns(z.void()),
-};
+  getP2PClient(): P2PClient | undefined;
+}

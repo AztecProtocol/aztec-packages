@@ -123,11 +123,11 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
   /**
-   * Checks if transactions exist in the pool and returns the hashes of those that don't
+   * Checks if transactions exist in the pool
    * @param txHashes - The hashes of the transactions to check for
-   * @returns The transaction hashes if not found
+   * @returns True or False for each hash
    */
-  getUnavailableTxsFromPool(txHashes: TxHash[]): Promise<TxHash[]>;
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
    * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
@@ -555,8 +555,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.txPool.getTxsByHash(txHashes);
   }
 
-  getUnavailableTxsFromPool(txHashes: TxHash[]): Promise<TxHash[]> {
-    return this.txPool.getUnavailableTxs(txHashes);
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
+    return this.txPool.hasTxs(txHashes);
   }
 
   /**

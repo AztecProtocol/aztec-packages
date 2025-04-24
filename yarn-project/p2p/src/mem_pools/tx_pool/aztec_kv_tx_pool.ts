@@ -230,15 +230,8 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
-  async getUnavailableTxs(txHashes: TxHash[]): Promise<TxHash[]> {
-    const results = await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
-    return txHashes
-      .map((txHash, index) => {
-        if (!results[index]) {
-          return txHash;
-        }
-      })
-      .filter(txHash => txHash !== undefined) as TxHash[];
+  async hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
   }
 
   /**

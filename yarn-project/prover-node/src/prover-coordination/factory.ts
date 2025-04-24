@@ -4,7 +4,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { type P2P, createP2PClient } from '@aztec/p2p';
+import { createP2PClient } from '@aztec/p2p';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { ProverCoordination, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -37,7 +37,7 @@ type ProverCoordinationDeps = {
 export async function createProverCoordination(
   config: ProverNodeConfig & DataStoreConfig,
   deps: ProverCoordinationDeps,
-): Promise<{ proverCoordination: ProverCoordination; p2pClient?: P2P }> {
+): Promise<ProverCoordination> {
   const log = createLogger('prover-node:prover-coordination');
 
   const coordinationConfig: CombinedCoordinationOptions = {
@@ -49,10 +49,7 @@ export async function createProverCoordination(
 
   if (deps.aztecNodeTxProvider) {
     log.info('Using prover coordination via aztec node');
-    return {
-      proverCoordination: new CombinedProverCoordination(undefined, [deps.aztecNodeTxProvider!], coordinationConfig),
-      p2pClient: undefined,
-    };
+    return new CombinedProverCoordination(undefined, [deps.aztecNodeTxProvider!], coordinationConfig);
   }
 
   if (config.p2pEnabled) {
@@ -84,8 +81,5 @@ export async function createProverCoordination(
   );
   await p2pClient.start();
 
-  return {
-    proverCoordination: new CombinedProverCoordination(p2pClient, nodes, coordinationConfig),
-    p2pClient: p2pClient,
-  };
+  return new CombinedProverCoordination(p2pClient, nodes, coordinationConfig);
 }

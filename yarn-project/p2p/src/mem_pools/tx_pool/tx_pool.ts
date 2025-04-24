@@ -25,11 +25,11 @@ export interface TxPool {
   getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
   /**
-   * Checks if transactions exist in the pool and returns the hashes of those that don't
+   * Checks if transactions exist in the pool
    * @param txHashes - The hashes of the transactions to check for
-   * @returns The transaction hashes if not found
+   * @returns True or False for each tx hash
    */
-  getUnavailableTxs(txHashes: TxHash[]): Promise<TxHash[]>;
+  hasTxs(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
    * Checks if an archived transaction exists in the pool and returns it.

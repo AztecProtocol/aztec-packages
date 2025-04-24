@@ -2,13 +2,12 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
-import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import { P2PApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -36,7 +35,6 @@ export async function createProverNode(
   options: {
     prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
-  services: NamespacedApiHandlers = {} as NamespacedApiHandlers,
 ) {
   const config = resolveConfig(userConfig);
   const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -74,17 +72,13 @@ export async function createProverNode(
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where txs are requested
   // If config.proverCoordinationNodeUrls is not empty, createProverCoordination will create set of aztec node clients from which txs are requested
-  const { proverCoordination, p2pClient } = await createProverCoordination(config, {
+  const proverCoordination = await createProverCoordination(config, {
     aztecNodeTxProvider: deps.aztecNodeTxProvider,
     worldStateSynchronizer,
     archiver,
     epochCache,
     telemetry,
   });
-
-  if (p2pClient) {
-    services.p2p = [p2pClient, P2PApiSchema];
-  }
 
   const proverNodeConfig: ProverNodeOptions = {
     maxPendingJobs: config.proverNodeMaxPendingJobs,
