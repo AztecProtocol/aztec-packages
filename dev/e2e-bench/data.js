@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745516649084,
+  "lastUpdate": 1745523425932,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "96737978+feltroidprime@users.noreply.github.com",
-            "name": "feltroid Prime",
-            "username": "feltroidprime"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6bc34a1089ccd507f61fa10c6fbd4cbcbe0cfda6",
-          "message": "feat: Garaga UltraStarknet[Zk]Honk flavours (#11489)\n\nAdds a `ultra_starknet_flavour` and `ultra_starknet_zk_flavour`, forked\nfrom the ultra_keccak_(zk)_flavour.\n\n\nThis was tested with bb 0.82.2 with a reference corresponding\nimplementation of the transcript in python similar to the keccak one.\n\n\nSee generic proof -> Transcript implementation\nhttps://github.com/keep-starknet-strange/garaga/blob/f5921e0f7e69f474ee0a88b6ecfb52252fc7cc3d/hydra/garaga/precompiled_circuits/honk.py#L526\n\n\nhttps://github.com/keep-starknet-strange/garaga/blob/f5921e0f7e69f474ee0a88b6ecfb52252fc7cc3d/hydra/garaga/precompiled_circuits/honk.py#L448-L501\n\n\n~The Starknet poseidon hash was imported from the reference\nimplementation from CryptoExperts (used in production in Starkware STONE\nprover) https://github.com/CryptoExperts/poseidon~\n\nStarknet field is defined using existing templates and poseidon\nimplementation re-uses Sponge from poseidon2\n\n---------\n\nCo-authored-by: Rodrigo Ferreira <rodrigo.ferreira@aya.yale.edu>\nCo-authored-by: raugfer <admin@raugfer.com>\nCo-authored-by: ludamad <adam.domurad@gmail.com>\nCo-authored-by: ludamad <domuradical@gmail.com>",
-          "timestamp": "2025-04-18T06:12:55Z",
-          "tree_id": "95303ddf1d6833cd25072ba78e11fb41633518c7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6bc34a1089ccd507f61fa10c6fbd4cbcbe0cfda6"
-        },
-        "date": 1744961541405,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9755,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.26212202986251437,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 156807,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1937,6 +1898,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 151386,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "34538b29316cb9cbbbf792d11c814108b549b924",
+          "message": "fix: Handle undefined proverCoordinationNodeUrls (#13804)\n\nGot hit by the following when deploying:\n\n```\nTypeError: Cannot read properties of undefined (reading 'length') at createProverCoordination (file:///usr/src/yarn-project/prover-node/dest/prover-coordination/factory.js:35:43) at createProverNode (file:///usr/src/yarn-project/prover-node/dest/factory.js:50:38) at process.processTicksAndRejections (node:internal/process/task_queues:95:5) at async startProverNode (file:///usr/src/yarn-project/aztec/dest/cli/cmds/start_prover_node.js:81:24) at async aztecStart (file:///usr/src/yarn-project/aztec/dest/cli/aztec_start_action.js:54:27) at async Command.<anonymous> (file:///usr/src/yarn-project/aztec/dest/cli/cli.js:17:16) at async Command.parseAsync (/usr/src/yarn-project/node_modules/commander/lib/command.js:1092:5) at async main (file:///usr/src/yarn-project/aztec/dest/bin/index.js:48:5)\n```",
+          "timestamp": "2025-04-24T18:37:31Z",
+          "tree_id": "a83565ceeddcc1f237aa03cd05a9da70c4ea264a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/34538b29316cb9cbbbf792d11c814108b549b924"
+        },
+        "date": 1745523425012,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9315,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26666659555557454,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 164078,
             "unit": "us"
           }
         ]
