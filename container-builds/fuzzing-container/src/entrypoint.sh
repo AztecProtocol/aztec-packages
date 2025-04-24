@@ -132,20 +132,29 @@ fi
 fuzz() {
     TMPOUT="$(mktemp -d)"
     [[ -d "$TMPOUT" ]] || mkdir "$TMPOUT"
-    
-    "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -timeout=10 -len_control=100 -workers=4 -jobs=4 -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 &> "$TMPOUT/session.txt";
+    echo "Start $fuzzer with: max_total_time: $timeout, 4 workers and 4 jobs"
+    "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -workers=4 -jobs=4 -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 &> "$TMPOUT/session.log";
+    echo "Fuzzer stopped"
 
     files=("$TMPOUT"/crash-*)
     if [ ${#files[@]} -eq 0 ] || [ ! -e "${files[0]}" ]; then
         echo "No crashes occured";
     else 
+        echo "Start minimization"
         for crash in "${files[@]}"; do
+            crash_name=$(basename "$crash")
+            echo "Minimizing $crash_name: $(wc -c $crash | awk '{print $1}')B"
+
             MINDIR=$(mktemp -d)
-            mv "$crash" "$MINDIR";
-            "$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" &> /dev/null
+            mv "$TMPOUT/$crash_name" "$MINDIR";
+            "$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>> "$TMPOUT/minimize.log"
+
             smallest_crash=$(ls -S "$MINDIR/" | tail -n 1);
+            echo "Minimized  $smallest_crash: $(wc -c $MINDIR/$smallest_crash | awk '{print $1}')B"
+
             cp "$MINDIR/$smallest_crash" "$OUTPUT"
             "$post_fuzzer" "$MINDIR/$smallest_crash" &> "$OUTPUT/$smallest_crash"_result.txt
+
             mv "$MINDIR/"* "$CRASHES";
             rm -rf "$MINDIR"
         done
