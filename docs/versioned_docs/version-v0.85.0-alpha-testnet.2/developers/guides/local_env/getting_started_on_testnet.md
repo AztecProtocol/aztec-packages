@@ -95,7 +95,7 @@ aztec-wallet deploy-account \
     --node-url $NODE_URL \
     --from my-wallet \
     --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc \
-    --register-class \
+    --register-class
 ```
 
 Note: The first time you run these commands, it will take longer as some binaries are installed. This command is generating a client-side proof!
