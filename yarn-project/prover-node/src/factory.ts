@@ -7,13 +7,14 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import type { ProverCoordination, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverNodeConfig, resolveConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
+import type { TxSource } from './prover-coordination/combined-prover-coordination.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
@@ -24,7 +25,7 @@ export async function createProverNode(
   deps: {
     telemetry?: TelemetryClient;
     log?: Logger;
-    aztecNodeTxProvider?: ProverCoordination;
+    aztecNodeTxProvider?: TxSource;
     archiver?: Archiver;
     publisher?: ProverNodePublisher;
     blobSinkClient?: BlobSinkClientInterface;
@@ -70,7 +71,7 @@ export async function createProverNode(
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
 
   // If config.p2pEnabled is true, createProverCoordination will create a p2p client where txs are requested
-  // If config.p2pEnabled is false, createProverCoordination request information from the AztecNode
+  // If config.proverCoordinationNodeUrls is not empty, createProverCoordination will create set of aztec node clients from which txs are requested
   const proverCoordination = await createProverCoordination(config, {
     aztecNodeTxProvider: deps.aztecNodeTxProvider,
     worldStateSynchronizer,
@@ -83,9 +84,7 @@ export async function createProverNode(
     maxPendingJobs: config.proverNodeMaxPendingJobs,
     pollingIntervalMs: config.proverNodePollingIntervalMs,
     maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
-    txGatheringMaxParallelRequests: config.txGatheringMaxParallelRequests,
     txGatheringIntervalMs: config.txGatheringIntervalMs,
-    txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
   const epochMonitor = await EpochMonitor.create(archiver, proverNodeConfig, telemetry);

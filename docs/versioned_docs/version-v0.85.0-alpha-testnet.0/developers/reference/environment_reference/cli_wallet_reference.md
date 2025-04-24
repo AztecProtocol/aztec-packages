@@ -43,7 +43,7 @@ You can create arbitrary aliases with the `alias` command. For example `aztec-wa
 
 ## Paying Fees
 
-import { Why_Fees, CLI_Fees } from '@site/src/components/Snippets/snippets';
+import { Why_Fees, CLI_Fees } from '@site/src/components/Snippets/general_snippets';
 
 <Why_Fees />
 

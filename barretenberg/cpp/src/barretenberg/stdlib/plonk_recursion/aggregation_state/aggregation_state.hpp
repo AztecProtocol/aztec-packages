@@ -122,13 +122,7 @@ template <typename Builder_> struct aggregation_state {
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually the builder/PK/VK will store
-        // public input key which should be set here and pairing_point_accumulator_public_input_indices should go away.
-        uint32_t pub_idx = start_idx;
-        for (uint32_t& idx : ctx->pairing_point_accumulator_public_input_indices) {
-            idx = pub_idx++;
-        }
-        ctx->contains_pairing_point_accumulator = true;
+        ctx->pairing_inputs_public_input_key.start_idx = start_idx;
 
         return start_idx;
     }

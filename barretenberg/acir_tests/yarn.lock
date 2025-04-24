@@ -1180,7 +1180,6 @@ __metadata:
     "@types/pako": "npm:^2.0.3"
     debug: "npm:^4.3.4"
     html-webpack-plugin: "npm:^5.6.0"
-    ignore-loader: "npm:^0.1.2"
     pako: "npm:^2.1.0"
     serve: "npm:^14.2.1"
     ts-loader: "npm:^9.5.1"
@@ -2731,13 +2730,6 @@ __metadata:
   version: 1.2.1
   resolution: "ieee754@npm:1.2.1"
   checksum: 10c0/b0782ef5e0935b9f12883a2e2aa37baa75da6e66ce6515c168697b42160807d9330de9a32ec1ed73149aea02e0d822e572bca6f1e22bdcbd2149e13b050b17bb
-  languageName: node
-  linkType: hard
-
-"ignore-loader@npm:^0.1.2":
-  version: 0.1.2
-  resolution: "ignore-loader@npm:0.1.2"
-  checksum: 10c0/0ba7f0fbcd4d796e68cc05723279b662dea32f229f5912c6ce4fbcc5a50f592d2b6f32baaf047b47b24dccdfdc9faf2db504b48cb6eb886a4969bfc293739cab
   languageName: node
   linkType: hard
 
