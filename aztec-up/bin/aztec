@@ -39,7 +39,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm aztecprotocol/aztec:$VERSION cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
+  docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
