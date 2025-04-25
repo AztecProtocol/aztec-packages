@@ -68,6 +68,7 @@ function test {
 # Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
 function generate_example_app_ivc_inputs {
   export CAPTURE_IVC_FOLDER=example-app-ivc-inputs-out
+  export ENV_VARS_TO_INJECT="CAPTURE_IVC_FOLDER"
   rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
@@ -78,11 +79,11 @@ function generate_example_app_ivc_inputs {
   fi
   # Running these again separately from tests is a bit of a hack,
   # but we need to ensure test caching does not get in the way.
-  echo "
-    scripts/run_test.sh simple e2e_amm
-    scripts/run_test.sh simple e2e_nft
-    scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
-  " | parallel --line-buffer --halt now,fail=1
+  parallel --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    e2e_amm \
+    e2e_nft \
+    e2e_blacklist_token_contract/transfer_private \
+
   cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
 
@@ -92,7 +93,7 @@ function bench {
   if cache_download yarn-project-bench-results-$hash.tar.gz; then
     return
   fi
-  BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
+  docker_isolate "BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block"
   generate_example_app_ivc_inputs
   # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
   # place to test them.

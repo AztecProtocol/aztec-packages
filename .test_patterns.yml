@@ -45,6 +45,10 @@ tests:
     error_regex: "Failed to fetch"
     owners:
       - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "RuntimeError: Out of bounds memory access"
+    owners:
+      - *adam
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
