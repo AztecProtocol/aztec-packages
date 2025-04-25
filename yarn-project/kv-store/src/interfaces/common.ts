@@ -19,4 +19,4 @@ export type Range<K extends Key = Key> = {
   limit?: number;
 };
 
-export type StoreSize = { mappingSize: number; actualSize: number; numItems: number };
+export type StoreSize = { mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number };
