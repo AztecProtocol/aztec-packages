@@ -107,6 +107,7 @@ export const AztecContext = createContext<{
   transactionModalStatus: 'open' | 'closed' | 'minimized';
   currentContractArtifact: ContractArtifact;
   totalLogCount: number;
+  defaultContractCreationParams: Record<string, unknown>;
   setTotalLogCount: (count: number) => void;
   setShowContractInterface: (showContractInterface: boolean) => void;
   setConnecting: (connecting: boolean) => void;
@@ -123,6 +124,7 @@ export const AztecContext = createContext<{
   setCurrentTx: (currentTx: UserTx) => void;
   setCurrentContractArtifact: (currentContract: ContractArtifact) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
+  setDefaultContractCreationParams: (defaultContractCreationParams: Record<string, unknown>) => void;
 }>({
   pxe: null,
   connecting: false,
@@ -140,6 +142,7 @@ export const AztecContext = createContext<{
   drawerOpen: false,
   showContractInterface: false,
   transactionModalStatus: 'closed',
+  defaultContractCreationParams: {},
   setTotalLogCount: () => {},
   setShowContractInterface: () => {},
   setConnecting: () => {},
@@ -156,6 +159,7 @@ export const AztecContext = createContext<{
   setCurrentTx: () => {},
   setCurrentContractArtifact: () => {},
   setCurrentContractAddress: () => {},
+  setDefaultContractCreationParams: () => {},
 });
 
 export class AztecEnv {

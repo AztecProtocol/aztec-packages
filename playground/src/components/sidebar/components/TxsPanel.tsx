@@ -18,6 +18,7 @@ const txData = css({
   color: 'var(--mui-palette-text-primary)',
   borderRadius: '6px',
   cursor: 'pointer',
+  marginBottom: '10px',
   textDecoration: 'none',
   '&:hover': {
     textDecoration: 'none',
@@ -104,7 +105,6 @@ export function TxsPanel({ ...props }) {
             </div>
             {tx.contractAddress && (
               <Typography variant="body2">
-                sss
                 {tx.name}@{formatFrAsString(tx.contractAddress.toString())}
               </Typography>
             )}

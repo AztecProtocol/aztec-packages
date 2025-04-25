@@ -133,6 +133,7 @@ export default function Home() {
   const [connecting, setConnecting] = useState(false);
   const [network, setNetwork] = useState(null);
   const [totalLogCount, setTotalLogCount] = useState(0);
+  const [defaultContractCreationParams, setDefaultContractCreationParams] = useState({});
 
   const AztecContextInitialValue = {
     pxe,
@@ -152,6 +153,7 @@ export default function Home() {
     showContractInterface,
     totalLogCount,
     transactionModalStatus,
+    defaultContractCreationParams,
     setTotalLogCount,
     setNetwork,
     setConnecting,
@@ -165,6 +167,7 @@ export default function Home() {
     setWallet,
     setPXE,
     setShowContractInterface,
+    setDefaultContractCreationParams,
     setWalletAlias,
     setCurrentContractArtifact,
     setCurrentContractAddress,

@@ -42,6 +42,7 @@ export function CreateContractDialog({
   open,
   contractArtifact,
   onClose,
+  defaultContractCreationParams,
 }: {
   open: boolean;
   contractArtifact: ContractArtifact;
@@ -51,8 +52,9 @@ export function CreateContractDialog({
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => void;
+  defaultContractCreationParams?: Record<string, unknown>;
 }) {
-  const [alias, setAlias] = useState('');
+  const [alias, setAlias] = useState(defaultContractCreationParams['alias']);
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
   const { wallet, walletDB, pxe, node } = useContext(AztecContext);
@@ -72,9 +74,19 @@ export function CreateContractDialog({
     setFunctionAbis(getAllFunctionAbis(contractArtifact));
   }, [contractArtifact]);
 
+  useEffect(() => {
+    if (initializer && defaultContractCreationParams) {
+      initializer.parameters.map((param, i) => {
+        handleParameterChange(i, defaultContractCreationParams[param.name]);
+      });
+    }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [defaultContractCreationParams, initializer]);
+
   const handleParameterChange = (index, value) => {
     parameters[index] = value;
     setParameters(parameters);
+    console.log('change', parameters);
   };
 
   const handleClose = () => {
@@ -182,6 +194,7 @@ export function CreateContractDialog({
                     <FunctionParameter
                       parameter={param}
                       key={param.name}
+                      defaultValue={defaultContractCreationParams?.[param.name]}
                       onParameterChange={newValue => {
                         handleParameterChange(i, newValue);
                       }}

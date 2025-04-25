@@ -31,8 +31,8 @@ const container = css({
 const minimizedTx = css({
   width: '100%',
   height: '75px',
-  backgroundColor: 'var(--mui-palette-grey-100)',
-  padding: '6px 12px',
+  backgroundColor: 'white',
+  padding: '6px 10px',
   borderRadius: '8px',
   display: 'flex',
   alignItems: 'center',
@@ -50,8 +50,10 @@ const minimizedTx = css({
 const minimizedTxTitle = css({
   fontWeight: 500,
   fontSize: '17px',
-  height: '20px',
   marginBottom: '8px',
+  textWrap: 'nowrap',
+  textOverflow: 'ellipsis',
+  overflow: 'hidden',
 });
 
 const minimizedTxLog = css({
@@ -61,6 +63,14 @@ const minimizedTxLog = css({
   overflow: 'hidden',
   lineHeight: '1.2',
   height: '2.4em',
+});
+
+const funFactsCss = css({
+  height: '80px',
+  padding: '12px 16px !important',
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center'
 });
 
 export function SideBar() {
@@ -136,7 +146,7 @@ export function SideBar() {
 
           <div css={minimizedTx} onClick={() => setTransactionModalStatus('open')}>
             {!hasError && (
-              <span css={[loader, { width: '36px', height: '36px', marginRight: '18px' }]}></span>
+              <span css={[loader, { width: '28px', height: '28px', marginRight: '12px' }]}></span>
             )}
             {hasError && (
               <ErrorIcon style={{ marginRight: '0px', width: '36px', height: '36px', color: 'var(--mui-palette-error-main)' }} />
@@ -152,10 +162,10 @@ export function SideBar() {
 
       {pendingTx && (
         <Card>
-          <CardContent sx={{ height: '80px', padding: '12px 16px !important', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <CardContent sx={funFactsCss}>
             <LightbulbIcon sx={{ marginRight: '12px', color: '#FFB74D', fontSize: '32px' }} />
             <Typography variant="body1" sx={{ fontSize: '15px', lineHeight: '1.2' }}>
-              {FUN_FACTS[8]}
+              {FUN_FACTS[currentFunFactIndex]}
             </Typography>
           </CardContent>
         </Card>

@@ -135,6 +135,7 @@ export function ContractComponent() {
     wallet,
     currentContractAddress,
     currentContractArtifact,
+    defaultContractCreationParams,
     setCurrentContractArtifact,
     setCurrentContractAddress,
   } = useContext(AztecContext);
@@ -223,6 +224,7 @@ export function ContractComponent() {
                         contractArtifact={currentContractArtifact}
                         open={openCreateContractDialog}
                         onClose={handleContractCreation}
+                        defaultContractCreationParams={defaultContractCreationParams}
                       />
                     )}
                   </div>
@@ -279,7 +281,7 @@ export function ContractComponent() {
             <Card sx={{ margin: '3rem 0.5rem' }}>
               <CardContent>
                 <Typography variant="body1">
-                  <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
+                  <span>Find the in-depth tutorial for {currentContractArtifact.name}</span>
                   <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
                 </Typography>
               </CardContent>

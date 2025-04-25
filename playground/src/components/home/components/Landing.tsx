@@ -1,8 +1,8 @@
 import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
-import { Fr } from '@aztec/aztec.js';
+import { AztecAddress, Fr } from '@aztec/aztec.js';
 import { useNotifications } from '@toolpad/core/useNotifications';
-import { Box, Button, CircularProgress } from '@mui/material';
+import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { AztecContext } from '../../../aztecEnv';
 import { useContext, useState } from 'react';
 import { PREDEFINED_CONTRACTS } from '../../../constants';
@@ -10,6 +10,9 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { loadContractArtifact } from '@aztec/aztec.js';
 import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
 import { useTransaction } from '../../../hooks/useTransaction';
+import { convertFromUTF8BufferAsString, formatFrAsString, parseAliasedBuffersAsString } from '../../../utils/conversion';
+import { filterDeployedAliasedContracts } from '../../../utils/contracts';
+import { parse } from 'buffer-json';
 
 const landingPage = css({
   display: 'flex',
@@ -296,9 +299,13 @@ export function Landing() {
   const {
     setCurrentContractArtifact,
     setShowContractInterface,
+    setDefaultContractCreationParams,
+    setCurrentContractAddress,
     walletDB,
+    wallet,
     pxe,
     network,
+    isPXEInitialized,
     setWallet,
   } = useContext(AztecContext);
 
@@ -311,20 +318,62 @@ export function Landing() {
 
   async function handleContractButtonClick(contractValue: string) {
     let contractArtifactJSON;
+    let defaultContractCreationParams;
+
+    const accountAliases = await walletDB.listAliases('accounts');
+    const parsedAccountAliases = parseAliasedBuffersAsString(accountAliases);
+    const currentAccountAlias = parsedAccountAliases.find(alias => alias.value === wallet.getAddress().toString());
+    const accountAccountParam = {
+      id: currentAccountAlias.value,
+      label: `${currentAccountAlias.key} (${formatFrAsString(currentAccountAlias.value)})`,
+    }
+
     switch (contractValue) {
       case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
         ({ EasyPrivateVotingContractArtifact: contractArtifactJSON } = await import(
           '@aztec/noir-contracts.js/EasyPrivateVoting'
         ));
+        defaultContractCreationParams = {
+          initializer: 'constructor',
+          admin: accountAccountParam,
+          alias: 'My Voting Contract',
+        };
         break;
       case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:
         ({ SimpleTokenContractArtifact: contractArtifactJSON } = await import(
           '@aztec/noir-contracts.js/SimpleToken'
         ));
+        defaultContractCreationParams = {
+          initializer: 'constructor',
+          name: 'My Token',
+          symbol: 'TST',
+          decimals: 18,
+          alias: 'My Token',
+        }
         break;
     }
+
+    const aliasedContracts = await walletDB.listAliases('contracts');
+    const contracts = parseAliasedBuffersAsString(aliasedContracts);
+    const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
+    let deployedContractAddress = null;
+    for (const contract of deployedContracts) {
+      const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contract.value}`);
+      const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+      if (contractArtifact.name === contractArtifactJSON.name) {
+        deployedContractAddress = AztecAddress.fromString(contract.value);
+        break;
+      }
+    }
+
     const contractArtifact = await loadContractArtifact(contractArtifactJSON);
     setCurrentContractArtifact(contractArtifact);
+
+    if (deployedContractAddress) {
+      setCurrentContractAddress(deployedContractAddress);
+    } else {
+      setDefaultContractCreationParams(defaultContractCreationParams);
+    }
     setShowContractInterface(true);
   }
 
@@ -420,9 +469,16 @@ export function Landing() {
                 highly flexible and programmable user identities that unlock features like gas sponsorship, nonce abstraction
                 (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
             </Box>
-            <Button variant="contained" css={featureCardButton} onClick={handleCreateAccountButtonClick} disabled={isCreatingAccount}>
-              {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
-            </Button>
+
+            <Tooltip title={!isPXEInitialized ? 'Please connect to a network first' : ''}>
+              <Button variant="contained"
+                css={featureCardButton}
+                onClick={handleCreateAccountButtonClick}
+                disabled={isCreatingAccount || !isPXEInitialized}
+              >
+                {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
+              </Button>
+            </Tooltip>
           </div>
 
           <div css={featureCard}>
