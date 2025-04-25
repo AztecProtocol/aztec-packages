@@ -179,8 +179,8 @@ impl RollupFixtureBuilder {
             self.blobs_fields[N + i] = blob_fields_1[i];
         }
 
-        // TODO(MW): batching
-        // self.blob_commitments[0] = BlobCommitment { inner: [31, 75] };
+        self.blob_commitments[0] =
+            BatchingBlobCommitment::from_limbs([31, 0, 0, 0], [75, 0, 0, 0]).point;
 
         self.blobs_hash = 8901;
 

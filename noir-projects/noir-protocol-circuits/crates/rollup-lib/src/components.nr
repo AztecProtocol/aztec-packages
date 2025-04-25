@@ -20,10 +20,9 @@ use dep::types::{
     },
     hash::{accumulate_sha256, compute_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
-    traits::{Empty, Serialize, ToField},
+    traits::{Serialize, ToField},
     utils::arrays::{array_length, array_merge, padded_array_length, unsafe_padded_array_length},
 };
-use blob::blob_public_inputs::BlockBlobPublicInputs;
 
 pub fn assert_prev_block_rollups_follow_on_from_each_other(
     left: BlockRootOrBlockMergePublicInputs,
@@ -50,7 +49,7 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
         left.blob_public_inputs.end_blob_accumulator.eq(
             right.blob_public_inputs.start_blob_accumulator,
         ),
-        "input blocks have different blob accumulators",
+        "input block blob accumulators do not follow on from each other",
     );
     assert(
         left.blob_public_inputs.final_blob_challenges.eq(

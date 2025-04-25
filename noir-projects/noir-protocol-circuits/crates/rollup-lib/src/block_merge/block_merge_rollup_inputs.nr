@@ -100,6 +100,14 @@ mod tests {
         let _output = inputs.block_merge_rollup_circuit();
     }
 
+    #[test(should_fail_with = "input blocks have different epoch blob challenges")]
+    fn blob_different_challenges_fails() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges.z +=
+            1;
+        let _output = inputs.block_merge_rollup_circuit();
+    }
+
     #[test(should_fail_with = "input blocks have different archive tree snapshots")]
     fn previous_rollups_dont_follow_archive() {
         let mut inputs = default_block_merge_rollup_inputs();
@@ -115,6 +123,14 @@ mod tests {
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
             2;
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
+            1;
+        let _output = inputs.block_merge_rollup_circuit();
+    }
+
+    #[test(should_fail_with = "input block blob accumulators do not follow on from each other")]
+    fn previous_rollups_dont_follow_blob_accumulator() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z +=
             1;
         let _output = inputs.block_merge_rollup_circuit();
     }

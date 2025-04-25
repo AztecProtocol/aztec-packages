@@ -62,8 +62,10 @@ mod tests {
         },
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
-    use std::hash::poseidon2::Poseidon2;
-    use types::{abis::sponge_blob::SpongeBlob, address::EthAddress, tests::utils::assert_array_eq};
+    use types::{
+        abis::sponge_blob::SpongeBlob, address::EthAddress, hash::poseidon2_hash,
+        tests::utils::assert_array_eq,
+    };
 
     pub struct TestBuilder {
         pub inputs: RollupFixtureBuilder,
@@ -104,14 +106,11 @@ mod tests {
 
         let mut expected_sponge = SpongeBlob::new(0);
         let hashed_tx_effects = expected_sponge.squeeze();
-        let computed_z = Poseidon2::hash(
-            [
-                hashed_tx_effects,
-                expected_blob_commitment_fields[0],
-                expected_blob_commitment_fields[1],
-            ],
-            3,
-        );
+        let computed_z = poseidon2_hash([
+            hashed_tx_effects,
+            expected_blob_commitment_fields[0],
+            expected_blob_commitment_fields[1],
+        ]);
 
         assert_eq(computed_z, EMPTY_EFFECT_BLOB_CHALLENGE_Z);
         assert_eq(output.blob_public_inputs.end_blob_accumulator.z, EMPTY_EFFECT_BLOB_CHALLENGE_Z);

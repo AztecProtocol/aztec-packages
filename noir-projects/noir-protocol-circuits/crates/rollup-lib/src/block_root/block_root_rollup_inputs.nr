@@ -50,9 +50,11 @@ pub(crate) mod tests {
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
     use blob::blob_batching_public_inputs::BatchingBlobCommitment;
-    use std::hash::poseidon2::Poseidon2;
     use types::{
-        hash::accumulate_sha256, tests::utils::assert_array_eq, utils::arrays::array_concat,
+        constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+        hash::{accumulate_sha256, poseidon2_hash},
+        tests::utils::assert_array_eq,
+        utils::arrays::array_concat,
     };
 
     pub struct TestBuilder {
@@ -173,17 +175,140 @@ pub(crate) mod tests {
         assert(end_sponge_blob.eq(expected_sponge));
 
         let hashed_tx_effects = expected_sponge.squeeze();
-        // TODO(MW): more asserts
-        let expected_challenge_z = Poseidon2::hash(
-            [
-                hashed_tx_effects,
-                injected_blob_commitment_fields[0],
-                injected_blob_commitment_fields[1],
-            ],
-            3,
-        );
+        let expected_challenge_z = poseidon2_hash([
+            hashed_tx_effects,
+            injected_blob_commitment_fields[0],
+            injected_blob_commitment_fields[1],
+        ]);
+        let expected_gamma_acc = poseidon2_hash(output
+            .blob_public_inputs
+            .end_blob_accumulator
+            .y
+            .limbs
+            .map(|l| l as Field));
+
+        // We have a single blob, so the accumulated outputs are just those after a single evaluation:
         assert_eq(output.blob_public_inputs.end_blob_accumulator.z, expected_challenge_z);
         assert_eq(output.blob_public_inputs.end_blob_accumulator.c, injected_blob_commitment.point);
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.gamma, expected_gamma_acc);
+    }
+
+    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
+    // These values are also used in blob_batching.nr -> test_full_blobs_batched(), but the below ensures inputs are propagated properly throughout block_root
+    #[test]
+    unconstrained fn correct_blobs_with_non_empty_fields() {
+        // Fill three blobs completely with different values (to avoid a constant polynomial)
+        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
+            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
+        for j in 0..BLOBS_PER_BLOCK {
+            for i in 0..FIELDS_PER_BLOB {
+                blob[j * FIELDS_PER_BLOB + i] = ((j + 3) * (i + 1)) as Field;
+            }
+        }
+        // Init. injected values:
+        // - Commitments are injected and checked for correctness on L1 via acc.v
+        let kzg_commitments_in = [
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0x2627fc88755984d7f002e5ef0e6b3e,
+                    0x0ea98f6a26672e17f919eb020b00ee,
+                    0xea6e5173f2ef1bedbb07bfa9ac6ed8,
+                    0x01c6e6,
+                ],
+                [
+                    0xaa96f04ba1d419683f218cc4f15a3f,
+                    0x8887c5e719583b765309e4b3d18752,
+                    0x9ff512de37b8582f7167fdfbb29539,
+                    0x18f531,
+                ],
+            )
+                .point,
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0x71556bb7217816fbb3f822fc873740,
+                    0x9c57d93d7fd33a388e13e95cfdba95,
+                    0x4f0ddbdc9d6a3653cd825ebd9f5730,
+                    0x12324e,
+                ],
+                [
+                    0xabf9f60fc773ef1802a706d6b170a4,
+                    0x788f9000166d54151ac05df44e63be,
+                    0x0a8b45ead129885bb12837fb59033b,
+                    0x12aadd,
+                ],
+            )
+                .point,
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0x69afb94a09e713e7fb94e26f33c3ed,
+                    0x8161293f65480c3b7bad57aaef1984,
+                    0xc34d68dc32d1ecd46f46ec4c969bb1,
+                    0x0d97ef,
+                ],
+                [
+                    0x9837a79d9fa4d0370198419b273360,
+                    0x9e7340f07732e2cb3d51db22b1dcb3,
+                    0x8285e8cad42f634bb51ad7d2c68a12,
+                    0x07db3c,
+                ],
+            )
+                .point,
+        ];
+
+        let mut builder = TestBuilder::new_with_blobs_fields(blob, []);
+
+        let start_sponge_blob = builder.inputs.previous_rollup_data[0]
+            .base_or_merge_rollup_public_inputs
+            .start_sponge_blob;
+        let mut expected_sponge = start_sponge_blob;
+        expected_sponge.absorb(blob, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
+        builder.inputs.blob_commitments = kzg_commitments_in;
+        // - The final z value is injected and checked for correctness in root (see below final_acc)
+        builder.inputs.final_blob_challenges.z =
+            0x02d6a54e591ada73e5eea35188a02ac87779f4293ea3e7d675fa50ae7ff332ce;
+        // - The final gamma value is injected and checked for correctness in root (see below final_acc)
+        builder.inputs.final_blob_challenges.gamma.limbs =
+            [0x281287a8d44071d216177e06a02327, 0x16571aa3dcfef75c2447c705c6c68a, 0x16f2];
+
+        let output = builder.execute();
+        let final_acc = output.blob_public_inputs.end_blob_accumulator;
+
+        assert_eq(final_acc.z, builder.inputs.final_blob_challenges.z);
+
+        // y is a BLS Fr field with value 0x0cd2fd9a46ba70fd7f212d08ec7283024b0b1ff9446b1f78a482fb7443e49b57
+        let expected_y_limbs =
+            [0x0b1ff9446b1f78a482fb7443e49b57, 0xfd9a46ba70fd7f212d08ec7283024b, 0x0cd2];
+
+        // C is a BLS point with value:
+        // x: 0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e,
+        // y: 0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254,
+        let expected_c = BatchingBlobCommitment::from_limbs(
+            [
+                0x2616100269935afcb1b98c85d5e93e,
+                0x96a76064f68c0d4f659f25a046a6d4,
+                0x62cc6c3ab4c1ac1abcb9da9677e127,
+                0x0f2f5f,
+            ],
+            [
+                0x7160da282e6c41bab917c868923254,
+                0xea9bf82ff948a1d01912615c4a8e50,
+                0xabfa449daf65201c2b24507b1058d8,
+                0x0af1e4,
+            ],
+        )
+            .point;
+
+        assert(builder.inputs.previous_rollup_data[1]
+            .base_or_merge_rollup_public_inputs
+            .end_sponge_blob
+            .eq(expected_sponge));
+
+        // v is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
+        let expected_v = 0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
+
+        assert_eq(final_acc.y.limbs, expected_y_limbs);
+        assert_eq(final_acc.c, expected_c);
+        assert_eq(final_acc.v, expected_v);
     }
 
     #[test(should_fail_with = "block's first blob sponge was not empty")]

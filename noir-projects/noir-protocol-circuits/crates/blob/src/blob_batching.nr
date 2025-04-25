@@ -274,25 +274,21 @@ mod tests {
         // C is a BLS point with value:
         // x: 0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e,
         // y: 0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254,
-        let expected_c = BLSPoint {
-            x: Q {
-                limbs: [
-                    0x2616100269935afcb1b98c85d5e93e,
-                    0x96a76064f68c0d4f659f25a046a6d4,
-                    0x62cc6c3ab4c1ac1abcb9da9677e127,
-                    0x0f2f5f,
-                ],
-            },
-            y: Q {
-                limbs: [
-                    0x7160da282e6c41bab917c868923254,
-                    0xea9bf82ff948a1d01912615c4a8e50,
-                    0xabfa449daf65201c2b24507b1058d8,
-                    0x0af1e4,
-                ],
-            },
-            is_infinity: false,
-        };
+        let expected_c = BatchingBlobCommitment::from_limbs(
+            [
+                0x2616100269935afcb1b98c85d5e93e,
+                0x96a76064f68c0d4f659f25a046a6d4,
+                0x62cc6c3ab4c1ac1abcb9da9677e127,
+                0x0f2f5f,
+            ],
+            [
+                0x7160da282e6c41bab917c868923254,
+                0xea9bf82ff948a1d01912615c4a8e50,
+                0xabfa449daf65201c2b24507b1058d8,
+                0x0af1e4,
+            ],
+        )
+            .point;
 
         // v is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
         let expected_v = 0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
