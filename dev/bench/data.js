@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745567010346,
+  "lastUpdate": 1745587654323,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0ebb29ebf3798a17b162fadc6e9c0c7fcd98256a",
-          "message": "chore(bb): debugging helpers (#13584)\n\nAllows for starting a vscode debugging session with whatever the cmake\ntarget currently selected is and with pretty-print helpers for fq, fr,\nuint256_t",
-          "timestamp": "2025-04-15T23:02:01Z",
-          "tree_id": "7afd67e45cbeadd910dc4dac17e3dc146703d875",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0ebb29ebf3798a17b162fadc6e9c0c7fcd98256a"
-        },
-        "date": 1744763228591,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17457.171965999805,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13724.37812 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2288768015,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 193166317,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 19888.720805000048,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16851.23208 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56214.712318000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56214712000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4275.321931000235,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3697.8842350000004 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11841.642586999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11841646000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2263.75",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4696,6 +4624,150 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
             "value": 1811,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fb7f80f9a1db7f6e71e0e63a10d6458d396e90f2",
+          "message": "feat: Script for donwloading and running failed epoch proof (#13822)\n\nAdds a one-liner that, given an URL for an uploaded failed epoch proving\njob, downloads and re-runs it.\n\nExample run:\n\n```\n$ PROVER_REAL_PROOFS=false yarn run-failed-epoch 'gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642' /tmp/epoch-test\n\n[17:11:21.921] INFO: prover-node:run-failed-epoch Downloading epoch proving job data and state from gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642 to /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642\n[17:11:21.921] INFO: prover-node:run-failed-epoch Downloading epoch proving job data from gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642\n[17:11:21.921] INFO: stdlib:file-store Creating google cloud file store at aztec-develop palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642\n[17:11:24.429] INFO: prover-node:run-failed-epoch Downloading state snapshot from gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642 to local data directory {\"metadata\":{\"l2BlockNumber\":104,\"l2BlockHash\":\"0x26f2c7651ab1ff2e787a12cd7003b603f36fbb85f6b56060547a366ab86fdbd9\",\"l1BlockNumber\":219,\"l1ChainId\":1337,\"rollupVersion\":3184683497,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"},\"dataUrls\":{\"archiver\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/archiver.db\",\"nullifier-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/nullifier-tree.db\",\"public-data-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/public-data-tree.db\",\"note-hash-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/note-hash-tree.db\",\"archive-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/archive-tree.db\",\"l1-to-l2-message-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/l1-to-l2-message-tree.db\"}}\n[17:11:24.429] INFO: prover-node:run-failed-epoch Creating google cloud file store at aztec-develop palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642\n[17:11:25.599] INFO: prover-node:run-failed-epoch Downloading snapshot to /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA {\"snapshot\":{\"dataUrls\":{\"archiver\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/archiver.db\",\"nullifier-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/nullifier-tree.db\",\"public-data-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/public-data-tree.db\",\"note-hash-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/note-hash-tree.db\",\"archive-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/archive-tree.db\",\"l1-to-l2-message-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/l1-to-l2-message-tree.db\"}},\"downloadPaths\":{\"archiver\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/archiver.db\",\"nullifier-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/nullifier-tree.db\",\"public-data-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/public-data-tree.db\",\"note-hash-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/note-hash-tree.db\",\"archive-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/archive-tree.db\",\"l1-to-l2-message-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/l1-to-l2-message-tree.db\"}}\n[17:11:27.391] INFO: prover-node:run-failed-epoch Snapshot downloaded at /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA {\"snapshot\":{\"dataUrls\":{\"archiver\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/archiver.db\",\"nullifier-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/nullifier-tree.db\",\"public-data-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/public-data-tree.db\",\"note-hash-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/note-hash-tree.db\",\"archive-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/archive-tree.db\",\"l1-to-l2-message-tree\":\"gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/l1-to-l2-message-tree.db\"}},\"downloadPaths\":{\"archiver\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/archiver.db\",\"nullifier-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/nullifier-tree.db\",\"public-data-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/public-data-tree.db\",\"note-hash-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/note-hash-tree.db\",\"archive-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/archive-tree.db\",\"l1-to-l2-message-tree\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/download-tTi6tA/l1-to-l2-message-tree.db\"}}\n[17:11:27.393] INFO: prover-node:run-failed-epoch Archiver database set up from snapshot {\"path\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/archiver\",\"dbVersion\":1,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"}\n[17:11:27.393] INFO: prover-node:run-failed-epoch World state database l1-to-l2-message-tree set up from snapshot {\"path\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/world_state/L1ToL2MessageTree\",\"dbVersion\":1,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"}\n[17:11:27.394] INFO: prover-node:run-failed-epoch World state database archive-tree set up from snapshot {\"path\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/world_state/ArchiveTree\",\"dbVersion\":1,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"}\n[17:11:27.394] INFO: prover-node:run-failed-epoch World state database public-data-tree set up from snapshot {\"path\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/world_state/PublicDataTree\",\"dbVersion\":1,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"}\n[17:11:27.394] INFO: prover-node:run-failed-epoch World state database note-hash-tree set up from snapshot {\"path\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/world_state/NoteHashTree\",\"dbVersion\":1,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"}\n[17:11:27.394] INFO: prover-node:run-failed-epoch World state database nullifier-tree set up from snapshot {\"path\":\"/tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/world_state/NullifierTree\",\"dbVersion\":1,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"}\n[17:11:27.395] INFO: prover-node:run-failed-epoch Downloading epoch proving job data from gs://aztec-develop/palla/failed-epochs/aztec-1337-3184683497-0x11ea6beac329629007a630d53d0a76831d8ed452/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/data.bin to /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/data.bin\n[17:11:28.368] INFO: prover-node:run-failed-epoch Epoch proving job data for epoch 26 downloaded successfully\n[17:11:28.375] INFO: prover-node:run-failed-epoch Download to /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642 complete\n[17:11:28.375] INFO: prover-node:run-failed-epoch Rerunning proving job from /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/data.bin with state from /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state {\"l2BlockNumber\":104,\"l2BlockHash\":\"0x26f2c7651ab1ff2e787a12cd7003b603f36fbb85f6b56060547a366ab86fdbd9\",\"l1BlockNumber\":219,\"l1ChainId\":1337,\"rollupVersion\":3184683497,\"rollupAddress\":\"0x11ea6beac329629007a630d53d0a76831d8ed452\"}\n[17:11:28.375] INFO: prover-node:run-failed-epoch Loaded proving job data for epoch 26\n[17:11:28.378] INFO: world-state:database Creating world state data store at directory /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/world_state with map size 134217728 KB and 1 threads.\n[17:11:28.389] INFO: archiver:lmdb Creating archiver data store at directory /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/archiver with map size 134217728 KB (LMDB v2)\n[17:11:28.390] INFO: archiver:lmdb Starting data store with maxReaders 16\n[17:11:28.392] WARN: prover-client:proving-broker-database Found invalid epoch directory /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/archiver when loading epoch databases, ignoring\n[17:11:28.392] WARN: prover-client:proving-broker-database Found invalid epoch directory /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/world_state when loading epoch databases, ignoring\n[17:11:28.392] INFO: prover-client:proving-broker Proving Broker started\n[17:11:28.393] INFO: prover-node:run-failed-epoch Rerunning epoch proving job for epoch 26\n[17:11:28.394] WARN: prover-node:epoch-proving-job No L2 block source available, skipping epoch check\n[17:11:28.394] INFO: prover-node:epoch-proving-job Starting epoch 26 proving job with blocks 101 to 104 {\"fromBlock\":101,\"toBlock\":104,\"epochSizeBlocks\":4,\"epochNumber\":26,\"uuid\":\"29459f0f-5fc1-4257-a630-8c95a87a7c8f\"}\n[17:11:28.394] INFO: prover-client:orchestrator Starting epoch 26 with 4 blocks\n[17:11:28.395] INFO: prover-client:orchestrator Starting block 101 for slot 104\n[17:11:28.396] INFO: prover-client:orchestrator Starting block 102 for slot 105\n[17:11:28.397] INFO: prover-client:orchestrator Starting block 103 for slot 106\n[17:11:28.397] INFO: prover-client:orchestrator Starting block 104 for slot 107\n[17:11:28.403] INFO: prover-client:proving-broker New proving job id=26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1 epochNumber=26 {\"provingJobId\":\"26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1\"}\n[17:11:28.412] INFO: simulator:public-processor Processed 0 successful txs and 0 failed txs in 0.000034478001296520235s {\"duration\":0.000034478001296520235,\"rate\":0,\"totalPublicGas\":{\"daGas\":0,\"l2Gas\":0},\"totalBlockGas\":{\"daGas\":0,\"l2Gas\":0},\"totalSizeInBytes\":0}\n[17:11:28.412] WARN: prover-client:orchestrator Provided no txs to orchestrator addTxs.\n[17:11:28.414] INFO: simulator:public-processor Processed 0 successful txs and 0 failed txs in 0.000007936999201774598s {\"duration\":0.000007936999201774598,\"rate\":0,\"totalPublicGas\":{\"daGas\":0,\"l2Gas\":0},\"totalBlockGas\":{\"daGas\":0,\"l2Gas\":0},\"totalSizeInBytes\":0}\n[17:11:28.414] WARN: prover-client:orchestrator Provided no txs to orchestrator addTxs.\n[17:11:28.421] INFO: simulator:public-processor Processed 0 successful txs and 0 failed txs in 0.000005669999867677689s {\"duration\":0.000005669999867677689,\"rate\":0,\"totalPublicGas\":{\"daGas\":0,\"l2Gas\":0},\"totalBlockGas\":{\"daGas\":0,\"l2Gas\":0},\"totalSizeInBytes\":0}\n[17:11:28.421] WARN: prover-client:orchestrator Provided no txs to orchestrator addTxs.\n[17:11:28.428] INFO: simulator:public-processor Processed 0 successful txs and 0 failed txs in 0.000005761001259088517s {\"duration\":0.000005761001259088517,\"rate\":0,\"totalPublicGas\":{\"daGas\":0,\"l2Gas\":0},\"totalBlockGas\":{\"daGas\":0,\"l2Gas\":0},\"totalSizeInBytes\":0}\n[17:11:28.428] WARN: prover-client:orchestrator Provided no txs to orchestrator addTxs.\n[17:11:28.454] INFO: prover-client:proving-broker-database Creating broker database for epoch 26 at /tmp/epoch-test/26-20250424185805-8290846f-6a3a-4523-adbd-156db21a2642/state/26 with map size 134217728\n[17:11:28.456] INFO: kv-store:lmdb-v2 Starting data store with maxReaders 16\n[17:11:28.494] INFO: prover-client:proving-agent Starting job id=26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1 type=BASE_PARITY inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A9%2C%22input...\n[17:11:28.495] INFO: prover-client:proving-agent:job-controller-05d8627b Job controller started jobId=26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1 {\"jobId\":\"26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1\"}\n[17:11:28.530] INFO: prover-client:proving-agent Job id=26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1 type=BASE_PARITY completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A9%2C%22resul...\n[17:11:28.530] INFO: prover-client:proving-broker Proving job complete id=26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1 type=BASE_PARITY totalAttempts=1 {\"provingJobId\":\"26:BASE_PARITY:7b66e84142d309333defc85471e4d242c55ab0b72a716279c7c23e4430c31db1\"}\n[17:11:29.405] INFO: prover-client:proving-broker New proving job id=26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3 epochNumber=26 {\"provingJobId\":\"26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3\"}\n[17:11:29.489] INFO: prover-client:proving-agent Starting job id=26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3 type=ROOT_PARITY inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A10%2C%22inpu...\n[17:11:29.498] INFO: prover-client:proving-agent:job-controller-12df7151 Job controller started jobId=26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3 {\"jobId\":\"26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3\"}\n[17:11:29.542] INFO: prover-client:proving-agent Job id=26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3 type=ROOT_PARITY completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A10%2C%22resu...\n[17:11:29.542] INFO: prover-client:proving-broker Proving job complete id=26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3 type=ROOT_PARITY totalAttempts=1 {\"provingJobId\":\"26:ROOT_PARITY:79df3b651dec4aadded8c73af550295a575a0f31e8cb1803085b3749374084b3\"}\n[17:11:30.397] INFO: prover-client:proving-broker New proving job id=26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453 epochNumber=26 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453\"}\n[17:11:30.399] INFO: prover-client:proving-broker New proving job id=26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4 epochNumber=26 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4\"}\n[17:11:30.400] INFO: prover-client:proving-broker New proving job id=26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175 epochNumber=26 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175\"}\n[17:11:30.401] INFO: prover-client:proving-broker New proving job id=26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d epochNumber=26 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d\"}\n[17:11:30.505] INFO: prover-client:proving-agent Starting job id=26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453 type=EMPTY_BLOCK_ROOT_ROLLUP inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22input...\n[17:11:30.509] INFO: prover-client:proving-agent:job-controller-def82bf7 Job controller started jobId=26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453 {\"jobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453\"}\n[17:11:30.538] INFO: prover-client:proving-agent Job id=26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453 type=EMPTY_BLOCK_ROOT_ROLLUP completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22resul...\n[17:11:30.538] INFO: prover-client:proving-broker Proving job complete id=26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453 type=EMPTY_BLOCK_ROOT_ROLLUP totalAttempts=1 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:addf992ccad2fbdb518ef246e0ae772f1f6fc0561309a5a654eaba268e8ea453\"}\n[17:11:30.591] INFO: prover-client:proving-agent Starting job id=26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4 type=EMPTY_BLOCK_ROOT_ROLLUP inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22input...\n[17:11:30.594] INFO: prover-client:proving-agent:job-controller-271ca88f Job controller started jobId=26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4 {\"jobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4\"}\n[17:11:30.619] INFO: prover-client:proving-agent Job id=26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4 type=EMPTY_BLOCK_ROOT_ROLLUP completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22resul...\n[17:11:30.619] INFO: prover-client:proving-broker Proving job complete id=26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4 type=EMPTY_BLOCK_ROOT_ROLLUP totalAttempts=1 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:24a57be82ef0668fcb2e9717246e1acf72404f818326d62891170ada648965a4\"}\n[17:11:30.672] INFO: prover-client:proving-agent Starting job id=26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175 type=EMPTY_BLOCK_ROOT_ROLLUP inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22input...\n[17:11:30.674] INFO: prover-client:proving-agent:job-controller-feb02ad8 Job controller started jobId=26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175 {\"jobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175\"}\n[17:11:30.699] INFO: prover-client:proving-agent Job id=26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175 type=EMPTY_BLOCK_ROOT_ROLLUP completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22resul...\n[17:11:30.699] INFO: prover-client:proving-broker Proving job complete id=26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175 type=EMPTY_BLOCK_ROOT_ROLLUP totalAttempts=1 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:9f47be45839c0a5192ff3a564c692d2005be651e66c8b05ad24a03946159a175\"}\n[17:11:30.753] INFO: prover-client:proving-agent Starting job id=26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d type=EMPTY_BLOCK_ROOT_ROLLUP inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22input...\n[17:11:30.755] INFO: prover-client:proving-agent:job-controller-41cdfcfc Job controller started jobId=26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d {\"jobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d\"}\n[17:11:30.781] INFO: prover-client:proving-agent Job id=26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d type=EMPTY_BLOCK_ROOT_ROLLUP completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A4%2C%22resul...\n[17:11:30.781] INFO: prover-client:proving-broker Proving job complete id=26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d type=EMPTY_BLOCK_ROOT_ROLLUP totalAttempts=1 {\"provingJobId\":\"26:EMPTY_BLOCK_ROOT_ROLLUP:01801b76914f2b1c15fb9e253396bbb19d371c6851b317fd19d8dfcb33f27d7d\"}\n[17:11:31.407] INFO: prover-client:proving-broker New proving job id=26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60 epochNumber=26 {\"provingJobId\":\"26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60\"}\n[17:11:31.412] INFO: prover-client:proving-broker New proving job id=26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4 epochNumber=26 {\"provingJobId\":\"26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4\"}\n[17:11:31.539] INFO: prover-client:proving-agent Starting job id=26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60 type=BLOCK_MERGE_ROLLUP inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A7%2C%22input...\n[17:11:31.555] INFO: prover-client:proving-agent:job-controller-052bf782 Job controller started jobId=26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60 {\"jobId\":\"26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60\"}\n[17:11:31.626] INFO: prover-client:proving-agent Job id=26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60 type=BLOCK_MERGE_ROLLUP completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A7%2C%22resul...\n[17:11:31.626] INFO: prover-client:proving-broker Proving job complete id=26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60 type=BLOCK_MERGE_ROLLUP totalAttempts=1 {\"provingJobId\":\"26:BLOCK_MERGE_ROLLUP:eaa676140725197c2567e551b420811775e1577b71a8cc48da71815168749b60\"}\n[17:11:31.687] INFO: prover-client:proving-agent Starting job id=26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4 type=BLOCK_MERGE_ROLLUP inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A7%2C%22input...\n[17:11:31.699] INFO: prover-client:proving-agent:job-controller-dbd72897 Job controller started jobId=26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4 {\"jobId\":\"26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4\"}\n[17:11:31.767] INFO: prover-client:proving-agent Job id=26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4 type=BLOCK_MERGE_ROLLUP completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A7%2C%22resul...\n[17:11:31.767] INFO: prover-client:proving-broker Proving job complete id=26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4 type=BLOCK_MERGE_ROLLUP totalAttempts=1 {\"provingJobId\":\"26:BLOCK_MERGE_ROLLUP:8848eeffa964c9bba3ad837806f4b9b441dc88b7d23341d3b684174415479ea4\"}\n[17:11:32.406] INFO: prover-client:proving-broker New proving job id=26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c epochNumber=26 {\"provingJobId\":\"26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c\"}\n[17:11:32.532] INFO: prover-client:proving-agent Starting job id=26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c type=ROOT_ROLLUP inputsUri=data:application/json;charset=utf-8,%7B%22type%22%3A8%2C%22input...\n[17:11:32.544] INFO: prover-client:proving-agent:job-controller-79d49f12 Job controller started jobId=26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c {\"jobId\":\"26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c\"}\n[17:11:32.609] INFO: prover-client:proving-agent Job id=26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c type=ROOT_ROLLUP completed outputUri=data:application/json;charset=utf-8,%7B%22type%22%3A8%2C%22resul...\n[17:11:32.609] INFO: prover-client:proving-broker Proving job complete id=26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c type=ROOT_ROLLUP totalAttempts=1 {\"provingJobId\":\"26:ROOT_ROLLUP:48d24e60f54518fdf4cc9f352ae967d14a6dbc2824d931510eccff48ea57140c\"}\nEpoch proving job complete with result completed\n[17:11:33.403] INFO: prover-node:epoch-proving-job Finalised proof for epoch 26 {\"epochNumber\":26,\"uuid\":\"29459f0f-5fc1-4257-a630-8c95a87a7c8f\",\"duration\":5009.350722000003}\n[17:11:33.403] INFO: prover-node:epoch-proving-job Submitted proof for epoch 26 (blocks 101 to 104) {\"epochNumber\":26,\"uuid\":\"29459f0f-5fc1-4257-a630-8c95a87a7c8f\"}\n[17:11:33.403] INFO: prover-node:run-failed-epoch Completed job for epoch 26 with status completed\n```",
+          "timestamp": "2025-04-25T12:13:15Z",
+          "tree_id": "7912a959748b90b3b1591753ad38b29fe61c0f82",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fb7f80f9a1db7f6e71e0e63a10d6458d396e90f2"
+        },
+        "date": 1745587646611,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 24496,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof-memory",
+            "value": 1349,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
+            "value": 66238,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
+            "value": 2175,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 14697,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof-memory",
+            "value": 1008,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
+            "value": 40668,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
+            "value": 1781,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8116,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof-memory",
+            "value": 929,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm",
+            "value": 25836,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm-memory",
+            "value": 1791,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 9167,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof-memory",
+            "value": 939,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
+            "value": 30017,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
+            "value": 1678,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 10724,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof-memory",
+            "value": 940,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm",
+            "value": 36557,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
+            "value": 1696,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
