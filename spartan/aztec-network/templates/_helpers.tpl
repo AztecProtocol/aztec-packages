@@ -133,6 +133,8 @@ Service Address Setup Container
       value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
+    - name: EXTERNAL_FULL_NODE_HOST
+      value: "{{ .Values.fullNode.externalHost }}"
     - name: BOOT_NODE_PORT
       value: "{{ .Values.bootNode.service.nodePort }}"
     - name: FULL_NODE_PORT
@@ -339,6 +341,8 @@ Combined P2P, and Service Address Setup Container
       value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
+    - name: EXTERNAL_FULL_NODE_HOST
+      value: "{{ .Values.fullNode.externalHost }}"
     - name: BOOT_NODE_PORT
       value: "{{ .Values.bootNode.service.nodePort }}"
     - name: FULL_NODE_PORT
