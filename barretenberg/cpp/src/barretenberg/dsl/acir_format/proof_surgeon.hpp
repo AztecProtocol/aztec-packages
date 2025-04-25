@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -17,7 +23,8 @@ class ProofSurgeon {
     // construct a string of the form "[<fr_0 hex>, <fr_1 hex>, ...]"
     static std::string to_json(const std::vector<bb::fr>& data)
     {
-        return format("[", bb::join(map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
+        return format(
+            "[", bb::join(bb::transform::map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
     }
 
   public:

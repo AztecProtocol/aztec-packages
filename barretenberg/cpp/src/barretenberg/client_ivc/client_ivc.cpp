@@ -1,7 +1,29 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
+
+// Constructor
+ClientIVC::ClientIVC(TraceSettings trace_settings)
+    : trace_usage_tracker(trace_settings)
+    , trace_settings(trace_settings)
+    , goblin(bn254_commitment_key)
+{
+    // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
+    // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
+    size_t commitment_key_size =
+        std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+    info("BN254 commitment key size: ", commitment_key_size);
+    bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
+}
 
 /**
  * @brief Instantiate a stdlib verification queue for use in the kernel completion logic
@@ -47,8 +69,8 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * @param circuit
  * @param verifier_inputs {proof, merge_proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
  */
-void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
-    ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs)
+ClientIVC::AggregationObject ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
+    ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs, AggregationObject agg_obj)
 {
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
@@ -94,6 +116,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
     RecursiveMergeVerifier merge_verifier{ &circuit };
     [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
+    agg_obj.aggregate(pairing_points);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -104,6 +127,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         decider_vk->witness_commitments.secondary_calldata,
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
+
+    // WORKTODO: extract agg obj from the decider_vk->public_inputs
+    return agg_obj;
 }
 
 /**
@@ -124,9 +150,12 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Perform recursive verification and databus consistency checks for each entry in the verification queue
+    AggregationObject current_aggregation_object = AggregationObject::construct_default(circuit);
     for (auto& verifier_input : stdlib_verification_queue) {
-        perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
+        current_aggregation_object = perform_recursive_verification_and_databus_consistency_checks(
+            circuit, verifier_input, current_aggregation_object);
     }
+    current_aggregation_object.set_public();
     stdlib_verification_queue.clear();
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks
@@ -150,10 +179,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
-    // verifier.
-    AggregationObject::add_default_pairing_points_to_public_inputs(circuit);
-
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
@@ -170,7 +195,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
-    honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+    {
+        PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
+        honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+    }
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
         vinfo("set honk vk metadata");
@@ -382,6 +410,83 @@ std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> ClientIVC::precompute_
     this->trace_settings = settings;
 
     return vkeys;
+}
+
+// Proof methods
+size_t ClientIVC::Proof::size() const
+{
+    return mega_proof.size() + goblin_proof.size();
+}
+
+msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
+{
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, *this);
+    return buffer;
+}
+
+uint8_t* ClientIVC::Proof::to_msgpack_heap_buffer() const
+{
+    msgpack::sbuffer buffer = to_msgpack_buffer();
+
+    std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
+    return to_heap_buffer(buf);
+}
+
+ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(uint8_t const*& buffer)
+{
+    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+
+    msgpack::sbuffer sbuf;
+    sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
+
+    return from_msgpack_buffer(sbuf);
+}
+
+ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
+{
+    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+    msgpack::object obj = oh.get();
+    Proof proof;
+    obj.convert(proof);
+    return proof;
+}
+
+void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
+{
+    msgpack::sbuffer buffer = to_msgpack_buffer();
+    std::ofstream ofs(filename, std::ios::binary);
+    if (!ofs.is_open()) {
+        throw_or_abort("Failed to open file for writing.");
+    }
+    ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    ofs.close();
+}
+
+ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename)
+{
+    std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs.is_open()) {
+        throw_or_abort("Failed to open file for reading.");
+    }
+
+    ifs.seekg(0, std::ios::end);
+    size_t file_size = static_cast<size_t>(ifs.tellg());
+    ifs.seekg(0, std::ios::beg);
+
+    std::vector<char> buffer(file_size);
+    ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
+    ifs.close();
+    msgpack::sbuffer msgpack_buffer;
+    msgpack_buffer.write(buffer.data(), file_size);
+
+    return Proof::from_msgpack_buffer(msgpack_buffer);
+}
+
+// VerificationKey construction
+ClientIVC::VerificationKey ClientIVC::get_vk() const
+{
+    return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
 }
 
 } // namespace bb

@@ -2,6 +2,7 @@
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "lmdb.h"
 #include <cstdint>
+#include <filesystem>
 #include <stdexcept>
 #include <sys/stat.h>
 
@@ -12,6 +13,7 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
                                  uint32_t maxNumDBs,
                                  uint32_t maxNumReaders)
     : _id(0)
+    , _directory(directory)
     , _readGuard(maxNumReaders)
     , _writeGuard(1) // LMDB only permits one write transaction at a time
 {
@@ -70,5 +72,14 @@ uint64_t LMDBEnvironment::get_map_size() const
     MDB_envinfo info;
     call_lmdb_func(mdb_env_info, _mdbEnv, &info);
     return info.me_mapsize;
+}
+
+uint64_t LMDBEnvironment::get_data_file_size() const
+{
+    std::string dataPath = (std::filesystem::path(_directory) / "data.mdb").string();
+    if (std::filesystem::exists(dataPath)) {
+        return std::filesystem::file_size(dataPath);
+    }
+    return 0;
 }
 } // namespace bb::lmdblib

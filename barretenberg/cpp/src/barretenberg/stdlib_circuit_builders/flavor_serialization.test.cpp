@@ -4,6 +4,7 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -26,7 +27,11 @@ template <typename Flavor> class FlavorSerializationTests : public ::testing::Te
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, MegaFlavor>;
+#else
 using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+#endif
 TYPED_TEST_SUITE(FlavorSerializationTests, FlavorTypes);
 
 // Test msgpack serialization/deserialization of verification keys
@@ -41,11 +46,9 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     // Add some arbitrary arithmetic gates that utilize public inputs
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
 
+    stdlib::recursion::aggregation_state<Builder>::add_default_pairing_points_to_public_inputs(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     VerificationKey original_vkey{ proving_key->proving_key };
-
-    // Set the pcs ptr to null since this will not be reconstructed correctly from buffer
-    original_vkey.pcs_verification_key = nullptr;
 
     // Populate some non-zero values in the databus_propagation_data to ensure its being handled
     if constexpr (IsMegaBuilder<Builder>) {

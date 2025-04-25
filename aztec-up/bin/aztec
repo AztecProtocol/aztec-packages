@@ -26,6 +26,10 @@ while [ "$#" -gt 0 ]; do
       ANVIL_PORT="$2"
       shift 2
       ;;
+    --admin-port)
+      ADMIN_PORT="$2"
+      shift 2
+      ;;
     --pxe.network)
       # Set version to user-specified network (e.g. 'devnet')
       VERSION="$2"
@@ -43,7 +47,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm aztecprotocol/aztec:$VERSION cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
+  docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
@@ -111,6 +115,12 @@ case ${1:-} in
         P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
 
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
+      fi
+
+      if [ -n "${ADMIN_PORT:-}" ]; then
+        export ADMIN_PORT
+        ADMIN_MAPPING="$ADMIN_PORT:$ADMIN_PORT"
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $ADMIN_MAPPING"
       fi
 
       exec $(dirname $0)/.aztec-run aztec-start \

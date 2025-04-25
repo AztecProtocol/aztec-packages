@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/map.hpp"
@@ -162,7 +168,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
         key->polynomial_store.get("table_value_3_lagrange").data(),
         key->polynomial_store.get("table_value_4_lagrange").data(),
     };
-    auto lagrange_base_tables = map(lagrange_base_tables_ptr, [](auto& e) { return e.get(); });
+    auto lagrange_base_tables = transform::map(lagrange_base_tables_ptr, [](auto& e) { return e.get(); });
 
     auto lookup_selector = key->polynomial_store.get("table_type_lagrange");
     auto lookup_index_selector = key->polynomial_store.get("q_3_lagrange");
@@ -172,7 +178,7 @@ void ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_gra
         key->polynomial_store.get("w_2_lagrange").data(),
         key->polynomial_store.get("w_3_lagrange").data(),
     };
-    auto lagrange_base_wires = map(lagrange_base_wires_ptr, [](auto& e) { return e.get(); });
+    auto lagrange_base_wires = transform::map(lagrange_base_wires_ptr, [](auto& e) { return e.get(); });
 
     const fr beta_constant = beta + fr(1);                // (1 + β)
     const fr gamma_beta_constant = gamma * beta_constant; // γ(1 + β)
@@ -432,7 +438,7 @@ bb::fr ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_q
         key->polynomial_store.get("w_2_fft").data(),
         key->polynomial_store.get("w_3_fft").data(),
     };
-    auto wire_ffts = map(wire_ffts_ptr, [](auto& e) { return e.get(); });
+    auto wire_ffts = transform::map(wire_ffts_ptr, [](auto& e) { return e.get(); });
 
     auto s_fft = key->polynomial_store.get("s_fft");
 
@@ -442,7 +448,7 @@ bb::fr ProverPlookupWidget<num_roots_cut_out_of_vanishing_polynomial>::compute_q
         key->polynomial_store.get("table_value_3_fft").data(),
         key->polynomial_store.get("table_value_4_fft").data(),
     };
-    auto table_ffts = map(table_ffts_ptr, [](auto& e) { return e.get(); });
+    auto table_ffts = transform::map(table_ffts_ptr, [](auto& e) { return e.get(); });
 
     auto column_1_step_size = key->polynomial_store.get("q_2_fft");
     auto column_2_step_size = key->polynomial_store.get("q_m_fft");

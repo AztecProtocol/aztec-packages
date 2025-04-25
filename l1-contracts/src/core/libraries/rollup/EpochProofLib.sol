@@ -68,12 +68,12 @@ library EpochProofLib {
    *          - The archive root of the header does not match the archive root of the proposed block
    *          - The proof is invalid
    *
-   * @dev     We provide the `_archive` and `_blockHash` even if it could be read from storage itself because it allow for
-   *          better error messages. Without passing it, we would just have a proof verification failure.
+   * @dev     We provide the `_archive` even if it could be read from storage itself because it allow for better error
+   *          messages. Without passing it, we would just have a proof verification failure.
    *
    * @param _args - The arguments to submit the epoch root proof:
    *          _epochSize - The size of the epoch (to be promoted to a constant)
-   *          _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   *          _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    *          _blobPublicInputs - The blob public inputs for the proof
    *          _proof - The proof to verify
@@ -104,7 +104,7 @@ library EpochProofLib {
    *
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
-   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    * @param _blobPublicInputs- The blob public inputs for the proof
    */
@@ -119,11 +119,9 @@ library EpochProofLib {
     // Args are defined as an array because Solidity complains with "stack too deep" otherwise
     // 0 bytes32 _previousArchive,
     // 1 bytes32 _endArchive,
-    // 2 bytes32 _previousBlockHash,
-    // 3 bytes32 _endBlockHash,
-    // 4 bytes32 _endTimestamp,
-    // 5 bytes32 _outHash,
-    // 6 bytes32 _proverId,
+    // 2 bytes32 _endTimestamp,
+    // 3 bytes32 _outHash,
+    // 4 bytes32 _proverId,
 
     // TODO(#7373): Public inputs are not fully verified
 
@@ -144,24 +142,6 @@ library EpochProofLib {
           Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
         );
       }
-
-      {
-        bytes32 expectedPreviousBlockHash = rollupStore.blocks[_start - 1].blockHash;
-        require(
-          expectedPreviousBlockHash == _args.previousBlockHash,
-          Errors.Rollup__InvalidPreviousBlockHash(
-            expectedPreviousBlockHash, _args.previousBlockHash
-          )
-        );
-      }
-
-      {
-        bytes32 expectedEndBlockHash = rollupStore.blocks[_end].blockHash;
-        require(
-          expectedEndBlockHash == _args.endBlockHash,
-          Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args.endBlockHash)
-        );
-      }
     }
 
     bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
@@ -171,8 +151,6 @@ library EpochProofLib {
     // struct RootRollupPublicInputs {
     //   previous_archive: AppendOnlyTreeSnapshot,
     //   end_archive: AppendOnlyTreeSnapshot,
-    //   previous_block_hash: Field,
-    //   end_block_hash: Field,
     //   end_timestamp: u64,
     //   end_block_number: Field,
     //   out_hash: Field,
@@ -197,28 +175,22 @@ library EpochProofLib {
       // end_archive.next_available_leaf_index: the new archive next available index
       publicInputs[3] = bytes32(_end + 1);
 
-      // previous_block_hash: the block hash just preceding this epoch
-      publicInputs[4] = _args.previousBlockHash;
-
-      // end_block_hash: the last block hash in the epoch
-      publicInputs[5] = _args.endBlockHash;
-
       // end_timestamp: the timestamp of the last block in the epoch
-      publicInputs[6] = bytes32(Timestamp.unwrap(_args.endTimestamp));
+      publicInputs[4] = bytes32(Timestamp.unwrap(_args.endTimestamp));
 
       // end_block_number: last block number in the epoch
-      publicInputs[7] = bytes32(_end);
+      publicInputs[5] = bytes32(_end);
 
       // out_hash: root of this epoch's l2 to l1 message tree
-      publicInputs[8] = _args.outHash;
+      publicInputs[6] = _args.outHash;
     }
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[9 to (9+feesLength-1)]: array of recipient-value pairs
     for (uint256 i = 0; i < feesLength; i++) {
-      publicInputs[9 + i] = _fees[i];
+      publicInputs[7 + i] = _fees[i];
     }
-    uint256 offset = 9 + feesLength;
+    uint256 offset = 7 + feesLength;
 
     // vk_tree_root
     publicInputs[offset] = rollupStore.config.vkTreeRoot;

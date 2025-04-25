@@ -1,5 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
@@ -156,6 +164,10 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 template class OinkVerifier<UltraFlavor>;
 template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class OinkVerifier<UltraStarknetFlavor>;
+template class OinkVerifier<UltraStarknetZKFlavor>;
+#endif
 template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;

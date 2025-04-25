@@ -1,5 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
@@ -12,6 +20,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
+#include <chrono>
 
 namespace bb {
 /**
@@ -163,14 +172,14 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
 
         if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
-            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
+            proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
             proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
-        proving_key.pairing_point_accumulator_public_input_indices =
-            circuit.pairing_point_accumulator_public_input_indices;
-        proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
+        ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
+               "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a "
+               "default one through a method in aggregation_state.");
+        proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
         if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;

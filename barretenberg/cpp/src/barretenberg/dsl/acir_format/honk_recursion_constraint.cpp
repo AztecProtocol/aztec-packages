@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -49,35 +55,27 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     ASSERT(proof_size == NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
+    uint32_t offset = 0;
     // First key field is circuit size
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
+    builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[offset++].witness_index);
     // Second key field is number of public inputs
-    builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[1].witness_index);
+    builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[offset++].witness_index);
     // Third key field is the pub inputs offset
-    builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
-    // Fourth key field is the whether the proof contains an aggregation object.
-    builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
-    uint32_t offset = 4;
+    builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[offset++].witness_index);
     size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
     }
 
     // We are making the assumption that the pairing point object is behind all the inner public inputs
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
-        offset++;
-    }
+    builder.assert_equal(builder.add_variable(num_inner_public_inputs), key_fields[offset].witness_index);
+    offset++;
 
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Key field is the whether the proof contains an aggregation object.
-        builder.assert_equal(builder.add_variable(1), key_fields[offset++].witness_index);
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE + i),
-                                 key_fields[offset].witness_index);
-            offset++;
-        }
+        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE),
+                             key_fields[offset].witness_index);
+        offset++;
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
@@ -97,9 +95,12 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Using SMALL_DUMMY_VALUE might resolve this
+    // issue.
+    fr SMALL_DUMMY_VALUE(2); // arbtirary small value that shouldn't cause builder problems.
     // The aggregation object
     for (size_t i = 0; i < AggregationObject::PUBLIC_INPUTS_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(SMALL_DUMMY_VALUE), proof_fields[offset].witness_index);
         offset++;
     }
 
@@ -202,10 +203,6 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
  * @param input
  * @param input_aggregation_object_indices. The aggregation object coming from previous Honk recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
- *
- * @note We currently only support HonkRecursionConstraint where inner_proof_contains_pairing_point_accumulator = false.
- *       We would either need a separate ACIR opcode where inner_proof_contains_pairing_point_accumulator = true,
- *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
 
 template <typename Flavor>

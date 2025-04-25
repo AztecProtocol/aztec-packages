@@ -13,7 +13,6 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 
 namespace bb {
 
@@ -28,12 +27,17 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
     }
+#ifdef STARKNET_GARAGA_FLAVORS
+    if constexpr (IsAnyOf<Flavor, UltraStarknetFlavor, UltraStarknetZKFlavor>) {
+        honk_recursion = 1;
+    }
+#endif
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
-    acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
+    acir_format::AcirProgram program{ get_constraint_system(bytecode_path) };
 
     if (!witness_path.empty()) {
         program.witness = get_witness(witness_path);
@@ -110,7 +114,6 @@ bool _verify(const bool ipa_accumulation,
     srs::init_crs_factory({}, g2_data);
 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
     auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
     // concatenate public inputs and proof
@@ -175,6 +178,12 @@ void UltraHonkAPI::prove(const Flags& flags,
         _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
         _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+#ifdef STARKNET_GARAGA_FLAVORS
+    } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
+        _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path));
+    } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
+        _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+#endif
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
     }
@@ -190,7 +199,15 @@ bool UltraHonkAPI::verify(const Flags& flags,
         return _verify<UltraRollupFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
     if (flags.zk) {
-        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        if (flags.oracle_hash_type == "keccak") {
+            return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        }
+#ifdef STARKNET_GARAGA_FLAVORS
+        if (flags.oracle_hash_type == "starknet") {
+            return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+        }
+#endif
+        return false;
     }
     if (flags.oracle_hash_type == "poseidon2") {
         return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
@@ -198,6 +215,11 @@ bool UltraHonkAPI::verify(const Flags& flags,
     if (flags.oracle_hash_type == "keccak") {
         return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
+#ifdef STARKNET_GARAGA_FLAVORS
+    if (flags.oracle_hash_type == "starknet") {
+        return _verify<UltraStarknetFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+    }
+#endif
     return false;
 }
 
@@ -221,6 +243,12 @@ void UltraHonkAPI::write_vk(const Flags& flags,
         _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
         _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
+#ifdef STARKNET_GARAGA_FLAVORS
+    } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
+        _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
+        _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
+#endif
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
         _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
     } else {
@@ -272,7 +300,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
     const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
 
     acir_format::AcirProgram program;
-    program.constraints = get_constraint_system(bytecode_path, metadata.honk_recursion);
+    program.constraints = get_constraint_system(bytecode_path);
     program.witness = get_witness(witness_path);
     auto builder = acir_format::create_circuit<Builder>(program, metadata);
 

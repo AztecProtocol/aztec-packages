@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/ref_vector.hpp"
@@ -256,7 +262,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
 static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
                                                      .busread = 3,
                                                      .lookup = 2,
-                                                     .pub_inputs = 1,
+                                                     .pub_inputs = 20,
                                                      .arithmetic = 1 << 14,
                                                      .delta_range = 5,
                                                      .elliptic = 2,

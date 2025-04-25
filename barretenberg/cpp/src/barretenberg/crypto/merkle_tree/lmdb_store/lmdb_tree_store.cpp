@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
@@ -8,7 +14,7 @@
 #include "barretenberg/lmdblib/lmdb_store_base.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "lmdb_tree_store.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -97,6 +103,7 @@ const std::string& LMDBTreeStore::get_name() const
 void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
 {
     stats.mapSize = _environment->get_map_size();
+    stats.physicalFileSize = _environment->get_data_file_size();
     stats.blocksDBStats = _blockDatabase->get_stats(tx);
     stats.leafPreimagesDBStats = _leafHashToPreImageDatabase->get_stats(tx);
     stats.leafIndicesDBStats = _leafKeyToIndexDatabase->get_stats(tx);

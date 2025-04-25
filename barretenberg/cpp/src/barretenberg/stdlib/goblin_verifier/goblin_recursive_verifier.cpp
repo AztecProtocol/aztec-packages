@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -37,7 +43,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
 
     MergeVerifier merge_verifier{ builder };
     StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-    [[maybe_unused]] auto merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
-    return { opening_claim, ipa_transcript };
+    auto merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    return { merge_pairing_points, opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk

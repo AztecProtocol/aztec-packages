@@ -15,6 +15,8 @@
 #include "relations/execution.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/keccakf1600.hpp"
+#include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
 #include "relations/nullifier_check.hpp"
 #include "relations/poseidon2_hash.hpp"
@@ -48,11 +50,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 45;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1020;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 70;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2071;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 1200;
+    static constexpr size_t NUM_ALL_ENTITIES = 2276;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -71,6 +73,8 @@ struct AvmFlavorVariables {
         avm2::execution<FF_>,
         avm2::ff_gt<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::keccakf1600<FF_>,
+        avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
         avm2::nullifier_check<FF_>,
         avm2::poseidon2_hash<FF_>,

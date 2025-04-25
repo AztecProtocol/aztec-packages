@@ -11,23 +11,19 @@ namespace bb::avm2::tracegen {
 
 class TestTraceContainer : public TraceContainer {
   public:
-    using Row = AvmFullRow<FF>;
-    using RowTraceContainer = std::vector<Row>;
-
-    static TestTraceContainer from_rows(const RowTraceContainer& rows);
+    using Row = AvmFullRowConstRef;
+    static TestTraceContainer from_rows(const std::vector<AvmFullRow>& rows);
 
     TestTraceContainer() = default;
-    TestTraceContainer(const std::vector<std::vector<std::pair<Column, FF>>>& values)
-    {
-        for (uint32_t row = 0; row < values.size(); ++row) {
-            set(row, values[row]);
-        }
-    }
+    TestTraceContainer(const std::vector<std::vector<std::pair<Column, FF>>>& values);
     // Copy constructor. We allow copying for testing purposes.
     TestTraceContainer(const TestTraceContainer&);
 
     // Returns a trace in dense format with properly filled in shifted columns.
-    RowTraceContainer as_rows() const;
+    // The returned rows are lightweight references to the original trace.
+    // Therefore the original trace should outlive the returned rows.
+    AvmFullRowConstRef get_row(uint32_t row) const;
+    std::vector<AvmFullRowConstRef> as_rows() const;
 };
 
 } // namespace bb::avm2::tracegen

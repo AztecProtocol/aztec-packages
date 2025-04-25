@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/ref_vector.hpp"
@@ -439,14 +445,11 @@ class MegaFlavor {
 
         void set_metadata(const ProvingKey& proving_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices =
-                proving_key.pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
@@ -481,8 +484,7 @@ class MegaFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
-            serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
+            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
 
             serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
                                       elements);
@@ -502,8 +504,7 @@ class MegaFlavor {
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
-                        const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const PublicComponentKey& pairing_inputs_public_input_key,
                         const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,
@@ -540,8 +541,7 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
             this->databus_propagation_data = databus_propagation_data;
             this->q_m = q_m;
             this->q_c = q_c;
@@ -578,8 +578,7 @@ class MegaFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_pairing_point_accumulator,
-                       pairing_point_accumulator_public_input_indices,
+                       pairing_inputs_public_input_key,
                        databus_propagation_data,
                        q_m,
                        q_c,
@@ -756,7 +755,6 @@ class MegaFlavor {
     /**
      * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
      * Note: Made generic for use in MegaRecursive.
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
      */
     class Transcript : public NativeTranscript {
       public:

@@ -32,6 +32,14 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
+function release_docs {
+  echo "deploying docs to prod"
+  yarn install
+  yarn build
+
+  yarn netlify deploy --site aztec-docs-dev --prod 2>&1
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -42,8 +50,8 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "release-preview")
-    release_preview
+  "release-docs")
+    release_docs
     ;;
   *)
     echo "Unknown command: $cmd"

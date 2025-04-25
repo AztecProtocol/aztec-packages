@@ -17,7 +17,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import { ProverNodeMetrics } from './metrics.js';
+import { ProverNodePublisherMetrics } from './metrics.js';
 
 /**
  * Stats for a sent transaction.
@@ -27,8 +27,6 @@ export type L1SubmitEpochProofArgs = {
   epochSize: number;
   previousArchive: Fr;
   endArchive: Fr;
-  previousBlockHash: Fr;
-  endBlockHash: Fr;
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
@@ -40,7 +38,7 @@ export class ProverNodePublisher {
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
-  private metrics: ProverNodeMetrics;
+  private metrics: ProverNodePublisherMetrics;
 
   protected log = createLogger('prover-node:l1-tx-publisher');
 
@@ -60,10 +58,14 @@ export class ProverNodePublisher {
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
 
-    this.metrics = new ProverNodeMetrics(telemetry, 'ProverNode');
+    this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');
 
     this.rollupContract = deps.rollupContract;
     this.l1TxUtils = deps.l1TxUtils;
+  }
+
+  public getRollupContract() {
+    return this.rollupContract;
   }
 
   /**
@@ -158,29 +160,20 @@ export class ProverNodePublisher {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as pending block is ${pending}`);
     }
 
-    // Check the block hash and archive for the immediate block before the epoch
+    // Check the archive for the immediate block before the epoch
     const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
     if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,
       );
     }
-    // TODO: Remove zero check once we inject the proper zero blockhash
-    if (blockLog.blockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== blockLog.blockHash) {
-      throw new Error(
-        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${blockLog.blockHash}`,
-      );
-    }
 
-    // Check the block hash and archive for the last block in the epoch
+    // Check the archive for the last block in the epoch
     const endBlockLog = await this.rollupContract.getBlock(BigInt(toBlock));
     if (publicInputs.endArchive.root.toString() !== endBlockLog.archive) {
       throw new Error(
         `End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endBlockLog.archive}`,
       );
-    }
-    if (publicInputs.endBlockHash.toString() !== endBlockLog.blockHash) {
-      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockLog.blockHash}`);
     }
 
     // Compare the public inputs computed by the contract with the ones injected
@@ -258,8 +251,6 @@ export class ProverNodePublisher {
       {
         previousArchive: args.publicInputs.previousArchive.root.toString(),
         endArchive: args.publicInputs.endArchive.root.toString(),
-        previousBlockHash: args.publicInputs.previousBlockHash.toString(),
-        endBlockHash: args.publicInputs.endBlockHash.toString(),
         endTimestamp: args.publicInputs.endTimestamp.toBigInt(),
         outHash: args.publicInputs.outHash.toString(),
         proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),

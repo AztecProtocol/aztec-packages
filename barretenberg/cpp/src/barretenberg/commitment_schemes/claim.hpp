@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -74,13 +80,7 @@ template <typename Curve> class OpeningClaim {
         commitment.set_public();
 
         Builder* ctx = commitment.get_context();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually the builder/PK/VK will store
-        // public input key which should be set here and ipa_claim_public_input_indices should go away.
-        uint32_t pub_idx = start_idx;
-        for (uint32_t& idx : ctx->ipa_claim_public_input_indices) {
-            idx = pub_idx++;
-        }
-        ctx->contains_ipa_claim = true;
+        ctx->ipa_claim_public_input_key.start_idx = start_idx;
 
         return start_idx;
     }

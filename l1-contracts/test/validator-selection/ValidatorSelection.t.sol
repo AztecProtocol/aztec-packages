@@ -24,11 +24,12 @@ import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Slot, Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
+import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+
+import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -54,6 +55,7 @@ contract ValidatorSelectionTest is DecoderBase {
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   Signature internal emptySignature;
+  TimeCheater internal timeCheater;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
   mapping(address proposer => uint256 privateKey) internal proposerPrivateKeys;
   mapping(address proposer => address attester) internal proposerToAttester;
@@ -70,6 +72,13 @@ contract ValidatorSelectionTest is DecoderBase {
       uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
       uint256 initialTime = full.block.decodedHeader.globalVariables.timestamp
         - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
+
+      timeCheater = new TimeCheater(
+        address(rollup),
+        initialTime,
+        TestConstants.AZTEC_SLOT_DURATION,
+        TestConstants.AZTEC_EPOCH_DURATION
+      );
       vm.warp(initialTime);
     }
 
@@ -116,13 +125,15 @@ contract ValidatorSelectionTest is DecoderBase {
 
     merkleTestUtil = new MerkleTestUtil();
 
+    // Progress into the next epoch for changes to take effect
+    timeCheater.cheat__progressEpoch();
     _;
   }
 
   function testInitialCommitteeMatch() public setup(4) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
-    assertEq(rollup.getCurrentEpoch(), 0);
+    assertEq(rollup.getCurrentEpoch(), 1);
     assertEq(attesters.length, 4, "Invalid validator set size");
     assertEq(committee.length, 4, "invalid committee set size");
 
@@ -279,7 +290,6 @@ contract ValidatorSelectionTest is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      blockHash: bytes32(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });

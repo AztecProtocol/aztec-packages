@@ -45,26 +45,29 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Call.opcode, // opcode
-        ...Buffer.from('12', 'hex'), // indirect (8 bit)
-        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // l2GasOffset
+        ...Buffer.from('5678', 'hex'), // daGasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
       ]);
       const inst = new Call(
-        /*indirect=*/ 0x12,
-        /*gasOffset=*/ 0x1234,
+        /*indirect=*/ 0x1234,
+        /*l2GasOffset=*/ 0x1234,
+        /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
       );
 
-      expect(Call.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Call.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Call to non-existent bytecode returns failure', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const l2Gas = 2e6;
       const daGas = 3e6;
       const addrOffset = 2;
@@ -84,7 +87,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -104,7 +107,8 @@ describe('External Calls', () => {
     });
 
     it('Should execute a call correctly', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const l2Gas = 2e6;
       const daGas = 3e6;
       const addrOffset = 2;
@@ -138,7 +142,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset);
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -156,7 +160,8 @@ describe('External Calls', () => {
     });
 
     it('Should cap to available gas if allocated is bigger', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const l2Gas = 1e9;
       const daGas = 1e9;
       const addrOffset = 2;
@@ -190,7 +195,14 @@ describe('External Calls', () => {
       context.machineState.memory.set(2, new Field(addr));
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
 
-      const instruction = new Call(/*indirect=*/ 0, gasOffset, addrOffset, /*argsOffset=*/ 0, argsSizeOffset);
+      const instruction = new Call(
+        /*indirect=*/ 0,
+        l2GasOffset,
+        daGasOffset,
+        addrOffset,
+        /*argsOffset=*/ 0,
+        argsSizeOffset,
+      );
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -213,26 +225,29 @@ describe('External Calls', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         StaticCall.opcode, // opcode
-        ...Buffer.from('12', 'hex'), // indirect (8 bit)
-        ...Buffer.from('1234', 'hex'), // gasOffset
+        ...Buffer.from('1234', 'hex'), // indirect (16 bit)
+        ...Buffer.from('1234', 'hex'), // l2GasOffset
+        ...Buffer.from('5678', 'hex'), // daGasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
         ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
       ]);
       const inst = new StaticCall(
-        /*indirect=*/ 0x12,
-        /*gasOffset=*/ 0x1234,
+        /*indirect=*/ 0x1234,
+        /*l2GasOffset=*/ 0x1234,
+        /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
         /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
       );
 
-      expect(StaticCall.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(StaticCall.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should fail if a static call attempts to touch storage', async () => {
-      const gasOffset = 0;
+      const l2GasOffset = 0;
+      const daGasOffset = 1;
       const gas = [new Field(0n), new Field(0n), new Field(0n)];
       const addrOffset = 10;
       const addr = new Field(123456n);
@@ -242,7 +257,8 @@ describe('External Calls', () => {
       const argsSize = args.length;
       const argsSizeOffset = 60;
 
-      context.machineState.memory.setSlice(gasOffset, gas);
+      context.machineState.memory.set(l2GasOffset, gas[0]);
+      context.machineState.memory.set(daGasOffset, gas[1]);
       context.machineState.memory.set(addrOffset, addr);
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(argsOffset, args);
@@ -260,7 +276,14 @@ describe('External Calls', () => {
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(contractsDB, contractInstance);
 
-      const instruction = new StaticCall(/*indirect=*/ 0, gasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new StaticCall(
+        /*indirect=*/ 0,
+        l2GasOffset,
+        daGasOffset,
+        addrOffset,
+        argsOffset,
+        argsSizeOffset,
+      );
       await instruction.execute(context);
       // Ideally we'd mock the nested call.
       expect(context.machineState.collectedRevertInfo?.recursiveRevertReason.message).toMatch(
@@ -279,8 +302,8 @@ describe('External Calls', () => {
       ]);
       const inst = new Return(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*copySize=*/ 0xa234);
 
-      expect(Return.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Return.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should return data from the return opcode', async () => {
@@ -313,8 +336,8 @@ describe('External Calls', () => {
         Revert.wireFormat16,
       );
 
-      expect(Revert.as(Revert.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Revert.as(Revert.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should return data and revert from the revert opcode', async () => {
@@ -342,8 +365,8 @@ describe('External Calls', () => {
       ]);
       const inst = new SuccessCopy(/*indirect=*/ 0x12, /*dstOffset=*/ 0x5678);
 
-      expect(SuccessCopy.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SuccessCopy.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should correctly copy success state for a successful call', async () => {
