@@ -33,7 +33,7 @@ function release {
 
   # We want the root to redirect to the alpha-testnet version.
   echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=/alpha-testnet"></head></html>' | \
-    aws s3 cp - s3://play.aztec.network/index.html --content-type text/html
+    do_or_dryrun aws s3 cp - s3://play.aztec.network/index.html --content-type text/html
 
   local id=$(cd terraform && terraform init &>/dev/null && terraform output -raw cloudfront_distribution_id)
   do_or_dryrun aws cloudfront create-invalidation --distribution-id $id --paths "/*"
