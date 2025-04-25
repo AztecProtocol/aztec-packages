@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745610423114,
+  "lastUpdate": 1745620992110,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e51259cc55b4c84eb6c6b21fdac7b6478dcf2c4",
-          "message": "fix: run yarn (#13713)\n\nFix bootstrap after\nhttps://github.com/AztecProtocol/aztec-packages/commit/366d98084f5de17c73924b7080e7263d86dc1f05",
-          "timestamp": "2025-04-22T11:51:43Z",
-          "tree_id": "23ec1e4286943a567b011c41b7607226931b8f5c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0e51259cc55b4c84eb6c6b21fdac7b6478dcf2c4"
-        },
-        "date": 1745326126179,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9156,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.26213913926089344,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 145623,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 159487,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "095b032ea6cea72cfdd78e05f8badff9158a78fd",
+          "message": "chore: provide hash function in `noir-protocol-circuits` (#13857)\n\nThis fixes `./ci.sh gh-bench` as it's trying to call the `hash` function\nwithin `noir-protocol-circuits` which doesn't exist.\n\n---------\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
+          "timestamp": "2025-04-25T21:40:34Z",
+          "tree_id": "435dea1ef73ba571f1b125f79f706a82621562ab",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/095b032ea6cea72cfdd78e05f8badff9158a78fd"
+        },
+        "date": 1745620991104,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8354,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2391612709890921,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 151403,
             "unit": "us"
           }
         ]
