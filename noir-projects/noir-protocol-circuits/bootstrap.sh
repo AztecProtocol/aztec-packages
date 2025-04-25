@@ -206,7 +206,7 @@ function bench {
 
   rm -rf bench-out && mkdir -p bench-out
   # Here we just cache based off of the git commit
-  local hash=$(git -C noir-repo rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+  local hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
   if cache_download noir-protocol-circuits-bench-results-$hash.tar.gz; then
     return
   fi
