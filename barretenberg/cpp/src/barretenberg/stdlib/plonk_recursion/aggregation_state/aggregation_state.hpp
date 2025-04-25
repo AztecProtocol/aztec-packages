@@ -116,13 +116,17 @@ template <typename Builder_> struct aggregation_state {
     uint32_t set_public()
     {
         Builder* ctx = P0.get_context();
-        if (ctx->pairing_inputs_public_input_key.is_set()) {
+        if (ctx->contains_pairing_point_accumulator) {
             throw_or_abort("Error: trying to set aggregation_state as public inputs when it already contains one.");
         }
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 
-        ctx->pairing_inputs_public_input_key.start_idx = start_idx;
+        uint32_t pub_idx = start_idx;
+        for (uint32_t& idx : ctx->pairing_point_accumulator_public_input_indices) {
+            idx = pub_idx++;
+        }
+        ctx->contains_pairing_point_accumulator = true;
 
         return start_idx;
     }

@@ -172,14 +172,17 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         }
 
         if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
+            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
+            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
             proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
-        ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
+        ASSERT(circuit.contains_pairing_point_accumulator &&
                "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a "
                "default one through a method in aggregation_state.");
-        proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
+        proving_key.pairing_point_accumulator_public_input_indices =
+            circuit.pairing_point_accumulator_public_input_indices;
+        proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
 
         if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;

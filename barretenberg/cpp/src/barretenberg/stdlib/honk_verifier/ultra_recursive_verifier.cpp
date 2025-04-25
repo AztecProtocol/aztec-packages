@@ -88,8 +88,10 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     }
 
     // Extract the aggregation object from the public inputs
+    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0],
+                                                             true };
     AggregationObject nested_agg_obj =
-        PublicAggState::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
+        PublicAggState::reconstruct(verification_key->public_inputs, pairing_point_public_input_key);
     agg_obj.aggregate(nested_agg_obj);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
@@ -144,10 +146,13 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Extract the IPA claim from the public inputs
     if constexpr (HasIPAAccumulator<Flavor>) {
         using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
-        output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs,
-                                                       verification_key->verification_key->ipa_claim_public_input_key);
-    }
 
+        if (verification_key->verification_key->contains_ipa_claim) {
+            PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0],
+                                              true };
+            output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
+        }
+    }
     return output;
 }
 

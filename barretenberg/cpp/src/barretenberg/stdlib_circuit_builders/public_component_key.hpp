@@ -15,11 +15,11 @@ struct PublicComponentKey {
     constexpr static uint32_t DEFAULT_IDX = std::numeric_limits<uint32_t>::max();
 
     uint32_t start_idx = DEFAULT_IDX; // start index within public inputs array
+    bool exists_flag = false;         // flag indicating exitence of component in the PI
 
     bool operator==(const PublicComponentKey&) const = default;
 
     bool is_set() const { return start_idx != DEFAULT_IDX; }
-
-    MSGPACK_FIELDS(start_idx);
+    MSGPACK_FIELDS(start_idx, exists_flag);
 };
 } // namespace bb

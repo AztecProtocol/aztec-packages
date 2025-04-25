@@ -30,7 +30,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     class ProvingKey : public UltraFlavor::ProvingKey {
       public:
         using UltraFlavor::ProvingKey::ProvingKey;
-        PublicComponentKey ipa_claim_public_input_key;
+        bool contains_ipa_claim;
+        IPAClaimPubInputIndices ipa_claim_public_input_indices;
         HonkProof ipa_proof;
     };
 
@@ -45,7 +46,8 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         virtual ~VerificationKey() = default;
-        PublicComponentKey ipa_claim_public_input_key;
+        bool contains_ipa_claim;
+        IPAClaimPubInputIndices ipa_claim_public_input_indices;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -72,8 +74,10 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
-            serialize_to_field_buffer(ipa_claim_public_input_key.start_idx, elements);
+            serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
+            serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
+            serialize_to_field_buffer(contains_ipa_claim, elements);
+            serialize_to_field_buffer(ipa_claim_public_input_indices, elements);
 
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
@@ -83,13 +87,16 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         }
 
         VerificationKey(ProvingKey& proving_key)
-            : ipa_claim_public_input_key(proving_key.ipa_claim_public_input_key)
+            : contains_ipa_claim(proving_key.contains_ipa_claim)
+            , ipa_claim_public_input_indices(proving_key.ipa_claim_public_input_indices)
         {
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
+            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                proving_key.pairing_point_accumulator_public_input_indices;
 
             if (proving_key.commitment_key == nullptr) {
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
@@ -104,8 +111,10 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
-                        const PublicComponentKey& pairing_inputs_public_input_key,
-                        const PublicComponentKey& ipa_claim_public_input_key,
+                        const bool contains_pairing_point_accumulator,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const bool contains_ipa_claim,
+                        const IPAClaimPubInputIndices& ipa_claim_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -133,13 +142,15 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                         const Commitment& table_4,
                         const Commitment& lagrange_first,
                         const Commitment& lagrange_last)
-            : ipa_claim_public_input_key(ipa_claim_public_input_key)
+            : contains_ipa_claim(contains_ipa_claim)
+            , ipa_claim_public_input_indices(ipa_claim_public_input_indices)
         {
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
+            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -174,8 +185,10 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       pairing_inputs_public_input_key,
-                       ipa_claim_public_input_key,
+                       contains_pairing_point_accumulator,
+                       pairing_point_accumulator_public_input_indices,
+                       contains_ipa_claim,
+                       ipa_claim_public_input_indices,
                        q_m,
                        q_c,
                        q_l,

@@ -52,6 +52,7 @@ class PublicInputComponent {
     {
         Key key;
         key.start_idx = component.set_public();
+        key.exists_flag = true;
         return key;
     }
 

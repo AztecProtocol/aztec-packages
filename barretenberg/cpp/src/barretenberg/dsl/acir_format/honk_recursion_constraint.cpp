@@ -62,20 +62,29 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[offset++].witness_index);
     // Third key field is the pub inputs offset
     builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[offset++].witness_index);
+    // Fourth key field is the whether the proof contains an aggregation object.
+    builder.assert_equal(builder.add_variable(1), key_fields[offset++].witness_index);
+
     size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
     }
 
     // We are making the assumption that the pairing point object is behind all the inner public inputs
-    builder.assert_equal(builder.add_variable(num_inner_public_inputs), key_fields[offset].witness_index);
-    offset++;
+    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; i++) {
+        builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
+        offset++;
+    }
 
     if constexpr (HasIPAAccumulator<Flavor>) {
+        // Key field is the whether the proof contains an aggregation object.
+        builder.assert_equal(builder.add_variable(1), key_fields[offset++].witness_index);
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE),
-                             key_fields[offset].witness_index);
-        offset++;
+        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
+            builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE + i),
+                                 key_fields[offset].witness_index);
+            offset++;
+        }
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
