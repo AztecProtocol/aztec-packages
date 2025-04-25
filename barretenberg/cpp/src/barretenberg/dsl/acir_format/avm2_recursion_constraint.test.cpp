@@ -35,12 +35,12 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using InnerProver = bb::avm2::AvmProvingHelper;
     using InnerVerifier = bb::avm2::AvmVerifier;
 
-    using OuterProver = UltraProver;
-    using OuterVerifier = UltraVerifier;
-    using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
+    using OuterFlavor = UltraRollupFlavor;
+    using OuterProver = UltraProver_<OuterFlavor>;
+    using OuterVerifier = UltraVerifier_<OuterFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
-    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using OuterVerificationKey = UltraFlavor::VerificationKey;
+    using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
     static void SetUpTestSuite()
@@ -133,7 +133,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+    auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
     OuterProver prover(proving_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
@@ -163,7 +163,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
         OuterProver prover(proving_key);
         info("prover gates = ", proving_key->proving_key.circuit_size);
         expected_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
@@ -186,7 +186,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
         OuterProver prover(proving_key);
         info("prover gates = ", proving_key->proving_key.circuit_size);
         actual_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);

@@ -163,11 +163,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             typename RecursiveVerifier::Output verifier_output =
                 verifier.verify_proof(inner_proof, AggState::construct_default(outer_circuit));
+            verifier_output.agg_obj.set_public();
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 verifier_output.ipa_claim.set_public();
                 outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
             }
-            verifier_output.agg_obj.set_public();
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =
@@ -205,11 +205,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto agg_obj = AggState::construct_default(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
         AggState pairing_points = output.agg_obj;
+        output.agg_obj.set_public();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
         }
-        output.agg_obj.set_public();
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
