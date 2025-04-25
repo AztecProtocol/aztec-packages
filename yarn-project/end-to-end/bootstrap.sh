@@ -159,6 +159,7 @@ function test {
 # Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
 function generate_example_app_ivc_inputs {
   export CAPTURE_IVC_FOLDER=example-app-ivc-inputs-out
+  export BENCHMARK_CONFIG=key_flows
   rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
@@ -170,9 +171,10 @@ function generate_example_app_ivc_inputs {
   # Running these again separately from tests is a bit of a hack,
   # but we need to ensure test caching does not get in the way.
   echo "
-    scripts/run_test.sh simple e2e_amm
-    scripts/run_test.sh simple e2e_nft
-    scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
+    scripts/run_test.sh simple client_flows/deployments
+    scripts/run_test.sh simple client_flows/bridging
+    scripts/run_test.sh simple client_flows/transfers
+    scripts/run_test.sh simple client_flows/amm
   " | parallel --line-buffer --halt now,fail=1
   cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }

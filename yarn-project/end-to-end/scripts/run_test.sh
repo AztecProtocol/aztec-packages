@@ -37,6 +37,7 @@ case "$type" in
       -e FAKE_PROOFS \
       -e BENCH_OUTPUT \
       -e CAPTURE_IVC_FOLDER \
+      -e BENCHMARK_CONFIG \
       -e LOG_LEVEL \
       -e COLLECT_METRICS \
       --workdir "$repo_dir/yarn-project/end-to-end" \
