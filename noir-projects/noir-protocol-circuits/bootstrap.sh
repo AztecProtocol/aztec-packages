@@ -201,16 +201,12 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-function hash {
-  # We don't have a good global content hash for the protocol circuits so we use the git commit.
-  git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD}
-}
-
 function bench {
   # We assume that the caller has bb installed and all of the protocol circuit artifacts are in `./target`
 
   rm -rf bench-out && mkdir -p bench-out
-  local hash=$(hash)
+   # We don't have a good global content hash for the protocol circuits so we use the git commit.
+  local hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
   if cache_download noir-protocol-circuits-bench-results-$hash.tar.gz; then
     return
   fi
@@ -261,9 +257,6 @@ function bench {
 }
 
 case "$cmd" in
-  "hash")
-    hash
-    ;;
   "bench")
     bench
     ;;
