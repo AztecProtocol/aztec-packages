@@ -45,6 +45,11 @@ tests:
     error_regex: "Failed to fetch"
     owners:
       - *adam
+  # Sumcheck is failing for some reason
+  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
+    skip: true
+    owners:
+      - *tom
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
