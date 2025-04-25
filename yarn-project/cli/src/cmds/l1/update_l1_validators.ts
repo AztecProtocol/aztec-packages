@@ -60,9 +60,6 @@ export async function addL1Validator({
   debugLogger,
 }: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proposerEOAAddress: EthAddress }) {
   const dualLog = makeDualLog(log, debugLogger);
-  if (!privateKey && !mnemonic) {
-    throw new Error('Either privateKey or mnemonic must be provided to create a wallet client');
-  }
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
