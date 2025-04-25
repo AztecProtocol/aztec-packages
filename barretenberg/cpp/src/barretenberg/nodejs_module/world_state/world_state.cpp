@@ -520,31 +520,37 @@ bool WorldStateWrapper::append_leaves(msgpack::object& obj, msgpack::sbuffer& bu
     TypedMessage<TreeIdOnlyRequest> request;
     obj.convert(request);
 
+    std::vector<crypto::merkle_tree::fr_sibling_path> sibling_paths;
+    std::vector<bb::fr> roots;
+
     switch (request.value.treeId) {
     case MerkleTreeId::NOTE_HASH_TREE:
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
         TypedMessage<AppendLeavesRequest<bb::fr>> r1;
         obj.convert(r1);
-        _ws->append_leaves<bb::fr>(r1.value.treeId, r1.value.leaves, r1.value.forkId);
+        std::tie(sibling_paths, roots) = _ws->append_leaves<bb::fr>(r1.value.treeId, r1.value.leaves, r1.value.forkId);
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<AppendLeavesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        _ws->append_leaves<crypto::merkle_tree::PublicDataLeafValue>(r2.value.treeId, r2.value.leaves, r2.value.forkId);
+        std::tie(sibling_paths, roots) = _ws->append_leaves<crypto::merkle_tree::PublicDataLeafValue>(r2.value.treeId, r2.value.leaves, r2.value.forkId);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<AppendLeavesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
-        _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
+        std::tie(sibling_paths, roots) = _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
         break;
     }
     }
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::APPEND_LEAVES, header, {});
+    AppendLeavesResponse response;
+    response.siblingPaths = std::move(sibling_paths);
+    response.roots = std::move(roots);
+    messaging::TypedMessage<AppendLeavesResponse> resp_msg(WorldStateMessageType::APPEND_LEAVES, header, response);
     msgpack::pack(buf, resp_msg);
 
     return true;
