@@ -171,11 +171,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" css={functionName}>
             {fn.name}
-            <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}>
-            </Badge>
+            <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}></Badge>
           </Typography>
           <IconButton
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
@@ -242,27 +241,30 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                       <TableHead>
                         <TableRow>
                           <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                            Simulation time
+                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {profileResults[fn.name].executionSteps.map((row) => (
+                        {profileResults[fn.name].executionSteps.map(row => (
                           <TableRow key={row.functionName}>
                             <TableCell component="th" scope="row">
                               {row.functionName}
                             </TableCell>
-                            <TableCell align="right">{Number(row.gateCount).toLocaleString()}</TableCell>
+                            <TableCell>{Number(row.gateCount).toLocaleString()}</TableCell>
+                            <TableCell align="right">{Number(row.timings?.witgen).toLocaleString()}ms</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </TableContainer>
-                )
-                  : (
-                    <Typography variant="body1" color="error">
-                      {profileResults?.[fn.name]?.error}
-                    </Typography>
-                  )}
+                ) : (
+                  <Typography variant="body1" color="error">
+                    {profileResults?.[fn.name]?.error}
+                  </Typography>
+                )}
               </Box>
             )}
 

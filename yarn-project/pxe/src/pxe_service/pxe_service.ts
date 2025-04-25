@@ -692,16 +692,19 @@ export class PXEService implements PXE {
           `Profiling transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
           txInfo,
         );
+        const syncTimer = new Timer();
         await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
+
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
 
-        const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        const { executionSteps, timings } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
           simulate: true,
           skipFeeEnforcement: false,
           profileMode,
         });
 
-        return new TxProfileResult(executionSteps);
+        return new TxProfileResult(executionSteps, syncTime, timings?.proving);
       } catch (err: any) {
         throw this.#contextualizeError(
           err,

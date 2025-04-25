@@ -156,16 +156,26 @@ async function main() {
     const witnessStack = JSON.parse(witnesses.toString()).map((witnessMap: Record<string, string>) => {
       return new Map<number, string>(Object.entries(witnessMap).map(([k, v]) => [Number(k), v]));
     });
-    const stepsFile = await readFile(join(ivcFolder, flow, 'steps.json'));
-    const executionSteps = JSON.parse(stepsFile.toString()) as { fnName: string; gateCount: number }[];
-    const privateExecutionSteps: PrivateExecutionStep[] = executionSteps.map((step, i) => ({
+    const profileFile = await readFile(join(ivcFolder, flow, 'profile.json'));
+    const profile = JSON.parse(profileFile.toString()) as {
+      syncTime: number;
+      steps: {
+        fnName: string;
+        gateCount: number;
+        timings: { witgen: number; gateCount: number };
+      }[];
+    };
+    const privateExecutionSteps: PrivateExecutionStep[] = profile.steps.map((step, i) => ({
       functionName: step.fnName,
       gateCount: step.gateCount,
       bytecode: stepsFromFile[i].bytecode,
       // TODO(AD) do we still want to take this from witness.json?
       witness: witnessStack[i],
-      // This can be left empty. If so, the prover will generate a vk on the fly (~25% slower).
-      vk: Buffer.from([]),
+      vk: stepsFromFile[i].vk,
+      timings: {
+        witgen: step.timings.witgen,
+        gateCount: step.timings.witgen,
+      },
     }));
     let stats: { duration: number; eventName: string; proofSize: number } | undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

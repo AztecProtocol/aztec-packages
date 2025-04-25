@@ -368,7 +368,7 @@ class MockPXE implements PXE {
     if (msgSender) {
       expect(msgSender).toBeInstanceOf(AztecAddress);
     }
-    return Promise.resolve(new TxProfileResult([]));
+    return Promise.resolve(new TxProfileResult([], 1, 1));
   }
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
