@@ -28,12 +28,10 @@ template <typename T, std::size_t N> class RefArray {
             storage[i] = ptr_array[i];
         }
     }
-    template <typename... Ts> RefArray(T& ref, Ts&... rest)
-    {
-        storage[0] = &ref;
-        int i = 1;
-        ((storage[i++] = &rest), ...);
-    }
+    template <typename... Ts>
+    RefArray(T& first, Ts&... refs)
+        : storage{ &first, &refs... }
+    {}
 
     T& operator[](std::size_t idx) const
     {
