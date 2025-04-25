@@ -94,7 +94,7 @@ export class CombinedProverCoordination implements ProverCoordination {
     const notFound = txHashes.filter((_, index) => !availability[index]);
     const txsToFind = new Set(notFound.map(tx => tx.toString()));
     if (txsToFind.size === 0) {
-      this.log.info(`Check for ${txHashes.length} txs found all in the pool}`);
+      this.log.info(`Check for ${txHashes.length} txs found all in the pool`);
       return;
     }
     this.log.info(`Check for ${txHashes.length} txs found ${txsToFind.size} missing. Will gather from nodes and p2p`);

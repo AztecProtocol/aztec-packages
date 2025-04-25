@@ -83,6 +83,9 @@ validator:
       cpu: "3"
       memory: "10Gi"
 
+proverBroker:
+  storageSize: "10Gi"
+
 proverAgent:
   replicas: 32
   bb:
