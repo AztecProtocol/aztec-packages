@@ -1,6 +1,5 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { Fr, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
-import { pick } from '@aztec/foundation/collection';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { downloadEpochProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
@@ -84,8 +83,6 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     await downloadEpochProvingJob(epochUploadUrl!, logger, {
       dataDirectory: rerunDataDir,
       jobDataDownloadPath: rerunDownloadPath,
-      rollupAddress: config.l1Contracts.rollupAddress,
-      ...pick(config, 'l1ChainId', 'rollupVersion'),
     });
 
     logger.warn(`Rerunning proving job from ${rerunDownloadPath}`);
