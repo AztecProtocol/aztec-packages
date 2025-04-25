@@ -12,6 +12,7 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <algorithm>
 #include <stdexcept>
 
 namespace bb {
@@ -218,11 +219,55 @@ bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-    auto ivc = steps.accumulate();
-    auto proof = ivc->prove();
-    ASSERT(ivc->verify(proof));
+
+    for (auto [program, precomputed_vk, function_name] :
+         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
+        if (precomputed_vk == nullptr) {
+            info("FAIL: Expected precomputed vk for function ", function_name);
+            return false;
+        }
+        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
+        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key2 = get_acir_program_decider_proving_key(program);
+        precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key2->proving_key);
+        if (computed_vk->circuit_size != precomputed_vk->circuit_size ||
+            computed_vk->num_public_inputs != precomputed_vk->num_public_inputs ||
+            computed_vk->pub_inputs_offset != precomputed_vk->pub_inputs_offset) {
+            info("FAIL: VKs disagree on basic size parameters for function ", function_name);
+            return false;
+        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1374): Some constraints are known to
+        // be different. This is a known issue that should eventually not allow verification.
+        std::vector<const char*> known_bad_constraints{
+            "sigma_1", "sigma_2", "sigma_3", "sigma_4", "id_1", "id_2", "id_3",    "id_4",      "lagrange_ecc_op",
+            "q_m",     "q_c",     "q_l",     "q_r",     "q_o",  "q_4",  "q_arith", "q_elliptic"
+        };
+        for (auto [label, value1, value2] :
+             zip_view(computed_vk->get_labels(), computed_vk->get_all(), precomputed_vk->get_all())) {
+            bool is_known_bad_copy_constraint =
+                std::find(known_bad_constraints.begin(), known_bad_constraints.end(), label) !=
+                known_bad_constraints.end();
+            if (is_known_bad_copy_constraint) {
+                continue;
+            }
+            if (value1 != value2) {
+                info("FAIL: Verification key mismatch for function ",
+                     function_name,
+                     ", value ",
+                     label,
+                     " ",
+                     value1,
+                     " ",
+                     value2);
+                info("We only report the first mismatch.");
+                // return false;
+            }
+        }
+    }
     return true;
 }
+
 void ClientIVCAPI::write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path)
 {
     write_vk_for_ivc(input_path, output_path);

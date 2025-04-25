@@ -28,5 +28,4 @@ export -f check_circuit_vks
 
 # Run on one public and one private input.
 ls "$inputs_tmp_dir"
-# parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir")
-check_circuit_vks deploy_ecdsar1+sponsored_fpc
+parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir")

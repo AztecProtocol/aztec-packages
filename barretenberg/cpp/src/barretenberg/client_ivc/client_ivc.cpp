@@ -197,18 +197,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Set the verification key from precomputed if available, else compute it
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
-        auto computed_vk = std::make_shared<MegaVerificationKey>(proving_key->proving_key);
-        for (auto [label, value1, value2] :
-             zip_view(computed_vk->get_labels(), computed_vk->get_all(), precomputed_vk->get_all())) {
-            if (value1 == value2) {
-                info("MATCH: ", label, " ", value1, " ", value2);
-            } else {
-                info("DIFF: ", label, " ", value1, " ", value2);
-            }
-        }
-        ASSERT(computed_vk->hash() == precomputed_vk->hash());
-        honk_vk = computed_vk; // precomputed_vk ? precomputed_vk :
-                               // std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+        honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
     }
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
