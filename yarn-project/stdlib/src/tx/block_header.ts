@@ -64,6 +64,10 @@ export class BlockHeader {
     return this.globalVariables.slotNumber.toBigInt();
   }
 
+  getBlockNumber() {
+    return this.globalVariables.blockNumber.toNumber();
+  }
+
   getSize() {
     return (
       this.lastArchive.getSize() +

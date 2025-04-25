@@ -57,6 +57,7 @@ function test_cmds {
   echo "$prefix simple e2e_epochs/epochs_multi_proof"
   echo "$prefix simple e2e_epochs/epochs_proof_fails"
   echo "$prefix simple e2e_epochs/epochs_sync_after_reorg"
+  echo "$prefix simple e2e_epochs/epochs_upload_failed_proof"
   echo "$prefix simple e2e_escrow_contract"
   echo "$prefix simple e2e_event_logs"
 
@@ -96,11 +97,13 @@ function test_cmds {
   echo "$prefix simple e2e_p2p/reex"
   echo "$prefix simple e2e_p2p/slashing"
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
+  echo "$prefix simple e2e_p2p/add_rollup"
   echo "$prefix simple e2e_p2p/validators_sentinel"
 
   echo "$prefix simple e2e_private_voting_contract"
   echo "$prefix simple e2e_pruned_blocks"
   echo "$prefix simple e2e_public_testnet_transfer"
+  echo "$prefix simple e2e_simple"
   echo "$prefix simple e2e_state_vars"
   echo "$prefix simple e2e_static_calls"
   echo "$prefix simple e2e_synching"

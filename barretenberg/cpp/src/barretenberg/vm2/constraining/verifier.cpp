@@ -44,7 +44,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using VerifierCommitments = Flavor::VerifierCommitments;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
@@ -77,7 +77,13 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+
+    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+
+    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+    }
+    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -86,7 +92,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckOutput<Flavor> output =
+        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {
@@ -109,7 +116,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        log_circuit_size, claim_batcher, output.challenge, Commitment::one(), transcript);
+        padding_indicator_array, claim_batcher, output.challenge, Commitment::one(), transcript);
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     VerifierCommitmentKey pcs_vkey{};

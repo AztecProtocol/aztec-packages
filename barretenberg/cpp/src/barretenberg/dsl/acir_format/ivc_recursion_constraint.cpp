@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "ivc_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
@@ -193,7 +199,6 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
     honk_verification_key->circuit_size = dyadic_size;
     honk_verification_key->num_public_inputs = num_public_inputs;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
-    honk_verification_key->contains_pairing_point_accumulator = true;
 
     for (auto& commitment : honk_verification_key->get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment

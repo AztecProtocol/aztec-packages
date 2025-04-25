@@ -13,21 +13,20 @@ namespace bb {
 
 TEST(MegaCircuitBuilder, CopyConstructor)
 {
-    MegaCircuitBuilder circuit_constructor = MegaCircuitBuilder();
+    MegaCircuitBuilder builder = MegaCircuitBuilder();
     fr a = fr::one();
-    circuit_constructor.add_public_variable(a);
+    builder.add_public_variable(a);
 
     for (size_t i = 0; i < 16; ++i) {
         for (size_t j = 0; j < 16; ++j) {
             uint64_t left = static_cast<uint64_t>(j);
             uint64_t right = static_cast<uint64_t>(i);
-            uint32_t left_idx = circuit_constructor.add_variable(fr(left));
-            uint32_t right_idx = circuit_constructor.add_variable(fr(right));
-            uint32_t result_idx = circuit_constructor.add_variable(fr(left ^ right));
+            uint32_t left_idx = builder.add_variable(fr(left));
+            uint32_t right_idx = builder.add_variable(fr(right));
+            uint32_t result_idx = builder.add_variable(fr(left ^ right));
 
-            uint32_t add_idx =
-                circuit_constructor.add_variable(fr(left) + fr(right) + circuit_constructor.get_variable(result_idx));
-            circuit_constructor.create_big_add_gate(
+            uint32_t add_idx = builder.add_variable(fr(left) + fr(right) + builder.get_variable(result_idx));
+            builder.create_big_add_gate(
                 { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
     }
@@ -38,25 +37,25 @@ TEST(MegaCircuitBuilder, CopyConstructor)
     auto z = fr::random_element();
 
     // Add gates corresponding to the above operations
-    circuit_constructor.queue_ecc_add_accum(P1);
-    circuit_constructor.queue_ecc_mul_accum(P2, z);
-    circuit_constructor.queue_ecc_eq();
+    builder.queue_ecc_add_accum(P1);
+    builder.queue_ecc_mul_accum(P2, z);
+    builder.queue_ecc_eq();
 
-    bool result = CircuitChecker::check(circuit_constructor);
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 
-    MegaCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
+    MegaCircuitBuilder duplicate_builder{ builder };
 
-    EXPECT_EQ(duplicate_circuit_constructor, circuit_constructor);
-    EXPECT_TRUE(CircuitChecker::check(duplicate_circuit_constructor));
+    EXPECT_EQ(duplicate_builder, builder);
+    EXPECT_TRUE(CircuitChecker::check(duplicate_builder));
 }
 
 TEST(MegaCircuitBuilder, BaseCase)
 {
-    MegaCircuitBuilder circuit_constructor = MegaCircuitBuilder();
+    MegaCircuitBuilder builder = MegaCircuitBuilder();
     fr a = fr::one();
-    circuit_constructor.add_public_variable(a);
-    bool result = CircuitChecker::check(circuit_constructor);
+    builder.add_public_variable(a);
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 

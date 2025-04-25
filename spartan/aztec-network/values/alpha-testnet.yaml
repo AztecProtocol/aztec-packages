@@ -24,6 +24,7 @@ network:
 
 blobSink:
   enabled: true
+  archiveApiUrl: "https://api.sepolia.blobscan.com"
   dataStoreConfig:
     dataDir: "/data"
     storageSize: "128Gi"
@@ -58,6 +59,7 @@ proverNode:
   l1FixedPriorityFeePerGas: 3
   l1GasLimitBufferPercentage: 15
   l1GasPriceMax: 1000
+  failedEpochStore: "gs://aztec-testnet/failed-epochs/"
   maxOldSpaceSize: "8192"
   storageSize: "512Gi"
   resources:

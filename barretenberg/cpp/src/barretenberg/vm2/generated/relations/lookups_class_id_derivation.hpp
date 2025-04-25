@@ -3,6 +3,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 #include <cstddef>
 #include <string_view>
@@ -12,21 +13,10 @@ namespace bb::avm2 {
 
 /////////////////// lookup_class_id_derivation_class_id_poseidon2_0 ///////////////////
 
-class lookup_class_id_derivation_class_id_poseidon2_0_settings {
-  public:
+struct lookup_class_id_derivation_class_id_poseidon2_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CLASS_ID_DERIVATION_CLASS_ID_POSEIDON2_0";
     static constexpr std::string_view RELATION_NAME = "class_id_derivation";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::class_id_derivation_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_start;
     static constexpr Column COUNTS = Column::lookup_class_id_derivation_class_id_poseidon2_0_counts;
@@ -43,90 +33,20 @@ class lookup_class_id_derivation_class_id_poseidon2_0_settings {
         ColumnAndShifts::poseidon2_hash_input_2,
         ColumnAndShifts::poseidon2_hash_output
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_start() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._class_id_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_start());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_class_id_derivation_class_id_poseidon2_0_inv(),
-                                     in._lookup_class_id_derivation_class_id_poseidon2_0_counts(),
-                                     in._class_id_derivation_sel(),
-                                     in._poseidon2_hash_start(),
-                                     in._class_id_derivation_temp_constant_for_lookup(),
-                                     in._class_id_derivation_artifact_hash(),
-                                     in._class_id_derivation_private_function_root(),
-                                     in._class_id_derivation_class_id(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
-    }
 };
 
+using lookup_class_id_derivation_class_id_poseidon2_0_settings =
+    lookup_settings<lookup_class_id_derivation_class_id_poseidon2_0_settings_>;
 template <typename FF_>
-class lookup_class_id_derivation_class_id_poseidon2_0_relation
-    : public GenericLookupRelation<lookup_class_id_derivation_class_id_poseidon2_0_settings, FF_> {
-  public:
-    using Settings = lookup_class_id_derivation_class_id_poseidon2_0_settings;
-    static constexpr std::string_view NAME = lookup_class_id_derivation_class_id_poseidon2_0_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_class_id_derivation_class_id_poseidon2_0_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_class_id_derivation_class_id_poseidon2_0_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_class_id_derivation_class_id_poseidon2_0_relation =
+    lookup_relation_base<FF_, lookup_class_id_derivation_class_id_poseidon2_0_settings>;
 
 /////////////////// lookup_class_id_derivation_class_id_poseidon2_1 ///////////////////
 
-class lookup_class_id_derivation_class_id_poseidon2_1_settings {
-  public:
+struct lookup_class_id_derivation_class_id_poseidon2_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CLASS_ID_DERIVATION_CLASS_ID_POSEIDON2_1";
     static constexpr std::string_view RELATION_NAME = "class_id_derivation";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::class_id_derivation_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_class_id_derivation_class_id_poseidon2_1_counts;
@@ -143,71 +63,12 @@ class lookup_class_id_derivation_class_id_poseidon2_1_settings {
         ColumnAndShifts::poseidon2_hash_input_2,
         ColumnAndShifts::poseidon2_hash_output
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._class_id_derivation_sel() == 1 || in._poseidon2_hash_end() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._class_id_derivation_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_class_id_derivation_class_id_poseidon2_1_inv(),
-                                     in._lookup_class_id_derivation_class_id_poseidon2_1_counts(),
-                                     in._class_id_derivation_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._class_id_derivation_public_bytecode_commitment(),
-                                     in._precomputed_zero(),
-                                     in._precomputed_zero(),
-                                     in._class_id_derivation_class_id(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
-    }
 };
 
+using lookup_class_id_derivation_class_id_poseidon2_1_settings =
+    lookup_settings<lookup_class_id_derivation_class_id_poseidon2_1_settings_>;
 template <typename FF_>
-class lookup_class_id_derivation_class_id_poseidon2_1_relation
-    : public GenericLookupRelation<lookup_class_id_derivation_class_id_poseidon2_1_settings, FF_> {
-  public:
-    using Settings = lookup_class_id_derivation_class_id_poseidon2_1_settings;
-    static constexpr std::string_view NAME = lookup_class_id_derivation_class_id_poseidon2_1_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_class_id_derivation_class_id_poseidon2_1_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_class_id_derivation_class_id_poseidon2_1_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_class_id_derivation_class_id_poseidon2_1_relation =
+    lookup_relation_base<FF_, lookup_class_id_derivation_class_id_poseidon2_1_settings>;
 
 } // namespace bb::avm2

@@ -20,7 +20,7 @@ import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/serv
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  createL1Clients,
+  createExtendedL1Client,
   getL1ContractsConfigEnvVars,
   l1Artifacts,
 } from '@aztec/ethereum';
@@ -348,7 +348,7 @@ async function setupFromFresh(
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
   const sponsoredFPCAddress = await getSponsoredFPCAddress();
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData, fundingNeeded } = await getGenesisValues(
+  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     opts.initialAccountFeeJuice,
   );
@@ -356,7 +356,6 @@ async function setupFromFresh(
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
-    genesisBlockHash,
     feeJuicePortalInitialBalance: fundingNeeded,
     salt: opts.salt,
     ...deployL1ContractsArgs,
@@ -371,7 +370,7 @@ async function setupFromFresh(
     const rewardDistributor = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
       abi: l1Artifacts.rewardDistributor.contractAbi,
-      client: deployL1ContractsValues.publicClient,
+      client: deployL1ContractsValues.l1Client,
     });
 
     const blockReward = await rewardDistributor.read.BLOCK_REWARD();
@@ -380,18 +379,18 @@ async function setupFromFresh(
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
       abi: l1Artifacts.feeAsset.contractAbi,
-      client: deployL1ContractsValues.walletClient,
+      client: deployL1ContractsValues.l1Client,
     });
 
     const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
-    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
+    await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
     logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    deployL1ContractsValues.publicClient,
+    deployL1ContractsValues.l1Client,
   );
   await watcher.start();
 
@@ -437,8 +436,8 @@ async function setupFromFresh(
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
       aztecNode,
-      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
     );
   }
@@ -522,12 +521,12 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   }
 
   logger.verbose('Creating ETH clients...');
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
+  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, mnemonicToAccount(MNEMONIC));
 
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls),
     aztecNodeConfig.l1Contracts.rollupAddress,
-    publicClient,
+    l1Client,
   );
   await watcher.start();
 
@@ -561,8 +560,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     proverNode = await createAndSyncProverNode(
       proverNodePrivateKeyHex,
       aztecNodeConfig,
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
       aztecNode,
-      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
     );
   }
@@ -583,8 +582,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     bbConfig,
     proverNode,
     deployL1ContractsValues: {
-      walletClient,
-      publicClient,
+      l1Client,
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
     },
     watcher,

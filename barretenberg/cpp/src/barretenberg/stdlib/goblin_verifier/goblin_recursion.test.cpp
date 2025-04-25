@@ -65,8 +65,8 @@ TEST_F(GoblinRecursionTests, Vanilla)
         GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit,
                                                         { function_accum.proof, function_accum.verification_key },
                                                         { kernel_accum.proof, kernel_accum.verification_key });
-        goblin.prove_merge(kernel_circuit);
         AggregationObject::add_default_pairing_points_to_public_inputs(kernel_circuit);
+        goblin.prove_merge(kernel_circuit);
         kernel_accum = construct_accumulator(kernel_circuit);
     }
 

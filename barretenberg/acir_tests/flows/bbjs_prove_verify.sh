@@ -20,7 +20,7 @@ node ../../bbjs-test prove \
   -b $artifact_dir/program.json \
   -w $artifact_dir/witness.gz \
   -o $output_dir \
-  ${THREAD_MODEL:-st} = "mt" && echo "--multi-threaded"
+  --multi-threaded
 
 # Verify the proof by reading the files in ./target
 node ../../bbjs-test verify \

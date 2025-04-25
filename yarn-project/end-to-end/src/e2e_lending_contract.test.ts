@@ -66,7 +66,7 @@ describe('e2e_lending_contract', () => {
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
 
     const rollup = new RollupContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     );
 

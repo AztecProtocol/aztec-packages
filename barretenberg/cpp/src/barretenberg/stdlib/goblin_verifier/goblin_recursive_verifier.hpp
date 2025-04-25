@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
@@ -11,6 +17,8 @@ struct GoblinRecursiveVerifierOutput {
     using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
     using Curve = grumpkin<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using AggregationObject = aggregation_state<Builder>;
+    AggregationObject agg_obj;
     OpeningClaim<Curve> opening_claim;
     std::shared_ptr<Transcript> ipa_transcript;
 };
