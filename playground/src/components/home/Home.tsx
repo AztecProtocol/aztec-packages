@@ -22,11 +22,12 @@ const contentLayout = css({
   gap: '24px',
   flexDirection: 'row',
   position: 'relative',
-  minHeight: 'calc(100% - 240px)',
+  // minHeight: 'calc(100% - 240px)',
   margin: '24px 60px',
+  paddingBottom: '5rem',
   '@media (max-width: 1200px)': {
     height: 'auto',
-    flexDirection: 'column',
+    display: 'block',
     margin: '0 12px',
   },
 });

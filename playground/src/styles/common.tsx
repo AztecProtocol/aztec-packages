@@ -51,7 +51,7 @@ export const navbarButtonStyle = css({
   '&:hover': {
     backgroundColor: '#BCC0C4',
   },
-  '@media (max-width: 400px)': {
+  '@media (max-width: 900px)': {
     width: '100%',
   },
 });

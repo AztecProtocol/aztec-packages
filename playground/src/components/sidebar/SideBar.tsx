@@ -23,7 +23,8 @@ const container = css({
   '@media (max-width: 1200px)': {
     padding: '12px',
     width: 'auto',
-    margin: '0 0 5rem 0',
+    height: 'auto',
+    margin: '1rem 0px',
   },
 });
 
@@ -116,7 +117,7 @@ export function SideBar() {
 
   if (numTransactions === 0 && !pendingTx) {
     // Return empty width div for animation
-    return <div css={[container, { width: '0px', padding: '0px', marginLeft: '-20px' }]} />;
+    return <div css={{ width: '0px', padding: '0px', marginLeft: '-20px' }} />;
   }
 
   return (
@@ -128,7 +129,7 @@ export function SideBar() {
         {numTransactions > 0 ? (
           <TxsPanel />
         ) : (
-          <Typography variant="body2" sx={{ marginTop: '12px' }}>No past transactions yet</Typography>
+          <Typography variant="body2" sx={{ margin: '10px 0 2rem 0' }}>No past transactions yet</Typography>
         )}
       </div>
 
