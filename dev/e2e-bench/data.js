@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745531914335,
+  "lastUpdate": 1745554600226,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "90033f2d5e05966af0dd29179762d3f38e9154b5",
-          "message": "feat(contracts): static + snapshotted validator set (#13046)\n\nfixes: https://github.com/AztecProtocol/aztec-packages/issues/8761\n\nThis version stores a history of the validator set, without changing any\nof the apis. Follow up will include commitments to the committee\n\nThis Pr adds a SnappshottedAddressLib that ensures the validator set\nsize and members cannot change during an epoch.\n\nIn its current form, calculations that rely on attesters.size can be\nincorrect as it's size can change during the life time of an epoch. This\ncode snapshots the validator set such that queries to the attestor set\nwill remain fixed during the current epoch, and changes to the set will\nonly occur over the epoch boundary.",
-          "timestamp": "2025-04-18T21:32:04Z",
-          "tree_id": "297c460f17f2953f9fbe6b3ad2d2091ba236bd33",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/90033f2d5e05966af0dd29179762d3f38e9154b5"
-        },
-        "date": 1745015787774,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9655,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.25941205295845177,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 147381,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1937,6 +1898,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 150575,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4cb40fdd1f1a053c64abab21ef25502489541ed8",
+          "message": "chore: assert on bad public component key (#13827)\n\nAbort when attempting to reconstruct a PublicInputComponent with a key\nthat leads to overreading the public inputs.\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1372",
+          "timestamp": "2025-04-25T02:44:20Z",
+          "tree_id": "d907c33307fcf1f2b4a746c2aed7471dfd40002a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4cb40fdd1f1a053c64abab21ef25502489541ed8"
+        },
+        "date": 1745554599394,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8218,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2352713101694612,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 149961,
             "unit": "us"
           }
         ]
