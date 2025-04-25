@@ -38,7 +38,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
         const feePaymentMethod = await prepareForFeePayment(
           pxe,
           network.sponsoredFPC?.address,
-          network.sponsoredFPC.version,
+          network.sponsoredFPC?.version,
         );
         setFeePaymentMethod(feePaymentMethod);
         break;
