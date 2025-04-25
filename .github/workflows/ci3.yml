@@ -127,7 +127,7 @@ jobs:
           max-items-in-chart: 50
 
       - name: Store protocol circuit benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_NPC_BENCH != 'true'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' # Currently has no caching
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Protocol Circuit Gate Counts
