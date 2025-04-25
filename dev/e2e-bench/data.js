@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745602436010,
+  "lastUpdate": 1745603975531,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "68e4b6f03a11e74b088938c02d3154e37720915d",
-          "message": "chore: use PublicComponentKeys (#13686)\n\nReplaces `contains_ipa_claim` and `ipa_claim_public_input_indices` with\n`ipa_claim_public_input_key` (a `PublicComponentKey`). This reduces the\nrollup flavor UH VK size in fields from 139 to 129.\n\nNote: Huge diff is due to regeneration of some Prover.toml files in\n`noir-protocol-circuits/crates`",
-          "timestamp": "2025-04-21T19:57:13Z",
-          "tree_id": "98ab3e2d9ff5c0b4b559e9f187cd06245e890782",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/68e4b6f03a11e74b088938c02d3154e37720915d"
-        },
-        "date": 1745270349340,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9684,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.26020863528377053,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 153709,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 142525,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "51711291+natebeauregard@users.noreply.github.com",
+            "name": "Nate Beauregard",
+            "username": "natebeauregard"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f1b7f745491c65d68921b1bd0a905bda59ca17fe",
+          "message": "chore: report size of other stores on disk (#13829)\n\nCloses https://github.com/AztecProtocol/aztec-packages/issues/13738\n\nReports the physical disk size of all of stores used by aztec LMDBs.",
+          "timestamp": "2025-04-25T16:18:14Z",
+          "tree_id": "7b53a004e6db848f3157b206574a25c2e6e4d663",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f1b7f745491c65d68921b1bd0a905bda59ca17fe"
+        },
+        "date": 1745603974577,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8170,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2338981584028498,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 138671,
             "unit": "us"
           }
         ]
