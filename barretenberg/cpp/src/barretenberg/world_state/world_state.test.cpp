@@ -332,7 +332,7 @@ TEST_F(WorldStateTest, GetInitialStateReference)
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
 
     auto before_commit = ws.get_initial_state_reference();
-    auto [_1, _2] = ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 1 });
+    auto [_1, _2] = ws.append_leaves<fr>(MerkleTreeId::NOTE_HASH_TREE, { 1 });
     WorldStateStatusFull status;
     ws.commit(status);
 
@@ -476,7 +476,7 @@ TEST_F(WorldStateTest, NullifierTreeDuplicates)
     ws.commit(status);
 
     assert_tree_size(ws, WorldStateRevision::committed(), tree_id, 129);
-    EXPECT_THROW(auto [_3, _4] = ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier }), std::runtime_error);
+    EXPECT_THROW(ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier }), std::runtime_error);
     assert_tree_size(ws, WorldStateRevision::committed(), tree_id, 129);
 }
 
@@ -874,8 +874,8 @@ TEST_F(WorldStateTest, BuildsABlockInAFork)
 
     auto [_1, _2] = ws.append_leaves<bb::fr>(MerkleTreeId::NOTE_HASH_TREE, { 42 }, fork_id);
     auto [_3, _4] = ws.append_leaves<bb::fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 }, fork_id);
-    auto [_5, _6] = ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, fork_id);
-    auto [_7, _8] = ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, fork_id);
+    auto [_5, _6, _6a] = ws.batch_insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { { 129 } }, 0, fork_id);
+    auto [_7, _8, _8a] = ws.batch_insert_indexed_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { { 129, 1 } }, 0, fork_id);
 
     auto fork_state_ref = ws.get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
 
@@ -934,7 +934,7 @@ TEST(WorldState, AppendLeavesReturnsSiblingPaths)
 {
     const uint32_t thread_pool_size = 1;
     const auto data_dir = []() {
-        auto dir = test::temp_dir();
+        auto dir = random_temp_directory();
         return dir;
     }();
     const uint64_t map_size = 1ULL << 20;
