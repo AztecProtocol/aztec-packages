@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745531911690,
+  "lastUpdate": 1745554595617,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "498d4334eae71676e688aedae1d8d157b6345347",
-          "message": "chore: add hacky faster bootstrap for bb-centric e2e flow (#13587)\n\nRight now a bb change will cause noir-projects to rebuild VKs, and other\ncomponents will conservatively rebuild. This can be used if you are sure\nyou have not changed VK construction. It means the other steps are\ngrabbed from cache - it also skips everything past yarn-project and\nshould be the fastest way to run e2e tests",
-          "timestamp": "2025-04-15T21:31:08Z",
-          "tree_id": "9920a020097ce9629196c94d79f3c1705872c111",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/498d4334eae71676e688aedae1d8d157b6345347"
-        },
-        "date": 1744756361556,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17261.84484400005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13533.199256 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2231786449,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 190304422,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20037.793832000032,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16797.789408 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 55893.600119,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 55893601000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4253.937114000109,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3736.180929 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11667.611336,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11667615000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2335.75",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -4566,6 +4494,78 @@ window.BENCHMARK_DATA = {
             "value": 1800,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4cb40fdd1f1a053c64abab21ef25502489541ed8",
+          "message": "chore: assert on bad public component key (#13827)\n\nAbort when attempting to reconstruct a PublicInputComponent with a key\nthat leads to overreading the public inputs.\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1372",
+          "timestamp": "2025-04-25T02:44:20Z",
+          "tree_id": "d907c33307fcf1f2b4a746c2aed7471dfd40002a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4cb40fdd1f1a053c64abab21ef25502489541ed8"
+        },
+        "date": 1745554584718,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17208.50379300009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13614.313637000001 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2267367808,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 198996967,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19783.512353999868,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16761.835753 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56586.641835,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56586645000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4302.726952000057,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3742.096998 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12193.369663,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12193374000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2247.75",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
