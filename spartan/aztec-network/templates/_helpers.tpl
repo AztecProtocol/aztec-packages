@@ -135,6 +135,8 @@ Service Address Setup Container
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT
       value: "{{ .Values.bootNode.service.nodePort }}"
+    - name: FULL_NODE_PORT
+      value: "{{ .Values.fullNode.service.nodePort }}"
     - name: EXTERNAL_PROVER_NODE_HOST
       value: "{{ .Values.proverNode.externalHost }}"
     - name: PROVER_NODE_PORT
