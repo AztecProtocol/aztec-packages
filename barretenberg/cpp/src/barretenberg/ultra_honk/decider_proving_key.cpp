@@ -17,7 +17,7 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <IsUltraOrMegaHonk Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // for the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
@@ -34,7 +34,7 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
     return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_wires()
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wires()
 {
     PROFILE_THIS_NAME("allocate_wires");
 
@@ -43,7 +43,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_wires(
     }
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_permutation_argument_polynomials()
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_permutation_argument_polynomials()
 {
     PROFILE_THIS_NAME("allocate_permutation_argument_polynomials");
 
@@ -56,7 +56,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_permut
     proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_lagrange_polynomials()
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_lagrange_polynomials()
 {
     PROFILE_THIS_NAME("allocate_lagrange_polynomials");
 
@@ -71,7 +71,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_lagran
         /* size=*/dyadic_circuit_size, /*virtual size=*/dyadic_circuit_size, /*start_index=*/0);
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_selectors(const Circuit& circuit)
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_selectors(const Circuit& circuit)
 {
     PROFILE_THIS_NAME("allocate_selectors");
 
@@ -96,7 +96,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_select
     }
 }
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
     PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
@@ -107,7 +107,7 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
-    if constexpr (IsUltraFlavor<Flavor>) {
+    if constexpr (IsUltraOrMegaHonk<Flavor>) {
         for (auto& poly : proving_key.polynomials.get_tables()) {
             poly = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
         }
@@ -130,7 +130,7 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
         Polynomial(lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
 }
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
@@ -144,7 +144,7 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
     proving_key.polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, proving_key.circuit_size);
 }
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -179,7 +179,7 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -238,7 +238,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {

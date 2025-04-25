@@ -1,0 +1,323 @@
+{"level":25,"time":1745441664835,"pid":1540730,"hostname":"lucas-box","module":"logger","msg":"Logger initialized with level debug"}
+[20:54:27.328] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbytecodePath /tmp/bb-client-ivc-integration-KYZ2Q6/acir.msgpack[0m[39m
+[20:54:27.333] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0moutputPath /tmp/bb-client-ivc-integration-KYZ2Q6[0m[39m
+[20:54:27.335] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Executing BB with: /mnt/user-data/lucas/aztec-packages/barretenberg/cpp/build/bin/bb prove -o /tmp/bb-client-ivc-integration-KYZ2Q6 -b /tmp/bb-client-ivc-integration-KYZ2Q6/acir.msgpack -w /tmp/bb-client-ivc-integration-KYZ2Q6/witnesses.msgpack -v --scheme client_ivc --input_type runtime_stack --write_vk[0m[39m
+[20:54:27.356] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - bb command: prove[0m[39m
+[20:54:27.357] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Scheme is: client_ivc, num threads: 192
+  --scheme: client_ivc
+  --bytecode_path: /tmp/bb-client-ivc-integration-KYZ2Q6/acir.msgpack
+  --witness_path: /tmp/bb-client-ivc-integration-KYZ2Q6/witnesses.msgpack
+  --output_path: /tmp/bb-client-ivc-integration-KYZ2Q6
+  --verbose: true
+  --write_vk: true
+  --input_type: runtime_stack
+using cached bn254 crs of size 33554433 at "/mnt/user-data/lucas/.bb-crs/bn254_g1.dat"[0m[39m
+[20:54:27.618] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Initialized BN254 prover CRS from memory with num points = 1048577[0m[39m
+[20:54:27.623] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - using cached grumpkin crs of size 262145 at: "/mnt/user-data/lucas/.bb-crs/grumpkin_g1.dat"[0m[39m
+[20:54:27.643] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Initialized Grumpkin prover CRS from memory with num points = 65537[0m[39m
+[20:54:27.644] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - BN254 commitment key size: 262144[0m[39m
+[20:54:27.782] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs: 0[0m[39m
+[20:54:27.784] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs after adding default: 16
+Constructing DeciderProvingKey[0m[39m
+[20:54:27.787] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Gate blocks summary: (actual gates / fixed capacity)
+goblin ecc op :	10/1024
+busread       :	7/6000
+lookups       :	2/15000
+pub inputs    :	16/5000 (populated in decider pk constructor)
+arithmetic    :	1760/56000
+delta range   :	1754/18000
+elliptic      :	2/6000
+auxiliary     :	26/26000
+poseidon ext  :	2/17000
+poseidon int  :	2/92000[0m[39m
+[20:54:27.789] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - overflow      :	0/0
+
+allocating polynomials object in proving key...[0m[39m
+[20:54:27.831] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - populating trace...[0m[39m
+[20:54:27.839] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - time to construct proving key: 54 ms.
+getting honk vk... precomputed?: 0[0m[39m
+[20:54:28.125] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computing oink proof...[0m[39m
+[20:54:28.219] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - oink proof constructed[0m[39m
+[20:54:28.262] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs: 16[0m[39m
+[20:54:28.263] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs after adding default: 32
+Constructing DeciderProvingKey[0m[39m
+[20:54:28.265] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Gate blocks summary: (actual gates / fixed capacity)
+goblin ecc op :	44/1024
+busread       :	12/6000
+lookups       :	2/15000
+pub inputs    :	32/5000 (populated in decider pk constructor)
+arithmetic    :	4133/56000
+delta range   :	2034/18000
+elliptic      :	2/6000
+auxiliary     :	110/26000
+poseidon ext  :	822/17000
+poseidon int  :	4676/92000
+overflow      :	0/0
+
+allocating polynomials object in proving key...[0m[39m
+[20:54:28.306] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - populating trace...[0m[39m
+[20:54:28.318] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - time to construct proving key: 55 ms.
+getting honk vk... precomputed?: 0[0m[39m
+[20:54:28.537] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computing folding proof[0m[39m
+[20:54:28.646] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - oink prover on each incomplete key[0m[39m
+[20:54:28.734] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - perturbator round[0m[39m
+[20:54:28.763] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - combiner quotient round[0m[39m
+[20:54:28.857] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - folded
+constructed folding proof[0m[39m
+[20:54:28.930] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs: 20[0m[39m
+[20:54:28.931] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs after adding default: 36
+Constructing DeciderProvingKey[0m[39m
+[20:54:28.933] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Gate blocks summary: (actual gates / fixed capacity)
+goblin ecc op :	380/1024
+busread       :	3/6000
+lookups       :	2/15000
+pub inputs    :	36/5000 (populated in decider pk constructor)
+arithmetic    :	5699/56000
+delta range   :	2314/18000
+elliptic      :	2/6000
+auxiliary     :	50/26000
+poseidon ext  :	1262/17000
+poseidon int  :	7184/92000
+overflow      :	0/0
+
+allocating polynomials object in proving key...[0m[39m
+[20:54:29.011] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - populating trace...[0m[39m
+[20:54:29.029] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - time to construct proving key: 98 ms.
+getting honk vk... precomputed?: 0[0m[39m
+[20:54:29.269] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computing folding proof[0m[39m
+[20:54:29.359] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - oink prover on each incomplete key[0m[39m
+[20:54:29.448] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - perturbator round[0m[39m
+[20:54:29.476] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - combiner quotient round[0m[39m
+[20:54:29.591] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - folded
+constructed folding proof[0m[39m
+[20:54:29.592] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Largest circuit: 16516 gates. Trace details:[0m[39m
+[20:54:29.592] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - 
+prove decider...
+finished decider proving.[0m[39m
+[20:54:29.592] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - ecc_op              : 380	busread             : 12	lookup              : 2	pub_inputs          : 36
+arithmetic          : 5699	delta_range         : 2314	elliptic            : 2	aux                 : 110
+poseidon2_external  : 1262	poseidon2_internal  : 7184	overflow            : 0	[0m[39m
+[20:54:29.658] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - starting sumcheck rounds...[0m[39m
+[20:54:29.709] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - completed 18 rounds of sumcheck[0m[39m
+[20:54:29.974] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - executed multivariate-to-univariate reduction[0m[39m
+[20:54:30.002] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computed opening proof[0m[39m
+[20:54:30.095] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in construct_hiding_circuit_key, num_public_inputs: 4[0m[39m
+[20:54:30.142] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Constructing DeciderProvingKey[0m[39m
+[20:54:30.146] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - allocating polynomials object in proving key...[0m[39m
+[20:54:30.178] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - populating trace...[0m[39m
+[20:54:30.200] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - time to construct proving key: 58 ms.
+in construct_hiding_circuit_key, num_public_inputs: 20[0m[39m
+[20:54:30.489] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - created oink proof[0m[39m
+[20:54:30.625] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - starting sumcheck rounds...[0m[39m
+[20:54:30.853] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - completed 16 rounds of sumcheck[0m[39m
+[20:54:31.073] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - executed multivariate-to-univariate reduction[0m[39m
+[20:54:31.085] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computed opening proof[0m[39m
+[20:54:31.085] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Constructing a Goblin proof with num ultra ops = 990
+prove eccvm...[0m[39m
+[20:54:31.863] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - starting sumcheck rounds...[0m[39m
+[20:54:32.221] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - completed 16 rounds of sumcheck[0m[39m
+[20:54:33.628] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - finished eccvm proving.
+prove translator...[0m[39m
+[20:54:34.279] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - starting sumcheck rounds...[0m[39m
+[20:54:34.663] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - completed 18 rounds of sumcheck[0m[39m
+[20:54:35.251] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computed opening proof[0m[39m
+[20:54:35.256] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - finished translator proving.[0m[39m
+[20:54:35.256] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - verifying ClientIVC proof...[0m[39m
+[20:54:35.258] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Mega vk: circuit_size: 65536
+log_circuit_size: 16
+num_public_inputs: 20
+pub_inputs_offset: 562
+contains_pairing_point_accumulator: 1
+pairing_point_accumulator_public_input_indices: [ 4 5 6 7 8 9 a b c d e f 10 11 12 13 ]
+databus_propagation_data: 0,
+0,
+0
+
+q_m: { 0x1b9b8d32536b2f164dca47b2c9b1ba43ec852536f7146bb4818d5e24fd22ddeb, 0x04ee6b5aaad87fbf4eb639ed9bb4925004440e9549597683a66b1f139a1b7e27 }
+q_c: { 0x05551000a52df9318c505e9daf54d5dd00b77f71dcab2ea668654d3032d3cd83, 0x075611eddc50b7f708dd0bb42b614c998fe026acee6283294988f6e724d92225 }
+q_l: { 0x1a28c743aa8b60ef0f4a5be77596b7fde4c5f09a16591cd762e5603909d8cbb0, 0x25d2750cd1ac777169d54a53b35e7dcc6dd2ff2cdf2f258a3c66d321839f4442 }
+q_r: { 0x05307d922936d1b3b50089f0d6a314446d9922f53b107eed0a0ab4fdbf2f4697, 0x0ed5e1c0473923acec5ca0d8e16cb8544a0cd23fc47d2ceb7633ce9bf0aec77b }
+q_o: { 0x1d0b3fdee3cb92fea5af61565dfe31757e22645754ec2f5ff194c36c64c79ddc, 0x1b352e8195682a5aa24fa4c82de9ada7cbbd2e5c7f498810bbd98a335e44e563 }
+q_4: { 0x29f17e00e952eecf630eee5203397fde851fd3c07553514dedb1334257f6a8df, 0x224508e46b6d494df9d29768772710f845f2c7b8a66a80eb07dabdf630175566 }
+q_busread: { 0x1cc18cb32f0e3e24d3d575ca5cb12cb2f93142c8f03635007f81d567451a5e48, 0x070ca8a0b3330cc79c2827795a1fb1e148b3ff5e76fc99b7028baf27a7be6d56 }
+q_lookup: { 0x1d8ca6bcc53fa4a6c4bf0a563af1cc8e1238e7d8f58326e35c35e301778332b0, 0x0d32337f993d618065b0d6115c922612ee2bd4c3f16ecf887551549e19db9f54 }
+q_arith: { 0x1d2463fca973f8ef944d35282808e7826a7096e6052dac3beb3635e788685353, 0x248a73c328ef5d23600187bda86b3177b5f989657b83e48c3a5f93fff2db6d05 }
+q_delta_range: { 0x29ce44e6731732e51833bae5ab4d2bd37f07ec69e4c9488ad37af5c1dccf4b92, 0x14c19c9ef83e66418e994b849bc7658d82ba36e1044db7a9ffd89bcf6b0eb468 }
+q_elliptic: { 0x27ef3c0924a84ce2161f48e7dd3c1e49271bb626b4aea158e8beb6d5c0e610b6, 0x17641610eda28b08b2ddb124e9eff0315fca5c2ab172a43948341627924d924a }
+q_aux: { 0x2bab7f23e33d16967909e9f9c257016806f13e5fbba5bf60c99af4e77769a291, 0x0e23119c3016f45aec8ba72cf9cb5d94e3e8ecf95c0364947779e7ba7f363f74 }
+q_poseidon2_external: { 0x1281a393677a0611f4ec4f990de4c7ced470a3102378a3bebfeb7a93bc6cf8f0, 0x0a6306e52bec36a2222b04620d9c8b0380e9e55ed68a4754df2a974c77759e20 }
+q_poseidon2_internal: { 0x119c7e5b5e44a0494d1a5399a7787bdaef91b39d5c1f3a83724d36a46c18de5d, 0x15f86ca58d1a6169ce9b2740461045588a0bdc1787853b70e60f2b2cd98b168c }
+sigma_1: { 0x277f88efe679ed8fde329e8ba117895cb03985bae477eacc0b9bd033ebca5913, 0x0167f5b16e0e9877dee10cf7f36985a3a6a3569be193531e57c4a0f737402bdb }
+sigma_2: { 0x2b5b553358fb054638f033d2186d8cb12cd0d856fe98b8f88aad521aa08f345f, 0x1e88b8d1b461f8d85335a2dbc1ca652c3a5b79647cf60e69afbf7c5a64333a38 }
+sigma_3: { 0x025a6683dc52837a2585b2ff28e1dd5032498641bbf34e8759e1cc18d3c3f763, 0x22a0fda9133a2fc6c1a280af2b170a6d4e44eb2f5a1ff5219963ac91fa56ab8a }
+sigma_4: { 0x080ff152d775a98a5aa77e3817fb0f15894f8fe79039cce763c7ebb6a0b1952d, 0x2182b38a8659d0fb2b78c586028e05c1a8c98c7ce21709c5d677626513cbb39e }
+id_1: { 0x1a2cc2f78aeceee9d017fce1fa08268fb45b3f0c1739d331d7a4761311937a98, 0x01668c03e52322daaf1dc0f364022d04dee0e2917430d4654126d4b28599f299 }
+id_2: { 0x1b443b7ca263cc59412d1eedd5aa79cc81db2e7dfea3d56233216623e30b7bb7, 0x08daea75a9bd4207efdc0f634ebc8183f4e360e037df705117e1cb11b055816b }
+id_3: { 0x1f94504141d3f6026c80505777762a38d696e21f6fb3030dab6a23a967540506, 0x2fdb798074eb007d7f23c6089570f7eb928599c51dc9e30b914f8ed58b8b2e2a }
+id_4: { 0x0e6f62365b9ef1f3b7a74406cdc48d01fe16d2e2d17adb261464e6a1bc0394b6, 0x11d7bdd0865d61c43fbdedf706bbb3ad1fc25c696e26aa2b3359da1dafb84e17 }
+table_1: { 0x1552ad81dc6198e27100edf0ad87d17ba527ad2d3d92e2595d7e5a2a528c04ac, 0x01a32c508d0ec864b2b4c94b86779919ec364069eed0cbc0766cc60d737b0f61 }
+table_2: { 0x16493be27b2be3900ae809c9d9b1c9d06c00af264e84c0a0206be898f801d8fb, 0x21500716d140b612228d9045d7a41b37eb784c9a9fc4496c2068f61c7c2f2eec }
+table_3: { 0x16128d0543983dda6c92f76bf48094079073f94c366a67b3726252348a86052f, 0x1524115ef70497225c83baddae50cf26e08f8051a96a8192408e0f9283f43a97 }
+table_4: { 0x2f8c9d6c493fa6e122d29d25f071b022cc7c28811db4bdffa464e86d8e0d6d65, 0x1b9d31db228af439ad5c0a19842ebb590219ccc9c6e4981f02754192eae2959e }
+lagrange_first: { 0x0000000000000000000000000000000000000000000000000000000000000001, 0x0000000000000000000000000000000000000000000000000000000000000002 }
+lagrange_last: { 0x00b30423cb456e1d57efe1ae8fb375c30e33143a7d2bb4541335edefd48e8459, 0x260796bd2b38c67838c8de1e486e72056ef142a2191c2f5253a80a592784827f }
+lagrange_ecc_op: { 0x07ea8405b1fd210ec8f6eee7c3ae0742172938be1070b2c352fbdebfe4fb1598, 0x1d74cd5a122a0cc6619c67e8757082ce7382a3679f9c9c12198d19d6feed3363 }
+databus_id: { 0x14567e2c3e84fc1e3e69d81f6ce5808ca9a0451964a7bbabbd9e369db7556253, 0x0378926f150c30c760965df469ae6ed609c59feecf899f2b95aff519bbf3fb3c }
+[0m[39m
+[20:54:35.269] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Mega verified: 1[0m[39m
+[20:54:35.304] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - eccvm sumcheck verified?: 1
+batch opening verified?: 1[0m[39m
+[20:54:35.319] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - merge verified?: 1
+eccvm verified?: 1
+accumulator construction_verified?: 1
+translation verified?: 1[0m[39m
+[20:54:35.319] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Goblin verified: 1
+writing ClientIVC proof in directory "/tmp/bb-client-ivc-integration-KYZ2Q6"[0m[39m
+[20:54:35.319] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - writing ClientIVC vk in directory "/tmp/bb-client-ivc-integration-KYZ2Q6"
+using cached bn254 crs of size 33554433 at "/mnt/user-data/lucas/.bb-crs/bn254_g1.dat"[0m[39m
+[20:54:35.541] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Initialized BN254 prover CRS from memory with num points = 1048577
+using cached grumpkin crs of size 262145 at: "/mnt/user-data/lucas/.bb-crs/grumpkin_g1.dat"[0m[39m
+[20:54:35.553] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Initialized Grumpkin prover CRS from memory with num points = 65537[0m[39m
+[20:54:35.554] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - num_public_inputs_in_final_circuit: 4
+BN254 commitment key size: 262144[0m[39m
+[20:54:35.560] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - is kernel: 0[0m[39m
+[20:54:35.579] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs: 1[0m[39m
+[20:54:35.580] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs after adding default: 17
+Constructing DeciderProvingKey[0m[39m
+[20:54:35.582] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Gate blocks summary: (actual gates / fixed capacity)
+goblin ecc op :	10/1024
+busread       :	3/6000
+lookups       :	2/15000
+pub inputs    :	17/5000 (populated in decider pk constructor)
+arithmetic    :	1773/56000
+delta range   :	1754/18000
+elliptic      :	2/6000
+auxiliary     :	26/26000
+poseidon ext  :	2/17000
+poseidon int  :	2/92000[0m[39m
+[20:54:35.583] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - overflow      :	0/0
+
+allocating polynomials object in proving key...[0m[39m
+[20:54:35.618] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - populating trace...[0m[39m
+[20:54:35.627] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - time to construct proving key: 46 ms.
+getting honk vk... precomputed?: 0[0m[39m
+[20:54:35.922] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computing oink proof...[0m[39m
+[20:54:36.016] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - oink proof constructed[0m[39m
+[20:54:36.016] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - is kernel: 1[0m[39m
+[20:54:36.028] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - circuit 1 number public inputs: 20[0m[39m
+[20:54:36.055] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs: 20[0m[39m
+[20:54:36.056] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in accumulate, num public inputs after adding default: 36
+Constructing DeciderProvingKey[0m[39m
+[20:54:36.058] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Gate blocks summary: (actual gates / fixed capacity)
+goblin ecc op :	44/1024
+busread       :	3/6000
+lookups       :	2/15000
+pub inputs    :	36/5000 (populated in decider pk constructor)
+arithmetic    :	3980/56000
+delta range   :	2021/18000
+elliptic      :	2/6000
+auxiliary     :	50/26000
+poseidon ext  :	822/17000
+poseidon int  :	4676/92000
+overflow      :	0/0
+
+allocating polynomials object in proving key...[0m[39m
+[20:54:36.104] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - populating trace...[0m[39m
+[20:54:36.111] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - time to construct proving key: 56 ms.
+getting honk vk... precomputed?: 0[0m[39m
+[20:54:36.348] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computing folding proof[0m[39m
+[20:54:36.456] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - oink prover on each incomplete key[0m[39m
+[20:54:36.542] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - perturbator round[0m[39m
+[20:54:36.570] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - combiner quotient round[0m[39m
+[20:54:36.646] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - folded
+constructed folding proof[0m[39m
+[20:54:36.646] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - circuit 1 number public inputs: 36
+honk vk number public inputs: 36
+Largest circuit: 11556 gates. Trace details:
+
+prove decider...
+finished decider proving.[0m[39m
+[20:54:36.647] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - ecc_op              : 44	busread             : 3	lookup              : 2	pub_inputs          : 36
+arithmetic          : 3980	delta_range         : 2021	elliptic            : 2	aux                 : 50
+poseidon2_external  : 822	poseidon2_internal  : 4676	overflow            : 0	[0m[39m
+[20:54:36.690] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - starting sumcheck rounds...[0m[39m
+[20:54:36.743] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - completed 18 rounds of sumcheck[0m[39m
+[20:54:36.990] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - executed multivariate-to-univariate reduction[0m[39m
+[20:54:37.019] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - computed opening proof[0m[39m
+[20:54:37.083] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - in construct_hiding_circuit_key, num_public_inputs: 4[0m[39m
+[20:54:37.122] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - Constructing DeciderProvingKey[0m[39m
+[20:54:37.125] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - allocating polynomials object in proving key...[0m[39m
+[20:54:37.158] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - populating trace...[0m[39m
+[20:54:37.177] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb - time to construct proving key: 54 ms.
+in construct_hiding_circuit_key, num_public_inputs: 20[0m[39m
+[20:54:37.440] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mExecuting BB with: /mnt/user-data/lucas/aztec-packages/barretenberg/cpp/build/bin/bb verify --scheme client_ivc -p /tmp/bb-client-ivc-integration-KYZ2Q6/proof -k /tmp/bb-client-ivc-integration-KYZ2Q6/vk -v[0m[39m
+[20:54:37.457] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mbb command: verify[0m[39m
+[20:54:37.458] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mScheme is: client_ivc, num threads: 192
+  --proof_path: /tmp/bb-client-ivc-integration-KYZ2Q6/proof
+  --vk_path: /tmp/bb-client-ivc-integration-KYZ2Q6/vk
+  --verbose: true
+  --scheme: client_ivc
+using cached bn254 crs of size 33554433 at "/mnt/user-data/lucas/.bb-crs/bn254_g1.dat"[0m[39m
+[20:54:37.458] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mInitialized BN254 prover CRS from memory with num points = 2
+using cached grumpkin crs of size 262145 at: "/mnt/user-data/lucas/.bb-crs/grumpkin_g1.dat"[0m[39m
+[20:54:37.479] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mInitialized Grumpkin prover CRS from memory with num points = 65537[0m[39m
+[20:54:37.585] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mMega vk: circuit_size: 65536
+log_circuit_size: 16
+num_public_inputs: 20
+pub_inputs_offset: 562
+contains_pairing_point_accumulator: 1
+pairing_point_accumulator_public_input_indices: [ 4 5 6 7 8 9 a b c d e f 10 11 12 13 ]
+databus_propagation_data: 0,
+0,
+0
+
+q_m: { 0x1b9b8d32536b2f164dca47b2c9b1ba43ec852536f7146bb4818d5e24fd22ddeb, 0x04ee6b5aaad87fbf4eb639ed9bb4925004440e9549597683a66b1f139a1b7e27 }
+q_c: { 0x05551000a52df9318c505e9daf54d5dd00b77f71dcab2ea668654d3032d3cd83, 0x075611eddc50b7f708dd0bb42b614c998fe026acee6283294988f6e724d92225 }
+q_l: { 0x1a28c743aa8b60ef0f4a5be77596b7fde4c5f09a16591cd762e5603909d8cbb0, 0x25d2750cd1ac777169d54a53b35e7dcc6dd2ff2cdf2f258a3c66d321839f4442 }
+q_r: { 0x05307d922936d1b3b50089f0d6a314446d9922f53b107eed0a0ab4fdbf2f4697, 0x0ed5e1c0473923acec5ca0d8e16cb8544a0cd23fc47d2ceb7633ce9bf0aec77b }
+q_o: { 0x1d0b3fdee3cb92fea5af61565dfe31757e22645754ec2f5ff194c36c64c79ddc, 0x1b352e8195682a5aa24fa4c82de9ada7cbbd2e5c7f498810bbd98a335e44e563 }
+q_4: { 0x29f17e00e952eecf630eee5203397fde851fd3c07553514dedb1334257f6a8df, 0x224508e46b6d494df9d29768772710f845f2c7b8a66a80eb07dabdf630175566 }
+q_busread: { 0x1cc18cb32f0e3e24d3d575ca5cb12cb2f93142c8f03635007f81d567451a5e48, 0x070ca8a0b3330cc79c2827795a1fb1e148b3ff5e76fc99b7028baf27a7be6d56 }
+q_lookup: { 0x1d8ca6bcc53fa4a6c4bf0a563af1cc8e1238e7d8f58326e35c35e301778332b0, 0x0d32337f993d618065b0d6115c922612ee2bd4c3f16ecf887551549e19db9f54 }
+q_arith: { 0x1d2463fca973f8ef944d35282808e7826a7096e6052dac3beb3635e788685353, 0x248a73c328ef5d23600187bda86b3177b5f989657b83e48c3a5f93fff2db6d05 }
+q_delta_range: { 0x29ce44e6731732e51833bae5ab4d2bd37f07ec69e4c9488ad37af5c1dccf4b92, 0x14c19c9ef83e66418e994b849bc7658d82ba36e1044db7a9ffd89bcf6b0eb468 }
+q_elliptic: { 0x27ef3c0924a84ce2161f48e7dd3c1e49271bb626b4aea158e8beb6d5c0e610b6, 0x17641610eda28b08b2ddb124e9eff0315fca5c2ab172a43948341627924d924a }
+q_aux: { 0x2bab7f23e33d16967909e9f9c257016806f13e5fbba5bf60c99af4e77769a291, 0x0e23119c3016f45aec8ba72cf9cb5d94e3e8ecf95c0364947779e7ba7f363f74 }
+q_poseidon2_external: { 0x1281a393677a0611f4ec4f990de4c7ced470a3102378a3bebfeb7a93bc6cf8f0, 0x0a6306e52bec36a2222b04620d9c8b0380e9e55ed68a4754df2a974c77759e20 }
+q_poseidon2_internal: { 0x119c7e5b5e44a0494d1a5399a7787bdaef91b39d5c1f3a83724d36a46c18de5d, 0x15f86ca58d1a6169ce9b2740461045588a0bdc1787853b70e60f2b2cd98b168c }
+sigma_1: { 0x277f88efe679ed8fde329e8ba117895cb03985bae477eacc0b9bd033ebca5913, 0x0167f5b16e0e9877dee10cf7f36985a3a6a3569be193531e57c4a0f737402bdb }
+sigma_2: { 0x2b5b553358fb054638f033d2186d8cb12cd0d856fe98b8f88aad521aa08f345f, 0x1e88b8d1b461f8d85335a2dbc1ca652c3a5b79647cf60e69afbf7c5a64333a38 }
+sigma_3: { 0x025a6683dc52837a2585b2ff28e1dd5032498641bbf34e8759e1cc18d3c3f763, 0x22a0fda9133a2fc6c1a280af2b170a6d4e44eb2f5a1ff5219963ac91fa56ab8a }
+sigma_4: { 0x080ff152d775a98a5aa77e3817fb0f15894f8fe79039cce763c7ebb6a0b1952d, 0x2182b38a8659d0fb2b78c586028e05c1a8c98c7ce21709c5d677626513cbb39e }
+id_1: { 0x1a2cc2f78aeceee9d017fce1fa08268fb45b3f0c1739d331d7a4761311937a98, 0x01668c03e52322daaf1dc0f364022d04dee0e2917430d4654126d4b28599f299 }
+id_2: { 0x1b443b7ca263cc59412d1eedd5aa79cc81db2e7dfea3d56233216623e30b7bb7, 0x08daea75a9bd4207efdc0f634ebc8183f4e360e037df705117e1cb11b055816b }
+id_3: { 0x1f94504141d3f6026c80505777762a38d696e21f6fb3030dab6a23a967540506, 0x2fdb798074eb007d7f23c6089570f7eb928599c51dc9e30b914f8ed58b8b2e2a }
+id_4: { 0x0e6f62365b9ef1f3b7a74406cdc48d01fe16d2e2d17adb261464e6a1bc0394b6, 0x11d7bdd0865d61c43fbdedf706bbb3ad1fc25c696e26aa2b3359da1dafb84e17 }
+table_1: { 0x1552ad81dc6198e27100edf0ad87d17ba527ad2d3d92e2595d7e5a2a528c04ac, 0x01a32c508d0ec864b2b4c94b86779919ec364069eed0cbc0766cc60d737b0f61 }
+table_2: { 0x16493be27b2be3900ae809c9d9b1c9d06c00af264e84c0a0206be898f801d8fb, 0x21500716d140b612228d9045d7a41b37eb784c9a9fc4496c2068f61c7c2f2eec }
+table_3: { 0x16128d0543983dda6c92f76bf48094079073f94c366a67b3726252348a86052f, 0x1524115ef70497225c83baddae50cf26e08f8051a96a8192408e0f9283f43a97 }
+table_4: { 0x2f8c9d6c493fa6e122d29d25f071b022cc7c28811db4bdffa464e86d8e0d6d65, 0x1b9d31db228af439ad5c0a19842ebb590219ccc9c6e4981f02754192eae2959e }
+lagrange_first: { 0x0000000000000000000000000000000000000000000000000000000000000001, 0x0000000000000000000000000000000000000000000000000000000000000002 }
+lagrange_last: { 0x00b30423cb456e1d57efe1ae8fb375c30e33143a7d2bb4541335edefd48e8459, 0x260796bd2b38c67838c8de1e486e72056ef142a2191c2f5253a80a592784827f }
+lagrange_ecc_op: { 0x07ea8405b1fd210ec8f6eee7c3ae0742172938be1070b2c352fbdebfe4fb1598, 0x1d74cd5a122a0cc6619c67e8757082ce7382a3679f9c9c12198d19d6feed3363 }
+databus_id: { 0x14567e2c3e84fc1e3e69d81f6ce5808ca9a0451964a7bbabbd9e369db7556253, 0x0378926f150c30c760965df469ae6ed609c59feecf899f2b95aff519bbf3fb3c }
+[0m[39m
+[20:54:37.596] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mMega verified: 1[0m[39m
+[20:54:37.639] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0meccvm sumcheck verified?: 1
+batch opening verified?: 1[0m[39m
+[20:54:37.654] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mmerge verified?: 1
+eccvm verified?: 1
+accumulator construction_verified?: 1
+translation verified?: 1[0m[39m
+[20:54:37.659] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mGoblin verified: 1[0m[39m
+[20:54:37.662] [32mINFO[39m: [36m[1mivc-integration:test:native[22m [0mverified: 1[0m[39m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/[22m[1mnative_client_ivc_integration.test.ts[22m ([0m[1m[41m12.945 s[49m[22m[0m)
+  Client IVC Integration
+    [32m✓[39m [2mShould generate a verifiable client IVC proof from a simple mock tx (10415 ms)[22m
+
+[1mTest Suites: [22m[1m[32m1 passed[39m[22m, 1 total
+[1mTests:       [22m[1m[32m1 passed[39m[22m, 1 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        12.989 s, estimated 14 s
+[2mRan all test suites[22m[2m matching [22m/ivc-integration\/src\/native_client_ivc_integration.test.ts/i[2m.[22m
+[1mForce exiting Jest: [22mHave you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

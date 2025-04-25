@@ -32,7 +32,7 @@ namespace bb {
  * @details This is the equivalent of ω in the paper.
  */
 
-template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
+template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -175,7 +175,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
             proving_key.ipa_proof = circuit.ipa_proof;
         }
-        // Set the pairing point accumulator indices
+        // Set the pairing point accumulator indices. This should exist for all flavors.
         ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
                "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a "
                "default one through a method in aggregation_state.");
