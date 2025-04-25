@@ -271,7 +271,7 @@ case "$cmd" in
 
     # noir-protocol-circuits benchmarks.
     noir-projects/noir-protocol-circuits/bootstrap.sh bench
-    mv noir-projects/bench-out/* ./bench-out/
+    mv noir-projects/noir-protocol-circuits/bench-out/* ./bench-out/
 
     # yarn-project benchmarks.
     if [ "$yp_hash" == "$prev_yp_hash" ]; then
