@@ -276,6 +276,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-full-node-cert
 spec:
   domains:
+  # Note: A record must be added in this domain to point at  {{ .Values.fullNode.fixedStaticIpName }}
   - {{ .Values.fullNode.staticIpUrl }}
 ---
 apiVersion: networking.k8s.io/v1
