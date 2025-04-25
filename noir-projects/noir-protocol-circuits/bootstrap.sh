@@ -202,7 +202,14 @@ function test {
 }
 
 function bench {
+  # We assume that the caller has bb installed and all of the protocol circuit artifacts are in `./target`
+
   rm -rf bench-out && mkdir -p bench-out
+  # Here we just cache based off of the git commit
+  local hash=$(git -C noir-repo rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+  if cache_download noir-protocol-circuits-bench-results-$hash.tar.gz; then
+    return
+  fi
 
   local MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "../client_ivc_circuits.json")
   local ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "../rollup_honk_circuits.json")
@@ -245,6 +252,8 @@ function bench {
   local metrics=$(jq '.functions[0] | .name = (input_filename | split ("/")[-1])' $outdir/*)
   echo $metrics | jq -s 'map({ name, unit: "opcodes", value: .acir_opcodes })' > ./bench-out/protocol-circuits-opcodes-bench.json
   echo $metrics | jq -s 'map({ name, unit: "gates", value: .circuit_size })' > ./bench-out/protocol-circuits-gates-bench.json
+
+  cache_upload noir-protocol-circuits-bench-results-$hash.tar.gz ./bench-out/*
 }
 
 case "$cmd" in
