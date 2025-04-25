@@ -86,7 +86,6 @@ export function CreateContractDialog({
   const handleParameterChange = (index, value) => {
     parameters[index] = value;
     setParameters(parameters);
-    console.log('change', parameters);
   };
 
   const handleClose = () => {

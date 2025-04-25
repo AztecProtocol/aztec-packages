@@ -41,7 +41,7 @@ const launchIcon = css({
 export function TxsPanel({ ...props }) {
   const [transactions, setTransactions] = useState([]);
 
-  const { currentTx, currentContractAddress, walletDB } = useContext(AztecContext);
+  const { currentTx, walletDB } = useContext(AztecContext);
 
   useEffect(() => {
     const refreshTransactions = async () => {
@@ -51,7 +51,6 @@ export function TxsPanel({ ...props }) {
         txHashes.map(async txHash => {
           const txData = await walletDB.retrieveTxData(txHash);
           return {
-            contractAddress: currentContractAddress,
             txHash: txData.txHash,
             status: convertFromUTF8BufferAsString(txData.status),
             name: convertFromUTF8BufferAsString(txData.name),
@@ -60,13 +59,6 @@ export function TxsPanel({ ...props }) {
         }),
       );
       txs.sort((a, b) => (b.date >= a.date ? -1 : 1));
-      if (
-        currentTx &&
-        currentTx.contractAddress === currentContractAddress &&
-        (!currentTx.txHash || !txs.find(tx => tx.txHash.equals(currentTx.txHash)))
-      ) {
-        txs.unshift(currentTx);
-      }
       setTransactions(txs);
     };
 
@@ -75,7 +67,6 @@ export function TxsPanel({ ...props }) {
     } else {
       setTransactions([]);
     }
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [currentTx, walletDB]);
 
   return (
@@ -103,11 +94,6 @@ export function TxsPanel({ ...props }) {
                 {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}
               </Typography>
             </div>
-            {tx.contractAddress && (
-              <Typography variant="body2">
-                {tx.name}@{formatFrAsString(tx.contractAddress.toString())}
-              </Typography>
-            )}
           </a>
         ))}
       </div>
