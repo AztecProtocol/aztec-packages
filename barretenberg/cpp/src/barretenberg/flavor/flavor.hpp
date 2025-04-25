@@ -83,6 +83,7 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 
 #include <array>
 #include <concepts>
@@ -127,8 +128,7 @@ struct ActiveRegionData {
 template <typename FF, typename CommitmentKey_> class ProvingKey_ {
   public:
     size_t circuit_size;
-    bool contains_pairing_point_accumulator;
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
+    PublicComponentKey pairing_inputs_public_input_key;
     bb::EvaluationDomain<FF> evaluation_domain;
     std::shared_ptr<CommitmentKey_> commitment_key;
     size_t num_public_inputs;
@@ -173,8 +173,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     FF_ log_circuit_size;
     FF_ num_public_inputs;
     FF_ pub_inputs_offset = 0;
-    bool contains_pairing_point_accumulator = false;
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
+    PublicComponentKey pairing_inputs_public_input_key;
 
     bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;
@@ -204,8 +203,7 @@ class VerificationKey_ : public PrecomputedCommitments {
         serialize_to_field_buffer(this->circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
-        serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
+        serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
 
         for (const Commitment& commitment : this->get_all()) {
             serialize_to_field_buffer(commitment, elements);

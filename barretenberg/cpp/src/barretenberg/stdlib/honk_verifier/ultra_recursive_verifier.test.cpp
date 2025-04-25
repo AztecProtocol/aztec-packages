@@ -167,6 +167,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 verifier_output.ipa_claim.set_public();
                 outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
             }
+            verifier_output.agg_obj.set_public();
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =
@@ -176,10 +177,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         };
 
         auto [blocks_10, verification_key_10] = get_blocks(10);
-        auto [blocks_11, verification_key_11] = get_blocks(11);
+        auto [blocks_14, verification_key_14] = get_blocks(14);
 
-        compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_10, blocks_11 },
-                                                                { verification_key_10, verification_key_11 });
+        compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_10, blocks_14 },
+                                                                { verification_key_10, verification_key_14 });
     }
 
     /**
@@ -208,6 +209,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             output.ipa_claim.set_public();
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
         }
+        output.agg_obj.set_public();
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit

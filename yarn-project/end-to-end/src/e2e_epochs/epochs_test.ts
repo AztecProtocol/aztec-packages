@@ -31,7 +31,10 @@ export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 
 export type EpochsTestOpts = Partial<
-  Pick<SetupOptions, 'startProverNode' | 'aztecProofSubmissionWindow' | 'aztecEpochDuration' | 'proverTestDelayMs'>
+  Pick<
+    SetupOptions,
+    'startProverNode' | 'aztecProofSubmissionWindow' | 'aztecEpochDuration' | 'proverTestDelayMs' | 'proverNodeConfig'
+  >
 >;
 
 /**
@@ -143,8 +146,8 @@ export class EpochsTestContext {
       createAndSyncProverNode(
         proverNodePrivateKey,
         { ...this.context.config, proverId: Fr.fromString(suffix) },
+        { dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')) },
         this.context.aztecNode,
-        join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
       ),
     );
     this.proverNodes.push(proverNode);

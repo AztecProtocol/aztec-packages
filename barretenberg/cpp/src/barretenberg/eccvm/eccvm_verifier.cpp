@@ -18,7 +18,7 @@ namespace bb {
 bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -55,7 +55,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(CONST_ECCVM_LOG_N, transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -84,8 +84,12 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
+
+    std::array<FF, CONST_ECCVM_LOG_N> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, FF{ 1 });
+
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
-        Shplemini::compute_batch_opening_claim(CONST_ECCVM_LOG_N,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),
