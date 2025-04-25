@@ -207,10 +207,8 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
     app: full-node
   annotations:
-    {{- if .Values.network.public }}
     {{- if hasKey .Values.fullNode "fixedStaticIpName" }}
     cloud.google.com/backend-config: '{"default": "{{ include "aztec-network.fullname" . }}-full-node-backend-config"}'
-    {{- end }}
     {{- end }}
 spec:
   # If this is a public network, we want to expose the fulls node as a LoadBalancer
