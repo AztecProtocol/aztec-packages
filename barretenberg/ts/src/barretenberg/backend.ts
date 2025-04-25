@@ -18,6 +18,16 @@ export class AztecClientBackendError extends Error {
   }
 }
 
+/**
+ * Options for the proving process.
+ */
+export interface ProveOptions {
+  /**
+   * AbortSignal that can be used to cancel the proving process.
+   */
+  abortSignal?: AbortSignal;
+}
+
 // Utility for parsing gate counts from buffer
 // TODO: Where should this logic live? Should go away with move to msgpack.
 function parseBigEndianU32Array(buffer: Uint8Array): number[] {
@@ -25,7 +35,6 @@ function parseBigEndianU32Array(buffer: Uint8Array): number[] {
 
   let offset = 0;
   const count = buffer.byteLength >>> 2; // default is entire buffer length / 4
-  console.log(buffer);
 
   const out: number[] = new Array(count);
   for (let i = 0; i < count; i++) {
@@ -77,26 +86,29 @@ export class UltraPlonkBackend {
   }
 
   /** @description Generates a proof */
-  async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
+  async generateProof(compressedWitness: Uint8Array, options?: ProveOptions): Promise<ProofData> {
     await this.instantiate();
-    const proofWithPublicInputs = await this.api.acirCreateProof(
-      this.acirComposer,
-      this.acirUncompressedBytecode,
-      this.circuitOptions.recursive,
-      gunzip(compressedWitness),
-    );
+    
+    return withAbort(options?.abortSignal, async () => {
+      const proofWithPublicInputs = await this.api.acirCreateProof(
+        this.acirComposer,
+        this.acirUncompressedBytecode,
+        this.circuitOptions.recursive,
+        gunzip(compressedWitness),
+      );
+      
+      // This is the number of bytes in a UltraPlonk proof
+      // minus the public inputs.
+      const numBytesInProofWithoutPublicInputs = 2144;
 
-    // This is the number of bytes in a UltraPlonk proof
-    // minus the public inputs.
-    const numBytesInProofWithoutPublicInputs = 2144;
+      const splitIndex = proofWithPublicInputs.length - numBytesInProofWithoutPublicInputs;
 
-    const splitIndex = proofWithPublicInputs.length - numBytesInProofWithoutPublicInputs;
+      const publicInputsConcatenated = proofWithPublicInputs.slice(0, splitIndex);
+      const proof = proofWithPublicInputs.slice(splitIndex);
+      const publicInputs = deflattenFields(publicInputsConcatenated);
 
-    const publicInputsConcatenated = proofWithPublicInputs.slice(0, splitIndex);
-    const proof = proofWithPublicInputs.slice(splitIndex);
-    const publicInputs = deflattenFields(publicInputsConcatenated);
-
-    return { proof, publicInputs };
+      return { proof, publicInputs };
+    });
   }
 
   /**
@@ -219,35 +231,37 @@ export class UltraHonkBackend {
     }
   }
 
-  async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
+  async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions & ProveOptions): Promise<ProofData> {
     await this.instantiate();
 
-    const proveUltraHonk = options?.keccak
-      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-      : options?.starknet
-        ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-        : this.api.acirProveUltraHonk.bind(this.api);
+    return withAbort(options?.abortSignal, async () => {
+      const proveUltraHonk = options?.keccak
+        ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
+          : this.api.acirProveUltraHonk.bind(this.api);
 
-    const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
+      const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
 
-    // Write VK to get the number of public inputs
-    const writeVKUltraHonk = options?.keccak
-      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
-      : options?.starknet
-        ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-        : this.api.acirWriteVkUltraHonk.bind(this.api);
+      // Write VK to get the number of public inputs
+      const writeVKUltraHonk = options?.keccak
+        ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+          : this.api.acirWriteVkUltraHonk.bind(this.api);
 
-    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
-    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
+      const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
+      const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
 
-    // Item at index 1 in VK is the number of public inputs
-    const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
-    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - AGGREGATION_OBJECT_LENGTH;
+      // Item at index 1 in VK is the number of public inputs
+      const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
+      const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - AGGREGATION_OBJECT_LENGTH;
 
-    const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
-    const publicInputs = deflattenFields(publicInputsBytes);
+      const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
+      const publicInputs = deflattenFields(publicInputsBytes);
 
-    return { proof, publicInputs };
+      return { proof, publicInputs };
+    });
   }
 
   async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
@@ -325,6 +339,7 @@ export class UltraHonkBackend {
     await this.api.destroy();
   }
 }
+
 interface AztecClientExecutionStep {
   functionName: string;
   gateCount?: number;
@@ -374,7 +389,8 @@ export class AztecClientBackend {
     }
   }
 
-  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array, Uint8Array]> {
+  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = [], options?: ProveOptions): Promise<[Uint8Array, Uint8Array]> {
+    // Validate parameters
     if (vksBuf.length !== 0 && this.acirBuf.length !== witnessBuf.length) {
       throw new AztecClientBackendError('Witness and bytecodes must have the same stack depth!');
     }
@@ -382,14 +398,21 @@ export class AztecClientBackend {
       // NOTE: we allow 0 as an explicit 'I have no VKs'. This is a deprecated feature.
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
+    
     await this.instantiate();
-    const ivcInputsBuf = serializeAztecClientExecutionSteps(this.acirBuf, witnessBuf, vksBuf);
-    const proofAndVk = await this.api.acirProveAztecClient(ivcInputsBuf);
-    const [proof, vk] = proofAndVk;
-    if (!(await this.verify(proof, vk))) {
-      throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
-    }
-    return proofAndVk;
+
+    return withAbort(options?.abortSignal, async () => {
+      const ivcInputs = serializeAztecClientExecutionSteps(this.acirBuf, witnessBuf, vksBuf);
+      
+      const proofAndVk = await this.api.acirProveAztecClient(ivcInputs);
+      
+      const [proof, vk] = proofAndVk;
+      if (!(await this.verify(proof, vk))) {
+        throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
+      }
+      
+      return proofAndVk;
+    });
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
@@ -432,4 +455,40 @@ function base64Decode(input: string): Uint8Array {
   } else {
     throw new Error('No implementation found for base64 decoding.');
   }
+}
+
+/**
+ * Helper function to wrap promises with abort signal support
+ * @param signal AbortSignal to abort the operation
+ * @param fn Function that returns a promise
+ */
+function withAbort<T>(signal: AbortSignal | undefined, fn: () => Promise<T>): Promise<T> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Proving aborted', 'AbortError'));
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    let aborted = false;
+    
+    const abortHandler = () => {
+      aborted = true;
+      reject(new DOMException('Proving aborted', 'AbortError'));
+    };
+    
+    signal?.addEventListener('abort', abortHandler, { once: true });
+    
+    fn()
+      .then((result) => {
+        signal?.removeEventListener('abort', abortHandler);
+        if (!aborted) {
+          resolve(result);
+        }
+      })
+      .catch((error) => {
+        signal?.removeEventListener('abort', abortHandler);
+        if (!aborted) {
+          reject(error);
+        }
+      });
+  });
 }

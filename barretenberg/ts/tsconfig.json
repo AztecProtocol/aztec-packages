@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "lib": ["dom", "esnext", "es2017.object"],
+    "lib": ["dom", "dom.iterable", "esnext", "es2017.object"],
     "module": "NodeNext",
     "strict": true,
     "declaration": true,
