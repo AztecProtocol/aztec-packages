@@ -474,15 +474,13 @@ export function Landing() {
                 (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
             </Box>
 
-            <Tooltip title={!isPXEInitialized ? 'Please connect to a network first' : ''}>
-              <Button variant="contained"
-                css={featureCardButton}
-                onClick={handleCreateAccountButtonClick}
-                disabled={isCreatingAccount || !isPXEInitialized}
-              >
-                {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
-              </Button>
-            </Tooltip>
+            <Button variant="contained"
+              css={featureCardButton}
+              onClick={handleCreateAccountButtonClick}
+              disabled={isCreatingAccount || !isPXEInitialized}
+            >
+              {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
+            </Button>
           </div>
 
           <div css={featureCard}>
