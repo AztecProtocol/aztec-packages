@@ -3,7 +3,6 @@ use std::{collections::umap::UHashMap, hash::BuildHasherDefault};
 
 use super::utils::AsStrQuote;
 use super::utils::get_storage_size;
-use super::utils::is_note;
 
 /// Stores a map from a module to the name of the struct that describes its storage layout.
 /// This is then used when generating a `storage_layout()` getter on the contract struct.
@@ -129,13 +128,7 @@ comptime fn generate_storage_field_constructor(
             let (_, container_struct_generics) = typ.as_data_type().unwrap();
             let stored_struct = container_struct_generics[0];
 
-            if is_note(stored_struct) {
-                // Private notes always occupy a single slot, since the slot is only used as a state variable
-                // identifier.
-                1
-            } else {
-                get_storage_size(typ)
-            }
+            get_storage_size(typ)
         };
 
         // We assume below that all state variables implement `fn new<Context>(context: Context, slot: Field) -> Self`.
