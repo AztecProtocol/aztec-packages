@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745606453155,
+  "lastUpdate": 1745606462330,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "366d98084f5de17c73924b7080e7263d86dc1f05",
-          "message": "chore: Bump Noir reference (#13592)\n\nAutomated pull of nightly from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nfix(brillig): SliceRefCount reads from the appropriate pointer\n(https://github.com/noir-lang/noir/pull/8148)\nchore: remove try_merge_only_changed_indices\n(https://github.com/noir-lang/noir/pull/8142)\nchore(ssa): Test terminator value constant folding and resolve cache for\ndata bus (https://github.com/noir-lang/noir/pull/8132)\nchore: parse nop in SSA parser\n(https://github.com/noir-lang/noir/pull/8141)\nfix(ssa): Do not inline simple recursive functions\n(https://github.com/noir-lang/noir/pull/8127)\nfix: wrapping mul support for u128\n(https://github.com/noir-lang/noir/pull/7941)\nchore: update ACVM doc (https://github.com/noir-lang/noir/pull/8004)\nfix(ssa): Loop range with u1\n(https://github.com/noir-lang/noir/pull/8131)\nfix(acir): Check whether opcodes were laid down for non-equality check\nbefore fetching payload locations\n(https://github.com/noir-lang/noir/pull/8133)\nchore: add a benchmark for opcodes which need a batchable inversion\n(https://github.com/noir-lang/noir/pull/8110)\nchore: create module for array handling in acirgen\n(https://github.com/noir-lang/noir/pull/8119)\nfeat: avoid unnecessary zero check in brillig overflow check\n(https://github.com/noir-lang/noir/pull/8109)\nchore(optimization): Enable experimental ownership clone scheme by\ndefault (https://github.com/noir-lang/noir/pull/8097)\nchore(experimental): Function::simple_optimization for SSA optimizations\n(https://github.com/noir-lang/noir/pull/8102)\nfeat: replace field divisions by constants with multiplication by inv…\n(https://github.com/noir-lang/noir/pull/8053)\nfix(ssa): fix possibility to `Field % Field` operaions in Brillig from\nSSA (https://github.com/noir-lang/noir/pull/8105)\nfix(parser): error on missing let semicolon in trait (and others)\n(https://github.com/noir-lang/noir/pull/8101)\nchore: simpler `make_mutable` in `array_set` optimization\n(https://github.com/noir-lang/noir/pull/8106)\nchore(docs): update bb commands to match 0.84.0\n(https://github.com/noir-lang/noir/pull/8050)\nchore: don't use `set_value_from_id` in `constant_folding`\n(https://github.com/noir-lang/noir/pull/8091)\nfix: add proper handling for `u128` in comptime interpreter\n(https://github.com/noir-lang/noir/pull/8079)\nfeat: Port callstack resolution from aztec to noirjs\n(https://github.com/noir-lang/noir/pull/7642)\nfix(ssa): Do not unroll loop with break\n(https://github.com/noir-lang/noir/pull/8090)\nfeat: `#[allow(dead_code)]`\n(https://github.com/noir-lang/noir/pull/8066)\nchore: don't use `set_value_from_id` in `loop_invariant`\n(https://github.com/noir-lang/noir/pull/8085)\nfeat(experimental): Implement separate `-Zownership` analysis for\nownership pass (https://github.com/noir-lang/noir/pull/7861)\nchore(docs): Add architecture docs\n(https://github.com/noir-lang/noir/pull/7992)\nchore: don't use `set_value_from_id` in `simplify_cfg`\n(https://github.com/noir-lang/noir/pull/8072)\nchore: don't use `set_from_value_id` in `remove_if_else`\n(https://github.com/noir-lang/noir/pull/8070)\nchore: don't use `set_value_from_id` in `remove_bit_shifts`\n(https://github.com/noir-lang/noir/pull/8071)\nfix: replace values in data_bus too\n(https://github.com/noir-lang/noir/pull/8086)\nchore: bump bignum timeout (https://github.com/noir-lang/noir/pull/8080)\nchore: Accept optional test path for emitting integration tests\n(https://github.com/noir-lang/noir/pull/8062)\nfeat: ssa fuzzer (https://github.com/noir-lang/noir/pull/7641)\nfix: Allow more slack in AST calibration for CI\n(https://github.com/noir-lang/noir/pull/8076)\nchore: Print `unsafe { ... }` around calls to Brillig from ACIR in AST\n(https://github.com/noir-lang/noir/pull/8077)\nfix: SSA pass print filter to include the count\n(https://github.com/noir-lang/noir/pull/8074)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2025-04-22T09:43:59Z",
-          "tree_id": "3608dc0155a4e42394374941a5618ec315826855",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/366d98084f5de17c73924b7080e7263d86dc1f05"
-        },
-        "date": 1745318701430,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9361,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2680020314553984,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 147278,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 143363,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2810ccd89e9212191339b8a01c5981673215df7b",
+          "message": "chore: Configure prover coordination in K8s (#13849)\n\nThis PR contains configuration to use full nodes for prover\ncoordination.",
+          "timestamp": "2025-04-25T17:05:19Z",
+          "tree_id": "9376706887ac253bb4b4bec25336f842df5a9fde",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2810ccd89e9212191339b8a01c5981673215df7b"
+        },
+        "date": 1745606461444,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8505,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24347831168243025,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 153656,
             "unit": "us"
           }
         ]
