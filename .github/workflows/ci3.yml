@@ -131,6 +131,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Protocol Circuit Gate Counts
+          benchmark-data-dir-path: "dev/protocol-circuits-bench"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/protocol-circuits-gates-bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
