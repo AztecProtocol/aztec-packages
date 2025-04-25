@@ -226,7 +226,7 @@ export class WalletDB {
 
   async retrieveAccountMetadata(aliasOrAddress: AztecAddress | string, metadataKey: string) {
     const { address } = await this.retrieveAccount(aliasOrAddress);
-    const result = this.#accounts.getAsync(`${address.toString()}:${metadataKey}`);
+    const result = await this.#accounts.getAsync(`${address.toString()}:${metadataKey}`);
     if (!result) {
       throw new Error(`Could not find metadata with key ${metadataKey} for account ${aliasOrAddress}`);
     }
