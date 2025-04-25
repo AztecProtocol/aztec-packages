@@ -181,6 +181,7 @@ export async function snapshotSync(
 
   try {
     // Download the snapshot to a temp location.
+    await mkdir(dataDirectory, { recursive: true });
     downloadDir = await mkdtemp(join(dataDirectory, 'download-'));
     const downloadPaths = makeSnapshotPaths(downloadDir);
     log.info(`Downloading snapshot to ${downloadDir}`, { snapshot, downloadPaths });
@@ -191,7 +192,11 @@ export async function snapshotSync(
     const archiverPath = join(dataDirectory, ARCHIVER_STORE_NAME);
     await prepareTarget(archiverPath, ARCHIVER_DB_VERSION, rollupAddress);
     await rename(downloadPaths.archiver, join(archiverPath, 'data.mdb'));
-    log.info(`Archiver database set up from snapshot`, { path: archiverPath });
+    log.info(`Archiver database set up from snapshot`, {
+      path: archiverPath,
+      dbVersion: ARCHIVER_DB_VERSION,
+      rollupAddress,
+    });
 
     // Same for the world state dbs, only that we do not close them, since we assume they are not yet in use
     const worldStateBasePath = join(dataDirectory, WORLD_STATE_DIR);
@@ -200,7 +205,11 @@ export async function snapshotSync(
       const path = join(worldStateBasePath, dir);
       await mkdir(path, { recursive: true });
       await rename(downloadPaths[name], join(path, 'data.mdb'));
-      log.info(`World state database ${name} set up from snapshot`, { path });
+      log.info(`World state database ${name} set up from snapshot`, {
+        path,
+        dbVersion: WORLD_STATE_DB_VERSION,
+        rollupAddress,
+      });
     }
   } finally {
     if (downloadDir) {
