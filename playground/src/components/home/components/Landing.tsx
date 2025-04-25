@@ -22,7 +22,6 @@ const landingPage = css({
   padding: '0',
   width: '100%',
   height: 'auto',
-  minHeight: '100%',
   flex: 1,
   transition: 'width 0.3s ease-in',
 });
@@ -43,7 +42,7 @@ const cardsContainer = css({
 
 const featureCard = css({
   background: '#CDD1D5',
-  borderRadius: '20px',
+  borderRadius: '10px',
   padding: '25px',
   display: 'flex',
   flexDirection: 'column',
@@ -84,7 +83,7 @@ const contentFrame = css({
   width: '100%',
   backgroundColor: '#E9E9E9',
   borderRadius: '10px',
-  padding: '45px',
+  padding: '1.5rem',
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
@@ -100,7 +99,7 @@ const welcomeSection = css({
   width: '100%',
   height: '260px',
   backgroundColor: '#CDD1D5',
-  borderRadius: '20px',
+  borderRadius: '10px',
   position: 'relative',
   display: 'flex',
   margin: '0 auto 24px auto',
@@ -113,7 +112,7 @@ const welcomeSection = css({
 });
 
 const welcomeContent = css({
-  padding: '39px',
+  padding: '1.5rem 2rem',
   width: '60%',
   '@media (max-width: 1000px)': {
     width: '100%',
@@ -122,22 +121,22 @@ const welcomeContent = css({
 });
 
 const welcomeTitle = css({
-  fontFamily: 'Inter, sans-serif',
+  // fontFamily: 'Inter, sans-serif',
   fontStyle: 'normal',
   fontWeight: 600,
-  fontSize: '22px',
+  fontSize: '24px',
   lineHeight: '130%',
   display: 'flex',
   alignItems: 'center',
   color: '#2D2D2D',
-  marginBottom: '16px',
+  marginBottom: '12px',
 });
 
 const welcomeText = css({
   fontFamily: 'Inter, sans-serif',
   fontStyle: 'normal',
   fontWeight: 400,
-  fontSize: '16px',
+  fontSize: '15px',
   lineHeight: '135%',
   display: 'flex',
   alignItems: 'center',
@@ -146,8 +145,9 @@ const welcomeText = css({
 });
 
 const featureCardButton = css({
-  width: '205px',
-  height: '56px',
+  width: '200px',
+  height: '48px',
+  borderRadius: '6px',
   display: 'flex',
   '&:disabled': {
     backgroundColor: 'var(--mui-palette-primary-main)',
@@ -454,7 +454,7 @@ export function Landing() {
             </div>
           </div>
           <div style={{ width: '40%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <img src={welcomeIconURL} alt="Welcome visualization" style={{ maxWidth: '100%', maxHeight: '200px' }} />
+            <img src={welcomeIconURL} alt="Welcome visualization" style={{ maxWidth: '100%', maxHeight: '180px' }} />
           </div>
         </div>
 

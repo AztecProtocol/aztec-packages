@@ -54,7 +54,7 @@ export function CreateContractDialog({
   ) => void;
   defaultContractCreationParams?: Record<string, unknown>;
 }) {
-  const [alias, setAlias] = useState(defaultContractCreationParams['alias']);
+  const [alias, setAlias] = useState(defaultContractCreationParams['alias'] as string);
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
   const { wallet, walletDB, pxe, node } = useContext(AztecContext);

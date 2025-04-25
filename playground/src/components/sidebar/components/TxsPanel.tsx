@@ -13,7 +13,7 @@ const txData = css({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
-  padding: '12px 16px',
+  padding: '10px 14px',
   backgroundColor: 'var(--mui-palette-primary-light)',
   color: 'var(--mui-palette-text-primary)',
   borderRadius: '6px',
@@ -71,7 +71,7 @@ export function TxsPanel({ ...props }) {
 
   return (
     <>
-      <div css={[transactions.length > 0 && { minHeight: '75px' }]} {...props}>
+      <div css={[transactions.length > 0 && { minHeight: '75px' }, { overflow: 'auto', maxHeight: '500px' }]} {...props}>
         {transactions.map(tx => (
           <a
             css={txData}

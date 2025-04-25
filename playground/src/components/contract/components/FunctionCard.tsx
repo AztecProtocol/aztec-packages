@@ -50,6 +50,7 @@ const simulationContainer = css({
 });
 
 const functionName = css({
+  marginBottom: '0.5rem',
   '@media (max-width: 1200px)': {
     fontSize: '1.2rem',
   },
@@ -161,13 +162,14 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       sx={{
         backgroundColor: 'white',
         margin: '0.5rem',
+        marginBottom: '1rem',
         overflow: 'hidden',
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
       }}
     >
-      <CardContent sx={{ textAlign: 'left', position: 'relative' }}>
+      <CardContent sx={{ textAlign: 'left', position: 'relative', padding: '12px 16px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" css={functionName}>
             {fn.name}
@@ -185,7 +187,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           </IconButton>
         </Box>
 
-        <Typography variant="caption" sx={{ marginBottom: '1rem' }}>
+        <Typography variant="caption" sx={{ lineHeight: '1rem', display: 'block' }}>
           {ContractMethodDescriptions[contractArtifact.name]?.[fn.name]}
         </Typography>
 

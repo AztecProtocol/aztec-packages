@@ -26,8 +26,6 @@ import { FunctionCard } from './components/FunctionCard';
 import { useTransaction } from '../../hooks/useTransaction';
 import { ContractDescriptions, ContractDocumentationLinks, ContractMethodOrder } from '../../utils/constants';
 import Box from '@mui/material/Box';
-import CardContent from '@mui/material/CardContent';
-import Card from '@mui/material/Card';
 
 const container = css({
   display: 'flex',
@@ -106,6 +104,7 @@ const loadingArtifactContainer = css({
 
 const contractName = css({
   marginRight: '0.5rem',
+  fontSize: '2.0rem',
   '@media (max-width: 1200px)': {
     fontSize: '1.5rem',
   },
@@ -231,7 +230,7 @@ export function ContractComponent() {
                 )}
 
                 {currentContractAddress && (
-                  <div css={contractActions}>
+                  <div css={contractActions} style={{ backgroundColor: 'var(--mui-palette-grey-200)', padding: '0px 12px', borderRadius: '6px' }}>
                     <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
                     <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
                     <IconButton
@@ -249,8 +248,15 @@ export function ContractComponent() {
               </Box>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (
-                <Typography variant="body1" css={{ marginBottom: '2rem' }}>
+                <Typography variant="body2" css={{ marginBottom: '2rem' }}>
                   {ContractDescriptions[currentContractArtifact.name]}
+
+                  {!!ContractDocumentationLinks[currentContractArtifact.name] && (
+                    <Typography variant="body2">
+                      <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
+                      <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
+                    </Typography>
+                  )}
                 </Typography>
               )}
             </div>
@@ -277,16 +283,7 @@ export function ContractComponent() {
               <FunctionCard fn={fn} key={fn.name} contract={currentContract} contractArtifact={currentContractArtifact} onSendTxRequested={sendTx} />
             ))}
 
-          {!!ContractDocumentationLinks[currentContractArtifact.name] && (
-            <Card sx={{ margin: '3rem 0.5rem' }}>
-              <CardContent>
-                <Typography variant="body1">
-                  <span>Find the in-depth tutorial for {currentContractArtifact.name}</span>
-                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
-                </Typography>
-              </CardContent>
-            </Card>
-          )}
+
         </div>
       )}
     </div>

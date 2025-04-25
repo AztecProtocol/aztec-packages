@@ -13,7 +13,6 @@ const layout = css({
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
-  overflow: 'hidden',
   width: '100%',
   flex: 1,
 });
@@ -23,14 +22,10 @@ const contentLayout = css({
   gap: '24px',
   flexDirection: 'row',
   position: 'relative',
-  flexShrink: 0,
-  height: 'calc(100% - 280px)',
-  minHeight: 0,
-  overflow: 'auto',
+  minHeight: 'calc(100% - 240px)',
   margin: '24px 60px',
-  scrollbarWidth: 'none',
   '@media (max-width: 1200px)': {
-    height: 'calc(100% - 150px)',
+    height: 'auto',
     flexDirection: 'column',
     margin: '0 12px',
   },
@@ -42,7 +37,7 @@ const headerFrame = css({
   borderRadius: '10px',
   display: 'flex',
   alignItems: 'center',
-  padding: '12px 24px',
+  padding: '12px 18px',
   flexWrap: 'wrap',
   '@media (max-width: 1200px)': {
     margin: '12px 12px 24px 12px',
@@ -51,9 +46,9 @@ const headerFrame = css({
 });
 
 const logo = css({
-  height: '50px',
+  height: '40px',
   objectFit: 'contain',
-  marginRight: '2rem',
+  marginRight: '1rem',
   '@media (max-width: 1200px)': {
     height: 'auto',
     width: '120px',
@@ -69,10 +64,10 @@ const headerTitle = css({
   fontFamily: '"Space Grotesk", sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
-  fontSize: '36px',
+  fontSize: '30px',
   lineHeight: '48px',
   display: 'flex',
-  height: '60px',
+  height: '40px',
   alignItems: 'center',
   letterSpacing: '0.03em',
   color: '#2D2D2D',
@@ -94,10 +89,9 @@ const docsButton = css({
   borderRadius: '6px',
   color: '#FFFFFF',
   fontFamily: 'Inter, sans-serif',
-  fontWeight: 500,
+  fontWeight: 600,
   fontSize: '16px',
   lineHeight: '20px',
-  height: '50px',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -129,7 +123,6 @@ export default function Home() {
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
   const [logs, setLogs] = useState([]);
   const [logsOpen, setLogsOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [network, setNetwork] = useState(null);
   const [totalLogCount, setTotalLogCount] = useState(0);
@@ -149,7 +142,6 @@ export default function Home() {
     currentContractAddress,
     logs,
     logsOpen,
-    drawerOpen,
     showContractInterface,
     totalLogCount,
     transactionModalStatus,
@@ -157,7 +149,6 @@ export default function Home() {
     setTotalLogCount,
     setNetwork,
     setConnecting,
-    setDrawerOpen,
     setLogsOpen,
     setLogs,
     setAztecNode,

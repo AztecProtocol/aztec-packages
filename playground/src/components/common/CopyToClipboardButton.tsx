@@ -13,7 +13,7 @@ export function CopyToClipboardButton({ data, disabled }: { data: string; disabl
 
   return (
     <>
-      <IconButton disabled={disabled} onClick={handleClick} color="primary">
+      <IconButton disabled={disabled} onClick={handleClick} sx={{ color: 'var(--mui-palette-text-secondary)' }}>
         <ContentPasteIcon />
       </IconButton>
       <Snackbar

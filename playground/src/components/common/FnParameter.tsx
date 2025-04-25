@@ -121,6 +121,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
               {...params}
               required={required}
               label={capitalize(parameter.name)}
+              size='small'
               slotProps={{
                 input: {
                   ...params.InputProps,
@@ -142,6 +143,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
           css={css}
           variant="outlined"
           defaultValue={defaultValue}
+          size='small'
           disabled={['array', 'struct', 'tuple'].includes(parameter.type.kind) && !isAddressStruct(parameter.type)}
           key={parameter.name}
           type={getParameterType(parameter.type)}

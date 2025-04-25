@@ -23,8 +23,7 @@ const container = css({
   '@media (max-width: 1200px)': {
     padding: '12px',
     width: 'auto',
-    maxHeight: '350px',
-    margin: '0 0 12px 0',
+    margin: '0 0 5rem 0',
   },
 });
 
@@ -50,7 +49,7 @@ const minimizedTx = css({
 const minimizedTxTitle = css({
   fontWeight: 500,
   fontSize: '17px',
-  marginBottom: '8px',
+  marginBottom: '3px',
   textWrap: 'nowrap',
   textOverflow: 'ellipsis',
   overflow: 'hidden',
@@ -75,8 +74,6 @@ const funFactsCss = css({
 
 export function SideBar() {
   const {
-    drawerOpen,
-    setDrawerOpen,
     setTransactionModalStatus,
     currentTx,
     walletDB,

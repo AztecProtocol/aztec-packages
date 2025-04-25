@@ -109,7 +109,7 @@ export function LogPanel() {
           <Tooltip title="Open logs">
             <IconButton
               sx={{
-                position: 'absolute',
+                position: 'fixed',
                 bottom: '0.5rem',
                 right: '0.5rem',
                 zIndex: 10000
