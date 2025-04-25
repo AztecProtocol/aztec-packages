@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745606462330,
+  "lastUpdate": 1745610423114,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "593f810e642841e139a82c55c16bde1f9bddc390",
-          "message": "fix: pass along coinbase (#13560)\n\nLet's see if this passes tests\n\nFix #13643\n\nCo-authored-by: Lasse Herskind <16536249+LHerskind@users.noreply.github.com>",
-          "timestamp": "2025-04-22T10:11:16Z",
-          "tree_id": "c740357d57b394fe7e9566370b4a9bd64dbea2a3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/593f810e642841e139a82c55c16bde1f9bddc390"
-        },
-        "date": 1745319983171,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9673,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.27693635282577544,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 158391,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 153656,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "429a53b8ad85c739b19a58bb3d8e4a6ab55d6159",
+          "message": "chore: hook new benchmarks (#13832)\n\nTesting it out before adding more metrics",
+          "timestamp": "2025-04-25T18:46:38Z",
+          "tree_id": "3d930748b0c1751fd100691091cec087e1c8d66a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/429a53b8ad85c739b19a58bb3d8e4a6ab55d6159"
+        },
+        "date": 1745610421704,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8673,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2483064876774181,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 159487,
             "unit": "us"
           }
         ]
