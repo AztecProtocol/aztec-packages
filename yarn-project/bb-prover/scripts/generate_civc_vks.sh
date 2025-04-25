@@ -3,9 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cd ..
 
-# NOTE: This is very hacky. we pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
-# TODO(https://github.com/AztecProtocol/barretenberg/issues/1296): This should just be a boolean interface,
-# bypassing the need for this this scheme, until then...
+# NOTE: This is hacky but has not proven problematic. We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1296): Ideally should just be a boolean interface. Low priority until this causes issues.
 #
 # This prevents us from having a chicken and egg problem as IVC input generation occurs as a last phase
 # and for purposes of VK generation, stale inputs work just fine.

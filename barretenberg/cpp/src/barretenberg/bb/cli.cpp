@@ -300,6 +300,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_bytecode_path_option(check);
     add_witness_path_option(check);
+    add_ivc_inputs_path_options(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -801,6 +802,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             }
         }
         // NEW STANDARD API
+        // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so
+        // different
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
@@ -818,6 +821,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 }
                 api.write_ivc_vk(ivc_inputs_path, output_path);
                 return 0;
+            }
+            if (check->parsed() && flags.verifier_type == "ivc") {
+                if (ivc_inputs_path.empty()) {
+                    throw_or_abort("The write_vk command for --verifier_type ivc expects --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack>");
+                }
+                return api.check_ivc(ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {
