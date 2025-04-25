@@ -1,0 +1,95 @@
+image: aztecprotocol/aztec:0.85.0-alpha-testnet.2
+podManagementPolicy: Parallel
+
+network:
+  name: alpha-testnet
+  l1ChainId: 11155111
+  ## Custom network
+  customNetwork:
+    enabled: false
+    rollupContractAddress:
+    registryContractAddress:
+    inboxContractAddress:
+    outboxContractAddress:
+    feeJuiceContractAddress:
+    stakingContractAddress:
+    epochDuration:
+    targetCommitteeSize:
+    proofSubmissionWindow:
+    slashingQuorum:
+    slashingRoundSize:
+    governanceProposerQuorum:
+    governanceProposerRoundSize:
+    manaTarget:
+    provingCostPerMana:
+
+node:
+  replicas: 1
+  logLevel: "info"
+
+  # -- Extra arguments to pass to the node, see aztec --help for all available options
+  extraArgs: []
+  # -- Validator configuration - enables validator mode
+  validator:
+    enabled: false
+    # Indexed by replica
+    privateKey: []
+    coinbase: []
+
+  # -- Sentinel configuration - gathers slashing information
+  sentinel:
+    enabled: false
+  ethereum:
+    ethereumHosts: ""
+    l1ConsensusHostUrls: ""
+    ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
+    ## Example: "1234abcd"
+    l1ConsensusHostApiKeys: ""
+    ## Example: "X-API-KEY"
+    l1ConsensusHostApiKeyHeaders: ""
+  metrics:
+    otelExcludeMetrics: ""
+    otelCollectorEndpoint: ""
+    useGcloudLogging: false
+  storage:
+    # Total storage size for the pod
+    storageSize: 100Gi
+    dataDirectory: /data
+    # Subsystems map sizes (kB)
+    dataStoreMapSize:
+    worldStateMapSize:
+    p2pStorageMapSize:
+    archiveStorageMapSize:
+  nodeJs:
+    maxOldSpaceSize: "4608"
+
+
+resources: {}
+
+initContainers: []
+
+service:
+  ingress:
+    enabled: false
+    annotations: {}
+    # kubernetes.io/ingress.global-static-ip-name: my-static-ip
+    hosts: []
+    # - node.example.com
+
+  p2p:
+    enabled: true
+    nodePortEnabled: true
+    port: 40400
+    announcePort: 40400
+  admin:
+    enabled: true
+    port: 8081
+  httpPort: 8080
+
+# Certificate configuration
+certificate:
+  enabled: false
+  domains: []
+  # - example.com
+  # - api.example.com
+
