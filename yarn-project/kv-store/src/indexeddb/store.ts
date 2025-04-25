@@ -179,7 +179,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   estimateSize(): Promise<StoreSize> {
-    return Promise.resolve({ mappingSize: 0, actualSize: 0, numItems: 0 });
+    return Promise.resolve({ mappingSize: 0, physicalFileSize: 0, actualSize: 0, numItems: 0 });
   }
 
   close(): Promise<void> {
