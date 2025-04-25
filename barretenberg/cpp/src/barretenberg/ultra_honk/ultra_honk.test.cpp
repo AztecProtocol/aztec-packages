@@ -4,6 +4,7 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -15,6 +16,8 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+
+using AggregationState = stdlib::recursion::aggregation_state<UltraCircuitBuilder>;
 
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
@@ -70,6 +73,7 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 {
     auto circuit_builder = UltraCircuitBuilder();
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
 
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(circuit_builder);
     typename TestFixture::Prover prover(proving_key);
@@ -109,6 +113,7 @@ TYPED_TEST(UltraHonkTests, PublicInputs)
     // Add some arbitrary arithmetic gates that utilize public inputs
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(builder);
     TestFixture::prove_and_verify(builder, /*expected_result=*/true);
 }
 
@@ -136,10 +141,11 @@ TYPED_TEST(UltraHonkTests, XorConstraint)
     circuit_builder.create_gates_from_plookup_accumulators(
         plookup::MultiTableId::UINT32_XOR, lookup_accumulators, left_witness_index, right_witness_index);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, create_gates_from_plookup_accumulators)
+TYPED_TEST(UltraHonkTests, CreateGatesFromPlookupAccumulators)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
@@ -195,7 +201,7 @@ TYPED_TEST(UltraHonkTests, create_gates_from_plookup_accumulators)
             expected_scalar >>= table_bits;
         }
     }
-
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
@@ -213,7 +219,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
 
         MockCircuits::add_lookup_gates(builder);
         MockCircuits::add_arithmetic_gates(builder);
-
+        AggregationState::add_default_pairing_points_to_public_inputs(builder);
         return builder;
     };
 
@@ -291,7 +297,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     }
 }
 
-TYPED_TEST(UltraHonkTests, test_no_lookup_proof)
+TYPED_TEST(UltraHonkTests, TestNoLookupProof)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
@@ -309,11 +315,11 @@ TYPED_TEST(UltraHonkTests, test_no_lookup_proof)
                 { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
     }
-
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, test_elliptic_gate)
+TYPED_TEST(UltraHonkTests, TestEllipticGate)
 {
     typedef grumpkin::g1::affine_element affine_element;
     typedef grumpkin::g1::element element;
@@ -343,10 +349,11 @@ TYPED_TEST(UltraHonkTests, test_elliptic_gate)
     y3 = circuit_builder.add_variable(p3.y);
     circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, non_trivial_tag_permutation)
+TYPED_TEST(UltraHonkTests, NonTrivialTagPermutation)
 {
     auto circuit_builder = UltraCircuitBuilder();
     fr a = fr::random_element();
@@ -370,10 +377,11 @@ TYPED_TEST(UltraHonkTests, non_trivial_tag_permutation)
     circuit_builder.assign_tag(c_idx, 2);
     circuit_builder.assign_tag(d_idx, 2);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, non_trivial_tag_permutation_and_cycles)
+TYPED_TEST(UltraHonkTests, NonTrivialTagPermutationAndCycles)
 {
     auto circuit_builder = UltraCircuitBuilder();
     fr a = fr::random_element();
@@ -407,10 +415,11 @@ TYPED_TEST(UltraHonkTests, non_trivial_tag_permutation_and_cycles)
     circuit_builder.create_add_gate(
         { e_idx, f_idx, circuit_builder.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, bad_tag_permutation)
+TYPED_TEST(UltraHonkTests, BadTagPermutation)
 {
     {
         auto circuit_builder = UltraCircuitBuilder();
@@ -433,6 +442,7 @@ TYPED_TEST(UltraHonkTests, bad_tag_permutation)
         circuit_builder.assign_tag(c_idx, 2);
         circuit_builder.assign_tag(d_idx, 2);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
     // Same as above but without tag creation to check reason of failure is really tag mismatch
@@ -449,11 +459,12 @@ TYPED_TEST(UltraHonkTests, bad_tag_permutation)
         circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx, 1, 1, 0, 0 });
         circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx, 1, 1, 0, -1 });
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
 }
 
-TYPED_TEST(UltraHonkTests, sort_widget)
+TYPED_TEST(UltraHonkTests, SortWidget)
 {
     auto circuit_builder = UltraCircuitBuilder();
     fr a = fr::one();
@@ -467,10 +478,11 @@ TYPED_TEST(UltraHonkTests, sort_widget)
     auto d_idx = circuit_builder.add_variable(d);
     circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
+TYPED_TEST(UltraHonkTests, SortWithEdgesGate)
 {
     fr a = fr::one();
     fr b = fr(2);
@@ -494,6 +506,7 @@ TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
         circuit_builder.create_sort_constraint_with_edges(
             { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, h);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
 
@@ -510,6 +523,7 @@ TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
         circuit_builder.create_sort_constraint_with_edges(
             { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, a, g);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
     {
@@ -525,6 +539,7 @@ TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
         circuit_builder.create_sort_constraint_with_edges(
             { a_idx, b_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
     {
@@ -540,6 +555,7 @@ TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
         circuit_builder.create_sort_constraint_with_edges(
             { a_idx, b2_idx, c_idx, d_idx, e_idx, f_idx, g_idx, h_idx }, b, h);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
     {
@@ -549,6 +565,7 @@ TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
                                                           26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
         circuit_builder.create_sort_constraint_with_edges(idx, 1, 45);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
     {
@@ -558,11 +575,12 @@ TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
                                                           26, 29, 29, 32, 32, 33, 35, 38, 39, 39, 42, 42, 43, 45 });
         circuit_builder.create_sort_constraint_with_edges(idx, 1, 29);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
 }
 
-TYPED_TEST(UltraHonkTests, range_constraint)
+TYPED_TEST(UltraHonkTests, RangeConstraint)
 {
     {
         auto circuit_builder = UltraCircuitBuilder();
@@ -573,6 +591,7 @@ TYPED_TEST(UltraHonkTests, range_constraint)
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         circuit_builder.create_sort_constraint(indices);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
     {
@@ -584,6 +603,7 @@ TYPED_TEST(UltraHonkTests, range_constraint)
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
         circuit_builder.create_dummy_constraints(indices);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
     {
@@ -594,6 +614,7 @@ TYPED_TEST(UltraHonkTests, range_constraint)
         }
         circuit_builder.create_sort_constraint(indices);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
     {
@@ -605,6 +626,7 @@ TYPED_TEST(UltraHonkTests, range_constraint)
         }
         circuit_builder.create_dummy_constraints(indices);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
     {
@@ -616,6 +638,7 @@ TYPED_TEST(UltraHonkTests, range_constraint)
         }
         circuit_builder.create_dummy_constraints(indices);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
     {
@@ -627,11 +650,12 @@ TYPED_TEST(UltraHonkTests, range_constraint)
         }
         circuit_builder.create_dummy_constraints(indices);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
 }
 
-TYPED_TEST(UltraHonkTests, range_with_gates)
+TYPED_TEST(UltraHonkTests, RangeWithGates)
 {
     auto circuit_builder = UltraCircuitBuilder();
     auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
@@ -646,10 +670,11 @@ TYPED_TEST(UltraHonkTests, range_with_gates)
     circuit_builder.create_add_gate(
         { idx[6], idx[7], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, range_with_gates_where_range_is_not_a_power_of_two)
+TYPED_TEST(UltraHonkTests, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
 {
     auto circuit_builder = UltraCircuitBuilder();
     auto idx = TestFixture::add_variables(circuit_builder, { 1, 2, 3, 4, 5, 6, 7, 8 });
@@ -664,20 +689,22 @@ TYPED_TEST(UltraHonkTests, range_with_gates_where_range_is_not_a_power_of_two)
     circuit_builder.create_add_gate(
         { idx[6], idx[7], circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, sort_widget_complex)
+TYPED_TEST(UltraHonkTests, SortWidgetComplex)
 {
     {
 
         auto circuit_builder = UltraCircuitBuilder();
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 11, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
-        for (size_t i = 0; i < a.size(); i++)
-            ind.emplace_back(circuit_builder.add_variable(a[i]));
+        for (const fr& val : a)
+            ind.emplace_back(circuit_builder.add_variable(val));
         circuit_builder.create_sort_constraint(ind);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
     {
@@ -685,15 +712,16 @@ TYPED_TEST(UltraHonkTests, sort_widget_complex)
         auto circuit_builder = UltraCircuitBuilder();
         std::vector<fr> a = { 1, 3, 4, 7, 7, 8, 16, 14, 15, 15, 18, 19, 21, 21, 24, 25, 26, 27, 30, 32 };
         std::vector<uint32_t> ind;
-        for (size_t i = 0; i < a.size(); i++)
-            ind.emplace_back(circuit_builder.add_variable(a[i]));
+        for (const fr& val : a)
+            ind.emplace_back(circuit_builder.add_variable(val));
         circuit_builder.create_sort_constraint(ind);
 
+        AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
 }
 
-TYPED_TEST(UltraHonkTests, sort_widget_neg)
+TYPED_TEST(UltraHonkTests, SortWidgetNeg)
 {
     auto circuit_builder = UltraCircuitBuilder();
     fr a = fr::one();
@@ -707,10 +735,11 @@ TYPED_TEST(UltraHonkTests, sort_widget_neg)
     auto d_idx = circuit_builder.add_variable(d);
     circuit_builder.create_sort_constraint({ a_idx, b_idx, c_idx, d_idx });
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
 }
 
-TYPED_TEST(UltraHonkTests, composed_range_constraint)
+TYPED_TEST(UltraHonkTests, ComposedRangeConstraint)
 {
     auto circuit_builder = UltraCircuitBuilder();
     auto c = fr::random_element();
@@ -720,10 +749,11 @@ TYPED_TEST(UltraHonkTests, composed_range_constraint)
     circuit_builder.create_add_gate({ a_idx, circuit_builder.zero_idx, circuit_builder.zero_idx, 1, 0, 0, -fr(e) });
     circuit_builder.decompose_into_default_range(a_idx, 134);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, non_native_field_multiplication)
+TYPED_TEST(UltraHonkTests, NonNativeFieldMultiplication)
 {
     using fq = fq;
     auto circuit_builder = UltraCircuitBuilder();
@@ -774,10 +804,11 @@ TYPED_TEST(UltraHonkTests, non_native_field_multiplication)
     const auto [lo_1_idx, hi_1_idx] = circuit_builder.evaluate_non_native_field_multiplication(inputs);
     circuit_builder.range_constrain_two_limbs(lo_1_idx, hi_1_idx, 70, 70);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, rom)
+TYPED_TEST(UltraHonkTests, Rom)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
@@ -815,10 +846,11 @@ TYPED_TEST(UltraHonkTests, rom)
         0,
     });
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, ram)
+TYPED_TEST(UltraHonkTests, Ram)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
@@ -878,10 +910,11 @@ TYPED_TEST(UltraHonkTests, ram)
         },
         false);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, range_checks_on_duplicates)
+TYPED_TEST(UltraHonkTests, RangeChecksOnDuplicates)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
@@ -913,6 +946,7 @@ TYPED_TEST(UltraHonkTests, range_checks_on_duplicates)
         },
         false);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
@@ -920,7 +954,7 @@ TYPED_TEST(UltraHonkTests, range_checks_on_duplicates)
 // range constrained, do not break the set equivalence checks because of indices mismatch.
 // 2^14 is DEFAULT_PLOOKUP_RANGE_BITNUM i.e. the maximum size before a variable gets sliced
 // before range constraints are applied to it.
-TYPED_TEST(UltraHonkTests, range_constraint_small_variable)
+TYPED_TEST(UltraHonkTests, RangeConstraintSmallVariable)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
@@ -936,5 +970,6 @@ TYPED_TEST(UltraHonkTests, range_constraint_small_variable)
     circuit_builder.create_range_constraint(c_idx, 8, "bad range");
     circuit_builder.assert_equal(a_idx, c_idx);
 
+    AggregationState::add_default_pairing_points_to_public_inputs(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }

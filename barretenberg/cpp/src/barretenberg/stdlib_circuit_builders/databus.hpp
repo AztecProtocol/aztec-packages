@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
@@ -104,9 +105,10 @@ struct DatabusPropagationData {
     static DatabusPropagationData kernel_default()
     {
         DatabusPropagationData data;
-        // Kernel return data is the first public input, followed by app return data
-        data.kernel_return_data_commitment_pub_input_key.start_idx = 0;
-        data.app_return_data_commitment_pub_input_key.start_idx = 8;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1371): Cleanup these numbers up.
+        // Kernel return data is the first public input after pairing point object, followed by app return data
+        data.kernel_return_data_commitment_pub_input_key.start_idx = PAIRING_POINT_ACCUMULATOR_SIZE;
+        data.app_return_data_commitment_pub_input_key.start_idx = PAIRING_POINT_ACCUMULATOR_SIZE + 8;
         data.is_kernel = true;
         return data;
     }

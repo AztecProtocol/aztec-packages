@@ -33,3 +33,7 @@ export function truncate(str: string, length: number = 64): string {
 export function isoDate(date?: Date) {
   return (date ?? new Date()).toISOString().replace(/[-:T]/g, '').replace(/\..+$/, '');
 }
+
+export function urlJoin(...args: string[]): string {
+  return args.map(arg => arg.replace(/\/+$/, '').replace(/^\/+/, '')).join('/');
+}

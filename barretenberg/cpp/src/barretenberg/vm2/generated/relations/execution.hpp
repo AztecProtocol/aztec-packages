@@ -14,6 +14,12 @@ template <typename FF_> class executionImpl {
 
     static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        const auto& new_term = in;
+        return (new_term.execution_sel).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& new_term,

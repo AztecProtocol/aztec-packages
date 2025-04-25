@@ -33,6 +33,8 @@ class MockExecutionComponentsProvider : public ExecutionComponentsProviderInterf
                 (override));
 
     MOCK_METHOD(std::unique_ptr<AddressingInterface>, make_addressing, (AddressingEvent & event), (override));
+
+    MOCK_METHOD(uint32_t, get_next_context_id, (), (override));
 };
 
 } // namespace bb::avm2::simulation

@@ -46,6 +46,7 @@ import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ether
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -537,7 +538,13 @@ export async function setup(
       const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
       const proverNodeDataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
       const proverNodeConfig = { ...config.proverNodeConfig, dataDirectory: proverNodeDataDirectory };
-      proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, config, proverNodeConfig, aztecNode);
+      proverNode = await createAndSyncProverNode(
+        proverNodePrivateKeyHex,
+        config,
+        proverNodeConfig,
+        aztecNode,
+        prefilledPublicData,
+      );
     }
 
     logger.verbose('Creating a pxe...');
@@ -774,56 +781,56 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: number, 
   );
 }
 
-export async function createAndSyncProverNode(
+export function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'>,
   aztecNode: AztecNode,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
 ) {
-  // Disable stopping the aztec node as the prover coordination test will kill it otherwise
-  // This is only required when stopping the prover node for testing
-  const aztecNodeTxProvider = {
-    getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
-    getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
-    stop: () => Promise.resolve(),
-  };
+  return withLogNameSuffix('prover-node', async () => {
+    // Disable stopping the aztec node as the prover coordination test will kill it otherwise
+    // This is only required when stopping the prover node for testing
+    const aztecNodeTxProvider = {
+      getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
+      getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
+      stop: () => Promise.resolve(),
+    };
 
-  const blobSinkClient = createBlobSinkClient(aztecNodeConfig, {
-    logger: createLogger('prover-node:blob-sink:client'),
+    const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
+
+    // Creating temp store and archiver for simulated prover node
+    const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
+    const archiver = await createArchiver(archiverConfig, blobSinkClient, { blockUntilSync: true });
+
+    // Prover node config is for simulated proofs
+    const proverConfig: ProverNodeConfig = {
+      ...aztecNodeConfig,
+      proverCoordinationNodeUrls: [],
+      realProofs: false,
+      proverAgentCount: 2,
+      publisherPrivateKey: proverNodePrivateKey,
+      proverNodeMaxPendingJobs: 10,
+      proverNodeMaxParallelBlocksPerEpoch: 32,
+      proverNodePollingIntervalMs: 200,
+      txGatheringIntervalMs: 1000,
+      txGatheringBatchSize: 10,
+      txGatheringMaxParallelRequestsPerNode: 10,
+      proverNodeFailedEpochStore: undefined,
+      ...proverNodeConfig,
+    };
+
+    const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');
+
+    const proverNode = await createProverNode(
+      proverConfig,
+      { aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
+      { prefilledPublicData },
+    );
+    getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
+    await proverNode.start();
+    return proverNode;
   });
-
-  // Creating temp store and archiver for simulated prover node
-  const archiverConfig = { ...aztecNodeConfig, dataDirectory: proverNodeConfig.dataDirectory };
-  const archiver = await createArchiver(archiverConfig, blobSinkClient, { blockUntilSync: true });
-
-  // Prover node config is for simulated proofs
-  const proverConfig: ProverNodeConfig = {
-    ...aztecNodeConfig,
-    proverCoordinationNodeUrls: [],
-    realProofs: false,
-    proverAgentCount: 2,
-    publisherPrivateKey: proverNodePrivateKey,
-    proverNodeMaxPendingJobs: 10,
-    proverNodeMaxParallelBlocksPerEpoch: 32,
-    proverNodePollingIntervalMs: 200,
-    txGatheringIntervalMs: 1000,
-    txGatheringBatchSize: 10,
-    txGatheringMaxParallelRequestsPerNode: 10,
-    proverNodeFailedEpochStore: undefined,
-    ...proverNodeConfig,
-  };
-
-  const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');
-
-  const proverNode = await createProverNode(
-    proverConfig,
-    { aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
-    { prefilledPublicData },
-  );
-  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
-  await proverNode.start();
-  return proverNode;
 }
 
 function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
