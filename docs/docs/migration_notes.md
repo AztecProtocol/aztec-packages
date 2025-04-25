@@ -2,11 +2,12 @@
 title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
 keywords: [sandbox, aztec, notes, migration, updating, upgrading]
+tags: [migration, updating, sandbox]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.86.0
 
 ### [PXE] Removed PXE_L2_STARTING_BLOCK environment variable
 

@@ -205,6 +205,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     verifier_output.ipa_claim.set_public();
     outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
+    verifier_output.agg_obj.set_public();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
     NativeVerifierCommitmentKey pcs_vkey{};
