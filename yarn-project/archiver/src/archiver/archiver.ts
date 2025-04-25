@@ -568,7 +568,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
       for (const block of retrievedBlocks) {
         this.log.info(`Downloaded L2 block ${block.block.number}`, {
-          blockHash: block.block.hash(),
+          blockHash: await block.block.hash(),
           blockNumber: block.block.number,
           txCount: block.block.body.txEffects.length,
           globalVariables: block.block.header.globalVariables.toInspect(),
@@ -1206,7 +1206,7 @@ class ArchiverStoreHelper
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();
   }
-  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }> {
+  estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
   }
 }
