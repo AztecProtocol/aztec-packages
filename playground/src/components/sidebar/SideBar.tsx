@@ -128,16 +128,12 @@ export function SideBar() {
         {numTransactions > 0 ? (
           <TxsPanel />
         ) : (
-          <Card>
-            <CardContent sx={{ padding: '16px' }}>
-              <Typography variant="overline">No transactions yet</Typography>
-            </CardContent>
-          </Card>
+          <Typography variant="body2" sx={{ marginTop: '12px' }}>No past transactions yet</Typography>
         )}
       </div>
 
       {pendingTx && (
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '16px' }}>
           <Typography variant="overline">Pending Transaction</Typography>
           <Divider sx={{ marginBottom: '0.5rem' }} />
 

@@ -29,6 +29,7 @@ import {
   getDefaultInitializer,
   getInitializer,
   getAllFunctionAbis,
+  isAddressStruct,
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/FnParameter';
@@ -77,7 +78,11 @@ export function CreateContractDialog({
   useEffect(() => {
     if (initializer && defaultContractCreationParams) {
       initializer.parameters.map((param, i) => {
-        handleParameterChange(i, defaultContractCreationParams[param.name]);
+        let value = defaultContractCreationParams[param.name];
+        if (isAddressStruct(param.type)) {
+          value = (value as { id: string })?.id;
+        }
+        handleParameterChange(i, value);
       });
     }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */

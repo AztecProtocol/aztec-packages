@@ -320,26 +320,29 @@ export function Landing() {
     let contractArtifactJSON;
     let defaultContractCreationParams;
 
-    const accountAliases = await walletDB.listAliases('accounts');
-    const parsedAccountAliases = parseAliasedBuffersAsString(accountAliases);
-    const currentAccountAlias = parsedAccountAliases.find(alias => alias.value === wallet.getAddress().toString());
-    const accountAccountParam = {
-      id: currentAccountAlias.value,
-      label: `${currentAccountAlias.key} (${formatFrAsString(currentAccountAlias.value)})`,
-    }
-
     switch (contractValue) {
-      case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
+      case PREDEFINED_CONTRACTS.SIMPLE_VOTING: {
         ({ EasyPrivateVotingContractArtifact: contractArtifactJSON } = await import(
           '@aztec/noir-contracts.js/EasyPrivateVoting'
         ));
+
+        // Fetch the first account to use as the admin
+        const accountAliases = await walletDB.listAliases('accounts');
+        const parsedAccountAliases = parseAliasedBuffersAsString(accountAliases);
+        const currentAccountAlias = parsedAccountAliases.find(alias => alias.value === wallet.getAddress().toString());
+        const accountAccountParam = {
+          id: currentAccountAlias.value,
+          label: `${currentAccountAlias.key} (${formatFrAsString(currentAccountAlias.value)})`,
+        }
+        console.log(accountAccountParam);
         defaultContractCreationParams = {
           initializer: 'constructor',
           admin: accountAccountParam,
           alias: 'My Voting Contract',
         };
         break;
-      case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:
+      }
+      case PREDEFINED_CONTRACTS.SIMPLE_TOKEN: {
         ({ SimpleTokenContractArtifact: contractArtifactJSON } = await import(
           '@aztec/noir-contracts.js/SimpleToken'
         ));
@@ -351,6 +354,7 @@ export function Landing() {
           alias: 'My Token',
         }
         break;
+      }
     }
 
     const aliasedContracts = await walletDB.listAliases('contracts');
