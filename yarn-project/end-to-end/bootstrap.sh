@@ -103,6 +103,7 @@ function test_cmds {
   echo "$prefix simple e2e_private_voting_contract"
   echo "$prefix simple e2e_pruned_blocks"
   echo "$prefix simple e2e_public_testnet_transfer"
+  echo "$prefix simple e2e_snapshot_sync"
   echo "$prefix simple e2e_state_vars"
   echo "$prefix simple e2e_static_calls"
   echo "$prefix simple e2e_synching"
