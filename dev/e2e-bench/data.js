@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745598513935,
+  "lastUpdate": 1745599700146,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5d3e24c6652a2788cc78202028f2c642b36b498f",
-          "message": "fix: dependency cycles in public simulator part 2 (serializable bytecode) (#13680)\n\nDown to 1 cycle now: `private_execution.ts ->\nprivate_execution_oracle.ts`\n\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
-          "timestamp": "2025-04-20T16:35:35Z",
-          "tree_id": "3952fd18b522bd2322b9e4013618b9b78744b0bf",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5d3e24c6652a2788cc78202028f2c642b36b498f"
-        },
-        "date": 1745170054552,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9732,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.26149540330305304,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 154784,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 158263,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7d7990e1c18b0fe3762367e61cf11f057fb3247d",
+          "message": "feat: constrain call (#13758)\n\nBegin constraining call. Limited PIL relations since we are still\nmissing the infrastructure for transaction trace.\n\n### PIL relations\nAdd context switching relations to either propagate context state during\nexecution and updating context on `CALL`\n\n### Simulation\n- Updated the `call` operation in `Execution` to handle additional\nparameters for L2 and DA gas offsets. These values and contract address\nare assigned to their respective execution registers.\n- New getter for `next_context_id` to populate field execution event (we\nneed this while we aren't using `clk` for context id)\n\n### Context Serialization and Event Updates:\n- `ContextEvent` includes `parent_id` and `next_pc` fields (we'll need\nthis for JUMP commands as well).\n- Modified `serialize_context_event` methods in `EnqueuedCallContext`\nand `NestedContext` to populate new fields like `parent_id` and\n`next_pc`.\n\n### Testing:\n* There are updated constraining, simulation and tracegen tests",
+          "timestamp": "2025-04-25T15:10:52Z",
+          "tree_id": "37f77328e1aeb813f6def929eaabb6a532e68708",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7d7990e1c18b0fe3762367e61cf11f057fb3247d"
+        },
+        "date": 1745599699457,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8247,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23609578783865875,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 149331,
             "unit": "us"
           }
         ]
