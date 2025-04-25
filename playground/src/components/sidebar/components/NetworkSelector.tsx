@@ -82,7 +82,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     if (isNetworkStoreInitialized && !network) {
       handleNetworkChange(NETWORKS[0].nodeURL);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNetworkStoreInitialized]);
 
   useEffect(() => {
@@ -212,7 +212,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
                 return 'Select Network';
               }}
               disabled={connecting}
-              onChange={(e) => handleNetworkChange(e.target.value)}
+              onChange={e => handleNetworkChange(e.target.value)}
             >
               {networks.map(network => (
                 <MenuItem

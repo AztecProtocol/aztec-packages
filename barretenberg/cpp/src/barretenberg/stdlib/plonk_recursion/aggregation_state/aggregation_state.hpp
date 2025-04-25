@@ -55,8 +55,12 @@ template <typename Builder_> struct aggregation_state {
      * @param other
      * @param recursion_separator
      */
-    void aggregate(aggregation_state const& other, typename Curve::ScalarField recursion_separator)
+    void aggregate(aggregation_state const& other)
     {
+        Builder* builder = other.P0.get_context();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
+        typename Curve::ScalarField recursion_separator =
+            Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
         // If Mega Builder is in use, the EC operations are deferred via Goblin
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Can we improve efficiency here?
@@ -111,10 +115,13 @@ template <typename Builder_> struct aggregation_state {
      */
     uint32_t set_public()
     {
+        Builder* ctx = P0.get_context();
+        if (ctx->pairing_inputs_public_input_key.is_set()) {
+            throw_or_abort("Error: trying to set aggregation_state as public inputs when it already contains one.");
+        }
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 
-        Builder* ctx = P0.get_context();
         ctx->pairing_inputs_public_input_key.start_idx = start_idx;
 
         return start_idx;

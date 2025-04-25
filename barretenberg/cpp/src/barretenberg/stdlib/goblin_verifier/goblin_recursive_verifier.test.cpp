@@ -79,7 +79,8 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+    output.agg_obj.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates);
 
@@ -110,12 +111,12 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(proof);
+        GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+        output.agg_obj.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates);
 
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
-
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         OuterProver prover(proving_key);
         auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
