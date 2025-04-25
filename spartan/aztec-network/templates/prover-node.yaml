@@ -146,8 +146,6 @@ spec:
               value: "{{ .Values.proverNode.proverBroker.jobMaxRetries }}"
             - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE
               value: "{{ .Values.proverNode.txGathering.maxParallelRequests }}"
-            - name: PROVER_COORDINATION_NODE_URLS
-              value: {{ include "aztec-network.fullNodeUrl" . }}
             - name: PROVER_FAILED_PROOF_STORE
               value: "{{ .Values.proverNode.failedProofStore }}"
             - name: L1_CHAIN_ID
