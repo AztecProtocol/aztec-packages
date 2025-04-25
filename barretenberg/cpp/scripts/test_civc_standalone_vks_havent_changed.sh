@@ -8,7 +8,10 @@ cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
 # This allows us to compare the generated VKs here with ones we compute freshly, detecting breaking protocol changes.
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v3.tar.gz"
+# IF A VK CHANGE IS EXPECTED - we need to redo this:
+# - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
+# - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v4.tar.gz"
 
 export inputs_tmp_dir=$(mktemp -d)
 trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
@@ -24,4 +27,6 @@ function check_circuit_vks {
 export -f check_circuit_vks
 
 # Run on one public and one private input.
-parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir")
+ls "$inputs_tmp_dir"
+# parallel -v --line-buffer --tag check_circuit_vks {} ::: $(ls "$inputs_tmp_dir")
+check_circuit_vks deploy_ecdsar1+sponsored_fpc

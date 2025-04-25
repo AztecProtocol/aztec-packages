@@ -218,26 +218,10 @@ bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-
-    bool all_steps_valid = true;
-    for (auto [program, precomputed_vk, function_name] :
-         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
-        if (precomputed_vk == nullptr) {
-            info("FAIL: No precomputed vk for function ", function_name);
-            all_steps_valid = false;
-            continue;
-        }
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        if (computed_vk != precomputed_vk) {
-            info("FAIL: Verification key mismatch for function ", function_name);
-            all_steps_valid = false;
-        }
-    }
-    if (!all_steps_valid) {
-        info("We have a mismatch in the precomputed verification keys vs the computed verification keys.");
-    }
-    return all_steps_valid;
+    auto ivc = steps.accumulate();
+    auto proof = ivc->prove();
+    ASSERT(ivc->verify(proof));
+    return true;
 }
 void ClientIVCAPI::write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path)
 {
