@@ -339,7 +339,6 @@ export class SequencerPublisher {
       {
         header: `0x${block.header.toBuffer().toString('hex')}`,
         archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-        blockHash: `0x${(await block.hash()).toBuffer().toString('hex')}`,
         txHashes: block.body.txEffects.map(tx => tx.txHash.toString()),
         oracleInput: {
           // We are currently not modifying these. See #9963
@@ -642,7 +641,6 @@ export class SequencerPublisher {
         readonly oracleInput: {
           readonly feeAssetPriceModifier: 0n;
         };
-        readonly blockHash: `0x${string}`;
         readonly txHashes: `0x${string}`[];
       },
       ViemSignature[],
