@@ -20,10 +20,6 @@ export async function getSponsoredFPCArtifact(version?: string): Promise<Contrac
   }
 }
 
-export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
-  return;
-}
-
 export async function prepareForFeePayment(
   pxe: PXE,
   sponsoredFPCAddress?: AztecAddress,

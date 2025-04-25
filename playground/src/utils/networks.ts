@@ -22,7 +22,7 @@ export const NETWORKS: Network[] = [
     hasSponsoredFPC: true,
     sponsoredFPC: {
       version: '0.85.0-alpha-testnet.2',
-      address: AztecAddress.fromString('0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5'),
+      address: AztecAddress.fromString('0x042a1059a654dd542c33d7a2ec3f5d96f88da393b99a594b2b3e9f919def5101'),
     },
   },
   {
