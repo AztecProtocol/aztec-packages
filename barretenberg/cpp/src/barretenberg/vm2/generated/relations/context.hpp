@@ -14,13 +14,20 @@ template <typename FF_> class contextImpl {
 
     static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 5, 5, 5, 5, 5, 5, 5, 5 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        const auto& new_term = in;
+        return (new_term.execution_sel).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& new_term,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto execution_CALL = new_term.execution_call_sel + new_term.execution_static_call_sel;
+        const auto execution_CALL = new_term.execution_sel_call + new_term.execution_sel_static_call;
+        const auto execution_NOT_FIRST = (FF(1) - new_term.precomputed_first_row);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -31,14 +38,14 @@ template <typename FF_> class contextImpl {
         { // INCR_CONTEXT_ID
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp =
-                (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+                execution_NOT_FIRST * new_term.execution_sel_shift *
                 (new_term.execution_next_context_id_shift - (new_term.execution_next_context_id + execution_CALL));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_CONTEXT_ID
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (((new_term.execution_next_context_id - new_term.execution_context_id) * execution_CALL +
                          new_term.execution_context_id + new_term.precomputed_first_row) -
                         new_term.execution_context_id_shift);
@@ -47,7 +54,7 @@ template <typename FF_> class contextImpl {
         }
         { // NEXT_PARENT_ID
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (((new_term.execution_context_id - new_term.execution_parent_id) *
                              (execution_CALL + new_term.precomputed_first_row) +
                          new_term.execution_parent_id) -
@@ -57,14 +64,14 @@ template <typename FF_> class contextImpl {
         }
         { // NEXT_PC
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (new_term.execution_pc_shift - (FF(1) - execution_CALL) * new_term.execution_next_pc);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_MSG_SENDER
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (((new_term.execution_contract_address - new_term.execution_msg_sender) * execution_CALL +
                          new_term.execution_msg_sender) -
                         new_term.execution_msg_sender_shift);
@@ -73,7 +80,7 @@ template <typename FF_> class contextImpl {
         }
         { // NEXT_CONTRACT_ADDR
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (((new_term.execution_reg3 - new_term.execution_contract_address) * execution_CALL +
                          new_term.execution_contract_address) -
                         new_term.execution_contract_address_shift);
@@ -82,15 +89,15 @@ template <typename FF_> class contextImpl {
         }
         { // NEXT_IS_STATIC
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (new_term.execution_is_static_shift -
-                        (new_term.execution_static_call_sel + (FF(1) - execution_CALL) * new_term.execution_is_static));
+                        (new_term.execution_sel_static_call + (FF(1) - execution_CALL) * new_term.execution_is_static));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_CD_OFFSET
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (((new_term.execution_rop4 - new_term.execution_parent_calldata_offset_addr) * execution_CALL +
                          new_term.execution_parent_calldata_offset_addr) -
                         new_term.execution_parent_calldata_offset_addr_shift);
@@ -99,7 +106,7 @@ template <typename FF_> class contextImpl {
         }
         { // NEXT_CD_SIZE
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * new_term.execution_sel_shift *
+            auto tmp = execution_NOT_FIRST * new_term.execution_sel_shift *
                        (((new_term.execution_rop5 - new_term.execution_parent_calldata_size_addr) * execution_CALL +
                          new_term.execution_parent_calldata_size_addr) -
                         new_term.execution_parent_calldata_size_addr_shift);

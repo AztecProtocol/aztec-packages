@@ -71,7 +71,8 @@ void ExecutionTraceBuilder::process(
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
-                { C::execution_call_sel, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
+                { C::execution_sel_call, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
+                { C::execution_sel_static_call, ex_event.opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Operands
                 { C::execution_op1, operands.at(0) },

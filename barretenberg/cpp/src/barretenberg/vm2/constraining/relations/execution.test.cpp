@@ -61,7 +61,7 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCall)
                                    { C::execution_sel, 1 },
                                    { C::execution_pc, 1 },
                                    { C::execution_next_pc, 2 },
-                                   { C::execution_call_sel, 1 },
+                                   { C::execution_sel_call, 1 },
                                    { C::execution_context_id, 1 },
                                    { C::execution_next_context_id, 2 },
                                    { C::execution_rop4, /*cd offset=*/10 },

@@ -83,9 +83,9 @@ TEST(ExecutionTraceGenTest, Call)
         .gas_cost = { .base_l2 = AVM_CALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_CALL_DYN_L2_GAS, .dyn_da = 0 }
     };
     const auto call_instr = InstructionBuilder(WireOpCode::CALL)
-                                .operand<uint8_t>(0)
-                                .operand<uint8_t>(0)
-                                .operand<uint8_t>(0)
+                                .operand<uint8_t>(2)
+                                .operand<uint8_t>(4)
+                                .operand<uint8_t>(6)
                                 .operand<uint8_t>(10)
                                 .operand<uint8_t>(20)
                                 .build();
@@ -105,19 +105,19 @@ TEST(ExecutionTraceGenTest, Call)
     ex_event.addressing_event = addressing_event;
     ex_event.context_event = context_event;
     ex_event.next_context_id = 2;
-    ex_event.inputs = { /*allocated_l2_gas_read=*/TaggedValue::from_tag(ValueTag::U32, 10),
-                        /*allocated_da_gas_read=*/TaggedValue ::from_tag(ValueTag::U32, 11),
-                        /*contract_address=*/TaggedValue::from_tag(ValueTag::FF, 0xdeadbeef) };
-    ex_event.resolved_operands = { TaggedValue::from_tag(ValueTag::U32, 0),
-                                   TaggedValue::from_tag(ValueTag::U32, 0),
-                                   TaggedValue::from_tag(ValueTag::U32, 0),
-                                   TaggedValue::from_tag(ValueTag::U32, 10),
-                                   TaggedValue::from_tag(ValueTag::U32, 20) };
+    ex_event.inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(10),
+                        /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(11),
+                        /*contract_address=*/MemoryValue::from<uint32_t>(0xdeadbeef) };
+    ex_event.resolved_operands = { MemoryValue::from<uint32_t>(0),
+                                   MemoryValue::from<uint32_t>(0),
+                                   MemoryValue::from<uint32_t>(0),
+                                   MemoryValue::from<uint32_t>(10),
+                                   MemoryValue::from<uint32_t>(20) };
 
     builder.process({ ex_event }, trace);
     EXPECT_THAT(trace.as_rows(),
                 AllOf(Contains(Field(&R::execution_sel, 1)),
-                      Contains(Field(&R::execution_call_sel, 1)),
+                      Contains(Field(&R::execution_sel_call, 1)),
                       Contains(Field(&R::execution_rop4, 10)),
                       Contains(Field(&R::execution_rop5, 20)),
                       Contains(Field(&R::execution_reg1, 10)),
