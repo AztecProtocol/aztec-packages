@@ -27,8 +27,8 @@ export const KEY_FLOWS_CONFIG: ClientFlowsConfig = {
   },
   transfers: {
     accounts: ['ecdsar1'],
-    feePaymentMethods: ['sponsored_fpc'],
-    recursions: [1],
+    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
+    recursions: [0, 1],
   },
 };
 
