@@ -12,6 +12,46 @@ TEST(fr, Msgpack)
 
 TEST(fr, Eq)
 {
+    // lets just throw in some random tests for our new ASSERT functions
+    // at least 2 for each one, one true and one false, one failure with the error message
+    BB_ASSERT_EQ(1, 1, "true");
+    try {
+        BB_ASSERT_GT(2, 1, "true");
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_LT(1, 2, "true");
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_LT(1, 1, "BLASGAOI");
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_GTE(1 << 12, 10 - 8, "true");
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_GTE(1 + 5, 1 << 3, "false");
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_GTE(1 + 5, 1 << 3);
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_LTE(1 << 12, 10 - 8, "false");
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_LTE(1 + 5, 1 << 3);
+    } catch (const std::runtime_error& e) {
+    }
+    try {
+        BB_ASSERT_LTE(1 << 12, 10 - 8);
+    } catch (const std::runtime_error& e) {
+    }
+
     fr a{ 0x01, 0x02, 0x03, 0x04 };
     fr b{ 0x01, 0x02, 0x03, 0x04 };
     fr c{ 0x01, 0x02, 0x03, 0x05 };
