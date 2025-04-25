@@ -276,7 +276,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-full-node-cert
 spec:
   domains:
-  - full-node.alpha-testnet.aztec.network
+  - {{ .Values.fullNode.staticIpUrl }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -291,7 +291,7 @@ metadata:
     cloud.google.com/healthcheck-path: "/status"
 spec:
   rules:
-  - host: full-node.alpha-testnet.aztec.network
+  - host: {{ .Values.fullNode.staticIpUrl }}
     http:
       paths:
       - path: /
