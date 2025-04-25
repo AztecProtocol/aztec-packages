@@ -5,8 +5,6 @@ import {
   SponsoredFeePaymentMethod,
   AztecAddress,
   Fr,
-  type NoirCompiledContract,
-  loadContractArtifact,
 } from '@aztec/aztec.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
@@ -17,24 +15,16 @@ export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAdd
   });
 }
 
-export async function prepareForFeePayment(pxe: PXE, sponsoredFPCAddress?: AztecAddress, sponsoredFPCContractArtifact?: NoirCompiledContract): Promise<SponsoredFeePaymentMethod> {
+export async function getSponsoredFPCAddress(): Promise<AztecAddress> {
+  return (await getSponsoredFPCInstance()).address;
+}
+
+export async function prepareForFeePayment(pxe: PXE): Promise<SponsoredFeePaymentMethod> {
   try {
-    let sponsoredFPC: ContractInstanceWithAddress;
-    let contractArtifact = SponsoredFPCContract.artifact;
-
-    if (sponsoredFPCAddress && sponsoredFPCContractArtifact) {
-      contractArtifact = loadContractArtifact(sponsoredFPCContractArtifact);
-      sponsoredFPC = await getContractInstanceFromDeployParams(contractArtifact, {
-        salt: new Fr(SPONSORED_FPC_SALT),
-      });
-      sponsoredFPC.address = sponsoredFPCAddress;
-    } else {
-      sponsoredFPC = await getSponsoredFPCInstance();
-    }
-
+    const sponsoredFPC = await getSponsoredFPCInstance();
     await pxe.registerContract({
       instance: sponsoredFPC,
-      artifact: contractArtifact,
+      artifact: SponsoredFPCContract.artifact,
     });
     return new SponsoredFeePaymentMethod(sponsoredFPC.address);
   } catch (error) {

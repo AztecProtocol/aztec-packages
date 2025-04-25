@@ -406,7 +406,7 @@ export function Landing() {
       });
 
       const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
-      const feePaymentMethod = await prepareForFeePayment(pxe, network.sponsoredFPCAddress, network.sponsoredFPCContractArtifact);
+      const feePaymentMethod = await prepareForFeePayment(pxe);
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {
