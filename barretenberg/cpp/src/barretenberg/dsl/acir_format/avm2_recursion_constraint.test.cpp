@@ -138,8 +138,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
-    OuterVerifier verifier(verification_key);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    OuterVerifier verifier(verification_key, ipa_verification_key);
+    EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
 }
 
 /**
@@ -170,8 +171,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
-        OuterVerifier verifier(expected_vk);
-        EXPECT_TRUE(verifier.verify_proof(proof));
+        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        OuterVerifier verifier(expected_vk, ipa_verification_key);
+        EXPECT_TRUE(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
     }
 
     // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness
