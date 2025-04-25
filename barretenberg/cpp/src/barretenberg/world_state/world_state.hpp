@@ -198,9 +198,11 @@ class WorldState {
      * @tparam T The type of the leaves.
      * @param tree_id The ID of the Merkle Tree.
      * @param leaves The leaves to append.
+     * @return std::pair<std::vector<crypto::merkle_tree::fr_sibling_path>, std::vector<bb::fr>> Sibling paths and roots for each appended leaf
      */
     template <typename T>
-    void append_leaves(MerkleTreeId tree_id, const std::vector<T>& leaves, Fork::Id fork_id = CANONICAL_FORK_ID);
+    std::pair<std::vector<crypto::merkle_tree::fr_sibling_path>, std::vector<bb::fr>> append_leaves(
+        MerkleTreeId tree_id, const std::vector<T>& leaves, Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Batch inserts a set of leaves into an indexed Merkle Tree.
@@ -553,7 +555,9 @@ void WorldState::find_leaf_indices(const WorldStateRevision& rev,
     indices = std::move(local.inner.leaf_indices);
 }
 
-template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)
+template <typename T>
+std::pair<std::vector<crypto::merkle_tree::fr_sibling_path>, std::vector<bb::fr>> WorldState::append_leaves(
+    MerkleTreeId tree_id, const std::vector<T>& leaves, Fork::Id fork_id)
 {
     using namespace crypto::merkle_tree;
 
@@ -564,8 +568,16 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     bool success = true;
     std::string error_msg;
 
+    // This will store our result with sibling paths and roots
+    std::vector<fr_sibling_path> sibling_paths;
+    std::vector<bb::fr> roots;
+
+    // Get the initial tree info to know what size we start from
+    TreeMetaResponse tree_meta = get_tree_info(WorldStateRevision{.forkId = fork_id, .includeUncommitted = true}, tree_id);
+    index_t start_index = tree_meta.meta.size;
+
     if constexpr (std::is_same_v<bb::fr, T>) {
-        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
+        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
         auto callback = [&](const auto& resp) {
             if (!resp.success) {
                 success = false;
@@ -577,7 +589,7 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
-        auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
+        auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(tree_id));
         typename Tree::AddCompletionCallback callback = [&](const auto& resp) {
             if (!resp.success) {
                 success = false;
@@ -593,6 +605,22 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     if (!success) {
         throw std::runtime_error(error_msg);
     }
+
+    // After insertion, get the sibling paths for each leaf that was added
+    sibling_paths.reserve(leaves.size());
+    roots.reserve(leaves.size());
+
+    TreeMetaResponse updated_tree_meta = get_tree_info(WorldStateRevision{.forkId = fork_id, .includeUncommitted = true}, tree_id);
+
+    // For each inserted leaf, get its sibling path
+    for (size_t i = 0; i < leaves.size(); i++) {
+        auto leaf_index = start_index + i;
+        auto path = get_sibling_path(WorldStateRevision{.forkId = fork_id, .includeUncommitted = true}, tree_id, leaf_index);
+        sibling_paths.push_back(path);
+        roots.push_back(updated_tree_meta.meta.root);
+    }
+
+    return std::make_pair(sibling_paths, roots);
 }
 
 template <typename T>
