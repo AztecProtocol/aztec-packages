@@ -26,11 +26,13 @@ const navbarContent = css({
   display: 'flex',
   flexDirection: 'row-reverse',
   alignItems: 'center',
-  justifyContent: 'space-between',
+  justifyContent: 'flex-start',
   gap: '10px',
+  marginBottom: '10px',
   '@media (max-width: 900px)': {
     flexDirection: 'column',
     alignItems: 'flex-start',
+    marginBottom: '0',
   },
 });
 
@@ -41,7 +43,6 @@ export function NavBar() {
         <NetworkSelector />
         <AccountSelector />
         <ContractSelector />
-        <div css={{ flex: '1 0 auto', margin: 'auto' }} />
         <AddressBook />
       </div>
     </div>

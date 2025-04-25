@@ -23,10 +23,11 @@ export function AddressBook() {
     <>
       {wallet && walletDB && isPXEInitialized && (
         <>
-          <div css={navbarButtonStyle} style={{ padding: '10px 16px', cursor: 'pointer' }}
+          <div css={navbarButtonStyle} style={{ padding: '10px 16px', cursor: 'pointer', display: 'flex', justifyContent: 'flex-start' }}
             role="button"
-            onClick={() => setOpenAddSendersDialog(true)}>
-            <ContactsIcon color='inherit' sx={{ marginRight: '8px' }} />
+            onClick={() => setOpenAddSendersDialog(true)}
+          >
+            <ContactsIcon color='inherit' sx={{ marginRight: '12px' }} />
             <Typography variant="body1">Contacts</Typography>
           </div>
           {openAddSendersDialog && (

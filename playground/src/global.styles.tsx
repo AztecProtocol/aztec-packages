@@ -86,7 +86,7 @@ export const globalStyle = css({
     display: 'flex',
     minWidth: '100vw',
     minHeight: '100vh',
-    background: 'linear-gradient(180deg, #9894FF 0%, #CDD1D5 100%)',
+    background: 'linear-gradient(180deg, #9894FF 0%, #CDD1D5 100%) fixed',
     fontFamily: '"Space Grotesk", "Roboto", "Helvetica", "Arial", sans-serif',
   },
 

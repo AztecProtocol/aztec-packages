@@ -167,6 +167,12 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
+        '&:last-child': {
+          marginBottom: '0',
+        },
+        '@media (max-width: 900px)': {
+          margin: '0.5rem 0px',
+        },
       }}
     >
       <CardContent sx={{ textAlign: 'left', position: 'relative', padding: '12px 16px !important' }}>
