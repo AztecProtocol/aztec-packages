@@ -1,45 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745599700146,
+  "lastUpdate": 1745602436010,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "committer": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "distinct": true,
-          "id": "50f5bf07e6981a86b08b0b14b94940105fe15971",
-          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"d0d78918dc\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"d0d78918dc\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
-          "timestamp": "2025-04-21T02:32:14Z",
-          "tree_id": "826494a0298a2d3b9aaaf021caeb950da310423a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/50f5bf07e6981a86b08b0b14b94940105fe15971"
-        },
-        "date": 1745204749513,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9678,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2600377834899411,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 153411,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 149331,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "da8041adf837db13e4bcc95d7a9b11edc41b2d52",
+          "message": "chore(bb): avoid use of brackets in RefArray/Vector (#13835)\n\nThe use of brackets in Ref{Array,Vector} was the main driver of bracket\ndepth.\n\nThere are still other uses of brackets to apply stuff to tuples, but\ntheir length seems to be much smaller.",
+          "timestamp": "2025-04-25T16:07:45Z",
+          "tree_id": "8952b0015b2a25e5e5ee3b44ce910f995411188c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/da8041adf837db13e4bcc95d7a9b11edc41b2d52"
+        },
+        "date": 1745602435099,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8499,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24332628984832985,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 142525,
             "unit": "us"
           }
         ]
