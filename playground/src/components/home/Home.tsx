@@ -35,14 +35,14 @@ const contentLayout = css({
 const headerFrame = css({
   margin: '24px 60px',
   backgroundColor: '#CDD1D5',
-  borderRadius: '10px',
+  borderRadius: '6px',
   display: 'flex',
   alignItems: 'center',
   padding: '12px 18px',
   flexWrap: 'wrap',
   '@media (max-width: 1200px)': {
     margin: '12px 12px 24px 12px',
-    padding: '3px 12px',
+    padding: '6px 12px',
   },
 });
 
