@@ -112,8 +112,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   /**
    * Handles an epoch being completed by starting a proof for it if there are no active jobs for it.
    * @param epochNumber - The epoch number that was just completed.
+   * @returns false if there is an error, true otherwise
    */
-  async handleEpochReadyToProve(epochNumber: bigint): Promise<void> {
+  async handleEpochReadyToProve(epochNumber: bigint): Promise<boolean> {
     try {
       this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
         jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
@@ -123,15 +124,17 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
         this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
           activeJobs: activeJobs.map(job => job.uuid),
         });
-        return;
+        return true;
       }
       await this.startProof(epochNumber);
+      return true;
     } catch (err) {
       if (err instanceof EmptyEpochError) {
         this.log.info(`Not starting proof for ${epochNumber} since no blocks were found`);
       } else {
         this.log.error(`Error handling epoch completed`, err);
       }
+      return false;
     }
   }
 
