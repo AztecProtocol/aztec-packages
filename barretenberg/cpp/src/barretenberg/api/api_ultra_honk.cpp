@@ -82,7 +82,10 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
-    ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
+    // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
+    BB_ASSERT_GTE(prover.proving_key->proving_key.num_public_inputs,
+                  PAIRING_POINT_ACCUMULATOR_SIZE,
+                  "Public inputs should contain a pairing point accumulator");
     num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         ASSERT(num_inner_public_inputs >= IPA_CLAIM_SIZE);
