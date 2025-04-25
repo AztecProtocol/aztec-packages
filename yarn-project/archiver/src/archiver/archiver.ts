@@ -568,7 +568,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
       for (const block of retrievedBlocks) {
         this.log.info(`Downloaded L2 block ${block.block.number}`, {
-          blockHash: block.block.hash(),
+          blockHash: await block.block.hash(),
           blockNumber: block.block.number,
           txCount: block.block.body.txEffects.length,
           globalVariables: block.block.header.globalVariables.toInspect(),
