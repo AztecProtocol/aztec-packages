@@ -67,7 +67,7 @@ const itShouldBehaveLikeAnAccountContract = (
     it('calls a public function', async () => {
       logger.info('Calling public function...');
       await child.methods.pub_inc_value(42).send().wait({ interval: 0.1 });
-      const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
+      const storedValue = await pxe.node.getPublicStorageAt('latest', child.address, new Fr(1));
       expect(storedValue).toEqual(new Fr(42n));
     });
 

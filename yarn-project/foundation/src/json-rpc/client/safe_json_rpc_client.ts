@@ -1,7 +1,13 @@
 import { format } from 'util';
 
 import { type Logger, createLogger } from '../../log/pino-logger.js';
-import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
+import {
+  type ApiSchema,
+  type ApiSchemaFor,
+  type ZodFunctionFor,
+  schemaHasKey,
+  schemaKeyIsFunction,
+} from '../../schemas/api.js';
 import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
 export type SafeJsonRpcClientOptions = {
@@ -9,6 +15,9 @@ export type SafeJsonRpcClientOptions = {
   namespaceMethods?: string | false;
   fetch?: JsonRpcFetch;
   log?: Logger;
+  proxy?: {
+    [key: string]: any;
+  };
   onResponse?: (res: {
     response: any;
     headers: { get: (header: string) => string | null | undefined };
@@ -34,11 +43,12 @@ export function createSafeJsonRpcClient<T extends object>(
   const { useApiEndpoints = false, namespaceMethods = false } = config;
 
   let id = 0;
-  const request = async (methodName: string, params: any[]): Promise<any> => {
-    if (!schemaHasMethod(schema, methodName)) {
-      throw new Error(`Unspecified method ${methodName} in client schema`);
+  const request = async (key: string, params: any[]): Promise<any> => {
+    if (!schemaHasKey(schema, key)) {
+      throw new Error(`Unspecified key ${key} in client schema`);
     }
-    const method = namespaceMethods ? `${namespaceMethods}_${methodName}` : methodName;
+
+    const method = namespaceMethods ? `${namespaceMethods}_${key}` : key;
     const body = { jsonrpc: '2.0', id: id++, method, params };
 
     log.debug(format(`request`, method, params));
@@ -55,12 +65,20 @@ export function createSafeJsonRpcClient<T extends object>(
     if ([null, undefined, 'null', 'undefined'].includes(response.result)) {
       return;
     }
-    return (schema as ApiSchema)[methodName].returnType().parseAsync(response.result);
+    return ((schema as ApiSchema)[key] as ZodFunctionFor<any, any>).returnType().parseAsync(response.result);
   };
 
   const proxy: any = {};
-  for (const method of Object.keys(schema)) {
-    proxy[method] = (...params: any[]) => request(method, params);
+  for (const key of Object.keys(schema)) {
+    if (schemaKeyIsFunction(schema, key)) {
+      proxy[key] = (...params: any[]) => request(key, params);
+    } else {
+      const subSchema = schema[key as keyof T];
+      proxy[key] = createSafeJsonRpcClient(host, subSchema as ApiSchemaFor<typeof subSchema>, {
+        ...config,
+        namespaceMethods: `${namespaceMethods ? `${namespaceMethods}_` : ''}${key}`,
+      });
+    }
   }
 
   return proxy as T;

@@ -362,7 +362,7 @@ async function addPendingShieldNoteToPXE(
   pxe: PXE,
 ) {
   // docs:start:offchain_delivery
-  const txEffects = await pxe.getTxEffect(txHash);
+  const txEffects = await pxe.node.getTxEffect(txHash);
   await contract.methods
     .deliver_transparent_note(
       contract.address,

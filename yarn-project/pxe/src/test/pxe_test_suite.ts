@@ -1,4 +1,3 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -97,11 +96,6 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
     // Note: Not testing `getContractData`, `getPublicLogs` and `getPublicStorageAt` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
-
-    it('successfully gets a block number', async () => {
-      const blockNum = await pxe.getBlockNumber();
-      expect(blockNum).toBeGreaterThanOrEqual(INITIAL_L2_BLOCK_NUM);
-    });
 
     it('successfully gets node info', async () => {
       const nodeInfo = await pxe.getNodeInfo();

@@ -289,7 +289,12 @@ async function fundFPC(
     true,
   );
 
-  await retryUntil(async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)), 'message sync', 600, 1);
+  await retryUntil(
+    async () => await pxe.node.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)),
+    'message sync',
+    600,
+    1,
+  );
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
@@ -307,7 +312,7 @@ async function fundFPC(
     .send()
     .wait({ ...waitOpts });
 
-  await waitForProven(pxe, receipt, provenWaitOpts);
+  await waitForProven(pxe.node, receipt, provenWaitOpts);
 
   debugLog.info('Finished claiming FPC');
 }

@@ -103,7 +103,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_public(arbitraryValue).send().wait();
-    const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
+    const logs = await pxe.node.getPublicLogs({ txHash: receipt.txHash });
     expect(logs.logs[0].log.log[0]).toEqual(new Fr(arbitraryValue));
   });
 

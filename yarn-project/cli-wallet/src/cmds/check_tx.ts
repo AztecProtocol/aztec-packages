@@ -4,7 +4,7 @@ import type { LogFn } from '@aztec/foundation/log';
 
 export async function checkTx(client: PXE, txHash: TxHash, statusOnly: boolean, log: LogFn) {
   if (statusOnly) {
-    const receipt = await client.getTxReceipt(txHash);
+    const receipt = await client.node.getTxReceipt(txHash);
     return receipt.status;
   } else {
     await inspectTx(client, txHash, log, { includeBlockInfo: true });

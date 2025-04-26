@@ -24,24 +24,43 @@ type ZodMapParameterTypes<T> = T extends []
   ? [ZodNullableOptional<ZodParameterTypeFor<Head>>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
   : never;
 
-/** Maps all functions in an interface to their schema representation. */
-export type ApiSchemaFor<T> = {
-  [K in keyof T]: T[K] extends (...args: infer Args) => Promise<infer Ret>
-    ? z.ZodFunction<z.ZodTuple<ZodMapParameterTypes<Args>, z.ZodUnknown>, ZodReturnTypeFor<Ret>>
-    : never;
-};
+export type ZodFunctionFor<Args, Ret> = z.ZodFunction<
+  z.ZodTuple<ZodMapParameterTypes<Args>, z.ZodUnknown>,
+  ZodReturnTypeFor<Ret>
+>;
 
 /** Generic Api schema not bounded to a specific implementation. */
 export type ApiSchema = {
-  [key: string]: z.ZodFunction<z.ZodTuple<any, any>, z.ZodTypeAny>;
+  [key: string]: ZodFunctionFor<any, any> | ApiSchemaFor<any>;
 };
 
-/** Return whether an API schema defines a valid function schema for a given method name. */
-export function schemaHasMethod(schema: ApiSchema, methodName: string) {
+/** Maps all functions in an interface to their schema representation. */
+export type ApiSchemaFor<T> = {
+  [K in keyof T]: T[K] extends (...args: infer Args) => Promise<infer Ret>
+    ? ZodFunctionFor<Args, Ret>
+    : ApiSchemaFor<T[K]>;
+};
+
+export function schemaKeyIsFunction<T>(schema: ApiSchemaFor<T>, key: string) {
+  const maybeFn = schema[key as keyof T];
   return (
-    typeof methodName === 'string' &&
-    Object.hasOwn(schema, methodName) &&
-    typeof schema[methodName].parameters === 'function' &&
-    typeof schema[methodName].returnType === 'function'
+    maybeFn !== undefined &&
+    typeof (maybeFn as ZodFunctionFor<any, any>).parameters === 'function' &&
+    typeof (maybeFn as ZodFunctionFor<any, any>).returnType === 'function'
   );
+}
+
+/**
+ * Return whether an API schema defines a valid getter schema for a given method name,
+ * or if a nested schema does with a prefixed method name.
+ */
+export function schemaHasKey<T>(schema: ApiSchemaFor<T>, key: string) {
+  const hasOwnKey = Object.hasOwn(schema, key);
+
+  const [nestedObj, nestedKey] = key.split('_');
+  const hasNestedKey =
+    Object.hasOwn(schema, nestedObj) &&
+    typeof schema[nestedObj as keyof T] === 'object' &&
+    Object.hasOwn(schema[nestedObj as keyof T], nestedKey);
+  return typeof key === 'string' && (hasOwnKey || hasNestedKey);
 }

@@ -10,7 +10,7 @@ export async function assumeProvenThrough(
 ) {
   const pxe = createPXEClient(rpcUrl, {}, makeFetch([], true));
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
-  const blockNumber = blockNumberOrLatest ?? (await pxe.getBlockNumber());
+  const blockNumber = blockNumberOrLatest ?? (await pxe.node.getBlockNumber());
 
   const ethCheatCode = new EthCheatCodes(l1RpcUrls);
   const rollupCheatCodes = new RollupCheatCodes(ethCheatCode, { rollupAddress });

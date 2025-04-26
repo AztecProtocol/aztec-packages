@@ -623,13 +623,13 @@ export const deployAccounts =
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
  * @param waitUntilProven - Whether to wait for the tx to be proven.
- * @param pxeOrNode - PXE or AztecNode to wait for proven.
+ * @param node - AztecNode to wait for proven.
  */
 export async function publicDeployAccounts(
   sender: Wallet,
   accountsToDeploy: (CompleteAddress | AztecAddress)[],
   waitUntilProven = false,
-  pxeOrNode?: PXE | AztecNode,
+  node?: AztecNode,
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = (
@@ -648,10 +648,10 @@ export async function publicDeployAccounts(
 
   const txReceipt = await batch.send().wait();
   if (waitUntilProven) {
-    if (!pxeOrNode) {
+    if (!node) {
       throw new Error('Need to provide a PXE or AztecNode to wait for proven.');
     } else {
-      await waitForProven(pxeOrNode, txReceipt);
+      await waitForProven(node, txReceipt);
     }
   }
 }
