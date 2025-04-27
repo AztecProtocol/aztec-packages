@@ -384,7 +384,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
-      this.l1ToL2MessageSource,
       this.metrics,
       deadline,
       { parallelBlockLimit },
