@@ -15,7 +15,7 @@ export const Aliases = [
 ] as const;
 export type AliasType = (typeof Aliases)[number];
 
-export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
+export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1', 'aztec-keychain'] as const;
 export type AccountType = (typeof AccountTypes)[number];
 
 export class WalletDB {

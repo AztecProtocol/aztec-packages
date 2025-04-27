@@ -1,0 +1,69 @@
+export enum CommandType {
+  SIGNATURE_REQUESTED,
+  SIGNATURE_REQUEST_REJECTED,
+  GET_KEY_REQUESTED,
+  KEY,
+  ERROR,
+  SIGNATURE,
+}
+
+type Command = {
+  type: CommandType;
+  data: any;
+};
+
+export async function sendCommandAndParseResponse(command: Command) {
+  if ('serial' in navigator) {
+    let port;
+    const existingPorts = await (navigator.serial as any).getPorts();
+    if (existingPorts.length > 0) {
+      port = existingPorts[0];
+    } else {
+      port = await (navigator.serial as any).requestPort();
+    }
+    await port.open({ baudRate: 115200 });
+    const currentData = [Buffer.alloc(0)];
+
+    const writer = port.writable.getWriter();
+    const message = Buffer.from(JSON.stringify(command));
+    await writer.write(message);
+    // Allow the serial port to be closed later.
+    writer.releaseLock();
+
+    const reader = port.readable.getReader();
+    let response;
+    while (!response) {
+      const { value } = await reader.read();
+
+      let data: Buffer = Buffer.from(value as Uint8Array);
+
+      let endPosition = data.indexOf(Buffer.from('\n', 'utf-8'));
+      while (endPosition !== -1) {
+        const toAppend = data.subarray(0, endPosition);
+        const lineIndex = currentData.length - 1;
+        currentData[lineIndex] = Buffer.concat([currentData[lineIndex], Buffer.from(toAppend)]);
+        currentData.push(Buffer.alloc(0));
+        data = data.subarray(endPosition + 1);
+        endPosition = data.indexOf(Buffer.from('\n', 'utf-8'));
+      }
+
+      currentData[currentData.length - 1] = Buffer.concat([currentData[currentData.length - 1], data]);
+      const accumulatedData = currentData.splice(0, currentData.length - 1);
+
+      for (const data of accumulatedData) {
+        const parsedData = data.toString('utf-8');
+        try {
+          response = JSON.parse(parsedData);
+          if (!response.type) {
+            throw new Error('Invalid response');
+          }
+          reader.releaseLock();
+        } catch (err) {}
+      }
+    }
+    await port.close();
+    return response;
+  } else {
+    throw new Error('Web Serial API is not supported in this browser.');
+  }
+}

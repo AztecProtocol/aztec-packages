@@ -2,7 +2,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
 import { Fr, DeployMethod, type DeployOptions, AccountWallet } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
-import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getEcdsaRAccount, getEcdsaKAccount, getEcdsaRSerialAccount } from '@aztec/accounts/ecdsa/lazy';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useContext, useState } from 'react';
@@ -37,7 +37,6 @@ export function CreateAccountDialog({
   const [alias, setAlias] = useState('');
   const [type, setType] = useState<AccountType>('ecdsasecp256r1');
   const [secretKey] = useState(Fr.random());
-  const [publiclyDeploy, setPubliclyDeploy] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState(null);
 
@@ -67,6 +66,13 @@ export function CreateAccountDialog({
           accountManager = await getEcdsaKAccount(pxe, secretKey, signingKey, salt);
           break;
         }
+        case 'aztec-keychain': {
+          // Index of the key
+          const signingKeyIndex = 0;
+          signingKey = Buffer.from([signingKeyIndex]);
+          accountManager = await getEcdsaRSerialAccount(pxe, secretKey, signingKeyIndex, salt);
+          break;
+        }
         default: {
           throw new Error('Unknown account type');
         }
@@ -82,19 +88,18 @@ export function CreateAccountDialog({
       });
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
-      if (publiclyDeploy) {
-        deployMethod = await accountManager.getDeployMethod();
-        opts = {
-          contractAddressSalt: salt,
-          fee: {
-            paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
-          },
-          universalDeploy: true,
-          skipClassRegistration: true,
-          skipPublicDeployment: true,
-        };
-      }
-      onClose(accountWallet, publiclyDeploy, deployMethod, opts);
+      deployMethod = await accountManager.getDeployMethod();
+      opts = {
+        contractAddressSalt: salt,
+        fee: {
+          paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
+        },
+        universalDeploy: true,
+        skipClassRegistration: true,
+        skipPublicDeployment: true,
+      };
+
+      onClose(accountWallet, true, deployMethod, opts);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -123,6 +128,7 @@ export function CreateAccountDialog({
               <MenuItem value="schnorr">Schnorr</MenuItem>
               <MenuItem value="ecdsasecp256r1">ECDSA R1</MenuItem>
               <MenuItem value="ecdsasecp256k1">ECDSA K1</MenuItem>
+              <MenuItem value="aztec-keychain">Aztec Keychain (ECDSA R1)</MenuItem>
             </Select>
             <InfoText>{INFO_TEXT.ACCOUNT_ABSTRACTION}</InfoText>
           </FormControl>
@@ -139,17 +145,7 @@ export function CreateAccountDialog({
             />
             <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
-          {/* Always deploy for now */}
-          {/* <FormControl>
-            <FormControlLabel
-              value={publiclyDeploy}
-              control={
-                <Checkbox checked={publiclyDeploy} onChange={event => setPubliclyDeploy(event.target.checked)} />
-              }
-              label="Deploy"
-            />
-          </FormControl> */}
-          {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
+          <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />
         </FormGroup>
         <div css={{ flexGrow: 1, margin: 'auto' }}></div>
         {!error ? (
@@ -161,11 +157,8 @@ export function CreateAccountDialog({
               <CircularProgress size={20} />
             </div>
           ) : (
-            <Button
-              disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
-              onClick={createAccount}
-            >
-              {publiclyDeploy ? 'Create and deploy' : 'Create'}
+            <Button disabled={alias === '' || !feePaymentMethod || isRegistering} onClick={createAccount}>
+              Create and deploy
             </Button>
           )
         ) : (

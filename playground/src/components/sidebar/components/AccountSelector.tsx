@@ -16,7 +16,7 @@ import {
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
-import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getEcdsaRAccount, getEcdsaKAccount, getEcdsaRSerialAccount } from '@aztec/accounts/ecdsa/lazy';
 
 import { Fq, type AccountManager } from '@aztec/aztec.js';
 import { css } from '@emotion/react';
@@ -25,6 +25,7 @@ import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { useTransaction } from '../../../hooks/useTransaction';
 import { select } from '../../../styles/common';
+import { get } from 'http';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -123,6 +124,14 @@ export function AccountSelector() {
         accountManager = await getEcdsaKAccount(pxe, accountData.secretKey, accountData.signingKey, accountData.salt);
         break;
       }
+      case 'aztec-keychain': {
+        accountManager = await getEcdsaRSerialAccount(
+          pxe,
+          accountData.secretKey,
+          accountData.signingKey[0],
+          accountData.salt,
+        );
+      }
       default: {
         throw new Error('Unknown account type');
       }
@@ -219,7 +228,9 @@ export function AccountSelector() {
           <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
         )}
       </FormControl>
-      <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
+      {openCreateAccountDialog && (
+        <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
+      )}
     </div>
   );
 }
