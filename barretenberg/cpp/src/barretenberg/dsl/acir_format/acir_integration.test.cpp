@@ -1,10 +1,12 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -124,7 +126,11 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite()
+    {
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    }
 };
 
 class AcirIntegrationSingleTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {};
@@ -513,6 +519,47 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
+}
+
+/**
+ * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ *
+ */
+TEST_F(AcirIntegrationTest, MsgpackInputs)
+{
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    // Recomputed the "precomputed" verification keys
+    {
+        TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+        for (auto [program, precomputed_vk, function_name] :
+             zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
+
+            program.witness = {};
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
+
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+            auto recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+            info("Function: ", function_name);
+            recomputed_vk->compare(precomputed_vk);
+        }
+    }
+
+    // std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    // ClientIVC::Proof proof = ivc->prove();
+
+    // // Verify the proof
+    // [[maybe_unused]] bool result = ivc->verify(proof);
+    // EXPECT_TRUE(result);
 }
 
 #endif
