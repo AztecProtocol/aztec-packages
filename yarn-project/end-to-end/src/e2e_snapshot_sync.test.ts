@@ -5,7 +5,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
-import { type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import { ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 
 import { mkdtemp, readdir } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -68,24 +68,33 @@ describe('e2e_snapshot_sync', () => {
         ...context.config,
         dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
         p2pEnabled: true, // So we don't need prover coordination
-        proverCoordinationNodeUrl: undefined,
+        proverCoordinationNodeUrls: [],
         proverNodeMaxPendingJobs: 10,
         proverNodeMaxParallelBlocksPerEpoch: 32,
         proverNodePollingIntervalMs: 200,
-        txGatheringTimeoutMs: 60000,
         txGatheringIntervalMs: 1000,
-        txGatheringMaxParallelRequests: 100,
+        txGatheringBatchSize: 10,
+        txGatheringMaxParallelRequestsPerNode: 10,
         proverAgentCount: 1,
         realProofs: false,
+        proverNodeFailedEpochStore: undefined,
         ...config,
       }),
     );
   };
 
-  it('waits until a few L2 blocks have been mined', async () => {
+  const expectNodeSyncedToL2Block = async (node: AztecNode | ProverNode, blockNumber: number) => {
+    const tips = await node.getL2Tips();
+    expect(tips.latest.number).toBeGreaterThanOrEqual(blockNumber);
+    const worldState = await node.getWorldStateSyncStatus();
+    expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
+  };
+
+  it('waits until a few L2 blocks have been mined and purges blobs', async () => {
     log.warn(`Waiting for L2 blocks to be mined`);
     await retryUntil(() => monitor.l2BlockNumber > L2_TARGET_BLOCK_NUM, 'l2-blocks-mined', 90, 1);
-    log.warn(`L2 block height is now ${monitor.l2BlockNumber}`);
+    log.warn(`L2 block height is now ${monitor.l2BlockNumber}. Purging all blobs from sink so snapshot is required.`);
+    await context.blobSink!.clear();
   });
 
   it('creates a snapshot', async () => {
@@ -97,13 +106,11 @@ describe('e2e_snapshot_sync', () => {
 
   it('downloads snapshot when syncing new node', async () => {
     log.warn(`Syncing brand new node with snapshot sync`);
-    const node = await createNonValidatorNode('1', {
-      blobSinkUrl: undefined, // set no blob sink so it cannot sync on its own
-      snapshotsUrl: snapshotLocation,
-      syncMode: 'snapshot',
-    });
+    const node = await createNonValidatorNode('1', { snapshotsUrl: snapshotLocation, syncMode: 'snapshot' });
 
     log.warn(`New node synced`);
+    await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
+
     const block = await node.getBlock(L2_TARGET_BLOCK_NUM);
     expect(block).toBeDefined();
     const blockHash = await block!.hash();
@@ -120,18 +127,10 @@ describe('e2e_snapshot_sync', () => {
 
   it('downloads snapshot when syncing new prover node', async () => {
     log.warn(`Syncing brand new prover node with snapshot sync`);
-    const node = await createTestProverNode('1', {
-      blobSinkUrl: undefined, // set no blob sink so it cannot sync on its own
-      snapshotsUrl: snapshotLocation,
-      syncMode: 'snapshot',
-    });
+    const node = await createTestProverNode('1', { snapshotsUrl: snapshotLocation, syncMode: 'snapshot' });
 
     log.warn(`New node prover synced`);
-    const tips = await node.getL2Tips();
-    expect(tips.latest.number).toBeLessThanOrEqual(L2_TARGET_BLOCK_NUM);
-
-    const worldState = await node.getWorldStateSyncStatus();
-    expect(worldState.latestBlockNumber).toBeLessThanOrEqual(L2_TARGET_BLOCK_NUM);
+    await expectNodeSyncedToL2Block(node, L2_TARGET_BLOCK_NUM);
 
     log.warn(`Stopping new prover node`);
     await node.stop();

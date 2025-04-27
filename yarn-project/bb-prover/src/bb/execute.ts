@@ -609,7 +609,7 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath];
+    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath, '-v'];
     const timer = new Timer();
     const command = 'verify';
     const result = await executeBB(pathToBB, command, args, log);

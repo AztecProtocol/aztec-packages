@@ -36,7 +36,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         Builder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
-
+        AggregationObject::add_default_pairing_points_to_public_inputs(circuit);
         return circuit;
     }
 
@@ -187,8 +187,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         // Create kernel circuit from kernel program and the mocked IVC (empty witness mimics VK construction context)
         const ProgramMetadata metadata{ mock_ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-        // Note: adding pairing point normally happens in accumulate()
-        AggregationObject::add_default_pairing_points_to_public_inputs(kernel);
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
@@ -308,9 +306,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         const ProgramMetadata metadata{ ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-        // Note that this would normally happen in accumulate()
-        AggregationObject::add_default_pairing_points_to_public_inputs(kernel);
-
         auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_settings);
         MegaProver prover(proving_key);
         kernel_vk = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);

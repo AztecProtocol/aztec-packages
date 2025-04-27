@@ -266,7 +266,7 @@ ClientIVC::MergeProof create_dummy_merge_proof()
         proof.emplace_back(val);
     }
 
-    ASSERT(proof.size() == MERGE_PROOF_SIZE);
+    BB_ASSERT_EQ(proof.size(), MERGE_PROOF_SIZE);
 
     return proof;
 }
@@ -286,7 +286,7 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
 
     // Convert the VerificationKey to fields
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
-    ASSERT(mock_vk_fields.size() == key_witness_indices.size());
+    BB_ASSERT_EQ(mock_vk_fields.size(), key_witness_indices.size());
 
     // Add the fields to the witness and set the key witness indices accordingly
     for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {

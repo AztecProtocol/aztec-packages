@@ -149,10 +149,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
-    typename Curve::ScalarField recursion_separator =
-        Curve::ScalarField::from_witness_index(&builder, builder.add_variable(42));
-    agg_obj.aggregate(pairing_points, recursion_separator);
+    agg_obj.aggregate(pairing_points);
     return agg_obj;
 }
 

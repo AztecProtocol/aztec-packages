@@ -52,7 +52,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
     builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
-    ASSERT(builder->ipa_proof.size() && "IPA proof should not be empty");
+    BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
@@ -100,7 +100,9 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
         UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE;
     // The extra calculation is for the IPA proof length.
-    ASSERT(tube_proof.size() == HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs);
+    BB_ASSERT_EQ(tube_proof.size(),
+                 HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs,
+                 "In prove_tube, tube proof length is incorrect.");
     // split out the ipa proof
     const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(
         HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS - IPA_PROOF_LENGTH + num_inner_public_inputs);

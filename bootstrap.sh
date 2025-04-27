@@ -222,6 +222,7 @@ function bench {
     return
   fi
   denoise "barretenberg/bootstrap.sh bench"
+  denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
@@ -278,7 +279,7 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released here /.github/workflows/docs-deploy.yml
+    # docs # released as part of ci
     release-image
   )
   if [ $(arch) == arm64 ]; then

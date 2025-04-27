@@ -109,6 +109,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         fq_ct big_b(fr_ct(witness_ct(&builder, bigfield_data_b.to_montgomery_form())), fr_ct(witness_ct(&builder, 0)));
 
         big_a* big_b;
+
+        stdlib::recursion::aggregation_state<InnerBuilder>::add_default_pairing_points_to_public_inputs(builder);
     };
 
     static std::tuple<std::shared_ptr<InnerDeciderProvingKey>, std::shared_ptr<InnerDeciderVerificationKey>>
@@ -245,8 +247,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         }
 
         // Check for a failure flag in the recursive verifier circuit
-
         {
+            stdlib::recursion::aggregation_state<OuterBuilder>::add_default_pairing_points_to_public_inputs(
+                folding_circuit);
             // inefficiently check finalized size
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
@@ -328,6 +331,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
+        pairing_points.set_public();
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();

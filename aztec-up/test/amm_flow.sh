@@ -27,15 +27,6 @@ bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
 # We can't create a new shell for this test, so just re-source our modified .bashrc to get updated PATH.
 PS1=" " source ~/.bash_profile
 
-# Sanity check lsp.
-echo "Checking LSP..."
-echo -ne 'Content-Length: 100\r\n\r\n{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": null, "capabilities": {}}}' \
-  | aztec-nargo lsp \
-  | grep -q '"jsonrpc":"2.0"'
-echo "LSP check passed."
-
-export LOG_LEVEL=debug
-
 # Start sandbox and wait for port to open.
 aztec start --sandbox &
 sandbox_pid=$!

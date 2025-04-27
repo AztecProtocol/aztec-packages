@@ -65,8 +65,8 @@ export class BlockHeader {
     return this.globalVariables.slotNumber.toBigInt();
   }
 
-  getBlockNumber(): number {
-    return Number(this.globalVariables.blockNumber.toBigInt());
+  getBlockNumber() {
+    return this.globalVariables.blockNumber.toNumber();
   }
 
   getSize() {
