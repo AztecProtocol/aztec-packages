@@ -19,9 +19,10 @@ describe('ValidationService', () => {
 
   it('creates a proposal', async () => {
     const {
-      payload: { header, archive, txHashes },
+      blockNumber,
+      payload: { header, archive, stateReference, txHashes },
     } = makeBlockProposal();
-    const proposal = await service.createBlockProposal(header, archive, txHashes);
+    const proposal = await service.createBlockProposal(blockNumber, header, archive, stateReference, txHashes);
     expect(proposal.getSender()).toEqual(store.getAddress());
   });
 
