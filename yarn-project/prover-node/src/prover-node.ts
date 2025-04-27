@@ -1,8 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
-import type { ViemPublicClient } from '@aztec/ethereum';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
