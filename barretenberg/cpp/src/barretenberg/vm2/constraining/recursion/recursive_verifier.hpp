@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 
@@ -21,7 +21,7 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
 
   public:
     explicit AvmRecursiveVerifier_(Builder& builder,

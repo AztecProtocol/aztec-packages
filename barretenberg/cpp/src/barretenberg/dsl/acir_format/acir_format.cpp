@@ -12,7 +12,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -37,7 +37,7 @@ void handle_IPA_accumulation(Builder& builder,
                              bool is_root_rollup);
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
     AggregationObject agg_obj;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<StdlibProof<Builder>> nested_ipa_proofs;
@@ -47,7 +47,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
     AcirFormat& constraint_system = program.constraints;
@@ -488,7 +488,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     AcirFormat& constraint_system,
     bool has_valid_witness_assignments,
     GateCounter<Builder>& gate_counter,
-    stdlib::recursion::aggregation_state<Builder> current_aggregation_object)
+    stdlib::recursion::PairingPoints<Builder> current_aggregation_object)
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
@@ -592,7 +592,7 @@ HonkRecursionConstraintsOutput<Builder> process_avm_recursion_constraints(
     AcirFormat& constraint_system,
     bool has_valid_witness_assignments,
     GateCounter<Builder>& gate_counter,
-    stdlib::recursion::aggregation_state<Builder> current_aggregation_object)
+    stdlib::recursion::PairingPoints<Builder> current_aggregation_object)
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints

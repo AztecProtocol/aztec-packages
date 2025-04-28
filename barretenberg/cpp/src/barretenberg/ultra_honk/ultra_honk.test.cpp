@@ -4,7 +4,7 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -17,7 +17,7 @@
 
 using namespace bb;
 
-using AggregationState = stdlib::recursion::aggregation_state<UltraCircuitBuilder>;
+using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:

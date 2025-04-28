@@ -19,7 +19,7 @@ namespace bb::stdlib::recursion {
  *   public_inputs: the public inputs of the inner proof, these become the private inputs to the recursive circuit
  *   has_data: indicates if this aggregation state contain past (P0, P1)
  */
-struct native_aggregation_state {
+struct native_PairingPoints {
     typename bb::g1::affine_element P0 = bb::g1::affine_one;
     typename bb::g1::affine_element P1 = bb::g1::affine_one;
     std::vector<bb::fr> public_inputs;
@@ -28,14 +28,14 @@ struct native_aggregation_state {
 
     // For serialization, update with new fields
     MSGPACK_FIELDS(P0, P1, public_inputs, proof_witness_indices, has_data);
-    bool operator==(native_aggregation_state const& other) const
+    bool operator==(native_PairingPoints const& other) const
     {
         return P0 == other.P0 && P1 == other.P1 && public_inputs == other.public_inputs &&
                proof_witness_indices == other.proof_witness_indices && has_data == other.has_data;
     };
 };
 
-inline std::ostream& operator<<(std::ostream& os, native_aggregation_state const& obj)
+inline std::ostream& operator<<(std::ostream& os, native_PairingPoints const& obj)
 {
     return os << "P0: " << obj.P0 << "\n"
               << "P1: " << obj.P1 << "\n"

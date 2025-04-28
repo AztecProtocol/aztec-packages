@@ -42,7 +42,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
     static UltraCircuitBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using InnerAggState = bb::stdlib::recursion::aggregation_state<UltraCircuitBuilder>;
+        using InnerAggState = bb::stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
         UltraCircuitBuilder builder;
 
@@ -82,7 +82,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         {
             using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
             using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-            using OuterAggState = bb::stdlib::recursion::aggregation_state<Builder>;
+            using OuterAggState = bb::stdlib::recursion::PairingPoints<Builder>;
 
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();

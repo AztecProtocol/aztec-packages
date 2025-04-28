@@ -43,7 +43,7 @@ class GoblinRecursionTests : public ::testing::Test {
 TEST_F(GoblinRecursionTests, Vanilla)
 {
     using Builder = MegaCircuitBuilder;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
     Goblin goblin;
 
     GoblinAccumulationOutput kernel_accum;

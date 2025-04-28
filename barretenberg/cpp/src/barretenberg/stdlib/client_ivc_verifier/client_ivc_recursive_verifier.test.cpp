@@ -17,7 +17,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using IVCVerificationKey = ClientIVC::VerificationKey;
-    using AggregationObject = aggregation_state<Builder>;
+    using AggregationObject = PairingPoints<Builder>;
 
     static constexpr TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
 

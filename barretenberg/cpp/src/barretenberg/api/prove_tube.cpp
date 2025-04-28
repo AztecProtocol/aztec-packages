@@ -17,7 +17,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
 
     std::string proof_path = output_path + "/proof";
 

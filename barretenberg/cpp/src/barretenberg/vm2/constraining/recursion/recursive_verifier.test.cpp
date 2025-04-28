@@ -75,7 +75,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     if (testing::skip_slow_tests()) {
@@ -165,7 +165,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
-    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     NativeProofResult proof_result;

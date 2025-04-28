@@ -45,7 +45,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using AggState = aggregation_state<OuterBuilder>;
+    using AggState = PairingPoints<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
 
     /**
@@ -58,7 +58,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using AggState = aggregation_state<InnerBuilder>;
+        using AggState = PairingPoints<InnerBuilder>;
         using fr = typename InnerCurve::ScalarFieldNative;
 
         InnerBuilder builder;

@@ -2,7 +2,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -177,8 +177,8 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         uint32_t d_idx = builder.add_variable(d);
 
         builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
-        stdlib::recursion::aggregation_state<
-            typename Flavor::CircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_pairing_points_to_public_inputs(
+            builder);
     }
 };
 TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);

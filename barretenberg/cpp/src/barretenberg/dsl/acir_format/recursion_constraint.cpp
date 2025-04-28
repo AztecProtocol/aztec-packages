@@ -8,7 +8,7 @@
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib/plonk_recursion/verifier/verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
@@ -23,7 +23,7 @@ using verification_key_ct = stdlib::recursion::verification_key<bn254>;
 using field_ct = stdlib::field_t<Builder>;
 using Composer = plonk::UltraComposer;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = stdlib::recursion::aggregation_state<Builder>;
+using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
 
 using namespace plonk;
 
@@ -109,7 +109,7 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
     const auto& aggregation_input = input_aggregation_object;
-    aggregation_state_ct previous_aggregation;
+    PairingPoints previous_aggregation;
 
     // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
@@ -166,7 +166,7 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     vkey->program_width = noir_recursive_settings::program_width;
 
     Transcript_ct transcript(&builder, manifest, proof_fields, input.public_inputs.size());
-    aggregation_state_ct result = stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
+    PairingPoints result = stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
         &builder, vkey, transcript, previous_aggregation);
 
     // Assign correct witness value to the verification key hash

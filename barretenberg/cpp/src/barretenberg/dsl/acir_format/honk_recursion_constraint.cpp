@@ -9,7 +9,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
@@ -25,7 +25,7 @@ using namespace bb;
 using namespace bb::stdlib::recursion::honk;
 template <typename Builder> using field_ct = stdlib::field_t<Builder>;
 template <typename Builder> using bn254 = stdlib::bn254<Builder>;
-template <typename Builder> using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
+template <typename Builder> using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
 namespace {
 /**
@@ -50,7 +50,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-    using AggregationObject = aggregation_state_ct<Builder>;
+    using AggregationObject = PairingPoints<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
@@ -209,7 +209,7 @@ template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
     typename Flavor::CircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder> input_agg_obj,
+    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder> input_agg_obj,
     bool has_valid_witness_assignments)
     requires IsRecursiveFlavor<Flavor>
 {
@@ -276,19 +276,19 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
     UltraRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
                                                 const RecursionConstraint& input,
-                                                stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
+                                                stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_agg_obj,
                                                 bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
     UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(
     UltraCircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_agg_obj,
     bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
     UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
                                                const RecursionConstraint& input,
-                                               stdlib::recursion::aggregation_state<MegaCircuitBuilder> input_agg_obj,
+                                               stdlib::recursion::PairingPoints<MegaCircuitBuilder> input_agg_obj,
                                                bool has_valid_witness_assignments);
 } // namespace acir_format

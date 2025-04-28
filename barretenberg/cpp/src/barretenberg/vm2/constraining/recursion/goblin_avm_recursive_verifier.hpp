@@ -45,8 +45,8 @@ class AvmGoblinRecursiveVerifier {
     using UltraBuilder = UltraCircuitBuilder;
     using MegaBuilder = MegaCircuitBuilder;
 
-    using AggregationObject = bb::stdlib::recursion::aggregation_state<UltraBuilder>;
-    using MegaAggregationObject = bb::stdlib::recursion::aggregation_state<MegaBuilder>;
+    using AggregationObject = bb::stdlib::recursion::PairingPoints<UltraBuilder>;
+    using MegaAggregationObject = bb::stdlib::recursion::PairingPoints<MegaBuilder>;
 
     using UltraFF = stdlib::bn254<UltraBuilder>::ScalarField;
 

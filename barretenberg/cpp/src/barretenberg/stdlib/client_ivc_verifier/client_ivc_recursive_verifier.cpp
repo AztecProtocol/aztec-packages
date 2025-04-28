@@ -17,7 +17,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Clie
     auto stdlib_mega_vk = std::make_shared<RecursiveVerificationKey>(builder.get(), ivc_verification_key.mega);
 
     // Dummy aggregation object until we do proper aggregation
-    auto agg_obj = aggregation_state<Builder>::construct_default(*builder);
+    auto agg_obj = PairingPoints<Builder>::construct_default(*builder);
 
     // Perform recursive decider verification
     MegaVerifier verifier{ builder.get(), stdlib_mega_vk };

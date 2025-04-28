@@ -8,7 +8,7 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -27,7 +27,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
     using TranslationEvaluations = TranslationEvaluations_<BF, FF>;
     using Transcript = typename Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;

@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -162,7 +162,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         FF a = 1;
         builder.add_variable(a);
         builder.add_public_variable(a);
-        stdlib::recursion::aggregation_state<Builder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<Builder>::add_default_pairing_points_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);

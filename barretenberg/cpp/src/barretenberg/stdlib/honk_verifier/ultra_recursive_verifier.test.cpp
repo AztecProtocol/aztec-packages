@@ -43,7 +43,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using AggState = aggregation_state<OuterBuilder>;
+    using AggState = PairingPoints<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
     /**
@@ -55,7 +55,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      */
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using AggState = aggregation_state<InnerBuilder>;
+        using AggState = PairingPoints<InnerBuilder>;
 
         InnerBuilder builder;
 

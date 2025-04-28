@@ -60,7 +60,7 @@ class GoblinMockCircuits {
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
 
-    using AggregationObject = stdlib::recursion::aggregation_state<MegaBuilder>;
+    using AggregationObject = stdlib::recursion::PairingPoints<MegaBuilder>;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
     struct KernelInput {
@@ -194,7 +194,7 @@ class GoblinMockCircuits {
                                             const KernelInput& prev_kernel_accum)
     {
         PROFILE_THIS();
-        using AggregationObject = stdlib::recursion::aggregation_state<MegaBuilder>;
+        using AggregationObject = stdlib::recursion::PairingPoints<MegaBuilder>;
 
         // Execute recursive aggregation of function proof
         auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
