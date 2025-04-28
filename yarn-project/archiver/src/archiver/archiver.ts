@@ -59,7 +59,6 @@ import { type GetContractReturnType, createPublicClient, fallback, getContract, 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';
 import {
-  type RetrievedL2Block,
   retrieveBlocksFromRollup,
   retrieveL1ToL2Messages,
   retrievedBlockToPublishedL2Block,
