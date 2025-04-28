@@ -240,7 +240,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       it('burn from blacklisted account', async () => {
         await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Sender",
+          'Assertion failed: Blacklisted: Sender',
         );
       });
     });
