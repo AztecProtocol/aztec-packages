@@ -15,6 +15,18 @@ pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHashe
 /// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in
 /// all functions as an instance of the struct this macro was applied to.
 pub comptime fn storage(s: TypeDefinition) -> Quoted {
+    let struct_name = s.name();
+    if struct_name != quote { Storage } {
+        panic(
+            f"The #[storage] macro can only be applied to a struct with name 'Storage', got '{struct_name}' instead.",
+        )
+    }
+
+    assert(
+        !s.has_named_attribute("storage_no_init"),
+        f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
+    );
+
     // This macro performs three things:
     //  - it marks the contract as having storage, so that `macros::utils::module_has_storage` will return true and
     //    functions will have the storage variable injected and initialized via the `init` function.
@@ -95,10 +107,24 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
 /// with signature `fn init<Context>(context: Context) -> Self`, which allows for manual control of storage slot
 /// allocation. Similarly, no `StorageLayout` struct will be created.
 /// Only a single struct in the entire contract should have this macro (or `storage`) applied to it.
-pub comptime fn storage_no_init(_s: TypeDefinition) {
+pub comptime fn storage_no_init(s: TypeDefinition) {
     // All `storage` does is provide the `init` implementation, so we don't need to do anything here. Applying this
     // macro however will cause for `macros::utils::module_has_storage` to return true, resulting in the injection of
     // the `storage` variable.
+
+    // We do need to make sure that the type is called Storage, since we'll do `Storage::init` later on.
+
+    if s.name() != quote { Storage } {
+        let name = s.name();
+        panic(
+            f"The #[storage_no_init] macro can only be applied to a struct with name 'Storage', got '{name}' instead.",
+        )
+    }
+
+    assert(
+        !s.has_named_attribute("storage"),
+        f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
+    );
 }
 
 /// Returns the expression required to initialize a state variable with a given slot, along with its serialization size,
