@@ -6,8 +6,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-// docs:end:import_contract
 
+// docs:end:import_contract
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
