@@ -157,22 +157,10 @@ function test_cmds_internal {
   echo BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x
   # echo the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
   echo BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array
-  # echo 1_mul through bb.js build, all_cmds flow, to test all cli args.
-  echo BIN=$bbjs_bin FLOW=all_cmds $run_test 1_mul
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
   echo FLOW=prove_then_verify_tube $run_test 6_array
-  # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
-  echo NATIVE=1 FLOW=all_cmds $run_test 1_mul
-
-  # barretenberg-acir-tests-bb-ultra-plonk:
-  # Exclude honk tests.
-  for t in $plonk_tests; do
-    echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)
-  done
-  echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # Exclude plonk tests.

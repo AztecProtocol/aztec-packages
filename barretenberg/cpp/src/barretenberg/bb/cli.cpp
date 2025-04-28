@@ -728,31 +728,26 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     try {
         // ULTRA PLONK
-        if (OLD_API_gates->parsed()) {
-            gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
-        } else if (OLD_API_prove->parsed()) {
-            prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
-        } else if (OLD_API_prove_output_all->parsed()) {
-            prove_output_all_ultra_plonk(
-                bytecode_path, witness_path, plonk_prove_output_all_output_path, flags.recursive);
-        } else if (OLD_API_verify->parsed()) {
-            return verify_ultra_plonk(proof_path, vk_path) ? 0 : 1;
-        } else if (OLD_API_prove_and_verify->parsed()) {
-            return prove_and_verify_ultra_plonk(bytecode_path, flags.recursive, witness_path) ? 0 : 1;
-        } else if (OLD_API_contract->parsed()) {
-            contract_ultra_plonk(plonk_contract_output_path, vk_path);
-        } else if (OLD_API_write_vk->parsed()) {
-            write_vk_ultra_plonk(bytecode_path, plonk_vk_output_path, flags.recursive);
-        } else if (OLD_API_write_pk->parsed()) {
-            write_pk_ultra_plonk(bytecode_path, plonk_pk_output_path, flags.recursive);
-        } else if (OLD_API_proof_as_fields->parsed()) {
-            proof_as_fields(proof_path, vk_path, plonk_proof_as_fields_output_path);
-        } else if (OLD_API_vk_as_fields->parsed()) {
-            vk_as_fields(vk_path, plonk_vk_as_fields_output_path);
+        auto deprecated_plonk_commands = std::vector<CLI::App*>{ OLD_API_gates,
+                                                                 OLD_API_prove,
+                                                                 OLD_API_prove_output_all,
+                                                                 OLD_API_verify,
+                                                                 OLD_API_prove_and_verify,
+                                                                 OLD_API_contract,
+                                                                 OLD_API_write_vk,
+                                                                 OLD_API_write_pk,
+                                                                 OLD_API_proof_as_fields,
+                                                                 OLD_API_vk_as_fields };
+
+        for (auto* cmd : deprecated_plonk_commands) {
+            if (cmd->parsed()) {
+                std::cerr << "Error: UltraPlonk is now deprecated. Use UltraHonk!" << std::endl;
+                std::exit(1);
+            }
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
-        else if (avm2_prove_command->parsed()) {
+        if (avm2_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
             avm2_prove(avm_inputs_path, avm2_prove_output_path);
         } else if (avm2_check_circuit_command->parsed()) {
