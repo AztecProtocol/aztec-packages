@@ -252,7 +252,11 @@ library ValidatorSelectionLib {
    */
   function getSampleSeed(Epoch _epoch) internal view returns (uint224) {
     ValidatorSelectionStorage storage store = getStorage();
-    return store.seeds.upperLookup(Epoch.unwrap(_epoch).toUint32());
+    uint224 sampleSeed = store.seeds.upperLookup(Epoch.unwrap(_epoch).toUint32());
+    if (sampleSeed == 0) {
+      sampleSeed = type(uint224).max;
+    }
+    return sampleSeed;
   }
 
   function getStorage() internal pure returns (ValidatorSelectionStorage storage storageStruct) {

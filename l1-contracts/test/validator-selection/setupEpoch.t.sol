@@ -93,11 +93,6 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
       type(uint224).max,
       "Sample seed should be max"
     );
-
-    // Get sample seed for initial epoch
-    uint256 initialEpochSeed =
-      IValidatorSelection(address(rollup)).getSampleSeedAt(Timestamp.wrap(initialTimestamp));
-    assertEq(initialEpochSeed, 0, "Sample seed for initial epoch should be 0");
   }
 
   modifier whenTheRollupIsNotInGenesisState() {

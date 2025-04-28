@@ -7,7 +7,6 @@ SetupEpochTest
 │   └── When the rollup is not in epoch 0 but is in genesis state
 │       ├── it should set the sample seed to max
 │       ├── it should set the sample seed for the next epoch
-│       ├── it should have the seed for the initial epoch be 0
 │       └── it should not change the current epoch
 ├── when the rollup is not in genesis state
 │   └──  Given the seed has been sampled
