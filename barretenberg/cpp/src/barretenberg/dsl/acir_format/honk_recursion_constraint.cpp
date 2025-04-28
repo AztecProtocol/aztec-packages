@@ -52,7 +52,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     using NativeFlavor = typename Flavor::NativeFlavor;
     using AggregationObject = aggregation_state_ct<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
-    ASSERT(proof_size == NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
     uint32_t offset = 0;
@@ -192,7 +192,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.assert_equal(builder.add_variable(a_zero_frs[1]), proof_fields[offset + 1].witness_index);
         offset += 2;
     }
-    ASSERT(offset == proof_size + public_inputs_size);
+    BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
 }
 } // namespace
 
@@ -267,7 +267,6 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     output.agg_obj = verifier_output.agg_obj;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        ASSERT(HasIPAAccumulator<Flavor>);
         output.ipa_claim = verifier_output.ipa_claim;
         output.ipa_proof = verifier_output.ipa_proof;
     }
