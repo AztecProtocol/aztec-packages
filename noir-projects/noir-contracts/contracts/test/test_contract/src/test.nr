@@ -21,7 +21,7 @@ unconstrained fn test_note_type_id() {
 #[test]
 unconstrained fn test_storage_slot_allocation() {
     // This tests that sufficient storage slots are assigned to each state variable so that they do not interfere with
-    // one another. State variable that use private state should always just one one slot (since it's just an
+    // one another. State variable that use private state should always occupy just one slot (since it's just an
     // identifier), and variables that use public storage typically have it determined by some function of the
     // packed length of the value they hold. This is specified through the `Storage` trait.
     //
