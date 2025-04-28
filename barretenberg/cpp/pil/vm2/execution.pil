@@ -28,6 +28,10 @@ include "nullifier_check.pil";
 namespace execution;
 
 pol commit sel; // subtrace selector
+
+#[skippable_if]
+sel = 0;
+
 // Subtrace operation id
 pol commit subtrace_operation_id;
 

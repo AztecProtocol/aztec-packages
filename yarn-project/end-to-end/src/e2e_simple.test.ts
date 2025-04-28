@@ -37,10 +37,10 @@ describe('e2e_simple', () => {
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
-        aztecEpochDuration: 8,
-        aztecProofSubmissionWindow: 15,
+        aztecEpochDuration: 4,
+        aztecProofSubmissionWindow: 8,
         aztecSlotDuration: 12,
-        ethereumSlotDuration: 12,
+        ethereumSlotDuration: 4,
         startProverNode: true,
       }));
     });

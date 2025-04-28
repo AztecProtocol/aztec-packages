@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
+import { ProposedBlockHeader } from './proposed_block_header.js';
 import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
@@ -158,6 +159,19 @@ export class BlockHeader {
 
   hash(): Promise<Fr> {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+  }
+
+  toPropose(): ProposedBlockHeader {
+    return new ProposedBlockHeader(
+      this.lastArchive.root,
+      this.contentCommitment,
+      this.globalVariables.slotNumber,
+      this.globalVariables.timestamp.toBigInt(),
+      this.globalVariables.coinbase,
+      this.globalVariables.feeRecipient,
+      this.globalVariables.gasFees,
+      this.totalManaUsed,
+    );
   }
 
   toInspect() {

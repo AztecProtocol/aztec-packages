@@ -35,6 +35,7 @@ struct SubmitEpochRootProofArgs {
 
 struct BlockLog {
   bytes32 archive;
+  bytes32 headerHash; // hash of the proposed block header
   Slot slotNumber;
 }
 
