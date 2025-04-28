@@ -90,7 +90,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Extract the aggregation object from the public inputs
     AggregationObject nested_agg_obj =
         PublicAggState::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
-    agg_obj.aggregate(nested_agg_obj);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
@@ -138,7 +137,29 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
-    agg_obj.aggregate(pairing_points);
+
+    // Ensure that the transcript has received all the data from the prover
+    ASSERT(transcript->is_fully_received());
+
+    // Send the previous aggregation object to the transcript
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
+    transcript->template send_to_verifier("Previous_aggregation_object_P0", agg_obj.P0);
+    transcript->template send_to_verifier("Previous_aggregation_object_P1", agg_obj.P1);
+    // We don't need to send the nested aggregation object and the pairng points to the transcript,
+    // since they are fully determined by the values from the transcript.
+
+    const size_t NUM_POINT_PAIRS_TO_AGGREGATE = 2;
+    std::array<std::string, NUM_POINT_PAIRS_TO_AGGREGATE> args;
+    for (size_t i = 0; i < NUM_POINT_PAIRS_TO_AGGREGATE; i++) {
+        args[i] = "recursion_separator_" + std::to_string(i);
+    }
+    std::array<FF, NUM_POINT_PAIRS_TO_AGGREGATE> recursion_separators = transcript->template get_challenges<FF>(args);
+
+    // Aggregate the nested object into the aggregation object
+    agg_obj.aggregate(nested_agg_obj, recursion_separators[0]);
+    // Aggregate the proof pairing points into the aggregation object
+    agg_obj.aggregate(pairing_points, recursion_separators[1]);
+
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs

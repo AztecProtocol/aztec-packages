@@ -415,6 +415,15 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
     /**
+     * @brief Returns true if the transcript has received all the data from the prover.
+     * @details This is useful to ensure that we have completely used all the data from the prover,
+     * and we can insert additional data into the transcript to generate extra challenges. For example,
+     * we can use this to generate the recursion separator for pairing points.
+     * @return true
+     * @return false
+     */
+    bool is_fully_received() const { return num_frs_read == proof_data.size(); }
+    /**
      * @brief Reads the next element of type `T` from the transcript, with a predefined label, only used by
      * verifier.
      *
