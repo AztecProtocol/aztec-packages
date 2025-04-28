@@ -134,7 +134,7 @@ template <class Builder> class goblin_field {
 
     OriginTag get_origin_tag() const { return OriginTag(limbs[0].get_origin_tag(), limbs[1].get_origin_tag()); }
 
-    void set_origin_tag(const OriginTag& tag)
+    void set_origin_tag(const OriginTag& tag) const
     {
         limbs[0].set_origin_tag(tag);
         limbs[1].set_origin_tag(tag);

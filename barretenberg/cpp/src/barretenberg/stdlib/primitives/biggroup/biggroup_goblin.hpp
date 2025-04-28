@@ -307,7 +307,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
-    void set_origin_tag(const OriginTag& tag)
+    void set_origin_tag(const OriginTag& tag) const
     {
         x.set_origin_tag(tag);
         y.set_origin_tag(tag);
