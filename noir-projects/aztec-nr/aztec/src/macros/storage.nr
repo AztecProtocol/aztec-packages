@@ -125,9 +125,6 @@ comptime fn generate_storage_field_constructor(
             // in slots very far away from one another.
             1
         } else {
-            let (_, container_struct_generics) = typ.as_data_type().unwrap();
-            let stored_struct = container_struct_generics[0];
-
             get_storage_size(typ)
         };
 
