@@ -1,7 +1,7 @@
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmGadgetsTestContract } from '@aztec/noir-contracts.js/AvmGadgetsTest';
-import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
+import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import {
   type ContractArtifact,
   type FunctionAbi,
