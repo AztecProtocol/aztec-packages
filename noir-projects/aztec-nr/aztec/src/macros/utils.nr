@@ -236,7 +236,8 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
 }
 
 /// Returns how many storage slots a type needs to reserve for itself. State variables must implement the Storage trait
-/// for slots to be allocated for them.
+/// for slots to be allocated for them. If the Storage trait is not implemented, then all struct members must implement
+/// it.
 pub(crate) comptime fn get_storage_size(name: Quoted, typ: Type) -> u32 {
     // We create a type variable for the storage size. We can't simply read the value used in the implementation because
     // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
@@ -247,6 +248,10 @@ pub(crate) comptime fn get_storage_size(name: Quoted, typ: Type) -> u32 {
         let (as_struct, _) = typ.as_data_type().expect(
             f"All types inside storage must either implement the 'Storage' trait, or be structs with all members implementing the 'Storage' trait. Field '{name}' is neither.",
         );
+
+        // In this case the type is simply a container for state variables (or other containers), typically used in
+        // order to organize the storage structs in multiple modules, etc. We simply add up the storage slots required
+        // for all nested state variables.
         as_struct.fields_as_written().fold(0, |size, (name, nested_type)| {
             size + get_storage_size(name, nested_type)
         })
