@@ -75,7 +75,7 @@ validator:
   storageSize: "512Gi"
   sequencer:
     minTxsPerBlock: 0
-    maxTxsPerBlock: 4
+    maxTxsPerBlock: 8
   validator:
     disabled: false
   maxOldSpaceSize: "8192"
@@ -85,7 +85,7 @@ validator:
       memory: "10Gi"
 
 proverBroker:
-  storageSize: "10Gi"
+  storageSize: "64Gi"
 
 proverAgent:
   replicas: 32
