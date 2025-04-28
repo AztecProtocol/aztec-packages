@@ -23,7 +23,7 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     // Add default pairing points as its required, but this causes gates to be created...
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Get rid of gates when creating default
     // pairing points.
-    stdlib::recursion::aggregation_state<Builder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
 
     stdlib::field_t a(stdlib::witness_t(&builder, fr::random_element()));
     stdlib::field_t b(stdlib::witness_t(&builder, fr::random_element()));

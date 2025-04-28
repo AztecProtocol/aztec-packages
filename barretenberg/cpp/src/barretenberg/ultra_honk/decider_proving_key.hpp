@@ -174,7 +174,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             // Set the pairing point accumulator indices. This should exist for all flavors.
             ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
                    "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a "
-                   "default one through a method in aggregation_state.");
+                   "default one through a method in PairingPoints.");
             proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
@@ -204,12 +204,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                              "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
                 BB_ASSERT_EQ(
                     proving_key.pairing_inputs_public_input_key.start_idx,
-                    proving_key.num_public_inputs - IPA_CLAIM_SIZE - PAIRING_POINT_ACCUMULATOR_SIZE,
+                    proving_key.num_public_inputs - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
                     "Pairing point accumulator must be the second to last public input object before the IPA claim.");
             } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
                                                         // [user-public-inputs][pairing-point-object]
                 BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
-                             proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE,
+                             proving_key.num_public_inputs - PAIRING_POINTS_SIZE,
                              "Pairing point accumulator must be the last public input object.");
             } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
                                                          // [user-public-inputs][pairing-point-object][databus-comms]
@@ -225,12 +225,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                         proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
                         "Databus commitments must be the last public input object.");
                     BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
-                                 proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE -
+                                 proving_key.num_public_inputs - PAIRING_POINTS_SIZE -
                                      PROPAGATED_DATABUS_COMMITMENTS_SIZE,
                                  "Pairing point accumulator must be the second to last public input object.");
                 } else {
                     BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
-                                 proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE,
+                                 proving_key.num_public_inputs - PAIRING_POINTS_SIZE,
                                  "Pairing point accumulator must be the last public input object.");
                 }
             } else {
