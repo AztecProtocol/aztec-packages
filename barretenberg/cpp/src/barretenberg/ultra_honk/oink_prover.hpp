@@ -37,7 +37,7 @@ namespace bb {
  *
  * @tparam Flavor
  */
-template <IsUltraFlavor Flavor> class OinkProver {
+template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
