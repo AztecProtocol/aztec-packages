@@ -34,6 +34,7 @@ unconstrained fn test_storage_slot_allocation() {
     //     example_struct: PrivateImmutable<ExampleStruct, Context>,
     //     example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
     //     example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+    //     example_nested_struct: NestedStorageStruct<Context>,
     //     another_example_struct: PrivateImmutable<ExampleStruct, Context>,
     // }
 
@@ -64,6 +65,15 @@ unconstrained fn test_storage_slot_allocation() {
     expected_slot += 6;
 
     assert_eq(Test::storage_layout().example_struct_in_map.slot, expected_slot);
+    // example_struct_in_map should allocate a single slot because it's a Map
+    expected_slot += 1;
+
+    assert_eq(Test::storage_layout().example_nested_struct.slot, expected_slot);
+    // example_nested_struct should allocate 2 slots because it holds a PublicImmutable of a single field value (1 slot
+    // for the value, 1 for the hash)
+    expected_slot += 2;
+
+    assert_eq(Test::storage_layout().another_example_struct.slot, expected_slot);
 }
 
 fn get_shared_mutable_num_slots() -> Field {

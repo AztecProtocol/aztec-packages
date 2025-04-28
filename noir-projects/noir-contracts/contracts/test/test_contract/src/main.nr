@@ -83,17 +83,19 @@ pub contract Test {
 
     global SHARED_MUTABLE_INITIAL_DELAY: u32 = 2;
 
-    struct Foo<Context> {
-        abc: PublicImmutable<Field, Context>,
+    struct NestedStorageStruct<Context> {
+        example_public_immutable: PublicImmutable<Field, Context>,
     }
 
-    impl<Context> Foo<Context> {
+    impl<Context> NestedStorageStruct<Context> {
         pub fn new(context: Context, storage_slot: Field) -> Self {
             assert(
                 storage_slot != 0,
                 "Storage slot 0 not allowed. Storage slots must start from 1.",
             );
-            Foo { abc: PublicImmutable::new(context, storage_slot) }
+            NestedStorageStruct {
+                example_public_immutable: PublicImmutable::new(context, storage_slot),
+            }
         }
     }
 
@@ -107,8 +109,8 @@ pub contract Test {
         example_struct: PrivateImmutable<ExampleStruct, Context>,
         example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
         example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+        example_nested_struct: NestedStorageStruct<Context>,
         another_example_struct: PrivateImmutable<ExampleStruct, Context>,
-        test_struct_123: Foo<Context>,
     }
 
     #[initializer]
