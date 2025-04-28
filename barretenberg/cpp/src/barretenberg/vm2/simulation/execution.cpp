@@ -43,19 +43,24 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     set_outputs({ v });
 }
 
-void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size)
+void Execution::call(ContextInterface& context,
+                     MemoryAddress l2_gas_offset,
+                     MemoryAddress da_gas_offset,
+                     MemoryAddress addr,
+                     MemoryAddress cd_offset,
+                     MemoryAddress cd_size)
 {
     // Emit Snapshot of current context
     emit_context_snapshot(context);
 
     auto& memory = context.get_memory();
 
-    // TODO: Read more stuff from call operands (e.g., calldata, gas)
     // TODO(ilyas): How will we tag check these?
-    FF contract_address = memory.get(addr).as_ff();
+    const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
+    const auto& allocated_da_gas_read = memory.get(da_gas_offset);
+    const auto& contract_address = memory.get(addr);
 
-    // We could load cd_size here, but to keep symmetry with cd_offset - we will defer the loads to a (possible)
-    // calldatacopy
+    // Cd size and cd offset loads are deferred to (possible) calldatacopy
     auto nested_context = execution_components.make_nested_context(contract_address,
                                                                    /*msg_sender=*/context.get_address(),
                                                                    /*parent_context=*/context,
@@ -75,6 +80,9 @@ void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddres
     context.set_last_rd_offset(result.rd_offset);
     context.set_last_rd_size(result.rd_size);
     context.set_last_success(result.success);
+
+    // Set inputs and outputs for the event
+    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
 }
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset)
@@ -142,6 +150,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // TODO: think about whether we need to know the success at this point
             auto context_event = context.serialize_context_event();
             ex_event.context_event = context_event;
+            ex_event.next_context_id = execution_components.get_next_context_id();
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
@@ -217,6 +226,7 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
 void Execution::emit_context_snapshot(ContextInterface& context)
 {
     ctx_stack_events.emit({ .id = context.get_context_id(),
+                            .parent_id = context.get_parent_id(),
                             .next_pc = context.get_next_pc(),
                             .msg_sender = context.get_msg_sender(),
                             .contract_addr = context.get_address(),

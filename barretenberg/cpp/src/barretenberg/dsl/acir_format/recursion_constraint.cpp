@@ -293,7 +293,7 @@ std::vector<fr> export_transcript_in_recursion_format(const transcript::Standard
                     fields.emplace_back(g1_as_fields.y_lo);
                     fields.emplace_back(g1_as_fields.y_hi);
                 } else {
-                    ASSERT(manifest_element.name == "public_inputs");
+                    BB_ASSERT_EQ(manifest_element.name, "public_inputs");
                     const auto public_inputs_vector = transcript.get_field_element_vector(manifest_element.name);
                     for (const auto& ele : public_inputs_vector) {
                         fields.emplace_back(ele);
@@ -338,7 +338,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                     fields.emplace_back(g1_as_fields.y_lo);
                     fields.emplace_back(g1_as_fields.y_hi);
                 } else {
-                    ASSERT(manifest_element.name == "public_inputs");
+                    BB_ASSERT_EQ(manifest_element.name, "public_inputs");
                     const size_t num_public_inputs = manifest_element.num_bytes / 32;
                     // If we have a recursive proofs the public inputs must describe an aggregation object that
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a

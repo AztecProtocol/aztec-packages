@@ -88,7 +88,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
     transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
     transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
-    ASSERT(proving_key->proving_key.num_public_inputs == proving_key->proving_key.public_inputs.size());
+    BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
 
     for (size_t i = 0; i < proving_key->proving_key.num_public_inputs; ++i) {
         auto public_input_i = proving_key->proving_key.public_inputs[i];

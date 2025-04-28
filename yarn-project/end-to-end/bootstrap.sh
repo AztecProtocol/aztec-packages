@@ -28,8 +28,7 @@ function test_cmds {
     src/e2e_token_contract/*.test.ts
     src/public-testnet/*.test.ts
     # Block building has time extended above.
-    # Others were missing, and are broken.
-    src/e2e_!(block_building|snapshot_sync|simple).test.ts
+    src/e2e_!(block_building).test.ts
   )
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
@@ -68,7 +67,8 @@ function test {
 # Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
 function generate_example_app_ivc_inputs {
   export CAPTURE_IVC_FOLDER=example-app-ivc-inputs-out
-  export ENV_VARS_TO_INJECT="CAPTURE_IVC_FOLDER"
+  export BENCHMARK_CONFIG=key_flows
+  export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER"
   rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
@@ -80,9 +80,10 @@ function generate_example_app_ivc_inputs {
   # Running these again separately from tests is a bit of a hack,
   # but we need to ensure test caching does not get in the way.
   parallel --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
-    e2e_amm \
-    e2e_nft \
-    e2e_blacklist_token_contract/transfer_private \
+    client_flows/deployments \
+    client_flows/bridging \
+    client_flows/transfers \
+    client_flows/amm
 
   cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }

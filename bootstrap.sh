@@ -240,6 +240,7 @@ function bench {
     return
   fi
   denoise "barretenberg/bootstrap.sh bench"
+  denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }

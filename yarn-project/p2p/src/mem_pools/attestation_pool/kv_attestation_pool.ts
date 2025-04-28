@@ -46,7 +46,7 @@ export class KvAttestationPool implements AttestationPool {
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
-        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
         const address = attestation.getSender().toString();
 
@@ -158,7 +158,7 @@ export class KvAttestationPool implements AttestationPool {
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
-        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
         const address = attestation.getSender().toString();
 

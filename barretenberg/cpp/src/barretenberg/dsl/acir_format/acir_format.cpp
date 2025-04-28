@@ -252,7 +252,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
         if (!constraint_system.honk_recursion_constraints.empty()) {
             auto current_aggregation_object = AggregationObject::construct_default(builder);
-
             HonkRecursionConstraintsOutput<Builder> output = process_honk_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
             current_aggregation_object = output.agg_obj;
@@ -264,6 +263,16 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         if (!constraint_system.ivc_recursion_constraints.empty()) {
             process_ivc_recursion_constraints(
                 builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
+        }
+
+        // We shouldn't have both honk recursion constraints and ivc recursion constraints.
+        ASSERT((constraint_system.honk_recursion_constraints.empty() ||
+                constraint_system.ivc_recursion_constraints.empty()) &&
+               "Invalid circuit: both honk and ivc recursion constraints present.");
+        // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
+        if (constraint_system.honk_recursion_constraints.empty() &&
+            constraint_system.ivc_recursion_constraints.empty()) {
+            AggregationObject::add_default_pairing_points_to_public_inputs(builder);
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
@@ -294,11 +303,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // default one if the circuit is recursive and honk_recursion is true.
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1336): Delete this if statement
-            if constexpr (!IsMegaBuilder<Builder>) {
-                ASSERT(metadata.honk_recursion != 0);
-                current_aggregation_object.set_public();
-            }
+            ASSERT(metadata.honk_recursion != 0);
+            current_aggregation_object.set_public();
         } else if (metadata.honk_recursion != 0) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
@@ -306,15 +312,14 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
 
         // Accumulate the IPA claims and set it to be public inputs
-        if constexpr (IsUltraBuilder<Builder>) {
-            // Either we're proving with RollupHonk (honk_recursion=2) or its the root rollup.
-            if (metadata.honk_recursion == 2 || honk_output.is_root_rollup) {
-                handle_IPA_accumulation(
-                    builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs, honk_output.is_root_rollup);
-            } else {
-                // We shouldn't accidentally have IPA proofs otherwise.
-                ASSERT(honk_output.nested_ipa_proofs.size() == 0);
-            }
+        // Either we're proving with RollupHonk (honk_recursion=2) or its the root rollup.
+        if (metadata.honk_recursion == 2 || honk_output.is_root_rollup) {
+            handle_IPA_accumulation(
+                builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs, honk_output.is_root_rollup);
+        } else {
+            // We shouldn't accidentally have IPA proofs otherwise.
+            BB_ASSERT_EQ(
+                honk_output.nested_ipa_proofs.size(), static_cast<size_t>(0), "IPA proofs present when not expected.");
         }
     }
 }
@@ -334,6 +339,8 @@ void handle_IPA_accumulation(Builder& builder,
                              const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
                              bool is_root_rollup)
 {
+    BB_ASSERT_EQ(
+        nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
     OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
     HonkProof final_ipa_proof;
     if (nested_ipa_claims.size() == 2) {
@@ -381,7 +388,7 @@ void handle_IPA_accumulation(Builder& builder,
     }
     // If we aren't in the root rollup, we should have an output IPA proof.
     if (!is_root_rollup) {
-        ASSERT(final_ipa_proof.size() > 0);
+        BB_ASSERT_EQ(final_ipa_proof.size(), IPA_PROOF_LENGTH);
         // Propagate the IPA claim via the public inputs of the outer circuit
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
         // location/entity to handle this IPA data propagation.
@@ -531,10 +538,9 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
-    if (constraints.ivc_recursion_constraints.size() != ivc->verification_queue.size()) {
-        info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
-        ASSERT(false);
-    }
+    BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),
+                 ivc->verification_queue.size(),
+                 "WARNING: Mismatch in number of recursive verifications during kernel creation!");
 
     // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
     // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).

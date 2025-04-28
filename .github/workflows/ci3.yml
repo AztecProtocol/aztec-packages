@@ -128,6 +128,21 @@ jobs:
           alert-comment-cc-users: "@ludamad @ledwards2225"
           max-items-in-chart: 50
 
+      - name: Store protocol circuit benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: Protocol Circuit Gate Counts
+          benchmark-data-dir-path: "dev/protocol-circuits-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/protocol-circuits-gates-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "105%"
+          comment-on-alert: true
+          fail-on-alert: false
+          max-items-in-chart: 50
+
       - name: Store Example App IVC benchmark results
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29

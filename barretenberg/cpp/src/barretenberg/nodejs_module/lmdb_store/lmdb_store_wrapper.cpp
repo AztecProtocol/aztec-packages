@@ -260,8 +260,8 @@ StatsResponse LMDBStoreWrapper::get_stats()
 {
     verify_store();
     std::vector<lmdblib::DBStats> stats;
-    auto map_size = _store->get_stats(stats);
-    return { stats, map_size };
+    auto [map_size, physical_file_size] = _store->get_stats(stats);
+    return { stats, map_size, physical_file_size };
 }
 
 BoolResponse LMDBStoreWrapper::close()
