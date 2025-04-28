@@ -16,7 +16,12 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {ProposeArgs, OracleInput, ProposeLib, ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {
+  ProposeArgs,
+  OracleInput,
+  ProposeLib,
+  ProposePayload
+} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 

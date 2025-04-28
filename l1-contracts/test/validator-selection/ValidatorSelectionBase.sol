@@ -63,8 +63,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
     {
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime = full.block.decodedHeader.timestamp
-        - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
+      uint256 initialTime =
+        full.block.decodedHeader.timestamp - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
         address(rollup),
