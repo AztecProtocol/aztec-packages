@@ -59,6 +59,7 @@ import { type GetContractReturnType, createPublicClient, fallback, getContract, 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';
 import {
+  type RetrievedL2Block,
   retrieveBlocksFromRollup,
   retrieveL1ToL2Messages,
   retrievedBlockToPublishedL2Block,
@@ -621,7 +622,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           globalVariables: block.block.header.globalVariables.toInspect(),
         });
       }
-      lastRetrievedBlock = retrievedBlocks.at(-1) ?? lastRetrievedBlock;
+      lastRetrievedBlock = publishedBlocks.at(-1) ?? lastRetrievedBlock;
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
