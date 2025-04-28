@@ -22,6 +22,7 @@ export type L2ChainConfig = {
   seqMaxTxsPerBlock: number;
   realProofs: boolean;
   snapshotsUrl: string;
+  maxTxPoolSize: number;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -41,6 +42,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   seqMaxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
+  maxTxPoolSize: 100_000_000,
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -60,6 +62,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   seqMaxTxsPerBlock: 4,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
+  maxTxPoolSize: 100_000_000, // approx 100mb
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -125,6 +128,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+  enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
