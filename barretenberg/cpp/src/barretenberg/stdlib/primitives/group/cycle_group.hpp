@@ -128,7 +128,7 @@ template <typename Builder> class cycle_group {
          *
          * @param tag
          */
-        void set_origin_tag(const OriginTag& tag)
+        void set_origin_tag(const OriginTag& tag) const
         {
             lo.set_origin_tag(tag);
             hi.set_origin_tag(tag);
@@ -269,7 +269,7 @@ template <typename Builder> class cycle_group {
      *
      * @param tag
      */
-    void set_origin_tag(OriginTag tag)
+    void set_origin_tag(OriginTag tag) const
     {
         x.set_origin_tag(tag);
         y.set_origin_tag(tag);

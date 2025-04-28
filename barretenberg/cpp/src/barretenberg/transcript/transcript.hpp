@@ -124,6 +124,22 @@ struct NativeTranscriptParams {
     }
 };
 
+// A template for detecting whether a type is native or in-circuit
+template <typename T>
+concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr>);
+
+template <typename T, typename = void> struct is_iterable : std::false_type {};
+
+// this gets used only when we can call std::begin() and std::end() on that type
+template <typename T>
+struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T&>())), decltype(std::end(std::declval<T&>()))>>
+    : std::true_type {};
+
+template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
+
+// A static counter for the number of transcripts created
+// This is used to generate unique labels for the transcript origin tags
+static size_t unique_transcript_index = 0;
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
@@ -132,6 +148,19 @@ template <typename TranscriptParams> class BaseTranscript {
   public:
     using Fr = typename TranscriptParams::Fr;
     using Proof = typename TranscriptParams::Proof;
+
+    // Detects whether the transcript is in-circuit or not
+    static constexpr bool in_circuit = InCircuit<Fr>;
+
+    // The unique index of the transcript
+    size_t transcript_index = 0;
+
+    // The index of the current round of the transcript (used for the origin tag, round is only incremented if we switch
+    // from generating to receiving)
+    size_t round_index = 0;
+
+    // Indicates whether the transcript is receiving data from the prover
+    bool reception_phase = true;
 
     BaseTranscript() = default;
 
@@ -142,7 +171,11 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     explicit BaseTranscript(const Proof& proof_data)
         : proof_data(proof_data.begin(), proof_data.end())
-    {}
+    {
+        if constexpr (in_circuit) {
+            transcript_index = unique_transcript_index++;
+        }
+    }
 
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
@@ -327,6 +360,14 @@ template <typename TranscriptParams> class BaseTranscript {
                 TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
+        if constexpr (in_circuit) {
+            if (reception_phase) {
+                reception_phase = false;
+                for (size_t i = 0; i < num_challenges; i++) {
+                    challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
+                }
+            }
+        }
         // Prepare for next round.
         ++round_number;
 
@@ -412,6 +453,19 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 #endif
         BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        if constexpr (in_circuit) {
+            if (!reception_phase) {
+                reception_phase = true;
+                round_index++;
+            }
+            if constexpr (is_iterable_v<T>) {
+                for (const auto& subelement : element) {
+                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+                }
+            } else {
+                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            }
+        }
     }
 
     /**
@@ -439,6 +493,20 @@ template <typename TranscriptParams> class BaseTranscript {
             info("received: ", label, ": ", element);
         }
 #endif
+
+        if constexpr (in_circuit) {
+            if (!reception_phase) {
+                reception_phase = true;
+                round_index++;
+            }
+            if constexpr (is_iterable_v<T>) {
+                for (auto& subelement : element) {
+                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+                }
+            } else {
+                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            }
+        }
         return element;
     }
 
