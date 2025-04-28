@@ -79,6 +79,10 @@ export const mockTx = async (
     feePayer,
     clientIvcProof = ClientIvcProof.empty(),
     maxPriorityFeesPerGas,
+    chainId = Fr.ZERO,
+    version = Fr.ZERO,
+    vkTreeRoot = Fr.ZERO,
+    protocolContractTreeRoot = Fr.ZERO,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -88,6 +92,10 @@ export const mockTx = async (
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
     maxPriorityFeesPerGas?: GasFees;
+    chainId?: Fr;
+    version?: Fr;
+    vkTreeRoot?: Fr;
+    protocolContractTreeRoot?: Fr;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -102,6 +110,10 @@ export const mockTx = async (
     maxPriorityFeesPerGas,
   });
   data.feePayer = feePayer ?? (await AztecAddress.random());
+  data.constants.txContext.chainId = chainId;
+  data.constants.txContext.version = version;
+  data.constants.vkTreeRoot = vkTreeRoot;
+  data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {
@@ -143,8 +155,8 @@ export const mockTx = async (
   return new Tx(data, clientIvcProof, [], publicFunctionCalldata);
 };
 
-export const mockTxForRollup = (seed = 1) =>
-  mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+export const mockTxForRollup = (seed = 1, opts: Parameters<typeof mockTx>[1] = {}) =>
+  mockTx(seed, { ...opts, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
 const emptyPrivateCallExecutionResult = () =>
   new PrivateCallExecutionResult(
