@@ -94,8 +94,8 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     {
         RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
-        auto points_accumulatorect = PairingPoints::construct_default(outer_circuit);
-        auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, points_accumulatorect);
+        auto points_accumulator = PairingPoints::construct_default(outer_circuit);
+        auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, points_accumulator);
 
         NativeVerifierCommitmentKey pcs_vkey{};
         bool agg_output_valid = pcs_vkey.pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
@@ -199,8 +199,8 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
         AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
-        auto points_accumulatorect = PairingPoints::construct_default(outer_circuit);
-        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, points_accumulatorect);
+        auto points_accumulator = PairingPoints::construct_default(outer_circuit);
+        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, points_accumulator);
     }();
 
     verifier_output.points_accumulator.set_public();

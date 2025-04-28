@@ -183,10 +183,10 @@ PairingPoints create_avm2_recursion_constraints(Builder& builder,
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(builder, vkey);
 
-    PairingPoints output_points_accumulatorect = verifier.verify_proof(
+    PairingPoints output_points_accumulator = verifier.verify_proof(
         proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_points_accumulator);
 
-    return output_points_accumulatorect;
+    return output_points_accumulator;
 }
 
 /**
