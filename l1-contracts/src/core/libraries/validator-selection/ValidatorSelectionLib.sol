@@ -116,13 +116,8 @@ library ValidatorSelectionLib {
       return;
     }
 
-    uint256 needed = committeeSize * 2 / 3 + 1;
-    require(
-      _attestations.length >= needed,
-      Errors.ValidatorSelection__InsufficientAttestationsProvided(needed, _attestations.length)
-    );
-
     // Validate the attestations
+    uint256 needed = committeeSize * 2 / 3 + 1;
     uint256 validAttestations = 0;
 
     address[] memory reconstructedCommittee = new address[](committeeSize);
