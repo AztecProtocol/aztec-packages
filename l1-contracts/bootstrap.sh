@@ -135,15 +135,9 @@ function gas_report {
 function gas_benchmark {
   check=${1:-"no"}
   echo_header "Benchmarking gas"
-  forge --version
 
-  FORGE_GAS_REPORT=true forge test \
-    --match-contract "BenchmarkRollupTest" \
-    --fuzz-seed 42 \
-    --isolate \
-    > gas_benchmark.new.tmp
-  grep "^|" gas_benchmark.new.tmp > gas_benchmark.new.md
-  rm gas_benchmark.new.tmp
+  validator_costs
+
   diff gas_benchmark.new.md gas_benchmark.md > gas_benchmark.diff || true
 
   if [ -s gas_benchmark.diff -a "$check" = "check" ]; then
@@ -152,6 +146,104 @@ function gas_benchmark {
     exit 1
   fi
   mv gas_benchmark.new.md gas_benchmark.md
+}
+
+function validator_costs {
+  echo_header "Comparing gas costs with and without validators"
+  forge --version
+
+  # Run test without validators
+  echo "Running test without validators..."
+  FORGE_GAS_REPORT=true forge test \
+    --match-contract "BenchmarkRollupTest" \
+    --match-test "test_no_validators" \
+    --fuzz-seed 42 \
+    --isolate \
+    > no_validators.tmp
+
+  # Run test with 100 validators
+  echo "Running test with 100 validators..."
+  FORGE_GAS_REPORT=true forge test \
+    --match-contract "BenchmarkRollupTest" \
+    --match-test "test_100_validators" \
+    --fuzz-seed 42 \
+    --isolate \
+    > with_validators.tmp
+
+  file_no="no_validators.tmp"          # without validators
+  file_yes="with_validators.tmp"       # with    validators
+  report="gas_benchmark.new.md"       # will be overwritten each run
+
+  # keep ONLY these functions, in this order
+  wanted_funcs="forward submitEpochRootProof"
+
+  # one label per numeric column (use | to separate)
+  labels='Min|Avg|Median|Max|# Calls'
+
+  awk -v keep="$wanted_funcs" -v lbl="$labels" \
+      -v f_no="$file_no" -v f_yes="$file_yes" '
+  function trim(s){gsub(/^[[:space:]]+|[[:space:]]+$/,"",s); return s}
+
+  BEGIN {
+      # --- wanted functions -------------------------------------------------
+      nf = split(keep, F, /[[:space:]]+/)
+      for (i = 1; i <= nf; i++) { order[i] = F[i]; want[F[i]] }
+
+      # --- column labels ----------------------------------------------------
+      split(lbl, L, /\|/);   nLab = length(L)
+
+      # --- header / separator / row formats --------------------------------
+      hdr = "%-24s | %-7s | %15s | %15s | %15s | %14s\n"
+      sep = "-------------------------+---------+-----------------+-----------------+-----------------+----------------"
+      row = "%-24s | %-7s | %15d | %15d | %15d | %13.2f%%\n"
+
+      # ---------- print table header (⇐ six arguments) ----------------------
+      printf hdr, "Function", "Metric", "No Validators", "100 Validators", "Δ Gas", "% Overhead"
+      print  sep
+
+      FS = "|";  OFS = ""
+  }
+  # ---------- first file: without validators ----------------------------------
+  FNR==NR {
+      if($0 !~ /^\|/) next
+      split($0, C)                      # C[1] "", C[2] fn, C[3..] numbers
+      fn = trim(C[2])
+      if(!(fn in want)) next
+      for(i=3; i<=NF-1; i++) base[fn,i] = trim(C[i]) + 0
+      cols[fn] = NF - 3                 # remember how many numeric cols
+      next
+  }
+  # ---------- second file: with validators ------------------------------------
+  {
+      if($0 !~ /^\|/) next
+      split($0, C)
+      fn = trim(C[2])
+      if(!(fn in want)) next
+      for(i=3; i<=NF-1; i++) with[fn,i] = trim(C[i]) + 0
+      cols[fn] = NF - 3
+  }
+  # ---------- emit table -------------------------------------------------------
+  END{
+      row="%-24s | %-7s | %15d | %15d | %15d | %13.2f%%\n"
+
+      for (k = 1; k <= nf; k++) {
+          fn = order[k]
+          for (j = 1; j <= cols[fn]; j++) {
+              idx    = j + 2                     # field index in arrays
+              metric = L[j]
+              a      = base[fn, idx] + 0         # no-validator gas
+              b      = with[fn, idx] + 0         # 100-validator gas
+              diff   = b - a                     # raw overhead
+              pct    = (a ? diff * 100.0 / a : 0)
+              printf row, fn, metric, a, b, diff, pct
+          }
+          print sep
+      }
+  }
+  ' "$file_no" "$file_yes" > "$report"
+
+  # Clean up temporary files
+  rm no_validators.tmp with_validators.tmp
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
