@@ -1,4 +1,4 @@
-use std::meta::unquote;
+use std::meta::{ctstring::AsCtString, unquote};
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute("private") {
@@ -253,6 +253,28 @@ pub(crate) comptime fn module_has_storage(m: Module) -> bool {
     m.structs().any(|s: TypeDefinition| {
         s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
     })
+}
+
+pub(crate) comptime fn check_single_storage(m: Module) {
+    let storage_structs = m.structs().filter(|s: TypeDefinition| {
+        s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
+    });
+
+    if storage_structs.len() > 1 {
+        let mut error_message = "Only a single struct can have the #[storage} or #[storage_no_init] macro applied, found "
+            .as_ctstring();
+
+        let amount = storage_structs.len();
+        error_message = error_message.append_fmtstr(f"{amount}:");
+
+        for i in 0..storage_structs.len() {
+            let name = storage_structs[i].name();
+            error_message = error_message.append_fmtstr(f" - {name}\n");
+        }
+
+        let quoted_error_message = error_message.as_quoted_str();
+        panic(f"{quoted_error_message}");
+    }
 }
 
 pub(crate) comptime fn module_has_initializer(m: Module) -> bool {

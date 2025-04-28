@@ -4,7 +4,7 @@ use crate::{
         functions::{stub_registry, utils::check_each_fn_macroified},
         notes::{generate_note_export, NOTES},
         storage::STORAGE_LAYOUT_NAME,
-        utils::{get_trait_impl_method, module_has_storage},
+        utils::{check_single_storage, get_trait_impl_method, module_has_storage},
     },
     messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
 };
@@ -18,6 +18,9 @@ pub comptime fn aztec(m: Module) -> Quoted {
     // Functions that don't have #[private], #[public], #[utility], #[contract_library_method], or #[test] are not
     // allowed in contracts.
     check_each_fn_macroified(m);
+
+    // Prevent declaration of multiple storage structs
+    check_single_storage(m);
 
     let contract_library_method_compute_note_hash_and_nullifier =
         generate_contract_library_method_compute_note_hash_and_nullifier();
