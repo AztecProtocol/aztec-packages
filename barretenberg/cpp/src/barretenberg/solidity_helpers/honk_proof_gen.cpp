@@ -26,7 +26,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     using Verifier = UltraVerifier_<Flavor>;
 
     UltraCircuitBuilder builder = Circuit::generate(inputs);
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(instance);

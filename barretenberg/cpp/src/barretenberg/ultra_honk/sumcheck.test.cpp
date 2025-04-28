@@ -147,7 +147,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         },
         false);
 
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
 

@@ -107,7 +107,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
     // just using default.
-    PairingPoints::add_default_pairing_points_to_public_inputs(*tube_builder);
+    PairingPoints::add_default_to_public_inputs(*tube_builder);
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
     tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
@@ -170,7 +170,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output
         // instead of just using default.
-        PairingPoints::add_default_pairing_points_to_public_inputs(*tube_builder);
+        PairingPoints::add_default_to_public_inputs(*tube_builder);
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
         client_ivc_rec_verifier_output.opening_claim.set_public();
         tube_builder->ipa_proof =

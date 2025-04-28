@@ -286,7 +286,7 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     decider.verify_proof(decider_proof);
 
-    PairingPoints::add_default_pairing_points_to_public_inputs(builder);
+    PairingPoints::add_default_to_public_inputs(builder);
 
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);

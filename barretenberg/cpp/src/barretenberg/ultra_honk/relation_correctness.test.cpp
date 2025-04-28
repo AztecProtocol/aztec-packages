@@ -199,7 +199,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
@@ -233,7 +233,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
-    stdlib::recursion::PairingPoints<MegaCircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<MegaCircuitBuilder>::add_default_to_public_inputs(builder);
 
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);

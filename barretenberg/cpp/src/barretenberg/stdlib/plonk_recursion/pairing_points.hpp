@@ -164,7 +164,7 @@ template <typename Builder_> struct PairingPoints {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
     // necessary.
-    static void add_default_pairing_points_to_public_inputs(Builder& builder)
+    static void add_default_to_public_inputs(Builder& builder)
     {
         PairingPoints<Builder> points_accumulator = construct_default(builder);
         points_accumulator.set_public();

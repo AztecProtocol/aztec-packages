@@ -46,7 +46,7 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     // Add some arbitrary arithmetic gates that utilize public inputs
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
 
-    stdlib::recursion::PairingPoints<Builder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     VerificationKey original_vkey{ proving_key->proving_key };
 

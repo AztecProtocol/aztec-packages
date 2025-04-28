@@ -68,7 +68,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
-        stdlib::recursion::PairingPoints<Builder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         return builder;
     }

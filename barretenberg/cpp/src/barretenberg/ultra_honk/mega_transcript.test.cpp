@@ -177,8 +177,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         uint32_t d_idx = builder.add_variable(d);
 
         builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
-        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_pairing_points_to_public_inputs(
-            builder);
+        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
     }
 };
 TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);

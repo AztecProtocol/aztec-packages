@@ -73,7 +73,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        PairingPoints<InnerBuilder>::add_default_pairing_points_to_public_inputs(builder);
+        PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =

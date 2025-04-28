@@ -213,7 +213,7 @@ class AvmGoblinRecursiveVerifier {
         auto default_points_accumulator = MegaPairingPoints::construct_default(mega_builder);
         [[maybe_unused]] auto mega_agg_output =
             recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, default_points_accumulator);
-        MegaPairingPoints::add_default_pairing_points_to_public_inputs(mega_builder);
+        MegaPairingPoints::add_default_to_public_inputs(mega_builder);
 
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         MegaProver mega_prover(mega_builder);

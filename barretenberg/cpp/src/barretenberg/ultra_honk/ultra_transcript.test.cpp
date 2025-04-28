@@ -162,7 +162,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         FF a = 1;
         builder.add_variable(a);
         builder.add_public_variable(a);
-        stdlib::recursion::PairingPoints<Builder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
