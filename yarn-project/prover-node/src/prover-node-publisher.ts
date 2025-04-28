@@ -17,7 +17,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
-import { ProverNodeMetrics } from './metrics.js';
+import { ProverNodePublisherMetrics } from './metrics.js';
 
 /**
  * Stats for a sent transaction.
@@ -40,7 +40,7 @@ export class ProverNodePublisher {
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
-  private metrics: ProverNodeMetrics;
+  private metrics: ProverNodePublisherMetrics;
 
   protected log = createLogger('prover-node:l1-tx-publisher');
 
@@ -60,10 +60,14 @@ export class ProverNodePublisher {
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
 
-    this.metrics = new ProverNodeMetrics(telemetry, 'ProverNode');
+    this.metrics = new ProverNodePublisherMetrics(telemetry, 'ProverNode');
 
     this.rollupContract = deps.rollupContract;
     this.l1TxUtils = deps.l1TxUtils;
+  }
+
+  public getRollupContract() {
+    return this.rollupContract;
   }
 
   /**

@@ -220,10 +220,9 @@ function bench {
       --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
   }
   function ultra_honk_wasm {
-    wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
-      ./build-wasm-threads/bin/ultra_honk_bench \
-        --benchmark_out=./bench-out/ultra_honk_wasm.json \
-        --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+    scripts/wasmtime.sh ./build-wasm-threads/bin/ultra_honk_bench \
+      --benchmark_out=./bench-out/ultra_honk_wasm.json \
+      --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
   }
 
   # Client IVC
@@ -243,10 +242,9 @@ function bench {
       --benchmark_filter="ClientIVCBench/Full/6$"
   }
   function client_ivc_wasm {
-    wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
-      ./build-wasm-threads/bin/client_ivc_bench \
-        --benchmark_out=./bench-out/client_ivc_wasm.json \
-        --benchmark_filter="ClientIVCBench/Full/6$"
+    scripts/wasmtime.sh ./build-wasm-threads/bin/client_ivc_bench \
+      --benchmark_out=./bench-out/client_ivc_wasm.json \
+      --benchmark_filter="ClientIVCBench/Full/6$"
   }
 
   function run_benchmark {
@@ -300,7 +298,7 @@ case "$cmd" in
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
 
-    build the benchmarked benches
+    # build the benchmarked benches
     parallel --line-buffered --tag -v denoise ::: \
       "build_preset $native_preset --target bb_cli_bench" \
       "build_preset wasm-threads --target bb_cli_bench"
