@@ -186,12 +186,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
 
             if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
-                ASSERT(circuit.databus_propagation_data.is_kernel ==
-                           circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set() &&
-                       "Mega circuit must output databus commitments.");
-                ASSERT(circuit.databus_propagation_data.is_kernel ==
-                           circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set() &&
-                       "Mega circuit must output databus commitments.");
+                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
+                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
+                             "Mega circuit must output databus commitments.");
+                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
+                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
+                             "Mega circuit must output databus commitments.");
 
                 proving_key.databus_propagation_data = circuit.databus_propagation_data;
             }
@@ -199,37 +199,39 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             // Based on the flavor, we can check the locations of each backend-added public input object.
             if constexpr (HasIPAAccumulator<Flavor>) { // for Rollup flavors, we expect the public inputs to be:
                                                        // [user-public-inputs][pairing-point-object][ipa-claim]
-                ASSERT(proving_key.ipa_claim_public_input_key.start_idx ==
-                           proving_key.num_public_inputs - IPA_CLAIM_SIZE &&
-                       "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
-                ASSERT(
-                    proving_key.pairing_inputs_public_input_key.start_idx ==
-                        proving_key.num_public_inputs - IPA_CLAIM_SIZE - PAIRING_POINT_ACCUMULATOR_SIZE &&
+                BB_ASSERT_EQ(proving_key.ipa_claim_public_input_key.start_idx,
+                             proving_key.num_public_inputs - IPA_CLAIM_SIZE,
+                             "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
+                BB_ASSERT_EQ(
+                    proving_key.pairing_inputs_public_input_key.start_idx,
+                    proving_key.num_public_inputs - IPA_CLAIM_SIZE - PAIRING_POINT_ACCUMULATOR_SIZE,
                     "Pairing point accumulator must be the second to last public input object before the IPA claim.");
             } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
                                                         // [user-public-inputs][pairing-point-object]
-                ASSERT(proving_key.pairing_inputs_public_input_key.start_idx ==
-                           proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE &&
-                       "Pairing point accumulator must be the last public input object.");
+                BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
+                             proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE,
+                             "Pairing point accumulator must be the last public input object.");
             } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
                                                          // [user-public-inputs][pairing-point-object][databus-comms]
                 if (proving_key.databus_propagation_data.is_kernel) {
                     info(proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
 
-                    ASSERT(proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx ==
-                               proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENT_SIZE &&
-                           "Databus commitments must be the second to last public input object.");
-                    ASSERT(proving_key.databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx ==
-                               proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENTS_SIZE &&
-                           "Databus commitments must be the last public input object.");
-                    ASSERT(proving_key.pairing_inputs_public_input_key.start_idx ==
-                               proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE -
-                                   PROPAGATED_DATABUS_COMMITMENTS_SIZE &&
-                           "Pairing point accumulator must be the second to last public input object.");
+                    BB_ASSERT_EQ(
+                        proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
+                        proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENT_SIZE,
+                        "Databus commitments must be the second to last public input object.");
+                    BB_ASSERT_EQ(
+                        proving_key.databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx,
+                        proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
+                        "Databus commitments must be the last public input object.");
+                    BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
+                                 proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE -
+                                     PROPAGATED_DATABUS_COMMITMENTS_SIZE,
+                                 "Pairing point accumulator must be the second to last public input object.");
                 } else {
-                    ASSERT(proving_key.pairing_inputs_public_input_key.start_idx ==
-                               proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE &&
-                           "Pairing point accumulator must be the last public input object.");
+                    BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
+                                 proving_key.num_public_inputs - PAIRING_POINT_ACCUMULATOR_SIZE,
+                                 "Pairing point accumulator must be the last public input object.");
                 }
             } else {
                 // static_assert(false);
