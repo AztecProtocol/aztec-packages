@@ -760,7 +760,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
-        if (avm2_prove_command->parsed()) {
+        else if (avm2_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
             avm2_prove(avm_inputs_path, avm2_prove_output_path);
         } else if (avm2_check_circuit_command->parsed()) {
