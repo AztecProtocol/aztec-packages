@@ -674,6 +674,7 @@ export class PXEService implements PXE {
   public profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'full' | 'execution-steps' | 'gates',
+    skipProofGeneration: boolean = true,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
@@ -699,7 +700,7 @@ export class PXEService implements PXE {
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
 
         const { executionSteps, timings } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-          simulate: true,
+          simulate: skipProofGeneration,
           skipFeeEnforcement: false,
           profileMode,
         });

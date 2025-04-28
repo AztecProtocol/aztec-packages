@@ -311,8 +311,11 @@ export class PrivateKernelExecutionProver {
 
     let clientIvcProof: ClientIvcProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
+    let provingTime;
     if (!skipProofGeneration) {
+      const provingTimer = new Timer();
       clientIvcProof = await this.proofCreator.createClientIvcProof(executionSteps);
+      provingTime = provingTimer.ms();
     } else {
       clientIvcProof = ClientIvcProof.random();
     }
@@ -322,6 +325,7 @@ export class PrivateKernelExecutionProver {
       executionSteps,
       clientIvcProof,
       vk: tailOutput.verificationKey.keyAsBytes,
+      timings: provingTime ? { proving: provingTime } : undefined,
     };
   }
 

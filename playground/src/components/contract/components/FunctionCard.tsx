@@ -105,10 +105,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     try {
       const call = contract.methods[fnName](...parameters);
 
-      const profileResult = await call.profile({ profileMode: 'gates' });
+      const profileResult = await call.profile({ profileMode: 'full' });
       setProfileResults({
         ...profileResults,
-        ...{ [fnName]: { success: true, executionSteps: profileResult.executionSteps } },
+        ...{ [fnName]: { success: true, ...profileResult } },
       });
     } catch (e) {
       console.error(e);
@@ -236,30 +236,38 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             {!isWorking && profileResults[fn.name] !== undefined && (
               <Box>
                 {profileResults[fn.name].success ? (
-                  <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                            Simulation time
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {profileResults[fn.name].executionSteps.map(row => (
-                          <TableRow key={row.functionName}>
-                            <TableCell component="th" scope="row">
-                              {row.functionName}
+                  <>
+                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
+                      Sync time: {profileResults[fn.name].syncTime?.toFixed(2)}ms
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
+                      Proving time: {profileResults[fn.name].provingTime?.toFixed(2)}ms
+                    </Typography>
+                    <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Simulation time
                             </TableCell>
-                            <TableCell>{Number(row.gateCount).toLocaleString()}</TableCell>
-                            <TableCell align="right">{Number(row.timings?.witgen).toLocaleString()}ms</TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                        </TableHead>
+                        <TableBody>
+                          {profileResults[fn.name].executionSteps.map(row => (
+                            <TableRow key={row.functionName}>
+                              <TableCell component="th" scope="row">
+                                {row.functionName}
+                              </TableCell>
+                              <TableCell>{Number(row.gateCount).toLocaleString()}</TableCell>
+                              <TableCell align="right">{Number(row.timings?.witgen).toLocaleString()}ms</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </>
                 ) : (
                   <Typography variant="body1" color="error">
                     {profileResults?.[fn.name]?.error}

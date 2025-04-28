@@ -188,6 +188,7 @@ export interface PXE {
   profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'gates' | 'execution-steps' | 'full',
+    skipProofGeneration?: boolean,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult>;
 
