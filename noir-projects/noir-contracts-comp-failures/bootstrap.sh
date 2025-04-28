@@ -2,6 +2,7 @@
 # Exit on error
 set -e
 
+# nargo command path relative to the individual contract directory
 export NARGO=${NARGO:-../../../../noir/noir-repo/target/release/nargo}
 
 # Function to check if compilation error matches expected error
@@ -15,14 +16,17 @@ check_compilation_error() {
         return 0
     fi
 
-    # Get expected error message
-    local expected_error=$(cat "$expected_error_file")
+    # Get expected error message and trim whitespace
+    local expected_error=$(cat "$expected_error_file" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
     # Run nargo compile and capture output including stderr
     local actual_output
-    if ! actual_output=$(cd "$contract_dir" && $NARGO compile 2>&1); then
-        # Check if actual error contains expected error
-        if echo "$actual_output" | grep -q "$expected_error"; then
+    if ! actual_output=$(cd "$contract_dir" && $NARGO compile --silence-warnings 2>&1); then
+        # Normalize actual output whitespace
+        actual_output=$(echo "$actual_output" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+        # Check if actual error contains expected error, ignoring whitespace
+        if echo "$actual_output" | grep -F "$expected_error" > /dev/null; then
             echo "✓ $contract_dir: Compilation failed as expected with correct error"
             return 0
         else
