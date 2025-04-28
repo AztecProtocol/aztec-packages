@@ -20,9 +20,6 @@
     "cjs-entry/",
     "README.md"
   ],
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "scripts": {
     "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs",
     "build": "yarn clean && yarn build:wasm && yarn build:esm && yarn build:cjs && yarn build:browser",
@@ -37,6 +34,33 @@
     "test:debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules ./node_modules/.bin/jest --no-cache --passWithNoTests --runInBand",
     "simple_test": "NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
     "deploy": "npm publish --access public"
+  },
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "testRegex": "./src/.*\\.test\\.ts$",
+    "rootDir": "./src"
   },
   "dependencies": {
     "comlink": "^4.4.1",

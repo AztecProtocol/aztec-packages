@@ -464,15 +464,15 @@ function base64Decode(input: string): Uint8Array {
  */
 function withAbort<T>(signal: AbortSignal | undefined, fn: () => Promise<T>): Promise<T> {
   if (signal?.aborted) {
-    return Promise.reject(new DOMException('Proving aborted', 'AbortError'));
+    return Promise.reject(new Error('Proving aborted'));
   }
 
+  let aborted = false;
+
   return new Promise<T>((resolve, reject) => {
-    let aborted = false;
-    
     const abortHandler = () => {
       aborted = true;
-      reject(new DOMException('Proving aborted', 'AbortError'));
+      reject(new Error('Proving aborted'));
     };
     
     signal?.addEventListener('abort', abortHandler, { once: true });
@@ -492,3 +492,6 @@ function withAbort<T>(signal: AbortSignal | undefined, fn: () => Promise<T>): Pr
       });
   });
 }
+
+/** @internal - used only in tests */
+export { withAbort };
