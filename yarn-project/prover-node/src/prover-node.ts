@@ -1,8 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
-import type { ViemPublicClient } from '@aztec/ethereum';
 import { assertRequired, compact, pick, sum } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -384,7 +382,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
-      this.l1ToL2MessageSource,
       this.metrics,
       deadline,
       { parallelBlockLimit },
