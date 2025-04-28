@@ -8,18 +8,12 @@ spec:
   serviceName: {{ include "chart.name" . }}-node
   replicas: {{ .Values.node.replicas }}
   podManagementPolicy: {{ .Values.podManagementPolicy }}
+  updateStrategy:
+    {{- toYaml .Values.node.updateStrategy | nindent 4 }}
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
       app: node
-  volumeClaimTemplates:
-    - metadata:
-        name: node-data
-      spec:
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: {{ .Values.node.storageSize }}
   template:
     metadata:
       labels:
@@ -28,7 +22,20 @@ spec:
     spec:
       dnsPolicy: ClusterFirst
       affinity:
-        {{- toYaml .Values.affinity | nindent 8 }}
+        # If we are using the node port option, we need to make sure not to schedule two validators on the same node
+        # TODO(md): in future, this is only required if we run all with the same ports, and can potentially be relaxed
+        {{- if .Values.service.p2p.nodePortEnabled }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - node
+              topologyKey: kubernetes.io/hostname
+              namespaceSelector: {}
+        {{- end }}
       initContainers:
       {{- if .Values.initContainers }}
         {{- tpl (toYaml .Values.initContainers | nindent 8) $ }}
@@ -36,16 +43,16 @@ spec:
       {{- if .Values.nodePortEnabled }}
         - name: init-nodeport
           image: bitnami/kubectl
-           command:
+          command:
             - sh
             - -c
             - >
               export EXTERNAL_PORT=$(kubectl get services -l "pod in (${POD_NAME}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
               export EXTERNAL_IP=$(kubectl get nodes "${NODE_NAME}" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}');
-              echo "EXTERNAL_PORT=$EXTERNAL_PORT" >  /env/init-nodeport;
-              echo "EXTERNAL_IP=$EXTERNAL_IP"     >> /env/init-nodeport;
-              echo "P2P_IP=$EXTERNAL_IP"         >> /env/init-nodeport;
-              echo "P2P_PORT=$EXTERNAL_PORT"     >> /env/init-nodeport;
+              echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /env/init-nodeport;
+              echo "export EXTERNAL_IP=$EXTERNAL_IP"     >> /env/init-nodeport;
+              echo "export P2P_IP=$EXTERNAL_IP"         >> /env/init-nodeport;
+              echo "export P2P_PORT=$EXTERNAL_PORT"     >> /env/init-nodeport;
               cat /env/init-nodeport;
       {{- end }}
 
@@ -61,27 +68,26 @@ spec:
               {{- end }}
 
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver
-
               {{- range .Values.node.extraArgs }}
                 {{ tpl . $ }}
               {{- end }}
           startupProbe:
             httpGet:
               path: /status
-              port: {{ .Values.fullNode.service.nodePort }}
-            periodSeconds: {{ .Values.fullNode.startupProbe.periodSeconds }}
-            failureThreshold: {{ .Values.fullNode.startupProbe.failureThreshold }}
+              port: {{ .Values.service.httpPort }}
+            periodSeconds: {{ .Values.node.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
           livenessProbe:
             httpGet:
               path: /status
-              port: {{ .Values.fullNode.service.nodePort }}
+              port: {{ .Values.service.httpPort }}
             initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
             - name: node-data
-              mountPath: {{ .Values.storage.dataDirectory }}
+              mountPath: {{ .Values.node.storage.dataDirectory }}
             {{- if .Values.nodePortEnabled }}
             - name: init-nodeport
               mountPath: /env
@@ -108,7 +114,7 @@ spec:
             - name: NETWORK
               value: "{{ .Values.network.name }}"
             - name: NODE_OPTIONS
-              value: "--max-old-space-size={{ .Values.nodeJs.maxOldSpaceSize}}"
+              value: "--max-old-space-size={{ .Values.node.nodeJs.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.service.httpPort }}"
             - name: AZTEC_ADMIN_PORT
@@ -118,45 +124,35 @@ spec:
             - name: LOG_JSON
               value: "1"
             - name: P2P_ENABLED
-              value: "{{ .Values.node.p2p.enabled }}"
-            - name: COINBASE
-              value: "{{ index .Values.node.validator.privateKey (int (regexFind "\\d+$" .metadata.name)) }}"
-            - name: VALIDATOR_PRIVATE_KEY
-              value: "{{ index .Values.node.validator.privateKey (int (regexFind "\\d+$" .metadata.name)) }}"
-
-            ## TODO(md): Allow to be set independently of validator private key for prover configurations
-            - name: SEQ_PUBLISHER_PRIVATE_KEY
-              value: "{{ index .Values.node.validator.privateKey (int (regexFind "\\d+$" .metadata.name)) }}"
-            - name: PROVER_PUBLISHER_PRIVATE_KEY
-              value: "{{ index .Values.node.validator.privateKey (int (regexFind "\\d+$" .metadata.name)) }}"
-            ## END TODO
-
+              value: "{{ .Values.service.p2p.enabled }}"
             - name: VALIDATOR_DISABLED
               value: {{ .Values.node.validator.enabled | quote }}
             - name: L1_CHAIN_ID
-              value: "{{ .Values.ethereum.chainId }}"
+              value: "{{ .Values.network.l1ChainId }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: DATA_DIRECTORY
-              value: "{{ .Values.storage.dataDirectory }}"
+              value: "{{ .Values.node.storage.dataDirectory }}"
             - name: DATA_STORE_MAP_SIZE_KB
-              value: "{{ .Values.storage.dataStoreMapSize }}"
+              value: "{{ .Values.node.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
-              value: "{{ .Values.storage.worldStateMapSize }}"
+              value: "{{ .Values.node.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_LOGGING
-              value: "{{ .Values.metrics.useGcloudLogging }}"
+              value: "{{ .Values.node.metrics.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.metrics.otelExcludeMetrics }}"
+              value: "{{ .Values.node.metrics.otelExcludeMetrics }}"
             - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: "{{ .Values.metrics.otelCollectorEndpoint }}/v1/metrics"
+              value: "{{ .Values.node.metrics.otelCollectorEndpoint }}/v1/metrics"
             - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: "{{ .Values.metrics.otelCollectorEndpoint }}/v1/traces"
+              value: "{{ .Values.node.metrics.otelCollectorEndpoint }}/v1/traces"
             - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-              value: "{{ .Values.metrics.otelCollectorEndpoint }}/v1/logs"
+              value: "{{ .Values.node.metrics.otelCollectorEndpoint }}/v1/logs"
             - name: SENTINEL_ENABLED
               value: "{{ .Values.node.sentinel.enabled }}"
+            {{- if .Values.node.blobSink.enabled }}
             - name: BLOB_SINK_URL
-              value: "{{ .Values.blobSink.url }}"
+              value: "{{ .Values.node.blobSink.url }}"
+            {{- end }}
           ports:
             - containerPort: {{ .Values.service.httpPort }}
             - containerPort: {{ .Values.service.admin.port }}
@@ -166,13 +162,35 @@ spec:
           resources:
             {{- toYaml .Values.node.resources | nindent 12 }}
       volumes:
-        - name: node-data
-          persistentVolumeClaim:
-            claimName: node-data
         {{- if .Values.nodePortEnabled }}
         - name: init-nodeport
           configMap:
             name: init-nodeport
             emptyDir: {}
         {{- end }}
+    {{- if not .Values.persistence.enabled }}
+        - name: storage
+          emptyDir: {}
+    {{- else if .Values.persistence.existingClaim }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+    {{- else }}
+    volumeClaimTemplates:
+    - metadata:
+        name: storage
+          annotations:
+            {{- toYaml .Values.persistence.annotations | nindent 10 }}
+        spec:
+          accessModes:
+            {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+          resources:
+            requests:
+              storage: {{ .Values.persistence.size | quote}}
+          storageClassName: {{ .Values.persistence.storageClassName }}
+          {{- if .Values.persistence.selector }}
+          selector:
+            {{- toYaml .Values.persistence.selector | nindent 10 }}
+          {{- end }}
+    {{- end }}
 
