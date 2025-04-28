@@ -1,5 +1,6 @@
 import {
   EthCheatCodes,
+  L1TxUtils,
   RollupContract,
   createEthereumChain,
   getExpectedAddress,
@@ -10,7 +11,15 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, fallback, formatEther, getContract, http } from 'viem';
+import {
+  createPublicClient,
+  createWalletClient,
+  encodeFunctionData,
+  fallback,
+  formatEther,
+  getContract,
+  http,
+} from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 export interface RollupCommandArgs {
@@ -60,6 +69,8 @@ export async function addL1Validator({
   const publicClient = getPublicClient(rpcUrls, chainId);
   const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
 
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, debugLogger);
+
   const stakingAssetHandler = getContract({
     address: stakingAssetHandlerAddress.toString(),
     abi: StakingAssetHandlerAbi,
@@ -78,9 +89,15 @@ export async function addL1Validator({
   dualLog(
     `Adding validator (${attesterAddress}, ${proposerEOAAddress} [forwarder: ${forwarderAddress}]) to rollup ${rollup.toString()}`,
   );
-  const txHash = await stakingAssetHandler.write.addValidator([attesterAddress.toString(), forwarderAddress]);
-  dualLog(`Transaction hash: ${txHash}`);
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: stakingAssetHandlerAddress.toString(),
+    data: encodeFunctionData({
+      abi: StakingAssetHandlerAbi,
+      functionName: 'addValidator',
+      args: [attesterAddress.toString(), forwarderAddress],
+    }),
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
@@ -107,16 +124,19 @@ export async function removeL1Validator({
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrls, chainId);
   const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
-  const rollup = getContract({
-    address: rollupAddress.toString(),
-    abi: RollupAbi,
-    client: walletClient,
-  });
+
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, debugLogger);
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.initiateWithdraw([validatorAddress.toString(), validatorAddress.toString()]);
-  dualLog(`Transaction hash: ${txHash}`);
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: rollupAddress.toString(),
+    data: encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'initiateWithdraw',
+      args: [validatorAddress.toString(), validatorAddress.toString()],
+    }),
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
 }
 
 export async function pruneRollup({
@@ -131,16 +151,18 @@ export async function pruneRollup({
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrls, chainId);
   const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
-  const rollup = getContract({
-    address: rollupAddress.toString(),
-    abi: RollupAbi,
-    client: walletClient,
-  });
+
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, debugLogger);
 
   dualLog(`Trying prune`);
-  const txHash = await rollup.write.prune();
-  dualLog(`Transaction hash: ${txHash}`);
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: rollupAddress.toString(),
+    data: encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'prune',
+    }),
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
 }
 
 export async function fastForwardEpochs({

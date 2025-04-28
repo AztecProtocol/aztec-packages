@@ -167,6 +167,7 @@ export interface L1TxRequest {
   to: Address | null;
   data?: Hex;
   value?: bigint;
+  abi?: Abi;
 }
 
 export type L1GasConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date };
@@ -294,7 +295,7 @@ export class L1TxUtils {
 
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
-      const viemError = formatViemError(err);
+      const viemError = formatViemError(err, request.abi);
       this.logger?.error(`Failed to send L1 transaction`, viemError.message, {
         metaMessages: viemError.metaMessages,
       });
@@ -377,7 +378,7 @@ export class L1TxUtils {
               }
             } catch (err) {
               if (err instanceof Error && err.message.includes('reverted')) {
-                throw formatViemError(err);
+                throw formatViemError(err, request.abi);
               }
             }
           }
@@ -446,7 +447,7 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
-        const viemError = formatViemError(err);
+        const viemError = formatViemError(err, request.abi);
         this.logger?.warn(`Error monitoring L1 transaction ${currentTxHash}:`, viemError.message);
         if (viemError.message?.includes('reverted')) {
           throw viemError;
@@ -464,7 +465,7 @@ export class L1TxUtils {
           this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
         })
         .catch(err => {
-          const viemError = formatViemError(err);
+          const viemError = formatViemError(err, request.abi);
           this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
             metaMessages: viemError.metaMessages,
           });
