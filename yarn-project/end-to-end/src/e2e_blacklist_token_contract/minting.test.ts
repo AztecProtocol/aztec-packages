@@ -140,7 +140,7 @@ describe('e2e_blacklist_token_contract mint', () => {
 
       it('mint and try to redeem at blacklist', async () => {
         await expect(asset.methods.redeem_shield(blacklisted.getAddress(), amount, secret).prove()).rejects.toThrow(
-          /Assertion failed: Blacklisted: Recipient .*/,
+          'Assertion failed: Blacklisted: Recipient',
         );
       });
     });

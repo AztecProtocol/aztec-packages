@@ -145,7 +145,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     it('shielding from blacklisted account', async () => {
       await expect(
         asset.withWallet(blacklisted).methods.shield(blacklisted.getAddress(), 1n, secretHash, 0).prove(),
-      ).rejects.toThrow(/Assertion failed: Blacklisted: Sender .*/);
+      ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
   });
 });
