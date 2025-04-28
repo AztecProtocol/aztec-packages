@@ -19,7 +19,7 @@ import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher} from "@aztec/core/staking/Slasher.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
@@ -62,8 +62,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
     string memory _name = "mixed_block_1";
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
-      uint256 initialTime = full.block.decodedHeader.globalVariables.timestamp
+      uint256 slotNumber = full.block.decodedHeader.slotNumber;
+      uint256 initialTime = full.block.decodedHeader.timestamp
         - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
