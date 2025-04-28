@@ -10,10 +10,13 @@ use super::utils::is_note;
 pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
-/// Marks a struct as the one describing the storage layout of a contract. Only a single struct in the entire contract
-/// should have this macro (or `storage_no_init`) applied to it.
+/// Marks a struct as the one describing the storage layout of a contract.
+///
 /// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in
 /// all functions as an instance of the struct this macro was applied to.
+///
+/// Only a single struct in the entire contract should have this macro (or `storage_no_init`) applied to it, and the
+/// struct has to be called 'Storage'.
 pub comptime fn storage(s: TypeDefinition) -> Quoted {
     let struct_name = s.name();
     if struct_name != quote { Storage } {
@@ -106,8 +109,12 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
 /// Same as `storage`, except the user is in charge of providing an implementation of the `init` constructor function
 /// with signature `fn init<Context>(context: Context) -> Self`, which allows for manual control of storage slot
 /// allocation. Similarly, no `StorageLayout` struct will be created.
-/// Only a single struct in the entire contract can have this macro (or storage_no_init) applied to it, and the struct has
-/// to be called 'Storage'.
+///
+/// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in
+/// all functions as an instance of the struct this macro was applied to.
+///
+/// Only a single struct in the entire contract can have this macro (or storage_no_init) applied to it, and the struct
+/// has to be called 'Storage'.
 pub comptime fn storage_no_init(s: TypeDefinition) {
     // All `storage` does is provide the `init` implementation, so we don't need to do anything here. Applying this
     // macro however will cause for `macros::utils::module_has_storage` to return true, resulting in the injection of
