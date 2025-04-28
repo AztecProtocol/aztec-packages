@@ -56,6 +56,9 @@ impl RootRollupInputs {
 
         let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
 
+        let proposed_block_header_hashes =
+            components::accumulate_proposed_block_header_hashes(left, right);
+
         let fees = components::accumulate_blocks_fees(left, right);
 
         // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
@@ -70,7 +73,10 @@ impl RootRollupInputs {
             end_timestamp: right.end_global_variables.timestamp,
             end_block_number: right.end_global_variables.block_number,
             out_hash,
+            proposed_block_header_hashes,
             fees,
+            chain_id: right.end_global_variables.chain_id,
+            version: right.end_global_variables.version,
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
             prover_id: self.prover_id,

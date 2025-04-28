@@ -21,9 +21,12 @@ import { createPublicClient, fallback, http } from 'viem';
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
 
-  private rollupContract: RollupContract;
-  private publicClient: ViemPublicClient;
-  private ethereumSlotDuration: number;
+  private readonly rollupContract: RollupContract;
+  private readonly publicClient: ViemPublicClient;
+  private readonly ethereumSlotDuration: number;
+
+  private chainId?: Fr;
+  private version?: Fr;
 
   constructor(config: L1ReaderConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>) {
     const { l1RpcUrls, l1ChainId: chainId, l1Contracts } = config;
@@ -58,6 +61,16 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
   }
 
+  public async getGlobalConstantVariables(): Promise<Pick<GlobalVariables, 'chainId' | 'version'>> {
+    if (!this.chainId) {
+      this.chainId = new Fr(this.publicClient.chain.id);
+    }
+    if (!this.version) {
+      this.version = new Fr(await this.rollupContract.getVersion());
+    }
+    return { chainId: this.chainId, version: this.version };
+  }
+
   /**
    * Simple builder of global variables that use the minimum time possible.
    * @param blockNumber - The block number to build global variables for.
@@ -72,8 +85,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const version = new Fr(await this.rollupContract.getVersion());
-    const chainId = new Fr(this.publicClient.chain.id);
+    const { chainId, version } = await this.getGlobalConstantVariables();
 
     if (slotNumber === undefined) {
       const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));

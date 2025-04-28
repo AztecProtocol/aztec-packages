@@ -39,9 +39,11 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys)
 {
     bool vkeys_provided = !input_keys.empty();
-    if (vkeys_provided && verification_queue.size() != input_keys.size()) {
-        info("Warning: Incorrect number of verification keys provided in stdlib verification queue instantiation.");
-        ASSERT(false);
+    if (vkeys_provided) {
+        BB_ASSERT_EQ(verification_queue.size(),
+                     input_keys.size(),
+                     "Incorrect number of verification keys provided in "
+                     "stdlib verification queue instantiation.");
     }
 
     size_t key_idx = 0;
@@ -240,7 +242,7 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
-    ASSERT(verification_queue.size() == 1);
+    BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
 
     FoldProof& fold_proof = verification_queue[0].proof;
     HonkProof decider_proof = decider_prove();
