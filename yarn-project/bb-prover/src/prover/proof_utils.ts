@@ -1,5 +1,5 @@
 import {
-  IPA_CLAIM_LENGTH,
+  IPA_CLAIM_SIZE,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINT_ACCUMULATOR_SIZE,
@@ -66,7 +66,7 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
     `Proof length must be one of the expected proof lengths, received ${proofLength}`,
   );
   if (proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {
-    numPublicInputs -= IPA_CLAIM_LENGTH;
+    numPublicInputs -= IPA_CLAIM_SIZE;
   }
 
   assert(json.length == proofLength, `Proof length mismatch: ${json.length} != ${proofLength}`);
