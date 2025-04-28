@@ -532,13 +532,20 @@ TEST_F(AcirIntegrationTest, MsgpackInputs)
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    auto steps_copy = steps;
+
+    // WORKTODO: its the second multi scalar mul constraint in a set of 4 in token transfer and kernel reset where a
+    // discrepancy arisses. Can debug by simply generating the token transfer circuit in isolation with and without a
+    // witness.
 
     // Recomputed the "precomputed" verification keys
     {
         TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+        // size_t step_count = 0;
         for (auto [program, precomputed_vk, function_name] :
-             zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
-
+             zip_view(steps_copy.folding_stack, steps_copy.precomputed_vks, steps_copy.function_names)) {
+            // if (std::strcmp(function_name.c_str(), "Token:transfer") == 0) {
+            info("Function: ", function_name);
             program.witness = {};
             auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
@@ -549,12 +556,16 @@ TEST_F(AcirIntegrationTest, MsgpackInputs)
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
             auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
             auto recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-            info("Function: ", function_name);
-            recomputed_vk->compare(precomputed_vk);
+
+            // recomputed_vk->compare(precomputed_vk);
+            // if (step_count++ == 1) {
+            //     break;
+            // }
+            // }
         }
     }
 
-    // std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     // ClientIVC::Proof proof = ivc->prove();
 
     // // Verify the proof

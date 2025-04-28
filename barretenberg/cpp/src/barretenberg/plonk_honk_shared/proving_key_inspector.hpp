@@ -8,8 +8,32 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb::proving_key_inspector {
+
+template <typename Builder, typename Flavor = MegaFlavor>
+typename Flavor::Commitment compute_vk_hash(const Builder& circuit_in)
+    requires(IsMegaFlavor<Flavor>)
+{
+    using DeciderProvingKey = typename bb::DeciderProvingKey_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+
+    Builder circuit = circuit_in;
+
+    // WORKTODO: I think this is where we get a complaing baout no pairing points be added. Do we just need to add a
+    // default here?
+
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+
+    auto vk_hash = verification_key->hash();
+    // info("VK Hash: ", vk_hash);
+    return vk_hash;
+}
 
 // Determine whether a polynomial has at least one non-zero coefficient
 bool is_non_zero(auto& polynomial)

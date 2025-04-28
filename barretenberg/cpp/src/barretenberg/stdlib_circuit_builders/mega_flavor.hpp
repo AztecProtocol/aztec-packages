@@ -675,6 +675,17 @@ class MegaFlavor {
                 }
             }
         };
+
+        Commitment hash() const
+        {
+            Commitment commit_hash = Commitment::infinity();
+            FF scalar = 1;
+            for (const auto& commitment : this->get_all()) {
+                commit_hash = commit_hash + commitment * scalar;
+                scalar *= 2;
+            }
+            return commit_hash;
+        }
     };
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
