@@ -83,14 +83,8 @@ describe('Public Side Effect Trace', () => {
 
     const expectedLog = new PublicLog(address, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
 
-    expect(trace.getPublicLogs()).toEqual([expectedLog]);
     expect(trace.getSideEffects().publicLogs).toEqual([expectedLog]);
   });
-
-  // it('Should trace get contract class', async () => {
-  //   trace.traceGetContractClass(/*id=*/ new Fr(44), /*exists=*/ true);
-  //   // FIXME: what here?
-  // });
 
   describe('Maximum accesses', () => {
     it('Should enforce maximum number of user public storage writes', async () => {
