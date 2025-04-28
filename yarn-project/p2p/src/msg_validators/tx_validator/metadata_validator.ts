@@ -4,7 +4,7 @@ import {
   type AnyTx,
   TX_ERROR_INCORRECT_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_BLOCK_NUMBER,
+  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
   Tx,
   type TxValidationResult,
   type TxValidator,
@@ -24,7 +24,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
     }
     if (!(await this.#isValidForBlockNumber(tx))) {
-      errors.push(TX_ERROR_INVALID_BLOCK_NUMBER);
+      errors.push(TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
     }
     return errors.length > 0 ? { result: 'invalid', reason: errors } : { result: 'valid' };
   }

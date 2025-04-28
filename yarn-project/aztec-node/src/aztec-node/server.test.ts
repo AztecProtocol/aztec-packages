@@ -14,7 +14,7 @@ import { RollupValidationRequests } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, MaxBlockNumber, TX_ERROR_INVALID_BLOCK_NUMBER } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, MaxBlockNumber, TX_ERROR_INVALID_MAX_BLOCK_NUMBER } from '@aztec/stdlib/tx';
 
 import { readFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -219,7 +219,7 @@ describe('aztec node', () => {
       // Tx with max block number < current block number should be invalid
       expect(await node.isValidTx(invalidMaxBlockNumberMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_BLOCK_NUMBER],
+        reason: [TX_ERROR_INVALID_MAX_BLOCK_NUMBER],
       });
       // Tx with max block number >= current block number should be valid
       expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });

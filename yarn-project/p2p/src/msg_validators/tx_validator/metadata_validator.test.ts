@@ -5,7 +5,7 @@ import {
   MaxBlockNumber,
   TX_ERROR_INCORRECT_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_BLOCK_NUMBER,
+  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
 } from '@aztec/stdlib/tx';
 
 import { MetadataTxValidator } from './metadata_validator.js';
@@ -95,6 +95,6 @@ describe('MetadataTxValidator', () => {
     badTx.data.constants.txContext.version = rollupVersion;
     badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber.sub(new Fr(1)));
 
-    await expectInvalid(badTx, TX_ERROR_INVALID_BLOCK_NUMBER);
+    await expectInvalid(badTx, TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
   });
 });
