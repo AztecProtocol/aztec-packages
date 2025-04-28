@@ -338,11 +338,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             // Construct two equivalent circuits
             Builder builder1;
             Builder builder2;
-            construct_circuit(builder1);
-            construct_circuit(builder2);
 
             // Add some arithmetic gates with public inputs to the first circuit
             bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder1, /*num_gates=*/4);
+
+            construct_circuit(builder1);
+            construct_circuit(builder2);
 
             check_fold_and_decide(builder1, builder2);
         }
