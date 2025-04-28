@@ -45,8 +45,6 @@ check_compilation_error() {
 }
 
 test_compilation_failures() {
-    echo "Testing compilation failures..."
-
     # Iterate through all directories in contracts/
     for contract_dir in contracts/*/; do
         if [ -d "$contract_dir" ]; then
