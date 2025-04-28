@@ -64,6 +64,24 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
 /**
+ * @brief Check that size of a ultra honk proof matches the corresponding constant
+ *
+ */
+TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder>::add_default_pairing_points_to_public_inputs(
+        builder);
+    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    UltraProver_<Flavor> prover(proving_key);
+    HonkProof ultra_proof = prover.construct_proof();
+    EXPECT_EQ(ultra_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + Flavor::BACKEND_PUB_INPUTS_SIZE);
+}
+
+/**
  * @brief A quick test to ensure that none of our polynomials are identically zero
  *
  * @note This test assumes that gates have been added by default in the composer

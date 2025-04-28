@@ -26,6 +26,24 @@ class UltraZKFlavor : public UltraFlavor {
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+
+    // Proof length formula:
+    // 1. NUM_WITNESS_ENTITIES commitments
+    // 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 3. NUM_ALL_ENTITIES sumcheck evaluations
+    // 4. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 6. KZG W commitment
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        NUM_WITNESS_ENTITIES * num_frs_comm + CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr +
+        NUM_ALL_ENTITIES * num_frs_fr + CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr +
+        num_frs_comm;
+
+    // WORKTODO: is this even a good idea to create?
+    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINT_ACCUMULATOR_SIZE;
+
     /**
      * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
      * functions.

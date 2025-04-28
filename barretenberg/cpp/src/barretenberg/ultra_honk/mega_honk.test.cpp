@@ -88,6 +88,25 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
 TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 
 /**
+ * @brief Check that size of a mega proof matches the corresponding constant
+ *
+ */
+TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder>::add_default_pairing_points_to_public_inputs(
+        builder);
+
+    // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    UltraProver_<Flavor> prover(proving_key);
+    HonkProof mega_proof = prover.construct_proof();
+    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + Flavor::BACKEND_PUB_INPUTS_SIZE);
+}
+
+/**
  * @brief Check that size of a merge proof matches the corresponding constant
  * @details This is useful for ensuring correct construction of mock merge proofs
  *

@@ -88,6 +88,23 @@ class MegaFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
+    // Proof length formula:
+    // 1. NUM_WITNESS_ENTITIES commitments
+    // 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 3. NUM_ALL_ENTITIES sumcheck evaluations
+    // 4. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 6. KZG W commitment
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        NUM_WITNESS_ENTITIES * num_frs_comm + CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr +
+        NUM_ALL_ENTITIES * num_frs_fr + CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr +
+        num_frs_comm;
+
+    // WORKTODO: is this even a good idea to create?
+    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINT_ACCUMULATOR_SIZE;
+
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
