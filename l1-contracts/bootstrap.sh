@@ -55,7 +55,9 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
+  echo "$hash cd l1-contracts && forge test --no-match-contract 'UniswapPortalTest|ValidatorSelectionTest|BenchmarkRollupTest'"
+  ## Validator selection tests must be run with --isolate to reset transient storage
+  echo "$hash cd l1-contracts && forge test --match-contract 'ValidatorSelectionTest|BenchmarkRollupTest' --isolate"
 }
 
 function test {

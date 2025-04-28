@@ -62,8 +62,7 @@ library ValidatorSelectionLib {
     // If the committee is not set for this epoch, we need to sample it
     bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == bytes32(0)) {
-      store.committeeCommitments[_epochNumber] =
-        computeCommitteeCommitment(sampleValidators(_stakingStore, _epochNumber, sampleSeed));
+      sampleValidators(_stakingStore, _epochNumber, sampleSeed, committeeCommitment);
     }
   }
 
@@ -161,15 +160,13 @@ library ValidatorSelectionLib {
     //       it does not need to actually return the full committee and then draw from it
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
+    ValidatorSelectionStorage storage store = getStorage();
 
-    // TODO(md): go back to previous pr and apply this change
     uint224 sampleSeed = getSampleSeed(_epochNumber);
-    if (sampleSeed == 0) {
-      sampleSeed = type(uint224).max;
-      getStorage().seeds.push(Epoch.unwrap(_epochNumber).toUint32(), sampleSeed);
-    }
+    bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
 
-    address[] memory committee = sampleValidators(_stakingStore, _epochNumber, sampleSeed);
+    address[] memory committee =
+      sampleValidators(_stakingStore, _epochNumber, sampleSeed, committeeCommitment);
     if (committee.length == 0) {
       return address(0);
     }
@@ -188,31 +185,39 @@ library ValidatorSelectionLib {
    *
    * @return The validators for the given epoch
    */
-  function sampleValidators(StakingStorage storage _stakingStore, Epoch _epoch, uint224 _seed)
-    internal
-    returns (address[] memory)
-  {
+  function sampleValidators(
+    StakingStorage storage _stakingStore,
+    Epoch _epoch,
+    uint224 _seed,
+    bytes32 _committeeCommitment
+  ) internal returns (address[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
+
     uint256 validatorSetSize = _stakingStore.attesters.lengthAtEpoch(_epoch);
-
-    if (validatorSetSize == 0) {
-      return new address[](0);
-    }
-
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
+    bool smallerCommittee = validatorSetSize <= targetCommitteeSize;
+    uint256 committeeSize = smallerCommittee ? validatorSetSize : targetCommitteeSize;
+    address[] memory committee = new address[](committeeSize);
+
     // If we have less validators than the target committee size, we just return the full set
-    if (validatorSetSize <= targetCommitteeSize) {
-      return _stakingStore.attesters.valuesAtEpoch(_epoch);
+    if (smallerCommittee) {
+      committee = _stakingStore.attesters.valuesAtEpoch(_epoch);
+    } else {
+      // Sample the larger committee
+      uint256[] memory indices =
+        SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
+
+      for (uint256 i = 0; i < committeeSize; i++) {
+        committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
+      }
     }
 
-    uint256[] memory indices =
-      SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
-
-    address[] memory committee = new address[](targetCommitteeSize);
-    for (uint256 i = 0; i < targetCommitteeSize; i++) {
-      committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
+    // If there is no committee commitment, snapshot the commitee
+    if (_committeeCommitment == bytes32(0)) {
+      store.committeeCommitments[_epoch] = computeCommitteeCommitment(committee);
     }
+
     return committee;
   }
 
@@ -227,8 +232,12 @@ library ValidatorSelectionLib {
     internal
     returns (address[] memory committee)
   {
+    ValidatorSelectionStorage storage store = getStorage();
+
     uint224 seed = getSampleSeed(_epochNumber);
-    return sampleValidators(_stakingStore, _epochNumber, seed);
+    bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
+
+    return sampleValidators(_stakingStore, _epochNumber, seed, committeeCommitment);
   }
 
   // TODO: make view function alternative to this to request the committee
