@@ -2,6 +2,8 @@
 # Exit on error
 set -e
 
+cmd=${1:-}
+
 # nargo command path relative to the individual contract directory
 export NARGO=${NARGO:-../../../../noir/noir-repo/target/release/nargo}
 
@@ -42,12 +44,23 @@ check_compilation_error() {
     fi
 }
 
-# Main script
-echo "Testing compilation failures..."
+test_compilation_failures() {
+    echo "Testing compilation failures..."
 
-# Iterate through all directories in contracts/
-for contract_dir in contracts/*/; do
-    if [ -d "$contract_dir" ]; then
-        check_compilation_error "$contract_dir"
-    fi
-done
+    # Iterate through all directories in contracts/
+    for contract_dir in contracts/*/; do
+        if [ -d "$contract_dir" ]; then
+            check_compilation_error "$contract_dir"
+        fi
+    done
+}
+
+# In this case, the only available command is the one for testing the compilation failures
+case "$cmd" in
+  test|test_cmds)
+    test_compilation_failures
+    ;;
+  *)
+    echo_stderr "Unknown command: $cmd"
+    exit 1
+esac
