@@ -46,15 +46,9 @@ describe('MetadataTxValidator', () => {
   };
 
   const makeTxs = async () => {
-    const tx1 = await mockTx(seed++);
-    const tx2 = await mockTxForRollup(seed++);
-
-    for (const tx of [tx1, tx2]) {
-      tx.data.constants.txContext.chainId = chainId;
-      tx.data.constants.txContext.version = rollupVersion;
-      tx.data.constants.vkTreeRoot = vkTreeRoot;
-      tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
-    }
+    const opts = { chainId, version: rollupVersion, vkTreeRoot, protocolContractTreeRoot };
+    const tx1 = await mockTx(seed++, opts);
+    const tx2 = await mockTxForRollup(seed++, opts);
 
     return [tx1, tx2];
   };
