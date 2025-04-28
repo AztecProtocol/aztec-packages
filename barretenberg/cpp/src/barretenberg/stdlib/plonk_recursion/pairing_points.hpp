@@ -5,10 +5,10 @@
 // =====================
 
 #pragma once
-#include "../../primitives/field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -19,7 +19,7 @@ namespace bb::stdlib::recursion {
  *
  * @tparam Builder_
  */
-template <typename Builder_> struct aggregation_state {
+template <typename Builder_> struct PairingPoints {
     using Builder = Builder_;
     using Curve = bn254<Builder>;
     using Group = typename Curve::Group;
@@ -32,22 +32,19 @@ template <typename Builder_> struct aggregation_state {
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = Group::PUBLIC_INPUTS_SIZE * 2;
 
-    aggregation_state() = default;
+    PairingPoints() = default;
 
-    aggregation_state(const Group& P0, const Group& P1)
+    PairingPoints(const Group& P0, const Group& P1)
         : P0(P0)
         , P1(P1)
         , has_data(true)
     {}
 
-    aggregation_state(std::array<Group, 2> const& points)
-        : aggregation_state(points[0], points[1])
+    PairingPoints(std::array<Group, 2> const& points)
+        : PairingPoints(points[0], points[1])
     {}
 
-    typename Curve::bool_ct operator==(aggregation_state const& other) const
-    {
-        return P0 == other.P0 && P1 == other.P1;
-    };
+    typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
     /**
      * @brief Compute a linear combination of the present pairing points with an input set of pairing points
@@ -55,7 +52,7 @@ template <typename Builder_> struct aggregation_state {
      * @param other
      * @param recursion_separator
      */
-    void aggregate(aggregation_state const& other)
+    void aggregate(PairingPoints const& other)
     {
         Builder* builder = other.P0.get_context();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
@@ -117,7 +114,7 @@ template <typename Builder_> struct aggregation_state {
     {
         Builder* ctx = P0.get_context();
         if (ctx->pairing_inputs_public_input_key.is_set()) {
-            throw_or_abort("Error: trying to set aggregation_state as public inputs when it already contains one.");
+            throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
         }
         uint32_t start_idx = P0.set_public();
         P1.set_public();
@@ -128,12 +125,12 @@ template <typename Builder_> struct aggregation_state {
     }
 
     /**
-     * @brief Reconstruct an aggregation_state from its representation as limbs (generally stored in the public inputs)
+     * @brief Reconstruct an PairingPoints from its representation as limbs (generally stored in the public inputs)
      *
      * @param limbs The limbs of the pairing points
-     * @return aggregation_state<Builder>
+     * @return PairingPoints<Builder>
      */
-    static aggregation_state<Builder> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    static PairingPoints<Builder> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
         std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };
@@ -146,9 +143,9 @@ template <typename Builder_> struct aggregation_state {
      * @brief Constructs an arbitrary but valid aggregation state from a valid set of pairing inputs.
      *
      * @param builder
-     * @return aggregation_state<Builder>
+     * @return PairingPoints<Builder>
      */
-    static aggregation_state<Builder> construct_default(typename Curve::Builder& builder)
+    static PairingPoints<Builder> construct_default(typename Curve::Builder& builder)
     {
         using BaseField = typename Curve::BaseField;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
@@ -161,20 +158,20 @@ template <typename Builder_> struct aggregation_state {
         BaseField y0 = BaseField::from_witness(&builder, y0_val);
         BaseField x1 = BaseField::from_witness(&builder, x1_val);
         BaseField y1 = BaseField::from_witness(&builder, y1_val);
-        // aggregation_state<Builder> agg_obj{ Group(x0, y0), Group(x1, y1) };
+        // PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
         return { Group(x0, y0), Group(x1, y1) };
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
     // necessary.
-    static void add_default_pairing_points_to_public_inputs(Builder& builder)
+    static void add_default_to_public_inputs(Builder& builder)
     {
-        aggregation_state<Builder> agg_obj = construct_default(builder);
-        agg_obj.set_public();
+        PairingPoints<Builder> points_accumulator = construct_default(builder);
+        points_accumulator.set_public();
     }
 };
 
-template <typename Builder> void read(uint8_t const*& it, aggregation_state<Builder>& as)
+template <typename Builder> void read(uint8_t const*& it, PairingPoints<Builder>& as)
 {
     using serialize::read;
 
@@ -183,7 +180,7 @@ template <typename Builder> void read(uint8_t const*& it, aggregation_state<Buil
     read(it, as.has_data);
 };
 
-template <typename Builder> void write(std::vector<uint8_t>& buf, aggregation_state<Builder> const& as)
+template <typename Builder> void write(std::vector<uint8_t>& buf, PairingPoints<Builder> const& as)
 {
     using serialize::write;
 
@@ -192,7 +189,7 @@ template <typename Builder> void write(std::vector<uint8_t>& buf, aggregation_st
     write(buf, as.has_data);
 };
 
-template <typename NCT> std::ostream& operator<<(std::ostream& os, aggregation_state<NCT> const& as)
+template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
     return os << "P0: " << as.P0 << "\n"
               << "P1: " << as.P1 << "\n"
