@@ -58,7 +58,6 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using PairingPoints = PairingPoints<InnerBuilder>;
         using fr = typename InnerCurve::ScalarFieldNative;
 
         InnerBuilder builder;
@@ -78,7 +77,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        PairingPoints::add_default_to_public_inputs(builder);
+        PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
@@ -119,7 +118,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
         auto points_accumulator = PairingObject::construct_default(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, points_accumulator);
-        PairingPoints pairing_points = output.points_accumulator;
+        PairingObject pairing_points = output.points_accumulator;
         pairing_points.P0.x.fix_witness();
         pairing_points.P0.y.fix_witness();
         pairing_points.P1.x.fix_witness();

@@ -50,7 +50,6 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-    using PairingPoints = PairingPoints<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
@@ -99,7 +98,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // issue.
     fr SMALL_DUMMY_VALUE(2); // arbtirary small value that shouldn't cause builder problems.
     // The aggregation object
-    for (size_t i = 0; i < PairingPoints::PUBLIC_INPUTS_SIZE; i++) {
+    for (size_t i = 0; i < PairingPoints<Builder>::PUBLIC_INPUTS_SIZE; i++) {
         builder.assert_equal(builder.add_variable(SMALL_DUMMY_VALUE), proof_fields[offset].witness_index);
         offset++;
     }
