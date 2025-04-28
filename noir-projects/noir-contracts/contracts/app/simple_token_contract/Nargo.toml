@@ -1,5 +1,5 @@
 [package]
-name = "simple_token_playground"
+name = "simple_token_contract"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"
