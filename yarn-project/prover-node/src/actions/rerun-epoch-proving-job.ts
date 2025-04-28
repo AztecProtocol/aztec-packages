@@ -11,7 +11,7 @@ import { readFileSync } from 'fs';
 
 import { deserializeEpochProvingJobData } from '../job/epoch-proving-job-data.js';
 import { EpochProvingJob } from '../job/epoch-proving-job.js';
-import { ProverNodeMetrics } from '../metrics.js';
+import { ProverNodeJobMetrics } from '../metrics.js';
 
 /**
  * Given a local folder where `downloadEpochProvingJob` was called, creates a new archiver and world state
@@ -27,7 +27,7 @@ export async function rerunEpochProvingJob(
   log.info(`Loaded proving job data for epoch ${jobData.epochNumber}`);
 
   const telemetry = getTelemetryClient();
-  const metrics = new ProverNodeMetrics(telemetry, 'prover-job');
+  const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
   const worldState = await createWorldState(config);
   const archiver = await createArchiverStore(config);
   const publicProcessorFactory = new PublicProcessorFactory(archiver);
