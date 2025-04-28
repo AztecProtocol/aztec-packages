@@ -40,7 +40,6 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
   public:
     using NativeFlavor = MegaZKFlavor;
 
-    // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`

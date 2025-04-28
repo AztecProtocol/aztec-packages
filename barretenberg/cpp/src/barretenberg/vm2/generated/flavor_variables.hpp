@@ -10,11 +10,11 @@
 #include "relations/bitwise.hpp"
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
-#include "relations/context_stack.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
 #include "relations/nullifier_check.hpp"
@@ -49,11 +49,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 45;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1026;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 70;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2077;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 1206;
+    static constexpr size_t NUM_ALL_ENTITIES = 2291;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -67,11 +67,11 @@ struct AvmFlavorVariables {
         avm2::bitwise<FF_>,
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
-        avm2::context_stack<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::ff_gt<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
         avm2::nullifier_check<FF_>,

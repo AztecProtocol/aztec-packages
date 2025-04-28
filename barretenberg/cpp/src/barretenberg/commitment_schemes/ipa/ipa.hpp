@@ -426,7 +426,7 @@ template <typename Curve_> class IPA {
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
            s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        ASSERT(G_zero == G_zero_sent && "G_0 should be equal to G_0 sent in transcript.");
+        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
 
         // Step 9.
         // Receive a₀ from the prover
@@ -717,7 +717,7 @@ template <typename Curve_> class IPA {
         // batch_mul directly on it.
         const std::vector<Commitment> srs_elements = vk->get_monomial_points();
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
-        ASSERT(G_zero.get_value() == transcript_G_zero.get_value() && "G_zero doesn't match received G_zero failed.");
+        BB_ASSERT_EQ(G_zero.get_value(), transcript_G_zero.get_value(), "G_zero doesn't match received G_zero.");
 
         // Step 6.
         // Receive a₀ from the prover
@@ -951,10 +951,10 @@ template <typename Curve_> class IPA {
                                                      bb::fq(output_claim.opening_pair.evaluation.get_value()) };
         Polynomial<fq> challenge_poly = create_challenge_poly(uint32_t(pair_1.log_poly_length.get_value()), native_u_challenges_inv_1, uint32_t(pair_2.log_poly_length.get_value()), native_u_challenges_inv_2, fq(alpha.get_value()));
 
-        ASSERT(challenge_poly.evaluate(opening_pair.challenge) == opening_pair.evaluation && "Opening claim does not hold for challenge polynomial.");
+        BB_ASSERT_EQ(challenge_poly.evaluate(opening_pair.challenge), opening_pair.evaluation, "Opening claim does not hold for challenge polynomial.");
 
         IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
-        ASSERT(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())) == fq(output_claim.opening_pair.evaluation.get_value()));
+        BB_ASSERT_EQ(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())), fq(output_claim.opening_pair.evaluation.get_value()), "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
         return {output_claim, prover_transcript->proof_data};

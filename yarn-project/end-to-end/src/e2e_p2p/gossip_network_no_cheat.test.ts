@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, sleep } from '@aztec/aztec.js';
+import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
 import { addL1Validator } from '@aztec/cli/l1';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -93,13 +93,13 @@ describe('e2e_p2p_network', () => {
     const rollup = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const stakingAssetHandler = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!.toString(),
       abi: StakingAssetHandlerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     expect((await rollup.read.getAttesters()).length).toBe(0);
@@ -148,8 +148,8 @@ describe('e2e_p2p_network', () => {
     expect(attesters.length).toBe(NUM_NODES);
 
     // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await t.ctx.deployL1ContractsValues.l1Client.sendTransaction({
         to: t.baseAccount.address,
         value: 1n,
         account: t.baseAccount,
@@ -204,7 +204,9 @@ describe('e2e_p2p_network', () => {
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures.filter(s => !s.isEmpty).map(sig => new BlockAttestation(payload, sig));
+    const attestations = block.signatures
+      .filter(s => !s.isEmpty)
+      .map(sig => new BlockAttestation(new Fr(block.block.number), payload, sig));
     const signers = attestations.map(att => att.getSender().toString());
     t.logger.info(`Attestation signers`, { signers });
 

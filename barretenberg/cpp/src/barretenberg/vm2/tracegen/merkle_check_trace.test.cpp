@@ -18,7 +18,6 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 using simulation::MerkleCheckEvent;
 

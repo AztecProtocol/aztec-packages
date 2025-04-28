@@ -370,9 +370,7 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices =
-                proving_key.pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
             if (proving_key.commitment_key == nullptr) {
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
@@ -386,8 +384,7 @@ class UltraFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
-                        const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const PublicComponentKey& pairing_inputs_public_input_key,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -420,8 +417,7 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -456,8 +452,7 @@ class UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_pairing_point_accumulator,
-                       pairing_point_accumulator_public_input_indices,
+                       pairing_inputs_public_input_key,
                        q_m,
                        q_c,
                        q_l,

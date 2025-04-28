@@ -222,6 +222,7 @@ function bench {
     return
   fi
   denoise "barretenberg/bootstrap.sh bench"
+  denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
@@ -278,7 +279,7 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released here /.github/workflows/docs-deploy.yml
+    # docs # released as part of ci
     release-image
   )
   if [ $(arch) == arm64 ]; then
@@ -340,6 +341,10 @@ case "$cmd" in
       else
         echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
       fi
+    fi
+
+    if [ "$REF_NAME" = "master" ]; then
+      docs/bootstrap.sh release-docs
     fi
     ;;
   test|test_cmds|bench|release|release_dryrun)

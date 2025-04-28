@@ -2,11 +2,12 @@
 title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
 keywords: [sandbox, aztec, notes, migration, updating, upgrading]
+tags: [migration, updating, sandbox]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.86.0
 
 ### [PXE] Removed PXE_L2_STARTING_BLOCK environment variable
 
@@ -1881,7 +1882,7 @@ The type signature for `SharedMutable` changed from `SharedMutable<T, DELAY>` to
 
 ### [Aztec.nr] get_public_key oracle replaced with get_ivpk_m
 
-When implementing changes according to a [new key scheme](https://yp-aztec.netlify.app/docs/addresses-and-keys/keys) we had to change oracles.
+When implementing changes according to a new key scheme we had to change oracles.
 What used to be called encryption public key is now master incoming viewing public key.
 
 ```diff

@@ -29,3 +29,11 @@ export function count(count: number | bigint, str: string, plural?: string): str
 export function truncate(str: string, length: number = 64): string {
   return str.length > length ? str.slice(0, length) + '...' : str;
 }
+
+export function isoDate(date?: Date) {
+  return (date ?? new Date()).toISOString().replace(/[-:T]/g, '').replace(/\..+$/, '');
+}
+
+export function urlJoin(...args: string[]): string {
+  return args.map(arg => arg.replace(/\/+$/, '').replace(/^\/+/, '')).join('/');
+}

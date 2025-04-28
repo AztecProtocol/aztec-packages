@@ -12,6 +12,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/constraining/entities.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -21,19 +22,6 @@
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
 
 namespace bb::avm2 {
-
-// This helper lets us access entities by column.
-// It is critical to achieve performance when calculating lookup inverses.
-// See https://github.com/AztecProtocol/aztec-packages/pull/11605 for more details.
-template <typename Entities> auto& get_entity_by_column(Entities& entities, ColumnAndShifts c)
-{
-    // A statically constructed pointer to members of the class, indexed by column.
-    // This should only be created once per Entities class.
-    static std::array<typename Entities::DataType(Entities::*), NUM_COLUMNS_WITH_SHIFTS> col_ptrs = {
-        AVM2_ALL_ENTITIES_E(&Entities::)
-    };
-    return (entities.*col_ptrs[static_cast<size_t>(c)]);
-}
 
 class AvmFlavor {
   public:
@@ -167,6 +155,7 @@ class AvmFlavor {
     class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
+
         auto get_wires() { return WireEntities<DataType>::get_all(); }
         static const auto& get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
@@ -259,19 +248,7 @@ class AvmFlavor {
     };
 
     // Used by sumcheck.
-    class AllValues : public AllEntities<FF> {
-      public:
-        using Base = AllEntities<FF>;
-        using Base::Base;
-    };
-
-    // Only used by VM1 check_circuit. Remove.
-    class AllConstRefValues {
-      public:
-        using BaseDataType = const FF;
-        using DataType = BaseDataType&;
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_ALL_ENTITIES)
-    };
+    using AllValues = AllEntities<FF>;
 
     template <typename Polynomials> class PolynomialEntitiesAtFixedRow {
       public:
@@ -280,8 +257,7 @@ class AvmFlavor {
             , pp(pp)
         {}
 
-        // We need both const and non-const versions.
-        auto& get(ColumnAndShifts c) { return pp.get(c)[row_idx]; }
+        // Only const-access is allowed here. That's all that the logderivative library requires.
         const auto& get(ColumnAndShifts c) const { return pp.get(c)[row_idx]; }
 
       private:
@@ -305,14 +281,9 @@ class AvmFlavor {
         ProverPolynomials(ProvingKey& proving_key);
 
         size_t get_polynomial_size() const { return execution_input.size(); }
-        // This is only used in VM1 check_circuit. Remove.
-        AllConstRefValues get_standard_row(size_t row_idx) const
-        {
-            return [row_idx](auto&... entities) -> AllConstRefValues {
-                return { entities[row_idx]... };
-            }(AVM2_ALL_ENTITIES);
-        }
-        auto get_row(size_t row_idx) const { return PolynomialEntitiesAtFixedRow<ProverPolynomials>(row_idx, *this); }
+        // Only const-access is allowed here. That's all that the logderivative library requires.
+        // https://github.com/AztecProtocol/aztec-packages/blob/e50d8e0/barretenberg/cpp/src/barretenberg/honk/proof_system/logderivative_library.hpp#L44.
+        PolynomialEntitiesAtFixedRow<ProverPolynomials> get_row(size_t row_idx) const { return { row_idx, *this }; }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {

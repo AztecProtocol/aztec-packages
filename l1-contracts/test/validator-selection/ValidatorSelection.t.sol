@@ -21,7 +21,7 @@ import {TestConstants} from "../harnesses/TestConstants.sol";
 
 import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
+import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
@@ -181,31 +181,28 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     StructToAvoidDeepStacks memory ree;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
+    vm.warp(max(block.timestamp, full.block.decodedHeader.timestamp));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+
+    rollup.setupEpoch();
 
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
-    rollup.setupEpoch();
-
     bytes32[] memory txHashes = new bytes32[](0);
 
     {
-      uint256 version = rollup.getVersion();
       uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
-      bytes32 inHash = inbox.getRoot(full.block.decodedHeader.globalVariables.blockNumber);
-      assembly {
-        mstore(add(add(header, 0x20), 0x0064), inHash)
-        mstore(add(add(header, 0x20), 0x0154), version)
-        mstore(add(add(header, 0x20), 0x0228), manaBaseFee)
-      }
+      bytes32 inHash = inbox.getRoot(full.block.blockNumber);
+      header = DecoderBase.updateHeaderInboxRoot(header, inHash);
+      header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
     }
 
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -216,7 +213,15 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       Signature[] memory signatures = new Signature[](_signatureCount);
 
-      bytes32 digest = ProposeLib.digest(args);
+      ProposePayload memory proposePayload = ProposePayload({
+        archive: args.archive,
+        stateReference: args.stateReference,
+        oracleInput: args.oracleInput,
+        headerHash: HeaderLib.hash(header),
+        txHashes: args.txHashes
+      });
+
+      bytes32 digest = ProposeLib.digest(proposePayload);
       for (uint256 i = 0; i < _signatureCount; i++) {
         signatures[i] = createSignature(validators[i], digest);
       }
@@ -293,10 +298,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.getRootData(full.block.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.getProvenBlockNumber() >= full.block.decodedHeader.globalVariables.blockNumber) {
+    if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");

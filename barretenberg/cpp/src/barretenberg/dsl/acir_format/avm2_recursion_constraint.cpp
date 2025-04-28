@@ -158,7 +158,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = avm2::AvmRecursiveVerifier_<Flavor>;
 
-    ASSERT(input.proof_type == AVM);
+    BB_ASSERT_EQ(input.proof_type, AVM);
 
     auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
         std::vector<field_ct> result;
@@ -206,7 +206,7 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
 {
     using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
 
-    ASSERT(input.proof_type == AVM);
+    BB_ASSERT_EQ(input.proof_type, AVM);
 
     auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
         std::vector<field_ct> result;

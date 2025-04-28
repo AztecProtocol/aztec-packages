@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
-import { type Hex, type PublicClient, formatEther } from 'viem';
+import { type Chain, type FallbackTransport, type Hex, type HttpTransport, type PublicClient, formatEther } from 'viem';
 
 import { L1_SENDER } from './attributes.js';
 import { L1_BALANCE_ETH, L1_BLOB_BASE_FEE_WEI, L1_BLOCK_HEIGHT, L1_GAS_PRICE_WEI } from './metrics.js';
@@ -13,7 +13,11 @@ export class L1Metrics {
   private blobBaseFeeWei: ObservableGauge;
   private addresses: Hex[];
 
-  constructor(private meter: Meter, private client: PublicClient, addresses: EthAddress[]) {
+  constructor(
+    private meter: Meter,
+    private client: PublicClient<FallbackTransport<HttpTransport[]>, Chain>,
+    addresses: EthAddress[],
+  ) {
     this.l1BlockHeight = meter.createObservableGauge(L1_BLOCK_HEIGHT, {
       description: 'The latest L1 block seen',
       valueType: ValueType.INT,
