@@ -33,7 +33,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         // FIXME: This doesn't handle field types with generics
         let (name, typ) = field;
         let (storage_field_constructor, storage_size) =
-            generate_storage_field_constructor(typ, quote { $slot }, false);
+            generate_storage_field_constructor(name, typ, quote { $slot }, false);
         storage_vars_constructors =
             storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
@@ -104,6 +104,7 @@ pub comptime fn storage_no_init(_s: TypeDefinition) {
 /// Returns the expression required to initialize a state variable with a given slot, along with its serialization size,
 /// i.e. how many contiguous storage slots the variable requires.
 comptime fn generate_storage_field_constructor(
+    name: Quoted,
     typ: Type,
     slot: Quoted,
     parent_is_map: bool,
@@ -118,7 +119,7 @@ comptime fn generate_storage_field_constructor(
     if is_storage_map(typ) {
         // Map state variables recursively initialize their contents - this includes nested maps.
         let (value_constructor, _) =
-            generate_storage_field_constructor(generics[1], quote { slot }, true);
+            generate_storage_field_constructor(name, generics[1], quote { slot }, true);
         (quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }, 1)
     } else {
         let storage_size = if parent_is_map {
@@ -134,7 +135,7 @@ comptime fn generate_storage_field_constructor(
                 // identifier.
                 1
             } else {
-                get_storage_size(typ)
+                get_storage_size(name, typ)
             }
         };
 
