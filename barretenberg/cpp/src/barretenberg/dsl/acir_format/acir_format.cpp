@@ -187,16 +187,16 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add multi scalar mul constraints
     for (size_t i = 0; i < constraint_system.multi_scalar_mul_constraints.size(); ++i) {
-        if constexpr (IsMegaBuilder<Builder>) {
-            info("VK HASH prior to multi_scalar_mul constraints: ", proving_key_inspector::compute_vk_hash(builder));
-        }
+        // if constexpr (IsMegaBuilder<Builder>) {
+        //     info("VK HASH prior to multi_scalar_mul constraints: ", proving_key_inspector::compute_vk_hash(builder));
+        // }
         const auto& constraint = constraint_system.multi_scalar_mul_constraints.at(i);
         create_multi_scalar_mul_constraint(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.multi_scalar_mul_constraints.at(i));
-        if constexpr (IsMegaBuilder<Builder>) {
-            info("VK HASH POST multi_scalar_mul constraints: ", proving_key_inspector::compute_vk_hash(builder));
-        }
+        // if constexpr (IsMegaBuilder<Builder>) {
+        //     info("VK HASH POST multi_scalar_mul constraints: ", proving_key_inspector::compute_vk_hash(builder));
+        // }
     }
 
     // Add ec add constraints

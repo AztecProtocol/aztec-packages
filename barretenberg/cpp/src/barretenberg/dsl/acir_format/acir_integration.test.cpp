@@ -521,6 +521,58 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }
 
+// /**
+//  * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+//  *
+//  */
+// TEST_F(AcirIntegrationTest, MsgpackInputs)
+// {
+//     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+//                              "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+//     PrivateExecutionSteps steps;
+//     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+//     auto steps_copy = steps;
+
+//     // WORKTODO: its the second multi scalar mul constraint in a set of 4 in token transfer and kernel reset where a
+//     // discrepancy arisses. Can debug by simply generating the token transfer circuit in isolation with and without a
+//     // witness.
+
+//     // Recomputed the "precomputed" verification keys
+//     {
+//         TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+//         // size_t step_count = 0;
+//         for (auto [program, precomputed_vk, function_name] :
+//              zip_view(steps_copy.folding_stack, steps_copy.precomputed_vks, steps_copy.function_names)) {
+//             // if (std::strcmp(function_name.c_str(), "Token:transfer") == 0) {
+//             info("Function: ", function_name);
+//             program.witness = {};
+//             auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+//             const acir_format::ProgramMetadata metadata{
+//                 .ivc = ivc_constraints.empty() ? nullptr
+//                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+//             };
+
+//             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+//             auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+//             auto recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+
+//             // recomputed_vk->compare(precomputed_vk);
+//             // if (step_count++ == 1) {
+//             //     break;
+//             // }
+//             // }
+//         }
+//     }
+
+//     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+//     // ClientIVC::Proof proof = ivc->prove();
+
+//     // // Verify the proof
+//     // [[maybe_unused]] bool result = ivc->verify(proof);
+//     // EXPECT_TRUE(result);
+// }
+
 /**
  * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
  *
@@ -532,45 +584,50 @@ TEST_F(AcirIntegrationTest, MsgpackInputs)
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-    auto steps_copy = steps;
+
+    size_t token_idx = 4;
+    auto token_program = steps.folding_stack[token_idx];
+    auto token_program_copy = steps.folding_stack[token_idx];
+    auto token_vk = steps.precomputed_vks[token_idx];
 
     // WORKTODO: its the second multi scalar mul constraint in a set of 4 in token transfer and kernel reset where a
     // discrepancy arisses. Can debug by simply generating the token transfer circuit in isolation with and without a
     // witness.
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     // Recomputed the "precomputed" verification keys
+    std::shared_ptr<ClientIVC::MegaVerificationKey> recomputed_vk;
     {
-        TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-        // size_t step_count = 0;
-        for (auto [program, precomputed_vk, function_name] :
-             zip_view(steps_copy.folding_stack, steps_copy.precomputed_vks, steps_copy.function_names)) {
-            // if (std::strcmp(function_name.c_str(), "Token:transfer") == 0) {
-            info("Function: ", function_name);
-            program.witness = {};
-            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-            const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
-            };
+        info("RECOMPUTE: \n");
+        auto program = steps.folding_stack[token_idx];
+        program.witness = {};
+        auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+        const acir_format::ProgramMetadata metadata{
+            .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+        };
 
-            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-            auto recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+        recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
 
-            // recomputed_vk->compare(precomputed_vk);
-            // if (step_count++ == 1) {
-            //     break;
-            // }
-            // }
-        }
+        recomputed_vk->compare(token_vk);
     }
 
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
-    // ClientIVC::Proof proof = ivc->prove();
+    // Recomputed the "precomputed" verification keys
+    std::shared_ptr<ClientIVC::MegaVerificationKey> computed_vk;
+    {
+        info("COMPUTE: \n");
+        auto program = steps.folding_stack[token_idx];
+        auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+        const acir_format::ProgramMetadata metadata{
+            .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+        };
 
-    // // Verify the proof
-    // [[maybe_unused]] bool result = ivc->verify(proof);
-    // EXPECT_TRUE(result);
+        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+        computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+    }
+
+    computed_vk->compare(recomputed_vk);
 }
-
 #endif

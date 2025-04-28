@@ -10,6 +10,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 #include "./cycle_group.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -1284,9 +1285,15 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, false);
 
+    if constexpr (IsMegaBuilder<Builder>) {
+        info("VK HASH A: ", proving_key_inspector::compute_vk_hash(*context));
+    }
+
     // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
     // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
     // to be constant = 2 gates)
+    info("modded_base_point.is_constant() = ", modded_base_point.is_constant());
+    info("base_point.is_point_at_infinity() = ", base_point.is_point_at_infinity().get_value());
     if (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
         modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
@@ -1295,6 +1302,10 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
                 hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
         }
+        if constexpr (IsMegaBuilder<Builder>) {
+            info("VK HASH B: ", proving_key_inspector::compute_vk_hash(*context));
+        }
+
     } else {
         std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
         // ensure all of the ecc add gates are lined up so that we can pay 1 gate per add and not 2
@@ -1317,6 +1328,9 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
         for (size_t i = 1; i < table_size; ++i) {
             point_table[i] =
                 cycle_group::conditional_assign(base_point.is_point_at_infinity(), offset_generator, point_table[i]);
+        }
+        if constexpr (IsMegaBuilder<Builder>) {
+            info("VK HASH C: ", proving_key_inspector::compute_vk_hash(*context));
         }
     }
     if constexpr (IS_ULTRA) {

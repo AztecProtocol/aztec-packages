@@ -9,6 +9,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
@@ -42,8 +43,16 @@ void create_multi_scalar_mul_constraint(Builder& builder,
         points.push_back(input_point);
         scalars.push_back(scalar);
     }
+    // if constexpr (IsMegaBuilder<Builder>) {
+    //     info("VK HASH POST to_grumpkin_point: ", proving_key_inspector::compute_vk_hash(builder));
+    // }
+
     // Call batch_mul to multiply the points and scalars and sum the results
     auto output_point = cycle_group_ct::batch_mul(points, scalars).get_standard_form();
+
+    // if constexpr (IsMegaBuilder<Builder>) {
+    //     info("VK HASH POST batch_mul: ", proving_key_inspector::compute_vk_hash(builder));
+    // }
 
     // Add the constraints and handle constant values
     if (output_point.is_point_at_infinity().is_constant()) {
