@@ -6,11 +6,11 @@
 # 2. For each version type (regular and alpha), keeps the newer version between:
 #    - The latest version from versioned_docs
 #    - The version from versions.json
-# 3. Creates a new array maintaining the same order as the original versions.json
+# 3. Creates a new array with alpha-testnet version first, followed by regular version
 # 4. Writes the filtered array back to versions.json
 # The resulting versions.json will always contain exactly two versions:
-# - The latest regular version (e.g. "v0.85.0")
 # - The latest alpha-testnet version (e.g. "v0.84.0-alpha-testnet.2")
+# - The latest regular version (e.g. "v0.85.0")
 
 # Get the directory where the script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,7 +25,7 @@ DOCS_VERSIONS=$(ls -1 $VERSIONED_DOCS_DIR | sed 's/version-//')
 DOCS_REGULAR=$(echo "$DOCS_VERSIONS" | grep -v "alpha-testnet" | sort -V | tail -n1)
 DOCS_ALPHA=$(echo "$DOCS_VERSIONS" | grep "alpha-testnet" | sort -V | tail -n1)
 
-# Get versions from versions.json and determine their order
+# Get versions from versions.json
 JSON_VERSIONS=$(cat $VERSIONS_FILE)
 JSON_REGULAR=$(echo "$JSON_VERSIONS" | jq -r '.[] | select(contains("alpha-testnet") | not) | .')
 JSON_ALPHA=$(echo "$JSON_VERSIONS" | jq -r '.[] | select(contains("alpha-testnet")) | .')
@@ -34,15 +34,8 @@ JSON_ALPHA=$(echo "$JSON_VERSIONS" | jq -r '.[] | select(contains("alpha-testnet
 REGULAR_VERSION=$(printf "%s\n%s" "$DOCS_REGULAR" "$JSON_REGULAR" | sort -V | tail -n1)
 ALPHA_VERSION=$(printf "%s\n%s" "$DOCS_ALPHA" "$JSON_ALPHA" | sort -V | tail -n1)
 
-# Determine the order from the original versions.json
-IS_ALPHA_FIRST=$(echo "$JSON_VERSIONS" | jq -r '.[0] | contains("alpha-testnet")')
-
-# Create json maintaining the original order
-if [ "$IS_ALPHA_FIRST" = "true" ]; then
-    NEW_VERSIONS=$(jq --null-input --arg alpha "$ALPHA_VERSION" --arg regular "$REGULAR_VERSION" '[ $alpha, $regular ]')
-else
-    NEW_VERSIONS=$(jq --null-input --arg regular "$REGULAR_VERSION" --arg alpha "$ALPHA_VERSION" '[ $regular, $alpha ]')
-fi
+# Create json with alpha version first
+NEW_VERSIONS=$(jq --null-input --arg alpha "$ALPHA_VERSION" --arg regular "$REGULAR_VERSION" '[ $alpha, $regular ]')
 
 # Write back to file
 echo $NEW_VERSIONS | jq '.' >$VERSIONS_FILE
