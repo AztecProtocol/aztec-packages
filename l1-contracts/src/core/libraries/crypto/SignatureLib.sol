@@ -19,7 +19,6 @@ struct CommitteeAttestation {
   Signature signature;
 }
 
-
 library SignatureLib {
   /**
    * @notice The domain separator for the signatures

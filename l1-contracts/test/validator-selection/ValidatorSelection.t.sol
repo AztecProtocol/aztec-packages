@@ -134,11 +134,16 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
-    _testBlock("mixed_block_1", _insufficientSigs, committeeSize, TestFlags({
-      provideEmptyAttestations: false,
-      invalidProposer: false,
-      invalidCommitteeCommitment: false
-    }));
+    _testBlock(
+      "mixed_block_1",
+      _insufficientSigs,
+      committeeSize,
+      TestFlags({
+        provideEmptyAttestations: false,
+        invalidProposer: false,
+        invalidCommitteeCommitment: false
+      })
+    );
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
@@ -187,31 +192,52 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidProposer() public setup(4) progressEpoch {
-    _testBlock("mixed_block_1", true, 3, TestFlags({
-      invalidProposer: true,
-      provideEmptyAttestations: true,
-      invalidCommitteeCommitment: false
-    }));
+    _testBlock(
+      "mixed_block_1",
+      true,
+      3,
+      TestFlags({
+        invalidProposer: true,
+        provideEmptyAttestations: true,
+        invalidCommitteeCommitment: false
+      })
+    );
   }
 
   function testInsufficientSigs() public setup(4) progressEpoch {
-    _testBlock("mixed_block_1", true, 2, TestFlags({
-      invalidProposer: false,
-      provideEmptyAttestations: false,
-      invalidCommitteeCommitment: false
-    }));
+    _testBlock(
+      "mixed_block_1",
+      true,
+      2,
+      TestFlags({
+        invalidProposer: false,
+        provideEmptyAttestations: false,
+        invalidCommitteeCommitment: false
+      })
+    );
   }
 
   function testInvalidCommitteeCommitment() public setup(4) progressEpoch {
-    _testBlock("mixed_block_1", true, 3, TestFlags({
-      invalidProposer: false,
-      provideEmptyAttestations: false,
-      invalidCommitteeCommitment: true
-    }));
+    _testBlock(
+      "mixed_block_1",
+      true,
+      3,
+      TestFlags({
+        invalidProposer: false,
+        provideEmptyAttestations: false,
+        invalidCommitteeCommitment: true
+      })
+    );
   }
 
   // TODO: make a test where the proposer signature is not also provided. The proposer must provide their own address in the correct index
 
+  // Stack too deep
+  struct TmpTestBlockMemory {
+    bool provideEmptyAttestations;
+    uint256 attestationsCount;
+    ProposePayload proposePayload;
+  }
 
   function _testBlock(
     string memory _name,
@@ -256,26 +282,30 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.needed = validators.length * 2 / 3 + 1;
 
       // Pad out with empty (missing signature) attestations to make the committee commitment match
-      bool provideEmptyAttestations = _flags.provideEmptyAttestations || !_expectRevert;
-
-      uint256 attestationsCount = provideEmptyAttestations ? validators.length : _signatureCount;
-      CommitteeAttestation[] memory attestations = new CommitteeAttestation[](attestationsCount);
-
-      ProposePayload memory proposePayload = ProposePayload({
-        archive: args.archive,
-        stateReference: args.stateReference,
-        oracleInput: args.oracleInput,
-        headerHash: HeaderLib.hash(header),
-        txHashes: args.txHashes
+      TmpTestBlockMemory memory testBlockMemory = TmpTestBlockMemory({
+        provideEmptyAttestations: _flags.provideEmptyAttestations || !_expectRevert,
+        attestationsCount: _flags.provideEmptyAttestations || !_expectRevert
+          ? validators.length
+          : _signatureCount,
+        proposePayload: ProposePayload({
+          archive: args.archive,
+          stateReference: args.stateReference,
+          oracleInput: args.oracleInput,
+          headerHash: HeaderLib.hash(header),
+          txHashes: args.txHashes
+        })
       });
 
-      bytes32 digest = ProposeLib.digest(proposePayload);
+      CommitteeAttestation[] memory attestations =
+        new CommitteeAttestation[](testBlockMemory.attestationsCount);
+
+      bytes32 digest = ProposeLib.digest(testBlockMemory.proposePayload);
       for (uint256 i = 0; i < _signatureCount; i++) {
         attestations[i] = createAttestation(validators[i], digest);
       }
 
       // We must include empty attestations to make the committee commitment match
-      if (provideEmptyAttestations) {
+      if (testBlockMemory.provideEmptyAttestations) {
         for (uint256 i = _signatureCount; i < validators.length; i++) {
           attestations[i] = createEmptyAttestation(validators[i]);
         }

@@ -6,7 +6,11 @@ import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
-import {SignatureLib, Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {
+  SignatureLib,
+  Signature,
+  CommitteeAttestation
+} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   AddressSnapshotLib,
@@ -58,7 +62,8 @@ library ValidatorSelectionLib {
     // If the committee is not set for this epoch, we need to sample it
     bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
     if (committeeCommitment == bytes32(0)) {
-      store.committeeCommitments[_epochNumber] = computeCommitteeCommitment(sampleValidators(_stakingStore, _epochNumber, sampleSeed));
+      store.committeeCommitments[_epochNumber] =
+        computeCommitteeCommitment(sampleValidators(_stakingStore, _epochNumber, sampleSeed));
     }
   }
 
@@ -86,7 +91,8 @@ library ValidatorSelectionLib {
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
   ) internal {
-    (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_stakingStore, _epochNumber);
+    (bytes32 committeeCommitment, uint256 committeeSize) =
+      getCommitteeCommitmentAt(_stakingStore, _epochNumber);
 
     // @todo Consider getting rid of this option.
     // If the proposer is open, we allow anyone to propose without needing any signatures
@@ -94,9 +100,8 @@ library ValidatorSelectionLib {
       return;
     }
 
-    uint256 proposerIndex = computeProposerIndex(
-      _epochNumber, _slot, getSampleSeed(_epochNumber), committeeSize
-    );
+    uint256 proposerIndex =
+      computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), committeeSize);
 
     // TODO: add more checks here
     // Read the attester from the signatures
@@ -128,7 +133,9 @@ library ValidatorSelectionLib {
       CommitteeAttestation memory attestation = _attestations[i];
       // TODO: stronger check
       if (attestation.signature.v != 0) {
-        address recovered = ecrecover(digest, attestation.signature.v, attestation.signature.r, attestation.signature.s);
+        address recovered = ecrecover(
+          digest, attestation.signature.v, attestation.signature.r, attestation.signature.s
+        );
         reconstructedCommittee[i] = recovered;
         validAttestations++;
       } else {
@@ -144,7 +151,9 @@ library ValidatorSelectionLib {
     // Check the committee commitment
     bytes32 reconstructedCommitment = computeCommitteeCommitment(reconstructedCommittee);
     if (reconstructedCommitment != committeeCommitment) {
-      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
+      revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
+        reconstructedCommitment, committeeCommitment
+      );
     }
   }
 
@@ -170,15 +179,10 @@ library ValidatorSelectionLib {
       return address(0);
     }
 
-    address attester = committee[computeProposerIndex(
-      _epochNumber, _slot, sampleSeed, committee.length
-    )];
+    address attester =
+      committee[computeProposerIndex(_epochNumber, _slot, sampleSeed, committee.length)];
 
     return _stakingStore.info[attester].proposer;
-  }
-
-  function computeCommitteeCommitment(address[] memory _committee) internal pure returns (bytes32) {
-    return keccak256(abi.encode(_committee));
   }
 
   /**
@@ -328,6 +332,17 @@ library ValidatorSelectionLib {
   function computeNextSeed(Epoch _epoch) private view returns (uint224) {
     // Allow for unsafe (lossy) downcast as we do not care if we loose bits
     return uint224(uint256(keccak256(abi.encode(_epoch, block.prevrandao))));
+  }
+
+  /**
+   * @notice  Computes the committee commitment for a given committee
+   *
+   * @param _committee - The committee to compute the commitment for
+   *
+   * @return The computed commitment
+   */
+  function computeCommitteeCommitment(address[] memory _committee) private pure returns (bytes32) {
+    return keccak256(abi.encode(_committee));
   }
 
   /**

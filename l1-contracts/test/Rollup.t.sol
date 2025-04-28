@@ -417,11 +417,7 @@ contract RollupTest is RollupBase {
         txHashes: new bytes32[](0)
       });
       rollup.propose(args, attestations, data.blobInputs);
-      assertEq(
-        testERC20.balanceOf(data.decodedHeader.globalVariables.coinbase),
-        0,
-        "invalid coinbase balance"
-      );
+      assertEq(testERC20.balanceOf(data.decodedHeader.coinbase), 0, "invalid coinbase balance");
     }
 
     BlockLog memory blockLog = rollup.getBlock(0);

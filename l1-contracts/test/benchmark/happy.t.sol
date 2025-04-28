@@ -8,7 +8,11 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {SignatureLib, Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {
+  SignatureLib,
+  Signature,
+  CommitteeAttestation
+} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -269,8 +273,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
-    return
-      Block({proposeArgs: proposeArgs, blobInputs: full.block.blobInputs, attestations: attestations});
+    return Block({
+      proposeArgs: proposeArgs,
+      blobInputs: full.block.blobInputs,
+      attestations: attestations
+    });
   }
 
   function createAttestation(address _signer, bytes32 _digest)

@@ -173,11 +173,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive, CommitteeAttestation[] memory _attestations)
-    external
-    override(IRollup)
-    returns (Slot, uint256)
-  {
+  function canProposeAtTime(
+    Timestamp _ts,
+    bytes32 _archive,
+    CommitteeAttestation[] memory _attestations
+  ) external override(IRollup) returns (Slot, uint256) {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 

@@ -8,7 +8,7 @@ import {StakingLib} from "./../staking/StakingLib.sol";
 import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {ProposeLib, ProposeArgs, CommitteeAttestation } from "./ProposeLib.sol";
+import {ProposeLib, ProposeArgs, CommitteeAttestation} from "./ProposeLib.sol";
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
 
