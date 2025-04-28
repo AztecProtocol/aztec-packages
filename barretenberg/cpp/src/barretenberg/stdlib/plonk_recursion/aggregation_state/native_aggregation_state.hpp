@@ -8,7 +8,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/groups/affine_element.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
 
 namespace bb::stdlib::recursion {
 

@@ -30,10 +30,10 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
 
     AggregationObject verify_proof(const HonkProof& proof,
                                    const std::vector<std::vector<fr>>& public_inputs_vec_nt,
-                                   AggregationObject agg_obj);
+                                   AggregationObject points_accumulator);
     AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof,
                                    const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
-                                   AggregationObject agg_obj);
+                                   AggregationObject points_accumulator);
 
     std::shared_ptr<VerificationKey> key;
     Builder& builder;

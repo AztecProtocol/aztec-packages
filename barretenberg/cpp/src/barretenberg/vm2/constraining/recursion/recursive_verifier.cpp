@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -49,7 +49,9 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
+    const HonkProof& proof,
+    const std::vector<std::vector<fr>>& public_inputs_vec_nt,
+    AggregationObject points_accumulator)
 {
     StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
@@ -65,7 +67,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         public_inputs_ct.push_back(vec_ct);
     }
 
-    return verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
+    return verify_proof(stdlib_proof, public_inputs_ct, points_accumulator);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
@@ -73,7 +75,7 @@ template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& stdlib_proof,
     const std::vector<std::vector<FF>>& public_inputs,
-    AggregationObject agg_obj)
+    AggregationObject points_accumulator)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
@@ -149,8 +151,8 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
-    agg_obj.aggregate(pairing_points);
-    return agg_obj;
+    points_accumulator.aggregate(pairing_points);
+    return points_accumulator;
 }
 
 // TODO: Once Goblinized version is mature, we can remove this one and we only to template

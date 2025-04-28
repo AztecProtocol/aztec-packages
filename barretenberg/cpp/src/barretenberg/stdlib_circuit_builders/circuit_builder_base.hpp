@@ -9,7 +9,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <utility>

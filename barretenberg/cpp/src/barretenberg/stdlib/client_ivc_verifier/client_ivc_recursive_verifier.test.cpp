@@ -139,7 +139,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     UltraRecursiveVerifierOutput<Builder> output =
         base_verifier.verify_proof(base_tube_proof, AggregationObject::construct_default(base_builder));
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
-    output.agg_obj.set_public();
+    output.points_accumulator.set_public();
     output.ipa_claim.set_public();
     base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();

@@ -72,7 +72,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * @param verifier_inputs {proof, merge_proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
  */
 ClientIVC::AggregationObject ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
-    ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs, AggregationObject agg_obj)
+    ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs, AggregationObject points_accumulator)
 {
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
@@ -118,7 +118,7 @@ ClientIVC::AggregationObject ClientIVC::perform_recursive_verification_and_datab
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
     RecursiveMergeVerifier merge_verifier{ &circuit };
     [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
-    agg_obj.aggregate(pairing_points);
+    points_accumulator.aggregate(pairing_points);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -131,7 +131,7 @@ ClientIVC::AggregationObject ClientIVC::perform_recursive_verification_and_datab
         decider_vk->verification_key->databus_propagation_data);
 
     // WORKTODO: extract agg obj from the decider_vk->public_inputs
-    return agg_obj;
+    return points_accumulator;
 }
 
 /**
@@ -152,12 +152,12 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Perform recursive verification and databus consistency checks for each entry in the verification queue
-    AggregationObject current_aggregation_object = AggregationObject::construct_default(circuit);
+    AggregationObject current_points_accumulator = AggregationObject::construct_default(circuit);
     for (auto& verifier_input : stdlib_verification_queue) {
-        current_aggregation_object = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, verifier_input, current_aggregation_object);
+        current_points_accumulator = perform_recursive_verification_and_databus_consistency_checks(
+            circuit, verifier_input, current_points_accumulator);
     }
-    current_aggregation_object.set_public();
+    current_points_accumulator.set_public();
     stdlib_verification_queue.clear();
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks

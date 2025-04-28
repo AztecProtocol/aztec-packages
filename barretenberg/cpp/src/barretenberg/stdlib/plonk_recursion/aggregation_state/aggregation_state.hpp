@@ -7,7 +7,7 @@
 #pragma once
 #include "../../primitives/field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
 namespace bb::stdlib::recursion {
@@ -158,7 +158,7 @@ template <typename Builder_> struct PairingPoints {
         BaseField y0 = BaseField::from_witness(&builder, y0_val);
         BaseField x1 = BaseField::from_witness(&builder, x1_val);
         BaseField y1 = BaseField::from_witness(&builder, y1_val);
-        // PairingPoints<Builder> agg_obj{ Group(x0, y0), Group(x1, y1) };
+        // PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
         return { Group(x0, y0), Group(x1, y1) };
     }
 
@@ -166,8 +166,8 @@ template <typename Builder_> struct PairingPoints {
     // necessary.
     static void add_default_pairing_points_to_public_inputs(Builder& builder)
     {
-        PairingPoints<Builder> agg_obj = construct_default(builder);
-        agg_obj.set_public();
+        PairingPoints<Builder> points_accumulator = construct_default(builder);
+        points_accumulator.set_public();
     }
 };
 

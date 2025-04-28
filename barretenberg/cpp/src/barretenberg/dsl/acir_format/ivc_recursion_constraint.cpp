@@ -6,7 +6,7 @@
 
 #include "ivc_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"

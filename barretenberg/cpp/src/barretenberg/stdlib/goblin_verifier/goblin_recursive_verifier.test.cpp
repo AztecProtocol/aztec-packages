@@ -80,7 +80,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof);
-    output.agg_obj.set_public();
+    output.points_accumulator.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates);
 
@@ -112,7 +112,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         GoblinRecursiveVerifierOutput output = verifier.verify(proof);
-        output.agg_obj.set_public();
+        output.points_accumulator.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates);
 

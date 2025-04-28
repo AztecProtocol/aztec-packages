@@ -50,11 +50,11 @@ void generate_dummy_proof() {}
 PairingPointAccumulatorIndices create_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
-    const PairingPointAccumulatorIndices& input_aggregation_object,
-    const PairingPointAccumulatorIndices& nested_aggregation_object,
+    const PairingPointAccumulatorIndices& input_points_accumulator,
+    const PairingPointAccumulatorIndices& nested_points_accumulator,
     bool has_valid_witness_assignments)
 {
-    const auto& nested_aggregation_indices = nested_aggregation_object;
+    const auto& nested_aggregation_indices = nested_points_accumulator;
     bool nested_aggregation_indices_all_zero = true;
     for (const auto& idx : nested_aggregation_indices) {
         nested_aggregation_indices_all_zero &= (idx == 0);
@@ -108,10 +108,10 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    const auto& aggregation_input = input_aggregation_object;
+    const auto& aggregation_input = input_points_accumulator;
     PairingPoints previous_aggregation;
 
-    // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
+    // If we have previously recursively verified proofs, `is_points_accumulator_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
     bool inner_aggregation_indices_all_zero = true;
     for (const auto& idx : aggregation_input) {

@@ -18,7 +18,7 @@ struct GoblinRecursiveVerifierOutput {
     using Curve = grumpkin<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using AggregationObject = PairingPoints<Builder>;
-    AggregationObject agg_obj;
+    AggregationObject points_accumulator;
     OpeningClaim<Curve> opening_claim;
     std::shared_ptr<Transcript> ipa_transcript;
 };

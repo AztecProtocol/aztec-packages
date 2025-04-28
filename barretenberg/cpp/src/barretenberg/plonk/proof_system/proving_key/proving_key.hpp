@@ -12,7 +12,7 @@
 #include "barretenberg/ecc/scalar_multiplication/runtime_states.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/plonk/proof_system/types/polynomial_manifest.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/legacy_polynomial.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"

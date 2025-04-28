@@ -7,7 +7,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
@@ -201,7 +201,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
  *
  * @param builder
  * @param input
- * @param input_aggregation_object_indices. The aggregation object coming from previous Honk recursion constraints.
+ * @param input_points_accumulator_indices. The aggregation object coming from previous Honk recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  */
 
@@ -209,7 +209,7 @@ template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
     typename Flavor::CircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder> input_agg_obj,
+    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder> input_points_accumulator,
     bool has_valid_witness_assignments)
     requires IsRecursiveFlavor<Flavor>
 {
@@ -261,11 +261,12 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
     HonkRecursionConstraintOutput<Builder> output;
-    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
+    UltraRecursiveVerifierOutput<Builder> verifier_output =
+        verifier.verify_proof(proof_fields, input_points_accumulator);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 
-    output.agg_obj = verifier_output.agg_obj;
+    output.points_accumulator = verifier_output.points_accumulator;
     if constexpr (HasIPAAccumulator<Flavor>) {
         output.ipa_claim = verifier_output.ipa_claim;
         output.ipa_proof = verifier_output.ipa_proof;
@@ -274,21 +275,23 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 }
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
-                                                const RecursionConstraint& input,
-                                                stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_agg_obj,
-                                                bool has_valid_witness_assignments);
+    UltraRecursiveFlavor_<UltraCircuitBuilder>>(
+    UltraCircuitBuilder& builder,
+    const RecursionConstraint& input,
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_points_accumulator,
+    bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
     UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(
     UltraCircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_agg_obj,
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_points_accumulator,
     bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
-    UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
-                                               const RecursionConstraint& input,
-                                               stdlib::recursion::PairingPoints<MegaCircuitBuilder> input_agg_obj,
-                                               bool has_valid_witness_assignments);
+    UltraRecursiveFlavor_<MegaCircuitBuilder>>(
+    MegaCircuitBuilder& builder,
+    const RecursionConstraint& input,
+    stdlib::recursion::PairingPoints<MegaCircuitBuilder> input_points_accumulator,
+    bool has_valid_witness_assignments);
 } // namespace acir_format
