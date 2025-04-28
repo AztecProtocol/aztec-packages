@@ -26,7 +26,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import type { ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -647,6 +647,7 @@ export class SequencerPublisher {
         readonly oracleInput: {
           readonly feeAssetPriceModifier: 0n;
         };
+        readonly stateReference: `0x${string}`;
         readonly txHashes: `0x${string}`[];
       },
       ViemSignature[],

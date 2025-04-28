@@ -45,6 +45,8 @@ bootNode:
   externalHost: "http://localhost:8080"
 
 fullNode:
+  fixedStaticIpName: "alpha-testnet-full-node-ip"
+  staticIpUrl: full-node.alpha-testnet.aztec.network
   enabled: true
   replicas: 1
   maxOldSpaceSize: "8192"
