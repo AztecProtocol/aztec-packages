@@ -106,7 +106,8 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
 /// Same as `storage`, except the user is in charge of providing an implementation of the `init` constructor function
 /// with signature `fn init<Context>(context: Context) -> Self`, which allows for manual control of storage slot
 /// allocation. Similarly, no `StorageLayout` struct will be created.
-/// Only a single struct in the entire contract should have this macro (or `storage`) applied to it.
+/// Only a single struct in the entire contract can have this macro (or storage_no_init) applied to it, and the struct has
+/// to be called 'Storage'.
 pub comptime fn storage_no_init(s: TypeDefinition) {
     // All `storage` does is provide the `init` implementation, so we don't need to do anything here. Applying this
     // macro however will cause for `macros::utils::module_has_storage` to return true, resulting in the injection of
