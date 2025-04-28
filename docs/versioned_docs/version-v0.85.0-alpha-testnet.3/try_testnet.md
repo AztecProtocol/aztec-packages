@@ -18,7 +18,8 @@ id: try_testnet
 
 ## Develop on Aztec Testnet
 
-Follow the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md).
+- Follow the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md)
+- Try the [`testnet` branch of the Aztec Starter template Github repo](https://github.com/AztecProtocol/aztec-starter/tree/testnet)
 
 ## Chain Information
 
