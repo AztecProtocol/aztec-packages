@@ -57,7 +57,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         std::conditional_t<is_ultra_to_ultra, recursive_settings, ultra_to_standard_recursive_settings>;
 
     struct circuit_outputs {
-        recursion::PairingPoints<OuterBuilder> PairingPoints;
+        recursion::PairingPoints<OuterBuilder> pairing_points;
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
@@ -334,10 +334,10 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
     {
         auto g2_lines = srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
         g1::affine_element P[2];
-        P[0].x = outer_scalar_field(circuit_output.PairingPoints.P0.x.get_value().lo);
-        P[0].y = outer_scalar_field(circuit_output.PairingPoints.P0.y.get_value().lo);
-        P[1].x = outer_scalar_field(circuit_output.PairingPoints.P1.x.get_value().lo);
-        P[1].y = outer_scalar_field(circuit_output.PairingPoints.P1.y.get_value().lo);
+        P[0].x = outer_scalar_field(circuit_output.pairing_points.P0.x.get_value().lo);
+        P[0].y = outer_scalar_field(circuit_output.pairing_points.P0.y.get_value().lo);
+        P[1].x = outer_scalar_field(circuit_output.pairing_points.P1.x.get_value().lo);
+        P[1].y = outer_scalar_field(circuit_output.pairing_points.P1.y.get_value().lo);
         pairing_target_field inner_proof_result = pairing::reduced_ate_pairing_batch_precomputed(P, g2_lines, 2);
         EXPECT_EQ(inner_proof_result, pairing_target_field::one());
     }
@@ -386,7 +386,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.PairingPoints.assign_object_to_proof_outputs_for_plonk();
+        circuit_output.pairing_points.assign_object_to_proof_outputs_for_plonk();
         EXPECT_EQ(outer_circuit.failed(), false);
 
         check_pairing(circuit_output);
@@ -404,7 +404,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.PairingPoints.assign_object_to_proof_outputs_for_plonk();
+        circuit_output.pairing_points.assign_object_to_proof_outputs_for_plonk();
         EXPECT_EQ(outer_circuit.failed(), false);
 
         check_pairing(circuit_output);
@@ -430,24 +430,24 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output_a = create_outer_circuit(inner_circuit_a, mid_circuit_a);
 
-        uint256_t a0 = circuit_output_a.PairingPoints.P0.x.binary_basis_limbs[1].element.get_value();
-        uint256_t a1 = circuit_output_a.PairingPoints.P0.y.binary_basis_limbs[1].element.get_value();
-        uint256_t a2 = circuit_output_a.PairingPoints.P1.x.binary_basis_limbs[1].element.get_value();
-        uint256_t a3 = circuit_output_a.PairingPoints.P1.y.binary_basis_limbs[1].element.get_value();
+        uint256_t a0 = circuit_output_a.pairing_points.P0.x.binary_basis_limbs[1].element.get_value();
+        uint256_t a1 = circuit_output_a.pairing_points.P0.y.binary_basis_limbs[1].element.get_value();
+        uint256_t a2 = circuit_output_a.pairing_points.P1.x.binary_basis_limbs[1].element.get_value();
+        uint256_t a3 = circuit_output_a.pairing_points.P1.y.binary_basis_limbs[1].element.get_value();
 
         ASSERT(a0.get_msb() <= 68);
         ASSERT(a1.get_msb() <= 68);
         ASSERT(a2.get_msb() <= 68);
         ASSERT(a3.get_msb() <= 68);
 
-        circuit_output_a.PairingPoints.assign_object_to_proof_outputs_for_plonk();
+        circuit_output_a.pairing_points.assign_object_to_proof_outputs_for_plonk();
 
         auto circuit_output_b = create_outer_circuit(inner_circuit_b, mid_circuit_b);
 
-        circuit_output_b.PairingPoints.assign_object_to_proof_outputs_for_plonk();
+        circuit_output_b.pairing_points.assign_object_to_proof_outputs_for_plonk();
 
         auto circuit_output = create_double_outer_circuit(mid_circuit_a, mid_circuit_b, outer_circuit);
-        circuit_output.PairingPoints.assign_object_to_proof_outputs_for_plonk();
+        circuit_output.pairing_points.assign_object_to_proof_outputs_for_plonk();
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, true);
