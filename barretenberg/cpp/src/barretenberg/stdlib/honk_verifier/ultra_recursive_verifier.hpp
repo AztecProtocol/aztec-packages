@@ -7,7 +7,7 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
@@ -33,7 +33,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using PairingPoints = PairingPoints<Builder>;
+    using PairingObject = PairingPoints<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
     using Output = UltraRecursiveVerifierOutput<Builder>;
@@ -42,8 +42,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
     explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    Output verify_proof(const HonkProof& proof, PairingPoints points_accumulator);
-    Output verify_proof(const StdlibProof<Builder>& proof, PairingPoints points_accumulator);
+    Output verify_proof(const HonkProof& proof, PairingObject points_accumulator);
+    Output verify_proof(const StdlibProof<Builder>& proof, PairingObject points_accumulator);
 
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;

@@ -43,7 +43,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using PairingPoints = PairingPoints<OuterBuilder>;
+    using PairingObject = PairingPoints<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename InnerFlavor::VerifierCommitmentKey;
     /**
@@ -55,8 +55,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      */
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using PairingPoints = PairingPoints<InnerBuilder>;
-
         InnerBuilder builder;
 
         // Create 2^log_n many add gates based on input log num gates
@@ -75,7 +73,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        PairingPoints::add_default_pairing_points_to_public_inputs(builder);
+        PairingPoints<InnerBuilder>::add_default_pairing_points_to_public_inputs(builder);
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
@@ -162,7 +160,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
             typename RecursiveVerifier::Output verifier_output =
-                verifier.verify_proof(inner_proof, PairingPoints::construct_default(outer_circuit));
+                verifier.verify_proof(inner_proof, PairingObject::construct_default(outer_circuit));
             verifier_output.points_accumulator.set_public();
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 verifier_output.ipa_claim.set_public();
@@ -202,9 +200,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        auto points_accumulator = PairingPoints::construct_default(outer_circuit);
+        auto points_accumulator = PairingObject::construct_default(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, points_accumulator);
-        PairingPoints pairing_points = output.points_accumulator;
+        PairingObject pairing_points = output.points_accumulator;
         output.points_accumulator.set_public();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();
@@ -284,7 +282,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
-            VerifierOutput output = verifier.verify_proof(inner_proof, PairingPoints::construct_default(outer_circuit));
+            VerifierOutput output = verifier.verify_proof(inner_proof, PairingObject::construct_default(outer_circuit));
 
             // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
             // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check

@@ -5,10 +5,10 @@
 // =====================
 
 #pragma once
-#include "../../primitives/field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/plonk_honk_shared/types/points_accumulator_type.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib::recursion {
 

@@ -33,7 +33,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const
  */
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof,
-                                                                                      PairingPoints points_accumulator)
+                                                                                      PairingObject points_accumulator)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     return verify_proof(stdlib_proof, points_accumulator);
@@ -45,7 +45,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
  */
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const StdlibProof<Builder>& proof,
-                                                                                      PairingPoints points_accumulator)
+                                                                                      PairingObject points_accumulator)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;

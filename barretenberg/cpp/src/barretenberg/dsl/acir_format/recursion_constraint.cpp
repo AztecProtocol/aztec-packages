@@ -8,7 +8,7 @@
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
-#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/plonk_recursion/verifier/verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 

@@ -12,7 +12,7 @@
 #include "barretenberg/plonk/proof_system/public_inputs/public_inputs.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/utils/kate_verification.hpp"
-#include "barretenberg/stdlib/plonk_recursion/PairingPoints/PairingPoints.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/plonk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/plonk_recursion/verifier/program_settings.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"

@@ -45,7 +45,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using PairingPoints = PairingPoints<OuterBuilder>;
+    using PairingObject = PairingPoints<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
 
     /**
@@ -117,7 +117,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        auto points_accumulator = PairingPoints::construct_default(outer_circuit);
+        auto points_accumulator = PairingObject::construct_default(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, points_accumulator);
         PairingPoints pairing_points = output.points_accumulator;
         pairing_points.P0.x.fix_witness();
