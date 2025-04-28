@@ -290,7 +290,7 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
 
     // Add the fields to the witness and set the key witness indices accordingly
     for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
-        witness_idx = builder.add_variable(value);
+        builder.assert_equal(builder.add_variable(value), witness_idx);
     }
 }
 

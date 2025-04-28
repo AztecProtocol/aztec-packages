@@ -11,8 +11,8 @@ fi
 
 mkdir -p $OUT_DIR
 
-# Extract contract names from Nargo.toml, excluding test and docs contracts
-CONTRACTS=$(grep "contracts/" ../../noir-projects/noir-contracts/Nargo.toml | grep -v "contracts/test/" | grep -v "contracts/docs/" | sed 's/.*contracts\/[^/]*\/\([^"]*\)_contract.*/\1/')
+# Extract test contract names from Nargo.toml
+TEST_CONTRACTS=$(grep "contracts/test/" ../../noir-projects/noir-contracts/Nargo.toml | sed 's/.*contracts\/test\/\([^"]*\)_contract.*/\1/')
 
 # Check for .json files existence
 if ! ls ../../noir-projects/noir-contracts/target/*.json >/dev/null 2>&1; then
@@ -35,7 +35,7 @@ EOF
 );
 
 # Copy the artifacts to the artifacts folder
-for contract in $CONTRACTS; do
+for contract in $TEST_CONTRACTS; do
   # Find the matching ABI file for this contract
   ABI=$(find "../../noir-projects/noir-contracts/target" -name "${contract}_contract-*.json" | head -n 1)
   if [ -n "$ABI" ]; then

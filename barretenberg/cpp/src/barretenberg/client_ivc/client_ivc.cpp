@@ -178,11 +178,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
-    // Construct merge proof for the present circuit and add to merge verification queue
-    MergeProof merge_proof = goblin.prove_merge(circuit);
-
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+
+    // Construct merge proof for the present circuit
+    MergeProof merge_proof = goblin.prove_merge();
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
@@ -288,8 +288,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
 
     AggregationObject::add_default_pairing_points_to_public_inputs(builder);
 
-    // Construct the last merge proof for the present circuit and add to merge verification queue
-    MergeProof merge_proof = goblin.prove_merge(builder);
+    // Construct the last merge proof for the present circuit
+    MergeProof merge_proof = goblin.prove_merge();
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
