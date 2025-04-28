@@ -50,7 +50,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
-            goblin.prove_merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+            goblin.prove_merge();
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys

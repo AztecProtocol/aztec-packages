@@ -21,8 +21,8 @@ import {
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';

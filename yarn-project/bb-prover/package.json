@@ -85,6 +85,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",

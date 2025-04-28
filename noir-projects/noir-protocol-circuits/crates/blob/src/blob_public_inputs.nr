@@ -1,4 +1,4 @@
-use bigint::{BigNum, bignum::BigNumTrait, BLS12_381_Fr as F};
+use bigint::{BigNum, BLS12_381_Fr as F};
 use std::ops::Add;
 use types::{
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK},
@@ -43,7 +43,7 @@ impl BlobPublicInputs {
     // This is not equivalent to being empty, since the challenge point z is a hash and won't have 0 value.
     pub fn is_zero(self) -> bool {
         // Note: there is no constrained is_zero in bignum
-        (self.y == BigNum { limbs: [0, 0, 0] }) & (self.kzg_commitment.inner == [0, 0])
+        (self.y == F::zero()) & (self.kzg_commitment.inner == [0, 0])
     }
 }
 
@@ -57,9 +57,9 @@ impl Serialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
     fn serialize(self) -> [Field; BLOB_PUBLIC_INPUTS] {
         [
             self.z,
-            self.y.limbs[0] as Field,
-            self.y.limbs[1] as Field,
-            self.y.limbs[2] as Field,
+            self.y.get_limb(0) as Field,
+            self.y.get_limb(1) as Field,
+            self.y.get_limb(2) as Field,
             self.kzg_commitment.inner[0],
             self.kzg_commitment.inner[1],
         ]
@@ -70,7 +70,7 @@ impl Deserialize<BLOB_PUBLIC_INPUTS> for BlobPublicInputs {
     fn deserialize(fields: [Field; BLOB_PUBLIC_INPUTS]) -> Self {
         Self {
             z: fields[0],
-            y: BigNum { limbs: [fields[1] as u128, fields[2] as u128, fields[3] as u128] },
+            y: F::from_limbs([fields[1] as u128, fields[2] as u128, fields[3] as u128]),
             kzg_commitment: BlobCommitment { inner: [fields[4], fields[5]] },
         }
     }

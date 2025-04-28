@@ -1,7 +1,7 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AccountWallet, type CompleteAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
-import { ChildContract } from '@aztec/noir-contracts.js/Child';
-import { ParentContract } from '@aztec/noir-contracts.js/Parent';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
+import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
 import {
   type ISnapshotManager,

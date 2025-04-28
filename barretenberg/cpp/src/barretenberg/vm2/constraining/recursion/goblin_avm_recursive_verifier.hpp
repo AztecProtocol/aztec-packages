@@ -220,7 +220,7 @@ class AvmGoblinRecursiveVerifier {
         HonkProof mega_proof = mega_prover.construct_proof();
 
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)
-        goblin.prove_merge(mega_builder);
+        goblin.prove_merge();
         GoblinProof goblin_proof = goblin.prove();
 
         // Recursively verify the goblin proof in the Ultra circuit
