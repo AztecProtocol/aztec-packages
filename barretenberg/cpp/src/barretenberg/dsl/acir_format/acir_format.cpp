@@ -438,16 +438,16 @@ void process_plonk_recursion_constraints(Builder& builder,
         // aggregation object
         if (constraint.proof.size() > proof_size_no_pub_inputs) {
             // The public inputs attached to a proof should match the aggregation object in size
-            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::PAIRING_POINT_ACCUMULATOR_SIZE) {
+            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::PAIRING_POINTS_SIZE) {
                 auto error_string = format("Public inputs are always stripped from proofs "
                                            "unless we have a recursive proof.\n"
                                            "Thus, public inputs attached to a proof must match "
                                            "the recursive aggregation object in size "
                                            "which is ",
-                                           bb::PAIRING_POINT_ACCUMULATOR_SIZE);
+                                           bb::PAIRING_POINTS_SIZE);
                 throw_or_abort(error_string);
             }
-            for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+            for (size_t i = 0; i < bb::PAIRING_POINTS_SIZE; ++i) {
                 // Set the nested aggregation object indices to the current size of the public
                 // inputs This way we know that the nested aggregation object indices will
                 // always be the last indices of the public inputs
@@ -459,8 +459,7 @@ void process_plonk_recursion_constraints(Builder& builder,
             // Remove the aggregation object so that they can be handled as normal public inputs
             // in the way that the recursion constraint expects
             constraint.proof.erase(constraint.proof.begin(),
-                                   constraint.proof.begin() +
-                                       static_cast<std::ptrdiff_t>(bb::PAIRING_POINT_ACCUMULATOR_SIZE));
+                                   constraint.proof.begin() + static_cast<std::ptrdiff_t>(bb::PAIRING_POINTS_SIZE));
         }
 
         current_output_aggregation_object = create_recursion_constraints(builder,

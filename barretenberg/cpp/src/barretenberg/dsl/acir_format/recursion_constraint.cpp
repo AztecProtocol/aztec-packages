@@ -191,7 +191,7 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
     output.emplace_back(vkey->circuit_size);
     output.emplace_back(vkey->num_public_inputs);
     output.emplace_back(vkey->contains_pairing_point_accumulator);
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+    for (size_t i = 0; i < bb::PAIRING_POINTS_SIZE; ++i) {
         if (vkey->contains_pairing_point_accumulator) {
             output.emplace_back(vkey->pairing_point_accumulator_public_input_indices[i]);
         } else {
@@ -243,7 +243,7 @@ std::vector<fr> export_dummy_key_in_recursion_format(const PolynomialManifest& p
     output.emplace_back(1); // num public inputs
 
     output.emplace_back(contains_pairing_point_accumulator); // contains_pairing_point_accumulator
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+    for (size_t i = 0; i < bb::PAIRING_POINTS_SIZE; ++i) {
         output.emplace_back(0); // pairing_point_accumulator_public_input_indices
     }
 
@@ -347,7 +347,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                         // When setting up the ACIR we emplace back the nested aggregation object
                         // fetched from the proof onto the public inputs. Thus, we can expect the
                         // nested aggregation object to always be at the end of the public inputs.
-                        for (size_t k = 0; k < num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++k) {
+                        for (size_t k = 0; k < num_public_inputs - bb::PAIRING_POINTS_SIZE; ++k) {
                             fields.emplace_back(0);
                         }
                         for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {

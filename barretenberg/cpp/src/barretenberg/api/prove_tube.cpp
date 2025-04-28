@@ -36,7 +36,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
     auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(vk.mega->num_public_inputs));
-    num_inner_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
+    num_inner_public_inputs -= bb::PAIRING_POINTS_SIZE; // don't add the agg object
 
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
         builder->add_public_variable(proof.mega_proof[i]);
@@ -98,7 +98,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
-        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE;
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
     // The extra calculation is for the IPA proof length.
     BB_ASSERT_EQ(tube_proof.size(),
                  HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs,

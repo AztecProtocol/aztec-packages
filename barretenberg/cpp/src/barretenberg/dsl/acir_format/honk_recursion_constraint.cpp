@@ -62,7 +62,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[offset++].witness_index);
     // Third key field is the pub inputs offset
     builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[offset++].witness_index);
-    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINTS_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
     }
@@ -73,7 +73,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     if constexpr (HasIPAAccumulator<Flavor>) {
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
-        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE),
+        builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINTS_SIZE),
                              key_fields[offset].witness_index);
         offset++;
     }
@@ -245,11 +245,11 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     if (!has_valid_witness_assignments) {
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINTS_SIZE;
         if constexpr (HasIPAAccumulator<Flavor>) {
             size_of_proof_with_no_pub_inputs -= bb::IPA_CLAIM_SIZE;
         }
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINTS_SIZE;
         if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
         }

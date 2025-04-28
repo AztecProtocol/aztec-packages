@@ -2,7 +2,7 @@ import {
   IPA_CLAIM_SIZE,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  PAIRING_POINT_ACCUMULATOR_SIZE,
+  PAIRING_POINTS_SIZE,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
@@ -60,7 +60,7 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
 
   const json = JSON.parse(proofString);
 
-  let numPublicInputs = vkData.numPublicInputs - PAIRING_POINT_ACCUMULATOR_SIZE;
+  let numPublicInputs = vkData.numPublicInputs - PAIRING_POINTS_SIZE;
   assert(
     proofLength == NESTED_RECURSIVE_PROOF_LENGTH || proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     `Proof length must be one of the expected proof lengths, received ${proofLength}`,

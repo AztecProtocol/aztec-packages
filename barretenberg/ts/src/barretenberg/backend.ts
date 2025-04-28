@@ -8,7 +8,7 @@ import {
   reconstructHonkProof,
   reconstructUltraPlonkProof,
   splitHonkProof,
-  PAIRING_POINT_ACCUMULATOR_SIZE,
+  PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
 import { Encoder } from 'msgpackr/pack';
 
@@ -241,7 +241,7 @@ export class UltraHonkBackend {
 
     // Item at index 1 in VK is the number of public inputs
     const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
-    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - PAIRING_POINT_ACCUMULATOR_SIZE;
+    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - PAIRING_POINTS_SIZE;
 
     const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
     const publicInputs = deflattenFields(publicInputsBytes);
