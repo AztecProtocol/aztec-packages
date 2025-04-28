@@ -745,6 +745,19 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 std::exit(1);
             }
         }
+        // TUBE
+        if (prove_tube_command->parsed()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
+            prove_tube(prove_tube_output_path, vk_path);
+        } else if (verify_tube_command->parsed()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
+            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
+            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
+            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
+            UltraHonkAPI api;
+            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
+                                                                                                                    : 1;
+        }
         // AVM
 #ifndef DISABLE_AZTEC_VM
         if (avm2_prove_command->parsed()) {
@@ -763,19 +776,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, vk_path) ? 0 : 1;
         }
 #endif
-        // TUBE
-        else if (prove_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-            prove_tube(prove_tube_output_path, vk_path);
-        } else if (verify_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
-            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
-            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
-            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
-            UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
-                                                                                                                    : 1;
-        }
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {
             gate_count_for_ivc(bytecode_path, true);
