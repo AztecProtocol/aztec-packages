@@ -79,6 +79,14 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     initNetworkStore();
   }, []);
 
+  // Connect to the first network automatically
+  useEffect(() => {
+    if (isNetworkStoreInitialized && !network) {
+      handleNetworkChange(NETWORKS[0].nodeURL);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNetworkStoreInitialized]);
+
   useEffect(() => {
     const refreshNetworks = async () => {
       const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
@@ -100,10 +108,10 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     }
   }, [isNetworkStoreInitialized]);
 
-  const handleNetworkChange = async (event: SelectChangeEvent) => {
+  const handleNetworkChange = async (url: string) => {
     setConnecting(true);
     setPXEInitialized(false);
-    const network = networks.find(network => network.nodeURL === event.target.value);
+    const network = networks.find(network => network.nodeURL === url);
     const node = await AztecEnv.connectToNode(network.nodeURL);
     setAztecNode(node);
     setNetwork(network);
@@ -206,7 +214,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
                 return 'Select Network';
               }}
               disabled={connecting}
-              onChange={handleNetworkChange}
+              onChange={e => handleNetworkChange(e.target.value)}
             >
               {networks.map(network => (
                 <MenuItem

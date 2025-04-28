@@ -4,9 +4,7 @@ import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
-import { ungzip } from 'pako';
 import { Command } from 'commander';
-import { decode } from '@msgpack/msgpack';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
 import { UltraHonkBackendOptions } from './barretenberg/backend.js';
@@ -44,16 +42,6 @@ function base64ToUint8Array(base64: string) {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
-}
-
-function readStack(bytecodePath: string, numToDrop = 0) {
-  const encodedPackedZippedBytecodeArray = readFileSync(bytecodePath, 'utf-8');
-  const packedZippedBytecodeArray = base64ToUint8Array(encodedPackedZippedBytecodeArray);
-  const zipped = decode(
-    packedZippedBytecodeArray.subarray(0, packedZippedBytecodeArray.length - numToDrop),
-  ) as Uint8Array[];
-  const bytecodeArray = zipped.map((arr: Uint8Array) => ungzip(arr));
-  return bytecodeArray;
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as their gate count differs
@@ -215,22 +203,6 @@ export async function proveAndVerifyMegaHonk(
     const witness = getWitness(witnessPath);
 
     const verified = await api.acirProveAndVerifyMegaHonk(bytecode, witness);
-    return verified;
-  } finally {
-    await api.destroy();
-  }
-  /* eslint-enable camelcase */
-}
-
-export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPath: string, crsPath: string) {
-  /* eslint-disable camelcase */
-  const { api } = await initClientIVC(crsPath);
-  try {
-    const bytecode = readStack(bytecodePath);
-    const witness = readStack(witnessPath);
-
-    const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
-    debug(`Verification ${verified ? 'successful' : 'failed'}`);
     return verified;
   } finally {
     await api.destroy();
@@ -583,17 +555,6 @@ program
   .action(async ({ bytecodePath, witnessPath }) => {
     const { crsPath } = handleGlobalOptions();
     const result = await proveAndVerifyMegaHonk(bytecodePath, witnessPath, crsPath);
-    process.exit(result ? 0 : 1);
-  });
-
-program
-  .command('client_ivc_prove_and_verify')
-  .description('Generate a ClientIVC proof.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.msgpack.b64')
-  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack.b64')
-  .action(async ({ bytecodePath, witnessPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
