@@ -183,25 +183,36 @@ function validator_costs {
   awk -v keep="$wanted_funcs" -v lbl="$labels" \
       -v f_no="$file_no" -v f_yes="$file_yes" '
   function trim(s){gsub(/^[[:space:]]+|[[:space:]]+$/,"",s); return s}
+  #   cell(raw [, scaled])
+  #   If you call it with ONE argument, you get the raw value only.
+  #   If you call it with TWO arguments, you get  "raw (scaled)"  padded to 22.
+  function cell(raw, scaled,   s) {
+      # Was a second parameter supplied?
+      if ( scaled == "" )                 # argument omitted → print raw only
+          return sprintf("%22d", raw)
 
-  BEGIN {
-      # --- wanted functions -------------------------------------------------
+      s = sprintf("%10d (%.2f)", raw, scaled)
+      return sprintf("%-22s", s)          # left-pad / truncate to 22 chars
+  }
+
+  BEGIN{
+      # ---------------- wanted functions & labels (unchanged) ---------------
       nf = split(keep, F, /[[:space:]]+/)
       for (i = 1; i <= nf; i++) { order[i] = F[i]; want[F[i]] }
-
-      # --- column labels ----------------------------------------------------
       split(lbl, L, /\|/);   nLab = length(L)
 
-      # --- header / separator / row formats --------------------------------
-      hdr = "%-24s | %-7s | %15s | %15s | %15s | %14s\n"
-      sep = "-------------------------+---------+-----------------+-----------------+-----------------+----------------"
-      row = "%-24s | %-7s | %15d | %15d | %15d | %13.2f%%\n"
+      # ---------------- fixed-width formats ---------------------------------
+      # header row
+      hdr = "%-24s | %-7s | %22s | %23s | %22s | %12s\n"
+      sep = "-------------------------+---------+------------------------+-------------------------+------------------------+-----------------"
+      # data row (the three %22s will already be fully padded strings)
+      row = "%-24s | %-7s | %22s | %23s | %22s | %10.2f%%\n"
 
-      # ---------- print table header (⇐ six arguments) ----------------------
-      printf hdr, "Function", "Metric", "No Validators", "100 Validators", "Δ Gas", "% Overhead"
+      printf hdr, "Function", "Metric",
+                  "No Validators (gas/tx)", "100 Validators (gas/tx)", "Δ Gas (gas/tx)", "% Overhead"
       print  sep
 
-      FS = "|";  OFS = ""
+      FS="|"; OFS=""
   }
   # ---------- first file: without validators ----------------------------------
   FNR==NR {
@@ -224,18 +235,28 @@ function validator_costs {
   }
   # ---------- emit table -------------------------------------------------------
   END{
-      row="%-24s | %-7s | %15d | %15d | %15d | %13.2f%%\n"
-
       for (k = 1; k <= nf; k++) {
           fn = order[k]
+          div = (fn == "forward" ? 360 : 11520)   # change 11520→720 if desired
+
           for (j = 1; j <= cols[fn]; j++) {
-              idx    = j + 2                     # field index in arrays
+              idx    = j + 2
               metric = L[j]
-              a      = base[fn, idx] + 0         # no-validator gas
-              b      = with[fn, idx] + 0         # 100-validator gas
-              diff   = b - a                     # raw overhead
+              a      = base[fn,idx] + 0
+              b      = with[fn,idx] + 0
+              diff   = b - a
               pct    = (a ? diff * 100.0 / a : 0)
-              printf row, fn, metric, a, b, diff, pct
+
+              if (metric == "# Calls") {
+                  c1 = cell(a)
+                  c2 = cell(b)
+                  c3 = cell(diff)
+              } else {
+                  c1 = cell(a,   a/div)
+                  c2 = cell(b,   b/div)
+                  c3 = cell(diff,diff/div)
+              }
+              printf row, fn, metric, c1, c2, c3, pct
           }
           print sep
       }
