@@ -1,3 +1,10 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/translator_vm/translator.fuzzer.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
@@ -29,8 +36,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     auto circuit_builder = TranslatorCircuitBuilder(translation_batching_challenge, x, op_queue);
 
     // Check that the circuit passes
-    bool checked = circuit_builder.check_circuit();
-
+    bool checked = TranslatorCircuitChecker::check(circuit_builder);
     // Construct proof
     auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
     TranslatorProver prover(proving_key, prover_transcript);

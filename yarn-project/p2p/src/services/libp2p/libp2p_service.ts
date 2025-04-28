@@ -568,7 +568,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       const attestation = BlockAttestation.fromBuffer(Buffer.from(msg.data));
       const result = await this.validateAttestation(source, attestation);
       this.logger.trace(`validatePropagatedAttestation: ${result}`, {
-        [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toString(),
+        [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
         [Attributes.P2P_ID]: source.toString(),
       });
       return { result, obj: attestation };
@@ -599,7 +599,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       const block = BlockProposal.fromBuffer(Buffer.from(msg.data));
       const result = await this.validateBlockProposal(source, block);
       this.logger.trace(`validatePropagatedBlock: ${result}`, {
-        [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
+        [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
         [Attributes.P2P_ID]: source.toString(),
       });
       return { result, obj: block };
@@ -652,8 +652,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param attestation - The attestation to broadcast.
    */
   @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
-    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
   }))
@@ -881,8 +881,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the attestation is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
-    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
   }))
@@ -903,11 +903,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the block proposal is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateBlockProposal', (_peerId, block) => ({
-    [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
+    [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
   }))
   public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
     const severity = await this.blockProposalValidator.validate(block);
     if (severity) {
+      this.logger.debug(`Penalizing peer ${peerId} for block proposal validation failure`);
       this.peerManager.penalizePeer(peerId, severity);
       return false;
     }

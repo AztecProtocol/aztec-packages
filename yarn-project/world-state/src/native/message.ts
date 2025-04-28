@@ -96,6 +96,8 @@ export interface DBStats {
 export interface TreeDBStats {
   /** The configured max size of the DB mapping file (effectively the max possible size of the DB) */
   mapSize: bigint;
+  /** The physical file size of the database on disk */
+  physicalFileSize: bigint;
   /** Stats for the 'blocks' DB */
   blocksDBStats: DBStats;
   /** Stats for the 'nodes' DB */
@@ -151,6 +153,7 @@ export function buildEmptyDBStats() {
 export function buildEmptyTreeDBStats() {
   return {
     mapSize: 0n,
+    physicalFileSize: 0n,
     blocksDBStats: buildEmptyDBStats(),
     nodesDBStats: buildEmptyDBStats(),
     leafIndicesDBStats: buildEmptyDBStats(),
@@ -242,6 +245,7 @@ export function sanitiseTreeDBStats(stats: TreeDBStats) {
   stats.blockIndicesDBStats = sanitiseDBStats(stats.blockIndicesDBStats);
   stats.nodesDBStats = sanitiseDBStats(stats.nodesDBStats);
   stats.mapSize = BigInt(stats.mapSize);
+  stats.physicalFileSize = BigInt(stats.physicalFileSize);
   return stats;
 }
 

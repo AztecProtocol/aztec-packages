@@ -1,5 +1,5 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
-import { RegistryContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { RegistryContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { ChildProcess } from 'child_process';
@@ -55,9 +55,9 @@ describe('upgrade via cli', () => {
       const info = await pxe.getNodeInfo();
 
       const chain = createEthereumChain([ETHEREUM_HOSTS], info.l1ChainId);
-      const { publicClient: l1PublicClient } = createL1Clients([ETHEREUM_HOSTS], MNEMONIC, chain.chainInfo);
+      const l1Client = createExtendedL1Client([ETHEREUM_HOSTS], MNEMONIC, chain.chainInfo);
 
-      const registry = new RegistryContract(l1PublicClient, info.l1ContractAddresses.registryAddress.toString());
+      const registry = new RegistryContract(l1Client, info.l1ContractAddresses.registryAddress.toString());
       const oldNumberOfVersions = await registry.getNumberOfVersions();
 
       const exitCode = await runProjectScript(

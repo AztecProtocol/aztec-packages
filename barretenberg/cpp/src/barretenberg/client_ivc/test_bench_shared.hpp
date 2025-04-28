@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
@@ -36,7 +41,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
                                      const bool& mock_vk = false,
                                      const bool large_first_app = true)
 {
-    ASSERT(precomputed_vks.size() == NUM_CIRCUITS); // ensure presence of a precomputed VK for each circuit
+    BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(large_first_app);
 

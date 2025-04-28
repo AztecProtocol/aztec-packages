@@ -2,7 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -43,7 +43,7 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
 export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
-    private dateProvider: DateProvider,
+    private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 

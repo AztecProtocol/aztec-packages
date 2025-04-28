@@ -1,4 +1,5 @@
 #include "translator_circuit_builder.hpp"
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include <array>
@@ -9,6 +10,7 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
+using CircuitChecker = TranslatorCircuitChecker;
 /**
  * @brief Check that a single accumulation gate is created correctly
  *
@@ -69,7 +71,7 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
     // Submit one accumulation step in the builder
     circuit_builder.create_accumulation_gate(single_accumulation_step);
     // Check if the circuit fails
-    EXPECT_TRUE(circuit_builder.check_circuit());
+    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
 }
 
 /**
@@ -127,7 +129,8 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Create circuit builder and feed the queue inside
     auto circuit_builder = TranslatorCircuitBuilder(batching_challenge, x, op_queue);
     // Check that the circuit passes
-    EXPECT_TRUE(circuit_builder.check_circuit());
-    // Check the computation result is in line with what we've computed
-    EXPECT_EQ(result, circuit_builder.get_computation_result());
+    EXPECT_TRUE(CircuitChecker::check(circuit_builder));
+    // Check the accumulation result stored as 4 limbs in the circuit and then reconstructed is consistent with the
+    // value computed by hand.
+    EXPECT_EQ(result, CircuitChecker::get_computation_result(circuit_builder));
 }

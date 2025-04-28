@@ -118,13 +118,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     await ap.addAttestations(attestations);
 
     for (const attestation of attestations) {
-      const slot = attestation.payload.header.globalVariables.slotNumber;
+      const slot = attestation.payload.header.slotNumber;
       const archive = attestation.archive.toString();
 
       const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(slot.toBigInt(), archive);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
-      expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
+      expect(retreivedAttestations[0].payload.header.slotNumber).toEqual(slot);
     }
   });
 
@@ -136,13 +136,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     await ap.addAttestations(attestations);
 
     for (const attestation of attestations) {
-      const slot = attestation.payload.header.globalVariables.slotNumber;
+      const slot = attestation.payload.header.slotNumber;
       const proposalId = attestation.archive.toString();
 
       const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(slot.toBigInt(), proposalId);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
-      expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
+      expect(retreivedAttestations[0].payload.header.slotNumber).toEqual(slot);
     }
   });
 

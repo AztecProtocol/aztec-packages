@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -53,6 +59,8 @@ class GoblinMockCircuits {
     using RecursiveVerificationKey = RecursiveDeciderVerificationKey::VerificationKey;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
+
+    using AggregationObject = stdlib::recursion::aggregation_state<MegaBuilder>;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
     struct KernelInput {
@@ -89,6 +97,7 @@ class GoblinMockCircuits {
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
+        AggregationObject::add_default_pairing_points_to_public_inputs(builder);
     }
 
     /**
@@ -117,6 +126,7 @@ class GoblinMockCircuits {
             stdlib::generate_ecdsa_verification_test_circuit(builder, 1);
             stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
+        AggregationObject::add_default_pairing_points_to_public_inputs(builder);
     }
 
     /**
@@ -149,6 +159,7 @@ class GoblinMockCircuits {
         PROFILE_THIS();
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
+        AggregationObject::add_default_pairing_points_to_public_inputs(builder);
     }
 
     /**

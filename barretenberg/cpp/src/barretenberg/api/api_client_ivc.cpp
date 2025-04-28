@@ -52,7 +52,6 @@ void write_standalone_vk(const std::string& output_data_type,
     using VerificationKey = ClientIVC::MegaVerificationKey;
     using Program = acir_format::AcirProgram;
     using ProgramMetadata = acir_format::ProgramMetadata;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -67,9 +66,6 @@ void write_standalone_vk(const std::string& output_data_type,
                                                ? nullptr
                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
     Builder builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Add public inputs corresponding to pairing point accumulator
-    AggregationObject::add_default_pairing_points_to_public_inputs(builder);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
@@ -99,8 +95,6 @@ void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path
 
     const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(input_path);
     info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-    // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
-    static constexpr size_t MAGIC_NUMBER = 16;
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
@@ -112,8 +106,8 @@ void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path
     ivc.accumulate(circuit_0);
 
     // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 = circuit_producer.create_next_circuit(
-        ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
+    MegaCircuitBuilder circuit_1 =
+        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
     ivc.accumulate(circuit_1);
 
     // Construct the hiding circuit and its VK (stored internally in the IVC)

@@ -12,11 +12,10 @@
     "declarationMap": true,
     "importHelpers": true,
     "resolveJsonModule": true,
+    "isolatedModules": true,
     "skipLibCheck": true,
     "composite": true,
-    "outDir": "dest/node",
     "rootDir": "src",
-    "tsBuildInfoFile": "/dev/null"
   },
   "include": ["src"]
 }

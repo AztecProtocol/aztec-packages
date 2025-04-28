@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
@@ -82,7 +88,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
     transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
     transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
-    ASSERT(proving_key->proving_key.num_public_inputs == proving_key->proving_key.public_inputs.size());
+    BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
 
     for (size_t i = 0; i < proving_key->proving_key.num_public_inputs; ++i) {
         auto public_input_i = proving_key->proving_key.public_inputs[i];
@@ -266,9 +272,11 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
+#ifdef STARTKNET_GARAGA_FLAVORS
 template class OinkProver<UltraStarknetFlavor>;
-template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraStarknetZKFlavor>;
+#endif
+template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
