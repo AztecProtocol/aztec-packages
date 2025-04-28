@@ -267,7 +267,8 @@ comptime fn generate_note_exports() -> Quoted {
 comptime fn generate_sync_notes() -> Quoted {
     // We obtain the `utility` function on the next line instead of directly doing
     // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
-    // attribute having the full path in the ABI.
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
     let utility: fn(FunctionDefinition) -> () = crate::macros::functions::utility;
 
     // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
