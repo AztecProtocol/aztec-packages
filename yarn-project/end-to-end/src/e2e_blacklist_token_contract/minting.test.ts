@@ -112,7 +112,7 @@ describe('e2e_blacklist_token_contract mint', () => {
 
         await expect(
           asset.withWallet(wallets[1]).methods.redeem_shield(wallets[1].getAddress(), amount, secret).prove(),
-        ).rejects.toThrow(`Assertion failed: note not popped 'notes.len() == 1'`);
+        ).rejects.toThrow(`Assertion failed: note not popped`);
       });
 
       it('mint_private as non-minter', async () => {
@@ -140,7 +140,7 @@ describe('e2e_blacklist_token_contract mint', () => {
 
       it('mint and try to redeem at blacklist', async () => {
         await expect(asset.methods.redeem_shield(blacklisted.getAddress(), amount, secret).prove()).rejects.toThrow(
-          /Assertion failed: Blacklisted: Recipient .*/,
+          'Assertion failed: Blacklisted: Recipient',
         );
       });
     });
