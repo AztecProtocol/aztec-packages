@@ -56,7 +56,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
         Builder function_circuit{ goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(function_circuit, /*target_log2_dyadic_size=*/8);
         MockCircuits::construct_goblin_ecc_op_circuit(function_circuit);
-        goblin.prove_merge(function_circuit);
+        goblin.prove_merge();
         AggregationObject::add_default_pairing_points_to_public_inputs(function_circuit);
         auto function_accum = construct_accumulator(function_circuit);
 
@@ -66,7 +66,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
                                                         { function_accum.proof, function_accum.verification_key },
                                                         { kernel_accum.proof, kernel_accum.verification_key });
         AggregationObject::add_default_pairing_points_to_public_inputs(kernel_circuit);
-        goblin.prove_merge(kernel_circuit);
+        goblin.prove_merge();
         kernel_accum = construct_accumulator(kernel_circuit);
     }
 
