@@ -318,7 +318,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs, honk_output.is_root_rollup);
         } else {
             // We shouldn't accidentally have IPA proofs otherwise.
-            ASSERT(honk_output.nested_ipa_proofs.size() == 0);
+            BB_ASSERT_EQ(
+                honk_output.nested_ipa_proofs.size(), static_cast<size_t>(0), "IPA proofs present when not expected.");
         }
     }
 }
@@ -338,6 +339,8 @@ void handle_IPA_accumulation(Builder& builder,
                              const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
                              bool is_root_rollup)
 {
+    BB_ASSERT_EQ(
+        nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
     OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
     HonkProof final_ipa_proof;
     if (nested_ipa_claims.size() == 2) {
@@ -385,7 +388,7 @@ void handle_IPA_accumulation(Builder& builder,
     }
     // If we aren't in the root rollup, we should have an output IPA proof.
     if (!is_root_rollup) {
-        ASSERT(final_ipa_proof.size() > 0);
+        BB_ASSERT_EQ(final_ipa_proof.size(), IPA_PROOF_LENGTH);
         // Propagate the IPA claim via the public inputs of the outer circuit
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
         // location/entity to handle this IPA data propagation.
@@ -535,10 +538,9 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
-    if (constraints.ivc_recursion_constraints.size() != ivc->verification_queue.size()) {
-        info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
-        ASSERT(false);
-    }
+    BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),
+                 ivc->verification_queue.size(),
+                 "WARNING: Mismatch in number of recursive verifications during kernel creation!");
 
     // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
     // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).

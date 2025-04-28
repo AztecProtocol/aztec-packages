@@ -16,7 +16,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       await this.epochCache.getProposerInCurrentOrNextSlot();
 
     // Check that the attestation is for the current or next slot
-    const slotNumberBigInt = block.payload.header.globalVariables.slotNumber.toBigInt();
+    const slotNumberBigInt = block.payload.header.slotNumber.toBigInt();
     if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
       this.logger.debug(
         `Penalizing peer for invalid slot number ${slotNumberBigInt}, current slot: ${currentSlot}, next slot: ${nextSlot}`,

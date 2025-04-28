@@ -112,6 +112,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     const sizes = await Promise.all(Array.from(this.epochs.values()).map(x => x.estimateSize()));
     return {
       mappingSize: this.config.dataStoreMapSizeKB,
+      physicalFileSize: sizes.reduce((prev, curr) => prev + curr.physicalFileSize, 0),
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),
       actualSize: sizes.reduce((prev, curr) => prev + curr.actualSize, 0),
     };

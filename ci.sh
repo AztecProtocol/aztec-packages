@@ -250,6 +250,8 @@ case "$cmd" in
     git config --global user.name "AztecBot"
     # Run benchmark logic for github actions.
     bb_hash=$(barretenberg/bootstrap.sh hash)
+    # Protocol circuit benchmarks are published on each commit
+    npc_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
     yp_hash=$(yarn-project/bootstrap.sh hash)
 
     if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
@@ -268,6 +270,9 @@ case "$cmd" in
     else
       cache_download barretenberg-bench-results-$bb_hash.tar.gz
     fi
+
+    # noir-protocol-circuits benchmarks.
+    cache_download noir-protocol-circuits-bench-results-$npc_hash.tar.gz
 
     # yarn-project benchmarks.
     if [ "$yp_hash" == "$prev_yp_hash" ]; then
