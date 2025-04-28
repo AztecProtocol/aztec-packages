@@ -37,8 +37,8 @@ void handle_IPA_accumulation(Builder& builder,
                              bool is_root_rollup);
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
-    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
-    AggregationObject points_accumulator;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    PairingPoints points_accumulator;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<StdlibProof<Builder>> nested_ipa_proofs;
     bool is_root_rollup = false;
@@ -47,7 +47,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
-    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
     AcirFormat& constraint_system = program.constraints;
@@ -251,7 +251,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             info("WARNING: this circuit contains unhandled recursion_constraints!");
         }
         if (!constraint_system.honk_recursion_constraints.empty()) {
-            auto current_points_accumulator = AggregationObject::construct_default(builder);
+            auto current_points_accumulator = PairingPoints::construct_default(builder);
             HonkRecursionConstraintsOutput<Builder> output = process_honk_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter, current_points_accumulator);
             current_points_accumulator = output.points_accumulator;
@@ -272,12 +272,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
         if (constraint_system.honk_recursion_constraints.empty() &&
             constraint_system.ivc_recursion_constraints.empty()) {
-            AggregationObject::add_default_pairing_points_to_public_inputs(builder);
+            PairingPoints::add_default_pairing_points_to_public_inputs(builder);
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
 
-        auto current_points_accumulator = AggregationObject::construct_default(builder);
+        auto current_points_accumulator = PairingPoints::construct_default(builder);
 
         HonkRecursionConstraintsOutput<Builder> honk_output = process_honk_recursion_constraints(
             builder, constraint_system, has_valid_witness_assignments, gate_counter, current_points_accumulator);

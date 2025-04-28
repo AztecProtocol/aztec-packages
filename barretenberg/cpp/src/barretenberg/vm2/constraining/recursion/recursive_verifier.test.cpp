@@ -75,7 +75,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using AggregationObject = stdlib::recursion::PairingPoints<OuterBuilder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     if (testing::skip_slow_tests()) {
@@ -94,7 +94,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     {
         RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
-        auto points_accumulatorect = AggregationObject::construct_default(outer_circuit);
+        auto points_accumulatorect = PairingPoints::construct_default(outer_circuit);
         auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, points_accumulatorect);
 
         NativeVerifierCommitmentKey pcs_vkey{};
@@ -165,7 +165,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
-    using AggregationObject = stdlib::recursion::PairingPoints<OuterBuilder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     NativeProofResult proof_result;
@@ -199,7 +199,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
         AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
-        auto points_accumulatorect = AggregationObject::construct_default(outer_circuit);
+        auto points_accumulatorect = PairingPoints::construct_default(outer_circuit);
         return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, points_accumulatorect);
     }();
 

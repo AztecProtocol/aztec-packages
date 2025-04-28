@@ -45,8 +45,8 @@ class AvmGoblinRecursiveVerifier {
     using UltraBuilder = UltraCircuitBuilder;
     using MegaBuilder = MegaCircuitBuilder;
 
-    using AggregationObject = bb::stdlib::recursion::PairingPoints<UltraBuilder>;
-    using MegaAggregationObject = bb::stdlib::recursion::PairingPoints<MegaBuilder>;
+    using PairingPoints = bb::stdlib::recursion::PairingPoints<UltraBuilder>;
+    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<MegaBuilder>;
 
     using UltraFF = stdlib::bn254<UltraBuilder>::ScalarField;
 
@@ -84,7 +84,7 @@ class AvmGoblinRecursiveVerifier {
      */
     RecursiveAvmGoblinOutput verify_proof(const StdlibProof<UltraBuilder>& stdlib_proof,
                                           const std::vector<std::vector<UltraFF>>& public_inputs,
-                                          const AggregationObject& input_points_accumulator) const
+                                          const PairingPoints& input_points_accumulator) const
     {
         // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
         InnerProverOutput inner_output = construct_and_prove_inner_recursive_verification_circuit(
@@ -110,7 +110,7 @@ class AvmGoblinRecursiveVerifier {
     RecursiveAvmGoblinOutput construct_outer_recursive_verification_circuit(
         const StdlibProof<UltraBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs,
-        const AggregationObject& input_points_accumulator,
+        const PairingPoints& input_points_accumulator,
         const InnerProverOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
@@ -165,7 +165,7 @@ class AvmGoblinRecursiveVerifier {
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
         const StdlibProof<UltraBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs,
-        [[maybe_unused]] const AggregationObject& input_points_accumulator) const
+        [[maybe_unused]] const PairingPoints& input_points_accumulator) const
     {
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
@@ -210,10 +210,10 @@ class AvmGoblinRecursiveVerifier {
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
         AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1304): Do proper pairing point aggregation.
-        auto default_points_accumulatorect = MegaAggregationObject::construct_default(mega_builder);
+        auto default_points_accumulatorect = MegaPairingPoints::construct_default(mega_builder);
         [[maybe_unused]] auto mega_agg_output =
             recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, default_points_accumulatorect);
-        MegaAggregationObject::add_default_pairing_points_to_public_inputs(mega_builder);
+        MegaPairingPoints::add_default_pairing_points_to_public_inputs(mega_builder);
 
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         MegaProver mega_prover(mega_builder);

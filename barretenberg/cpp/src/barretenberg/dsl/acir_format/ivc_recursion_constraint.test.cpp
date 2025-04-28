@@ -25,7 +25,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using QUEUE_TYPE = ClientIVC::QUEUE_TYPE;
     using VerificationQueue = ClientIVC::VerificationQueue;
     using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
-    using AggregationObject = ClientIVC::AggregationObject;
+    using PairingPoints = ClientIVC::PairingPoints;
 
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
@@ -36,7 +36,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         Builder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
-        AggregationObject::add_default_pairing_points_to_public_inputs(circuit);
+        PairingPoints::add_default_pairing_points_to_public_inputs(circuit);
         return circuit;
     }
 

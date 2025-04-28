@@ -24,7 +24,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
@@ -54,7 +54,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
         }
     }
 
-    AggregationObject verify_proof(const HonkProof& proof);
+    PairingPoints verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     Builder* builder;

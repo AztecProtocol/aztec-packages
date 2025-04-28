@@ -48,10 +48,8 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
 }
 
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof,
-    const std::vector<std::vector<fr>>& public_inputs_vec_nt,
-    AggregationObject points_accumulator)
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, PairingPoints points_accumulator)
 {
     StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
@@ -72,10 +70,10 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& stdlib_proof,
     const std::vector<std::vector<FF>>& public_inputs,
-    AggregationObject points_accumulator)
+    PairingPoints points_accumulator)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;

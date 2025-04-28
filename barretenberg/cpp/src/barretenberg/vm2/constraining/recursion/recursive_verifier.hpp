@@ -21,19 +21,19 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
 
   public:
     explicit AvmRecursiveVerifier_(Builder& builder,
                                    const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    AggregationObject verify_proof(const HonkProof& proof,
-                                   const std::vector<std::vector<fr>>& public_inputs_vec_nt,
-                                   AggregationObject points_accumulator);
-    AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof,
-                                   const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
-                                   AggregationObject points_accumulator);
+    PairingPoints verify_proof(const HonkProof& proof,
+                               const std::vector<std::vector<fr>>& public_inputs_vec_nt,
+                               PairingPoints points_accumulator);
+    PairingPoints verify_proof(const StdlibProof<Builder>& stdlib_proof,
+                               const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
+                               PairingPoints points_accumulator);
 
     std::shared_ptr<VerificationKey> key;
     Builder& builder;

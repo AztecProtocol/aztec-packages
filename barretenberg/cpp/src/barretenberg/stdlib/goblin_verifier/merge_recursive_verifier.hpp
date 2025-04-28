@@ -21,7 +21,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     using KZG = ::bb::KZG<Curve>;
     using OpeningClaim = ::bb::OpeningClaim<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
-    using AggregationObject = stdlib::recursion::PairingPoints<CircuitBuilder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<CircuitBuilder>;
 
     CircuitBuilder* builder;
     std::shared_ptr<Transcript> transcript;
@@ -30,7 +30,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
 
-    AggregationObject verify_proof(const StdlibProof<CircuitBuilder>& proof);
+    PairingPoints verify_proof(const StdlibProof<CircuitBuilder>& proof);
 };
 
 } // namespace bb::stdlib::recursion::goblin

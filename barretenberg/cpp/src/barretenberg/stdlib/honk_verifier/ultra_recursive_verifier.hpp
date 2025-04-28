@@ -33,7 +33,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using AggregationObject = PairingPoints<Builder>;
+    using PairingPoints = PairingPoints<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
     using Output = UltraRecursiveVerifierOutput<Builder>;
@@ -42,8 +42,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
     explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    Output verify_proof(const HonkProof& proof, AggregationObject points_accumulator);
-    Output verify_proof(const StdlibProof<Builder>& proof, AggregationObject points_accumulator);
+    Output verify_proof(const HonkProof& proof, PairingPoints points_accumulator);
+    Output verify_proof(const StdlibProof<Builder>& proof, PairingPoints points_accumulator);
 
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;

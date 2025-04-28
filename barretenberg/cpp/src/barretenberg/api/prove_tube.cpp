@@ -17,7 +17,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
-    using AggregationObject = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
 
     std::string proof_path = output_path + "/proof";
 
@@ -47,7 +47,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
-    AggregationObject::add_default_pairing_points_to_public_inputs(*builder);
+    PairingPoints::add_default_pairing_points_to_public_inputs(*builder);
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();

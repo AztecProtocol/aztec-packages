@@ -32,8 +32,8 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const
  * @return Output aggregation object
  */
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, AggregationObject points_accumulator)
+UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof,
+                                                                                      PairingPoints points_accumulator)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     return verify_proof(stdlib_proof, points_accumulator);
@@ -44,8 +44,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
  * @return Output aggregation object
  */
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& proof, AggregationObject points_accumulator)
+UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const StdlibProof<Builder>& proof,
+                                                                                      PairingPoints points_accumulator)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -88,7 +88,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     }
 
     // Extract the aggregation object from the public inputs
-    AggregationObject nested_points_accumulator =
+    PairingPoints nested_points_accumulator =
         PublicPairingPoints::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
     points_accumulator.aggregate(nested_points_accumulator);
 
