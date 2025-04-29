@@ -1,0 +1,20 @@
+validator:
+  replicas: 1
+  p2p:
+    archivedTxLimit: 10000000 # 10 million
+  l1FixedPriorityFeePerGas: 3
+  l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 1000
+  storageSize: "1Ti"
+  storageClass: "standard"
+  storageRetentionPolicy: "Retain"
+  sequencer:
+    minTxsPerBlock: 0
+    maxTxsPerBlock: 4
+  validator:
+    disabled: false
+  maxOldSpaceSize: "8192"
+  resources:
+    requests:
+      cpu: "3"
+      memory: "10Gi"
