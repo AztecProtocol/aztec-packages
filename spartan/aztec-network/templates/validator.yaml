@@ -16,10 +16,7 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: validator-data
-        annotations:
-          "helm.sh/resource-policy": {{ .Values.validator.storageRetentionPolicy | default "Delete" | quote }}
       spec:
-        storageClassName: {{ .Values.validator.storageClass | default "standard" }}
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
@@ -182,8 +179,6 @@ spec:
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
-            - name: P2P_ARCHIVED_TX_LIMIT
-              value: "{{ .Values.validator.p2p.archivedTxLimit }}"
           {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}

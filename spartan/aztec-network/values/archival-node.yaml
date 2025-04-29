@@ -26,26 +26,20 @@ aztec:
     slashFactoryAddress: "0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be"
     feeAssetHandlerContractAddress: "0x80d848dc9f52df56789e2d62ce66f19555ff1019"
 
-validator:
+fullNode:
+  fixedStaticIpName: "alpha-archival-full-node-ip"
+  staticIpUrl: full-node.alpha-archival.aztec.network # TODO: add Route53 record if we want access to this later
   replicas: 1
-  p2p:
-    archivedTxLimit: 10000000 # 10 million
-  l1FixedPriorityFeePerGas: 3
-  l1GasLimitBufferPercentage: 15
-  l1GasPriceMax: 1000
+  maxOldSpaceSize: "8192"
   storageSize: "1Ti"
   storageClass: "standard"
   storageRetentionPolicy: "Retain"
-  sequencer:
-    minTxsPerBlock: 0
-    maxTxsPerBlock: 4
-  validator:
-    disabled: false
-  maxOldSpaceSize: "8192"
   resources:
     requests:
       cpu: "3"
       memory: "10Gi"
+  p2p:
+    archivedTxLimit: 10000000 # 10 million
 
 blobSink:
   enabled: false
@@ -53,8 +47,8 @@ blobSink:
 bootNode:
   enabled: false
 
-fullNode:
-  enabled: false
+validator:
+  replicas: 0
 
 proverNode:
   replicas: 0
