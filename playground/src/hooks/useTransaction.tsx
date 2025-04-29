@@ -1,6 +1,7 @@
-import { useContext, useState } from 'react';
+import { useContext } from 'react';
 import { AztecContext } from '../aztecEnv';
 import {
+  TxReceipt,
   TxStatus,
   type AztecAddress,
   type ContractFunctionInteraction,
@@ -8,6 +9,7 @@ import {
   type DeployOptions,
   type SendMethodOptions,
 } from '@aztec/aztec.js';
+import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
 
 export function useTransaction() {
@@ -56,8 +58,10 @@ export function useTransaction() {
         ...{ txHash, status: 'sending' },
       });
 
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 10 });
-      if (showNotification) {
+      // TODO: Don't send the tx if the user has cancelled the transaction
+      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 180 });
+
+      if (showNotification && receipt.status === TxStatus.SUCCESS) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
           severity: 'success',
         });
@@ -81,8 +85,20 @@ export function useTransaction() {
       });
       setTransactionModalStatus('closed');
     } catch (e) {
-      console.error('Transaction failed with error:', e);
+      if (e instanceof TimeoutError) {
+        await walletDB.storeTx({
+          contractAddress,
+          txHash,
+          name,
+          receipt: new TxReceipt(txHash, TxStatus.PENDING, e.message),
+        });
 
+        setCurrentTx(null);
+
+        return false;
+      }
+
+      console.error('Transaction failed with error:', e);
       if (showNotification) {
         notifications.show(`Transaction failed with error: ${e.message}`, {
           severity: 'error',
