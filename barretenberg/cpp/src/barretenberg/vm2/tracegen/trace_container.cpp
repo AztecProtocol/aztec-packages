@@ -25,6 +25,14 @@ const FF& TraceContainer::get(Column col, uint32_t row) const
     return it == column_data.rows.end() ? zero : it->second;
 }
 
+const FF& TraceContainer::get_column_or_shift(ColumnAndShifts col, uint32_t row) const
+{
+    if (is_shift(col)) {
+        return get(unshift_column(col).value(), row + 1);
+    }
+    return get(static_cast<Column>(col), row);
+}
+
 void TraceContainer::set(Column col, uint32_t row, const FF& value)
 {
     auto& column_data = (*trace)[static_cast<size_t>(col)];

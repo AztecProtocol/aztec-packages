@@ -9,9 +9,9 @@ import {
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
 import type { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
-import type { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 
 import { expectMapping, expectMappingDelta } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -176,7 +176,7 @@ describe('e2e_fees dapp_subscription', () => {
     // Subscribe again. This will overwrite the previous subscription.
     await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet), 5, 1);
     await expect(dappIncrement()).resolves.toBeDefined();
-    await expect(dappIncrement()).rejects.toThrow(/note.remaining_txs as u64 > 0/);
+    await expect(dappIncrement()).rejects.toThrow("you're out of txs");
   });
 
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {

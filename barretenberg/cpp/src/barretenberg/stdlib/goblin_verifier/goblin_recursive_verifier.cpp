@@ -43,7 +43,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
 
     MergeVerifier merge_verifier{ builder };
     StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-    [[maybe_unused]] auto merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
-    return { opening_claim, ipa_transcript };
+    auto merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    return { merge_pairing_points, opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk

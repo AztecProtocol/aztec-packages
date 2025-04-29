@@ -25,6 +25,8 @@ import type { ArchiverInstrumentation } from './instrumentation.js';
 import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 
 interface MockRollupContractRead {
+  /** Returns the rollup version. */
+  getVersion: () => Promise<bigint>;
   /** Given an L2 block number, returns the archive. */
   archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
   /** Given an L2 block number, returns provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber, provenEpochNumber. */
@@ -97,6 +99,7 @@ describe('Archiver', () => {
     logger = createLogger('archiver:test');
     now = +new Date();
     publicClient = mock<ViemPublicClient>({
+      getChainId: () => Promise.resolve(1),
       // Return a block with a reasonable timestamp
       getBlock: ((args: any) => ({
         timestamp: args.blockNumber * BigInt(DefaultL1ContractsConfig.ethereumSlotDuration) + BigInt(now),
@@ -139,6 +142,7 @@ describe('Archiver', () => {
     mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
       Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
     );
+    mockRollupRead.getVersion.mockImplementation(() => Promise.resolve(1n));
     mockRollupEvents = mock<MockRollupContractEvents>();
     mockRollupEvents.L2BlockProposed.mockImplementation((filter: any, { fromBlock, toBlock }) =>
       Promise.resolve(l2BlockProposedLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)),
@@ -606,13 +610,24 @@ describe('Archiver', () => {
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
 async function makeRollupTx(l2Block: L2Block) {
-  const header = toHex(l2Block.header.toBuffer());
+  const header = toHex(l2Block.header.toPropose().toBuffer());
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
+  const stateReference = toHex(l2Block.header.state.toBuffer());
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [{ header, archive, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] }, [], blobInput],
+    args: [
+      {
+        header,
+        archive,
+        stateReference,
+        oracleInput: { feeAssetPriceModifier: 0n },
+        txHashes: [],
+      },
+      [],
+      blobInput,
+    ],
   });
 
   const forwarderInput = encodeFunctionData({

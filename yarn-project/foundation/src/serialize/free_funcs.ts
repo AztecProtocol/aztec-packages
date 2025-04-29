@@ -57,6 +57,19 @@ export function numToUInt32BE(n: number, bufferSize = 4) {
 }
 
 /**
+ * Convert a bigint to a big-endian unsigned 64-bit integer Buffer.
+ *
+ * @param n - The bigint to be converted to a big-endian unsigned 64-bit integer Buffer.
+ * @param bufferSize - Optional, the size of the output Buffer (default is 8).
+ * @returns A Buffer containing the big-endian unsigned 64-bit integer representation of the input number.
+ */
+export function bigintToUInt64BE(n: bigint, bufferSize = 8) {
+  const buf = Buffer.alloc(bufferSize);
+  buf.writeBigUInt64BE(n, bufferSize - 8);
+  return buf;
+}
+
+/**
  * Serialize a number into a big-endian signed 32-bit integer Buffer with the specified buffer size.
  * This function converts the input number into its binary representation and stores it in a Buffer
  * with the provided buffer size. By default, the buffer size is set to 4 bytes which represents a 32-bit integer.

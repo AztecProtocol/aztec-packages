@@ -25,7 +25,14 @@ import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
-import { BlockHeader, HashedValues, PrivateCallExecutionResult, PrivateExecutionResult, Tx } from '../tx/index.js';
+import {
+  BlockHeader,
+  HashedValues,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+  StateReference,
+  Tx,
+} from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -79,6 +86,10 @@ export const mockTx = async (
     feePayer,
     clientIvcProof = ClientIvcProof.empty(),
     maxPriorityFeesPerGas,
+    chainId = Fr.ZERO,
+    version = Fr.ZERO,
+    vkTreeRoot = Fr.ZERO,
+    protocolContractTreeRoot = Fr.ZERO,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -88,6 +99,10 @@ export const mockTx = async (
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
     maxPriorityFeesPerGas?: GasFees;
+    chainId?: Fr;
+    version?: Fr;
+    vkTreeRoot?: Fr;
+    protocolContractTreeRoot?: Fr;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -102,6 +117,10 @@ export const mockTx = async (
     maxPriorityFeesPerGas,
   });
   data.feePayer = feePayer ?? (await AztecAddress.random());
+  data.constants.txContext.chainId = chainId;
+  data.constants.txContext.version = version;
+  data.constants.vkTreeRoot = vkTreeRoot;
+  data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
   const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {
@@ -143,8 +162,8 @@ export const mockTx = async (
   return new Tx(data, clientIvcProof, [], publicFunctionCalldata);
 };
 
-export const mockTxForRollup = (seed = 1) =>
-  mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
+export const mockTxForRollup = (seed = 1, opts: Parameters<typeof mockTx>[1] = {}) =>
+  mockTx(seed, { ...opts, numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
 const emptyPrivateCallExecutionResult = () =>
   new PrivateCallExecutionResult(
@@ -218,6 +237,7 @@ export interface MakeConsensusPayloadOptions {
   signer?: Secp256k1Signer;
   header?: BlockHeader;
   archive?: Fr;
+  stateReference?: StateReference;
   txHashes?: TxHash[];
 }
 
@@ -225,32 +245,40 @@ const makeAndSignConsensusPayload = (
   domainSeparator: SignatureDomainSeparator,
   options?: MakeConsensusPayloadOptions,
 ) => {
+  const header = options?.header ?? makeHeader(1);
   const {
     signer = Secp256k1Signer.random(),
-    header = makeHeader(1),
     archive = Fr.random(),
+    stateReference = header.state,
     txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
   } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
-    header,
+    header: header.toPropose(),
     archive,
+    stateReference,
     txHashes,
   });
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
   const signature = signer.sign(hash);
 
-  return { payload, signature };
+  return { blockNumber: header.globalVariables.blockNumber, payload, signature };
 };
 
 export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
-  return new BlockProposal(payload, signature);
+  const { blockNumber, payload, signature } = makeAndSignConsensusPayload(
+    SignatureDomainSeparator.blockProposal,
+    options,
+  );
+  return new BlockProposal(blockNumber, payload, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeparator.blockAttestation, options);
-  return new BlockAttestation(payload, signature);
+  const { blockNumber, payload, signature } = makeAndSignConsensusPayload(
+    SignatureDomainSeparator.blockAttestation,
+    options,
+  );
+  return new BlockAttestation(blockNumber, payload, signature);
 };

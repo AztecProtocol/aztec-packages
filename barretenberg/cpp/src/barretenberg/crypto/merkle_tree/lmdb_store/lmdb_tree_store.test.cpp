@@ -589,7 +589,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
 TEST_F(LMDBTreeStoreTest, reports_physical_file_size)
 {
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    std::string dataDbPath = _directory + "/data.mdb";
+    std::string dataDbPath = (std::filesystem::path(_directory) / "data.mdb").string();
     size_t previousFileSize = 0;
 
     for (size_t i = 0; i < 3; i++) {
