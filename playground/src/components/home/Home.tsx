@@ -7,6 +7,7 @@ import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
 import { TxPanel } from '../sidebar/TxPanel';
+import { trackButtonClick } from '../../utils/matomo';
 
 const container = css({
   display: 'flex',
@@ -162,6 +163,9 @@ export default function Home() {
           target="_blank"
           rel="noopener noreferrer"
           css={docsButton}
+          onClick={() => {
+            trackButtonClick('Start Building', 'Home Page');
+          }}
         >
           Start Building
         </a>

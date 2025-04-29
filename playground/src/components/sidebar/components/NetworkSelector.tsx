@@ -16,6 +16,7 @@ import { NETWORKS } from '../../../utils/networks';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import NetworkIcon from '@mui/icons-material/Public';
 import { InputLabel } from '@mui/material';
+import { trackButtonClick } from '../../../utils/matomo';
 
 
 export function NetworkSelector() {
@@ -82,6 +83,7 @@ export function NetworkSelector() {
 
   const handleNetworkChange = async (nodeURL: string) => {
     try {
+      trackButtonClick(`Connect to ${nodeURL}`, 'Network Selector');
       setConnecting(true);
       setPXEInitialized(false);
       const network = networks.find(network => network.nodeURL === nodeURL);
@@ -187,6 +189,7 @@ export function NetworkSelector() {
                 key="create"
                 value=""
                 onClick={() => {
+                  trackButtonClick('Add Custom Network', 'Network Selector');
                   setOpen(false);
                   setOpenAddNetworksDialog(true);
                 }}

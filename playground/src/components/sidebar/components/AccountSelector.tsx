@@ -23,7 +23,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { useTransaction } from '../../../hooks/useTransaction';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
-
+import { trackButtonClick } from '../../../utils/matomo';
 export function AccountSelector() {
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
@@ -94,6 +94,7 @@ export function AccountSelector() {
     if (address == '') {
       return;
     }
+    trackButtonClick(`Select Account ${address}`, 'Account Selector');
     setIsAccountsLoading(true);
     const accountAddress = AztecAddress.fromString(address);
     const accountData = await walletDB.retrieveAccount(accountAddress);
@@ -132,6 +133,7 @@ export function AccountSelector() {
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => {
+    trackButtonClick('Create Account', 'Account Selector');
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
     if (accountWallet && publiclyDeploy) {
