@@ -250,13 +250,12 @@ export function ContractComponent() {
               {!!ContractDescriptions[currentContractArtifact.name] && (
                 <Typography variant="body2" css={{ marginBottom: '2rem' }}>
                   {ContractDescriptions[currentContractArtifact.name]}
-
-                  {!!ContractDocumentationLinks[currentContractArtifact.name] && (
-                    <Typography variant="body2" css={{ marginTop: '10px' }}>
-                      <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
-                      <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
-                    </Typography>
-                  )}
+                </Typography>
+              )}
+              {!!ContractDocumentationLinks[currentContractArtifact.name] && (
+                <Typography variant="body2" css={{ marginTop: '-1.5rem', marginBottom: '2rem' }}>
+                  <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
+                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
                 </Typography>
               )}
             </div>
