@@ -5,6 +5,10 @@ export const dialogBody = css({
   flexDirection: 'column',
   minWidth: '600px',
   minHeight: '500px',
+
+  '@media (max-width: 900px)': {
+    minWidth: '400px',
+  },
 });
 
 export const form = css({
@@ -76,6 +80,7 @@ export const navbarSelectLabel = css({
   flexDirection: 'row',
   gap: '12px',
   padding: '12px',
+  maxWidth: '300px',
 });
 
 const loadingAnimationLayer1 = keyframes`
@@ -96,12 +101,12 @@ export const loader = css({
   background: 'var(--mui-palette-primary-main)',
   transform: 'rotateX(65deg) rotate(45deg)',
   color: 'var(--mui-palette-primary-dark)',
-  animation: `${loadingAnimationLayer1} 1s linear infinite alternate`,
+  animation: `${loadingAnimationLayer1} 0.75s linear infinite alternate`,
   ':after': {
     content: '""',
     position: 'absolute',
     inset: 0,
     background: 'var(--mui-palette-primary-light)',
-    animation: `${loadingAnimationLayerTr} 1s linear infinite alternate`,
+    animation: `${loadingAnimationLayerTr} 0.75s linear infinite alternate`,
   },
 });

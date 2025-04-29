@@ -157,6 +157,9 @@ export function AccountSelector() {
         <SwitchAccountIcon />
       )}
       <FormControl css={navbarSelect}>
+        {!wallet?.getAddress().toString() && (
+          <InputLabel id="account-label">SelectAccount</InputLabel>
+        )}
         <Select
           fullWidth
           value={wallet?.getAddress().toString() ?? ''}
@@ -172,9 +175,10 @@ export function AccountSelector() {
             }
             if (selected) {
               const account = accounts.find(account => account.value === selected);
-              return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
+              if (account) {
+                return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
+              }
             }
-            return 'Select Account';
           }}
         >
           {!isPXEInitialized && (

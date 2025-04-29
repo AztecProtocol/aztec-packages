@@ -29,9 +29,9 @@ import Box from '@mui/material/Box';
 
 const container = css({
   display: 'flex',
-  // height: '100%',
+  height: '100%',
   width: '100%',
-  // overflow: 'hidden',
+  overflow: 'hidden',
   justifyContent: 'center',
   alignItems: 'center',
 });
@@ -39,7 +39,7 @@ const container = css({
 const contractFnContainer = css({
   display: 'block',
   width: '100%',
-  // overflowY: 'auto',
+  overflowY: 'auto',
   color: 'black',
   height: '100%',
 });

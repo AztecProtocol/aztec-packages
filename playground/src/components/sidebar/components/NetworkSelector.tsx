@@ -15,6 +15,7 @@ import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../sty
 import { NETWORKS } from '../../../utils/networks';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import NetworkIcon from '@mui/icons-material/Public';
+import { InputLabel } from '@mui/material';
 
 
 export function NetworkSelector() {
@@ -146,6 +147,9 @@ export function NetworkSelector() {
       ) : (
         <>
           <NetworkIcon />
+          {!network?.nodeURL && (
+            <InputLabel id="network-label">Select Network</InputLabel>
+          )}
           <FormControl css={navbarSelect}>
             <Select
               fullWidth
@@ -163,7 +167,6 @@ export function NetworkSelector() {
                 if (selected && network?.nodeURL) {
                   return `${network.name}`;
                 }
-                return 'Select Network';
               }}
               disabled={connecting}
               onChange={(e) => handleNetworkChange(e.target.value)}
