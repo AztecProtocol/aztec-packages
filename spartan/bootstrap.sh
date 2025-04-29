@@ -5,7 +5,7 @@ cmd=${1:-}
 
 hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
-flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
+dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
 
 function build {
   denoise "helm lint ./aztec-network/"
