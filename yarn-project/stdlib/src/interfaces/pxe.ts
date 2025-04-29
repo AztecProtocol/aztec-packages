@@ -462,6 +462,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .args(
       TxExecutionRequest.schema,
       z.union([z.literal('gates'), z.literal('full'), z.literal('execution-steps')]),
+      optional(z.boolean()),
       optional(schemas.AztecAddress),
     )
     .returns(TxProfileResult.schema),

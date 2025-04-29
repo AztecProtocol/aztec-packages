@@ -105,7 +105,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     try {
       const call = contract.methods[fnName](...parameters);
 
-      const profileResult = await call.profile({ profileMode: 'full' });
+      const profileResult = await call.profile({ profileMode: 'full', skipProofGeneration: false });
       setProfileResults({
         ...profileResults,
         ...{ [fnName]: { success: true, ...profileResult } },
