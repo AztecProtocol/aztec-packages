@@ -1,5 +1,6 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { maxBigint } from '@aztec/foundation/bigint';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -293,13 +294,24 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     // ********** Events that are processed per L2 block **********
     if (currentL1BlockNumber > blocksSynchedTo) {
       // First we retrieve new L2 blocks
-      const { provenBlockNumber } = await this.handleL2blocks(blocksSynchedTo, currentL1BlockNumber);
-      // And then we prune the current epoch if it'd reorg on next submission.
+      const rollupStatus = await this.handleL2blocks(blocksSynchedTo, currentL1BlockNumber);
+      // Then we prune the current epoch if it'd reorg on next submission.
       // Note that we don't do this before retrieving L2 blocks because we may need to retrieve
       // blocks from more than 2 epochs ago, so we want to make sure we have the latest view of
       // the chain locally before we start unwinding stuff. This can be optimized by figuring out
       // up to which point we're pruning, and then requesting L2 blocks up to that point only.
-      await this.handleEpochPrune(provenBlockNumber, currentL1BlockNumber, currentL1Timestamp);
+      const { rollupCanPrune } = await this.handleEpochPrune(
+        rollupStatus.provenBlockNumber,
+        currentL1BlockNumber,
+        currentL1Timestamp,
+      );
+      // And lastly we check if we are missing any L2 blocks behind us due to a possible L1 reorg.
+      // We only do this if rollup cant prune on the next submission. Otherwise we will end up
+      // re-syncing the blocks we have just unwound above.
+      if (!rollupCanPrune) {
+        await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
+      }
+
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
 
@@ -319,7 +331,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     }
   }
 
-  /** Queries the rollup contract on whether a prune can be executed on the immediatenext L1 block. */
+  /** Queries the rollup contract on whether a prune can be executed on the immediate next L1 block. */
   private async canPrune(currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
     const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
     const result = await this.rollup.canPruneAtTime(time, { blockNumber: currentL1BlockNumber });
@@ -335,9 +347,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
   private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
+    const rollupCanPrune = await this.canPrune(currentL1BlockNumber, currentL1Timestamp);
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
-    const canPrune =
-      localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber, currentL1Timestamp));
+    const canPrune = localPendingBlockNumber > provenBlockNumber && rollupCanPrune;
 
     if (canPrune) {
       const pruneFrom = provenBlockNumber + 1n;
@@ -373,6 +385,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
     }
+
+    return { rollupCanPrune };
   }
 
   private nextRange(end: bigint, limit: bigint): [bigint, bigint] {
@@ -419,15 +433,31 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     } while (searchEndBlock < currentL1BlockNumber);
   }
 
-  private async handleL2blocks(
-    blocksSynchedTo: bigint,
-    currentL1BlockNumber: bigint,
-  ): Promise<{ provenBlockNumber: bigint }> {
+  private async handleL2blocks(blocksSynchedTo: bigint, currentL1BlockNumber: bigint) {
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
     const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
       await this.rollup.status(localPendingBlockNumber, { blockNumber: currentL1BlockNumber });
+    const rollupStatus = { provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive };
+    this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
+      localPendingBlockNumber,
+      blocksSynchedTo,
+      currentL1BlockNumber,
+      archiveForLocalPendingBlockNumber,
+      ...rollupStatus,
+    });
 
     const updateProvenBlock = async () => {
+      // Annoying edge case: if proven block is moved back to 0 due to a reorg at the beginning of the chain,
+      // we need to set it to zero. This is an edge case because we dont have a block zero (initial block is one),
+      // so localBlockForDestinationProvenBlockNumber would not be found below.
+      if (provenBlockNumber === 0n) {
+        const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
+        if (localProvenBlockNumber !== Number(provenBlockNumber)) {
+          await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+          this.log.info(`Rolled back proven chain to block ${provenBlockNumber}`, { provenBlockNumber });
+        }
+      }
+
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
 
       // Sanity check. I've hit what seems to be a state where the proven block is set to a value greater than the latest
@@ -439,6 +469,12 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         );
       }
 
+      this.log.trace(
+        `Local block for remote proven block ${provenBlockNumber} is ${
+          localBlockForDestinationProvenBlockNumber?.archive.root.toString() ?? 'undefined'
+        }`,
+      );
+
       if (
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
@@ -449,6 +485,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           this.log.info(`Updated proven chain to block ${provenBlockNumber}`, {
             provenBlockNumber,
           });
+        } else {
+          this.log.trace(`Proven block ${provenBlockNumber} already stored.`);
         }
       }
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
@@ -462,7 +500,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       this.log.debug(
         `No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}, no blocks on chain`,
       );
-      return { provenBlockNumber };
+      return rollupStatus;
     }
 
     await updateProvenBlock();
@@ -483,10 +521,10 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         // this block again (or any blocks before).
         // However, in the re-org scenario, our L1 node is temporarily lying to us and we end up potentially missing blocks
         // We must only set this block number based on actually retrieved logs.
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8621): Tackle this properly when we handle L1 Re-orgs.
-        //await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+        // TODO(#8621): Tackle this properly when we handle L1 Re-orgs.
+        // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
-        return { provenBlockNumber };
+        return rollupStatus;
       }
 
       const localPendingBlockInChain = archiveForLocalPendingBlockNumber === localPendingBlock.archive.root.toString();
@@ -527,6 +565,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     // computed using the L2 block time vs the L1 block time.
     let searchStartBlock: bigint = blocksSynchedTo;
     let searchEndBlock: bigint = blocksSynchedTo;
+    let lastRetrievedBlock: PublishedL2Block | undefined;
 
     do {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
@@ -580,12 +619,58 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           globalVariables: block.block.header.globalVariables.toInspect(),
         });
       }
+      lastRetrievedBlock = publishedBlocks.at(-1) ?? lastRetrievedBlock;
     } while (searchEndBlock < currentL1BlockNumber);
 
     // Important that we update AFTER inserting the blocks.
     await updateProvenBlock();
 
-    return { provenBlockNumber };
+    return { ...rollupStatus, lastRetrievedBlock };
+  }
+
+  private async checkForNewBlocksBeforeL1SyncPoint(
+    status: {
+      lastRetrievedBlock?: PublishedL2Block;
+      pendingBlockNumber: bigint;
+    },
+    blocksSynchedTo: bigint,
+    currentL1BlockNumber: bigint,
+  ) {
+    const { lastRetrievedBlock, pendingBlockNumber } = status;
+    // Compare the last L2 block we have (either retrieved in this round or loaded from store) with what the
+    // rollup contract told us was the latest one (pinned at the currentL1BlockNumber).
+    const latestLocalL2BlockNumber = lastRetrievedBlock?.block.number ?? (await this.store.getSynchedL2BlockNumber());
+    if (latestLocalL2BlockNumber < pendingBlockNumber) {
+      // Here we have consumed all logs until the `currentL1Block` we pinned at the beginning of the archiver loop,
+      // but still havent reached the pending block according to the call to the rollup contract.
+      // We suspect an L1 reorg that added blocks *behind* us. If that is the case, it must have happened between the
+      // last L2 block we saw and the current one, so we reset the last synched L1 block number. In the edge case we
+      // don't have one, we go back 2 L1 epochs, which is the deepest possible reorg (assuming Casper is working).
+      const latestLocalL2Block =
+        lastRetrievedBlock ??
+        (latestLocalL2BlockNumber > 0
+          ? await this.store.getBlocks(latestLocalL2BlockNumber, 1).then(([b]) => b)
+          : undefined);
+      const targetL1BlockNumber = latestLocalL2Block?.l1.blockNumber ?? maxBigint(currentL1BlockNumber - 64n, 0n);
+      const latestLocalL2BlockArchive = latestLocalL2Block?.block.archive.root.toString();
+      this.log.warn(
+        `Failed to reach L2 block ${pendingBlockNumber} at ${currentL1BlockNumber} (latest is ${latestLocalL2BlockNumber}). ` +
+          `Rolling back last synched L1 block number to ${targetL1BlockNumber}.`,
+        {
+          latestLocalL2BlockNumber,
+          latestLocalL2BlockArchive,
+          blocksSynchedTo,
+          currentL1BlockNumber,
+          ...status,
+        },
+      );
+      await this.store.setBlockSynchedL1BlockNumber(targetL1BlockNumber);
+    } else {
+      this.log.trace(`No new blocks behind L1 sync point to retrieve.`, {
+        latestLocalL2BlockNumber,
+        pendingBlockNumber,
+      });
+    }
   }
 
   /** Resumes the archiver after a stop. */
@@ -882,9 +967,14 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       this.getProvenBlockNumber(),
     ] as const);
 
-    const [latestBlockHeader, provenBlockHeader] = await Promise.all([
+    // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
+    // We just force it 2 epochs worth of proven data for now.
+    const finalizedBlockNumber = Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0);
+
+    const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([
       latestBlockNumber > 0 ? this.getBlockHeader(latestBlockNumber) : undefined,
       provenBlockNumber > 0 ? this.getBlockHeader(provenBlockNumber) : undefined,
+      finalizedBlockNumber > 0 ? this.getBlockHeader(finalizedBlockNumber) : undefined,
     ] as const);
 
     if (latestBlockNumber > 0 && !latestBlockHeader) {
@@ -897,9 +987,16 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       );
     }
 
+    if (finalizedBlockNumber > 0 && !finalizedBlockHeader) {
+      throw new Error(
+        `Failed to retrieve finalized block header for block ${finalizedBlockNumber} (latest block is ${latestBlockNumber})`,
+      );
+    }
+
     const latestBlockHeaderHash = await latestBlockHeader?.hash();
     const provenBlockHeaderHash = await provenBlockHeader?.hash();
-    const finalizedBlockHeaderHash = await provenBlockHeader?.hash();
+    const finalizedBlockHeaderHash = await finalizedBlockHeader?.hash();
+
     return {
       latest: {
         number: latestBlockNumber,
@@ -910,7 +1007,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         hash: provenBlockHeaderHash?.toString(),
       } as L2BlockId,
       finalized: {
-        number: provenBlockNumber,
+        number: finalizedBlockNumber,
         hash: finalizedBlockHeaderHash?.toString(),
       } as L2BlockId,
     };
