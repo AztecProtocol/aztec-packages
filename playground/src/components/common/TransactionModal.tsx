@@ -12,6 +12,7 @@ import { TxStatus } from '@aztec/aztec.js';
 import { dialogBody, loader } from '../../styles/common';
 import type { UserTx } from '../../utils/txs';
 import ReactConfetti from 'react-confetti';
+import { trackButtonClick } from '../../utils/matomo';
 
 const TX_ERRORS = [
   'error',
@@ -250,6 +251,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
               href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackButtonClick('View on Explorer', 'Transaction Modal')}
             >
               View on Explorer
             </a>
@@ -261,7 +263,13 @@ export function TransactionModal(props: { transaction: UserTx }) {
         </span>
 
         <div css={buttonContainer}>
-          <Button variant="contained" onClick={() => handleShareOnTwitter(transaction?.txHash?.toString())}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              trackButtonClick('Share on X', 'Transaction Modal');
+              handleShareOnTwitter(transaction?.txHash?.toString());
+            }}
+          >
             <TwitterIcon style={{ marginRight: '0.5rem', fontSize: '1.2rem' }} />
             Share on X
           </Button>
@@ -272,6 +280,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
             href={DISCORD_URL}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackButtonClick('Join Discord', 'Transaction Modal')}
           >
             Join Discord
           </Button>
@@ -320,6 +329,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
             href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackButtonClick('View on Explorer', 'Transaction Modal')}
           >
             View on Explorer
           </Button>
