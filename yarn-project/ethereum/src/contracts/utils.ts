@@ -1,9 +1,9 @@
-import type { ViemPublicClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { BlockTagTooOldError } from './errors.js';
 
 const L1_NON_ARCHIVE_BLOCK_HISTORY_LENGTH = 128n;
 
-export async function checkBlockTag(block: bigint | undefined, publicClient: ViemPublicClient) {
+export async function checkBlockTag(block: bigint | undefined, publicClient: ViemClient) {
   if (block === undefined) {
     return;
   }
