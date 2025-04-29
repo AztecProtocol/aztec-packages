@@ -96,7 +96,8 @@
       "inherits": "default",
       "environment": {
         "CC": "clang-16",
-        "CXX": "clang++-16"
+        "CXX": "clang++-16",
+        "CMAKE_CXX_FLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
       }
     },
     {
@@ -234,7 +235,8 @@
       "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
       "inherits": "clang16",
       "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
       }
     },
     {
@@ -453,7 +455,8 @@
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS -DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
       }
     },
     {

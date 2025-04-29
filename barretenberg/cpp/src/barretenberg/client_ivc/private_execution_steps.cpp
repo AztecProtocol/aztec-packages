@@ -1,4 +1,5 @@
 #include "private_execution_steps.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include <libdeflate.h>
@@ -75,6 +76,7 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::parse_uncompressed
 
 void PrivateExecutionSteps::parse(const std::vector<PrivateExecutionStepRaw>& steps)
 {
+    PROFILE_THIS();
     for (const PrivateExecutionStepRaw& step : steps) {
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
         // use spans instead of vectors.
@@ -97,6 +99,7 @@ void PrivateExecutionSteps::parse(const std::vector<PrivateExecutionStepRaw>& st
 
 std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
 {
+    PROFILE_THIS();
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 

@@ -17,7 +17,7 @@ jq -r '.benchmarks[0].real_time / 1e3' $op_count_json |
 
 jq -r '.benchmarks[0] | to_entries[] |
   select(.key | endswith("(t)")) |
-  {op: (.key | rtrimstr("(t)")), seconds: (.value / 1e9)} |
+  {op: (.key | rtrimstr("(t)")), seconds: (.value / 1e6|round)} |
   [.seconds,.op] | @tsv' $op_count_json |
-  sort -k1 -nr |
-  head -$num_lines
+  sort -k1 -nr
+  # head -$num_lines
