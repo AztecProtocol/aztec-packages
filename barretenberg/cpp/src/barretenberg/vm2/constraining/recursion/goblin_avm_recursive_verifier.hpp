@@ -45,8 +45,8 @@ class AvmGoblinRecursiveVerifier {
     using UltraBuilder = UltraCircuitBuilder;
     using MegaBuilder = MegaCircuitBuilder;
 
-    using AggregationObject = bb::stdlib::recursion::aggregation_state<UltraBuilder>;
-    using MegaAggregationObject = bb::stdlib::recursion::aggregation_state<MegaBuilder>;
+    using PairingPoints = bb::stdlib::recursion::PairingPoints<UltraBuilder>;
+    using MegaPairingPoints = bb::stdlib::recursion::PairingPoints<MegaBuilder>;
 
     using UltraFF = stdlib::bn254<UltraBuilder>::ScalarField;
 
@@ -79,20 +79,20 @@ class AvmGoblinRecursiveVerifier {
      *
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
-     * @param input_agg_obj
-     * @return RecursiveAvmGoblinOutput {ipa_proof, ipa_claim, aggregation_object}
+     * @param input_points_accumulator
+     * @return RecursiveAvmGoblinOutput {ipa_proof, ipa_claim, points_accumulator}
      */
     RecursiveAvmGoblinOutput verify_proof(const StdlibProof<UltraBuilder>& stdlib_proof,
                                           const std::vector<std::vector<UltraFF>>& public_inputs,
-                                          const AggregationObject& input_agg_obj) const
+                                          const PairingPoints& input_points_accumulator) const
     {
         // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
-        InnerProverOutput inner_output =
-            construct_and_prove_inner_recursive_verification_circuit(stdlib_proof, public_inputs, input_agg_obj);
+        InnerProverOutput inner_output = construct_and_prove_inner_recursive_verification_circuit(
+            stdlib_proof, public_inputs, input_points_accumulator);
 
         // Construct the outer Ultra-arithmetized Mega/Goblin recursive verifier circuit
-        RecursiveAvmGoblinOutput result =
-            construct_outer_recursive_verification_circuit(stdlib_proof, public_inputs, input_agg_obj, inner_output);
+        RecursiveAvmGoblinOutput result = construct_outer_recursive_verification_circuit(
+            stdlib_proof, public_inputs, input_points_accumulator, inner_output);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         return result;
@@ -103,14 +103,14 @@ class AvmGoblinRecursiveVerifier {
      *
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
-     * @param input_agg_obj
+     * @param input_points_accumulator
      * @param inner_output Output of the prover of the inner circuit {\pi_M, \pi_G}, {VK_M, VK_G}
      * @return RecursiveAvmGoblinOutput
      */
     RecursiveAvmGoblinOutput construct_outer_recursive_verification_circuit(
         const StdlibProof<UltraBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs,
-        const AggregationObject& input_agg_obj,
+        const PairingPoints& input_points_accumulator,
         const InnerProverOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
@@ -135,7 +135,7 @@ class AvmGoblinRecursiveVerifier {
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk);
         StdlibProof<UltraBuilder> mega_proof =
             bb::convert_native_proof_to_stdlib(&ultra_builder, inner_output.mega_proof);
-        auto mega_verifier_output = mega_verifier.verify_proof(mega_proof, input_agg_obj);
+        auto mega_verifier_output = mega_verifier.verify_proof(mega_proof, input_points_accumulator);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk };
@@ -148,7 +148,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         return RecursiveAvmGoblinOutput{
-            .agg_obj = mega_verifier_output.agg_obj,
+            .points_accumulator = mega_verifier_output.points_accumulator,
             .ipa_claim = goblin_verifier_output.opening_claim,
             .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
         };
@@ -159,13 +159,13 @@ class AvmGoblinRecursiveVerifier {
      *
      * @param stdlib_proof AVM proof
      * @param public_inputs AVM public inputs
-     * @param input_agg_obj
+     * @param input_points_accumulator
      * @return InnerCircuitOutput proof and verification key for Mega + Goblin; {\pi_M, \pi_G}, {VK_M, VK_G}
      */
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
         const StdlibProof<UltraBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs,
-        [[maybe_unused]] const AggregationObject& input_agg_obj) const
+        [[maybe_unused]] const PairingPoints& input_points_accumulator) const
     {
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
@@ -210,17 +210,17 @@ class AvmGoblinRecursiveVerifier {
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
         AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1304): Do proper pairing point aggregation.
-        auto default_agg_object = MegaAggregationObject::construct_default(mega_builder);
+        auto default_points_accumulator = MegaPairingPoints::construct_default(mega_builder);
         [[maybe_unused]] auto mega_agg_output =
-            recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, default_agg_object);
-        MegaAggregationObject::add_default_pairing_points_to_public_inputs(mega_builder);
+            recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, default_points_accumulator);
+        MegaPairingPoints::add_default_to_public_inputs(mega_builder);
 
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         MegaProver mega_prover(mega_builder);
         HonkProof mega_proof = mega_prover.construct_proof();
 
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)
-        goblin.prove_merge(mega_builder);
+        goblin.prove_merge();
         GoblinProof goblin_proof = goblin.prove();
 
         // Recursively verify the goblin proof in the Ultra circuit

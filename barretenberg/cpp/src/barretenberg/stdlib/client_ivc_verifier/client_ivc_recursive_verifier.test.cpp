@@ -17,7 +17,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using IVCVerificationKey = ClientIVC::VerificationKey;
-    using AggregationObject = aggregation_state<Builder>;
+    using PairingAccumulator = PairingPoints<Builder>;
 
     static constexpr TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
 
@@ -107,7 +107,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
     // just using default.
-    AggregationObject::add_default_pairing_points_to_public_inputs(*tube_builder);
+    PairingAccumulator::add_default_to_public_inputs(*tube_builder);
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
     tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
@@ -137,9 +137,9 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto base_tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
     UltraRecursiveVerifierOutput<Builder> output =
-        base_verifier.verify_proof(base_tube_proof, AggregationObject::construct_default(base_builder));
+        base_verifier.verify_proof(base_tube_proof, PairingAccumulator::construct_default(base_builder));
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
-    output.agg_obj.set_public();
+    output.points_accumulator.set_public();
     output.ipa_claim.set_public();
     base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
@@ -170,7 +170,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output
         // instead of just using default.
-        AggregationObject::add_default_pairing_points_to_public_inputs(*tube_builder);
+        PairingAccumulator::add_default_to_public_inputs(*tube_builder);
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
         client_ivc_rec_verifier_output.opening_claim.set_public();
         tube_builder->ipa_proof =

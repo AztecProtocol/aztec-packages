@@ -28,6 +28,9 @@ struct ExecutionEvent {
     // todo(ilyas): this is a vector because GETCONTRACTINSTANCE has 2 outputs, we should change this to 1
     std::vector<TaggedValue> output;
 
+    // Context Id for the next context.
+    uint32_t next_context_id;
+
     // Sub-events.
     AddressingEvent addressing_event;
     ContextEvent context_event;

@@ -11,7 +11,7 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
   async validate(message: BlockAttestation): Promise<PeerErrorSeverity | undefined> {
     const { currentSlot, nextSlot } = await this.epochCache.getProposerInCurrentOrNextSlot();
 
-    const slotNumberBigInt = message.payload.header.globalVariables.slotNumber.toBigInt();
+    const slotNumberBigInt = message.payload.header.slotNumber.toBigInt();
     if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
       return PeerErrorSeverity.HighToleranceError;
     }

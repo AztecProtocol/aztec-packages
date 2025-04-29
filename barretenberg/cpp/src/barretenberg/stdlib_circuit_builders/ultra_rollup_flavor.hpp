@@ -13,7 +13,7 @@ namespace bb {
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
     // Proof length formula:
-    // 1. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 1. PAIRING_POINTS_SIZE public inputs for pairing point accumulator
     // 2. IPA_CLAIM_SIZE public inputs for IPA claim
     // 3. NUM_WITNESS_ENTITIES commitments
     // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates

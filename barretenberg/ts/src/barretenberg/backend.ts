@@ -8,7 +8,7 @@ import {
   reconstructHonkProof,
   reconstructUltraPlonkProof,
   splitHonkProof,
-  AGGREGATION_OBJECT_LENGTH,
+  PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
 import { Encoder } from 'msgpackr/pack';
 
@@ -25,7 +25,6 @@ function parseBigEndianU32Array(buffer: Uint8Array): number[] {
 
   let offset = 0;
   const count = buffer.byteLength >>> 2; // default is entire buffer length / 4
-  console.log(buffer);
 
   const out: number[] = new Array(count);
   for (let i = 0; i < count; i++) {
@@ -225,8 +224,8 @@ export class UltraHonkBackend {
     const proveUltraHonk = options?.keccak
       ? this.api.acirProveUltraKeccakHonk.bind(this.api)
       : options?.starknet
-        ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-        : this.api.acirProveUltraHonk.bind(this.api);
+      ? this.api.acirProveUltraStarknetHonk.bind(this.api)
+      : this.api.acirProveUltraHonk.bind(this.api);
 
     const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
 
@@ -234,15 +233,15 @@ export class UltraHonkBackend {
     const writeVKUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.starknet
-        ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-        : this.api.acirWriteVkUltraHonk.bind(this.api);
+      ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
 
     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
     const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
 
     // Item at index 1 in VK is the number of public inputs
     const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
-    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - AGGREGATION_OBJECT_LENGTH;
+    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - PAIRING_POINTS_SIZE;
 
     const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
     const publicInputs = deflattenFields(publicInputsBytes);
@@ -258,13 +257,13 @@ export class UltraHonkBackend {
     const writeVkUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.starknet
-        ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-        : this.api.acirWriteVkUltraHonk.bind(this.api);
+      ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
     const verifyUltraHonk = options?.keccak
       ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
       : options?.starknet
-        ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
-        : this.api.acirVerifyUltraHonk.bind(this.api);
+      ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
+      : this.api.acirVerifyUltraHonk.bind(this.api);
 
     const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
@@ -275,8 +274,8 @@ export class UltraHonkBackend {
     return options?.keccak
       ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode)
       : options?.starknet
-        ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
-        : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+      ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
+      : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
   }
 
   /** @description Returns a solidity verifier */
@@ -336,7 +335,11 @@ interface AztecClientExecutionStep {
   vk: Uint8Array;
 }
 
-function serializeAztecClientExecutionSteps(acirBuf: Uint8Array[], witnessBuf: Uint8Array[], vksBuf: Uint8Array[]): Uint8Array {
+function serializeAztecClientExecutionSteps(
+  acirBuf: Uint8Array[],
+  witnessBuf: Uint8Array[],
+  vksBuf: Uint8Array[],
+): Uint8Array {
   const steps: AztecClientExecutionStep[] = [];
   for (let i = 0; i < acirBuf.length; i++) {
     const bytecode = acirBuf[i];
