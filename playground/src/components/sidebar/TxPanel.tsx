@@ -255,7 +255,7 @@ export function TxPanel() {
 
               <Button
                 variant="contained"
-                color="info"
+                color="secondary"
                 onClick={() => setSeenPendingTxPopover(true)}
                 size="small"
                 sx={{ marginTop: '1rem', borderRadius: '6px' }}

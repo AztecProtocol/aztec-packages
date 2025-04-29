@@ -102,12 +102,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
 
     // Set error state to indicate deployment was cancelled
     if (currentTx && !TX_ERRORS.includes(currentTx.status)) {
-      setCurrentTx({
-        ...currentTx,
-        status: 'error' as const,
-        error: 'Transaction cancelled by user',
-      });
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setCurrentTx(null);
     }
 
     setCurrentTx(null);
@@ -148,8 +143,10 @@ export function TransactionModal(props: { transaction: UserTx }) {
   const isProving = transaction?.status === 'proving';
   const isSending = transaction?.status === 'sending';
   const isSuccess = transaction?.status === 'success';
+  const isPending = transaction?.status === 'pending';
   const errorMessage = transaction?.error ?? transaction?.receipt?.error;
   const isTimeoutError = errorMessage && errorMessage.toLowerCase().includes('timeout awaiting');
+
 
   function renderProvingState() {
     return (
@@ -197,7 +194,9 @@ export function TransactionModal(props: { transaction: UserTx }) {
           <span css={loader}></span>
 
           <Typography css={subtitleText} style={{ textAlign: 'left' }}>
+            <br />
             Your transaction has been sent to the Aztec network.
+            <br />
             <br />
             We are waiting for a confirmation that your transaction was included in a block.
           </Typography>
@@ -291,18 +290,17 @@ export function TransactionModal(props: { transaction: UserTx }) {
 
         <div css={content}>
           <Typography css={subtitleText} style={{ textAlign: 'left' }}>
-            Your transaction was successfully sent to the mempool but it is
-            taking slightly longer to add it to a block.
+            Your transaction was successfully sent to the mempool but it took slightly longer to add it to a block.
             <br />
             <br />
-            You can check the transaction status on the block explorer.
+            It might be already included in a block by now. You can check the transaction status on a block explorer.
           </Typography>
         </div>
 
         <div css={buttonContainer}>
           <Button
             variant="contained"
-            color="secondary"
+            color="primary"
             href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -329,7 +327,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
         </IconButton>
 
         <div css={container}>
-          {isTimeoutError && renderTimeoutError()}
+          {(isPending || isTimeoutError) && renderTimeoutError()}
           {isError && !isTimeoutError && renderErrorState()}
           {isSending && renderSendingState()}
           {isProving && renderProvingState()}
