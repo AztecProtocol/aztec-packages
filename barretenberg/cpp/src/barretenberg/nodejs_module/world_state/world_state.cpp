@@ -122,7 +122,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     // optional parameters
     size_t map_size_index = 5;
     if (info.Length() > map_size_index) {
-        if (info[4].IsObject()) {
+        if (info[map_size_index].IsObject()) {
             Napi::Object obj = info[map_size_index].As<Napi::Object>();
 
             for (auto tree_id : tree_ids) {
