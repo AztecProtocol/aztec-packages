@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745752570700,
+  "lastUpdate": 1745948400389,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f19c182e80be6e3c7239a48585ab70bc8cffd5ea",
-          "message": "refactor: validate block header hash in circuits (#13094)\n\nPreviously: we computed the \"end\" block (header) hash in circuit and\noutput it along with the previous block hash from block root. The L1 was\nsupposed to check that the previous block hash was the same as the\nprevious block's end block hash. But we only did that for the first\nblock of the entire epoch, the rest of the proposed block hashes could\nbe anything.\n\nNow:\n- Remove block hashes on l1, as it is committed to by archive roots. And\nnothing is looking up the block hash value on L1.\n- Constrain the previous block hash in block root rollup circuit by\nperforming a membership check against the previous archive root.",
-          "timestamp": "2025-04-22T14:10:36Z",
-          "tree_id": "eda00eb219a857f45887855751deda090c0a5d06",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f19c182e80be6e3c7239a48585ab70bc8cffd5ea"
-        },
-        "date": 1745334592036,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9595,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.27468603386329427,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 156456,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 147128,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6e3e494a1698d07145ff5abea0ea951889d118f0",
+          "message": "chore: bump noir commit (#13930)\n\nThis should address #13921\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
+          "timestamp": "2025-04-29T16:44:09Z",
+          "tree_id": "30df15a0eed2dc830783c1569bc65f155cf6b393",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6e3e494a1698d07145ff5abea0ea951889d118f0"
+        },
+        "date": 1745948399380,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8457,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24211263612480324,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 147297,
             "unit": "us"
           }
         ]
