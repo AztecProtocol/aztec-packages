@@ -22,6 +22,10 @@ network:
   public: true
   p2pBootstrapNodesAsFullPeers: false
 
+blobs:
+  remoteBlobSinkUrl: "http://alpha-testnet-aztec-network-blob-sink.alpha-testnet.svc.cluster.local:5052"
+  remoteBlobSinkEnabled: true
+
 blobSink:
   enabled: false
 
