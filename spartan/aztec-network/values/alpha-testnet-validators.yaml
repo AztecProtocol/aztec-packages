@@ -45,6 +45,8 @@ faucet:
 bootNode:
   enabled: false
   replicas: 0
+  # unused.
+  externalHost: "http://localhost:8080"
 
 fullNode:
   enabled: false
