@@ -56,9 +56,9 @@ pub global NoteStatus: NoteStatusEnum = NoteStatusEnum {
 
 // This is the default filter and preprocessor, which does nothing
 fn return_all_notes<Note>(
-    notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     _p: Field,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
+) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
     notes
 }
 
@@ -72,7 +72,7 @@ pub struct NoteGetterOptions<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
     // unlike filter it is applied in an unconstrained context.
     pub preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub preprocessor_args: PREPROCESSOR_ARGS,
-    pub filter: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    pub filter: fn(BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, FILTER_ARGS) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub filter_args: FILTER_ARGS,
     pub status: u8,
 }
@@ -163,7 +163,7 @@ where
     // the database and preprocessor_args as its parameters.
     // `preprocessor_args` allows you to provide additional data or context to the custom preprocessor.
     pub fn with_preprocessor(
-        preprocessor: fn([Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL], PREPROCESSOR_ARGS) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+        preprocessor: fn(BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, PREPROCESSOR_ARGS) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
         preprocessor_args: PREPROCESSOR_ARGS,
     ) -> Self {
         Self {

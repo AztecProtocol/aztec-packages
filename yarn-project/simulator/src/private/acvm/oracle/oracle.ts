@@ -7,7 +7,12 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ACVMField } from '../acvm_types.js';
 import { fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
-import { arrayOfArraysToBoundedVecOfArrays, bufferToBoundedVec, toACVMField, toACVMFieldSingleOrArray } from '../serialize.js';
+import {
+  arrayOfArraysToBoundedVecOfArrays,
+  bufferToBoundedVec,
+  toACVMField,
+  toACVMFieldSingleOrArray,
+} from '../serialize.js';
 import type { TypedOracle } from './typed_oracle.js';
 
 /**
@@ -202,12 +207,7 @@ export class Oracle {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
       let nonzeroNoteHashCounter = noteIsTransient ? true : false;
-      return [
-        contractAddress,
-        nonce,
-        nonzeroNoteHashCounter,
-        ...note.items,
-      ];
+      return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
     });
 
     // Now we convert each sub-array to an array of ACVMField

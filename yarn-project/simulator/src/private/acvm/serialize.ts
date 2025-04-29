@@ -87,7 +87,10 @@ export function arrayToBoundedVec(bVecStorage: ACVMField[], maxLen: number): [AC
   return [storage, len];
 }
 
-export function arrayOfArraysToBoundedVecOfArrays(bVecStorage: ACVMField[][], maxLen: number): [ACVMField[][], ACVMField] {
+export function arrayOfArraysToBoundedVecOfArrays(
+  bVecStorage: ACVMField[][],
+  maxLen: number,
+): [ACVMField[][], ACVMField] {
   if (bVecStorage.length > maxLen) {
     throw new Error(`Array of length ${bVecStorage.length} larger than maxLen ${maxLen}`);
   }
