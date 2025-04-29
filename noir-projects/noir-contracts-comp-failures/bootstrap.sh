@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Exit on error
-set -e
+
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
 # nargo command path relative to the individual contract directory
 export NARGO=${NARGO:-../../../../noir/noir-repo/target/release/nargo}
+export NOIR_HASH=${NOIR_HASH:- $(../../noir/bootstrap.sh hash)}
 
 # Function to check if compilation error matches expected error
 check_compilation_error() {
@@ -43,7 +44,8 @@ check_compilation_error() {
     fi
 }
 
-test_compilation_failures() {
+# Tests that compilation of contracts in noir-contracts-comp-failures fails with the expected error message.
+test() {
     # Iterate through all directories in contracts/
     for contract_dir in contracts/*/; do
         if [ -d "$contract_dir" ]; then
@@ -52,10 +54,14 @@ test_compilation_failures() {
     done
 }
 
-# In this case, the only available command is the one for testing the compilation failures
+function test_cmds {
+    hash=$(hash_str $NOIR_HASH $(cache_content_hash ^noir-projects/noir-contracts-comp-failures))
+    echo "$hash ./noir-projects/noir-contracts-comp-failures/bootstrap.sh test"
+}
+
 case "$cmd" in
   test|test_cmds)
-    test_compilation_failures
+    $cmd
     ;;
   *)
     echo_stderr "Unknown command: $cmd"
