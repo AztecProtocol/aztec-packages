@@ -169,7 +169,7 @@ export function NetworkSelector() {
                 }
               }}
               disabled={connecting}
-              onChange={(e) => handleNetworkChange(e.target.value)}
+              onChange={e => handleNetworkChange(e.target.value)}
             >
               {networks.map(network => (
                 <MenuItem

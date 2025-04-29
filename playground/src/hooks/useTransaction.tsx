@@ -57,7 +57,7 @@ export function useTransaction() {
         ...{ txHash, status: 'sending' },
       });
 
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 10 });
+      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 180 });
       if (showNotification) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
           severity: 'success',

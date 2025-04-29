@@ -437,8 +437,8 @@ async function setupFromFresh(
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
       aztecNode,
-      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
     );
   }
@@ -561,8 +561,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     proverNode = await createAndSyncProverNode(
       proverNodePrivateKeyHex,
       aztecNodeConfig,
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
       aztecNode,
-      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       prefilledPublicData,
     );
   }

@@ -10,7 +10,7 @@ import type {
   PublishedL2Block,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { P2PApi, PeerInfo, ProverCoordination } from '@aztec/stdlib/interfaces/server';
+import type { P2PApi, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, type BlockProposal, ConsensusPayload, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
@@ -58,116 +58,142 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = ProverCoordination &
-  P2PApi<T> & {
-    /**
-     * Broadcasts a block proposal to other peers.
-     *
-     * @param proposal - the block proposal
-     */
-    broadcastProposal(proposal: BlockProposal): void;
+export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
+  /**
+   * Broadcasts a block proposal to other peers.
+   *
+   * @param proposal - the block proposal
+   */
+  broadcastProposal(proposal: BlockProposal): void;
 
-    /**
-     * Registers a callback from the validator client that determines how to behave when
-     * foreign block proposals are received
-     *
-     * @param handler - A function taking a received block proposal and producing an attestation
-     */
-    // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
-    // ^ This pattern is not my favorite (md)
-    registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+  /**
+   * Registers a callback from the validator client that determines how to behave when
+   * foreign block proposals are received
+   *
+   * @param handler - A function taking a received block proposal and producing an attestation
+   */
+  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
+  // ^ This pattern is not my favorite (md)
+  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 
-    /**
-     * Request a list of transactions from another peer by their tx hashes.
-     * @param txHashes - Hashes of the txs to query.
-     * @returns A list of transactions or undefined if the transactions are not found.
-     */
-    requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  /**
+   * Request a list of transactions from another peer by their tx hashes.
+   * @param txHashes - Hashes of the txs to query.
+   * @returns A list of transactions or undefined if the transactions are not found.
+   */
+  requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
-    /**
-     * Request a transaction from another peer by its tx hash.
-     * @param txHash - Hash of the tx to query.
-     */
-    requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  /**
+   * Request a transaction from another peer by its tx hash.
+   * @param txHash - Hash of the tx to query.
+   */
+  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-    /**
-     * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
-     * @param tx - The transaction.
-     **/
-    sendTx(tx: Tx): Promise<void>;
+  /**
+   * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
+   * @param tx - The transaction.
+   **/
+  sendTx(tx: Tx): Promise<void>;
 
-    /**
-     * Deletes 'txs' from the pool, given hashes.
-     * NOT used if we use sendTx as reconcileTxPool will handle this.
-     * @param txHashes - Hashes to check.
-     **/
-    deleteTxs(txHashes: TxHash[]): Promise<void>;
+  /**
+   * Adds transactions to the pool. Does not send to peers or validate the tx.
+   * @param txs - The transactions.
+   **/
+  addTxs(txs: Tx[]): Promise<void>;
 
-    /**
-     * Returns a transaction in the transaction pool by its hash.
-     * @param txHash  - Hash of tx to return.
-     * @returns A single tx or undefined.
-     */
-    getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
+  /**
+   * Deletes 'txs' from the pool, given hashes.
+   * NOT used if we use sendTx as reconcileTxPool will handle this.
+   * @param txHashes - Hashes to check.
+   **/
+  deleteTxs(txHashes: TxHash[]): Promise<void>;
 
-    /**
-     * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
-     * @param txHash  - Hash of tx to return.
-     * @returns A single tx or undefined.
-     */
-    getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  /**
+   * Returns a transaction in the transaction pool by its hash.
+   * @param txHash  - Hash of tx to return.
+   * @returns A single tx or undefined.
+   */
+  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
 
-    /**
-     * Returns an archived transaction from the transaction pool by its hash.
-     * @param txHash  - Hash of tx to return.
-     * @returns A single tx or undefined.
-     */
-    getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  /**
+   * Returns transactions in the transaction pool by hash.
+   * @param txHashes  - Hashes of txs to return.
+   * @returns An array of txs or undefined.
+   */
+  getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
-    /**
-     * Returns whether the given tx hash is flagged as pending or mined.
-     * @param txHash - Hash of the tx to query.
-     * @returns Pending or mined depending on its status, or undefined if not found.
-     */
-    getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+  /**
+   * Checks if transactions exist in the pool
+   * @param txHashes - The hashes of the transactions to check for
+   * @returns True or False for each hash
+   */
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
 
-    /** Returns an iterator over pending txs on the mempool. */
-    iteratePendingTxs(): AsyncIterableIterator<Tx>;
+  /**
+   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
+   * @param txHash  - Hash of tx to return.
+   * @returns A single tx or undefined.
+   */
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-    /** Returns the number of pending txs in the mempool. */
-    getPendingTxCount(): Promise<number>;
+  /**
+   * Returns transactions in the transaction pool by hash, requesting from the network if not found.
+   * @param txHashes  - Hashes of tx to return.
+   * @returns An array of tx or undefined.
+   */
+  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
-    /**
-     * Starts the p2p client.
-     * @returns A promise signalling the completion of the block sync.
-     */
-    start(): Promise<void>;
+  /**
+   * Returns an archived transaction from the transaction pool by its hash.
+   * @param txHash  - Hash of tx to return.
+   * @returns A single tx or undefined.
+   */
+  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-    /**
-     * Stops the p2p client.
-     * @returns A promise signalling the completion of the stop process.
-     */
-    stop(): Promise<void>;
+  /**
+   * Returns whether the given tx hash is flagged as pending or mined.
+   * @param txHash - Hash of the tx to query.
+   * @returns Pending or mined depending on its status, or undefined if not found.
+   */
+  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 
-    /**
-     * Indicates if the p2p client is ready for transaction submission.
-     * @returns A boolean flag indicating readiness.
-     */
-    isReady(): boolean;
+  /** Returns an iterator over pending txs on the mempool. */
+  iteratePendingTxs(): AsyncIterableIterator<Tx>;
 
-    /**
-     * Returns the current status of the p2p client.
-     */
-    getStatus(): Promise<P2PSyncState>;
+  /** Returns the number of pending txs in the mempool. */
+  getPendingTxCount(): Promise<number>;
 
-    /**
-     * Returns the ENR of this node, if any.
-     */
-    getEnr(): ENR | undefined;
+  /**
+   * Starts the p2p client.
+   * @returns A promise signalling the completion of the block sync.
+   */
+  start(): Promise<void>;
 
-    /** Identifies a p2p client. */
-    isP2PClient(): true;
-  };
+  /**
+   * Stops the p2p client.
+   * @returns A promise signalling the completion of the stop process.
+   */
+  stop(): Promise<void>;
+
+  /**
+   * Indicates if the p2p client is ready for transaction submission.
+   * @returns A boolean flag indicating readiness.
+   */
+  isReady(): boolean;
+
+  /**
+   * Returns the current status of the p2p client.
+   */
+  getStatus(): Promise<P2PSyncState>;
+
+  /**
+   * Returns the ENR of this node, if any.
+   */
+  getEnr(): ENR | undefined;
+
+  /** Identifies a p2p client. */
+  isP2PClient(): true;
+};
 
 /**
  * The P2P client implementation.
@@ -445,12 +471,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
-    await this.txPool.addTxs(txs);
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const txs = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
+
+    // Some transactions may return undefined, so we filter them out
+    const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
+    await this.txPool.addTxs(filteredTxs);
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
     this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
-    return txs as Tx[];
+
+    // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
+    return txs;
   }
 
   public getPendingTxs(): Promise<Tx[]> {
@@ -502,6 +533,19 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
+   * Returns transactions in the transaction pool by hash.
+   * @param txHashes - Hashes of the transactions to look for.
+   * @returns The txs found, not necessarily on the same order as the hashes.
+   */
+  getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    return this.txPool.getTxsByHash(txHashes);
+  }
+
+  hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
+    return this.txPool.hasTxs(txHashes);
+  }
+
+  /**
    * Returns a transaction in the transaction pool by its hash.
    * If the transaction is not in the pool, it will be requested from the network.
    * @param txHash - Hash of the transaction to look for in the pool.
@@ -533,7 +577,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes);
-    return txs.filter((tx): tx is Tx => !!tx).concat(missingTxs);
+    const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
+    return txs.filter((tx): tx is Tx => !!tx).concat(fetchedMissingTxs);
   }
 
   /**
@@ -551,9 +596,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    this.#assertIsReady();
-    await this.txPool.addTxs([tx]);
+    await this.addTxs([tx]);
     this.p2pService.propagate(tx);
+  }
+
+  /**
+   * Adds transactions to the pool. Does not send to peers or validate the txs.
+   * @param txs - The transactions.
+   **/
+  public async addTxs(txs: Tx[]): Promise<void> {
+    this.#assertIsReady();
+    await this.txPool.addTxs(txs);
   }
 
   /**
@@ -732,36 +785,50 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param latestBlock - The block number the chain was pruned to.
    */
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
-    const txsToDelete: TxHash[] = [];
+    // NOTE: temporary fix for alphanet, deleting ALL txs that were in the epoch from the pool #13723
+    // TODO: undo once fixed: #13770
+    const txsToDelete = new Set<TxHash>();
+    const minedTxs = await this.txPool.getMinedTxHashes();
+    for (const [txHash, blockNumber] of minedTxs) {
+      if (blockNumber > latestBlock) {
+        txsToDelete.add(txHash);
+      }
+    }
+
+    // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
-        txsToDelete.push(await tx.getTxHash());
+        const txHash = await tx.getTxHash();
+        txsToDelete.add(txHash);
       }
     }
 
     this.log.info(
       `Detected chain prune. Removing invalid txs count=${
-        txsToDelete.length
+        txsToDelete.size
       } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
     );
 
     // delete invalid txs (both pending and mined)
-    await this.txPool.deleteTxs(txsToDelete);
+    await this.txPool.deleteTxs(Array.from(txsToDelete));
 
     // everything left in the mined set was built against a block on the proven chain so its still valid
     // move back to pending the txs that were reorged out of the chain
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
-    const txsToMoveToPending: TxHash[] = [];
-    for (const [txHash, blockNumber] of await this.txPool.getMinedTxHashes()) {
-      if (blockNumber > latestBlock) {
-        txsToMoveToPending.push(txHash);
-      }
-    }
 
-    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    await this.txPool.markMinedAsPending(txsToMoveToPending);
+    // NOTE: given current fix for alphanet, the code below is redundant as all these txs will be deleted.
+    // TODO: bring back once fixed: #13770
+    // const txsToMoveToPending: TxHash[] = [];
+    // for (const [txHash, blockNumber] of minedTxs) {
+    //   if (blockNumber > latestBlock) {
+    //     txsToMoveToPending.push(txHash);
+    //   }
+    // }
+
+    // this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
+    // await this.txPool.markMinedAsPending(txsToMoveToPending);
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added
