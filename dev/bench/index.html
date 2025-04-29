@@ -82,6 +82,20 @@
       .benchmark-chart {
         max-width: 1000px;
       }
+      details.bench-section {
+        margin: 16px 0;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        background: #fafbfc;
+        padding: 0.5em 1em;
+      }
+      summary.bench-section-title {
+        font-size: 1.25rem;
+        font-weight: 500;
+        cursor: pointer;
+        outline: none;
+        padding: 0.25em 0;
+      }
     </style>
     <title>Benchmarks</title>
   </head>
@@ -109,7 +123,6 @@
     <script id="main-script">
       'use strict';
       (function() {
-        // Colors from https://github.com/github/linguist/blob/master/lib/linguist/languages.yml
         const toolColors = {
           cargo: '#dea584',
           go: '#00add8',
@@ -125,6 +138,25 @@
           customSmallerIsBetter: '#ff3838',
           _: '#333333'
         };
+
+        // Section patterns and titles
+        const sectionPatterns = [
+          { pattern: /ivc-proof-wasm-memory$/, title: 'App proving (WASM, MB)' },
+          { pattern: /ivc-proof-memory$/, title: 'App proving (native, MB)' },
+          { pattern: /ivc-proof-wasm$/, title: 'App proving (WASM, seconds)' },
+          { pattern: /ivc-proof$/, title: 'App proving (native, seconds)' },
+          { pattern: /Bench\//, title: 'bb-micro-bench' },
+          { pattern: /construct_proof/, title: 'bb-micro-bench' },
+          { pattern: /UltraHonkVerifier/, title: 'bb-micro-bench' },
+          { pattern: /commit\(t\)|Goblin::merge\(t\)/, title: 'bb-micro-bench-op-counts' }
+        ];
+
+        function getSectionTitle(benchName) {
+          for (const {pattern, title} of sectionPatterns) {
+            if (pattern.test(benchName)) return title;
+          }
+          return null;
+        }
 
         function init() {
           function collectBenchesPerTestCase(entries) {
@@ -168,113 +200,145 @@
           }));
         }
 
-        function renderAllChars(dataSets) {
+        function groupBenchesBySection(benchSet) {
+          // Map: sectionTitle -> Map(benchName -> benches[])
+          const sectionMap = new Map();
+          for (const [benchName, benches] of benchSet.entries()) {
+            const sectionTitle = getSectionTitle(benchName) || 'Other';
+            if (!sectionMap.has(sectionTitle)) {
+              sectionMap.set(sectionTitle, new Map());
+            }
+            sectionMap.get(sectionTitle).set(benchName, benches);
+          }
+          return sectionMap;
+        }
 
-          function renderGraph(parent, name, dataset) {
-            const canvas = document.createElement('canvas');
-            canvas.className = 'benchmark-chart';
-            parent.appendChild(canvas);
+        function renderGraph(parent, name, dataset) {
+          const canvas = document.createElement('canvas');
+          canvas.className = 'benchmark-chart';
+          parent.appendChild(canvas);
 
-            const color = toolColors[dataset.length > 0 ? dataset[0].tool : '_'];
-            const data = {
-              labels: dataset.map(d => d.commit.id.slice(0, 7)),
-              datasets: [
+          const color = toolColors[dataset.length > 0 ? dataset[0].tool : '_'];
+          const data = {
+            labels: dataset.map(d => d.commit.id.slice(0, 7)),
+            datasets: [
+              {
+                label: name,
+                data: dataset.map(d => d.bench.value),
+                borderColor: color,
+                backgroundColor: color + '60',
+              }
+            ],
+          };
+          const options = {
+            scales: {
+              xAxes: [
                 {
-                  label: name,
-                  data: dataset.map(d => d.bench.value),
-                  borderColor: color,
-                  backgroundColor: color + '60', // Add alpha for #rrggbbaa
+                  scaleLabel: {
+                    display: true,
+                    labelString: 'commit',
+                  },
                 }
               ],
-            };
-            const options = {
-              scales: {
-                xAxes: [
-                  {
-                    scaleLabel: {
-                      display: true,
-                      labelString: 'commit',
-                    },
-                  }
-                ],
-                yAxes: [
-                  {
-                    scaleLabel: {
-                      display: true,
-                      labelString: dataset.length > 0 ? dataset[0].bench.unit : '',
-                    },
-                    ticks: {
-                      beginAtZero: true,
-                    }
-                  }
-                ],
-              },
-              tooltips: {
-                callbacks: {
-                  afterTitle: items => {
-                    const {index} = items[0];
-                    const data = dataset[index];
-                    return '\n' + data.commit.message + '\n\n' + data.commit.timestamp + ' committed by @' + data.commit.committer.username + '\n';
+              yAxes: [
+                {
+                  scaleLabel: {
+                    display: true,
+                    labelString: dataset.length > 0 ? dataset[0].bench.unit : '',
                   },
-                  label: item => {
-                    let label = item.value;
-                    const { range, unit } = dataset[item.index].bench;
-                    label += ' ' + unit;
-                    if (range) {
-                      label += ' (' + range + ')';
-                    }
-                    return label;
-                  },
-                  afterLabel: item => {
-                    const { extra } = dataset[item.index].bench;
-                    return extra ? '\n' + extra : '';
+                  ticks: {
+                    beginAtZero: true,
                   }
                 }
-              },
-              onClick: (_mouseEvent, activeElems) => {
-                if (activeElems.length === 0) {
-                  return;
+              ],
+            },
+            tooltips: {
+              callbacks: {
+                afterTitle: items => {
+                  const {index} = items[0];
+                  const data = dataset[index];
+                  return '\n' + data.commit.message + '\n\n' + data.commit.timestamp + ' committed by @' + data.commit.committer.username + '\n';
+                },
+                label: item => {
+                  let label = item.value;
+                  const { range, unit } = dataset[item.index].bench;
+                  label += ' ' + unit;
+                  if (range) {
+                    label += ' (' + range + ')';
+                  }
+                  return label;
+                },
+                afterLabel: item => {
+                  const { extra } = dataset[item.index].bench;
+                  return extra ? '\n' + extra : '';
                 }
-                // XXX: Undocumented. How can we know the index?
-                const index = activeElems[0]._index;
-                const url = dataset[index].commit.url;
-                window.open(url, '_blank');
-              },
-            };
+              }
+            },
+            onClick: (_mouseEvent, activeElems) => {
+              if (activeElems.length === 0) {
+                return;
+              }
+              const index = activeElems[0]._index;
+              const url = dataset[index].commit.url;
+              window.open(url, '_blank');
+            },
+          };
 
-            new Chart(canvas, {
-              type: 'line',
-              data,
-              options,
-            });
-          }
+          new Chart(canvas, {
+            type: 'line',
+            data,
+            options,
+          });
+        }
 
-          function renderBenchSet(name, benchSet, main) {
-            const setElem = document.createElement('div');
-            setElem.className = 'benchmark-set';
-            main.appendChild(setElem);
+        function renderBenchSet(name, benchSet, main, customTitle) {
+          const setElem = document.createElement('div');
+          setElem.className = 'benchmark-set';
+          main.appendChild(setElem);
 
-            const nameElem = document.createElement('h1');
-            nameElem.className = 'benchmark-title';
-            nameElem.textContent = name;
-            setElem.appendChild(nameElem);
+          const nameElem = document.createElement('h1');
+          nameElem.className = 'benchmark-title';
+          nameElem.textContent = customTitle || name;
+          setElem.appendChild(nameElem);
+
+          const sectionMap = groupBenchesBySection(benchSet);
+
+          for (const [sectionTitle, benchesMap] of sectionMap.entries()) {
+            const details = document.createElement('details');
+            details.className = 'bench-section';
+            if (sectionTitle !== 'Other') details.open = false;
+
+            const summary = document.createElement('summary');
+            summary.className = 'bench-section-title';
+            summary.textContent = sectionTitle;
+            details.appendChild(summary);
 
             const graphsElem = document.createElement('div');
             graphsElem.className = 'benchmark-graphs';
-            setElem.appendChild(graphsElem);
+            details.appendChild(graphsElem);
 
-            for (const [benchName, benches] of benchSet.entries()) {
-              renderGraph(graphsElem, benchName, benches)
+            for (const [benchName, benches] of benchesMap.entries()) {
+              renderGraph(graphsElem, benchName, benches);
             }
-          }
-
-          const main = document.getElementById('main');
-          for (const {name, dataSet} of dataSets) {
-            renderBenchSet(name, dataSet, main);
+            setElem.appendChild(details);
           }
         }
 
-        renderAllChars(init()); // Start
+        function renderAllChars(dataSets) {
+          const main = document.getElementById('main');
+          let setIndex = 0;
+          for (const {name, dataSet} of dataSets) {
+            // First set: custom title
+            if (setIndex === 0) {
+              renderBenchSet(name, dataSet, main, "Aztec Proving Benchmarks");
+            } else {
+              renderBenchSet(name, dataSet, main);
+            }
+            setIndex++;
+          }
+        }
+
+        renderAllChars(init());
       })();
     </script>
   </body>
