@@ -80,8 +80,9 @@ unconstrained fn test_storage_slot_allocation() {
     expected_slot += 1;
 
     assert_eq(Test::storage_layout().note_in_public_immutable.slot, expected_slot);
-    // note_in_public_immutable should allocate a single slot because TestNote packs to a single slot.
-    expected_slot += 1;
+    // note_in_public_immutable should allocate two slots because TestNote packs to a single slot: it needs an extra
+    // slot for the hash.
+    expected_slot += 2;
 
     assert_eq(Test::storage_layout().struct_in_public_immutable.slot, expected_slot);
     // struct_in_public_immutable should allocate 6 slots because ExampleStruct packs into 5 slots: it needs an extra
@@ -99,23 +100,6 @@ unconstrained fn test_storage_slot_allocation() {
 
     // dummy_variable exists so that we can test how many slots the last variable was allocated.
     assert_eq(Test::storage_layout().dummy_variable.slot, expected_slot);
-}
-
-fn get_shared_mutable_num_slots() -> Field {
-    // ExampleStruct packs to 5 slots.
-    let example_struct_packed_len = 5;
-
-    // ScheduledDelayChange and block_of_change of ScheduledValueChange are stored in a single slot.
-    let sdc_and_block_of_change_of_svc_packed_len = 1;
-
-    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
-    let value_change_and_delay_change_packed_len =
-        example_struct_packed_len * 2 + sdc_and_block_of_change_of_svc_packed_len;
-
-    // Wrapping the values in WithHash adds 1 slot.
-    let with_hash_additional_slots = 1;
-
-    value_change_and_delay_change_packed_len + with_hash_additional_slots
 }
 
 global CONTRACT_DEPLOYED_AT: u32 = 3;
