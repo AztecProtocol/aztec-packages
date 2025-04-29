@@ -8,7 +8,6 @@ import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 
 import { Decoder } from 'msgpackr';
 import assert from 'node:assert';
-import { trace } from 'node:console';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 

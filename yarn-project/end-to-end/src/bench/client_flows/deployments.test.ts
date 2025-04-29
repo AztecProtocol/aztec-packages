@@ -1,4 +1,4 @@
-import { AccountWallet, type AztecNode, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
+import { AccountWallet, type AztecNode, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateVoting';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -61,10 +61,7 @@ describe('Deployment benchmark', () => {
               fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
             };
 
-            const deploymentInteraction = await EasyPrivateVotingContract.deploy(
-              benchysWallet,
-              benchysWallet.getAddress(),
-            );
+            const deploymentInteraction = EasyPrivateVotingContract.deploy(benchysWallet, benchysWallet.getAddress());
 
             await capturePrivateExecutionStepsIfEnvSet(
               `${accountType}+deploy_tokenContract_${
