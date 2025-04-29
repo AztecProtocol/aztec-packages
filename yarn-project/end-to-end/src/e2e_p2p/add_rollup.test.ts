@@ -26,8 +26,8 @@ import {
   TestERC20Abi as StakingAssetAbi,
   TestERC20Abi,
 } from '@aztec/l1-artifacts';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { getGenesisValues } from '@aztec/world-state/testing';

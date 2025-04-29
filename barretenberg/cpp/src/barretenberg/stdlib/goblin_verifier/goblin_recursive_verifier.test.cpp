@@ -50,7 +50,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
-            goblin.prove_merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+            goblin.prove_merge();
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
@@ -80,7 +80,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof);
-    output.agg_obj.set_public();
+    output.points_accumulator.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates);
 
@@ -112,7 +112,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         GoblinRecursiveVerifierOutput output = verifier.verify(proof);
-        output.agg_obj.set_public();
+        output.points_accumulator.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates);
 

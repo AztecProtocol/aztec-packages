@@ -1,4 +1,4 @@
-import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
+import { PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -70,8 +70,8 @@ export class Proof {
     // We are indexing to this particular size because we are assuming the proof buffer looks like:
     // [binary public inputs, binary proof]
     // Here, we are assuming the pairing point object is the last 16 fields of the public inputs.
-    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
-    const proofStart = Fr.SIZE_IN_BYTES * (this.numPublicInputs - AGGREGATION_OBJECT_LENGTH);
+    assert(this.numPublicInputs >= PAIRING_POINTS_SIZE, 'Proof does not contain an aggregation object');
+    const proofStart = Fr.SIZE_IN_BYTES * (this.numPublicInputs - PAIRING_POINTS_SIZE);
     assert(this.buffer.length >= proofStart, 'Proof buffer is not appropriately sized to call withoutPublicInputs()');
     return this.buffer.subarray(proofStart);
   }
@@ -84,8 +84,8 @@ export class Proof {
       // return array of this.numPublicInputs 0s
       return new Array(this.numPublicInputs).fill(Fr.zero());
     }
-    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
-    const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    assert(this.numPublicInputs >= PAIRING_POINTS_SIZE, 'Proof does not contain an aggregation object');
+    const numInnerPublicInputs = this.numPublicInputs - PAIRING_POINTS_SIZE;
     const reader = BufferReader.asReader(this.buffer.subarray(0, Fr.SIZE_IN_BYTES * numInnerPublicInputs));
     const publicInputs = reader.readArray(numInnerPublicInputs, Fr);
     return publicInputs;

@@ -41,7 +41,7 @@ TEST_F(GoblinTests, MultipleCircuits)
     size_t NUM_CIRCUITS = 3;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = construct_mock_circuit(goblin.op_queue);
-        goblin.prove_merge(circuit); // appends a recursive merge verifier if a merge proof exists
+        goblin.prove_merge();
     }
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
