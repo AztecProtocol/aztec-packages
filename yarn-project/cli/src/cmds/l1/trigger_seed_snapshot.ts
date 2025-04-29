@@ -1,4 +1,4 @@
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { LogFn } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -15,17 +15,17 @@ export async function triggerSeedSnapshot({
   log,
 }: RollupCommandArgs & { log: LogFn }) {
   const chain = createEthereumChain(rpcUrls, chainId);
-  const { walletClient } = createL1Clients(rpcUrls, privateKey ?? mnemonic!, chain.chainInfo);
+  const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic!, chain.chainInfo);
 
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
-    client: walletClient,
+    client,
   });
 
   log('Triggering seed snapshot for next epoch');
   const txHash = await rollup.write.setupSeedSnapshotForNextEpoch();
   log(`Sent! | Seed snapshot setup for next epoch | tx hash: ${txHash}`);
-  const receipt = await walletClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await client.waitForTransactionReceipt({ hash: txHash });
   log(`Done! | Seed snapshot setup for next epoch | tx hash: ${txHash} | status: ${receipt.status}`);
 }

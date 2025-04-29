@@ -39,7 +39,7 @@ library ExtRollupLib {
 
   function setupSeedSnapshotForNextEpoch() external {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setSampleSeedForEpochForNextEpoch(currentEpoch);
+    ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
   }
 
   function getEpochProofPublicInputs(
