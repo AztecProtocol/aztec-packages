@@ -228,8 +228,6 @@ bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
         }
         std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
         auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key2 = get_acir_program_decider_proving_key(program);
-        precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key2->proving_key);
         if (computed_vk->circuit_size != precomputed_vk->circuit_size ||
             computed_vk->num_public_inputs != precomputed_vk->num_public_inputs ||
             computed_vk->pub_inputs_offset != precomputed_vk->pub_inputs_offset) {
