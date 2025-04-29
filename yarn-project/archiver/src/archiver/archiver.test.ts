@@ -2,7 +2,7 @@ import { Blob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import { DefaultL1ContractsConfig, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, L1TxUtils, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -68,6 +68,7 @@ describe('Archiver', () => {
   let publicClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
+  let l1TxUtils: MockProxy<L1TxUtils>;
   let archiverStore: ArchiverDataStore;
   let now: number;
   let l1Constants: L1RollupConstants;
@@ -138,6 +139,8 @@ describe('Archiver', () => {
       });
     });
 
+    l1TxUtils = mock<L1TxUtils>();
+
     mockRollupRead = mock<MockRollupContractRead>();
     mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
       Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
@@ -155,6 +158,7 @@ describe('Archiver', () => {
 
     const wrapper = new RollupContract(publicClient, rollupAddress.toString());
     (wrapper as any).rollup = mockRollup;
+    (wrapper as any).l1TxUtils = l1TxUtils;
     (archiver as any).rollup = wrapper;
 
     mockInboxRead = mock<MockInboxContractRead>();
@@ -529,6 +533,10 @@ describe('Archiver', () => {
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12631
   it('reports an epoch as complete due to timestamp only once all its blocks have been synced', async () => {
+    l1TxUtils.simulate.mockResolvedValue({
+      gasUsed: 1000n,
+      result: '0x0000000000000000000000000000000000000000000000000000000000000000', // false
+    });
     const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
     const l2Slot = 1;
     const l1BlockForL2Block = l1StartBlock + BigInt((l2Slot * slotDuration) / ethereumSlotDuration);

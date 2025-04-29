@@ -5,12 +5,21 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
+import {
+  type Account,
+  type GetContractReturnType,
+  type Hex,
+  decodeFunctionResult,
+  encodeFunctionData,
+  getAddress,
+  getContract,
+} from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
+import { ReadOnlyL1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
@@ -37,6 +46,7 @@ export type EpochProofPublicInputArgs = {
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
+  private l1TxUtils: ReadOnlyL1TxUtils;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -65,6 +75,7 @@ export class RollupContract {
       address = address.toString();
     }
     this.rollup = getContract({ address, abi: RollupAbi, client });
+    this.l1TxUtils = new ReadOnlyL1TxUtils(this.client);
   }
 
   public get address() {
@@ -175,19 +186,44 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
-  async getCommitteeAt(timestamp: bigint) {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
+  async getCommitteeAt(timestamp: bigint): Promise<readonly `0x${string}`[]> {
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({
+          abi: RollupAbi,
+          functionName: 'getCurrentEpochCommittee',
+        }),
+      },
+      {
+        // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+        time: timestamp + 1n,
+      },
+    );
+
+    const decodedResult = decodeFunctionResult({
       abi: RollupAbi,
-      functionName: 'getCommitteeAt',
-      args: [timestamp],
+      functionName: 'getCurrentEpochCommittee',
+      data: result,
     });
 
-    return result;
+    return decodedResult;
   }
 
-  getSampleSeedAt(timestamp: bigint) {
-    return this.rollup.read.getSampleSeedAt([timestamp]);
+  async getSampleSeedAt(timestamp: bigint) {
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'getCurrentSampleSeed' }),
+      },
+      { time: timestamp },
+    );
+
+    return decodeFunctionResult({
+      abi: RollupAbi,
+      functionName: 'getCurrentSampleSeed',
+      data: result,
+    });
   }
 
   getCurrentSampleSeed() {
@@ -308,7 +344,6 @@ export class RollupContract {
       `0x${string}`,
       ViemSignature[],
       `0x${string}`,
-      bigint,
       `0x${string}`,
       {
         ignoreDA: boolean;
@@ -373,8 +408,21 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover]);
   }
 
-  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
-    return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
+  async getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'getManaBaseFee', args: [inFeeAsset] }),
+      },
+      {
+        time: timestamp,
+      },
+    );
+    return decodeFunctionResult({
+      abi: RollupAbi,
+      functionName: 'getManaBaseFee',
+      data: result,
+    });
   }
 
   getSlotAt(timestamp: bigint) {
@@ -385,8 +433,22 @@ export class RollupContract {
     return this.rollup.read.status([blockNumber], options);
   }
 
-  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
-    return this.rollup.read.canPruneAtTime([timestamp], options);
+  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'canPrune' }),
+        blockNumber: options?.blockNumber,
+      },
+      {
+        time: timestamp,
+      },
+    );
+    return decodeFunctionResult({
+      abi: RollupAbi,
+      functionName: 'canPrune',
+      data: result,
+    });
   }
 
   archive() {

@@ -148,8 +148,7 @@ contract RollupBase is DecoderBase {
       header = DecoderBase.updateHeaderSlot(header, slotNumber);
     }
 
-    uint256 baseFee =
-      rollup.getManaBaseFeeAt(Timestamp.wrap(full.block.decodedHeader.timestamp), true);
+    uint256 baseFee = rollup.getManaBaseFee(true);
     header = DecoderBase.updateHeaderBaseFee(header, baseFee);
     header = DecoderBase.updateHeaderManaUsed(header, _manaUsed);
 
