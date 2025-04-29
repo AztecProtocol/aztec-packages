@@ -11,6 +11,7 @@
 
 names:
   - adam: &adam "U04BM8H25NJ"
+  - akosh: &akosh "U07PQ3Y4GHJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
   - grego: &grego "U0689QRCE9L"
@@ -70,6 +71,10 @@ tests:
     skip: true
     owners:
       - *charlie
+  - regex: "arb_program_can_be_executed"
+    skip: true
+    owners:
+      - *akosh
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
