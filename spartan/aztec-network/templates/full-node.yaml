@@ -1,3 +1,4 @@
+{{- if .Values.fullNode.enabled }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -300,4 +301,5 @@ spec:
             name: {{ include "aztec-network.fullname" . }}-full-node
             port:
               number: {{ .Values.fullNode.service.nodePort }}
+{{- end }}
 {{- end }}
