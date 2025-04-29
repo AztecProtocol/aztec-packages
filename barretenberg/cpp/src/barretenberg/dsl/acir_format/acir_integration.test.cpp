@@ -574,33 +574,59 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 // }
 
 /**
- * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ * @brief Debug the discrepancy resulting from MSM constraints in the token contract in the "dummy witness" vs real
+ * witness case.
+ * @details Here's what I know. The token transfer program has 4 multi_scalar_mul constraints. The second of these is
+ * handled differently based on the value of has_valid_witness_assignments (in other words whether we are in the dummy
+ * witness case used for VK construction or the actual proving scenario). I've traced the discrepancy back to a
+ * difference in the output of methed to_grumpkin_point, specifically in the value of
+ * input_point.is_point_at_infinity(). For the second of four multi_scalar_mul constraints, it is false in the dummy
+ * witness case and true in the real witness case. (The actual circuit discrepancy arises later in the conditional "if
+ * (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value())" in the constructor for
+ * straus_lookup_table).
  *
+ * One quirk to note here is that boot_t::get_value() is unique in that it returns (witness_bool ^ witness_inverted)
+ * rather than something like variables[witness_index] as other primitives do. This means that if you initialize a
+ * bool_t then change its witness_index or the variable pointed to by that witness_index, the value returned by
+ * get_value() will not be affected. This seems to be coming into play below because we constuct "bool_ct infinite"
+ * based on "input_infinite", which sets the witness_index of infinite to the witness_index of input_infinite. We then
+ * update the value pointed to by this witness_index to fr(1) (in the case where we do not have valid witness), but for
+ * the reason just explained this will have no effect on the result of infinite.get_value(), which is called later on in
+ * straus_lookup_table constructor as explained above.
+ *
+ * Once I realized this I thought, ok, the solution is to simply initialize infinite AFTER setting
+ * "builder.variables[input_infinite.index] = fr(1);". This DOES have the effect of causing infinite.get_value() to
+ * return true in the case in question, however it also becomes true in cases where it is NOT true for the valid witness
+ * pathway. This suggests to me that perhaps the condition for manually setting the value to fr(1) is not correct. (For
+ * example, in the token contract case, this change results in infinite.get_value() == true for both of the first two of
+ * four multi_scalar_mul constraints when it is only true for the second of four in the genuine witness case).
+ *
+ * The root of the issue may be that noir is creating MultiScalarMul constraints with constant coordinates and
+ * non-constant is_infinite values. Seems unlikely this is the intended behavior. If it is, I dont think cycle group is
+ * correctly generating constraints based on a variable is_infinite value.
  */
-TEST_F(AcirIntegrationTest, MsgpackInputs)
+TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
 {
+    // NOTE: to populate the test inputs at this location, run the following commands:
+    //      export  AZTEC_CACHE_COMMIT=origin/master~3
+    //      export DOWNLOAD_ONLY=1
+    //      yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
                              "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    size_t token_idx = 4;
-    auto token_program = steps.folding_stack[token_idx];
-    auto token_program_copy = steps.folding_stack[token_idx];
-    auto token_vk = steps.precomputed_vks[token_idx];
+    size_t token_idx = 4; // index of the token contract in the set of circuits for the whole flow
+    auto precomputed_token_vk = steps.precomputed_vks[token_idx];
 
-    // WORKTODO: its the second multi scalar mul constraint in a set of 4 in token transfer and kernel reset where a
-    // discrepancy arisses. Can debug by simply generating the token transfer circuit in isolation with and without a
-    // witness.
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
-    // Recomputed the "precomputed" verification keys
-    std::shared_ptr<ClientIVC::MegaVerificationKey> recomputed_vk;
+    // Recompute the "precomputed" verification key (i.e. compute VK with no witness)
     {
         info("RECOMPUTE: \n");
         auto program = steps.folding_stack[token_idx];
-        program.witness = {};
+        program.witness = {}; // erase the witness to mimmic the "dummy witness" case
         auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
         const acir_format::ProgramMetadata metadata{
             .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
@@ -608,13 +634,14 @@ TEST_F(AcirIntegrationTest, MsgpackInputs)
 
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-        recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+        auto recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
 
-        recomputed_vk->compare(token_vk);
+        // Compare the recomputed vk with the precomputed vk (both constructed using a dummy witness)
+        // Note: (We expect these to be equal)
+        EXPECT_TRUE(recomputed_vk->compare(precomputed_token_vk));
     }
 
-    // Recomputed the "precomputed" verification keys
-    std::shared_ptr<ClientIVC::MegaVerificationKey> computed_vk;
+    // Compute the verification key using the genuine witness
     {
         info("COMPUTE: \n");
         auto program = steps.folding_stack[token_idx];
@@ -625,9 +652,10 @@ TEST_F(AcirIntegrationTest, MsgpackInputs)
 
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-        computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-    }
+        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
 
-    computed_vk->compare(recomputed_vk);
+        // Compare the VK computed using the genuine witness with the VK computed using the dummy witness
+        EXPECT_TRUE(computed_vk->compare(precomputed_token_vk));
+    }
 }
 #endif

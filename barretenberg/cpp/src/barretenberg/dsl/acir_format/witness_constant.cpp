@@ -12,7 +12,7 @@ namespace acir_format {
 // WORKTODO: Here's what I know. The token transfer program has 4 multi_scalar_mul constraints. The second of these is
 // handled differently based on the value of has_valid_witness_assignments (in other words whether we are in the dummy
 // witness case used for VK construction or the actual proving scenario). I've traced the discrepancy back to a
-// difference in the output of this methed (to_grumpkin_point), specifically in the value of
+// difference in the output of methed to_grumpkin_point, specifically in the value of
 // input_point.is_point_at_infinity(). For the second of four multi_scalar_mul constraints, it is false in the dummy
 // witness case and true in the real witness case. (The actual circuit discrepancy arises later in the conditional "if
 // (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value())" in the constructor for
@@ -33,6 +33,10 @@ namespace acir_format {
 // pathway. This suggests to me that perhaps the condition for manually setting the value to fr(1) is not correct. (For
 // example, in the token contract case, this change results in infinite.get_value() == true for both of the first two of
 // four multi_scalar_mul constraints when it is only true for the second of four in the genuine witness case).
+//
+// The root of the issue may be that noir is creating MultiScalarMul constraints with constant coordinates and
+// non-constant is_infinite values. Seems unlikely this is the intended behavior. If it is, I dont think cycle group is
+// correctly generating constraints based on a variable is_infinite value.
 using namespace bb;
 using namespace bb::stdlib;
 template <typename Builder, typename FF>
@@ -42,6 +46,11 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
                                                    bool has_valid_witness_assignments,
                                                    Builder& builder)
 {
+    // info("to_grumpkin_point: ");
+    // info("input_x.is_constant = ", input_x.is_constant);
+    // info("input_y.is_constant = ", input_y.is_constant);
+    // info("input_infinite.is_constant = ", input_infinite.is_constant);
+
     using bool_ct = bb::stdlib::bool_t<Builder>;
     auto point_x = to_field_ct(input_x, builder);
     auto point_y = to_field_ct(input_y, builder);
@@ -55,6 +64,7 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     if (!has_valid_witness_assignments) {
         if (!input_infinite.is_constant) {
             builder.variables[input_infinite.index] = fr(1);
+            // infinite.witness_bool = true;
         } else if (input_infinite.value == fr::zero() && !(input_x.is_constant || input_y.is_constant)) {
             // else, if is_infinite is false, but the coordinates (x, y) are witness (and not constant)
             // then we set their value to an arbitrary valid curve point (in our case G1).
@@ -65,9 +75,6 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     }
 
     cycle_group<Builder> input_point(point_x, point_y, infinite);
-    info("index = ", input_point.is_point_at_infinity().witness_index);
-    // info("Value = ", builder.variables[input_point.is_point_at_infinity().witness_index]);
-    info("INTERNAL: input_point.is_point_at_infinity: ", input_point.is_point_at_infinity().get_value());
     return input_point;
 }
 

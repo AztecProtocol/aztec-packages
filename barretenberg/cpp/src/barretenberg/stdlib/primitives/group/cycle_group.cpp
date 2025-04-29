@@ -1283,7 +1283,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     cycle_group fallback_point(Group::affine_one);
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
-    cycle_group modded_base_point(modded_x, modded_y, false);
+    cycle_group modded_base_point(modded_x, modded_y, /*is_infinity=*/false);
 
     if constexpr (IsMegaBuilder<Builder>) {
         info("VK HASH A: ", proving_key_inspector::compute_vk_hash(*context));
