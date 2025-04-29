@@ -308,11 +308,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       // And lastly we check if we are missing any L2 blocks behind us due to a possible L1 reorg.
       // We only do this if rollup cant prune on the next submission. Otherwise we will end up
       // re-syncing the blocks we have just unwound above.
-      await this.handleNewBlocksBeforeL1SyncPoint(
-        { ...rollupStatus, rollupCanPrune },
-        blocksSynchedTo,
-        currentL1BlockNumber,
-      );
+      if (!rollupCanPrune) {
+        await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
+      }
 
       this.instrumentation.updateL1BlockHeight(currentL1BlockNumber);
     }
@@ -388,7 +386,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
     }
 
-    return { canPrune, rollupCanPrune };
+    return { rollupCanPrune };
   }
 
   private nextRange(end: bigint, limit: bigint): [bigint, bigint] {
@@ -450,8 +448,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
     const updateProvenBlock = async () => {
       // Annoying edge case: if proven block is moved back to 0 due to a reorg at the beginning of the chain,
-      // we need to set it to zero. Note that this doesnt fall in the other branches, since the
-      // localBlockForDestinationProvenBlockNumber would not be found if proven is zero.
+      // we need to set it to zero. This is an edge case because we dont have a block zero (initial block is one),
+      // so localBlockForDestinationProvenBlockNumber would not be found below.
       if (provenBlockNumber === 0n) {
         const localProvenBlockNumber = await this.store.getProvenL2BlockNumber();
         if (localProvenBlockNumber !== Number(provenBlockNumber)) {
@@ -523,8 +521,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         // this block again (or any blocks before).
         // However, in the re-org scenario, our L1 node is temporarily lying to us and we end up potentially missing blocks
         // We must only set this block number based on actually retrieved logs.
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8621): Tackle this properly when we handle L1 Re-orgs.
-        //await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+        // TODO(#8621): Tackle this properly when we handle L1 Re-orgs.
+        // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.debug(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
         return rollupStatus;
       }
@@ -630,29 +628,24 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return { ...rollupStatus, lastRetrievedBlock };
   }
 
-  private async handleNewBlocksBeforeL1SyncPoint(
+  private async checkForNewBlocksBeforeL1SyncPoint(
     status: {
       lastRetrievedBlock?: PublishedL2Block;
       pendingBlockNumber: bigint;
-      rollupCanPrune: boolean;
     },
     blocksSynchedTo: bigint,
     currentL1BlockNumber: bigint,
   ) {
-    if (status.rollupCanPrune) {
-      this.log.trace(`Skipping check for blocks behind L1 sync point since rollup can prune on next submission.`);
-      return;
-    }
     const { lastRetrievedBlock, pendingBlockNumber } = status;
     // Compare the last L2 block we have (either retrieved in this round or loaded from store) with what the
     // rollup contract told us was the latest one (pinned at the currentL1BlockNumber).
     const latestLocalL2BlockNumber = lastRetrievedBlock?.block.number ?? (await this.store.getSynchedL2BlockNumber());
     if (latestLocalL2BlockNumber < pendingBlockNumber) {
-      // Here we have consumed all logs until the current L1 block, but still havent reached the pending block
-      // according to the call to the rollup contract. We suspect an L1 reorg that added blocks *behind* us.
-      // If that the case, it must have happened between the last L2 block we saw and the current one, so we
-      // reset the last synched L1 block number. In the edge case we don't have one, we go back 2 L1 epochs,
-      // which is the deepest possible reorg (assuming Casper is working).
+      // Here we have consumed all logs until the `currentL1Block` we pinned at the beginning of the archiver loop,
+      // but still havent reached the pending block according to the call to the rollup contract.
+      // We suspect an L1 reorg that added blocks *behind* us. If that is the case, it must have happened between the
+      // last L2 block we saw and the current one, so we reset the last synched L1 block number. In the edge case we
+      // don't have one, we go back 2 L1 epochs, which is the deepest possible reorg (assuming Casper is working).
       const latestLocalL2Block =
         lastRetrievedBlock ??
         (latestLocalL2BlockNumber > 0

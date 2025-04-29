@@ -60,7 +60,10 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     const newNode = await executeTimeout(() => test.createNonValidatorNode(), 10_000, `new node sync`);
     expect(await newNode.getProvenBlockNumber()).toEqual(0);
 
-    // Latest block number seen by the node may be the current one, or one less if it was *just* mined
+    // Latest block number seen by the node may be the current one, or one less if it was *just* mined.
+    // This is because the call to createNonValidatorNode will block until the initial sync is completed,
+    // but the initial sync is done to the latest L1 block _at the time the initial sync starts_. So a new
+    // node may have appeared while the initial sync runs, that's why we account for a small span of blocks.
     const currentBlock = monitor.l2BlockNumber;
     expect(await newNode.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
 
@@ -104,6 +107,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   it('restores L2 blocks if a proof is added due to an L1 reorg', async () => {
     // Next proof shall not land
     proverDelayer.cancelNextTx();
+
+    // Expect pending chain to advance, so there's something to be pruned
+    await retryUntil(() => node.getBlockNumber().then(b => b > 1), 'node sync', 60, 0.1);
 
     // Wait until the end of the proof submission window for the first epoch
     await test.waitUntilEndOfProofSubmissionWindow(0);
