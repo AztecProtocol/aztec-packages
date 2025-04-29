@@ -51,6 +51,7 @@ bootNode:
 fullNode:
   enabled: false
   replicas: 0
+  externalHost: "http://localhost:8080"
 
 proverNode:
   enabled: false
