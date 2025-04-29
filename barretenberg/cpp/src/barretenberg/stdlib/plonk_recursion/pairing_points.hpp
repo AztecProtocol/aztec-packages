@@ -65,7 +65,8 @@ template <typename Builder_> struct PairingPoints {
         transcript.send_to_verifier("Accumulator_P1", P1);
         transcript.send_to_verifier("Aggregated_P0", other.P0);
         transcript.send_to_verifier("Aggregated_P1", other.P1);
-        typename Curve::ScalarField recursion_separator = transcript.get_challenge("recursion_separator");
+        auto recursion_separator =
+            transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
         // If Mega Builder is in use, the EC operations are deferred via Goblin
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Can we improve efficiency here?
