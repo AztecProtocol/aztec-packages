@@ -3,7 +3,7 @@
 #include <memory>
 
 #include "barretenberg/honk/utils/honk_key_gen.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -21,7 +21,7 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
 {
     uint256_t public_inputs[4] = { 0, 0, 0, 0 };
     UltraCircuitBuilder builder = Circuit::generate(public_inputs);
-    stdlib::recursion::aggregation_state<UltraCircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     UltraKeccakProver prover(proving_key);

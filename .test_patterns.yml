@@ -188,10 +188,18 @@ tests:
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
       - *alex
+  - regex: "ethereum/src/test/tx_delayer.test.ts"
+    error_regex: "delays a transaction until a given L1 timestamp"
+    owners:
+      - *esau
 
   # boxes
   - regex: "boxes/scripts/run_test.sh"
     error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *grego
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "expect(locator).toBeVisible()"
     owners:
       - *grego
 
