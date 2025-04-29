@@ -164,10 +164,10 @@ export default function Home() {
           rel="noopener noreferrer"
           css={docsButton}
           onClick={() => {
-            trackButtonClick('Start Building', 'Home Page');
+            trackButtonClick('Docs', 'Home Page');
           }}
         >
-          Start Building
+          Docs
         </a>
       </div>
       <AztecContext.Provider value={AztecContextInitialValue}>
