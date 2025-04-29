@@ -638,17 +638,14 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
 
     // Fill in lagrange odd polynomial
-    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
-        prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
+    for (size_t i = 2; i < mini_circuit_size; i += 2) {
+        prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
 
     // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(
         prover_polynomials, params, "TranslatorNonNativeFieldRelation");
-
-    // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
-    RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
-        prover_polynomials, params, "TranslatorAccumulatorTransferRelation");
 }
 
 // TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)

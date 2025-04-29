@@ -82,10 +82,10 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
      * @brief Go through each gate
      *
      */
-    for (size_t i = 1; i < circuit.num_gates - 1; i++) {
-        bool gate_is_odd = i & 1;
+    for (size_t i = 2; i < circuit.num_gates; i++) {
+        bool gate_is_even = !(i & 1);
         // The main relation is computed between odd and the next even indices. For example, 1 and 2
-        if (gate_is_odd) {
+        if (gate_is_even) {
             // Get the values of P.x
             Fr op_code = circuit.get_variable(op_wire[i]);
             Fr p_x_lo = circuit.get_variable(x_lo_y_hi_wire[i]);

@@ -63,7 +63,7 @@ TEST_F(TranslatorTests, Basic)
     // Generate a circuit and its verification key (computed at runtime from the proving key)
     CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
 
-    // EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
+    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
     auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
     TranslatorProver prover{ proving_key, prover_transcript };
     auto proof = prover.construct_proof();
