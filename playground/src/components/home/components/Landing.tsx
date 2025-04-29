@@ -13,6 +13,7 @@ import { useTransaction } from '../../../hooks/useTransaction';
 import { convertFromUTF8BufferAsString, formatFrAsString, parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 import { parse } from 'buffer-json';
+import { trackButtonClick } from '../../../utils/matomo';
 
 const container = css({
   display: 'flex',
@@ -281,6 +282,7 @@ export function Landing() {
   }, [currentTx]);
 
   async function handleContractButtonClick(contractValue: string) {
+    trackButtonClick(`Check Out ${contractValue}`, 'Landing Page');
     let contractArtifactJSON;
     let defaultContractCreationParams;
 
@@ -348,6 +350,7 @@ export function Landing() {
   }
 
   async function handleCreateAccountButtonClick() {
+    trackButtonClick('Create Account', 'Landing Page');
     setIsCreatingAccount(true);
 
     try {
@@ -436,7 +439,7 @@ export function Landing() {
               <AccountAbstractionIcon />
             </div>
             <div css={cardTitle}>Account Abstraction</div>
-            <div css={cardDescription}>Aztec’s native account abstraction turns every account into a smart contract, enabling
+            <div css={cardDescription}>Aztec's native account abstraction turns every account into a smart contract, enabling
               highly flexible and programmable user identities that unlock features like gas sponsorship, nonce abstraction
               (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
           </Box>

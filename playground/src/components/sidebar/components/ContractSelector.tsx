@@ -21,6 +21,7 @@ import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../sty
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 import ArticleIcon from '@mui/icons-material/Article';
 import { InputLabel } from '@mui/material';
+import { trackButtonClick } from '../../../utils/matomo';
 
 export function ContractSelector() {
   const [contracts, setContracts] = useState([]);
@@ -57,6 +58,7 @@ export function ContractSelector() {
   }, [currentContractAddress, walletDB, wallet]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
+    trackButtonClick(`Select Contract ${event.target.value}`, 'Contract Selector');
     const contractValue = event.target.value;
     if (contractValue === '') {
       return;

@@ -26,6 +26,7 @@ import { FunctionCard } from './components/FunctionCard';
 import { useTransaction } from '../../hooks/useTransaction';
 import { ContractDescriptions, ContractDocumentationLinks, ContractMethodOrder } from '../../utils/constants';
 import Box from '@mui/material/Box';
+import { trackButtonClick } from '../../utils/matomo';
 
 const container = css({
   display: 'flex',
@@ -215,7 +216,15 @@ export function ContractComponent() {
 
                 {!currentContractAddress && wallet && (
                   <div css={contractActions}>
-                    <Button size="small" variant="contained" css={deployButton} onClick={() => setOpenCreateContractDialog(true)}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      css={deployButton}
+                      onClick={() => {
+                        trackButtonClick('Deploy/Load Contract', 'Contract Actions');
+                        setOpenCreateContractDialog(true);
+                      }}
+                    >
                       Deploy / Load Contract
                     </Button>
                     {openCreateContractDialog && (

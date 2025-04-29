@@ -35,6 +35,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import { Badge, Box, Paper, Tooltip } from '@mui/material';
 import { ContractMethodDescriptions } from '../../../utils/constants';
+import { trackButtonClick } from '../../../utils/matomo';
 
 type SimulationResult = {
   success: boolean;
@@ -86,6 +87,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const { wallet } = useContext(AztecContext);
 
   const simulate = async (fnName: string) => {
+    trackButtonClick(`Simulate ${fnName}`, 'Contract Interaction');
     setIsWorking(true);
     let result;
     try {
@@ -101,6 +103,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   };
 
   const profile = async (fnName: string) => {
+    trackButtonClick(`Profile ${fnName}`, 'Contract Interaction');
     setIsWorking(true);
 
     try {
@@ -300,7 +303,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               size="small"
               color="primary"
               variant="contained"
-              onClick={() => setOpenSendTxDialog(true)}
+              onClick={() => {
+                trackButtonClick(`Send ${fn.name}`, 'Contract Interaction');
+                setOpenSendTxDialog(true);
+              }}
               endIcon={<SendIcon />}
               css={actionButton}
             >
@@ -314,7 +320,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               size="small"
               color="primary"
               variant="contained"
-              onClick={() => setOpenCreateAuthwitDialog(true)}
+              onClick={() => {
+                trackButtonClick(`Authwit ${fn.name}`, 'Contract Interaction');
+                setOpenCreateAuthwitDialog(true);
+              }}
               endIcon={<VpnKeyIcon />}
               css={actionButton}
             >
