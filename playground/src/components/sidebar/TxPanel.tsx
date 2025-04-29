@@ -295,7 +295,7 @@ export function TxPanel() {
         <Card>
           <CardContent sx={funFactsCss}>
             <LightbulbIcon sx={{ marginRight: '12px', color: '#FFB74D', fontSize: '30px' }} />
-            <Typography variant="body1" sx={{ fontSize: '15px', lineHeight: '1.2' }}>
+            <Typography variant="body1" sx={{ fontSize: '15px', lineHeight: '1.1' }}>
               {FUN_FACTS[currentFunFactIndex]}
             </Typography>
           </CardContent>

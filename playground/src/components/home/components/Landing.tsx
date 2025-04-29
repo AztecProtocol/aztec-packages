@@ -4,7 +4,7 @@ import { AztecAddress, Fr } from '@aztec/aztec.js';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { AztecContext } from '../../../aztecEnv';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { PREDEFINED_CONTRACTS } from '../../../constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { loadContractArtifact } from '@aztec/aztec.js';
@@ -261,6 +261,7 @@ export function Landing() {
     walletDB,
     wallet,
     pxe,
+    currentTx,
     isPXEInitialized,
     setWallet,
   } = useContext(AztecContext);
@@ -271,6 +272,13 @@ export function Landing() {
 
   const { sendTx } = useTransaction();
   const notifications = useNotifications();
+
+  // If the transaction is cancelled, reset the accounts loading state
+  useEffect(() => {
+    if (!currentTx) {
+      setIsCreatingAccount(false);
+    }
+  }, [currentTx]);
 
   async function handleContractButtonClick(contractValue: string) {
     let contractArtifactJSON;
