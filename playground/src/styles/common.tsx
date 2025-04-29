@@ -7,7 +7,7 @@ export const dialogBody = css({
   minHeight: '500px',
 
   '@media (max-width: 900px)': {
-    minWidth: '400px',
+    minWidth: '320px',
   },
 });
 
