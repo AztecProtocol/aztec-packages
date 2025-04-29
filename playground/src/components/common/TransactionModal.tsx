@@ -230,7 +230,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
         </Typography>
 
         <div css={content}>
-          <Typography css={subtitleText} style={{ textAlign: 'left' }}>
+          <div css={subtitleText} style={{ textAlign: 'left' }}>
             Here is what you did:
 
             <ul>
@@ -239,7 +239,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
               <li>Sent the transaction and proof to Aztec network.</li>
               <li>Got the confirmation from the network that your transaction was included in a block.</li>
             </ul>
-          </Typography>
+          </div>
 
           <code>
             Tx Hash:
