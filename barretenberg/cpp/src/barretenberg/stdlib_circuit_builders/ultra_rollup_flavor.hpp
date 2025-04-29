@@ -12,13 +12,6 @@ namespace bb {
 
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
-    // Proof length formula:
-    // 1. NUM_WITNESS_ENTITIES commitments
-    // 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates
-    // 3. NUM_ALL_ENTITIES sumcheck evaluations
-    // 4. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
-    // 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
-    // 6. KZG W commitment
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
