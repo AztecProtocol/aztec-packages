@@ -330,7 +330,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
 
   return (
     <>
-      {isSuccess && isTxPanelOpen && (
+      {isSuccess && (
         <ReactConfetti
           style={{ zIndex: 10000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%' }}
           recycle={false}
