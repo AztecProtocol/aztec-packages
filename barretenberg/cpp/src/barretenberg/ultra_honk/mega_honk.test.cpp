@@ -89,7 +89,12 @@ TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 
 /**
  * @brief Check that size of a mega proof matches the corresponding constant
- *
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
+ * - mega_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, various main.nr files of programs
+ * with recursive verification circuits
+ * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
  */
 TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
 {

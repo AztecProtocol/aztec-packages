@@ -117,9 +117,6 @@ class UltraFlavor {
         /* 6. Shplonk Q commitment */ (num_frs_comm) +
         /* 7. KZG W commitment */ (num_frs_comm);
 
-    // WORKTODO: is this even a good idea to create?
-    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE;
-
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_KEYS>());

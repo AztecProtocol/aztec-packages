@@ -101,9 +101,6 @@ class MegaFlavor {
         /* 6. Shplonk Q commitment */ (num_frs_comm) +
         /* 7. KZG W commitment */ (num_frs_comm);
 
-    // WORKTODO: is this even a good idea to create?
-    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE;
-
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
