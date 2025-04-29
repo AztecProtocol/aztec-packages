@@ -25,7 +25,7 @@ import FormGroup from '@mui/material/FormGroup';
 import { FunctionParameter } from '../../common/FnParameter';
 import { useContext, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
-import { SendTxDialog } from './SendTxDialog';
+import { ConfigureInteractionDialog } from './ConfigureInteractionDialog';
 import { CreateAuthwitDialog } from './CreateAuthwitDialog';
 import TableHead from '@mui/material/TableHead';
 import Table from '@mui/material/Table';
@@ -79,8 +79,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const [profileResults, setProfileResults] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const [openSendTxDialog, setOpenSendTxDialog] = useState(false);
+  const [openConfigureInteractionDialog, setOpenConfigureInteractionDialog] = useState(false);
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
+  const [profile, setProfile] = useState(false);
 
   const { wallet } = useContext(AztecContext);
 
@@ -94,28 +95,6 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       setSimulationResults({ success: true, data: result });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
-    }
-
-    setIsWorking(false);
-  };
-
-  const profile = async (fnName: string) => {
-    setIsWorking(true);
-
-    try {
-      const call = contract.methods[fnName](...parameters);
-
-      const profileResult = await call.profile({ profileMode: 'full', skipProofGeneration: false });
-      setProfileResults({
-        ...profileResults,
-        ...{ [fnName]: { success: true, ...profileResult } },
-      });
-    } catch (e) {
-      console.error(e);
-      setProfileResults({
-        ...profileResults,
-        ...{ [fnName]: { success: false, error: e.message } },
-      });
     }
 
     setIsWorking(false);
@@ -138,14 +117,34 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     }
   };
 
-  const handleSendDialogClose = async (
+  const handleConfigureInteractionDialogClose = async (
     name?: string,
     interaction?: ContractFunctionInteraction,
     opts?: SendMethodOptions,
   ) => {
-    setOpenSendTxDialog(false);
+    setOpenConfigureInteractionDialog(false);
     if (name && interaction && opts) {
-      onSendTxRequested(name, interaction, contract.address, opts);
+      if (profile) {
+        setIsWorking(true);
+        try {
+          const call = contract.methods[name](...parameters);
+
+          const profileResult = await call.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
+          setProfileResults({
+            ...profileResults,
+            ...{ [name]: { success: true, ...profileResult } },
+          });
+        } catch (e) {
+          console.error(e);
+          setProfileResults({
+            ...profileResults,
+            ...{ [name]: { success: false, error: e.message } },
+          });
+        }
+        setIsWorking(false);
+      } else {
+        onSendTxRequested(name, interaction, contract.address, opts);
+      }
     }
   };
 
@@ -302,7 +301,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               size="small"
               color="primary"
               variant="contained"
-              onClick={() => setOpenSendTxDialog(true)}
+              onClick={() => {
+                setProfile(false);
+                setOpenConfigureInteractionDialog(true);
+              }}
               endIcon={<SendIcon />}
               css={actionButton}
             >
@@ -330,7 +332,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               size="small"
-              onClick={() => profile(fn.name)}
+              onClick={() => {
+                setProfile(true);
+                setOpenConfigureInteractionDialog(true);
+              }}
               endIcon={<TroubleshootIcon />}
               css={actionButton}
             >
@@ -339,12 +344,12 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           </Tooltip>
         </CardActions>
       )}
-      {contract && openSendTxDialog && (
-        <SendTxDialog
+      {contract && openConfigureInteractionDialog && (
+        <ConfigureInteractionDialog
           name={fn.name}
           interaction={contract.methods[fn.name](...parameters)}
-          open={openSendTxDialog}
-          onClose={handleSendDialogClose}
+          open={openConfigureInteractionDialog}
+          onClose={handleConfigureInteractionDialogClose}
         />
       )}
       {contract && openCreateAuthwitDialog && (
