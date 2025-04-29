@@ -27,6 +27,7 @@ aztec:
     feeAssetHandlerContractAddress: "0x80d848dc9f52df56789e2d62ce66f19555ff1019"
 
 fullNode:
+  enabled: true
   fixedStaticIpName: "alpha-archival-full-node-ip"
   staticIpUrl: full-node.alpha-archival.aztec.network # TODO: add Route53 record if we want access to this later
   replicas: 1
