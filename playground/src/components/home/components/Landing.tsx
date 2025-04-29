@@ -325,16 +325,18 @@ export function Landing() {
       }
     }
 
-    const aliasedContracts = await walletDB.listAliases('contracts');
-    const contracts = parseAliasedBuffersAsString(aliasedContracts);
-    const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
     let deployedContractAddress = null;
-    for (const contract of deployedContracts) {
-      const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contract.value}`);
-      const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
-      if (contractArtifact.name === contractArtifactJSON.name) {
-        deployedContractAddress = AztecAddress.fromString(contract.value);
-        break;
+    const aliasedContracts = await walletDB.listAliases('contracts');
+    if (wallet && aliasedContracts.length > 0) {
+      const contracts = parseAliasedBuffersAsString(aliasedContracts);
+      const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
+      for (const contract of deployedContracts) {
+        const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contract.value}`);
+        const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+        if (contractArtifact.name === contractArtifactJSON.name) {
+          deployedContractAddress = AztecAddress.fromString(contract.value);
+          break;
+        }
       }
     }
 

@@ -35,6 +35,11 @@ const container = css({
   overflow: 'hidden',
   justifyContent: 'center',
   alignItems: 'center',
+  maxHeight: 'calc(100vh - 280px)',
+  '@media (max-width: 900px)': {
+    maxHeight: 'none',
+    height: 'auto',
+  },
 });
 
 const contractFnContainer = css({
@@ -43,6 +48,9 @@ const contractFnContainer = css({
   overflowY: 'auto',
   color: 'black',
   height: '100%',
+  '@media (max-width: 900px)': {
+    height: 'auto',
+  },
 });
 
 const headerContainer = css({
