@@ -224,7 +224,7 @@ export function TxPanel() {
       {pendingTx && (
         <>
           <Popover
-            open={seenPendingTxPopover}
+            open={!seenPendingTxPopover}
             anchorEl={document.getElementById('pending-tx')}
             onClose={() => setSeenPendingTxPopover(true)}
             hideBackdrop
