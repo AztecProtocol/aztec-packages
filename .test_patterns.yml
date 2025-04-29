@@ -72,7 +72,6 @@ tests:
     owners:
       - *charlie
   - regex: "arb_program_can_be_executed"
-    skip: true
     owners:
       - *akosh
 
