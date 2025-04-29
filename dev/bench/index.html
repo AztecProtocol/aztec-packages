@@ -114,6 +114,7 @@
     <main id="main"></main>
     <footer>
       <button id="dl-button">Download data as JSON</button>
+      <button id="toggle-details">Toggle All Sections</button>
       <div class="spacer"></div>
       <div class="small">Powered by <a rel="noopener" href="https://github.com/marketplace/actions/continuous-benchmark">github-action-benchmark</a></div>
     </footer>
@@ -139,7 +140,6 @@
           _: '#333333'
         };
 
-        // Section patterns and titles
         const sectionPatterns = [
           { pattern: /ivc-proof-wasm-memory$/, title: 'App proving (WASM, MB)' },
           { pattern: /ivc-proof-memory$/, title: 'App proving (native, MB)' },
@@ -178,13 +178,11 @@
 
           const data = window.BENCHMARK_DATA;
 
-          // Render header
           document.getElementById('last-update').textContent = new Date(data.lastUpdate).toString();
           const repoLink = document.getElementById('repository-link');
           repoLink.href = data.repoUrl;
           repoLink.textContent = data.repoUrl;
 
-          // Render footer
           document.getElementById('dl-button').onclick = () => {
             const dataUrl = 'data:,' + JSON.stringify(data, null, 2);
             const a = document.createElement('a');
@@ -193,7 +191,6 @@
             a.click();
           };
 
-          // Prepare data points for charts
           return Object.keys(data.entries).map(name => ({
             name,
             dataSet: collectBenchesPerTestCase(data.entries[name]),
@@ -201,7 +198,6 @@
         }
 
         function groupBenchesBySection(benchSet) {
-          // Map: sectionTitle -> Map(benchName -> benches[])
           const sectionMap = new Map();
           for (const [benchName, benches] of benchSet.entries()) {
             const sectionTitle = getSectionTitle(benchName) || 'Other';
@@ -328,7 +324,6 @@
           const main = document.getElementById('main');
           let setIndex = 0;
           for (const {name, dataSet} of dataSets) {
-            // First set: custom title
             if (setIndex === 0) {
               renderBenchSet(name, dataSet, main, "Aztec Proving Benchmarks");
             } else {
@@ -337,6 +332,14 @@
             setIndex++;
           }
         }
+
+        function toggleAllDetails() {
+          const detailsElements = document.querySelectorAll('details.bench-section');
+          const allOpen = Array.from(detailsElements).every(details => details.open);
+          detailsElements.forEach(details => details.open = !allOpen);
+        }
+
+        document.getElementById('toggle-details').addEventListener('click', toggleAllDetails);
 
         renderAllChars(init());
       })();
