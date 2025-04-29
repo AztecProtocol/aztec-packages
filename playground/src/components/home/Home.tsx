@@ -84,12 +84,11 @@ const contentLayout = css({
   flexDirection: 'row',
   position: 'relative',
   gap: '24px',
-  height: 'calc(100% - 280px)',
+  flexGrow: 1,
+  paddingBottom: '4rem', // For the logs panel
   '@media (max-width: 900px)': {
     flexWrap: 'wrap',
-    flexGrow: 1,
-    height: 'auto',
-    paddingBottom: '4rem', // For the logs panel
+    maxHeight: 'auto',
   },
 });
 
