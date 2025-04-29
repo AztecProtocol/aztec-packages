@@ -96,8 +96,7 @@ TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
     using Flavor = TypeParam;
 
     auto builder = typename Flavor::CircuitBuilder{};
-    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder>::add_default_pairing_points_to_public_inputs(
-        builder);
+    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
 
     // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);

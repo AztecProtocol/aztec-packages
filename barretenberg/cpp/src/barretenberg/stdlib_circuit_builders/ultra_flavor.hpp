@@ -118,7 +118,7 @@ class UltraFlavor {
         /* 7. KZG W commitment */ (num_frs_comm);
 
     // WORKTODO: is this even a good idea to create?
-    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINT_ACCUMULATOR_SIZE;
+    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =

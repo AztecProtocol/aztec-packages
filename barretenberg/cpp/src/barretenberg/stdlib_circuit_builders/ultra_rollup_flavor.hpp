@@ -16,7 +16,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IPA_PROOF_LENGTH;
-    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE;
+    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
 
     using UltraFlavor::UltraFlavor;
     class ProvingKey : public UltraFlavor::ProvingKey {

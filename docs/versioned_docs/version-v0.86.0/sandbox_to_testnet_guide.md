@@ -14,7 +14,7 @@ This guide assumes you have an Aztec app on sandbox and you wish to deploy it on
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.2`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.3`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -23,7 +23,7 @@ The testnet is version dependent. It is currently running version `0.85.0-alpha-
 To connect a local PXE to testnet, install the testnet version of the sandbox.
 
 ```sh
-VERSION=0.85.0-alpha-testnet.2 aztec-up
+VERSION=0.85.0-alpha-testnet.3 aztec-up
 ```
 
 When you run `aztec-wallet` commands, make sure to include a `node-url` option. An example:

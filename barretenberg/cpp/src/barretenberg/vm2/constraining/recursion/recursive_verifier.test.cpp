@@ -75,7 +75,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     if (testing::skip_slow_tests()) {
@@ -94,8 +94,8 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     {
         RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
-        auto agg_object = AggregationObject::construct_default(outer_circuit);
-        auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, agg_object);
+        auto points_accumulator = PairingPoints::construct_default(outer_circuit);
+        auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, points_accumulator);
 
         NativeVerifierCommitmentKey pcs_vkey{};
         bool agg_output_valid = pcs_vkey.pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
@@ -165,7 +165,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
-    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<OuterBuilder>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     NativeProofResult proof_result;
@@ -199,18 +199,18 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
         AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
-        auto agg_object = AggregationObject::construct_default(outer_circuit);
-        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_object);
+        auto points_accumulator = PairingPoints::construct_default(outer_circuit);
+        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, points_accumulator);
     }();
 
-    verifier_output.agg_obj.set_public();
+    verifier_output.points_accumulator.set_public();
     verifier_output.ipa_claim.set_public();
     outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
     NativeVerifierCommitmentKey pcs_vkey{};
-    bool agg_output_valid =
-        pcs_vkey.pairing_check(verifier_output.agg_obj.P0.get_value(), verifier_output.agg_obj.P1.get_value());
+    bool agg_output_valid = pcs_vkey.pairing_check(verifier_output.points_accumulator.P0.get_value(),
+                                                   verifier_output.points_accumulator.P1.get_value());
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 

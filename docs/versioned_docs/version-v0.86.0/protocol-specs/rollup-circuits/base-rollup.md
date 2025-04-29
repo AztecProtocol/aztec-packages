@@ -228,8 +228,8 @@ BaseOrMergeRollupPublicInputs *-- PartialStateReference : start
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : end
 ```
 
-:::warning TODO  
-Fee structs and contract deployment structs will need to be revised, in line with newer ideas.  
+:::warning TODO
+Fee structs and contract deployment structs will need to be revised, in line with newer ideas.
 :::
 
 ### Validity Conditions
@@ -288,7 +288,7 @@ def BaseRollupCircuit(
   return BaseOrMergeRollupPublicInputs(
     type=0,
     height_in_block_tree=0,
-    aggregation_object=
+    points_accumulator=
     txs_hash=tx_hash
     out_hash=out_hash
     start=partial,
