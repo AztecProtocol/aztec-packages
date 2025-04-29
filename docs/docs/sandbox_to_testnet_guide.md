@@ -66,7 +66,7 @@ There are multiple ways to pay for fees on testnet:
 You will need to specify the fee-payer for all transactions. An example using `aztec-wallet`:
 
 ```sh
-aztec-wallet create-account --payment method=fee_juice,feePayer=main --node-url $AZTEC_NODE
+aztec-wallet create-account --payment method=fee_juice,feePayer=main --node-url $NODE_URL
 ```
 
 An example using Aztec.js:

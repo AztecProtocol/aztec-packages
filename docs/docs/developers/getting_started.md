@@ -119,6 +119,8 @@ Deploy tx fee:   200013616
 Account stored in database with aliases last & my-wallet
 ```
 
+You may need to scroll up as there are some other logs printed after it.
+
 You can double check by running `aztec-wallet get-alias accounts:my-wallet`.
 
 For simplicity we'll keep using the test account, let's deploy our own test token!

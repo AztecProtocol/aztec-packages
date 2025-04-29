@@ -88,7 +88,7 @@ This means you won't have to pay fees - a sponsor contract will pay them for you
 
 You should see that the contract `SponsoredFPC` was added at a specific address.
 
-3. Deploy your account (even though we don't have to):
+3. Deploy your account (required as we will be using public functions):
 
 ```bash
 aztec-wallet deploy-account \
@@ -101,6 +101,8 @@ aztec-wallet deploy-account \
 Note: The first time you run these commands, it will take longer as some binaries are installed. This command is generating a client-side proof!
 
 You should see the tx hash in your terminal.
+
+If you see an error like `Timeout awaiting isMined` please note this is not an actual error. The transaction has still been sent and is simply waiting to be mined. You may see this if the network is more congested than normal. You can proceed to the next step.
 
 ## Step 2: Deploy and interact with a token contract
 

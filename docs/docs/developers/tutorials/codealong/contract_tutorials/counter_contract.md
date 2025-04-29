@@ -15,23 +15,9 @@ In this guide, we will create our first Aztec.nr smart contract. We will build a
 
 ## Set up a project
 
-Create a new directory called `aztec-private-counter`
+Run this to create a new contract project:
 
 ```bash
-mkdir aztec-private-counter
-```
-
-then create a `contracts` folder inside where our Aztec.nr contract will live:
-
-```bash
-cd aztec-private-counter
-mkdir contracts
-```
-
-Inside `contracts` create a new project called `counter`:
-
-```bash
-cd contracts
 aztec-nargo new --contract counter
 ```
 
@@ -39,12 +25,10 @@ Your structure should look like this:
 
 ```tree
 .
-|-aztec-private-counter
-| |-contracts
-| | |--counter
-| | |  |--src
-| | |  |  |--main.nr
-| | |  |--Nargo.toml
+|-counter
+| |-src
+| | |-main.nr
+| |-Nargo.toml
 ```
 
 The file `main.nr` will soon turn into our smart contract!
@@ -73,7 +57,13 @@ This defines a contract called `Counter`.
 
 We need to define some imports.
 
-Write this within your contract at the top:
+Write this inside your contract, ie inside these brackets:
+
+```rust
+pub contract Counter {
+    // imports go here!
+}
+```
 
 #include_code imports /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
@@ -119,7 +109,7 @@ The `increment` function works very similarly to the `constructor`, but instead 
 
 ## Prevent double spending
 
-Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key.
+Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. Yu ican leran more about nullifiers and private state in the [Learn section](../../../../aztec/index.md#private-and-public-state).
 
 ## Getting a counter
 
