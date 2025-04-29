@@ -188,10 +188,6 @@
 
 [[redirects]]
     from = "/developers/tutorials/codealong/contract_tutorials/token_bridge"
-    to = "/developers/tutorials/codealong/js_tutorials/uniswap"
-
-[[redirects]]
-    from = "/developers/tutorials/codealong/contract_tutorials/token_bridge"
     to = "/developers/tutorials/codealong/js_tutorials/token_bridge"
 
 [[redirects]]
