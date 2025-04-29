@@ -40,7 +40,7 @@ See here to [Bridge Fee Juice](../../../developers/reference/environment_referen
 
 :::
 
-One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
+One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/js_tutorials/token_bridge.md#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
 
 First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
 
