@@ -193,7 +193,7 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --pedantic-solving --skip-brillig-constraints-check"
   done
 }
 
@@ -205,7 +205,7 @@ function bench {
   # We assume that the caller has bb installed and all of the protocol circuit artifacts are in `./target`
 
   rm -rf bench-out && mkdir -p bench-out
-  # Here we just cache based off of the git commit
+   # We don't have a good global content hash for the protocol circuits so we use the git commit.
   local hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
   if cache_download noir-protocol-circuits-bench-results-$hash.tar.gz; then
     return

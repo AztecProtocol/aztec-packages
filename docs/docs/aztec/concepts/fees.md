@@ -60,7 +60,7 @@ These are:
 
 A fee payer will have bridged fee-juice from L1. On Aztec this fee asset is non-transferrable, and only deducted by the protocol to pay for fees. A user can claim bridged fee juice and use it to pay for transaction fees in the same transaction.
 
-The mechanisms for bridging is the same as any other token. For more on this concept see the start of the [Token Bridge Tutorial](../../developers/tutorials/codealong/contract_tutorials/token_bridge) where it describes the components and how bridging works (under the hood this makes use of [portals](https://docs.aztec.network/aztec/concepts/communication/portals)).
+The mechanisms for bridging is the same as any other token. For more on this concept see the start of the [Token Bridge Tutorial](../../developers/tutorials/codealong/js_tutorials/token_bridge.md) where it describes the components and how bridging works (under the hood this makes use of [portals](https://docs.aztec.network/aztec/concepts/communication/portals)).
 
 ### Payment methods
 

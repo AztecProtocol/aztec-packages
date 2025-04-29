@@ -18,12 +18,10 @@ Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitm
     : commitment_key(bn254_commitment_key)
 {}
 
-// WORKTODO: pass op_queue here instead of builder
-Goblin::MergeProof Goblin::prove_merge(MegaBuilder& circuit_builder)
+Goblin::MergeProof Goblin::prove_merge()
 {
     PROFILE_THIS_NAME("Goblin::merge");
-
-    MergeProver merge_prover{ circuit_builder.op_queue, commitment_key };
+    MergeProver merge_prover{ op_queue, commitment_key };
     merge_proof = merge_prover.construct_proof();
     return merge_proof;
 }

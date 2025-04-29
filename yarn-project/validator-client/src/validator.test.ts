@@ -68,7 +68,13 @@ describe('ValidationService', () => {
     const archive = Fr.random();
     const txs = [1, 2, 3, 4, 5].map(() => TxHash.random());
 
-    const blockProposal = await validatorClient.createBlockProposal(header, archive, txs);
+    const blockProposal = await validatorClient.createBlockProposal(
+      header.globalVariables.blockNumber,
+      header.toPropose(),
+      archive,
+      header.state,
+      txs,
+    );
 
     expect(blockProposal).toBeDefined();
 
@@ -186,10 +192,7 @@ describe('ValidationService', () => {
       makeBlockAttestation({ signer: attestor2, archive, txHashes }),
     ];
     p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) => {
-      if (
-        slot === proposal.payload.header.globalVariables.slotNumber.toBigInt() &&
-        proposalId === proposal.archive.toString()
-      ) {
+      if (slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()) {
         return Promise.resolve(expectedAttestations);
       }
       return Promise.resolve([]);

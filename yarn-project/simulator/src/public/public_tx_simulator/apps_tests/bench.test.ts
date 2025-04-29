@@ -1,8 +1,8 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 

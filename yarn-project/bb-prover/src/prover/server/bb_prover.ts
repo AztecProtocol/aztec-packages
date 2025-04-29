@@ -1,9 +1,9 @@
 /* eslint-disable require-await */
 import {
-  AGGREGATION_OBJECT_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  PAIRING_POINTS_SIZE,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -384,7 +384,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     await this.verifyProof('RootRollupArtifact', proof);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Remove this hack.
-    recursiveProof.binaryProof.numPublicInputs += AGGREGATION_OBJECT_LENGTH;
+    recursiveProof.binaryProof.numPublicInputs += PAIRING_POINTS_SIZE;
     return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
   }
 

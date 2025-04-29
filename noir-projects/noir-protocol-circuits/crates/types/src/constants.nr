@@ -293,6 +293,17 @@ pub global BLOCK_HEADER_LENGTH_BYTES: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYT
     - 12
     + 32 * TOTAL_FEES_LENGTH
     + 32 * TOTAL_MANA_USED_LENGTH;
+pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
+    + CONTENT_COMMITMENT_LENGTH
+    + 1 /* slot_number */
+    + 1 /* timestamp */
+    + 1 /* coinbase */
+    + 1 /* fee_recipient */
+    + GAS_FEES_LENGTH
+    + TOTAL_MANA_USED_LENGTH;
+pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 2) * 32
+    + 8 /* timestamp */
+    + 20 /* coinbase */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
     + MAX_BLOCK_NUMBER_LENGTH
@@ -334,8 +345,8 @@ pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 =
     CALL_CONTEXT_LENGTH + BLOCK_HEADER_LENGTH + TX_CONTEXT_LENGTH + 1;
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
-pub global AGGREGATION_OBJECT_LENGTH: u32 = 16;
-pub global IPA_CLAIM_LENGTH: u32 = 10;
+pub global PAIRING_POINTS_SIZE: u32 = 16;
+pub global IPA_CLAIM_SIZE: u32 = 10;
 
 pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
@@ -438,15 +449,24 @@ pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
     * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
+    + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
-// + 6 for end_timestamp, end_block_number, out_hash, vk_tree_root, protocol_contract_tree_root, prover_id
-pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
-    + 6
-    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
+pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive */
+    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* end_archive */
+    + 1 /* end_timestamp */
+    + 1 /* end_block_number */
+    + 1 /* out_hash */
+    + 1 /* chain_id */
+    + 1 /* version */
+    + 1 /* vk_tree_root */
+    + 1 /* protocol_contract_tree_root */
+    + 1 /* prover_id */
+    + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
+    + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
     + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
 pub global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
@@ -470,7 +490,7 @@ pub global RECURSIVE_PROOF_LENGTH: u32 = 456;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
 pub global IPA_PROOF_LENGTH: u32 = 69;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
-    RECURSIVE_PROOF_LENGTH + IPA_CLAIM_LENGTH + IPA_PROOF_LENGTH;
+    RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
 pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH; // in the future these can differ
 
