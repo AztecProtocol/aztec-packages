@@ -38,13 +38,6 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-function check_noir_contracts_comp_failures {
-  echo_header "noir-projects check_noir_contracts_comp_failures"
-  cd ./noir-contracts-comp-failures
-  ./bootstrap.sh test
-  cd ..
-}
-
 case "$cmd" in
   full|fast|ci|"")
     build
