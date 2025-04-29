@@ -69,8 +69,9 @@ const docsButton = css({
   borderRadius: '6px',
   fontWeight: 500,
   color: '#FFFFFF',
-  fontSize: '18px',
-  padding: '12px 16px',
+  fontSize: '16px',
+  minWidth: '100px',
+  padding: '10px 16px',
   '@media (max-width: 900px)': {
     padding: '8px 10px',
     fontSize: '14px',
