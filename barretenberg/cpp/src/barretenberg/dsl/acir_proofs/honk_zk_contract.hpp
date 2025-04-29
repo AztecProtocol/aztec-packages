@@ -166,7 +166,7 @@ uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
 uint256 constant NUMBER_OF_ENTITIES = 40;
 uint256 constant NUMBER_UNSHIFTED = 35;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
-uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
+uint256 constant PAIRING_POINTS_SIZE = 16;
 
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
@@ -284,7 +284,7 @@ library Honk {
 
 struct ZKProof {
         // Pairing point object
-        Fr[PAIRING_POINT_OBJECT_LENGTH] pairingPointObject;
+        Fr[PAIRING_POINTS_SIZE] pairingPointObject;
         // Commitments to wire polynomials
         Honk.G1ProofPoint w1;
         Honk.G1ProofPoint w2;
@@ -388,11 +388,11 @@ library ZKTranscriptLib {
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
-        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINT_OBJECT_LENGTH; i++) {
+        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
-        for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
-            round0[3 + publicInputsSize - PAIRING_POINT_OBJECT_LENGTH + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            round0[3 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
@@ -623,9 +623,9 @@ library ZKTranscriptLib {
     function loadProof(bytes calldata proof) internal pure returns (Honk.ZKProof memory p) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1332): Optimize this away when we finalize.
         uint256 boundary = 0x0;
-        
+
         // Pairing point object
-        for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
             p.pairingPointObject[i] = bytesToFr(proof[boundary:boundary + 0x20]);
             boundary += 0x20;
         }
@@ -1533,7 +1533,7 @@ interface IVerifier {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof);
 
-        if (publicInputs.length != vk.publicInputsSize - PAIRING_POINT_OBJECT_LENGTH || publicInputs.length != NUMBER_OF_PUBLIC_INPUTS - PAIRING_POINT_OBJECT_LENGTH) {
+        if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE || publicInputs.length != NUMBER_OF_PUBLIC_INPUTS - PAIRING_POINTS_SIZE) {
             revert PublicInputsLengthWrong();
         }
 
@@ -1556,7 +1556,7 @@ interface IVerifier {
 
     }
 
-    function computePublicInputDelta(bytes32[] memory publicInputs, Fr[PAIRING_POINT_OBJECT_LENGTH] memory pairingPointObject, Fr beta, Fr gamma, uint256 offset)
+    function computePublicInputDelta(bytes32[] memory publicInputs, Fr[PAIRING_POINTS_SIZE] memory pairingPointObject, Fr beta, Fr gamma, uint256 offset)
         internal
         view
         returns (Fr publicInputDelta)
@@ -1568,7 +1568,7 @@ interface IVerifier {
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS - PAIRING_POINT_OBJECT_LENGTH; i++) {
+            for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS - PAIRING_POINTS_SIZE; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -1578,7 +1578,7 @@ interface IVerifier {
                 denominatorAcc = denominatorAcc - beta;
             }
 
-            for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
+            for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
                 Fr pubInput = pairingPointObject[i];
 
                 numerator = numerator * (numeratorAcc + pubInput);

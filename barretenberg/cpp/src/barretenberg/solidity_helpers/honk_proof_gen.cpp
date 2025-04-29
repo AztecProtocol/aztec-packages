@@ -1,6 +1,6 @@
 
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -26,7 +26,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     using Verifier = UltraVerifier_<Flavor>;
 
     UltraCircuitBuilder builder = Circuit::generate(inputs);
-    stdlib::recursion::aggregation_state<UltraCircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(instance);

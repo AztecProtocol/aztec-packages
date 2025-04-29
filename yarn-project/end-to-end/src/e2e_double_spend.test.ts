@@ -1,5 +1,5 @@
 import { type AccountWallet, Fr, type Logger, TxStatus } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 

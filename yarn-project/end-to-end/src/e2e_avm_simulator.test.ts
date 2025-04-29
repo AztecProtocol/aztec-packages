@@ -1,6 +1,6 @@
 import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
-import { AvmInitializerTestContract } from '@aztec/noir-contracts.js/AvmInitializerTest';
-import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
+import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 
@@ -34,12 +34,12 @@ describe('e2e_avm_simulator', () => {
       describe('Not nested', () => {
         it('PXE processes user code assertions and recovers message', async () => {
           await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
-            "Assertion failed: This assertion should fail! 'not_true == true'",
+            'Assertion failed: This assertion should fail!',
           );
         });
         it('PXE processes user code assertions and recovers message (complex)', async () => {
           await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
-            "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
+            "Assertion failed: Nullifier doesn't exist!",
           );
         });
         it('PXE processes intrinsic assertions and recovers message', async () => {
@@ -49,7 +49,7 @@ describe('e2e_avm_simulator', () => {
       describe('Nested', () => {
         it('PXE processes user code assertions and recovers message', async () => {
           await expect(avmContract.methods.external_call_to_assertion_failure().simulate()).rejects.toThrow(
-            "Assertion failed: This assertion should fail! 'not_true == true'",
+            'Assertion failed: This assertion should fail!',
           );
         });
         it('PXE processes intrinsic assertions and recovers message', async () => {

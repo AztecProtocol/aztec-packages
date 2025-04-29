@@ -104,7 +104,7 @@ class UltraFlavor {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // Proof length formula:
-    // 1. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 1. PAIRING_POINTS_SIZE public inputs for pairing point accumulator
     // 2. NUM_WITNESS_ENTITIES commitments
     // 3. CONST_PROOF_SIZE_LOG_N sumcheck univariates
     // 4. NUM_ALL_ENTITIES sumcheck evaluations

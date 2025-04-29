@@ -37,7 +37,7 @@ template <class Flavor> class TraceToPolynomials {
 
             PROFILE_THIS_NAME("TraceData constructor");
 
-            if constexpr (IsUltraFlavor<Flavor>) {
+            if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 // Initialize and share the wire and selector polynomials
                 for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
                     wire = other_wire.share();

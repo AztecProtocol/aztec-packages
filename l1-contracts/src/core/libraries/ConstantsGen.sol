@@ -199,8 +199,8 @@ library Constants {
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 908;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
-  uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
-  uint256 internal constant IPA_CLAIM_LENGTH = 10;
+  uint256 internal constant PAIRING_POINTS_SIZE = 16;
+  uint256 internal constant IPA_CLAIM_SIZE = 10;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
