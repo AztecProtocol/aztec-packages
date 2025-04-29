@@ -56,7 +56,7 @@ cd counter_contract
 sed -i 's|\.\./\.\./\.\./\.\./|/home/ubuntu/aztec-packages/noir-projects/|g' Nargo.toml
 
 # Compile and codegen.
-aztec-nargo compile --pedantic-solving
+aztec-nargo compile
 aztec codegen -o src/artifacts target
 if [ ! -d src/artifacts ]; then
   echo "Failed to codegen TypeScript."
