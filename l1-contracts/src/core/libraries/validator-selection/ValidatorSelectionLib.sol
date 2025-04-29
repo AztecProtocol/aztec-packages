@@ -226,11 +226,11 @@ library ValidatorSelectionLib {
    *
    * @param _epochNumber - The epoch to get the committee for
    *
-   * @return The committee for the epoch
+   * @return - The committee for the epoch
    */
   function getCommitteeAt(StakingStorage storage _stakingStore, Epoch _epochNumber)
     internal
-    returns (address[] memory committee)
+    returns (address[] memory)
   {
     ValidatorSelectionStorage storage store = getStorage();
 
