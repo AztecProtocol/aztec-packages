@@ -7,9 +7,9 @@
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
-#include "barretenberg/stdlib/plonk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -58,9 +58,9 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
-        Builder* builder = other.P0.get_context();
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
-        Transcript<Builder> transcript;
+        BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
         transcript.send_to_verifier("Accumulator_P0", P0);
         transcript.send_to_verifier("Accumulator_P1", P1);
         transcript.send_to_verifier("Aggregated_P0", other.P0);
