@@ -104,8 +104,7 @@ export async function retrieveBlocksFromRollup(
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
 
-  let chainId: Fr | undefined;
-  let version: Fr | undefined;
+  let rollupConstants: { chainId: Fr; version: Fr } | undefined;
 
   do {
     if (searchStartBlock > searchEndBlock) {
@@ -130,12 +129,9 @@ export async function retrieveBlocksFromRollup(
       `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
-    if (chainId === undefined) {
-      chainId = new Fr(await publicClient.getChainId());
-    }
-    if (version === undefined) {
-      // Fetch the version for all the blocks. For the same rollup contract the value will not change.
-      version = new Fr(await rollup.read.getVersion());
+    if (rollupConstants === undefined) {
+      const [chainId, version] = await Promise.all([publicClient.getChainId(), rollup.read.getVersion()]);
+      rollupConstants = { chainId: new Fr(chainId), version: new Fr(version) };
     }
 
     const newBlocks = await processL2BlockProposedLogs(
@@ -143,8 +139,7 @@ export async function retrieveBlocksFromRollup(
       publicClient,
       blobSinkClient,
       l2BlockProposedLogs,
-      chainId,
-      version,
+      rollupConstants,
       logger,
     );
     retrievedBlocks.push(...newBlocks);
@@ -167,8 +162,7 @@ async function processL2BlockProposedLogs(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
-  chainId: Fr,
-  version: Fr,
+  { chainId, version }: { chainId: Fr; version: Fr },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
