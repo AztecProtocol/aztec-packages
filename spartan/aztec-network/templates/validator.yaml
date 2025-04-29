@@ -184,10 +184,13 @@ spec:
               value: "{{ .Values.snapshots.syncUrl }}"
             - name: P2P_ARCHIVED_TX_LIMIT
               value: "{{ .Values.validator.p2p.archivedTxLimit }}"
-            {{- if .Values.blobSink.enabled }}
+          {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
-            {{- end }}
+          {{- else if .Values.blobs.remoteBlobSinkEnabled }}
+            - name: BLOB_SINK_URL
+              value: "{{ .Values.blobs.remoteBlobSinkUrl }}"
+          {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}
