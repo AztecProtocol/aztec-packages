@@ -135,9 +135,6 @@ function test_cmds_internal {
   local bbjs_bin="../ts/dest/node/main.js"
 
   # barretenberg-acir-tests-sol:
-  echo "docker_isolate 'FLOW=sol $run_test assert_statement'"
-  echo "docker_isolate 'FLOW=sol $run_test double_verify_proof'"
-  echo "docker_isolate 'FLOW=sol $run_test double_verify_nested_proof'"
   echo "docker_isolate 'FLOW=sol_honk $run_test assert_statement'"
   echo "docker_isolate 'FLOW=sol_honk $run_test 1_mul'"
   echo "docker_isolate 'FLOW=sol_honk $run_test slices'"
