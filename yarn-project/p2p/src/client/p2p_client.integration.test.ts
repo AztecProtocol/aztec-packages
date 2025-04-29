@@ -45,6 +45,7 @@ describe('p2p client integration', () => {
 
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
+    txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
     });
