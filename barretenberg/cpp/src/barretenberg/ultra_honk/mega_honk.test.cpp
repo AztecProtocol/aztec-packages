@@ -6,6 +6,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/plonk_honk_shared/relation_checker.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
@@ -107,7 +108,7 @@ TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     UltraProver_<Flavor> prover(proving_key);
     HonkProof mega_proof = prover.construct_proof();
-    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + Flavor::BACKEND_PUB_INPUTS_SIZE);
+    EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
 }
 
 /**

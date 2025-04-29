@@ -2,6 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
@@ -82,7 +83,7 @@ TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     UltraProver_<Flavor> prover(proving_key);
     HonkProof ultra_proof = prover.construct_proof();
-    EXPECT_EQ(ultra_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + Flavor::BACKEND_PUB_INPUTS_SIZE);
+    EXPECT_EQ(ultra_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
 }
 
 /**
