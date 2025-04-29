@@ -6,11 +6,10 @@ import {
 } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, wrapInBlock } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -57,7 +56,7 @@ export function describeArchiverDataStore(
         blockHash: `0x${l1BlockNumber}`,
         timestamp: BigInt(l1BlockNumber * 1000),
       },
-      signatures: times(3, Signature.random),
+      attestations: times(3, CommitteeAttestation.random),
     });
 
     const expectBlocksEqual = (actual: PublishedL2Block[], expected: PublishedL2Block[]) => {
@@ -67,7 +66,7 @@ export function describeArchiverDataStore(
         const actualBlock = actual[i];
         expect(actualBlock.l1).toEqual(expectedBlock.l1);
         expect(actualBlock.block.equals(expectedBlock.block)).toBe(true);
-        expect(actualBlock.signatures.every((s, i) => s.equals(expectedBlock.signatures[i]))).toBe(true);
+        expect(actualBlock.attestations.every((a, i) => a.equals(expectedBlock.attestations[i]))).toBe(true);
       }
     };
 
@@ -503,7 +502,7 @@ export function describeArchiverDataStore(
 
         return {
           block: block,
-          signatures: times(3, Signature.random),
+          attestations: times(3, CommitteeAttestation.random),
           l1: { blockNumber: BigInt(blockNumber), blockHash: `0x${blockNumber}`, timestamp: BigInt(blockNumber) },
         };
       };
@@ -621,7 +620,7 @@ export function describeArchiverDataStore(
         blocks = await timesParallel(numBlocks, async (index: number) => ({
           block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
           l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
-          signatures: times(3, Signature.random),
+          attestations: times(3, CommitteeAttestation.random),
         }));
 
         await store.addBlocks(blocks);

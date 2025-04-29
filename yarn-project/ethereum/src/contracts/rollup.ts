@@ -1,6 +1,8 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { ViemSignature } from '@aztec/foundation/eth-signature';
+// TODO: watch out for circular dependency - maybe into foundation
+// import type { ViemCommitteeAttestation } from '@aztec/stdlib/block';
+import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
@@ -14,6 +16,12 @@ import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
+
+// TODO: watch out for circular dependency - maybe into foundation
+type ViemCommitteeAttestation = {
+  addr: `0x${string}`;
+  signature: ViemSignature;
+};
 
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
@@ -306,7 +314,7 @@ export class RollupContract {
   public async validateHeader(
     args: readonly [
       `0x${string}`,
-      ViemSignature[],
+      ViemCommitteeAttestation[],
       `0x${string}`,
       bigint,
       `0x${string}`,
@@ -343,11 +351,27 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
+    // TODO(md): dep management
+    epochCache: {
+      getCommittee: (slot: bigint) => Promise<{
+        committee: EthAddress[];
+        seed: bigint;
+        epoch: bigint;
+      }>;
+    },
   ): Promise<[bigint, bigint]> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
     const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+
+    // TODO: tidy up
+    const committee = await epochCache.getCommittee(timeOfNextL1Slot);
+    const committeeAttestations: ViemCommitteeAttestation[] = committee.committee.map(committeeMember => ({
+      addr: committeeMember.toString(),
+      signature: Signature.empty().toViemSignature(),
+    }));
+
     try {
       const {
         result: [slot, blockNumber],
@@ -355,7 +379,7 @@ export class RollupContract {
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, committeeAttestations],
         account,
       });
 

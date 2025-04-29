@@ -6,7 +6,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -146,7 +146,7 @@ interface IRollupCore {
 
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes calldata _blobInput
   ) external;
 
@@ -159,14 +159,18 @@ interface IRollupCore {
 interface IRollup is IRollupCore {
   function validateHeader(
     bytes calldata _header,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external;
 
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
+  function canProposeAtTime(
+    Timestamp _ts,
+    bytes32 _archive,
+    CommitteeAttestation[] memory _attestations
+  ) external returns (Slot, uint256);
 
   function getTips() external view returns (ChainTips memory);
 

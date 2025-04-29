@@ -41,7 +41,7 @@ import {
   Epoch,
   Timestamp,
   Errors,
-  Signature,
+  CommitteeAttestation,
   ExtRollupLib,
   EthValue,
   STFLib,
@@ -81,7 +81,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *          without having to deal with viem or anvil for simulating timestamps in the future.
    *
    * @param _header - The header to validate
-   * @param _signatures - The signatures to validate
+   * @param _attestations - The attestations to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
@@ -89,7 +89,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeader(
     bytes calldata _header,
-    Signature[] memory _signatures,
+    CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
     bytes32 _blobsHash,
@@ -98,7 +98,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
         header: HeaderLib.decode(_header),
-        attestations: _signatures,
+        attestations: _attestations,
         digest: _digest,
         currentTime: _currentTime,
         manaBaseFee: getManaBaseFeeAt(_currentTime, true),
@@ -168,15 +168,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @param _ts - The timestamp to check
    * @param _archive - The archive to check (should be the latest archive)
+   * @param _attestations - Empty attestations are sent in order to recalculate the committee committment + work out the correct proposer
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
-    external
-    override(IRollup)
-    returns (Slot, uint256)
-  {
+  function canProposeAtTime(
+    Timestamp _ts,
+    bytes32 _archive,
+    CommitteeAttestation[] memory _attestations
+  ) external override(IRollup) returns (Slot, uint256) {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -190,13 +191,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    Signature[] memory sigs = new Signature[](0);
-
     ValidatorSelectionLib.verify(
       StakingLib.getStorage(),
       slot,
       slot.epochFromSlot(),
-      sigs,
+      _attestations,
       _archive,
       BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
     );

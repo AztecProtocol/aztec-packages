@@ -21,6 +21,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
@@ -37,6 +38,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     uint256 needed;
     address proposer;
     bool shouldRevert;
+    bool provideEmptyAttestations;
+    uint256 attestationsCount;
+    ProposePayload proposePayload;
   }
 
   SlashFactory internal slashFactory;

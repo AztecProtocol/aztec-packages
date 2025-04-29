@@ -6,7 +6,7 @@ import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -33,6 +33,8 @@ import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 // solhint-disable comprehensive-interface
 
+import "forge-std/console.sol";
+
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
@@ -40,6 +42,19 @@ import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   using MessageHashUtils for bytes32;
   using EpochLib for Epoch;
+
+  // Test Block Flags
+  struct TestFlags {
+    bool provideEmptyAttestations;
+    bool invalidProposer;
+    bool invalidCommitteeCommitment;
+  }
+
+  TestFlags NO_FLAGS = TestFlags({
+    provideEmptyAttestations: true,
+    invalidProposer: false,
+    invalidCommitteeCommitment: false
+  });
 
   function testInitialCommitteeMatch() public setup(4) progressEpoch {
     address[] memory attesters = rollup.getAttesters();
@@ -109,6 +124,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
+  // NOTE: this must be run with --isolate as transient storage gets thrashed when working out the proposer.
+  // This also changes the committee which is calculated within each call.
+  // TODO(md): clear out transient storage used by the sample lib - we cannot afford to have a malicious proposer
+  // change the committee committment to something unpredictable.
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
     setup(100)
@@ -117,7 +136,16 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
-    _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false);
+    _testBlock(
+      "mixed_block_1",
+      _insufficientSigs,
+      committeeSize,
+      TestFlags({
+        provideEmptyAttestations: true,
+        invalidProposer: false,
+        invalidCommitteeCommitment: false
+      })
+    );
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
@@ -127,8 +155,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testHappyPath() public setup(4) progressEpoch {
-    _testBlock("mixed_block_1", false, 3, false);
-    _testBlock("mixed_block_2", false, 3, false);
+    _testBlock("mixed_block_1", false, 3, NO_FLAGS);
+    _testBlock("mixed_block_2", false, 3, NO_FLAGS);
   }
 
   function testNukeFromOrbit() public setup(4) progressEpoch {
@@ -137,8 +165,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // got finalised.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
-    _testBlock("mixed_block_1", false, 3, false);
-    _testBlock("mixed_block_2", false, 3, false);
+    _testBlock("mixed_block_1", false, 3, NO_FLAGS);
+    _testBlock("mixed_block_2", false, 3, NO_FLAGS);
 
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
@@ -166,18 +194,38 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidProposer() public setup(4) progressEpoch {
-    _testBlock("mixed_block_1", true, 3, true);
+    _testBlock(
+      "mixed_block_1",
+      true,
+      3,
+      TestFlags({
+        invalidProposer: true,
+        provideEmptyAttestations: true,
+        invalidCommitteeCommitment: false
+      })
+    );
   }
 
-  function testInsufficientSigs() public setup(4) progressEpoch {
-    _testBlock("mixed_block_1", true, 2, false);
+  function testInvalidCommitteeCommitment() public setup(4) progressEpoch {
+    _testBlock(
+      "mixed_block_1",
+      true,
+      3,
+      TestFlags({
+        invalidProposer: false,
+        provideEmptyAttestations: true,
+        invalidCommitteeCommitment: true
+      })
+    );
   }
+
+  // TODO: make a test where the proposer signature is not also provided. The proposer must provide their own address in the correct index
 
   function _testBlock(
     string memory _name,
     bool _expectRevert,
     uint256 _signatureCount,
-    bool _invalidProposer
+    TestFlags memory _flags
   ) internal {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
@@ -215,9 +263,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
-      Signature[] memory signatures = new Signature[](_signatureCount);
-
-      ProposePayload memory proposePayload = ProposePayload({
+      // Pad out with empty (missing signature) attestations to make the committee commitment match
+      ree.provideEmptyAttestations = _flags.provideEmptyAttestations || !_expectRevert;
+      ree.attestationsCount = ree.provideEmptyAttestations ? validators.length : _signatureCount;
+      ree.proposePayload = ProposePayload({
         archive: args.archive,
         stateReference: args.stateReference,
         oracleInput: args.oracleInput,
@@ -225,28 +274,37 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         txHashes: args.txHashes
       });
 
-      bytes32 digest = ProposeLib.digest(proposePayload);
+      CommitteeAttestation[] memory attestations = new CommitteeAttestation[](ree.attestationsCount);
+
+      bytes32 digest = ProposeLib.digest(ree.proposePayload);
       for (uint256 i = 0; i < _signatureCount; i++) {
-        signatures[i] = createSignature(validators[i], digest);
+        attestations[i] = createAttestation(validators[i], digest);
+      }
+
+      // We must include empty attestations to make the committee commitment match
+      if (ree.provideEmptyAttestations) {
+        for (uint256 i = _signatureCount; i < validators.length; i++) {
+          attestations[i] = createEmptyAttestation(validators[i]);
+        }
       }
 
       if (_expectRevert) {
         ree.shouldRevert = true;
+        // @todo Handle SignatureLib__InvalidSignature case
+        // @todo Handle ValidatorSelection__InsufficientAttestations case
         if (_signatureCount < ree.needed) {
           vm.expectRevert(
             abi.encodeWithSelector(
-              Errors.ValidatorSelection__InsufficientAttestationsProvided.selector,
+              Errors.ValidatorSelection__InsufficientAttestations.selector,
               ree.needed,
               _signatureCount
             )
           );
         }
-        // @todo Handle SignatureLib__InvalidSignature case
-        // @todo Handle ValidatorSelection__InsufficientAttestations case
       }
 
       skipBlobCheck(address(rollup));
-      if (_expectRevert && _invalidProposer) {
+      if (_expectRevert && _flags.invalidProposer) {
         emit log("We do be reverting?");
 
         address realProposer = ree.proposer;
@@ -259,16 +317,39 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         ree.shouldRevert = true;
       }
 
+      if (_flags.invalidCommitteeCommitment) {
+        bytes32 correctCommitteeCommitment = keccak256(abi.encode(validators));
+
+        // Change the last element in the committee to a random address
+        address[] memory incorrectCommittee = validators;
+        uint256 invalidAttesterKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
+        address invalidAttester = vm.addr(invalidAttesterKey);
+        attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
+
+        incorrectCommittee[validators.length - 2] = invalidAttester;
+        attestations[validators.length - 2] = createAttestation(invalidAttester, digest);
+
+        bytes32 incorrectCommitteeCommitment = keccak256(abi.encode(incorrectCommittee));
+
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+            incorrectCommitteeCommitment,
+            correctCommitteeCommitment
+          )
+        );
+      }
+
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
-      Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.blobInputs);
+      CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
+      rollup.propose(args, attestations, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
@@ -324,16 +405,26 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function createSignature(address _signer, bytes32 _digest)
+  function createAttestation(address _signer, bytes32 _digest)
     internal
     view
-    returns (Signature memory)
+    returns (CommitteeAttestation memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
     bytes32 digest = _digest.toEthSignedMessageHash();
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-    return Signature({isEmpty: false, v: v, r: r, s: s});
+    Signature memory signature = Signature({v: v, r: r, s: s});
+    return CommitteeAttestation({addr: _signer, signature: signature});
+  }
+
+  function createEmptyAttestation(address _signer)
+    internal
+    pure
+    returns (CommitteeAttestation memory)
+  {
+    Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
+    return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
 }

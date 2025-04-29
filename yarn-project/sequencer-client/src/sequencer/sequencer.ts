@@ -13,7 +13,7 @@ import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -663,7 +663,7 @@ export class Sequencer {
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
   }))
-  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<CommitteeAttestation[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
 
@@ -723,7 +723,7 @@ export class Sequencer {
   }))
   protected async enqueuePublishL2Block(
     block: L2Block,
-    attestations?: Signature[],
+    attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
   ): Promise<void> {
     // Publishes new block to the network and awaits the tx to be mined
