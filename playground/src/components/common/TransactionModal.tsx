@@ -1,4 +1,4 @@
-import { useCallback, useContext } from 'react';
+import { useCallback, useContext, useState, useEffect } from 'react';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from '@mui/material';
 import { TxStatus } from '@aztec/aztec.js';
 import { dialogBody, loader } from '../../styles/common';
 import type { UserTx } from '../../utils/txs';
+import ReactConfetti from 'react-confetti';
 
 const TX_ERRORS = [
   'error',
@@ -31,9 +32,8 @@ const container = css({
   flexDirection: 'column',
   minHeight: '450px',
   padding: '1rem',
-  overflow: 'hidden',
+  overflow: 'auto',
   '@media (max-width: 900px)': {
-    width: 'unset',
     padding: '1rem 0',
   },
 });
@@ -67,6 +67,10 @@ const content = css({
     maxHeight: '7rem',
     textAlign: 'left',
     width: '100%',
+  },
+
+  ul: {
+    paddingInlineStart: '2rem',
   }
 });
 
@@ -92,8 +96,21 @@ const buttonContainer = css({
 
 export function TransactionModal(props: { transaction: UserTx }) {
   const { currentTx, setCurrentTx, logs, transactionModalStatus, setTransactionModalStatus } = useContext(AztecContext);
+  const [isTxPanelOpen, setIsTxPanelOpen] = useState(transactionModalStatus === 'open');
 
   const transaction = props.transaction || currentTx;
+
+  useEffect(() => {
+    setIsTxPanelOpen(transactionModalStatus === 'open');
+  }, [transactionModalStatus]);
+
+  // Open the modal when the transaction is successful
+  useEffect(() => {
+    if (transaction?.status === 'success') {
+      setTransactionModalStatus('open');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transaction]);
 
   const handleCancelTx = async () => {
     if (!confirm('Are you sure you want to cancel this transaction?')) {
@@ -193,7 +210,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
         <div css={content}>
           <span css={loader}></span>
 
-          <Typography css={subtitleText} style={{ textAlign: 'left' }}>
+          <Typography css={subtitleText}>
             <br />
             Your transaction has been sent to the Aztec network.
             <br />
@@ -217,7 +234,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
             Here is what you did:
 
             <ul>
-              <li>Simulated the transaction &quot;{transaction?.name}&quot;.</li>
+              <li>Simulated the transaction {transaction?.name && `"${transaction?.name}"`}.</li>
               <li>Generated a client-side proof for the transaction.</li>
               <li>Sent the transaction and proof to Aztec network.</li>
               <li>Got the confirmation from the network that your transaction was included in a block.</li>
@@ -265,7 +282,6 @@ export function TransactionModal(props: { transaction: UserTx }) {
   }
 
   function renderErrorState() {
-
     return (
       <>
         <Typography css={[titleText, { color: '#FF7764' }]}>
@@ -289,7 +305,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
         </Typography>
 
         <div css={content}>
-          <Typography css={subtitleText} style={{ textAlign: 'left' }}>
+          <Typography css={subtitleText}>
             Your transaction was successfully sent to the mempool but it took slightly longer to add it to a block.
             <br />
             <br />
@@ -312,29 +328,39 @@ export function TransactionModal(props: { transaction: UserTx }) {
     )
   }
 
-
   return (
-    <Dialog open={transactionModalStatus === 'open'} onClose={minimizeModal}>
-      <DialogTitle>{transaction?.name}</DialogTitle>
+    <>
+      {isSuccess && isTxPanelOpen && (
+        <ReactConfetti
+          style={{ zIndex: 10000, position: 'fixed', top: 0, left: 0, width: '100%', height: '100%' }}
+          recycle={false}
+          numberOfPieces={500}
+          gravity={0.3}
+        />
+      )}
 
-      <DialogContent css={dialogBody}>
+      <Dialog open={isTxPanelOpen} onClose={minimizeModal}>
+        <DialogTitle>{transaction?.name}</DialogTitle>
 
-        <IconButton
-          css={minimizeButton}
-          onClick={minimizeModal}
-        >
-          <CloseButton />
-        </IconButton>
+        <DialogContent css={dialogBody}>
 
-        <div css={container}>
-          {(isPending || isTimeoutError) && renderTimeoutError()}
-          {isError && !isTimeoutError && renderErrorState()}
-          {isSending && renderSendingState()}
-          {isProving && renderProvingState()}
-          {isSuccess && renderSuccessState()}
-        </div>
+          <IconButton
+            css={minimizeButton}
+            onClick={minimizeModal}
+          >
+            <CloseButton />
+          </IconButton>
 
-      </DialogContent>
-    </Dialog>
+          <div css={container}>
+            {(isPending || isTimeoutError) && renderTimeoutError()}
+            {isError && !isTimeoutError && renderErrorState()}
+            {isSending && renderSendingState()}
+            {isProving && renderProvingState()}
+            {isSuccess && renderSuccessState()}
+          </div>
+
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
