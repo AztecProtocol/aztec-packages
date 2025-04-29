@@ -35,37 +35,6 @@ export const TOKEN_ALLOWED_FUNCTIONS = [
   'cancel_authwit',
 ];
 
-export const FUNCTION_DESCRIPTIONS = {
-  // SimpleVoting functions
-  constructor: 'Initialize the voting contract with an admin who can end the vote',
-  cast_vote: 'Cast a private vote for a candidate without revealing who you voted for',
-  end_vote: 'End the voting process and prevent further vote submissions',
-  get_vote: 'View the total number of votes for a specific candidate',
-
-  // SimpleToken functions
-  mint_privately: 'Create new tokens privately for a specified address',
-  mint_publicly: 'Create new tokens publicly for a specified address',
-  private_transfer: 'Transfer tokens without revealing the amount or participants',
-  public_transfer: 'Transfer tokens publicly where amounts and participants are visible to everyone',
-  transfer_from_private_to_public: 'Move tokens from private to public state, revealing them on-chain',
-  transfer_from_public_to_private: 'Move tokens from public to private state, hiding them from public view',
-  name: 'Get the name of the token',
-  symbol: "Get the token's ticker symbol",
-  decimals: 'Get the number of decimal places supported by the token',
-  public_get_name: 'Get the token name from a public function',
-  public_get_symbol: 'Get the token symbol from a public function',
-  public_get_decimals: 'Get the token decimals from a public function',
-  public_total_supply: 'View the total number of tokens in circulation',
-  public_balance_of: 'View the public token balance of a specific address',
-  private_balance_of: 'View the private token balance of a specific address',
-  burn_public: 'Destroy tokens from a public balance, reducing total supply',
-  burn_private: 'Destroy tokens from a private balance, reducing total supply',
-  prepare_private_balance_increase: 'Prepare for a private balance increase operation',
-  finalize_transfer_to_private: 'Complete a previously initiated transfer to private state',
-  finalize_mint_to_private: 'Complete a previously initiated private mint operation',
-  cancel_authwit: 'Cancel a previously created authorization witness',
-};
-
 export const INFO_TEXT = {
   ACCOUNT_ABSTRACTION:
     'Aztec has native Account Abstraction, you can choose the type of signature you want for your account contract. We recommend the ecdsa_r1 signature that you can store on passkeys or do web authentication.',
