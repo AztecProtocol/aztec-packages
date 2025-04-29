@@ -198,6 +198,10 @@ tests:
     error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "expect(locator).toBeVisible()"
+    owners:
+      - *grego
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
