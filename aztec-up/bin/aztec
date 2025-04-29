@@ -65,7 +65,7 @@ case ${1:-} in
       node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --txe --port 8081 &
       while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
       export NARGO_FOREIGN_CALL_TIMEOUT=300000
-      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 $args_str
+      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --pedantic-solving --oracle-resolver http://127.0.0.1:8081 $args_str
     "
     ;;
   start)

@@ -152,7 +152,7 @@ function compile {
     if [ "${VERBOSE:-0}" -eq 0 ]; then
       local args="--silence-warnings"
     fi
-    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
+    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0 --pedantic-solving
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
