@@ -741,7 +741,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
         for (auto* cmd : deprecated_plonk_commands) {
             if (cmd->parsed()) {
-                std::cerr << "Error: UltraPlonk is now deprecated. Use UltraHonk!" << std::endl;
+                std::cerr << "Error: UltraPlonk is now deprecated (see "
+                             "https://github.com/AztecProtocol/barretenberg/issues/1377). Use UltraHonk!"
+                          << std::endl;
                 std::exit(1);
             }
         }

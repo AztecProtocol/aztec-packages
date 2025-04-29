@@ -172,11 +172,7 @@ export async function proveAndVerify(bytecodePath: string, recursive: boolean, w
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyUltraHonk(
-  bytecodePath: string,
-  witnessPath: string,
-  crsPath: string,
-) {
+export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
@@ -191,11 +187,7 @@ export async function proveAndVerifyUltraHonk(
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyMegaHonk(
-  bytecodePath: string,
-  witnessPath: string,
-  crsPath: string,
-) {
+export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const { api } = await initUltraPlonk(bytecodePath, false, crsPath);
   try {
@@ -408,8 +400,8 @@ export async function proveUltraHonk(
     const acirProveUltraHonk = options?.keccak
       ? api.acirProveUltraKeccakHonk.bind(api)
       : options?.starknet
-        ? api.acirProveUltraStarknetHonk.bind(api)
-        : api.acirProveUltraHonk.bind(api);
+      ? api.acirProveUltraStarknetHonk.bind(api)
+      : api.acirProveUltraHonk.bind(api);
     const proof = await acirProveUltraHonk(bytecode, witness);
 
     if (outputPath === '-') {
@@ -438,8 +430,8 @@ export async function writeVkUltraHonk(
     const acirWriteVkUltraHonk = options?.keccak
       ? api.acirWriteVkUltraKeccakHonk.bind(api)
       : options?.starknet
-        ? api.acirWriteVkUltraStarknetHonk.bind(api)
-        : api.acirWriteVkUltraHonk.bind(api);
+      ? api.acirWriteVkUltraStarknetHonk.bind(api)
+      : api.acirWriteVkUltraHonk.bind(api);
     const vk = await acirWriteVkUltraHonk(bytecode);
 
     if (outputPath === '-') {
@@ -465,8 +457,8 @@ export async function verifyUltraHonk(
     const acirVerifyUltraHonk = options?.keccak
       ? api.acirVerifyUltraKeccakHonk.bind(api)
       : options?.starknet
-        ? api.acirVerifyUltraStarknetHonk.bind(api)
-        : api.acirVerifyUltraHonk.bind(api);
+      ? api.acirVerifyUltraStarknetHonk.bind(api)
+      : api.acirVerifyUltraHonk.bind(api);
     const verified = await acirVerifyUltraHonk(
       Uint8Array.from(readFileSync(proofPath)),
       new RawBuffer(readFileSync(vkPath)),
@@ -531,7 +523,9 @@ function handleGlobalOptions() {
 }
 
 const deprecatedCommandError = () => async () => {
-  console.error(`Error: UltraPlonk is now deprecated. Use UltraHonk!`);
+  console.error(
+    `Error: UltraPlonk is now deprecated (see https://github.com/AztecProtocol/barretenberg/issues/1377). Use UltraHonk!`,
+  );
   process.exit(1);
 };
 
