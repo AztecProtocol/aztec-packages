@@ -85,62 +85,25 @@ unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
 unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(getNotes)]
-unconstrained fn get_notes_oracle<let N: u32, let ORACLE_RETURN_FIELD_LENGTH: u32>(
+unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
     _storage_slot: Field,
     _num_selects: u8,
-    _select_by_indexes: [u8; N],
-    _select_by_offsets: [u8; N],
-    _select_by_lengths: [u8; N],
-    _select_values: [Field; N],
-    _select_comparators: [u8; N],
-    _sort_by_indexes: [u8; N],
-    _sort_by_offsets: [u8; N],
-    _sort_by_lengths: [u8; N],
-    _sort_order: [u8; N],
+    _select_by_indexes: [u8; M],
+    _select_by_offsets: [u8; M],
+    _select_by_lengths: [u8; M],
+    _select_values: [Field; M],
+    _select_comparators: [u8; M],
+    _sort_by_indexes: [u8; M],
+    _sort_by_offsets: [u8; M],
+    _sort_by_lengths: [u8; M],
+    _sort_order: [u8; M],
     _limit: u32,
     _offset: u32,
     _status: u8,
-    _return_size: u32,
-) -> [Field; ORACLE_RETURN_FIELD_LENGTH] {}
+    _max_notes: u32, // We need to pass max_notes to TS in order to be correctly construct the BoundedVec
+) -> BoundedVec<[Field; NOTE_PCKD_LEN + 3], MAX_NOTES> {}
 
-unconstrained fn get_notes_oracle_wrapper<let N: u32, let ORACLE_RETURN_FIELD_LENGTH: u32>(
-    storage_slot: Field,
-    num_selects: u8,
-    select_by_indexes: [u8; N],
-    select_by_offsets: [u8; N],
-    select_by_lengths: [u8; N],
-    select_values: [Field; N],
-    select_comparators: [u8; N],
-    sort_by_indexes: [u8; N],
-    sort_by_offsets: [u8; N],
-    sort_by_lengths: [u8; N],
-    sort_order: [u8; N],
-    limit: u32,
-    offset: u32,
-    status: u8,
-) -> [Field; ORACLE_RETURN_FIELD_LENGTH] {
-    // This wrapper exists to extract the ORACLE_RETURN_FIELD_LENGTH generic numeric param into a value and pass it to
-    // the oracle, so that it knows how big the return array must be.
-    get_notes_oracle(
-        storage_slot,
-        num_selects,
-        select_by_indexes,
-        select_by_offsets,
-        select_by_lengths,
-        select_values,
-        select_comparators,
-        sort_by_indexes,
-        sort_by_offsets,
-        sort_by_lengths,
-        sort_order,
-        limit,
-        offset,
-        status,
-        ORACLE_RETURN_FIELD_LENGTH,
-    )
-}
-
-pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let MAX_NOTES: u32, let ORACLE_RETURN_FIELD_LENGTH: u32>(
+pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
     storage_slot: Field,
     num_selects: u8,
     select_by_indexes: [u8; M],
@@ -155,12 +118,12 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let MAX_NOTES: u32,
     limit: u32,
     offset: u32,
     status: u8,
-    _placeholder_fields: [Field; ORACLE_RETURN_FIELD_LENGTH], // TODO: Compute this value automatically from MAX_NOTES
-) -> [Option<RetrievedNote<Note>>; MAX_NOTES]
+) -> BoundedVec<RetrievedNote<Note>, MAX_NOTES>
 where
-    Note: NoteType + Packable<N>,
+    Note: NoteType + Packable<NOTE_PCKD_LEN>,
 {
-    let fields: [_; ORACLE_RETURN_FIELD_LENGTH] = get_notes_oracle_wrapper(
+    // N + 3 because of the contract address, nonce, and note_hash_counter that are stored out of the packed note.
+    let packed_retrieved_notes: BoundedVec<[Field; NOTE_PCKD_LEN + 3], MAX_NOTES> = get_notes_oracle(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -175,33 +138,29 @@ where
         limit,
         offset,
         status,
+        MAX_NOTES,
     );
-    let num_notes = fields[0] as u32;
-    let contract_address = AztecAddress::from_field(fields[1]);
 
-    let mut opt_notes = [Option::none(); MAX_NOTES];
-    for i in 0..opt_notes.len() {
-        if i < num_notes {
-            // lengths named as per typescript.
-            let return_header_length: u32 = 2; // num_notes & contract_address.
-            let extra_preimage_length: u32 = 2; // nonce & note_hash_counter.
-            let read_offset: u32 = return_header_length + i * (N + extra_preimage_length);
+    let mut notes = BoundedVec::new();
+    for i in 0..packed_retrieved_notes.len() {
+        let packed_retrieved_note = packed_retrieved_notes.get(i);
 
-            let maybe_nonce = fields[read_offset];
-            let maybe_note_hash_counter = fields[read_offset + 1] as u32;
-            let packed_note = array::subarray(fields, read_offset + 2);
+        let contract_address = AztecAddress::from_field(packed_retrieved_note[0]);
+        let nonce = packed_retrieved_note[1];
+        let nonzero_note_hash_counter = packed_retrieved_note[2] as bool;
 
-            let note = Note::unpack(packed_note);
-            let retrieved_note = RetrievedNote {
-                note,
-                contract_address,
-                metadata: NoteMetadata::from_raw_data(maybe_note_hash_counter != 0, maybe_nonce),
-            };
+        let packed_note = array::subarray(packed_retrieved_note, 3);
+        let note = Note::unpack(packed_note);
 
-            opt_notes[i] = Option::some(retrieved_note);
+        let retrieved_note = RetrievedNote {
+            note,
+            contract_address,
+            metadata: NoteMetadata::from_raw_data(nonzero_note_hash_counter, nonce),
         };
+
+        notes.push(retrieved_note);
     }
-    opt_notes
+    notes
 }
 
 /// Returns true if the nullifier exists. Note that a `true` value can be constrained by proving existence of the

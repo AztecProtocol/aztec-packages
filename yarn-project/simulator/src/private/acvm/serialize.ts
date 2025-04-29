@@ -86,3 +86,16 @@ export function arrayToBoundedVec(bVecStorage: ACVMField[], maxLen: number): [AC
   const len = toACVMField(BigInt(bVecStorage.length));
   return [storage, len];
 }
+
+export function arrayOfArraysToBoundedVecOfArrays(bVecStorage: ACVMField[][], maxLen: number): [ACVMField[][], ACVMField] {
+  if (bVecStorage.length > maxLen) {
+    throw new Error(`Array of length ${bVecStorage.length} larger than maxLen ${maxLen}`);
+  }
+  const nestedArrayLength = bVecStorage.length > 0 ? bVecStorage[0].length : 0;
+  const lengthDiff = maxLen - bVecStorage.length;
+  const zeroNestedArray = Array(nestedArrayLength).fill(toACVMField(BigInt(0)));
+  const zeroPaddingArray = Array(lengthDiff).fill(zeroNestedArray);
+  const storage = bVecStorage.concat(zeroPaddingArray);
+  const len = toACVMField(BigInt(bVecStorage.length));
+  return [storage, len];
+}
