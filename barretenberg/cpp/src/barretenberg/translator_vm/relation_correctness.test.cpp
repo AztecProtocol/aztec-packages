@@ -129,6 +129,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
  * and TranslatorAccumulatorTransferRelation)
  *
  */
+// This passing kinda means something is wrong with the circuit
 TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
 {
     using Flavor = TranslatorFlavor;
@@ -148,9 +149,9 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials(mini_circuit_size);
     // Fill in lagrange even polynomial
-    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
-        prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
-        prover_polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+    for (size_t i = 2; i < mini_circuit_size - 1; i += 2) {
+        prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
     constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 6;
     constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 1, 2, 3, 4, 8 };
@@ -162,11 +163,11 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
 
     // Initialize used lagrange polynomials
-    prover_polynomials.lagrange_second.at(1) = 1;
-    prover_polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_size - 2) = 1;
+    prover_polynomials.lagrange_result_row.at(2) = 1;
+    prover_polynomials.lagrange_last_in_minicircuit.at(mini_circuit_size - 1) = 1;
 
     // Put random values in accumulator binary limbs (values should be preserved across even->next odd shift)
-    for (size_t i = 2; i < mini_circuit_size - 2; i += 2) {
+    for (size_t i = 3; i < mini_circuit_size - 1; i += 2) {
         prover_polynomials.accumulators_binary_limbs_0.at(i) = FF ::random_element();
         prover_polynomials.accumulators_binary_limbs_1.at(i) = FF ::random_element();
         prover_polynomials.accumulators_binary_limbs_2.at(i) = FF ::random_element();
@@ -178,10 +179,10 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
 
     // The values of accumulator binary limbs at index 1 should equal the accumulated result from relation parameters
-    prover_polynomials.accumulators_binary_limbs_0.at(1) = params.accumulated_result[0];
-    prover_polynomials.accumulators_binary_limbs_1.at(1) = params.accumulated_result[1];
-    prover_polynomials.accumulators_binary_limbs_2.at(1) = params.accumulated_result[2];
-    prover_polynomials.accumulators_binary_limbs_3.at(1) = params.accumulated_result[3];
+    prover_polynomials.accumulators_binary_limbs_0.at(2) = params.accumulated_result[0];
+    prover_polynomials.accumulators_binary_limbs_1.at(2) = params.accumulated_result[1];
+    prover_polynomials.accumulators_binary_limbs_2.at(2) = params.accumulated_result[2];
+    prover_polynomials.accumulators_binary_limbs_3.at(2) = params.accumulated_result[3];
 
     // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
@@ -538,6 +539,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
         prover_polynomials, params, "TranslatorDecompositionRelation");
 }
 
+// This test just needs fixing the relation should be fine
 /**
  * @brief Test the correctness of TranslatorFlavor's  NonNativeField Relation
  *
@@ -558,7 +560,9 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
     // Generate random EccOpQueue actions
-    for (size_t i = 0; i < ((mini_circuit_size >> 1) - 1); i++) {
+    // What is this number?
+
+    for (size_t i = 0; i < ((mini_circuit_size >> 1) - 2); i++) {
         switch (engine.get_random_uint8() & 3) {
         case 0:
             op_queue->empty_row_for_testing();
@@ -641,6 +645,10 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(
         prover_polynomials, params, "TranslatorNonNativeFieldRelation");
+
+    // Check that Accumulator Transfer relation is satisfied across each row of the prover polynomials
+    RelationChecker<Flavor>::check<TranslatorAccumulatorTransferRelation<FF>>(
+        prover_polynomials, params, "TranslatorAccumulatorTransferRelation");
 }
 
 // TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)

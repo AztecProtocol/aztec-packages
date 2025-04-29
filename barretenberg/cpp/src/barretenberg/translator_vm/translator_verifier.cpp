@@ -115,6 +115,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
+        info("translator sumcheck failed");
         return false;
     }
 
@@ -145,7 +146,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
-
+    info("verified: ", verified);
+    info("consistency checked: ", consistency_checked);
     return verified && consistency_checked;
 }
 

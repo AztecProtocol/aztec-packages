@@ -23,7 +23,10 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.op.is_zero(); }
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
+    {
+        return in.op.is_zero();
+    }
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
      * @details This relation enforces the opcode to be one of described values. Since we don't care about even
@@ -72,10 +75,11 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      * slower.
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
-        return (in.lagrange_even_in_minicircuit + in.lagrange_second_to_last_in_minicircuit + in.lagrange_second)
-            .is_zero();
+        //  return (in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit +
+        //  in.lagrange_result_row).is_zero();
+        return false;
     }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
@@ -177,10 +181,11 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
      *
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
-        static constexpr auto minus_one = -FF(1);
-        return (in.lagrange_even_in_minicircuit + in.lagrange_second_to_last_in_minicircuit + minus_one).is_zero();
+        [[maybe_unused]] static constexpr auto minus_one = -FF(1);
+        // return (in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit + minus_one).is_zero();
+        return false;
     }
     /**
      * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit

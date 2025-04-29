@@ -247,6 +247,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
+    static constexpr const size_t RESULT_ROW = 2;
+
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
 
@@ -347,8 +349,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         add_variable(Fr::zero());
         for (auto& wire : wires) {
             wire.emplace_back(0);
+            wire.emplace_back(0);
+            ASSERT(wire.size() == 2);
         }
-        num_gates++;
+        num_gates += 2;
     };
 
     /**
