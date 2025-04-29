@@ -35,6 +35,9 @@ library ValidatorSelectionLib {
   function initialize(uint256 _targetCommitteeSize) internal {
     ValidatorSelectionStorage storage store = getStorage();
     store.targetCommitteeSize = _targetCommitteeSize;
+
+    // Set the sample seed for the first epoch to max
+    store.seeds.push(0, type(uint224).max);
   }
 
   /**
@@ -45,25 +48,21 @@ library ValidatorSelectionLib {
   function setupEpoch(StakingStorage storage _stakingStore, Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
 
+    //################ Seeds ################
     // Get the sample seed for this current epoch.
     uint224 sampleSeed = getSampleSeed(_epochNumber);
 
-    // If no sample seed is set, we are in a genesis state, we set the sample seed to max and push it into the store
-    if (sampleSeed == 0) {
-      sampleSeed = type(uint224).max;
-      store.seeds.push(Epoch.unwrap(_epochNumber).toUint32(), sampleSeed);
-    }
+    // Set the sample seed for the next epoch if required
+    // function handles the case where it is already set
+    setSampleSeedForEpoch(_epochNumber + Epoch.wrap(1));
 
+    //################ Committee ################
     // If the committee is not set for this epoch, we need to sample it
     EpochData storage epoch = store.epochs[_epochNumber];
     uint256 committeeLength = epoch.committee.length;
     if (committeeLength == 0) {
       epoch.committee = sampleValidators(_stakingStore, _epochNumber, sampleSeed);
     }
-
-    // Set the sample seed for the next epoch if required
-    // function handles the case where it is already set
-    setSampleSeedForEpoch(_epochNumber + Epoch.wrap(1));
   }
 
   /**
@@ -198,6 +197,13 @@ library ValidatorSelectionLib {
     return committee;
   }
 
+  /**
+   * @notice  Get the committee for an epoch
+   *
+   * @param _epochNumber - The epoch to get the committee for
+   *
+   * @return The committee for the epoch
+   */
   function getCommitteeAt(StakingStorage storage _stakingStore, Epoch _epochNumber)
     internal
     returns (address[] memory)
@@ -214,16 +220,20 @@ library ValidatorSelectionLib {
     return epoch.committee;
   }
 
+  /**
+   * @notice  Sets the sample seed for an epoch
+   *
+   * @param _epoch - The epoch to set the sample seed for
+   */
   function setSampleSeedForEpoch(Epoch _epoch) internal {
     ValidatorSelectionStorage storage store = getStorage();
     uint32 epoch = Epoch.unwrap(_epoch).toUint32();
 
     // Check if the latest checkpoint is for the next epoch
-    (bool exists, uint32 key,) = store.seeds.latestCheckpoint();
+    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed into the store
+    (, uint32 mostRecentSeedEpoch,) = store.seeds.latestCheckpoint();
 
     // If the sample seed for the next epoch is already set, we can skip the computation
-    // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first sample seed into the store
-    uint32 mostRecentSeedEpoch = exists ? key : 0;
     if (mostRecentSeedEpoch == epoch) {
       return;
     }

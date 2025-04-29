@@ -56,7 +56,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
   mapping(address => bool) internal _seenCommittee;
 
   /**
-   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
+   * @notice Setup contracts needed for the tests with the a given number of validators
    */
   modifier setup(uint256 _validatorCount) {
     string memory _name = "mixed_block_1";

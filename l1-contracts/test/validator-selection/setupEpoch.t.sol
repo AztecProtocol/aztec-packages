@@ -69,32 +69,6 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     );
   }
 
-  function test_WhenTheRollupIsNotInEpoch0ButIsInGenesisState()
-    external
-    setup(0)
-    whenTheRollupIsInGenesisState
-  {
-    // it should set the sample seed to max
-    // it should set the sample seed for the next epoch
-    // it should have the seed for the initial epoch be 0
-    // it should not change the current epoch
-
-    uint256 initialTimestamp = block.timestamp;
-
-    // Advance into the next epoch
-    uint256 nextEpochTimestamp =
-      block.timestamp + TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
-    vm.warp(nextEpochTimestamp);
-
-    // Call setupEpoch, sample seed for initial epoch should be uint224.max
-    rollup.setupEpoch();
-    assertEq(
-      IValidatorSelection(address(rollup)).getCurrentSampleSeed(),
-      type(uint224).max,
-      "Sample seed should be max"
-    );
-  }
-
   modifier whenTheRollupIsNotInGenesisState() {
     // Enforced with setup(4) modifier
     _;
@@ -131,13 +105,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
       initialCommittee.length,
       "Committee should have the same length"
     );
-    for (uint256 i = 0; i < initialCommittee.length; i++) {
-      assertEq(
-        committeeAfterRepeatedSetup[i],
-        initialCommittee[i],
-        "Committee should have the same validators"
-      );
-    }
+    assertEq(committeeAfterRepeatedSetup, initialCommittee, "Committee should be the same");
 
     // Add a couple of extra validators during this epoch, the sampled validator set should not change
     addNumberOfValidators(420420, 2);
@@ -145,11 +113,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     // Sample the validator set for the current epoch
     address[] memory committeeAfterAddingExtraValidators =
       IValidatorSelection(address(rollup)).getCurrentEpochCommittee();
-    for (uint256 i = 0; i < committeeAfterAddingExtraValidators.length; i++) {
-      assertEq(
-        committeeAfterAddingExtraValidators[i], initialCommittee[i], "Committee should be the same"
-      );
-    }
+    assertEq(committeeAfterAddingExtraValidators, initialCommittee, "Committee should be the same");
 
     // Jump into the future and check the committee still does not change
     uint256 savedTimestamp = block.timestamp;
@@ -157,11 +121,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
 
     address[] memory committeeAfterJumpingIntoFuture =
       IValidatorSelection(address(rollup)).getCommitteeAt(Timestamp.wrap(savedTimestamp));
-    for (uint256 i = 0; i < committeeAfterJumpingIntoFuture.length; i++) {
-      assertEq(
-        committeeAfterJumpingIntoFuture[i], initialCommittee[i], "Committee should be the same"
-      );
-    }
+    assertEq(committeeAfterJumpingIntoFuture, initialCommittee, "Committee should be the same");
   }
 
   modifier whenItHasBeenALongTimeSinceTheLastSampleSeedWasSet() {

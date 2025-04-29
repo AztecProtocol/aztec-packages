@@ -106,9 +106,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(postCommittee.length, expectedSize, "Invalid committee size");
 
     // Elements in the committee should be the same
-    for (uint256 i = 0; i < expectedSize; i++) {
-      assertEq(preCommittee[i], postCommittee[i], "Committee element has changed");
-    }
+    assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)

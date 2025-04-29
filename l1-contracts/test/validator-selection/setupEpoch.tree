@@ -1,15 +1,11 @@
 SetupEpochTest
 ├── when the rollup is in genesis state
-│   ├── Given the rollup is in genesis state
-│   │   ├── it should set the sample seed to max
-│   │   ├── it should set the sample seed for the next epoch
-│   │   └── it should not change the current epoch
-│   └── When the rollup is not in epoch 0 but is in genesis state
+│   └── Given the rollup is in genesis state
 │       ├── it should set the sample seed to max
 │       ├── it should set the sample seed for the next epoch
 │       └── it should not change the current epoch
 ├── when the rollup is not in genesis state
-│   └──  Given the seed has been sampled
+│   └── Given the seed has been sampled
 │       ├── it should not change the sample seed
 │       ├── it should be calcaulte the same committee when looking into the past
 │       ├── it should not change the commitee even when validators are added or removed
