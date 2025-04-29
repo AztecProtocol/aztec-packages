@@ -47,12 +47,14 @@ blobSink:
 
 bootNode:
   enabled: false
+  externalHost: "http://localhost:8080"
 
 validator:
   replicas: 0
 
 proverNode:
   replicas: 0
+  externalHost: "http://localhost:8080"
 
 proverAgent:
   enabled: false
