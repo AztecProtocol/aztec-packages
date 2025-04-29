@@ -9,6 +9,7 @@ import { AztecContext } from '../../aztecEnv';
 import { progressIndicator, select } from '../../styles/common';
 import { INFO_TEXT } from '../../constants';
 import { InfoText } from './InfoText';
+import { prepareForFeePayment } from '../../utils/sponsoredFPC';
 
 const FeePaymentMethods = ['sponsored_fpc', 'private_fpc', 'public_fpc', 'fee_juice', 'bridged_fee_juice'] as const;
 type FeePaymentMethodType = (typeof FeePaymentMethods)[number];
@@ -34,8 +35,11 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
     setSelectedMethod(method);
     switch (method) {
       case 'sponsored_fpc': {
-        const { prepareForFeePayment } = await import('../../utils/sponsoredFPC');
-        const feePaymentMethod = await prepareForFeePayment(pxe);
+        const feePaymentMethod = await prepareForFeePayment(
+          pxe,
+          network.sponsoredFPC?.address,
+          network.sponsoredFPC?.version,
+        );
         setFeePaymentMethod(feePaymentMethod);
         break;
       }
@@ -61,6 +65,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
           onChange={event => handleMethodChange(event.target.value as FeePaymentMethodType)}
           fullWidth
           disabled={isMethodChanging}
+          size="small"
         >
           {network.hasSponsoredFPC && <MenuItem value="sponsored_fpc">Sponsored Fee Paying Contract</MenuItem>}
           {wallet && <MenuItem value="fee_juice">Fee Juice</MenuItem>}

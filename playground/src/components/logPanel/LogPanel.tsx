@@ -13,7 +13,6 @@ import Tooltip from '@mui/material/Tooltip';
 import { ButtonGroup } from '@mui/material';
 
 const Root = styled('div')(({ theme }) => ({
-  height: '100%',
   ...theme.applyStyles('dark', {
     backgroundColor: theme.palette.background.default,
   }),

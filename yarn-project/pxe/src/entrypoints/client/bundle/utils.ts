@@ -1,4 +1,4 @@
-import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';

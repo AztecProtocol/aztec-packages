@@ -6,109 +6,91 @@ import { AztecContext } from '../../aztecEnv';
 import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
-import { LoadingModal } from '../common/LoadingModal';
-import { SideBar } from '../sidebar/SideBar';
+import { TxPanel } from '../sidebar/TxPanel';
 
-const layout = css({
+const container = css({
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
   width: '100%',
-  flex: 1,
-});
-
-const contentLayout = css({
-  display: 'flex',
-  gap: '24px',
-  flexDirection: 'row',
-  position: 'relative',
-  // minHeight: 'calc(100% - 240px)',
-  margin: '24px 60px',
-  paddingBottom: '5rem',
-  '@media (max-width: 1200px)': {
-    height: 'auto',
-    display: 'block',
-    margin: '0 12px',
-  },
+  maxWidth: '1400px',
+  padding: '0 1rem',
+  margin: '0 auto',
 });
 
 const headerFrame = css({
-  margin: '24px 60px',
-  backgroundColor: '#CDD1D5',
-  borderRadius: '6px',
   display: 'flex',
   alignItems: 'center',
-  padding: '12px 18px',
-  flexWrap: 'wrap',
-  '@media (max-width: 1200px)': {
-    margin: '12px 12px 24px 12px',
-    padding: '6px 12px',
+  marginTop: '1rem',
+  marginBottom: '2rem',
+  backgroundColor: '#CDD1D5',
+  borderRadius: '10px',
+  padding: '12px',
+  height: '80px',
+  '@media (max-width: 900px)': {
+    height: '60px',
+    padding: '0.5rem',
   },
 });
 
 const logo = css({
-  height: '40px',
-  objectFit: 'contain',
-  marginRight: '1rem',
-  '@media (max-width: 1200px)': {
-    height: 'auto',
-    width: '120px',
-    marginRight: '0.1rem',
-  },
+  width: '120px',
+  marginLeft: '1rem',
   '@media (max-width: 900px)': {
-    height: 'auto',
     width: '90px',
+    marginLeft: '0.5rem',
+    marginRight: '0.5rem',
   },
 });
 
 const headerTitle = css({
-  fontFamily: '"Space Grotesk", sans-serif',
-  fontStyle: 'normal',
   fontWeight: 500,
-  fontSize: '30px',
+  fontSize: '24px',
   lineHeight: '48px',
-  display: 'flex',
-  height: '40px',
-  alignItems: 'center',
   letterSpacing: '0.03em',
   color: '#2D2D2D',
   textDecoration: 'none',
-  padding: '1rem',
-  '@media (max-width: 1200px)': {
-    fontSize: '20px',
-    lineHeight: '20px',
-  },
+  marginLeft: '1rem',
+  flexGrow: 1,
   '@media (max-width: 900px)': {
-    fontSize: '16px',
-    lineHeight: '16px',
+    fontSize: '18px',
+    lineHeight: '20px',
+    marginLeft: '0rem',
   },
 });
 
 const docsButton = css({
-  marginLeft: 'auto',
-  background: '#8C7EFF',
-  borderRadius: '6px',
-  color: '#FFFFFF',
-  fontFamily: 'Inter, sans-serif',
-  fontWeight: 600,
-  fontSize: '16px',
-  lineHeight: '20px',
-  cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '12px',
+  background: '#8C7EFF',
   textDecoration: 'none',
-  '@media (max-width: 1200px)': {
-    padding: '10px',
-    fontSize: '14px',
-  },
+  borderRadius: '6px',
+  fontWeight: 500,
+  color: '#FFFFFF',
+  fontSize: '18px',
+  padding: '12px 16px',
   '@media (max-width: 900px)': {
-    padding: '8px',
-    fontSize: '12px',
-    fontWeight: 500,
+    padding: '8px 10px',
+    fontSize: '14px',
+    fontWeight: 600,
   },
 });
+
+const contentLayout = css({
+  display: 'flex',
+  flexDirection: 'row',
+  position: 'relative',
+  gap: '24px',
+  height: 'calc(100% - 280px)',
+  '@media (max-width: 900px)': {
+    flexWrap: 'wrap',
+    flexGrow: 1,
+    height: 'auto',
+    paddingBottom: '4rem', // For the logs panel
+  },
+});
+
 
 export default function Home() {
   const [pxe, setPXE] = useState(null);
@@ -167,7 +149,7 @@ export default function Home() {
   };
 
   return (
-    <div css={layout}>
+    <div css={container}>
       <div css={headerFrame}>
         <div role="button" style={{ cursor: 'pointer' }} onClick={() => {
           setShowContractInterface(false);
@@ -180,7 +162,6 @@ export default function Home() {
           target="_blank"
           rel="noopener noreferrer"
           css={docsButton}
-          style={{ textDecoration: 'none' }}
         >
           Start Building
         </a>
@@ -189,10 +170,9 @@ export default function Home() {
         <NavBar />
         <div css={contentLayout}>
           {showContractInterface ? <ContractComponent /> : <Landing />}
-          <SideBar />
+          <TxPanel />
         </div>
         <LogPanel />
-        <LoadingModal />
       </AztecContext.Provider>
     </div>
   );

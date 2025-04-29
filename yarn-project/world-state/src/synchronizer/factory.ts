@@ -21,14 +21,15 @@ export async function createWorldStateSynchronizer(
 }
 
 export async function createWorldState(
-  config: WorldStateConfig & DataStoreConfig,
+  config: Pick<WorldStateConfig, 'worldStateDataDirectory' | 'worldStateDbMapSizeKb'> &
+    Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB' | 'l1Contracts'>,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
 ) {
-  const newConfig = {
+  const newConfig: DataStoreConfig = {
     dataDirectory: config.worldStateDataDirectory ?? config.dataDirectory,
     dataStoreMapSizeKB: config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB,
-  } as DataStoreConfig;
+  };
 
   if (!config.l1Contracts?.rollupAddress) {
     throw new Error('Rollup address is required to create a world state synchronizer.');

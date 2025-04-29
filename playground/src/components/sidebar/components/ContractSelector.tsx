@@ -1,5 +1,4 @@
 import { useState, useEffect, useContext } from 'react';
-import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
@@ -21,6 +20,7 @@ import { parse } from 'buffer-json';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 import ArticleIcon from '@mui/icons-material/Article';
+import { InputLabel } from '@mui/material';
 
 export function ContractSelector() {
   const [contracts, setContracts] = useState([]);
@@ -38,6 +38,7 @@ export function ContractSelector() {
     setCurrentContractArtifact,
     setCurrentContractAddress,
     setShowContractInterface,
+    setDefaultContractCreationParams,
   } = useContext(AztecContext);
 
   useEffect(() => {
@@ -71,6 +72,7 @@ export function ContractSelector() {
     }
 
     setIsContractsLoading(true);
+    setDefaultContractCreationParams({});
 
     try {
       if ([PREDEFINED_CONTRACTS.SIMPLE_VOTING, PREDEFINED_CONTRACTS.SIMPLE_TOKEN].includes(contractValue)) {
@@ -105,24 +107,38 @@ export function ContractSelector() {
     }
   };
 
+  const selectedValue = currentContractAddress?.toString() || selectedPredefinedContract || '';
 
   return (
     <div css={navbarButtonStyle}>
       {isContractsLoading ? (
-        <CircularProgress size={20} />
+        <CircularProgress size={24} />
       ) : (
         <ArticleIcon />
       )}
       <FormControl css={navbarSelect}>
-        <InputLabel>Contracts</InputLabel>
+        {!selectedValue && (
+          <InputLabel id="contract-label">Select Contract</InputLabel>
+        )}
         <Select
-          value={currentContractAddress?.toString() || selectedPredefinedContract || ''}
+          value={selectedValue}
           label="Contract"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
           onChange={handleContractChange}
           fullWidth
+          renderValue={selected => {
+            if (isContractsLoading) {
+              return `Loading contract...`;
+            }
+            if (selected) {
+              const contract = contracts.find(contract => contract.value === selected);
+              if (contract) {
+                return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
+              }
+            }
+          }}
           disabled={isContractsLoading}
         >
           {(!isPXEInitialized || !wallet) && (

@@ -5,6 +5,10 @@ export const dialogBody = css({
   flexDirection: 'column',
   minWidth: '600px',
   minHeight: '500px',
+
+  '@media (max-width: 900px)': {
+    minWidth: '400px',
+  },
 });
 
 export const form = css({
@@ -41,6 +45,7 @@ export const navbarButtonStyle = css({
   height: '48px',
   borderRadius: '8px',
   backgroundColor: '#CDD1D5',
+  width: '300px',
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
@@ -96,12 +101,12 @@ export const loader = css({
   background: 'var(--mui-palette-primary-main)',
   transform: 'rotateX(65deg) rotate(45deg)',
   color: 'var(--mui-palette-primary-dark)',
-  animation: `${loadingAnimationLayer1} 1s linear infinite alternate`,
+  animation: `${loadingAnimationLayer1} 0.75s linear infinite alternate`,
   ':after': {
     content: '""',
     position: 'absolute',
     inset: 0,
     background: 'var(--mui-palette-primary-light)',
-    animation: `${loadingAnimationLayerTr} 1s linear infinite alternate`,
+    animation: `${loadingAnimationLayerTr} 0.75s linear infinite alternate`,
   },
 });

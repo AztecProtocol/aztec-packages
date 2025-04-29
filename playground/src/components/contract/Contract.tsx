@@ -29,9 +29,9 @@ import Box from '@mui/material/Box';
 
 const container = css({
   display: 'flex',
-  // height: '100%',
+  height: '100%',
   width: '100%',
-  // overflow: 'hidden',
+  overflow: 'hidden',
   justifyContent: 'center',
   alignItems: 'center',
 });
@@ -39,7 +39,7 @@ const container = css({
 const contractFnContainer = css({
   display: 'block',
   width: '100%',
-  // overflowY: 'auto',
+  overflowY: 'auto',
   color: 'black',
   height: '100%',
 });
@@ -250,13 +250,12 @@ export function ContractComponent() {
               {!!ContractDescriptions[currentContractArtifact.name] && (
                 <Typography variant="body2" css={{ marginBottom: '2rem' }}>
                   {ContractDescriptions[currentContractArtifact.name]}
-
-                  {!!ContractDocumentationLinks[currentContractArtifact.name] && (
-                    <Typography variant="body2" css={{ marginTop: '10px' }}>
-                      <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
-                      <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
-                    </Typography>
-                  )}
+                </Typography>
+              )}
+              {!!ContractDocumentationLinks[currentContractArtifact.name] && (
+                <Typography variant="body2" css={{ marginTop: '-1.5rem', marginBottom: '2rem' }}>
+                  <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
+                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
                 </Typography>
               )}
             </div>

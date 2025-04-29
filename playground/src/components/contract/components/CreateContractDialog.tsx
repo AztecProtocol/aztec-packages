@@ -223,6 +223,7 @@ export function CreateContractDialog({
               placeholder="Alias"
               value={alias}
               label="Alias"
+              size="small"
               sx={{ marginTop: '1rem' }}
               onChange={event => {
                 setAlias(event.target.value);
