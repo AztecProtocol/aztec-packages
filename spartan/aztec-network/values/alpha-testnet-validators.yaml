@@ -56,6 +56,7 @@ fullNode:
 proverNode:
   enabled: false
   replicas: 0
+  externalHost: "http://localhost:8080"
 
 validator:
   replicas: 1
