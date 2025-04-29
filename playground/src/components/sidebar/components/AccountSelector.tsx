@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
-import Select, { type SelectChangeEvent } from '@mui/material/Select';
+import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -22,7 +22,6 @@ import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { useTransaction } from '../../../hooks/useTransaction';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
-import Tooltip from '@mui/material/Tooltip';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 
 export function AccountSelector() {
@@ -158,7 +157,6 @@ export function AccountSelector() {
         <SwitchAccountIcon />
       )}
       <FormControl css={navbarSelect}>
-        <InputLabel>Select Account</InputLabel>
         <Select
           fullWidth
           value={wallet?.getAddress().toString() ?? ''}
@@ -168,6 +166,16 @@ export function AccountSelector() {
           onClose={() => setIsOpen(false)}
           onChange={(e) => handleAccountChange(e.target.value)}
           disabled={isAccountsLoading}
+          renderValue={selected => {
+            if (isAccountsLoading) {
+              return `Loading account...`;
+            }
+            if (selected) {
+              const account = accounts.find(account => account.value === selected);
+              return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
+            }
+            return 'Select Account';
+          }}
         >
           {!isPXEInitialized && (
             <div css={navbarSelectLabel}>

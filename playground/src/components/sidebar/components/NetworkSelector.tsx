@@ -139,7 +139,7 @@ export function NetworkSelector() {
   return (
     <div css={navbarButtonStyle}>
       {connecting ? (
-        <div css={navbarSelectLabel}>
+        <div style={{ display: 'flex', gap: '10px' }}>
           <CircularProgress size={20} color="primary" />
           <Typography variant="body2">Connecting to network...</Typography>
         </div>

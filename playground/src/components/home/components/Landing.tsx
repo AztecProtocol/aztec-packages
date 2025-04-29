@@ -14,29 +14,33 @@ import { convertFromUTF8BufferAsString, formatFrAsString, parseAliasedBuffersAsS
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 import { parse } from 'buffer-json';
 
-const landingPage = css({
+const container = css({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'flex-start',
-  padding: '0',
-  width: '100%',
-  height: 'auto',
   flex: 1,
   transition: 'width 0.3s ease-in',
+  backgroundColor: '#E9E9E9',
+  borderRadius: '10px',
+  padding: '2rem',
+  position: 'relative',
+  '@media (max-width: 1100px)': {
+    width: 'auto',
+    padding: '1rem',
+  },
 });
 
 const cardsContainer = css({
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
+  display: 'flex',
+  flexDirection: 'row',
   gap: '24px',
   width: '100%',
-  margin: '0 auto',
-  '@media (max-width: 900px)': {
-    gridTemplateColumns: 'repeat(1, 1fr)',
+  '& > *': {
+    flex: '1 1 0px', // Makes all children equal width
   },
-  '@media (min-width: 901px) and (max-width: 1100px)': {
-    gridTemplateColumns: 'repeat(2, 1fr)',
+  '@media (max-width: 900px)': {
+    flexDirection: 'column',
   },
 });
 
@@ -53,9 +57,6 @@ const cardIcon = css({
   width: '50px',
   height: '50px',
   marginBottom: '35px',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
 });
 
 const cardTitle = css({
@@ -71,7 +72,7 @@ const cardTitle = css({
 const cardDescription = css({
   fontFamily: 'Inter, sans-serif',
   fontWeight: 400,
-  fontSize: '14px',
+  fontSize: '15px',
   lineHeight: '110%',
   letterSpacing: '0.01em',
   color: 'rgba(0, 0, 0, 0.8)',
@@ -79,72 +80,7 @@ const cardDescription = css({
   paddingBottom: '2rem',
 });
 
-const contentFrame = css({
-  width: '100%',
-  backgroundColor: '#E9E9E9',
-  borderRadius: '10px',
-  padding: '1.5rem',
-  position: 'relative',
-  display: 'flex',
-  flexDirection: 'column',
-  flex: 1,
-  '@media (max-width: 1100px)': {
-    width: 'auto',
-    margin: '24px 0 48px 0',
-    padding: '24px',
-  },
-});
-
-const welcomeSection = css({
-  width: '100%',
-  height: '260px',
-  backgroundColor: '#CDD1D5',
-  borderRadius: '10px',
-  position: 'relative',
-  display: 'flex',
-  margin: '0 auto 24px auto',
-  '@media (max-width: 1000px)': {
-    width: '100%',
-    height: 'auto',
-    flexDirection: 'column',
-    padding: '20px',
-  },
-});
-
-const welcomeContent = css({
-  padding: '1.5rem 2rem',
-  width: '60%',
-  '@media (max-width: 1000px)': {
-    width: '100%',
-    padding: '20px',
-  },
-});
-
-const welcomeTitle = css({
-  // fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 600,
-  fontSize: '24px',
-  lineHeight: '130%',
-  display: 'flex',
-  alignItems: 'center',
-  color: '#2D2D2D',
-  marginBottom: '12px',
-});
-
-const welcomeText = css({
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '15px',
-  lineHeight: '135%',
-  display: 'flex',
-  alignItems: 'center',
-  color: '#1E1E1E',
-  maxWidth: '558px',
-});
-
-const featureCardButton = css({
+const cardButton = css({
   width: '200px',
   height: '48px',
   borderRadius: '6px',
@@ -154,6 +90,27 @@ const featureCardButton = css({
     opacity: 0.5,
   },
 });
+
+const welcomeCardContainer = css({
+  display: 'flex',
+  width: '100%',
+  minHeight: '260px',
+  backgroundColor: '#CDD1D5',
+  borderRadius: '10px',
+  position: 'relative',
+  marginBottom: '1.5rem',
+  '& > div': {
+    flexDirection: 'row',
+  },
+  '@media (max-width: 900px)': {
+    height: 'auto',
+    padding: '0.5rem',
+    '& > div': {
+      flexDirection: 'column',
+    },
+  },
+});
+
 
 // Account Abstraction icon
 const AccountAbstractionIcon = () => (
@@ -304,7 +261,6 @@ export function Landing() {
     walletDB,
     wallet,
     pxe,
-    network,
     isPXEInitialized,
     setWallet,
   } = useContext(AztecContext);
@@ -446,97 +402,89 @@ export function Landing() {
   }
 
   return (
-    <div css={landingPage}>
-      <div css={contentFrame}>
-        <div css={welcomeSection}>
-          <div css={welcomeContent}>
-            <div css={welcomeTitle}>Deploy Privacy-Preserving Smart Contracts</div>
-            <div css={welcomeText}>
+    <div css={container}>
+      <div css={welcomeCardContainer}>
+        <div css={featureCard}>
+          <div>
+            <div css={cardTitle}>Deploy Privacy-Preserving Smart Contracts</div>
+            <div css={cardDescription}>
               Get started deploying and interacting with smart contracts on Aztec.
               Create an aztec account, try one of our default contracts or upload your own and interact with
               public and private functions made possible by client-side ZK proofs created in your browser.
             </div>
           </div>
-          <div style={{ width: '40%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ width: '40%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginLeft: '1rem' }}>
             <img src={welcomeIconURL} alt="Welcome visualization" style={{ maxWidth: '100%', maxHeight: '180px' }} />
           </div>
         </div>
+      </div>
 
-        <div css={cardsContainer}>
-          <div css={featureCard}>
-            <Box>
-              <div css={cardIcon}>
-                <AccountAbstractionIcon />
-              </div>
-              <div css={cardTitle}>Account Abstraction</div>
-              <div css={cardDescription}>Aztec’s native account abstraction turns every account into a smart contract, enabling
-                highly flexible and programmable user identities that unlock features like gas sponsorship, nonce abstraction
-                (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
-            </Box>
+      <div css={cardsContainer}>
+        <div css={featureCard}>
+          <Box>
+            <div css={cardIcon}>
+              <AccountAbstractionIcon />
+            </div>
+            <div css={cardTitle}>Account Abstraction</div>
+            <div css={cardDescription}>Aztec’s native account abstraction turns every account into a smart contract, enabling
+              highly flexible and programmable user identities that unlock features like gas sponsorship, nonce abstraction
+              (setting your own tx ordering), and the use of alternative signature schemes to control smart contracts with e.g. passkeys. </div>
+          </Box>
 
-            <Button variant="contained"
-              css={featureCardButton}
-              onClick={handleCreateAccountButtonClick}
-              disabled={isCreatingAccount || !isPXEInitialized}
-            >
-              {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
-            </Button>
-          </div>
-
-          <div css={featureCard}>
-            <Box>
-              <div css={cardIcon}>
-                <PrivateVotingIcon />
-              </div>
-              <div css={cardTitle}>Private Voting</div>
-              <div css={cardDescription}>Developers can seamlessly integrate public and private functions to unlock use cases like
-                private voting. Voters can hide their address and cast their votes privately through a private function, which internally
-                calls a public function to update the vote count transparently. </div>
-            </Box>
-
-            <Button
-              variant="contained"
-              css={featureCardButton}
-              onClick={async () => {
-                setIsLoadingPrivateVoting(true);
-                await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
-                setIsLoadingPrivateVoting(false);
-              }}
-              disabled={isLoadingPrivateVoting}
-            >
-              {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
-            </Button>
-          </div>
-
-          <div css={featureCard}>
-            <Box>
-              <div css={cardIcon}>
-                <PrivateTokensIcon />
-              </div>
-              <div css={cardTitle}>Private Tokens</div>
-              <div css={cardDescription}>Accounts, transactions, and execution on Aztec can be done privately using client-side proofs, enabling you
-                to private mint or transfer tokens, move public tokens into private domain or the reverse - transfer tokens from private to public,
-                all without revealing your address or even the amount and recipient (in case of private transfer), all the while maintaining the
-                total supply of tokens publicly.</div>
-            </Box>
-
-            <Button variant="contained" css={featureCardButton} onClick={async () => {
-              setIsLoadingPrivateTokens(true);
-              await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
-              setIsLoadingPrivateTokens(false);
-            }}>
-              {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
-            </Button>
-          </div>
+          <Button variant="contained"
+            css={cardButton}
+            onClick={handleCreateAccountButtonClick}
+            disabled={isCreatingAccount || !isPXEInitialized}
+          >
+            {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
+          </Button>
         </div>
 
-        {/* <div css={{ marginTop: '3rem' }}>
-          <span>Go ahead and select a network and create an account.
-            If testnet is down, you can also download our sandbox </span>
-          <a href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener noreferrer">here</a>
-          <span> and connect playground to it</span>
+        <div css={featureCard}>
+          <Box>
+            <div css={cardIcon}>
+              <PrivateVotingIcon />
+            </div>
+            <div css={cardTitle}>Private Voting</div>
+            <div css={cardDescription}>Developers can seamlessly integrate public and private functions to unlock use cases like
+              private voting. Voters can hide their address and cast their votes privately through a private function, which internally
+              calls a public function to update the vote count transparently. </div>
+          </Box>
+
+          <Button
+            variant="contained"
+            css={cardButton}
+            onClick={async () => {
+              setIsLoadingPrivateVoting(true);
+              await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
+              setIsLoadingPrivateVoting(false);
+            }}
+            disabled={isLoadingPrivateVoting}
+          >
+            {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+          </Button>
         </div>
-        <div css={getStartedButton}>Get Started</div> */}
+
+        <div css={featureCard}>
+          <Box>
+            <div css={cardIcon}>
+              <PrivateTokensIcon />
+            </div>
+            <div css={cardTitle}>Private Tokens</div>
+            <div css={cardDescription}>Accounts, transactions, and execution on Aztec can be done privately using client-side proofs, enabling you
+              to private mint or transfer tokens, move public tokens into private domain or the reverse - transfer tokens from private to public,
+              all without revealing your address or even the amount and recipient (in case of private transfer), all the while maintaining the
+              total supply of tokens publicly.</div>
+          </Box>
+
+          <Button variant="contained" css={cardButton} onClick={async () => {
+            setIsLoadingPrivateTokens(true);
+            await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
+            setIsLoadingPrivateTokens(false);
+          }}>
+            {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+          </Button>
+        </div>
       </div>
     </div>
   );

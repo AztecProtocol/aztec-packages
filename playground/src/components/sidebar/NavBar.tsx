@@ -5,20 +5,13 @@ import { AddressBook } from './components/AddressBook';
 import { ContractSelector } from './components/ContractSelector';
 
 const container = css({
-  overflow: 'auto',
-  flexShrink: 0,
-  padding: '0 60px',
-  flexGrow: 0,
-  borderRadius: '10px',
   display: 'flex',
   flexDirection: 'column',
   transition: 'all 0.3s ease-out',
-  scrollbarWidth: 'none',
-  '@media (max-width: 1200px)': {
-    padding: '12px',
-    width: 'auto',
-    maxHeight: '350px',
-    margin: '0 0 12px 0',
+  marginBottom: '2rem',
+  '@media (max-width: 900px)': {
+    width: '100%',
+    marginBottom: '1rem',
   },
 });
 
@@ -28,11 +21,10 @@ const navbarContent = css({
   alignItems: 'center',
   justifyContent: 'flex-start',
   gap: '10px',
-  marginBottom: '10px',
+  flexWrap: 'wrap',
   '@media (max-width: 900px)': {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    marginBottom: '0',
   },
 });
 

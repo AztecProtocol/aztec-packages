@@ -41,6 +41,7 @@ export const navbarButtonStyle = css({
   height: '48px',
   borderRadius: '8px',
   backgroundColor: '#CDD1D5',
+  width: '300px',
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
@@ -75,7 +76,6 @@ export const navbarSelectLabel = css({
   flexDirection: 'row',
   gap: '12px',
   padding: '12px',
-  maxWidth: '300px',
 });
 
 const loadingAnimationLayer1 = keyframes`

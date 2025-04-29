@@ -10,7 +10,7 @@ import { FUN_FACTS } from '../../constants';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 
 const container = css({
-  width: '25%',
+  width: '320px',
   height: '100%',
   position: 'relative',
   backgroundColor: '#E9E9E9',
@@ -20,11 +20,11 @@ const container = css({
   transition: 'all 0.3s ease-out',
   padding: '20px',
   scrollbarWidth: 'none',
-  '@media (max-width: 1200px)': {
+  '@media (max-width: 900px)': {
     padding: '12px',
-    width: 'auto',
+    width: '100%',
     height: 'auto',
-    margin: '1rem 0px',
+    minHeight: '300px',
   },
 });
 
