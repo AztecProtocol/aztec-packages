@@ -4,7 +4,8 @@ import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -768,11 +769,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         severity: PeerErrorSeverity.HighToleranceError,
       },
       metadataValidator: {
-        validator: new MetadataTxValidator(
-          new Fr(this.config.l1ChainId),
-          new Fr(this.config.rollupVersion),
-          new Fr(blockNumber),
-        ),
+        validator: new MetadataTxValidator({
+          l1ChainId: new Fr(this.config.l1ChainId),
+          rollupVersion: new Fr(this.config.rollupVersion),
+          blockNumber: new Fr(blockNumber),
+          protocolContractTreeRoot,
+          vkTreeRoot: getVKTreeRoot(),
+        }),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       proofValidator: {
