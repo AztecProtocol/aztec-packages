@@ -191,7 +191,7 @@ function build {
 function test_cmds {
   local -A cache
   i=0
-  $NARGO test --list-tests --silence-warnings --pedantic-solving | sort | while read -r package test; do
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
     [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
     echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
