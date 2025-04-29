@@ -47,17 +47,19 @@ To use the `aztec start` command, you need to obtain the following:
 
 #### RPCs
 
-- An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`.
+- An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`. Popular execution clients include [Geth](https://geth.ethereum.org/) or [Nethermind](https://nethermind.io/). You can run your own node or use a service like [Alchemy](https://www.alchemy.com/) or [Infura](https://www.infura.io/).
 
-- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`.
+- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`. Popular consensus clients include [Lighthouse](https://lighthouse.sigmaprime.io/) or [Prysm](https://prysmaticlabs.com/). You can run your own node or use a service like [Alchemy](https://www.alchemy.com/) or [Infura](https://www.infura.io/).
 
-- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional (but recommended) remote server that serves blobs to the client. You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`.
+- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional (but recommended) remote server that serves blobs to the client. This is often called a "blob sink" or "blob storage service". You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`. Some providers like [Alchemy](https://www.alchemy.com/) offer blob storage services as part of their infrastructure offerings.
 
 #### Ethereum Keys
 
-You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
+You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag. 
 
 The private key is needed as your validator will post blocks to Ethereum, and the public address will be the recipient of any block rewards.
+
+Disclaimer: you may want to generate and use a new Ethereum private key.
 
 #### Networking
 
@@ -172,7 +174,7 @@ services:
 
 If you're hosting your own Ethereum execution or consensus client locally (rather than using an external RPC like Alchemy), you need to ensure that the prover node inside Docker can reach it.
 
-By default, Docker runs containers on a bridge network that isolates them from the host machine’s network interfaces. This means localhost inside the container won’t point to the host’s localhost.
+By default, Docker runs containers on a bridge network that isolates them from the host machine's network interfaces. This means localhost inside the container won't point to the host's localhost.
 
 To fix this:
 
@@ -184,7 +186,7 @@ This tells Docker to route traffic from the container to the host machine. For e
 ```
 
 Option 2: Add a host network entry to your Docker Compose file (advanced users)
-This gives your container direct access to the host’s network stack, but removes Docker’s network isolation. Add to your `docker-compose.yml`
+This gives your container direct access to the host's network stack, but removes Docker's network isolation. Add to your `docker-compose.yml`
 
 ```yaml
 network_mode: "host"
