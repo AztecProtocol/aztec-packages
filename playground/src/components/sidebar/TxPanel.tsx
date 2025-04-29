@@ -107,6 +107,25 @@ const arrowDown = css({
   transform: 'translateX(-50%)',
 });
 
+const popoverCss = css({
+    transform: 'translateY(-130px) translateX(10px)',
+    overflow: 'visible',
+    '& .MuiPaper-root': {
+      backgroundColor: 'var(--mui-palette-primary-main)',
+      color: 'var(--mui-palette-text-primary)',
+      overflowX: 'visible',
+      overflowY: 'visible',
+      boxShadow: 'none',
+      animation: 'fadeIn 0.3s ease-in-out',
+      animationDelay: '1s',
+      animationFillMode: 'backwards',
+      '@keyframes fadeIn': {
+        from: { opacity: 0 },
+        to: { opacity: 1 }
+      },
+    },
+});
+
 export function TxPanel() {
   const {
     setTransactionModalStatus,
@@ -228,17 +247,7 @@ export function TxPanel() {
             anchorEl={document.getElementById('pending-tx')}
             onClose={() => setSeenPendingTxPopover(true)}
             hideBackdrop
-            sx={{
-              transform: 'translateY(-130px) translateX(10px)',
-              overflow: 'visible',
-              '& .MuiPaper-root': {
-                backgroundColor: 'var(--mui-palette-primary-main)',
-                color: 'var(--mui-palette-text-primary)',
-                overflowX: 'visible',
-                overflowY: 'visible',
-                boxShadow: 'none'
-              },
-            }}
+            css={popoverCss}
           >
             <div style={{ padding: '16px', maxWidth: '250px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Typography variant="h6" sx={{ marginBottom: '0.5rem', textAlign: 'left', width: '100%' }}>Transaction Status</Typography>

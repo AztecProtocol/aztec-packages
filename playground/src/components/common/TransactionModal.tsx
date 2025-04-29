@@ -200,9 +200,6 @@ export function TransactionModal(props: { transaction: UserTx }) {
             Your transaction has been sent to the Aztec network.
             <br />
             We are waiting for a confirmation that your transaction was included in a block.
-            <br />
-            <br />
-            You might see a timeout error if it takes slightly longer to add it to a block.
           </Typography>
         </div>
       </>

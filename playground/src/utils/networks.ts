@@ -15,7 +15,7 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://35.182.93.169:443',
+    nodeURL: 'https://full-node.alpha-testnet.aztec.network',
     name: 'Aztec Testnet',
     description: 'Public testnet',
     hasTestAccounts: false,
