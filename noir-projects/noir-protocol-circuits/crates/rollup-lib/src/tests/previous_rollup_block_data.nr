@@ -49,6 +49,11 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash = 1;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.out_hash = 2;
 
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.proposed_block_header_hashes[0] =
+        21;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.proposed_block_header_hashes[0] =
+        37;
+
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value = 10;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value = 15;
 
