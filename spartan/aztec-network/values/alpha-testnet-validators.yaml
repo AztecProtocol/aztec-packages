@@ -57,7 +57,7 @@ proverNode:
   replicas: 0
 
 validator:
-  replicas: 32
+  replicas: 1
   l1FixedPriorityFeePerGas: 3
   l1GasLimitBufferPercentage: 15
   l1GasPriceMax: 1000
