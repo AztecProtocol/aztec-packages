@@ -34,7 +34,7 @@ export type RetrievedL2Block = {
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
-  signatures: Signature[];
+  attestations: CommitteeAttestation[];
 };
 
 export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
@@ -47,7 +47,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     l1,
     chainId,
     version,
-    signatures,
+    attestations,
   } = retrievedBlock;
 
   const archive = new AppendOnlyTreeSnapshot(
@@ -80,7 +80,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
   return {
     block,
     l1,
-    signatures,
+    attestations,
   };
 }
 

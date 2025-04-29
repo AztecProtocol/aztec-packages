@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type {
@@ -714,13 +715,14 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   private async addAttestationsToPool(blocks: PublishedL2Block[]): Promise<void> {
     const attestations = blocks.flatMap(block => {
+      const blockNumber = new Fr(block.block.number);
       const payload = ConsensusPayload.fromBlock(block.block);
 
       // TODO(md): Think about adding these back to the pool
       // TODO(md): A malicious proposer could submit a signature here? - double check
       return block.attestations
         .filter(attestation => !attestation.signature.isEmpty())
-        .map(attestation => new BlockAttestation(payload, attestation.signature));
+        .map(attestation => new BlockAttestation(blockNumber, payload, attestation.signature));
     });
     await this.attestationPool?.addAttestations(attestations);
     const slots = blocks.map(b => b.block.header.getSlot()).sort((a, b) => Number(a - b));
