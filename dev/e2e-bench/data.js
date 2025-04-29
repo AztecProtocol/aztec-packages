@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745968788461,
+  "lastUpdate": 1745969124338,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5c8a9939740367f203ed06761aaf826b8492d7c8",
-          "message": "feat(avm): fast entity indexing without macros (#13737)\n\nPossibly the final iteration of the work started in\nhttps://github.com/AztecProtocol/aztec-packages/pull/11605 .\n\nThe macro was blowing up when adding more columns. Instead, I found a\nway to precompute an array that lets us efficiently access entities via\nthe column enum.\n\nBEFORE\n\n```\nCompile time: 2m 20s\nMemory (compilation): 5GB\n```\n\nAFTER\n\n```\nCompile time: 1m 50s\nMemory (compilation): 2.6GB\n```\n\nRuntime is unaffected.",
-          "timestamp": "2025-04-22T17:14:42Z",
-          "tree_id": "96857bf9b5edea1f65641527ef97332c587cee3b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5c8a9939740367f203ed06761aaf826b8492d7c8"
-        },
-        "date": 1745346972083,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9286,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2658508943357011,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 155906,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 132896,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "001a3403792ec424893df45a3683d49c53794827",
+          "message": "fix: Restart archiver loop if L1 block falls more than 128 blocks behind (#13602)\n\nIf the `currentL1Block` used in the archiver sync loop falls more than\n128 blocks behind (eg during a very long sync), then `eth_call`\noperations that pin the block number (`status`, `canPrune`) may end up\nquerying a block evicted by a non-archive node. If this happens, we just\nabort the current sync and restart. This should not evict any messages\nor blocks already downloaded.\n\nFixes #13596",
+          "timestamp": "2025-04-29T22:38:45Z",
+          "tree_id": "55a5b92b965ea176ecb063901641efbfb1a6a2d7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/001a3403792ec424893df45a3683d49c53794827"
+        },
+        "date": 1745969123236,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8164,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23373201782720845,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 148619,
             "unit": "us"
           }
         ]
