@@ -39,7 +39,7 @@ Import the typescript artifact into your file.
 
 #include_code import_artifact yarn-project/end-to-end/src/sample-dapp/deploy.mjs typescript
 
-Then you can use the `Contract` class **or** the [generated contract class](#using-generated-class) to deploy the contract.
+Then you can use the `Contract` class **or** the [generated contract class](#using-generated-contract-class) to deploy the contract.
 
 To use the `Contract` class to deploy a contract:
 
