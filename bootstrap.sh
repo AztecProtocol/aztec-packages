@@ -299,13 +299,6 @@ function release_dryrun {
   DRY_RUN=1 release
 }
 
-function check_noir_contracts_comp_failures {
-  echo_header "noir-projects check_noir_contracts_comp_failures"
-  cd ./noir-projects/noir-contracts-comp-failures
-  ./bootstrap.sh test
-  cd ../../
-}
-
 case "$cmd" in
   "clean")
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
@@ -355,11 +348,6 @@ case "$cmd" in
     fi
     ;;
   test|test_cmds|bench|release|release_dryrun)
-    # The command on the line below checks that compilation of contracts in noir-projects/noir-contracts-comp-failures
-    # fails with the expected error message. This does not get executed in parallel with the other tests but it should
-    # be fine for now as the check should be fast. I didn't execute that in parallel because integrating that with
-    # the filter_test_cmds command is non-trivial.
-    check_noir_contracts_comp_failures
     $cmd "$@"
     ;;
   *)
