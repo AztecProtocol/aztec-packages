@@ -15,7 +15,7 @@ export class TXEArchiver extends ArchiverStoreHelper {
     super(new KVArchiverDataStore(db, 9999));
   }
 
-  override async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
+  public override async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
     const opResults = await Promise.all([
       this.store.addLogs(blocks.map(block => block.block)),
       this.store.addBlocks(blocks),
@@ -25,26 +25,10 @@ export class TXEArchiver extends ArchiverStoreHelper {
   }
 
   /**
-   * Method to fetch the rollup contract address at the base-layer.
-   * @returns The rollup address.
-   */
-  getRollupAddress(): Promise<EthAddress> {
-    throw new Error('Not implemented');
-  }
-
-  /**
-   * Method to fetch the registry contract address at the base-layer.
-   * @returns The registry address.
-   */
-  getRegistryAddress(): Promise<EthAddress> {
-    throw new Error('Not implemented');
-  }
-
-  /**
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  getBlockNumber(): Promise<number> {
+  public getBlockNumber(): Promise<number> {
     return this.store.getSynchedL2BlockNumber();
   }
 
@@ -52,7 +36,7 @@ export class TXEArchiver extends ArchiverStoreHelper {
    * Gets the number of the latest L2 block proven seen by the block source implementation.
    * @returns The number of the latest L2 block proven seen by the block source implementation.
    */
-  getProvenBlockNumber(): Promise<number> {
+  public getProvenBlockNumber(): Promise<number> {
     return this.store.getSynchedL2BlockNumber();
   }
 
@@ -61,7 +45,7 @@ export class TXEArchiver extends ArchiverStoreHelper {
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  async getBlock(number: number): Promise<L2Block | undefined> {
+  public async getBlock(number: number): Promise<L2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = await this.store.getSynchedL2BlockNumber();
@@ -93,66 +77,47 @@ export class TXEArchiver extends ArchiverStoreHelper {
     return this.getPublishedBlocks(from, limit).then(blocks => blocks.map(b => b.block));
   }
 
-  /**
-   * Returns the current L2 slot number based on the current L1 timestamp.
-   */
-  getL2SlotNumber(): Promise<bigint> {
-    throw new Error('Not implemented');
+  public getL2SlotNumber(): Promise<bigint> {
+    throw new Error('TXE Archiver does not implement "getL2SlotNumber"');
   }
 
-  /**
-   * Returns the current L2 epoch number based on the current L1 timestamp.
-   */
-  getL2EpochNumber(): Promise<bigint> {
-    throw new Error('Not implemented');
+  public getL2EpochNumber(): Promise<bigint> {
+    throw new Error('TXE Archiver does not implement "getL2EpochNumber"');
   }
 
-  /**
-   * Returns all blocks for a given epoch.
-   * @dev Use this method only with recent epochs, since it walks the block list backwards.
-   * @param epochNumber - The epoch number to return blocks for.
-   */
-  getBlocksForEpoch(_epochNumber: bigint): Promise<L2Block[]> {
-    throw new Error('Not implemented');
+  public getBlocksForEpoch(_epochNumber: bigint): Promise<L2Block[]> {
+    throw new Error('TXE Archiver does not implement "getBlocksForEpoch"');
   }
 
-  /**
-   * Returns all block headers for a given epoch.
-   * @dev Use this method only with recent epochs, since it walks the block list backwards.
-   * @param epochNumber - The epoch number to return headers for.
-   */
-  getBlockHeadersForEpoch(_epochNumber: bigint): Promise<BlockHeader[]> {
-    throw new Error('Not implemented');
+  public getBlockHeadersForEpoch(_epochNumber: bigint): Promise<BlockHeader[]> {
+    throw new Error('TXE Archiver does not implement "getBlockHeadersForEpoch"');
   }
 
-  /**
-   * Returns whether the given epoch is completed on L1, based on the current L1 and L2 block numbers.
-   * @param epochNumber - The epoch number to check.
-   */
-  isEpochComplete(_epochNumber: bigint): Promise<boolean> {
-    throw new Error('Not implemented');
+  public isEpochComplete(_epochNumber: bigint): Promise<boolean> {
+    throw new Error('TXE Archiver does not implement "isEpochComplete"');
   }
 
-  /**
-   * Returns the tips of the L2 chain.
-   */
-  getL2Tips(): Promise<L2Tips> {
-    throw new Error('Not implemented');
+  public getL2Tips(): Promise<L2Tips> {
+    throw new Error('TXE Archiver does not implement "getL2Tips"');
   }
 
-  /**
-   * Returns the rollup constants for the current chain.
-   */
-  getL1Constants(): Promise<L1RollupConstants> {
-    throw new Error('Not implemented');
+  public getL1Constants(): Promise<L1RollupConstants> {
+    throw new Error('TXE Archiver does not implement "getL2Constants"');
   }
 
-  /** Force a sync. */
-  syncImmediate(): Promise<void> {
-    throw new Error('Not implemented');
+  public syncImmediate(): Promise<void> {
+    throw new Error('TXE Archiver does not implement "syncImmediate"');
   }
 
-  getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
-    throw new Error('Not implemented');
+  public getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    throw new Error('TXE Archiver does not implement "getContract"');
+  }
+
+  public getRollupAddress(): Promise<EthAddress> {
+    throw new Error('TXE Archiver does not implement "getRollupAddress"');
+  }
+
+  public getRegistryAddress(): Promise<EthAddress> {
+    throw new Error('TXE Archiver does not implement "getRegistryAddress"');
   }
 }

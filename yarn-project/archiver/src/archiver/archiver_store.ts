@@ -51,7 +51,7 @@ export interface ArchiverDataStore {
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
 
   /**
-   * Gets up to `limit` amount of L2 blocks starting from `from`.
+   * Gets up to `limit` amount of published L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.

@@ -651,7 +651,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       const latestLocalL2Block =
         lastRetrievedBlock ??
         (latestLocalL2BlockNumber > 0
-          ? await this.store.getBlocks(latestLocalL2BlockNumber, 1).then(([b]) => b)
+          ? await this.store.getPublishedBlocks(latestLocalL2BlockNumber, 1).then(([b]) => b)
           : undefined);
       const targetL1BlockNumber = latestLocalL2Block?.l1.blockNumber ?? maxBigint(currentL1BlockNumber - 64n, 0n);
       const latestLocalL2BlockArchive = latestLocalL2Block?.block.archive.root.toString();
@@ -1046,7 +1046,7 @@ export class ArchiverStoreHelper
 {
   #log = createLogger('archiver:block-helper');
 
-  constructor(readonly store: ArchiverDataStore) {}
+  constructor(protected readonly store: ArchiverDataStore) {}
 
   /**
    * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
