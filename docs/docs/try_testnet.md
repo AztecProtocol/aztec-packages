@@ -20,6 +20,7 @@ id: try_testnet
 
 - Follow the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md)
 - Try the [`testnet` branch of the Aztec Starter template Github repo](https://github.com/AztecProtocol/aztec-starter/tree/testnet)
+- Follow our [tutorials](./developers/tutorials/codealong/contract_tutorials/counter_contract.md) in order to write your first contract, deploy it, and interact with it using Aztec CLI and Aztec.js
 
 ## Chain Information
 
