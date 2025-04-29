@@ -4,6 +4,10 @@ metadata:
   name: {{ include "chart.fullname" . }}-node-svc
   labels:
     {{- include "chart.labels" . | nindent 4 }}
+  {{- with .Values.service.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 8 }}
+  {{- end }}
 spec:
   type: ClusterIP
   ports:
