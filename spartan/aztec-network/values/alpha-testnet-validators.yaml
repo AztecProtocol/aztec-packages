@@ -28,24 +28,31 @@ blobs:
 
 blobSink:
   enabled: false
+  replicas: 0
 
 bot:
   enabled: false
+  replicas: 0
 
 pxe:
   enabled: false
+  replicas: 0
 
 faucet:
   enabled: false
+  replicas: 0
 
 bootNode:
   enabled: false
+  replicas: 0
 
 fullNode:
   enabled: false
+  replicas: 0
 
 proverNode:
   enabled: false
+  replicas: 0
 
 validator:
   replicas: 32
@@ -66,9 +73,11 @@ validator:
 
 proverBroker:
   enabled: false
+  replicas: 0
 
 proverAgent:
   enabled: false
+  replicas: 0
 
 ethereum:
   chainId: "11155111"
