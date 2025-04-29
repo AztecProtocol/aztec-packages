@@ -30,7 +30,7 @@ function build {
 }
 
 function test_cmds {
-  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts noir-contracts-comp-failures aztec-nr
+  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr
 }
 
 function test {
@@ -38,11 +38,22 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function check_noir_contracts_comp_failures {
+  echo_header "noir-projects check_noir_contracts_comp_failures"
+  cd ./noir-contracts-comp-failures
+  ./bootstrap.sh test
+  cd ..
+}
+
 case "$cmd" in
   full|fast|ci|"")
     build
     ;;
   test|test_cmds)
+    # Check that noir-contracts-comp-failures compiles as expected. This does not get executed in parallel with
+    # the other tests but it should be fine for now as the check should be fast. I didn't execute that in parallel
+    # because integrating that with the filter_test_cmds command is non-trivial.
+    check_noir_contracts_comp_failures
     $cmd
     ;;
   "hash")

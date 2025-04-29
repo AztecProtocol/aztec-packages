@@ -30,17 +30,16 @@ check_compilation_error() {
         # Check if actual error contains expected error, ignoring whitespace
         if echo "$actual_output" | grep -F "$expected_error" > /dev/null; then
             echo "✓ $contract_dir: Compilation failed as expected with correct error"
-            return 0
         else
             echo "✗ $contract_dir: Expected error:"
             echo "$expected_error"
             echo "But got:"
             echo "$actual_output"
-            return 1
+            exit 1
         fi
     else
         echo "✗ $contract_dir: Expected compilation to fail but it succeeded"
-        return 1
+        exit 1
     fi
 }
 
