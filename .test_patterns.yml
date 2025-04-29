@@ -89,72 +89,72 @@ tests:
       - *tom
 
   # e2e tests
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/reex"
+  - regex: "src/e2e_p2p/reex"
     error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/reex"
+  - regex: "src/e2e_p2p/reex"
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p/gossip_network"
+  - regex: "src/e2e_p2p/gossip_network"
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
-  - regex: "simple e2e_fees/private_payments"
+  - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
-  - regex: "simple e2e_fees/failures"
+  - regex: "src/e2e_fees/failures"
     error_regex: "Exceeded timeout"
     owners:
       - *palla
-  - regex: "simple e2e_lending_contract"
+  - regex: "src/e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
       - *lasse
-  - regex: "simple e2e_lending_contract"
+  - regex: "src/e2e_lending_contract"
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_private"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
     error_regex: "✕ Publicly deposit funds"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_failure_cases"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_failure_cases"
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "simple e2e_block_building"
+  - regex: "src/e2e_block_building"
     error_regex: "Could not retrieve body for block"
     owners:
       - *palla
-  - regex: "composed/integration_l1_publisher"
+  - regex: "src/composed/integration_l1_publisher"
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "simple e2e_sequencer_config"
+  - regex: "src/e2e_sequencer_config"
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla

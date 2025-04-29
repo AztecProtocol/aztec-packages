@@ -231,7 +231,7 @@ function build {
     $project/bootstrap.sh ${1:-}
   done
 
-  parallel --line-buffer --tag --halt now,fail=1 '{}/bootstrap.sh ${1:-}' ::: ${non_dependent_projects[@]}
+  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}/bootstrap.sh ${1:-}'" ::: ${non_dependent_projects[@]}
 }
 
 function bench {
