@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { AGGREGATION_OBJECT_LENGTH, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
@@ -84,7 +84,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
       if (prover) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
-        epochResult.proof.numPublicInputs -= AGGREGATION_OBJECT_LENGTH;
+        epochResult.proof.numPublicInputs -= PAIRING_POINTS_SIZE;
         await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
       }
 

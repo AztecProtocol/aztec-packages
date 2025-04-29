@@ -23,7 +23,7 @@ namespace bb {
  * @tparam Flavor
  * @return OinkOutput<Flavor>
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::verify()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
 {
     // Execute the Verifier rounds
     execute_preamble_round();
@@ -42,7 +42,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::verify()
  * @brief Get circuit size, public input size, and public inputs from transcript
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const uint64_t circuit_size = verification_key->verification_key->circuit_size;
@@ -65,7 +65,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
  * only received after adding memory records. In the Goblin Flavor, we also receive the ECC OP wires and the
  * DataBus columns.
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_round()
 {
     // Get commitments to first three wire polynomials
     witness_comms.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_l);
@@ -91,7 +91,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
  * @brief Get sorted witness-table accumulator and fourth wire commitments
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
@@ -112,7 +112,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_a
  * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
 {
     // Get permutation challenges
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
@@ -135,7 +135,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
  * @brief Compute lookup grand product delta and get permutation and lookup grand product commitments
  *
  */
-template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
+template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
     const FF public_input_delta =
         compute_public_input_delta<Flavor>(public_inputs,
@@ -150,7 +150,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
 }
 
-template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
 {
     // Get the relation separation challenges for sumcheck/combiner computation
     RelationSeparator alphas;

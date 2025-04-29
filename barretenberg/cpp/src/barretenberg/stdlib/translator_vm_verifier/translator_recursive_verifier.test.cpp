@@ -89,7 +89,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-        typename RecursiveVerifier::AggregationObject pairing_points =
+        typename RecursiveVerifier::PairingPoints pairing_points =
             verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
         pairing_points.set_public();
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
@@ -169,7 +169,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
             transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-            typename RecursiveVerifier::AggregationObject pairing_points =
+            typename RecursiveVerifier::PairingPoints pairing_points =
                 verifier.verify_proof(inner_proof,
                                       TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x),
                                       TranslatorBF::from_witness(&outer_circuit, batching_challenge_v));
