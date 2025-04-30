@@ -44,7 +44,7 @@ export const dropdownIcon = css({
 export const navbarButtonStyle = css({
   height: '48px',
   borderRadius: '8px',
-  backgroundColor: '#cdd1d580',
+  backgroundColor: '#ffffff38',
   width: '300px',
   display: 'flex',
   justifyContent: 'space-between',
