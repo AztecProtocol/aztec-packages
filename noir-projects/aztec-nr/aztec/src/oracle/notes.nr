@@ -1,5 +1,9 @@
 use crate::{
-    note::{note_interface::NoteType, note_metadata::NoteMetadata, retrieved_note::RetrievedNote},
+    note::{
+        note_interface::NoteType,
+        note_metadata::NoteMetadata,
+        retrieved_note::{RETRIEVED_NOTE_OVERHEAD, RetrievedNote},
+    },
     utils::array,
 };
 
@@ -102,9 +106,9 @@ unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NO
     _status: u8,
     // This is always set to MAX_NOTES. We need to pass it to TS in order to be correctly construct the BoundedVec
     _max_notes: u32,
-    // This is always set to NOTE_PCKD_LEN + 3. We need to pass it to TS in order to be correctly construct the BoundedVec
+    // This is always set to NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be correctly construct the BoundedVec
     _nested_array_length: u32,
-) -> BoundedVec<[Field; NOTE_PCKD_LEN + 3], MAX_NOTES> {}
+) -> BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> {}
 
 pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
     storage_slot: Field,
@@ -126,7 +130,7 @@ where
     Note: NoteType + Packable<NOTE_PCKD_LEN>,
 {
     // N + 3 because of the contract address, nonce, and note_hash_counter that are stored out of the packed note.
-    let packed_retrieved_notes: BoundedVec<[Field; NOTE_PCKD_LEN + 3], MAX_NOTES> = get_notes_oracle(
+    let packed_retrieved_notes: BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> = get_notes_oracle(
         storage_slot,
         num_selects,
         select_by_indexes,
@@ -142,7 +146,7 @@ where
         offset,
         status,
         MAX_NOTES,
-        NOTE_PCKD_LEN + 3,
+        NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD,
     );
 
     let mut notes = BoundedVec::new();

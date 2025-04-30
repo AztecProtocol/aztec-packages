@@ -201,13 +201,13 @@ export class Oracle {
       }
     }
 
-    // The expected return type is a BoundedVec<[Field; NOTE_PCKD_LEN + 3], MAX_NOTES> where each array is structured
-    // as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
+    // The expected return type is a BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> where each
+    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
 
     const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
-      let nonzeroNoteHashCounter = noteIsTransient ? true : false;
+      const nonzeroNoteHashCounter = noteIsTransient ? true : false;
       return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
     });
 
