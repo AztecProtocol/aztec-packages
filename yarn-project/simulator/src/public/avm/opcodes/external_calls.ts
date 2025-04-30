@@ -163,16 +163,16 @@ export class Return extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private returnOffset: number, private returnSizeOffset: number) {
+  constructor(private indirect: number, private returnSizeOffset: number, private returnOffset: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
 
-    const operands = [this.returnOffset, this.returnSizeOffset];
+    const operands = [this.returnSizeOffset, this.returnOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [returnOffset, returnSizeOffset] = addressing.resolve(operands, memory);
+    const [returnSizeOffset, returnOffset] = addressing.resolve(operands, memory);
 
     memory.checkTag(TypeTag.UINT32, returnSizeOffset);
     const returnSize = memory.get(returnSizeOffset).toNumber();
@@ -205,16 +205,16 @@ export class Revert extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private returnOffset: number, private retSizeOffset: number) {
+  constructor(private indirect: number, private retSizeOffset: number, private returnOffset: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
 
-    const operands = [this.returnOffset, this.retSizeOffset];
+    const operands = [this.retSizeOffset, this.returnOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [returnOffset, retSizeOffset] = addressing.resolve(operands, memory);
+    const [retSizeOffset, returnOffset] = addressing.resolve(operands, memory);
 
     memory.checkTag(TypeTag.UINT32, retSizeOffset);
     const retSize = memory.get(retSizeOffset).toNumber();

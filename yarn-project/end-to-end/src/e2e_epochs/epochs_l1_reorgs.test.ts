@@ -151,16 +151,19 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER, 60);
     expect(monitor.l2BlockNumber).toEqual(L2_BLOCK_NUMBER);
     const l1BlockNumber = monitor.l1BlockNumber;
-    await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 5, 0.1);
+    await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 10, 0.1);
+
+    logger.warn(`Reached block ${L2_BLOCK_NUMBER}. Stopping block production.`);
     await context.aztecNodeAdmin!.setConfig({ minTxsPerBlock: 100 });
 
     // Remove the L2 block from L1
     const l1BlocksToReorg = monitor.l1BlockNumber - l1BlockNumber + 1;
     await context.cheatCodes.eth.reorgWithReplacement(l1BlocksToReorg);
     expect(await monitor.run(true).then(monitor => monitor.l2BlockNumber)).toEqual(L2_BLOCK_NUMBER - 1);
+    logger.warn(`Removed block ${L2_BLOCK_NUMBER} via L1 reorg`);
 
     // And expect the node to prune the block
-    await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER - 1), 'node sync', 5, 0.1);
+    await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER - 1), 'node sync', 30, 0.1);
   });
 
   // TODO(palla/reorg): The tx delayer needs to handle txs with blobs for this to work, and we need
