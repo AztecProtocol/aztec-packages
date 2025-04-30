@@ -492,7 +492,7 @@ export function Landing() {
                   await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
                   setIsLoadingPrivateVoting(false);
                 }}
-                disabled={isLoadingPrivateVoting || !wallet}
+                disabled={isLoadingPrivateVoting || !wallet || isCreatingAccount}
               >
                 {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
               </Button>
@@ -527,7 +527,7 @@ export function Landing() {
                   await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
                   setIsLoadingPrivateTokens(false);
                 }}
-                disabled={isLoadingPrivateTokens || !wallet}
+                disabled={isLoadingPrivateTokens || !wallet || isCreatingAccount}
               >
                 {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
               </Button>

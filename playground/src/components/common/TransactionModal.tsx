@@ -95,23 +95,21 @@ const buttonContainer = css({
 });
 
 
-export function TransactionModal(props: { transaction: UserTx }) {
-  const { currentTx, setCurrentTx, logs, transactionModalStatus, setTransactionModalStatus } = useContext(AztecContext);
-  const [isTxPanelOpen, setIsTxPanelOpen] = useState(transactionModalStatus === 'open');
+export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, onClose: () => void }) {
+  const { isOpen, onClose } = props;
+  const { currentTx, setCurrentTx, logs } = useContext(AztecContext);
 
   const transaction = props.transaction || currentTx;
 
-  useEffect(() => {
-    setIsTxPanelOpen(transactionModalStatus === 'open');
-  }, [transactionModalStatus]);
-
-  // Open the modal when the transaction is successful
-  useEffect(() => {
-    if (transaction?.status === 'success') {
-      setTransactionModalStatus('open');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transaction]);
+  // useEffect(() => {
+  //   console.log(window.Tally);
+  //   // @ts-expect-error Tally is loaded
+  //   if (window.Tally) {
+  //     // @ts-expect-error Tally is loaded
+  //     window.Tally.loadEmbeds();
+  //     console.log('Tally loaded');
+  //   }
+  // }, []);
 
   const handleCancelTx = async () => {
     if (!confirm('Are you sure you want to cancel this transaction?')) {
@@ -124,17 +122,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
     }
 
     setCurrentTx(null);
-    setTransactionModalStatus('closed');
   };
-
-  const minimizeModal = useCallback(() => {
-    if (currentTx?.status === 'error') {
-      setTransactionModalStatus('closed');
-    } else {
-      setTransactionModalStatus('minimized');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTx?.status]);
 
   const handleShareOnTwitter = async (txHash: string) => {
     if (!txHash) return;
@@ -162,7 +150,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
   const isSending = transaction?.status === 'sending';
   const isSuccess = transaction?.status === 'success';
   const isPending = transaction?.status === 'pending';
-  const errorMessage = transaction?.error ?? transaction?.receipt?.error;
+  const errorMessage = transaction?.error ?? transaction?.receipt?.error ?? transaction?.status;
   const isTimeoutError = errorMessage && errorMessage.toLowerCase().includes('timeout awaiting');
 
 
@@ -227,7 +215,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
     return (
       <>
         <Typography css={titleText}>
-          Congratulations! You transaction was successful!
+          Congratulations! Your transaction was successful!
         </Typography>
 
         <div css={content}>
@@ -261,6 +249,19 @@ export function TransactionModal(props: { transaction: UserTx }) {
         <span style={{ backgroundColor: 'var(--mui-palette-grey-300)', textAlign: 'center', padding: '0.75rem', borderRadius: '6px', marginTop: '2rem' }}>
           Take a screenshot of above and share on X!
         </span>
+
+        {/* <div>
+          <iframe
+            src="https://tally.so/embed/np5p0E?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1&originPage=%2F"
+            loading="lazy"
+            width="100%"
+            height="120"
+            frameBorder={0}
+            marginHeight={0}
+            marginWidth={0}
+            title="Playground Newsletter"
+          ></iframe>
+        </div> */}
 
         <div css={buttonContainer}>
           <Button
@@ -315,10 +316,15 @@ export function TransactionModal(props: { transaction: UserTx }) {
 
         <div css={content}>
           <Typography css={subtitleText}>
-            Your transaction was successfully sent to the mempool but it took slightly longer to add it to a block.
+            Your transaction was successfully sent to the mempool but the network took longer than normal to be included it in a block due to network congestion.
             <br />
             <br />
-            It might be already included in a block by now. You can check the transaction status on a block explorer.
+            Want to learn more about transaction throughput and network congestion on Aztec testnet?
+            {' '}
+            Read <a href="https://aztec.network/blog/what-is-aztec-testnet" target="_blank" rel="noopener noreferrer">this article</a>.
+            <br />
+            <br />
+            We check the status of your transaction frequently. You can also check the transaction status on a block explorer.
           </Typography>
         </div>
 
@@ -349,14 +355,14 @@ export function TransactionModal(props: { transaction: UserTx }) {
         />
       )}
 
-      <Dialog open={isTxPanelOpen} onClose={minimizeModal}>
+      <Dialog open={isOpen} onClose={onClose}>
         <DialogTitle>{transaction?.name}</DialogTitle>
 
         <DialogContent css={dialogBody}>
 
           <IconButton
             css={minimizeButton}
-            onClick={minimizeModal}
+            onClick={onClose}
           >
             <CloseButton />
           </IconButton>
