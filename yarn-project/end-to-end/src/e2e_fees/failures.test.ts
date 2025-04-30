@@ -60,13 +60,12 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         // still use a public transfer so as to fail in the public app logic phase
         .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
-        .send({
+        .simulate({
           fee: {
             gasSettings,
             paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
@@ -161,13 +160,12 @@ describe('e2e_fees failures', () => {
     await expect(
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
-        .send({
+        .simulate({
           fee: {
             gasSettings,
             paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
@@ -226,13 +224,12 @@ describe('e2e_fees failures', () => {
     await expect(
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
-        .send({
+        .simulate({
           fee: {
             gasSettings,
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow(/unauthorized/);
 
     // so does the sequencer
@@ -280,13 +277,12 @@ describe('e2e_fees failures', () => {
     await expect(
       bananaCoin.methods
         .mint_to_public(aliceAddress, 1n) // random operation
-        .send({
+        .simulate({
           fee: {
             gasSettings: badGas,
             paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow();
 
     const receipt = await bananaCoin.methods
