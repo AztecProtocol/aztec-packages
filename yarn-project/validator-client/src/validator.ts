@@ -256,7 +256,8 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // If we cannot request all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
-      throw new TransactionsNotAvailableError(txHashes);
+      const missingTxHashes = txHashes.filter(txHash => !txs.some(async tx => (await tx.getTxHash()).equals(txHash)));
+      throw new TransactionsNotAvailableError(missingTxHashes);
     }
 
     // Assertion: This check will fail if re-execution is not enabled
