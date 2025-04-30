@@ -93,4 +93,7 @@ export interface TxPool {
    * @param maxSizeBytes - The maximum size in bytes of the mempool. Set to undefined to disable it
    */
   setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void>;
+
+  /** Returns whether the pool is empty. */
+  isEmpty(): Promise<boolean>;
 }

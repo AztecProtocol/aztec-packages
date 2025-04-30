@@ -11,6 +11,7 @@
 
 names:
   - adam: &adam "U04BM8H25NJ"
+  - akosh: &akosh "U07PQ3Y4GHJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
   - grego: &grego "U0689QRCE9L"
@@ -70,6 +71,9 @@ tests:
     skip: true
     owners:
       - *charlie
+  - regex: "arb_program_can_be_executed"
+    owners:
+      - *akosh
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
@@ -188,10 +192,18 @@ tests:
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
       - *alex
+  - regex: "ethereum/src/test/tx_delayer.test.ts"
+    error_regex: "delays a transaction until a given L1 timestamp"
+    owners:
+      - *esau
 
   # boxes
   - regex: "boxes/scripts/run_test.sh"
     error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *grego
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "expect(locator).toBeVisible()"
     owners:
       - *grego
 

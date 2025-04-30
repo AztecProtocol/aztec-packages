@@ -5,6 +5,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { P2P_STORE_NAME } from '@aztec/p2p';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
@@ -211,6 +212,11 @@ export async function snapshotSync(
         rollupAddress,
       });
     }
+
+    // And clear the p2p db altogether
+    const p2pPath = join(dataDirectory, P2P_STORE_NAME);
+    await tryRmDir(p2pPath, log);
+    log.info(`P2P database cleared`, { path: p2pPath });
   } finally {
     if (downloadDir) {
       await tryRmDir(downloadDir, log);
