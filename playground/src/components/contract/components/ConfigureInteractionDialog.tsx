@@ -13,18 +13,18 @@ import Autocomplete from '@mui/material/Autocomplete';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import Divider from '@mui/material/Divider';
-import { DialogContent, DialogContentText } from '@mui/material';
+import { DialogContent } from '@mui/material';
 import { Box, DialogActions } from '@mui/material';
 import { INFO_TEXT } from '../../../constants';
 
-interface ConfigureInteractionDialogProps {
+interface SendTxDialogProps {
   name: string;
   interaction: ContractFunctionInteraction;
   open: boolean;
   onClose: (name?: string, tx?: ContractFunctionInteraction, opts?: SendMethodOptions) => void;
 }
 
-export function ConfigureInteractionDialog({ name, interaction, open, onClose }: ConfigureInteractionDialogProps) {
+export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogProps) {
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +57,7 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
 
   return (
     <Dialog onClose={handleClose} open={open}>
-      <DialogTitle>Configure transaction</DialogTitle>
+      <DialogTitle>Send transaction</DialogTitle>
 
       <DialogContent sx={dialogBody}>
         <FormControl css={form}>

@@ -1,123 +1,103 @@
 import { css } from '@emotion/react';
 import { ContractComponent } from '../contract/Contract';
-import { SidebarComponent } from '../sidebar/Sidebar';
+import { NavBar } from '../sidebar/NavBar';
 import { useState } from 'react';
 import { AztecContext } from '../../aztecEnv';
 import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
-import { LoadingModal } from '../common/LoadingModal';
-import { Button } from '@mui/material';
+import { TxPanel } from '../sidebar/TxPanel';
+import { trackButtonClick } from '../../utils/matomo';
 
-const layout = css({
+const container = css({
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
-  overflow: 'hidden',
   width: '100%',
-  flex: 1,
+  maxWidth: '1400px',
+  padding: '0 1rem',
+  margin: '0 auto',
+});
+
+const headerFrame = css({
+  display: 'flex',
+  alignItems: 'center',
+  marginTop: '1rem',
+  marginBottom: '2rem',
+  backgroundColor: '#CDD1D5',
+  borderRadius: '10px',
+  padding: '12px',
+  height: '80px',
+  '@media (max-width: 900px)': {
+    height: '60px',
+    padding: '0.5rem',
+  },
+});
+
+const logo = css({
+  width: '120px',
+  marginLeft: '1rem',
+  '@media (max-width: 900px)': {
+    width: '90px',
+    marginLeft: '0.5rem',
+    marginRight: '0.5rem',
+  },
+});
+
+const headerTitle = css({
+  fontWeight: 500,
+  fontSize: '24px',
+  lineHeight: '48px',
+  letterSpacing: '0.03em',
+  color: '#2D2D2D',
+  textDecoration: 'none',
+  marginLeft: '1rem',
+  flexGrow: 1,
+  '@media (max-width: 900px)': {
+    fontSize: '18px',
+    lineHeight: '20px',
+    marginLeft: '0rem',
+  },
+});
+
+const docsButton = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: '#8C7EFF',
+  textDecoration: 'none',
+  borderRadius: '6px',
+  fontWeight: 500,
+  color: '#FFFFFF',
+  fontSize: '16px',
+  minWidth: '100px',
+  padding: '10px 16px',
+  '@media (max-width: 900px)': {
+    padding: '8px 10px',
+    fontSize: '14px',
+    fontWeight: 600,
+  },
 });
 
 const contentLayout = css({
   display: 'flex',
   flexDirection: 'row',
   position: 'relative',
-  flexShrink: 0,
-  height: 'calc(100% - 220px)',
-  minHeight: 0,
-  overflow: 'auto',
-  margin: '24px 60px',
-  scrollbarWidth: 'none',
-  '@media (max-width: 1200px)': {
-    height: 'calc(100% - 150px)',
-    flexDirection: 'column',
-    margin: '0 12px',
-  },
-});
-
-const headerFrame = css({
-  margin: '24px 60px',
-  backgroundColor: '#CDD1D5',
-  borderRadius: '10px',
-  display: 'flex',
-  alignItems: 'center',
-  padding: '12px 36px',
-  flexWrap: 'wrap',
-  '@media (max-width: 1200px)': {
-    margin: '12px 12px 24px 12px',
-    padding: '3px 12px',
-  },
-});
-
-const logo = css({
-  height: '60px',
-  objectFit: 'contain',
-  marginRight: '2rem',
-  '@media (max-width: 1200px)': {
-    height: 'auto',
-    width: '120px',
-    marginRight: '0.1rem',
-  },
+  gap: '24px',
+  flexGrow: 1,
+  paddingBottom: '4rem', // For the logs panel
   '@media (max-width: 900px)': {
-    height: 'auto',
-    width: '90px',
+    flexWrap: 'wrap',
+    maxHeight: 'auto',
   },
 });
 
-const headerTitle = css({
-  fontFamily: '"Space Grotesk", sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 500,
-  fontSize: '42px',
-  lineHeight: '48px',
-  display: 'flex',
-  height: '60px',
-  alignItems: 'center',
-  letterSpacing: '0.03em',
-  color: '#2D2D2D',
-  textDecoration: 'none',
-  padding: '1rem',
-  '@media (max-width: 1200px)': {
-    fontSize: '20px',
-    lineHeight: '20px',
-  },
-  '@media (max-width: 900px)': {
-    fontSize: '16px',
-    lineHeight: '16px',
-  },
-});
-
-const docsButton = css({
-  marginLeft: 'auto',
-  background: '#8C7EFF',
-  borderRadius: '6px',
-  color: '#FFFFFF',
-  fontFamily: 'Inter, sans-serif',
-  fontWeight: 500,
-  fontSize: '16px',
-  lineHeight: '20px',
-  height: '50px',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '12px',
-  textDecoration: 'none',
-  '@media (max-width: 1200px)': {
-    padding: '10px',
-    fontSize: '14px',
-  },
-  '@media (max-width: 900px)': {
-    padding: '8px',
-    fontSize: '12px',
-    fontWeight: 500,
-  },
-});
 
 export default function Home() {
   const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [showContractInterface, setShowContractInterface] = useState(false);
+  const [transactionModalStatus, setTransactionModalStatus] = useState<'open' | 'closed' | 'minimized'>('closed');
   const [node, setAztecNode] = useState(null);
   const [isPXEInitialized, setPXEInitialized] = useState(false);
   const [walletAlias, setWalletAlias] = useState('');
@@ -127,10 +107,10 @@ export default function Home() {
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
   const [logs, setLogs] = useState([]);
   const [logsOpen, setLogsOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [network, setNetwork] = useState(null);
   const [totalLogCount, setTotalLogCount] = useState(0);
+  const [defaultContractCreationParams, setDefaultContractCreationParams] = useState({});
 
   const AztecContextInitialValue = {
     pxe,
@@ -146,13 +126,13 @@ export default function Home() {
     currentContractAddress,
     logs,
     logsOpen,
-    drawerOpen,
     showContractInterface,
     totalLogCount,
+    transactionModalStatus,
+    defaultContractCreationParams,
     setTotalLogCount,
     setNetwork,
     setConnecting,
-    setDrawerOpen,
     setLogsOpen,
     setLogs,
     setAztecNode,
@@ -162,13 +142,15 @@ export default function Home() {
     setWallet,
     setPXE,
     setShowContractInterface,
+    setDefaultContractCreationParams,
     setWalletAlias,
     setCurrentContractArtifact,
     setCurrentContractAddress,
+    setTransactionModalStatus,
   };
 
   return (
-    <div css={layout}>
+    <div css={container}>
       <div css={headerFrame}>
         <div role="button" style={{ cursor: 'pointer' }} onClick={() => {
           setShowContractInterface(false);
@@ -181,18 +163,20 @@ export default function Home() {
           target="_blank"
           rel="noopener noreferrer"
           css={docsButton}
-          style={{ textDecoration: 'none' }}
+          onClick={() => {
+            trackButtonClick('Docs', 'Home Page');
+          }}
         >
-          Start Building
+          Docs
         </a>
       </div>
       <AztecContext.Provider value={AztecContextInitialValue}>
+        <NavBar />
         <div css={contentLayout}>
-          <SidebarComponent />
           {showContractInterface ? <ContractComponent /> : <Landing />}
+          <TxPanel />
         </div>
         <LogPanel />
-        <LoadingModal />
       </AztecContext.Provider>
     </div>
   );

@@ -26,8 +26,7 @@ import { FunctionCard } from './components/FunctionCard';
 import { useTransaction } from '../../hooks/useTransaction';
 import { ContractDescriptions, ContractDocumentationLinks, ContractMethodOrder } from '../../utils/constants';
 import Box from '@mui/material/Box';
-import CardContent from '@mui/material/CardContent';
-import Card from '@mui/material/Card';
+import { trackButtonClick } from '../../utils/matomo';
 
 const container = css({
   display: 'flex',
@@ -36,6 +35,11 @@ const container = css({
   overflow: 'hidden',
   justifyContent: 'center',
   alignItems: 'center',
+  maxHeight: 'calc(100vh - 280px)',
+  '@media (max-width: 900px)': {
+    maxHeight: 'none',
+    height: 'auto',
+  },
 });
 
 const contractFnContainer = css({
@@ -44,6 +48,9 @@ const contractFnContainer = css({
   overflowY: 'auto',
   color: 'black',
   height: '100%',
+  '@media (max-width: 900px)': {
+    height: 'auto',
+  },
 });
 
 const headerContainer = css({
@@ -106,6 +113,7 @@ const loadingArtifactContainer = css({
 
 const contractName = css({
   marginRight: '0.5rem',
+  fontSize: '2.0rem',
   '@media (max-width: 1200px)': {
     fontSize: '1.5rem',
   },
@@ -135,6 +143,7 @@ export function ContractComponent() {
     wallet,
     currentContractAddress,
     currentContractArtifact,
+    defaultContractCreationParams,
     setCurrentContractArtifact,
     setCurrentContractAddress,
   } = useContext(AztecContext);
@@ -181,10 +190,10 @@ export function ContractComponent() {
     setOpenCreateContractDialog(false);
     if (contract && publiclyDeploy) {
       const deploymentResult = await sendTx(
-        `deploy ${currentContractArtifact.name}`,
+        `Deploy ${currentContractArtifact.name}`,
         interaction,
         contract.address,
-        opts,
+        opts
       );
       // Temporarily ignore undeployed contracts
       if (deploymentResult) {
@@ -215,7 +224,15 @@ export function ContractComponent() {
 
                 {!currentContractAddress && wallet && (
                   <div css={contractActions}>
-                    <Button size="small" variant="contained" css={deployButton} onClick={() => setOpenCreateContractDialog(true)}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      css={deployButton}
+                      onClick={() => {
+                        trackButtonClick('Deploy/Load Contract', 'Contract Actions');
+                        setOpenCreateContractDialog(true);
+                      }}
+                    >
                       Deploy / Load Contract
                     </Button>
                     {openCreateContractDialog && (
@@ -223,13 +240,14 @@ export function ContractComponent() {
                         contractArtifact={currentContractArtifact}
                         open={openCreateContractDialog}
                         onClose={handleContractCreation}
+                        defaultContractCreationParams={defaultContractCreationParams}
                       />
                     )}
                   </div>
                 )}
 
                 {currentContractAddress && (
-                  <div css={contractActions}>
+                  <div css={contractActions} style={{ backgroundColor: 'var(--mui-palette-grey-200)', padding: '0px 12px', borderRadius: '6px' }}>
                     <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
                     <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
                     <IconButton
@@ -247,8 +265,14 @@ export function ContractComponent() {
               </Box>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (
-                <Typography variant="body1" css={{ marginBottom: '2rem' }}>
+                <Typography variant="body2" css={{ marginBottom: '2rem' }}>
                   {ContractDescriptions[currentContractArtifact.name]}
+                </Typography>
+              )}
+              {!!ContractDocumentationLinks[currentContractArtifact.name] && (
+                <Typography variant="body2" css={{ marginTop: '-1.5rem', marginBottom: '2rem' }}>
+                  <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
+                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
                 </Typography>
               )}
             </div>
@@ -275,16 +299,7 @@ export function ContractComponent() {
               <FunctionCard fn={fn} key={fn.name} contract={currentContract} contractArtifact={currentContractArtifact} onSendTxRequested={sendTx} />
             ))}
 
-          {!!ContractDocumentationLinks[currentContractArtifact.name] && (
-            <Card sx={{ margin: '3rem 0.5rem' }}>
-              <CardContent>
-                <Typography variant="body1">
-                  <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
-                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
-                </Typography>
-              </CardContent>
-            </Card>
-          )}
+
         </div>
       )}
     </div>

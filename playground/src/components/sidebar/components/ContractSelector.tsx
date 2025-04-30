@@ -1,5 +1,4 @@
 import { useState, useEffect, useContext } from 'react';
-import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
@@ -15,25 +14,14 @@ import {
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../../../utils/types';
-import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';
 import { parse } from 'buffer-json';
-import { select } from '../../../styles/common';
+import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
-
-const modalContainer = css({
-  padding: '10px 0',
-});
-
-const loadingContainer = css({
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  flexDirection: 'column',
-  padding: '20px 0',
-  gap: '12px',
-});
+import ArticleIcon from '@mui/icons-material/Article';
+import { InputLabel } from '@mui/material';
+import { trackButtonClick } from '../../../utils/matomo';
 
 export function ContractSelector() {
   const [contracts, setContracts] = useState([]);
@@ -44,7 +32,6 @@ export function ContractSelector() {
   const [selectedPredefinedContract, setSelectedPredefinedContract] = useState<string | undefined>(undefined);
 
   const {
-    pxe,
     currentContractAddress,
     wallet,
     walletDB,
@@ -52,6 +39,7 @@ export function ContractSelector() {
     setCurrentContractArtifact,
     setCurrentContractAddress,
     setShowContractInterface,
+    setDefaultContractCreationParams,
   } = useContext(AztecContext);
 
   useEffect(() => {
@@ -70,6 +58,7 @@ export function ContractSelector() {
   }, [currentContractAddress, walletDB, wallet]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
+    trackButtonClick(`Select Contract ${event.target.value}`, 'Contract Selector');
     const contractValue = event.target.value;
     if (contractValue === '') {
       return;
@@ -85,6 +74,7 @@ export function ContractSelector() {
     }
 
     setIsContractsLoading(true);
+    setDefaultContractCreationParams({});
 
     try {
       if ([PREDEFINED_CONTRACTS.SIMPLE_VOTING, PREDEFINED_CONTRACTS.SIMPLE_TOKEN].includes(contractValue)) {
@@ -119,30 +109,47 @@ export function ContractSelector() {
     }
   };
 
-  if (!isPXEInitialized || !wallet) {
-    return (
-      <div css={loadingContainer}>
-        <Typography variant="body2" color="warning.main">
-          Note: Connect to a network and account to deploy and interact with contracts
-        </Typography>
-      </div>
-    );
-  }
+  const selectedValue = currentContractAddress?.toString() || selectedPredefinedContract || '';
 
   return (
-    <div css={modalContainer}>
-      <FormControl css={select}>
-        <InputLabel>Contracts</InputLabel>
+    <div css={navbarButtonStyle}>
+      {isContractsLoading ? (
+        <CircularProgress size={24} />
+      ) : (
+        <ArticleIcon />
+      )}
+      <FormControl css={navbarSelect}>
+        {!selectedValue && (
+          <InputLabel id="contract-label">Select Contract</InputLabel>
+        )}
         <Select
-          value={currentContractAddress?.toString() || selectedPredefinedContract || ''}
+          value={selectedValue}
           label="Contract"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
           onChange={handleContractChange}
           fullWidth
+          renderValue={selected => {
+            if (isContractsLoading) {
+              return `Loading contract...`;
+            }
+            if (selected) {
+              const contract = contracts.find(contract => contract.value === selected);
+              if (contract) {
+                return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
+              }
+            }
+          }}
           disabled={isContractsLoading}
         >
+          {(!isPXEInitialized || !wallet) && (
+            <div css={navbarSelectLabel}>
+              <Typography variant="body2" color="warning.main">
+                Note: Connect to a network and account to deploy and interact with contracts
+              </Typography>
+            </div>
+          )}
           {/* Predefined contracts */}
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>Easy Private Voting</MenuItem>
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_TOKEN}>Simple Token</MenuItem>
@@ -164,14 +171,10 @@ export function ContractSelector() {
             </MenuItem>
           ))}
         </Select>
-        {isContractsLoading ? (
-          <div style={{ display: 'flex', alignItems: 'center', marginLeft: '0.5rem' }}>
-            <CircularProgress size={20} />
-          </div>
-        ) : (
-          <CopyToClipboardButton disabled={!currentContractAddress} data={currentContractAddress?.toString()} />
-        )}
       </FormControl>
+      {currentContractAddress && (
+        <CopyToClipboardButton disabled={!currentContractAddress} data={currentContractAddress?.toString()} />
+      )}
     </div>
   );
 }
