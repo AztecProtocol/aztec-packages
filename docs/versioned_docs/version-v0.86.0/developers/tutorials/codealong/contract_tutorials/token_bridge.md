@@ -15,9 +15,7 @@ The first half of this page reviews the process and contracts for bridging token
 - sending tokens from L2 back to L1
 - withdrawing tokens from the L1 portal
 
-:::note
-This tutorial is compatible with the Aztec version #include_aztec_version. If you are using a different version or network, you can find the relevant tutorial by clicking the #include_aztec_version dropdown at the top of the page.
-:::
+This tutorial is compatible with the Aztec version `v0.86.0`. If you are using a different version or network, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Components
 
