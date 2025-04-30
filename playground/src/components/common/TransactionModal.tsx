@@ -153,6 +153,13 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
   const errorMessage = transaction?.error ?? transaction?.receipt?.error ?? transaction?.status;
   const isTimeoutError = errorMessage && errorMessage.toLowerCase().includes('timeout awaiting');
 
+  function renderNewsletterSignup() {
+    return (
+      <div css={subtitleText} style={{ textAlign: 'center', margin: '1rem 0' }}>
+        Psst! Sign up for the <a href="https://tally.so/r/np5p0E" target="_blank" rel="noopener noreferrer">developer newsletter</a>
+      </div>
+    )
+  }
 
   function renderProvingState() {
     return (
@@ -180,6 +187,8 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           )}
         </div>
 
+        {renderNewsletterSignup()}
+
         <div css={buttonContainer}>
           <Button variant="contained" color="error" onClick={handleCancelTx}>
             Cancel Transaction
@@ -206,6 +215,8 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             <br />
             We are waiting for a confirmation that your transaction was included in a block.
           </Typography>
+
+          {renderNewsletterSignup()}
         </div>
       </>
     )
@@ -215,7 +226,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
     return (
       <>
         <Typography css={titleText}>
-          Congratulations! Your transaction was successful!
+          Congratulations! You created a transaction on Aztec testnet
         </Typography>
 
         <div css={content}>
@@ -246,22 +257,11 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           </code>
         </div>
 
+        {renderNewsletterSignup()}
+
         <span style={{ backgroundColor: 'var(--mui-palette-grey-300)', textAlign: 'center', padding: '0.75rem', borderRadius: '6px', marginTop: '2rem' }}>
           Take a screenshot of above and share on X!
         </span>
-
-        {/* <div>
-          <iframe
-            src="https://tally.so/embed/np5p0E?alignLeft=1&hideTitle=1&transparentBackground=1&dynamicHeight=1&originPage=%2F"
-            loading="lazy"
-            width="100%"
-            height="120"
-            frameBorder={0}
-            marginHeight={0}
-            marginWidth={0}
-            title="Playground Newsletter"
-          ></iframe>
-        </div> */}
 
         <div css={buttonContainer}>
           <Button
@@ -327,6 +327,8 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             We check the status of your transaction frequently. You can also check the transaction status on a block explorer.
           </Typography>
         </div>
+
+        {renderNewsletterSignup()}
 
         <div css={buttonContainer}>
           <Button

@@ -371,16 +371,14 @@ export function TxPanel() {
           ))}
       </div>
 
-      {selectedTx && (
-        <TransactionModal
-          transaction={selectedTx}
-          isOpen={isTransactionModalOpen}
-          onClose={() => {
-            setSelectedTx(null);
-            setIsTransactionModalOpen(false);
-          }}
-        />
-      )}
+      <TransactionModal
+        transaction={selectedTx}
+        isOpen={isTransactionModalOpen}
+        onClose={() => {
+          setSelectedTx(null);
+          setIsTransactionModalOpen(false);
+        }}
+      />
     </div>
   );
 }
