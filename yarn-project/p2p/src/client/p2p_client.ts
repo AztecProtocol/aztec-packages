@@ -11,7 +11,7 @@ import type {
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, type BlockProposal, ConsensusPayload, type P2PClientType } from '@aztec/stdlib/p2p';
+import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
@@ -556,18 +556,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
   }
 
-  private async addAttestationsToPool(blocks: PublishedL2Block[]): Promise<void> {
-    const attestations = blocks.flatMap(block => {
-      const payload = ConsensusPayload.fromBlock(block.block);
-      return block.signatures
-        .filter(sig => !sig.isEmpty)
-        .map(signature => new BlockAttestation(block.block.header.globalVariables.blockNumber, payload, signature));
-    });
-    await this.attestationPool?.addAttestations(attestations);
-    const slots = blocks.map(b => b.block.header.getSlot()).sort((a, b) => Number(a - b));
-    this.log.debug(`Added ${attestations.length} attestations for slots ${slots[0]}-${slots.at(-1)} to the pool`);
-  }
-
   /**
    * Deletes txs from these blocks.
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
@@ -594,7 +582,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.markTxsAsMinedFromBlocks(blocks.map(b => b.block));
     void this.requestMissingTxsFromUnprovenBlocks(blocks.map(b => b.block));
 
-    await this.addAttestationsToPool(blocks);
     const lastBlock = blocks.at(-1)!.block;
     await Promise.all(
       blocks.map(async block => this.synchedBlockHashes.set(block.block.number, (await block.block.hash()).toString())),
@@ -607,18 +594,24 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** Request txs for unproven blocks so the prover node has more chances to get them. */
   private async requestMissingTxsFromUnprovenBlocks(blocks: L2Block[]): Promise<void> {
-    const provenBlockNumber = Math.max(await this.getSyncedProvenBlockNum(), this.provenBlockNumberAtStart);
-    const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
-    const txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
-    const missingTxHashes = await this.txPool
-      .hasTxs(txHashes)
-      .then(availability => txHashes.filter((_, index) => !availability[index]));
-    if (missingTxHashes.length > 0) {
-      this.log.verbose(
-        `Requesting ${missingTxHashes.length} missing txs from peers for ${unprovenBlocks.length} unproven mined blocks`,
-        { missingTxHashes, unprovenBlockNumbers: unprovenBlocks.map(block => block.number) },
-      );
-      await this.requestTxsByHash(missingTxHashes);
+    try {
+      const provenBlockNumber = Math.max(await this.getSyncedProvenBlockNum(), this.provenBlockNumberAtStart);
+      const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
+      const txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+      const missingTxHashes = await this.txPool
+        .hasTxs(txHashes)
+        .then(availability => txHashes.filter((_, index) => !availability[index]));
+      if (missingTxHashes.length > 0) {
+        this.log.verbose(
+          `Requesting ${missingTxHashes.length} missing txs from peers for ${unprovenBlocks.length} unproven mined blocks`,
+          { missingTxHashes, unprovenBlockNumbers: unprovenBlocks.map(block => block.number) },
+        );
+        await this.requestTxsByHash(missingTxHashes);
+      }
+    } catch (err) {
+      this.log.error(`Error requesting missing txs from unproven blocks`, err, {
+        blocks: blocks.map(block => block.number),
+      });
     }
   }
 
