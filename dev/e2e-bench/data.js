@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746041920130,
+  "lastUpdate": 1746042690918,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "65a9f339f894c6c7c0e56a68bf018a8ead6c7b20",
-          "message": "fix: no exports of simulator should depend on jest-mock-extended (#13694)\n\nFixes https://github.com/AztecProtocol/aztec-packages/issues/13655\n\nOther components (tests in `bb-prover`, `prover-client`) use\n`SimpleContractDataSource` and `PublicTxSimulationTester`. These are NOT\nmeant to depend on `jest-mock-extended`, but `SimpleContractDataSource`\nimported `avm/fixtures/index.ts` for `getFunctionSelector`. And that\n`index.ts` imported `jest-mock-extended`.\n\nInstead of having a bunch of utilities into `avm/fixtures/index.ts`, I\nmoved them into `initializers.ts` (needs jest) and `utils.ts` (pure\nutils, doesn't need jest). And then `SimpleContractDataSource` imports\n`utils.ts` and has no dependency on `jest-mock-extended`.\n\nOther components that depend on `SimpleContractDataSource` or\n`PublicTxSimulationTester` now explicitly import them from\n`simulator/public/fixtures` since they're no longer in\n`simulator/server`.\n\nRemoved dependency of `ivc-integration/src/witgen.ts` on\n`PublicTxSimulationTester` at the cost of small code-duplication.\n\n---------\n\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
-          "timestamp": "2025-04-23T18:21:33Z",
-          "tree_id": "35848bc0855ea62a3bd2ffd88bf869850e86df45",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/65a9f339f894c6c7c0e56a68bf018a8ead6c7b20"
-        },
-        "date": 1745436019332,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9950,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2848583271352909,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 152928,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 137900,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "897c49b6c3a0d428173275628f1e50fbdad8e42b",
+          "message": "feat: github-action-benchmark reporting for public simulation (#13938)\n\nGH pages page is here:\nhttps://aztecprotocol.github.io/aztec-packages/dev/sim-bench/\n\n(I temporarily removed the `if` condition for the ci steps so that\nthey'd generate gh-action-benchmark commits/points for my PR)\n\nAfter seeing the alert below at 110% threshold that I believe was just\ndue to general variability in simulation times, I bumped the alert\nthreshold to 200%. That's kind of a bummer because ideally I'd like to\nget notified if #instructions executed grows by even ~5%, but the\nduration metrics vary more widely from run to run.\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
+          "timestamp": "2025-04-30T19:09:02Z",
+          "tree_id": "b1a081012f5fa3e8873a33adade5d5438aafe01f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/897c49b6c3a0d428173275628f1e50fbdad8e42b"
+        },
+        "date": 1746042689981,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8620,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24678379025352098,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 178473,
             "unit": "us"
           }
         ]
