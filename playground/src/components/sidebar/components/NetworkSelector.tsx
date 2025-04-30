@@ -52,13 +52,13 @@ export function NetworkSelector() {
     initNetworkStore();
   }, []);
 
-  // // Connect to the first network automatically
-  // useEffect(() => {
-  //   if (isNetworkStoreInitialized && !network) {
-  //     handleNetworkChange(NETWORKS[0].nodeURL);
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [isNetworkStoreInitialized]);
+  // Connect to the first network automatically
+  useEffect(() => {
+    if (isNetworkStoreInitialized && !network) {
+      handleNetworkChange(NETWORKS[0].nodeURL);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNetworkStoreInitialized]);
 
   useEffect(() => {
     const refreshNetworks = async () => {
