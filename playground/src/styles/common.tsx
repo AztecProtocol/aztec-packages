@@ -55,9 +55,12 @@ export const navbarButtonStyle = css({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  transition: 'background-color 0.3s ease',
+
   '&:hover': {
     backgroundColor: '#f8f8f8',
   },
+
   '@media (max-width: 900px)': {
     width: '100%',
   },
