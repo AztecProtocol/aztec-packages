@@ -31,7 +31,7 @@ const minimizeButton = css({
 const container = css({
   display: 'flex',
   flexDirection: 'column',
-  minHeight: '450px',
+  minHeight: '500px',
   padding: '1rem',
   overflow: 'auto',
   '@media (max-width: 900px)': {

@@ -197,8 +197,10 @@ export function TxPanel() {
       }
       const pendingTxs = transactions.filter(tx => (
         tx.status === 'pending' &&
-        tx.date + TX_TIMEOUT < Date.now()
+        (tx.date + (TX_TIMEOUT * 1000)) < Date.now()
       ));
+
+      console.log('pendingTxs', pendingTxs);
 
       for (const tx of pendingTxs) {
         const txReceipt = await queryTxReceipt(tx, pxe);
@@ -213,7 +215,7 @@ export function TxPanel() {
       refreshPendingTx();
     }
 
-    const interval = setInterval(refreshPendingTx, 1000);
+    const interval = setInterval(refreshPendingTx, 10 * 1000);
     return () => clearInterval(interval);
 
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -255,7 +257,7 @@ export function TxPanel() {
       {pendingTx && (
         <>
           <Popover
-            open={!seenPendingTxPopover}
+            open={!seenPendingTxPopover && !isTransactionModalOpen}
             anchorEl={document.getElementById('pending-tx')}
             onClose={() => setSeenPendingTxPopover(true)}
             hideBackdrop
