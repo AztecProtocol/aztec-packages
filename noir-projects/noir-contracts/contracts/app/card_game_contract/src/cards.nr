@@ -10,7 +10,7 @@ use dep::aztec::{
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Serialize, ToField},
     },
-    state_vars::PrivateSet,,
+    state_vars::PrivateSet,
 };
 use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
