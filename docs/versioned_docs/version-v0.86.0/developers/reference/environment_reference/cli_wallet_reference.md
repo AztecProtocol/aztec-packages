@@ -151,7 +151,8 @@ You'll have to wait for two blocks to pass for bridged fee juice to be ready on 
 For the sandbox you do this by putting through two arbitrary transactions. Eg:
 
 ```bash title="force-two-blocks" showLineNumbers
-aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 -f test0 -a counter
+aztec-wallet import-test-accounts # if you haven't already imported the test accounts
+aztec-wallet deploy Counter --init initialize --args 0 accounts:test0 -f test0 -a counter
 aztec-wallet send increment -ca counter --args accounts:test0 accounts:test0 -f test0
 ```
 
