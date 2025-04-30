@@ -15,8 +15,6 @@ The first half of this page reviews the process and contracts for bridging token
 - sending tokens from L2 back to L1
 - withdrawing tokens from the L1 portal
 
-This tutorial is compatible with the Aztec version `v0.85.0-alpha-testnet.3`. If you are using a different version or network, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
-
 ## Components
 
 Bridges in Aztec involve several components across L1 and L2:
