@@ -27,7 +27,7 @@ export const NETWORKS: Network[] = [
     //   version: '0.85.0-alpha-testnet.2',
     //   address: AztecAddress.fromString('0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5'),
     // },
-    transactionCongestionThreshold: 24,
+    transactionCongestionThreshold: 40,
   },
   {
     nodeURL: 'http://34.169.170.55:8080',
