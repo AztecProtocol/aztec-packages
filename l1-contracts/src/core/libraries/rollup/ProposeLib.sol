@@ -138,7 +138,7 @@ library ProposeLib {
       _args.oracleInput.feeAssetPriceModifier,
       header.totalManaUsed,
       components.congestionCost,
-      components.provingCost
+      components.proverCost
     );
 
     rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;

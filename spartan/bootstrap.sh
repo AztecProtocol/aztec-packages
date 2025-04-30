@@ -62,15 +62,15 @@ function test_cmds {
   # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
-    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    echo "$hash:TIMEOUT=20m ./spartan/bootstrap.sh test-kind-transfer"
     # TODO(#12791) re-enable
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
-    # echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-proving"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-4epochs"
+    # echo "$hash:TIMEOUT=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-prod-deployment"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-1tps"
     # echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-1tps"
   fi
 }
 

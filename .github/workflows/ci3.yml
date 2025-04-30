@@ -62,11 +62,14 @@ jobs:
         run: echo "CI is not run on drafts." && exit 1
 
       - name: CI Full Override
-        # TODO consolidate legacy labels to just ci-full.
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: |
           echo "CI_FULL=1" >> $GITHUB_ENV
           echo "USE_TEST_CACHE=0" >> $GITHUB_ENV
+
+      - name: Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
+        run: echo "NO_CACHE=1" >> $GITHUB_ENV
 
       - name: CI Nightly Check
         if: contains(github.ref, '-nightly.')
