@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746031198864,
+  "lastUpdate": 1746035176078,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "51711291+natebeauregard@users.noreply.github.com",
-            "name": "Nate Beauregard",
-            "username": "natebeauregard"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0dd8a7e3a5a49090eec5bdb054c74fc7afc572eb",
-          "message": "feat: report world state size on disk (#13706)\n\nCloses https://github.com/AztecProtocol/aztec-packages/issues/13200\n\nAdds reporting for tracking the disk space currently used by the current\nworld state.",
-          "timestamp": "2025-04-23T14:24:19Z",
-          "tree_id": "6712f1cc303d45e7ce174abede097cb7e610eec5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0dd8a7e3a5a49090eec5bdb054c74fc7afc572eb"
-        },
-        "date": 1745424160712,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9040,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.25880379333895975,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 136300,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 156549,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3b1e34ebfc7cb0af03779bd67128e42aa4654a40",
+          "message": "chore!: remove all access to plonk via bberg interfaces (#13902)\n\nEffectively remove plonk from all bberg interfaces in preparation to\nremove it from the codebase entirely.",
+          "timestamp": "2025-04-30T16:34:37Z",
+          "tree_id": "9134d90eaf18477f57742edb9dd6e5337fb26ad3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3b1e34ebfc7cb0af03779bd67128e42aa4654a40"
+        },
+        "date": 1746035175113,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9159,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2622230007331755,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 155135,
             "unit": "us"
           }
         ]
