@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746003297378,
+  "lastUpdate": 1746009397819,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e604a14889cb939102cf4126d70197be4387e8e",
-          "message": "refactor: bb.js non-inlined web workers (#13736)\n\nInlined web workers are completely unsupported in browser extensions,\nwhich created problems for external teams. This PR moves to a more\nmodern approach, leveraging the integrated support in latest versions of\n`webpack` for web workers.\n\nUnfortunately, I've run into quite a few problems implementing this\napproach:\n\n* Webpack didn't support proper module workers up until recently,\nforcing me to update it (so it wouldn't transpile the imports to the\nunsupported `importScripts`). Took the opportunity to equalize versions\naccross the board.\n* There's a bug in webpack that forbids loading them asynchronously and\nthrew me for a while: https://github.com/webpack/webpack/issues/17014.\nSolution is to carefully handle our dynamic imports so they're only\napplied to the wasm files.\n* We were using `worker-loader` in `webpack` 5, which is explicitly\ndeprecated, but we needed it for the inlining. This gets rid of it.\n* Unfortunately again, new webpack handles `.d.ts` and `.d.ts.map` files\ndifferently now, which was causing trouble for downstream apps that also\nused webpack. Test apps and boxes have been updated to ignore them at\nbuild time (since they're only needed during development). Vite has no\nissues.\n* Took the opportunity to clean up our API, since we were never\ninitializing the `SyncApi`with a worker and conversely, the `Async` API\nwith a plain wasm module.",
-          "timestamp": "2025-04-22T21:28:05Z",
-          "tree_id": "4e2e4c1224801b111a5dbde8469299e168908b8a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0e604a14889cb939102cf4126d70197be4387e8e"
-        },
-        "date": 1745361987622,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9420,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2696717447654018,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 156526,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 146428,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e3798106bc21b035f3631908355ff752f8fad1c9",
+          "message": "chore: bump retries for request tx by hash (#13675)\n\n## Overview\n\nWith better sampling logic, we can more safetly bump the retries for the\ntx requests",
+          "timestamp": "2025-04-30T09:43:30Z",
+          "tree_id": "911fa7579ce86743b7bed1b203bb9d4682f40790",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e3798106bc21b035f3631908355ff752f8fad1c9"
+        },
+        "date": 1746009391832,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8129,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23273344735720697,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 150170,
             "unit": "us"
           }
         ]
