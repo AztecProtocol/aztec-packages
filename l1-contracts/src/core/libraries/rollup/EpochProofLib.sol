@@ -296,7 +296,7 @@ library EpochProofLib {
         t.totalBurn += burn;
 
         // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProvingCost(), fee - burn);
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
         $er.rewards += v.proverFee;
 
         v.sequencerFee = fee - burn - v.proverFee;

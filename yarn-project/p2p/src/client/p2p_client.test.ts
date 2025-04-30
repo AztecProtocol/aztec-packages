@@ -318,7 +318,7 @@ describe('In-Memory P2P Client', () => {
       const deleteAttestationsOlderThanSpy = jest.spyOn(attestationPool, 'deleteAttestationsOlderThan');
 
       blockSource.setProvenBlockNumber(0);
-      (client as any).keepAttestationsInPoolFor = keepAttestationsInPoolFor;
+      (client as any).config.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
       await client.start();
       expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 

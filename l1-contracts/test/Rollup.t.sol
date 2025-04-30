@@ -38,6 +38,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
+import {FeeLib, L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/FeeLib.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -357,8 +358,38 @@ contract RollupTest is RollupBase {
     _proveBlocks("mixed_block_", 1, 2, address(this));
 
     // 1e6 mana at 1000 and 2000 cost per manage multiplied by 10 for the price conversion to fee asset.
-    uint256 provingFees = 1e6 * (1000 + 2000) * 10;
-    uint256 expectedProverRewards = rewardDistributor.BLOCK_REWARD() / 2 * 2 + provingFees;
+    uint256 proverFees = 1e6 * (1000 + 2000);
+    // Then we also need the component that is for covering the gas
+    proverFees += (
+      Math.mulDiv(
+        Math.mulDiv(
+          L1_GAS_PER_EPOCH_VERIFIED,
+          rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(1))).baseFee,
+          rollup.getEpochDuration(),
+          Math.Rounding.Ceil
+        ),
+        1,
+        rollup.getManaTarget(),
+        Math.Rounding.Ceil
+      ) * 1e6
+    );
+
+    proverFees += (
+      Math.mulDiv(
+        Math.mulDiv(
+          L1_GAS_PER_EPOCH_VERIFIED,
+          rollup.getL1FeesAt(rollup.getTimestampForSlot(Slot.wrap(2))).baseFee,
+          rollup.getEpochDuration(),
+          Math.Rounding.Ceil
+        ),
+        1,
+        rollup.getManaTarget(),
+        Math.Rounding.Ceil
+      ) * 1e6
+    );
+    proverFees *= 10; // the price conversion
+
+    uint256 expectedProverRewards = rewardDistributor.BLOCK_REWARD() / 2 * 2 + proverFees;
 
     assertEq(
       rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),

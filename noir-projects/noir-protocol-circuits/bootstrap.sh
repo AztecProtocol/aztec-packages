@@ -193,7 +193,7 @@ function test_cmds {
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do
-    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --pedantic-solving --skip-brillig-constraints-check"
   done
 }
 
