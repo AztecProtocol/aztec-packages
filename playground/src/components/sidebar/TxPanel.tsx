@@ -315,13 +315,11 @@ export function TxPanel() {
         </Card>
       )}
       <div style={{ flexGrow: 0.75, overflowY: 'auto', marginTop: '0rem' }}>
-        <Typography variant="overline">Past Transactions</Typography>
-        <Divider sx={{ marginBottom: '1rem', marginTop: '0rem' }} />
-
-        {numTransactions === 0 && (
-          <Typography variant="body2" sx={{ margin: '10px 0 2rem 0' }}>
-            No past transactions yet
-          </Typography>
+        {numTransactions > 0 && (
+          <>
+            <Typography variant="overline">Past Transactions</Typography>
+            <Divider sx={{ marginBottom: '1rem', marginTop: '0rem' }} />
+          </>
         )}
 
         {numTransactions > 0 &&
