@@ -136,7 +136,7 @@ export async function sendTxs(
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
-  const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
+  const provenTxs = await Promise.all(calls.map(call => call.prove()));
   context.logger.info(`Sending ${txCount} txs`);
   return provenTxs.map(tx => tx.send());
 }

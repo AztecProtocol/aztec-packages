@@ -91,7 +91,7 @@ export abstract class BaseContractInteraction {
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    opts?: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });

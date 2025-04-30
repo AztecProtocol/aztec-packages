@@ -255,7 +255,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Options.
    */
   public override estimateGas(
-    options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    options?: Omit<DeployOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     return super.estimateGas(options);
   }

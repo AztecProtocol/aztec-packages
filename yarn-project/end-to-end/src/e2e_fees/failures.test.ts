@@ -87,7 +87,6 @@ describe('e2e_fees failures', () => {
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
-        skipPublicSimulation: true,
         fee: {
           gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -192,7 +191,6 @@ describe('e2e_fees failures', () => {
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
-        skipPublicSimulation: true,
         fee: {
           gasSettings,
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -242,7 +240,6 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
         .send({
-          skipPublicSimulation: true,
           fee: {
             gasSettings,
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -295,7 +292,6 @@ describe('e2e_fees failures', () => {
     const receipt = await bananaCoin.methods
       .mint_to_public(aliceAddress, 1n) // random operation
       .send({
-        skipPublicSimulation: true,
         fee: {
           gasSettings: badGas,
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),

@@ -19,8 +19,6 @@ export type RequestMethodOptions = {
  * Represents options for calling a (constrained) function in a contract.
  */
 export type SendMethodOptions = RequestMethodOptions & {
-  /** Wether to skip the simulation of the public part of the transaction. */
-  skipPublicSimulation?: boolean;
   /** The fee options for the transaction. */
   fee?: UserFeeOptions;
   /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
