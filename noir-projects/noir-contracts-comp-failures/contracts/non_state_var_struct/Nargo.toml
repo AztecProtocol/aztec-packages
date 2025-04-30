@@ -1,0 +1,8 @@
+[package]
+name = "non_state_var_struct"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }

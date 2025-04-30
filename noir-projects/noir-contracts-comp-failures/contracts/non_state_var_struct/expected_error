@@ -1,0 +1,1 @@
+All types inside storage must either implement the 'Storage' trait, or be structs with all members implementing the 'Storage' trait. Field 'non_state_var' is neither.
