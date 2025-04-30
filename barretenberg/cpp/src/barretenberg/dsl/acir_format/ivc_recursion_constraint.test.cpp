@@ -25,7 +25,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using QUEUE_TYPE = ClientIVC::QUEUE_TYPE;
     using VerificationQueue = ClientIVC::VerificationQueue;
     using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
-    using AggregationObject = ClientIVC::AggregationObject;
+    using PairingPoints = ClientIVC::PairingPoints;
 
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
@@ -36,13 +36,13 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         Builder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
-        AggregationObject::add_default_pairing_points_to_public_inputs(circuit);
+        PairingPoints::add_default_to_public_inputs(circuit);
         return circuit;
     }
 
     static UltraCircuitBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using InnerAggState = bb::stdlib::recursion::aggregation_state<UltraCircuitBuilder>;
+        using InnerPairingPoints = bb::stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
         UltraCircuitBuilder builder;
 
@@ -62,7 +62,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        InnerAggState::add_default_pairing_points_to_public_inputs(builder);
+        InnerPairingPoints::add_default_to_public_inputs(builder);
         return builder;
     }
 
@@ -82,7 +82,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         {
             using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
             using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-            using OuterAggState = bb::stdlib::recursion::aggregation_state<Builder>;
+            using OuterPairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
@@ -101,8 +101,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             // Instantiate the recursive verifier using the native verification key
             stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
 
-            VerifierOutput output = verifier.verify_proof(inner_proof, OuterAggState::construct_default(circuit));
-            output.agg_obj.set_public(); // useless for now but just checking if it breaks anything
+            VerifierOutput output = verifier.verify_proof(inner_proof, OuterPairingPoints::construct_default(circuit));
+            output.points_accumulator.set_public(); // useless for now but just checking if it breaks anything
         }
 
         return circuit;

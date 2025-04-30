@@ -1,7 +1,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -10,7 +10,7 @@ import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
-import type { BlockHeader, GlobalVariables, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ValidatorClientConfig } from './config.js';
@@ -34,8 +34,9 @@ import { ValidatorMetrics } from './metrics.js';
  * We reuse the sequencer's block building functionality for re-execution
  */
 type BlockBuilderCallback = (
+  blockNumber: Fr,
+  header: ProposedBlockHeader,
   txs: Iterable<Tx> | AsyncIterableIterator<Tx>,
-  globalVariables: GlobalVariables,
   opts?: { validateOnly?: boolean },
 ) => Promise<{
   block: L2Block;
@@ -51,7 +52,13 @@ export interface Validator {
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsibilities
-  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
+  createBlockProposal(
+    blockNumber: Fr,
+    header: ProposedBlockHeader,
+    archive: Fr,
+    stateReference: StateReference,
+    txs: TxHash[],
+  ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
@@ -180,7 +187,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const slotNumber = proposal.slotNumber.toNumber();
     const proposalInfo = {
       slotNumber,
-      blockNumber: proposal.payload.header.globalVariables.blockNumber.toNumber(),
+      blockNumber: proposal.blockNumber.toNumber(),
       archive: proposal.payload.archive.toString(),
       txCount: proposal.payload.txHashes.length,
       txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
@@ -259,7 +266,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block, numFailedTxs } = await this.blockBuilder(txs, header.globalVariables, {
+    const { block, numFailedTxs } = await this.blockBuilder(proposal.blockNumber, header, txs, {
       validateOnly: true,
     });
     stopTimer();
@@ -293,9 +300,8 @@ export class ValidatorClient extends WithTracer implements Validator {
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
     const txHashes: TxHash[] = proposal.payload.txHashes;
-    const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
-
-    const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
+    const availability = await this.p2pClient.hasTxsInPool(txHashes);
+    const missingTxs = txHashes.filter((_, index) => !availability[index]);
 
     if (missingTxs.length === 0) {
       return; // All transactions are available
@@ -303,19 +309,31 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
 
-    const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
+    const requestedTxs = await this.p2pClient.requestTxsByHash(missingTxs);
     if (requestedTxs.some(tx => tx === undefined)) {
       throw new TransactionsNotAvailableError(missingTxs);
     }
   }
 
-  async createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined> {
-    if (this.previousProposal?.slotNumber.equals(header.globalVariables.slotNumber)) {
+  async createBlockProposal(
+    blockNumber: Fr,
+    header: ProposedBlockHeader,
+    archive: Fr,
+    stateReference: StateReference,
+    txs: TxHash[],
+  ): Promise<BlockProposal | undefined> {
+    if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
       return Promise.resolve(undefined);
     }
 
-    const newProposal = await this.validationService.createBlockProposal(header, archive, txs);
+    const newProposal = await this.validationService.createBlockProposal(
+      blockNumber,
+      header,
+      archive,
+      stateReference,
+      txs,
+    );
     this.previousProposal = newProposal;
     return newProposal;
   }
@@ -327,7 +345,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
   async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
-    const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
+    const slot = proposal.payload.header.slotNumber.toBigInt();
     this.log.debug(`Collecting ${required} attestations for slot ${slot} with deadline ${deadline.toISOString()}`);
 
     if (+deadline < this.dateProvider.now()) {

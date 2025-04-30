@@ -52,10 +52,10 @@ export class ChainMonitor extends EventEmitter {
     });
   }
 
-  async run() {
+  async run(force = false) {
     const newL1BlockNumber = Number(await this.l1Client.getBlockNumber({ cacheTime: 0 }));
-    if (this.l1BlockNumber === newL1BlockNumber) {
-      return;
+    if (!force && this.l1BlockNumber === newL1BlockNumber) {
+      return this;
     }
     this.l1BlockNumber = newL1BlockNumber;
 
@@ -95,5 +95,7 @@ export class ChainMonitor extends EventEmitter {
       l2BlockNumber: this.l2BlockNumber,
       l2ProvenBlockNumber: this.l2ProvenBlockNumber,
     });
+
+    return this;
   }
 }

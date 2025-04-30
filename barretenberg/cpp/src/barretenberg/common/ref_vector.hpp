@@ -51,7 +51,7 @@ template <typename T> class RefVector {
 
     T& operator[](std::size_t idx) const
     {
-        ASSERT(idx < storage.size());
+        BB_ASSERT_LT(idx, storage.size());
         return *storage[idx];
     }
 

@@ -1,6 +1,6 @@
 import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
-import { StateVarsContract } from '@aztec/noir-contracts.js/StateVars';
+import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
 
 import { jest } from '@jest/globals';
 
