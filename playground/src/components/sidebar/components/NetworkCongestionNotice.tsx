@@ -19,9 +19,7 @@ const container = css({
 });
 
 export function NetworkCongestionNotice() {
-  const { node, network } = useContext(AztecContext);
-
-  const [isNetworkCongested, setIsNetworkCongested] = useState(false);
+  const { node, network, isNetworkCongested, setIsNetworkCongested } = useContext(AztecContext);
 
   useEffect(() => {
     const checkCongestion = () => {
@@ -33,14 +31,14 @@ export function NetworkCongestionNotice() {
     };
 
     checkCongestion();
-    const interval = setInterval(checkCongestion, 60000);
+    const interval = setInterval(checkCongestion, 10 * 1000);
 
     return () => clearInterval(interval);
-  }, [node, network]);
+  }, [node, network, setIsNetworkCongested]);
 
   useEffect(() => {
     setIsNetworkCongested(false);
-  }, [network?.name]);
+  }, [network?.name, setIsNetworkCongested]);
 
   if (!isNetworkCongested) {
     return null;

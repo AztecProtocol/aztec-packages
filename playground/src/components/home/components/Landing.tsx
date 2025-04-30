@@ -268,6 +268,7 @@ export function Landing() {
     pxe,
     currentTx,
     isPXEInitialized,
+    isNetworkCongested,
     setWallet,
   } = useContext(AztecContext);
 
@@ -408,6 +409,10 @@ export function Landing() {
     }
   }
 
+  const tooltipTitle = (isNetworkCongested && "Network is congested right now. Please try again later.")
+  || (!wallet && "Connect and account to deploy and interact with a contract")
+  || "";
+
   return (
     <div css={container}>
       <div css={welcomeCardContainer}>
@@ -449,9 +454,12 @@ export function Landing() {
             </div>
           </Box>
 
-
           <Tooltip
-            title={!isPXEInitialized ? "Connect to a network to create an account" : ""}
+            title={
+              (isNetworkCongested && "Network is congested right now. Please try again later.")
+              || (!isPXEInitialized && "Connect to a network to create an account")
+              || ""
+            }
             placement="top"
           >
             <span>
@@ -459,7 +467,7 @@ export function Landing() {
                 variant="contained"
                 css={cardButton}
                 onClick={handleCreateAccountButtonClick}
-                disabled={isCreatingAccount || !isPXEInitialized}
+                disabled={isCreatingAccount || !isPXEInitialized || isNetworkCongested}
               >
                 {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
               </Button>
@@ -481,7 +489,7 @@ export function Landing() {
           </Box>
 
           <Tooltip
-            title={!wallet ? "Connect and account to deploy and interact with a contract" : ""}
+            title={tooltipTitle}
             placement="top"
           >
             <span>
@@ -493,7 +501,7 @@ export function Landing() {
                   await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
                   setIsLoadingPrivateVoting(false);
                 }}
-                disabled={isLoadingPrivateVoting || !wallet || isCreatingAccount}
+                disabled={isLoadingPrivateVoting || !wallet || isCreatingAccount || isNetworkCongested}
               >
                 {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
               </Button>
@@ -516,7 +524,7 @@ export function Landing() {
           </Box>
 
           <Tooltip
-            title={!wallet ? "Connect and account to deploy and interact with a contract" : ""}
+            title={tooltipTitle}
             placement="top"
           >
             <span>
@@ -528,7 +536,7 @@ export function Landing() {
                   await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
                   setIsLoadingPrivateTokens(false);
                 }}
-                disabled={isLoadingPrivateTokens || !wallet || isCreatingAccount}
+                disabled={isLoadingPrivateTokens || !wallet || isCreatingAccount || isNetworkCongested}
               >
                 {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
               </Button>

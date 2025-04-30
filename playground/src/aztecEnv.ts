@@ -108,6 +108,7 @@ export const AztecContext = createContext<{
   totalLogCount: number;
   defaultContractCreationParams: Record<string, unknown>;
   pendingTxUpdateCounter: number;
+  isNetworkCongested: boolean;
   setTotalLogCount: (count: number) => void;
   setShowContractInterface: (showContractInterface: boolean) => void;
   setConnecting: (connecting: boolean) => void;
@@ -124,6 +125,7 @@ export const AztecContext = createContext<{
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
   setDefaultContractCreationParams: (defaultContractCreationParams: Record<string, unknown>) => void;
   setPendingTxUpdateCounter: (pendingTxUpdateCounter: number) => void;
+  setIsNetworkCongested: (isNetworkCongested: boolean) => void;
 }>({
   pxe: null,
   connecting: false,
@@ -142,6 +144,7 @@ export const AztecContext = createContext<{
   transactionModalStatus: 'closed',
   defaultContractCreationParams: {},
   pendingTxUpdateCounter: 0,
+  isNetworkCongested: false,
   setTotalLogCount: () => {},
   setShowContractInterface: () => {},
   setConnecting: () => {},
@@ -158,6 +161,7 @@ export const AztecContext = createContext<{
   setCurrentContractAddress: () => {},
   setDefaultContractCreationParams: () => {},
   setPendingTxUpdateCounter: () => {},
+  setIsNetworkCongested: () => {},
 });
 
 export class AztecEnv {

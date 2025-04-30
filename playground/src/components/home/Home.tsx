@@ -110,6 +110,7 @@ export default function Home() {
   const [totalLogCount, setTotalLogCount] = useState(0);
   const [defaultContractCreationParams, setDefaultContractCreationParams] = useState({});
   const [pendingTxUpdateCounter, setPendingTxUpdateCounter] = useState(0);
+  const [isNetworkCongested, setIsNetworkCongested] = useState(false);
 
   const AztecContextInitialValue = {
     pxe,
@@ -129,7 +130,9 @@ export default function Home() {
     totalLogCount,
     pendingTxUpdateCounter,
     defaultContractCreationParams,
+    isNetworkCongested,
     setTotalLogCount,
+    setIsNetworkCongested,
     setNetwork,
     setConnecting,
     setLogsOpen,
