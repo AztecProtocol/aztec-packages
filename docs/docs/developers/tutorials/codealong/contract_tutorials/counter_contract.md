@@ -44,7 +44,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 
 ## Define the functions
 
-Go to `main.nr` and start with this contract initialization:
+Go to `main.nr`, delete everything, and start with this contract initialization:
 
 ```rust
 #include_code setup /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr raw
@@ -125,7 +125,7 @@ Now we've written a simple Aztec.nr smart contract, we can compile it with `azte
 
 ### Compile the smart contract
 
-In `./contracts/counter/` directory, run this:
+In `./counter/` directory, run this:
 
 ```bash
 aztec-nargo compile

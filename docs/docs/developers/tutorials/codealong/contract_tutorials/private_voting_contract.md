@@ -56,8 +56,7 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 Go to `main.nr` and delete the sample code. Replace it with this contract initialization:
 
 ```rust
-contract EasyPrivateVoting {
-
+#include_code declaration noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr
 }
 ```
 

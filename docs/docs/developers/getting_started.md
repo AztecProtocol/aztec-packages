@@ -15,7 +15,7 @@ What's included in the sandbox:
 
 All of this comes packages in a Docker container to make it easy to install and run.
 
-This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
+This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, read the [getting started on testnet guide](./guides/local_env/getting_started_on_testnet.md).
 
 ## Prerequisites
 
@@ -36,7 +36,7 @@ Docker needs to be running in order to install the sandbox. Find instructions on
 Run:
 
 ```bash
-bash -i <(curl -s https://install.aztec.network)
+-i <(curl -s https://install.aztec.network)
 ```
 
 This will install the following tools:
@@ -84,7 +84,7 @@ import { CLI_Add_Test_Accounts } from '@site/src/components/Snippets/general_sni
 
 <CLI_Add_Test_Accounts />
 
-To add the test accounts:
+To add the test accounts, run this in another terminal:
 
 ```bash
 aztec-wallet import-test-accounts
