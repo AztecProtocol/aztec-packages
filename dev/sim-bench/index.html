@@ -142,24 +142,30 @@
 
         const sectionPatterns = [
           // Avm bulk test
-          { pattern: /^AvmTest.*bulk_testing\//, title: 'AVM bulk test' },
+          { pattern: /^AvmTest.*AvmTest\/bulk_testing\//, title: 'AvmTest - bulk_testing' },
           // Token
-          { pattern: /^Token.*constructor\//, title: 'Token constructor' },
-          { pattern: /^Token.*mint_to_public\//, title: 'Token mint_to_public' },
-          { pattern: /^Token.*balance_of_public\//, title: 'Token balance_of_public' },
-          { pattern: /^Token.*transfer_in_public\//, title: 'Token transfer_in_public' },
-          { pattern: /^Token.*burn_public\//, title: 'Token burn_public' },
+          { pattern: /^Token.*Token\/constructor\//, title: 'Token - constructor' },
+          { pattern: /^Token.*Token\/mint_to_public\//, title: 'Token - mint_to_public' },
+          { pattern: /^Token.*Token\/balance_of_public\//, title: 'Token - balance_of_public' },
+          { pattern: /^Token.*Token\/transfer_in_public\//, title: 'Token - transfer_in_public' },
+          { pattern: /^Token.*Token\/burn_public\//, title: 'Token - burn_public' },
           // AMM
-          { pattern: /^AMM.*constructor\//, title: 'AMM constructor' },
-          { pattern: /^AMM.*add_liquidity\//, title: 'AMM add_liquidity' },
-          { pattern: /^AMM.*swap_exact_tokens_for_tokens\//, title: 'AMM swap_exact_tokens_for_tokens' },
-          { pattern: /^AMM.*remove_liquidity\//, title: 'AMM remove_liquidity' },
+          { pattern: /^AMM.*AMM\/constructor\//, title: 'AMM - constructor' },
+          { pattern: /^AMM.*AMM\/set_minter\//, title: 'AMM - set_minter' },
+          { pattern: /^AMM.*AMM\/add_liquidity\//, title: 'AMM - add_liquidity' },
+          { pattern: /^AMM.*AMM\/swap_exact_tokens_for_tokens\//, title: 'AMM - swap_exact_tokens_for_tokens' },
+          { pattern: /^AMM.*AMM\/remove_liquidity\//, title: 'AMM - remove_liquidity' },
           // Avm Gadgets
-          { pattern: /^AvmGadgetsTest.*sha256_hash_10\//, title: 'AvmGadgetsTest - sha256 of 10 bytes' },
-          { pattern: /^AvmGadgetsTest.*sha256_hash_100\//, title: 'AvmGadgetsTest - sha256 of 100 bytes' },
-          { pattern: /^AvmGadgetsTest.*sha256_hash_256\//, title: 'AvmGadgetsTest - sha256 of 256 bytes' },
-          { pattern: /^AvmGadgetsTest.*sha256_hash_512\//, title: 'AvmGadgetsTest - sha256 of 512 bytes' },
-          { pattern: /^AvmGadgetsTest.*sha256_hash_2048\//, title: 'AvmGadgetsTest - sha256 of 2048 bytes' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/sha256_hash_10\//, title: 'AvmGadgetsTest - sha256 of 10 bytes' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/sha256_hash_100\//, title: 'AvmGadgetsTest - sha256 of 100 bytes' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/sha256_hash_256\//, title: 'AvmGadgetsTest - sha256 of 256 bytes' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/sha256_hash_512\//, title: 'AvmGadgetsTest - sha256 of 512 bytes' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/sha256_hash_2048\//, title: 'AvmGadgetsTest - sha256 of 2048 bytes' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/keccak_hash\//, title: 'AvmGadgetsTest - keccak hash' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/keccak_f1600\//, title: 'AvmGadgetsTest - keccak_f1600' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/poseidon2_hash\//, title: 'AvmGadgetsTest - poseidon2_hash' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/pedersen_hash\//, title: 'AvmGadgetsTest - pedersen_hash' },
+          { pattern: /^AvmGadgetsTest.*AvmGadgetsTest\/pedersen_hash_with_index\//, title: 'AvmGadgetsTest - pedersen_hash_with_index' },
         ];
 
         function getSectionTitle(benchName) {
@@ -348,7 +354,7 @@
           let setIndex = 0;
           for (const {name, dataSet} of dataSets) {
             if (setIndex === 0) {
-              renderBenchSet(name, dataSet, main, "Aztec Public Simulation Benchmarks");
+              renderBenchSet(name, dataSet, main, "Aztec Public Simulation Benchmarks (PublicTxSimulator only)");
             } else {
               renderBenchSet(name, dataSet, main);
             }
