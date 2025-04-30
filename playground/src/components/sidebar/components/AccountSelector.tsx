@@ -152,17 +152,24 @@ export function AccountSelector() {
     setIsAccountsLoading(false);
   };
 
+  if (isAccountsLoading) {
+    return (
+      <div css={navbarButtonStyle}>
+        <CircularProgress size={24} color="primary" sx={{ marginRight: '1rem' }} />
+        <Typography variant="body1">Loading account...</Typography>
+      </div>
+    );
+  }
+
   return (
     <div css={navbarButtonStyle}>
-      {isAccountsLoading ? (
-        <CircularProgress size={24} />
-      ) : (
-        <SwitchAccountIcon />
-      )}
+      <SwitchAccountIcon />
+
       <FormControl css={navbarSelect}>
         {!wallet?.getAddress().toString() && (
           <InputLabel id="account-label">SelectAccount</InputLabel>
         )}
+
         <Select
           fullWidth
           value={wallet?.getAddress().toString() ?? ''}
@@ -173,15 +180,11 @@ export function AccountSelector() {
           onChange={(e) => handleAccountChange(e.target.value)}
           disabled={isAccountsLoading}
           renderValue={selected => {
-            if (isAccountsLoading) {
-              return `Loading account...`;
+            const account = accounts.find(account => account.value === selected);
+            if (account) {
+              return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
             }
-            if (selected) {
-              const account = accounts.find(account => account.value === selected);
-              if (account) {
-                return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
-              }
-            }
+            return selected;
           }}
         >
           {!isPXEInitialized && (
@@ -191,30 +194,36 @@ export function AccountSelector() {
               </Typography>
             </div>
           )}
+
           {isPXEInitialized && accounts.map(account => (
             <MenuItem key={account.key} value={account.value}>
               {account.key.split(':')[1]}&nbsp;(
               {formatFrAsString(account.value)})
             </MenuItem>
           ))}
+
           {isPXEInitialized && (
             <MenuItem
               key="create"
               value=""
+              sx={{ marginTop: '1rem' }}
               onClick={() => {
                 setIsOpen(false);
                 setOpenCreateAccountDialog(true);
               }}
             >
-              <AddIcon />
-              &nbsp;Create
+              <AddIcon sx={{ marginRight: '0.5rem' }} />
+              Create
             </MenuItem>
           )}
+
         </Select>
       </FormControl>
+
       {!isAccountsLoading && wallet && (
         <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
       )}
+
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </div>
   );

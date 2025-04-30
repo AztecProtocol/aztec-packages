@@ -111,17 +111,24 @@ export function ContractSelector() {
 
   const selectedValue = currentContractAddress?.toString() || selectedPredefinedContract || '';
 
+  if (isContractsLoading) {
+    return (
+      <div css={navbarButtonStyle}>
+        <CircularProgress size={24} color="primary" sx={{ marginRight: '1rem' }} />
+        <Typography variant="body1">Loading contract...</Typography>
+      </div>
+    );
+  }
+
   return (
     <div css={navbarButtonStyle}>
-      {isContractsLoading ? (
-        <CircularProgress size={24} />
-      ) : (
-        <ArticleIcon />
-      )}
+      <ArticleIcon />
+
       <FormControl css={navbarSelect}>
         {!selectedValue && (
           <InputLabel id="contract-label">Select Contract</InputLabel>
         )}
+
         <Select
           value={selectedValue}
           label="Contract"
@@ -131,15 +138,11 @@ export function ContractSelector() {
           onChange={handleContractChange}
           fullWidth
           renderValue={selected => {
-            if (isContractsLoading) {
-              return `Loading contract...`;
+            const contract = contracts.find(contract => contract.value === selected);
+            if (contract) {
+              return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
             }
-            if (selected) {
-              const contract = contracts.find(contract => contract.value === selected);
-              if (contract) {
-                return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
-              }
-            }
+            return selected;
           }}
           disabled={isContractsLoading}
         >
@@ -150,6 +153,7 @@ export function ContractSelector() {
               </Typography>
             </div>
           )}
+
           {/* Predefined contracts */}
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>Easy Private Voting</MenuItem>
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_TOKEN}>Simple Token</MenuItem>
@@ -172,6 +176,7 @@ export function ContractSelector() {
           ))}
         </Select>
       </FormControl>
+
       {currentContractAddress && (
         <CopyToClipboardButton disabled={!currentContractAddress} data={currentContractAddress?.toString()} />
       )}
