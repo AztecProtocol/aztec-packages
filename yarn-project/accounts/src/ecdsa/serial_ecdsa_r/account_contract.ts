@@ -56,7 +56,7 @@ class SerialEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
 
   async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const signRequest = {
-      type: CommandType.SIGNATURE_REQUESTED,
+      type: CommandType.SIGNATURE_REQUEST,
       data: {
         index: 0,
         pk: Array.from(this.signingPublicKey),
@@ -66,8 +66,10 @@ class SerialEcdsaRAuthWitnessProvider implements AuthWitnessProvider {
 
     const response = await sendCommandAndParseResponse(signRequest);
 
-    if (response.type !== CommandType.SIGNATURE) {
-      throw new Error(`Unexpected response type from HW wallet: ${response.type}. Expected ${CommandType.SIGNATURE}`);
+    if (response.type !== CommandType.SIGNATURE_ACCEPTED_RESPONSE) {
+      throw new Error(
+        `Unexpected response type from HW wallet: ${response.type}. Expected ${CommandType.SIGNATURE_ACCEPTED_RESPONSE}`,
+      );
     }
 
     const signature = this.#parseECDSASignature(response.data.signature);
