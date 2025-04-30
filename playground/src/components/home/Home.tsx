@@ -87,7 +87,6 @@ const contentLayout = css({
   flexGrow: 1,
   paddingBottom: '4rem', // For the logs panel
   height: 'calc(100%)',
-  paddingBottom: '100px',
   '@media (max-width: 900px)': {
     flexWrap: 'wrap',
     maxHeight: 'auto',

@@ -1,5 +1,4 @@
 import {
-  type ContractInstanceWithAddress,
   type PXE,
   getContractInstanceFromDeployParams,
   SponsoredFeePaymentMethod,
