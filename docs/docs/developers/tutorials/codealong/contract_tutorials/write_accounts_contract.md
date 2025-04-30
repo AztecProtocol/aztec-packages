@@ -31,6 +31,15 @@ Let's start with the account contract itself in Aztec.nr. Create a new Aztec.nr 
 
 #include_code contract noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr rust
 
+For this to compile, youi will need to add the following dependencies to your `Nargo.toml`:
+
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit" }
+schnorr = { git = "https://github.com/noir-lang/schnorr", tag = "v0.1.1" }
+```
+
 The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding authentication witness from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
 #include_code entrypoint noir-projects/aztec-nr/authwit/src/account.nr rust
