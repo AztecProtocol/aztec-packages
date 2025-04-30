@@ -308,7 +308,7 @@ export function TxPanel() {
                   style={{
                     marginRight: '0.5rem',
                     fontSize: '30px',
-                    color: 'var(--mui-palette-success-main)',
+                    color: '#8d7dff',
                   }}
                 />
               )}
