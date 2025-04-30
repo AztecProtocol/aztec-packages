@@ -85,8 +85,9 @@ function client_ivc_flow {
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc"
 
-  if [ -f "$output/op-counts.json" ]; then
-    scripts/google-bench/summarize-op-counts "$output/op-counts.json"
+  if [ -f "$output/op-counts.json" ] && [ "$runtime" != wasm ]; then
+    python3 scripts/analyze_client_ivc_bench.py --prefix . --json $output/op-counts.json --benchmark ""
+    # scripts/google-bench/summarize-op-counts "$output/op-counts.json"
   fi
 
   local end=$(date +%s%N)
@@ -137,7 +138,7 @@ jobs=$((num_cpus / HARDWARE_CONCURRENCY))
 if [ -n "${IVC_BENCH:-}" ]; then
   # If IVC_BENCH is set, run only that benchmark.
   run_benchmark 1 "client_ivc_flow native $IVC_BENCH"
-  run_benchmark 1 "client_ivc_flow wasm $IVC_BENCH"
+  # run_benchmark 1 "client_ivc_flow wasm $IVC_BENCH"
 else
   for runtime in native wasm; do
     parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow '$runtime' {}"' ::: $(ls "$input_folder")
