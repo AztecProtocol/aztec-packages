@@ -91,13 +91,13 @@ export function AccountSelector() {
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [wallet, walletDB, pxe, pendingTxUpdateCounter]);
 
-  // // If there is only one account, select it automatically
-  // useEffect(() => {
-  //   if (!isAccountsLoading && !wallet && accounts?.length === 1) {
-  //     handleAccountChange(accounts[0].value);
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [accounts, wallet, isAccountsLoading]);
+  // If there is only one account, select it automatically
+  useEffect(() => {
+    if (!isAccountsLoading && !wallet && accounts?.length === 1) {
+      handleAccountChange(accounts[0].value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, wallet, isAccountsLoading]);
 
   const handleAccountChange = async (address: string) => {
     if (address == '') {
