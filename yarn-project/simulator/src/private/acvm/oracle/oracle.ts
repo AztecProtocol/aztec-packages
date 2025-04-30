@@ -175,7 +175,8 @@ export class Oracle {
     [offset]: ACVMField[],
     [status]: ACVMField[],
     [maxNotes]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[][])[]> {
+    [nestedArrayLength]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
     const noteDatas = await this.typedOracle.getNotes(
       Fr.fromString(storageSlot),
       +numSelects,
@@ -214,7 +215,7 @@ export class Oracle {
     const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfArrays.map(subArray => subArray.map(toACVMField));
 
     // At last we convert the array of arrays to a bounded vec of arrays
-    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes);
+    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +nestedArrayLength);
   }
 
   notifyCreatedNote(

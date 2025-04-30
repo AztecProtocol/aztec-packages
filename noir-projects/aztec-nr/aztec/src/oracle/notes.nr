@@ -100,7 +100,10 @@ unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NO
     _limit: u32,
     _offset: u32,
     _status: u8,
-    _max_notes: u32, // We need to pass max_notes to TS in order to be correctly construct the BoundedVec
+    // This is always set to MAX_NOTES. We need to pass it to TS in order to be correctly construct the BoundedVec
+    _max_notes: u32,
+    // This is always set to NOTE_PCKD_LEN + 3. We need to pass it to TS in order to be correctly construct the BoundedVec
+    _nested_array_length: u32,
 ) -> BoundedVec<[Field; NOTE_PCKD_LEN + 3], MAX_NOTES> {}
 
 pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
@@ -139,6 +142,7 @@ where
         offset,
         status,
         MAX_NOTES,
+        NOTE_PCKD_LEN + 3,
     );
 
     let mut notes = BoundedVec::new();

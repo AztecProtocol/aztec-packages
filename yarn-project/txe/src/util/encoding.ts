@@ -116,40 +116,42 @@ export function arrayToBoundedVec(
 }
 
 /**
- * Converts a ForeignCallArray[][] into a tuple which represents a nr BoundedVec.
+ * Converts a ForeignCallArray[] into a tuple which represents an nr BoundedVec.
  * If the input array is shorter than the maxLen, it pads the result with zeros,
  * so that nr can correctly coerce this result into a BoundedVec.
  * @param bVecStorage - The array underlying the BoundedVec.
  * @param maxLen - the max length of the BoundedVec.
+ * @param nestedArrayLength - the length of each nested array.
  * @returns a tuple representing a BoundedVec.
  */
 export function arrayOfArraysToBoundedVecOfArrays(
   bVecStorage: ForeignCallArray[], // array of arrays
   maxLen: number,
-): [ForeignCallArray[], ForeignCallSingle] {
+  nestedArrayLength: number,
+): [ForeignCallArray, ForeignCallSingle] {
   if (bVecStorage.length > maxLen) {
     throw new Error(`Array of length ${bVecStorage.length} larger than maxLen ${maxLen}`);
   }
 
-  // We get the length of the nested arrays such as that is the length of the zero padding nested arrays
-  const nestedArrayLength = bVecStorage.length > 0 ? bVecStorage[0].length : 0;
+  // Check that all nested arrays have length nestedArrayLength
+  if (!bVecStorage.every(nestedArray => nestedArray.length === nestedArrayLength)) {
+    throw new Error(
+      `Nested array length passed in from Noir does not correspond to the length obtained in TS: ${nestedArrayLength} !== ${bVecStorage[0].length}`,
+    );
+  }
 
-  // We get the number of nested arrays we need to create
-  const numPaddingNestedArrays = maxLen - bVecStorage.length;
-  const singleNestedPaddingArray = toArray(Array(nestedArrayLength).fill(new Fr(0)));
+  const flattenedStorage = bVecStorage.flat();
 
-  // Now we create the final padding array by repeating the single nested padding array
-  const padding = Array(numPaddingNestedArrays).fill(singleNestedPaddingArray);
+  const numFieldsToPad = maxLen * nestedArrayLength - flattenedStorage.length;
 
-  // Now we pad the storage array with zero nested arrays to get an array of max length
-  const storage = bVecStorage.concat(padding);
+  const flattenedStorageWithPadding = flattenedStorage.concat(Array(numFieldsToPad).fill(new Fr(0)));
 
   // At last we get the actual length of the BoundedVec and return the values.
   const len = toSingle(new Fr(bVecStorage.length));
-  return [storage, len];
+  return [flattenedStorageWithPadding, len];
 }
 
-export function toForeignCallResult(obj: (ForeignCallSingle | ForeignCallArray | ForeignCallArray[])[]) {
+export function toForeignCallResult(obj: (ForeignCallSingle | ForeignCallArray)[]) {
   return { values: obj };
 }
 

@@ -90,15 +90,27 @@ export function arrayToBoundedVec(bVecStorage: ACVMField[], maxLen: number): [AC
 export function arrayOfArraysToBoundedVecOfArrays(
   bVecStorage: ACVMField[][],
   maxLen: number,
-): [ACVMField[][], ACVMField] {
+  nestedArrayLength: number,
+): [ACVMField[], ACVMField] {
   if (bVecStorage.length > maxLen) {
     throw new Error(`Array of length ${bVecStorage.length} larger than maxLen ${maxLen}`);
   }
-  const nestedArrayLength = bVecStorage.length > 0 ? bVecStorage[0].length : 0;
-  const lengthDiff = maxLen - bVecStorage.length;
-  const zeroNestedArray = Array(nestedArrayLength).fill(toACVMField(BigInt(0)));
-  const zeroPaddingArray = Array(lengthDiff).fill(zeroNestedArray);
-  const storage = bVecStorage.concat(zeroPaddingArray);
+
+  // Check that all nested arrays have length nestedArrayLength
+  if (!bVecStorage.every(nestedArray => nestedArray.length === nestedArrayLength)) {
+    throw new Error(
+      `Nested array length passed in from Noir does not correspond to the length obtained in TS: ${nestedArrayLength} !== ${bVecStorage[0].length}`,
+    );
+  }
+
+  // Flatten the array of arrays
+  const flattenedStorage = bVecStorage.flat();
+
+  // Calculate and add padding
+  const numFieldsToPad = maxLen * nestedArrayLength - flattenedStorage.length;
+  const flattenedStorageWithPadding = flattenedStorage.concat(Array(numFieldsToPad).fill(toACVMField(BigInt(0))));
+
+  // Return flattened array with padding and length
   const len = toACVMField(BigInt(bVecStorage.length));
-  return [storage, len];
+  return [flattenedStorageWithPadding, len];
 }

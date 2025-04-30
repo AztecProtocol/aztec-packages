@@ -291,6 +291,7 @@ export class TXEService {
     offset: ForeignCallSingle,
     status: ForeignCallSingle,
     maxNotes: ForeignCallSingle,
+    nestedArrayLength: ForeignCallSingle,
   ) {
     const noteDatas = await this.typedOracle.getNotes(
       fromSingle(storageSlot),
@@ -333,7 +334,11 @@ export class TXEService {
 
     // At last we convert the array of arrays to a bounded vec of arrays
     return toForeignCallResult(
-      arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfForeignCallSingleArrays, +maxNotes),
+      arrayOfArraysToBoundedVecOfArrays(
+        returnDataAsArrayOfForeignCallSingleArrays,
+        fromSingle(maxNotes).toNumber(),
+        fromSingle(nestedArrayLength).toNumber(),
+      ),
     );
   }
 
