@@ -607,18 +607,24 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** Request txs for unproven blocks so the prover node has more chances to get them. */
   private async requestMissingTxsFromUnprovenBlocks(blocks: L2Block[]): Promise<void> {
-    const provenBlockNumber = Math.max(await this.getSyncedProvenBlockNum(), this.provenBlockNumberAtStart);
-    const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
-    const txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
-    const missingTxHashes = await this.txPool
-      .hasTxs(txHashes)
-      .then(availability => txHashes.filter((_, index) => !availability[index]));
-    if (missingTxHashes.length > 0) {
-      this.log.verbose(
-        `Requesting ${missingTxHashes.length} missing txs from peers for ${unprovenBlocks.length} unproven mined blocks`,
-        { missingTxHashes, unprovenBlockNumbers: unprovenBlocks.map(block => block.number) },
-      );
-      await this.requestTxsByHash(missingTxHashes);
+    try {
+      const provenBlockNumber = Math.max(await this.getSyncedProvenBlockNum(), this.provenBlockNumberAtStart);
+      const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
+      const txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+      const missingTxHashes = await this.txPool
+        .hasTxs(txHashes)
+        .then(availability => txHashes.filter((_, index) => !availability[index]));
+      if (missingTxHashes.length > 0) {
+        this.log.verbose(
+          `Requesting ${missingTxHashes.length} missing txs from peers for ${unprovenBlocks.length} unproven mined blocks`,
+          { missingTxHashes, unprovenBlockNumbers: unprovenBlocks.map(block => block.number) },
+        );
+        await this.requestTxsByHash(missingTxHashes);
+      }
+    } catch (err) {
+      this.log.error(`Error requesting missing txs from unproven blocks`, err, {
+        blocks: blocks.map(block => block.number),
+      });
     }
   }
 
