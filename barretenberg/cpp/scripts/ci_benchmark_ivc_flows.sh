@@ -87,7 +87,6 @@ function client_ivc_flow {
 
   if [ -f "$output/op-counts.json" ] && [ "$runtime" != wasm ]; then
     python3 scripts/analyze_client_ivc_bench.py --prefix . --json $output/op-counts.json --benchmark ""
-    # scripts/google-bench/summarize-op-counts "$output/op-counts.json"
   fi
 
   local end=$(date +%s%N)
