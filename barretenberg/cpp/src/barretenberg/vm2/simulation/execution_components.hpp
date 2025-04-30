@@ -35,6 +35,9 @@ class ExecutionComponentsProviderInterface {
                                                                     bool is_static) = 0;
 
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
+
+    // This can be removed if we use clk for the context id
+    virtual uint32_t get_next_context_id() = 0;
 };
 
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
@@ -60,8 +63,10 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
                                                             bool is_static) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
+    uint32_t get_next_context_id() override { return next_context_id; }
+
   private:
-    uint32_t next_context_id = 0;
+    uint32_t next_context_id = 1; // 0 is reserved to denote the parent of a top level context
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
     RangeCheckInterface& range_check;

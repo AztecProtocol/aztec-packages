@@ -27,7 +27,7 @@ class TranslatorCircuitChecker {
     static Fq get_computation_result(const Builder& circuit)
     {
         const size_t RESULT_ROW = 1;
-        ASSERT(circuit.num_gates > RESULT_ROW);
+        BB_ASSERT_GT(circuit.num_gates, RESULT_ROW);
         return Fq(
             circuit.get_variable(circuit.wires[WireIds::ACCUMULATORS_BINARY_LIMBS_0][RESULT_ROW]) +
             circuit.get_variable(circuit.wires[WireIds::ACCUMULATORS_BINARY_LIMBS_1][RESULT_ROW]) * Builder::SHIFT_1 +

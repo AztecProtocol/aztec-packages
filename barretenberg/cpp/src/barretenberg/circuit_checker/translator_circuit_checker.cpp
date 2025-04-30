@@ -186,7 +186,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             // checking the relation
             auto check_wide_limb_into_binary_limb_relation = [](const std::vector<Fr>& wide_limbs,
                                                                 const std::vector<Fr>& binary_limbs) {
-                ASSERT(wide_limbs.size() * 2 == binary_limbs.size());
+                BB_ASSERT_EQ(wide_limbs.size() * 2, binary_limbs.size());
                 for (size_t i = 0; i < wide_limbs.size(); i++) {
                     if ((binary_limbs[i * 2] + Fr(Builder::SHIFT_1) * binary_limbs[i * 2 + 1]) != wide_limbs[i]) {
                         return false;
@@ -220,7 +220,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
                 constexpr auto SHIFT_8_TO_14 = Fr(64);
                 constexpr auto SHIFT_4_TO_14 = Fr(1024);
 
-                ASSERT(binary_limbs.size() == micro_limbs.size());
+                BB_ASSERT_EQ(binary_limbs.size(), micro_limbs.size());
                 // First check that all the microlimbs are properly range constrained
                 for (auto& micro_limb_series : micro_limbs) {
                     for (auto& micro_limb : micro_limb_series) {

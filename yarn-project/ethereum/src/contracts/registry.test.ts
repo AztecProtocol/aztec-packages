@@ -63,7 +63,7 @@ describe('Registry', () => {
   });
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(logger.error);
   });
 
   it('gets rollup versions', async () => {

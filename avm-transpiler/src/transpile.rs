@@ -1688,7 +1688,7 @@ pub fn patch_debug_info_pcs(
             for (original_opcode_location, source_locations) in opcode_locations_map.iter() {
                 let avm_opcode_location =
                     BrilligOpcodeLocation(brillig_pcs_to_avm_pcs[original_opcode_location.0]);
-                patched_locations.insert(avm_opcode_location, source_locations.clone());
+                patched_locations.insert(avm_opcode_location, *source_locations);
             }
             // insert the new map as a brillig locations map for the current function id
             patched_brillig_locations.insert(*brillig_function_id, patched_locations);

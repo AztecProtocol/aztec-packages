@@ -1,11 +1,13 @@
 #pragma once
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/ref_array.hpp"
+
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
 #include <stdexcept>
 #include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/ref_array.hpp"
 
 namespace bb {
 /**
@@ -33,11 +35,10 @@ template <typename T> class RefVector {
         }
     }
 
-    template <typename... Ts> RefVector(T& ref, Ts&... rest)
-    {
-        storage.push_back(&ref);
-        (storage.push_back(&rest), ...);
-    }
+    template <typename... Ts>
+    RefVector(T& first, Ts&... refs)
+        : storage{ &first, &refs... }
+    {}
 
     template <std::size_t N>
     RefVector(const RefArray<T, N>& ref_array)
@@ -50,7 +51,7 @@ template <typename T> class RefVector {
 
     T& operator[](std::size_t idx) const
     {
-        ASSERT(idx < storage.size());
+        BB_ASSERT_LT(idx, storage.size());
         return *storage[idx];
     }
 

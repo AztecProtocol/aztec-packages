@@ -128,21 +128,23 @@ function build_packages {
     noir-repo/tooling/noirc_abi_wasm/web
 }
 
-# Export functions that can be called from `parallel` in `build`,
-# and all the functions they can call as well.
-export -f build_native build_packages noir_content_hash
+function install_deps {
+  set -euo pipefail
+  # TODO: Move to build image?
+  ./noir-repo/.github/scripts/wasm-bindgen-install.sh
+  if ! command -v cargo-binstall &>/dev/null; then
+    curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+  fi
+  if ! command -v cargo-nextest &>/dev/null; then
+    cargo-binstall cargo-nextest --version 0.9.67 -y --secure
+  fi
+}
+
+export -f build_native build_packages noir_content_hash install_deps
 
 function build {
   echo_header "noir build"
-  # TODO: Move to build image?
-  denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
-  if ! command -v cargo-binstall &>/dev/null; then
-    denoise "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
-  fi
-  if ! command -v cargo-nextest &>/dev/null; then
-    denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
-  fi
-
+  denoise "retry install_deps"
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
   # if [ -x ./scripts/fix_incremental_ts.sh ]; then
   #   ./scripts/fix_incremental_ts.sh

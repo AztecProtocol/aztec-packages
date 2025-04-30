@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 
@@ -21,19 +21,19 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
 
   public:
     explicit AvmRecursiveVerifier_(Builder& builder,
                                    const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    AggregationObject verify_proof(const HonkProof& proof,
-                                   const std::vector<std::vector<fr>>& public_inputs_vec_nt,
-                                   AggregationObject agg_obj);
-    AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof,
-                                   const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
-                                   AggregationObject agg_obj);
+    PairingPoints verify_proof(const HonkProof& proof,
+                               const std::vector<std::vector<fr>>& public_inputs_vec_nt,
+                               PairingPoints points_accumulator);
+    PairingPoints verify_proof(const StdlibProof<Builder>& stdlib_proof,
+                               const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
+                               PairingPoints points_accumulator);
 
     std::shared_ptr<VerificationKey> key;
     Builder& builder;

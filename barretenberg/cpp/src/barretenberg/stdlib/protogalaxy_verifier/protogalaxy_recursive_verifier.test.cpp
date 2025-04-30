@@ -110,7 +110,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         big_a* big_b;
 
-        stdlib::recursion::aggregation_state<InnerBuilder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
     };
 
     static std::tuple<std::shared_ptr<InnerDeciderProvingKey>, std::shared_ptr<InnerDeciderVerificationKey>>
@@ -248,8 +248,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Check for a failure flag in the recursive verifier circuit
         {
-            stdlib::recursion::aggregation_state<OuterBuilder>::add_default_pairing_points_to_public_inputs(
-                folding_circuit);
+            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(folding_circuit);
             // inefficiently check finalized size
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);

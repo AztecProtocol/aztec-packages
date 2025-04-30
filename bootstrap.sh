@@ -110,10 +110,14 @@ function check_toolchains {
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
-  echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
-  echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
-  echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
-  echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
+  cat <<EOF >$hooks_dir/pre-commit
+#!/usr/bin/env bash
+set -euo pipefail
+(cd barretenberg/cpp && ./format.sh staged)
+./yarn-project/precommit.sh
+./noir-projects/precommit.sh
+./yarn-project/constants/precommit.sh
+EOF
   chmod +x $hooks_dir/pre-commit
   echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
   chmod +x $hooks_dir/post-checkout
@@ -222,6 +226,7 @@ function bench {
     return
   fi
   denoise "barretenberg/bootstrap.sh bench"
+  denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
