@@ -1,0 +1,7 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: alpha-nodes-cert
+spec:
+  domains:
+  - full-node.alpha-testnet.aztec.network
