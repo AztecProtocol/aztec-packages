@@ -277,7 +277,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     const filteredHistory = relevantHistory.filter(h => h.status === filter);
     return {
       currentStreak: countWhile([...relevantHistory].reverse(), h => h.status === filter),
-      rate: filteredHistory.length / relevantHistory.length,
+      rate: relevantHistory.length === 0 ? undefined : filteredHistory.length / relevantHistory.length,
       count: filteredHistory.length,
     };
   }

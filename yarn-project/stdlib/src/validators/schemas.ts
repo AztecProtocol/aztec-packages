@@ -31,7 +31,7 @@ const ValidatorTimeStatSchema = z.object({
 
 const ValidatorFilteredHistorySchema = z.object({
   currentStreak: schemas.Integer,
-  rate: z.number(),
+  rate: z.number().optional(),
   count: schemas.Integer,
 });
 
