@@ -1,4 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
+import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -32,8 +33,10 @@ describe('In-Memory P2P Client', () => {
     txPool.getPendingTxHashes.mockResolvedValue([]);
     txPool.getMinedTxHashes.mockResolvedValue([]);
     txPool.getAllTxHashes.mockResolvedValue([]);
+    txPool.hasTxs.mockResolvedValue([]);
 
     p2pService = mock<P2PService>();
+    p2pService.sendBatchRequest.mockResolvedValue([]);
 
     attestationPool = new InMemoryAttestationPool();
 
@@ -138,6 +141,7 @@ describe('In-Memory P2P Client', () => {
     // Mock a batch response that returns undefined items
     const mockTx1 = await mockTx();
     const mockTx2 = await mockTx();
+    txPool.hasTxs.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => true)));
     p2pService.sendBatchRequest.mockResolvedValue([mockTx1, undefined, mockTx2]);
 
     // Spy on the tx pool addTxs method, it should not be called for the missing tx
