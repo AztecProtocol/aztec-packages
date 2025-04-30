@@ -90,9 +90,25 @@ pub contract Test {
 
     impl<Context> NestedStorageStruct<Context> {
         pub fn new(context: Context, storage_slot: Field) -> Self {
-            NestedStorageStruct {
+            Self {
                 field_in_public_immutable: PublicImmutable::new(context, storage_slot),
                 struct_in_public_mutable: PublicMutable::new(context, storage_slot),
+            }
+        }
+    }
+
+    struct NestedStorageStructWithMap<Context> {
+        map_to_public_mutable: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
+    }
+
+    impl<Context> NestedStorageStructWithMap<Context> {
+        pub fn new(context: Context, storage_slot: Field) -> Self {
+            Self {
+                map_to_public_mutable: Map::new(
+                    context,
+                    storage_slot,
+                    |context, storage_slot| PublicMutable::new(context, storage_slot),
+                ),
             }
         }
     }
@@ -113,6 +129,7 @@ pub contract Test {
         struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
         nested_struct: NestedStorageStruct<Context>,
         map_to_nested_struct: Map<AztecAddress, NestedStorageStruct<Context>, Context>,
+        nested_struct_with_map: NestedStorageStructWithMap<Context>,
         dummy_variable: PrivateImmutable<TestNote, Context>,
     }
 

@@ -109,6 +109,10 @@ unconstrained fn test_storage_slot_allocation() {
     // map_to_nested_struct should allocate 1 slot because it is a map
     expected_slot += 1;
 
+    assert_eq(Test::storage_layout().nested_struct_with_map.slot, expected_slot);
+    // nested_struct_with_map should allocate 1 slot because it contains just a map
+    expected_slot += 1;
+
     // dummy_variable exists so that we can test how many slots the last variable was allocated.
     assert_eq(Test::storage_layout().dummy_variable.slot, expected_slot);
 }
