@@ -116,16 +116,14 @@ export function arrayToBoundedVec(
 }
 
 /**
- * Converts a ForeignCallArray[] into a tuple which represents an nr BoundedVec.
- * If the input array is shorter than the maxLen, it pads the result with zeros,
- * so that nr can correctly coerce this result into a BoundedVec.
+ * Converts an array of arrays representing Noir BoundedVec of nested arrays into its Noir serialized form.
  * @param bVecStorage - The array underlying the BoundedVec.
- * @param maxLen - the max length of the BoundedVec.
- * @param nestedArrayLength - the length of each nested array.
- * @returns a tuple representing a BoundedVec.
+ * @param maxLen - The max length of the BoundedVec (max num of the nested arrays in the BoundedVec).
+ * @param nestedArrayLength - The length of the nested arrays (each nested array has to have the same length).
+ * @returns Serialized BoundedVec following Noir intrinsic serialization.
  */
 export function arrayOfArraysToBoundedVecOfArrays(
-  bVecStorage: ForeignCallArray[], // array of arrays
+  bVecStorage: ForeignCallArray[],
   maxLen: number,
   nestedArrayLength: number,
 ): [ForeignCallArray, ForeignCallSingle] {

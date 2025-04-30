@@ -87,6 +87,13 @@ export function arrayToBoundedVec(bVecStorage: ACVMField[], maxLen: number): [AC
   return [storage, len];
 }
 
+/**
+ * Converts an array of arrays representing Noir BoundedVec of nested arrays into its Noir serialized form.
+ * @param bVecStorage - The array underlying the BoundedVec.
+ * @param maxLen - The max length of the BoundedVec (max num of the nested arrays in the BoundedVec).
+ * @param nestedArrayLength - The length of the nested arrays (each nested array has to have the same length).
+ * @returns Serialized BoundedVec following Noir intrinsic serialization.
+ */
 export function arrayOfArraysToBoundedVecOfArrays(
   bVecStorage: ACVMField[][],
   maxLen: number,
