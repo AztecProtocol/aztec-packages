@@ -2,6 +2,7 @@ import { css } from '@mui/styled-engine';
 import { AztecContext } from '../../aztecEnv';
 import { useContext, useEffect, useState } from 'react';
 import ErrorIcon from '@mui/icons-material/Error';
+import SuccessIcon from '@mui/icons-material/CheckCircle';
 import Typography from '@mui/material/Typography';
 import { Box, Button, Card, CardContent, Divider, Popover, Tooltip } from '@mui/material';
 import { loader } from '../../styles/common';
@@ -11,19 +12,20 @@ import type { UserTx } from '../../utils/txs';
 import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
 import { TxHash } from '@aztec/aztec.js';
 import { TransactionModal } from '../common/TransactionModal';
-import { useLocalStorage } from "@uidotdev/usehooks";
+import { useLocalStorage } from '@uidotdev/usehooks';
 
 const container = css({
   width: '320px',
   height: '100%',
   position: 'relative',
-  backgroundColor: '#E9E9E9',
+  backgroundColor: '#ffffff38',
   borderRadius: '10px',
   display: 'flex',
   flexDirection: 'column',
   transition: 'all 0.3s ease-out',
   padding: '1rem',
   scrollbarWidth: 'none',
+  marginBottom: '2rem',
   '@media (max-width: 900px)': {
     padding: '12px',
     width: '100%',
@@ -35,7 +37,7 @@ const container = css({
 const minimizedTx = css({
   width: '100%',
   height: '75px',
-  backgroundColor: 'white',
+  backgroundColor: '#ffffff69',
   padding: '6px 10px',
   borderRadius: '8px',
   display: 'flex',
@@ -43,8 +45,8 @@ const minimizedTx = css({
   gap: '10px',
   cursor: 'pointer',
   overflow: 'hidden',
+  margin: '0.5rem 0',
   transition: 'all 0.3s ease',
-  border: '1px solid var(--mui-palette-grey-400)',
   '&:hover': {
     transform: 'translateY(-2px)',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
@@ -74,9 +76,10 @@ const funFactsCss = css({
   padding: '12px 16px !important',
   display: 'flex',
   flexDirection: 'row',
-  alignItems: 'center'
+  alignItems: 'center',
+  fontSize: '14px',
+  background: '#ffffff69',
 });
-
 
 const txData = css({
   display: 'flex',
@@ -84,13 +87,13 @@ const txData = css({
   alignItems: 'flex-start',
   width: '100%',
   padding: '10px 14px',
-  backgroundColor: 'var(--mui-palette-primary-light)',
+  backgroundColor: '#ffffff38',
   color: 'var(--mui-palette-text-primary)',
   borderRadius: '6px',
   cursor: 'pointer',
   marginBottom: '10px',
   '&:hover': {
-    backgroundColor: 'var(--mui-palette-grey-400)',
+    backgroundColor: '#FFFFFF',
     color: 'var(--mui-palette-text-primary)',
   },
 });
@@ -108,31 +111,26 @@ const arrowDown = css({
 });
 
 const popoverCss = css({
-    transform: 'translateY(-130px) translateX(10px)',
-    overflow: 'visible',
-    '& .MuiPaper-root': {
-      backgroundColor: 'var(--mui-palette-primary-main)',
-      color: 'var(--mui-palette-text-primary)',
-      overflowX: 'visible',
-      overflowY: 'visible',
-      boxShadow: 'none',
-      animation: 'fadeIn 0.3s ease-in-out',
-      animationDelay: '1s',
-      animationFillMode: 'backwards',
-      '@keyframes fadeIn': {
-        from: { opacity: 0 },
-        to: { opacity: 1 }
-      },
+  transform: 'translateY(-130px) translateX(10px)',
+  overflow: 'visible',
+  '& .MuiPaper-root': {
+    backgroundColor: 'var(--mui-palette-primary-main)',
+    color: 'var(--mui-palette-text-primary)',
+    overflowX: 'visible',
+    overflowY: 'visible',
+    boxShadow: 'none',
+    animation: 'fadeIn 0.3s ease-in-out',
+    animationDelay: '1s',
+    animationFillMode: 'backwards',
+    '@keyframes fadeIn': {
+      from: { opacity: 0 },
+      to: { opacity: 1 },
     },
+  },
 });
 
 export function TxPanel() {
-  const {
-    setTransactionModalStatus,
-    currentTx,
-    walletDB,
-    logs
-  } = useContext(AztecContext);
+  const { setTransactionModalStatus, currentTx, walletDB, logs } = useContext(AztecContext);
 
   const [numTransactions, setNumTransactions] = useState(0);
   const [currentFunFactIndex, setCurrentFunFactIndex] = useState(0);
@@ -188,7 +186,7 @@ export function TxPanel() {
     }
   }, [currentTx, walletDB]);
 
-  const pendingTx = (currentTx && currentTx.status !== 'success') ? currentTx : null;
+  const pendingTx = currentTx && currentTx.status !== 'success' ? currentTx : null;
   let lastLog = logs?.[0]?.message;
   if (lastLog?.length > 100) {
     lastLog = lastLog.slice(0, 100) + '...';
@@ -204,42 +202,6 @@ export function TxPanel() {
 
   return (
     <div css={container}>
-      <div style={{ flexGrow: 1, overflowY: 'auto' }}>
-        <Typography variant="overline">Past Transactions</Typography>
-        <Divider sx={{ marginBottom: '0.5rem' }} />
-
-        {numTransactions === 0 && (
-          <Typography variant="body2" sx={{ margin: '10px 0 2rem 0' }}>No past transactions yet</Typography>
-        )}
-
-        {(numTransactions > 0) && transactions.map(tx => (
-          <Button
-            css={txData}
-            key={tx.txHash ?? ''}
-            onClick={() => {
-              setSelectedTx(tx);
-              setTransactionModalStatus('open');
-            }}
-          >
-            <Typography variant="overline">
-              {tx.name}
-            </Typography>
-            <div css={{ display: 'flex' }}>
-              <Typography variant="body2">
-                {tx.txHash ? formatFrAsString(tx.txHash.toString()) : '()'}
-                &nbsp;-&nbsp;
-              </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                {tx.receipt ? tx.receipt.status.toUpperCase() : tx.status.toUpperCase()}
-                &nbsp;
-                {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}
-              </Typography>
-            </div>
-          </Button>
-        ))}
-
-      </div>
-
       {pendingTx && (
         <>
           <Popover
@@ -249,8 +211,18 @@ export function TxPanel() {
             hideBackdrop
             css={popoverCss}
           >
-            <div style={{ padding: '16px', maxWidth: '250px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ marginBottom: '0.5rem', textAlign: 'left', width: '100%' }}>Transaction Status</Typography>
+            <div
+              style={{
+                padding: '16px',
+                maxWidth: '250px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
+              <Typography variant="h6" sx={{ marginBottom: '0.5rem', textAlign: 'left', width: '100%' }}>
+                Transaction Status
+              </Typography>
               <Typography variant="body2">Click to view your transaction status here</Typography>
 
               <Button
@@ -258,7 +230,7 @@ export function TxPanel() {
                 color="secondary"
                 onClick={() => setSeenPendingTxPopover(true)}
                 size="small"
-                sx={{ marginTop: '1rem', borderRadius: '6px' }}
+                sx={{ marginTop: '0.5rem', borderRadius: '6px' }}
               >
                 Got it
               </Button>
@@ -267,23 +239,40 @@ export function TxPanel() {
             </div>
           </Popover>
 
-          <div style={{ margin: '1rem 0' }} id="pending-tx">
+          <div style={{ marginBottom: '0rem' }} id="pending-tx">
             <Typography variant="overline">Pending Transaction</Typography>
-            <Divider sx={{ marginBottom: '0.5rem' }} />
+            <Divider sx={{ margin: '0.1rem 0' }} />
 
-            <div css={minimizedTx} onClick={() => {
-              setSelectedTx(null); // TransactionModal will load the currentTx
-              setTransactionModalStatus('open');
-            }}>
-              {!hasError && (
+            <div
+              css={minimizedTx}
+              onClick={() => {
+                setSelectedTx(null); // TransactionModal will load the currentTx
+                setTransactionModalStatus('open');
+              }}
+            >
+              {!hasError && pendingTx?.status !== 'sending' && (
                 <span css={[loader, { width: '22px', height: '22px', marginRight: '12px', marginLeft: '10px' }]}></span>
               )}
+              {!hasError && pendingTx?.status === 'sending' && (
+                <SuccessIcon
+                  style={{
+                    marginRight: '0px',
+                    width: '36px',
+                    height: '36px',
+                    color: '#60ffc3',
+                  }}
+                />
+              )}
               {hasError && (
-                <ErrorIcon style={{ marginRight: '0px', width: '36px', height: '36px', color: 'var(--mui-palette-error-main)' }} />
+                <ErrorIcon
+                  style={{ marginRight: '0px', width: '36px', height: '36px', color: 'var(--mui-palette-error-main)' }}
+                />
               )}
 
               <Box sx={{ width: '250px', overflow: 'hidden' }}>
-                <Typography css={minimizedTxTitle}>{pendingTx?.name || 'Sending transaction...'}</Typography>
+                {pendingTx?.name && <Typography css={minimizedTxTitle}>{pendingTx?.name}</Typography>}
+                {pendingTx?.status === 'sending' && <Typography css={minimizedTxTitle}>Transaction Sent!</Typography>}
+
                 <Typography css={minimizedTxLog}>{subtitle}</Typography>
               </Box>
             </div>
@@ -301,6 +290,41 @@ export function TxPanel() {
           </CardContent>
         </Card>
       )}
+      <div style={{ flexGrow: 0.75, overflowY: 'auto', marginTop: '0rem' }}>
+        <Typography variant="overline">Past Transactions</Typography>
+        <Divider sx={{ marginBottom: '1rem', marginTop: '0rem' }} />
+
+        {numTransactions === 0 && (
+          <Typography variant="body2" sx={{ margin: '10px 0 2rem 0' }}>
+            No past transactions yet
+          </Typography>
+        )}
+
+        {numTransactions > 0 &&
+          transactions.map(tx => (
+            <Button
+              css={txData}
+              key={tx.txHash ?? ''}
+              onClick={() => {
+                setSelectedTx(tx);
+                setTransactionModalStatus('open');
+              }}
+            >
+              <Typography variant="overline">{tx.name}</Typography>
+              <div css={{ display: 'flex' }}>
+                <Typography variant="body2">
+                  {tx.txHash ? formatFrAsString(tx.txHash.toString()) : '()'}
+                  &nbsp;-&nbsp;
+                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                  {tx.receipt ? tx.receipt.status.toUpperCase() : tx.status.toUpperCase()}
+                  &nbsp;
+                  {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}
+                </Typography>
+              </div>
+            </Button>
+          ))}
+      </div>
 
       <TransactionModal transaction={selectedTx} />
     </div>

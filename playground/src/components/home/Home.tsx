@@ -24,7 +24,7 @@ const headerFrame = css({
   alignItems: 'center',
   marginTop: '1rem',
   marginBottom: '2rem',
-  backgroundColor: '#CDD1D5',
+  backgroundColor: '#ffffff38',
   borderRadius: '10px',
   padding: '12px',
   height: '80px',
@@ -86,12 +86,13 @@ const contentLayout = css({
   gap: '24px',
   flexGrow: 1,
   paddingBottom: '4rem', // For the logs panel
+  height: 'calc(100%)',
+  paddingBottom: '100px',
   '@media (max-width: 900px)': {
     flexWrap: 'wrap',
     maxHeight: 'auto',
   },
 });
-
 
 export default function Home() {
   const [pxe, setPXE] = useState(null);
@@ -152,9 +153,13 @@ export default function Home() {
   return (
     <div css={container}>
       <div css={headerFrame}>
-        <div role="button" style={{ cursor: 'pointer' }} onClick={() => {
-          setShowContractInterface(false);
-        }}>
+        <div
+          role="button"
+          style={{ cursor: 'pointer' }}
+          onClick={() => {
+            setShowContractInterface(false);
+          }}
+        >
           <img css={logo} src={logoURL} alt="Aztec Logo" />
         </div>
         <div css={headerTitle}>PLAYGROUND</div>

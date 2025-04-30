@@ -17,9 +17,8 @@ const container = css({
 
 const navbarContent = css({
   display: 'flex',
-  flexDirection: 'row-reverse',
   alignItems: 'center',
-  justifyContent: 'flex-start',
+  justifyContent: 'space-between',
   gap: '10px',
   flexWrap: 'wrap',
   '@media (max-width: 900px)': {
@@ -35,7 +34,7 @@ export function NavBar() {
         <NetworkSelector />
         <AccountSelector />
         <ContractSelector />
-        <AddressBook />
+        <AddressBook style={{ marginRight: 'auto' }} />
       </div>
     </div>
   );
