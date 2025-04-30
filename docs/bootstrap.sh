@@ -8,7 +8,7 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs versioned_docs -type f -name "*.(md|mdx)" -exec grep '^#include_code' {} \; | \
+    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
