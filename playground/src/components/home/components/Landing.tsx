@@ -271,6 +271,8 @@ export function Landing() {
   } = useContext(AztecContext);
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [userHasAccount, setUserHasAccount] = useState(false);
+
   const [isLoadingPrivateVoting, setIsLoadingPrivateVoting] = useState(false);
   const [isLoadingPrivateTokens, setIsLoadingPrivateTokens] = useState(false);
 
