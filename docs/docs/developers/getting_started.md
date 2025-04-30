@@ -19,10 +19,11 @@ This guide will teach you how to install the Aztec sandbox, run it using the Azt
 
 ## Prerequisites
 
+import { General, Fees } from '@site/src/components/Snippets/general_snippets';
+
 You need two global dependencies on your machine:
 
-- Node.js {'>='} v18.xx.x and {'<='} v20.17.x (lts/iron) (later versions, eg v22.9, gives an error around 'assert')
-  - Recommend installing with [nvm](https://github.com/nvm-sh/nvm)
+- <General.node_ver />
 - Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
 ## Install and run the sandbox
