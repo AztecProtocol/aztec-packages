@@ -5,6 +5,7 @@ import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
 import type { AddressInfo } from 'net';
+import { Readable } from 'stream';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
@@ -88,7 +89,9 @@ export class SafeJsonRpcServer {
       try {
         await next();
         if (ctx.body && typeof ctx.body === 'object') {
-          ctx.body = jsonStringify(ctx.body);
+          // this JSON string could be quite large. Let Koa stream it to the client
+          const serialized = jsonStringify(ctx.body);
+          ctx.body = Readable.from(serialized);
         }
       } catch (err: any) {
         ctx.status = 500;
