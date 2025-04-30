@@ -57,7 +57,7 @@ describe('e2e_fees Fee Juice payments', () => {
         feeJuiceContract
           .withWallet(bobWallet)
           .methods.check_balance(0n)
-          .simulate({ fee: { gasSettings, paymentMethod } }),
+          .simulate({ fee: { gasSettings, paymentMethod }, skipFeeEnforcement: false }),
       ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/i);
     });
 
