@@ -145,7 +145,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.verify_proof(proof);
+        [[maybe_unused]] auto output = verifier.verify_proof(proof);
         stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
         info("Recursive Verifier: estimated num finalized gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
@@ -168,7 +168,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            verifier.verify_proof(proof);
+            [[maybe_unused]] auto output = verifier.verify_proof(proof);
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             // Check for a failure flag in the recursive verifier circuit
