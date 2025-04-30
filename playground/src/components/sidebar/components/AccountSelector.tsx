@@ -8,7 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod } from '@aztec/aztec.js';
+import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod, TxStatus } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import {
   convertFromUTF8BufferAsString,
@@ -71,21 +71,25 @@ export function AccountSelector() {
   };
 
   useEffect(() => {
-    const refreshAccounts = async () => {
+    const refreshAccounts = async (showLoading = true) => {
       if (!walletDB || !pxe) {
         return;
       }
 
-      setIsAccountsLoading(true);
+      if (showLoading) {
+        setIsAccountsLoading(true);
+      }
       const accounts = await getAccounts();
       setAccounts(accounts);
-      setIsAccountsLoading(false);
+      if (showLoading) {
+        setIsAccountsLoading(false);
+      }
     };
 
     refreshAccounts();
 
     // Refresh accounts every 10 seconds, a new account may be created from other places
-    const interval = setInterval(refreshAccounts, 10000);
+    const interval = setInterval(() => refreshAccounts(false), 10000);
     return () => clearInterval(interval);
 
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -142,18 +146,17 @@ export function AccountSelector() {
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => {
-    trackButtonClick('Create Account', 'Account Selector');
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
     if (accountWallet && publiclyDeploy) {
-      const deploymentResult = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
-      if (deploymentResult) {
+      const txReceipt = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
+      if (txReceipt?.status === TxStatus.SUCCESS) {
         setAccounts([
           ...accounts,
           { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
         ]);
         setWallet(accountWallet);
-      } else {
+      } else if (txReceipt?.status === TxStatus.DROPPED) {
         // Temporarily remove from accounts if deployment fails
         await walletDB.deleteAccount(accountWallet.getAddress());
       }
@@ -215,9 +218,9 @@ export function AccountSelector() {
             <MenuItem
               key="create"
               value=""
-              sx={{ marginTop: '1rem' }}
               onClick={() => {
                 setIsOpen(false);
+                trackButtonClick('Create Account', 'Account Selector');
                 setOpenCreateAccountDialog(true);
               }}
             >

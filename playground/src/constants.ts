@@ -10,6 +10,8 @@ export const PREDEFINED_CONTRACTS = {
 
 export const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
+export const TX_TIMEOUT = 180;
+
 export const TOKEN_ALLOWED_FUNCTIONS = [
   'mint_privately',
   'mint_publicly',

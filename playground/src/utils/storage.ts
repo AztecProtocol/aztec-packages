@@ -194,7 +194,7 @@ export class WalletDB {
     const name = nameBuffer.toString();
     const status = (await this.#transactions.getAsync(`${txHash.toString()}:status`))!.toString();
 
-    const date = await this.#transactions.getAsync(`${txHash.toString()}:date`)!.toString();
+    const date = (await this.#transactions.getAsync(`${txHash.toString()}:date`))!.toString();
 
     return {
       txHash,

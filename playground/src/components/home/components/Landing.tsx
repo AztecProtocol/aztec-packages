@@ -1,6 +1,6 @@
 import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
-import { AztecAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, Fr, TxStatus } from '@aztec/aztec.js';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { AztecContext } from '../../../aztecEnv';
@@ -390,20 +390,15 @@ export function Landing() {
         skipClassRegistration: true,
         skipPublicDeployment: true,
       };
-      // onClose(accountWallet, publiclyDeploy, deployMethod, opts);
 
-      const deploymentResult = await sendTx(`Deploy Account`, deployMethod, accountWallet.getAddress(), opts);
+      const txReceipt = await sendTx(`Deploy Account`, deployMethod, accountWallet.getAddress(), opts);
 
-      if (deploymentResult) {
-        notifications.show(`Account "${accountName}" deployed successfully.`, {
-          severity: 'success',
-        });
-
+      if (txReceipt?.status === TxStatus.SUCCESS) {
         setWallet(await accountManager.getWallet());
-      } else {
-        // Temporarily remove from accounts if deployment fails
+      } else if (txReceipt?.status === TxStatus.DROPPED) {
         await walletDB.deleteAccount(accountWallet.getAddress());
       }
+
     } catch (e) {
       console.error(e);
       setIsCreatingAccount(false);

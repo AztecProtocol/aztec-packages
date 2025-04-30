@@ -4,15 +4,23 @@ import { useContext, useEffect, useState } from 'react';
 import ErrorIcon from '@mui/icons-material/Error';
 import SuccessIcon from '@mui/icons-material/CheckCircle';
 import Typography from '@mui/material/Typography';
-import { Box, Button, Card, Divider, Popover, Tooltip } from '@mui/material';
+import { Box, Button, Card, Divider, Popover } from '@mui/material';
 import { loader } from '../../styles/common';
-import { FUN_FACTS } from '../../constants';
+import { FUN_FACTS, TX_TIMEOUT } from '../../constants';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import { queryTxReceipt, type UserTx } from '../../utils/txs';
 import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
-import { TxHash } from '@aztec/aztec.js';
+import { TxHash, TxStatus } from '@aztec/aztec.js';
 import { TransactionModal } from '../common/TransactionModal';
 import { useLocalStorage } from '@uidotdev/usehooks';
+
+const TX_ERRORS = [
+  'error',
+  TxStatus.APP_LOGIC_REVERTED,
+  TxStatus.TEARDOWN_REVERTED,
+  TxStatus.BOTH_REVERTED,
+  TxStatus.DROPPED,
+];
 
 const container = css({
   width: '320px',
@@ -136,7 +144,6 @@ export function TxPanel() {
     walletDB,
     logs,
     pxe,
-    setTransactionModalStatus,
     setPendingTxUpdateCounter,
     pendingTxUpdateCounter,
   } = useContext(AztecContext);
@@ -144,6 +151,7 @@ export function TxPanel() {
   const [currentFunFactIndex, setCurrentFunFactIndex] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [selectedTx, setSelectedTx] = useState<UserTx | null>(null);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   const [seenPendingTxPopover, setSeenPendingTxPopover] = useLocalStorage('seenPendingTxPopover', false);
 
@@ -187,7 +195,10 @@ export function TxPanel() {
       if (!pxe || !walletDB) {
         return;
       }
-      const pendingTxs = transactions.filter(tx => tx.status === 'pending');
+      const pendingTxs = transactions.filter(tx => (
+        tx.status === 'pending' &&
+        tx.date + TX_TIMEOUT < Date.now()
+      ));
 
       for (const tx of pendingTxs) {
         const txReceipt = await queryTxReceipt(tx, pxe);
@@ -208,14 +219,31 @@ export function TxPanel() {
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [transactions, walletDB, pxe]);
 
+  useEffect(() => {
+    if (currentTx?.status === 'success') {
+      setSelectedTx(null);
+      setIsTransactionModalOpen(true);
+    }
+  }, [currentTx]);
+
+
   const pendingTx = currentTx && currentTx.status !== 'success' ? currentTx : null;
   let lastLog = logs?.[0]?.message;
   if (lastLog?.length > 100) {
     lastLog = lastLog.slice(0, 100) + '...';
   }
-  const hasError = pendingTx?.status === 'error';
+
+  const hasError = pendingTx?.error || TX_ERRORS.includes(pendingTx?.status);
   const errorMessage = pendingTx?.error;
-  const subtitle = hasError ? errorMessage : lastLog;
+
+  let subtitle;
+  if (hasError) {
+    subtitle = errorMessage;
+  } else if (pendingTx?.status === 'sending') {
+    subtitle = 'Waiting for confirmation...';
+  } else {
+    subtitle = lastLog;
+  }
 
   if (transactions.length === 0 && !pendingTx) {
     // Return a div with 0 width, so we can have animation when it appears
@@ -269,7 +297,7 @@ export function TxPanel() {
               css={minimizedTx}
               onClick={() => {
                 setSelectedTx(null); // TransactionModal will load the currentTx
-                setTransactionModalStatus('open');
+                setIsTransactionModalOpen(true);
               }}
             >
               {!hasError && pendingTx?.status !== 'sending' && (
@@ -278,10 +306,9 @@ export function TxPanel() {
               {!hasError && pendingTx?.status === 'sending' && (
                 <SuccessIcon
                   style={{
-                    marginRight: '0px',
-                    width: '36px',
-                    height: '36px',
-                    color: '#60ffc3',
+                    marginRight: '0.5rem',
+                    fontSize: '30px',
+                    color: 'var(--mui-palette-success-main)',
                   }}
                 />
               )}
@@ -292,7 +319,7 @@ export function TxPanel() {
               )}
 
               <Box sx={{ width: '250px', overflow: 'hidden' }}>
-                {pendingTx?.name && <Typography css={minimizedTxTitle}>{pendingTx?.name}</Typography>}
+                <Typography css={minimizedTxTitle}>{pendingTx?.name}</Typography>
                 {pendingTx?.status === 'sending' && <Typography css={minimizedTxTitle}>Transaction Sent!</Typography>}
 
                 <Typography css={minimizedTxLog}>{subtitle}</Typography>
@@ -325,7 +352,7 @@ export function TxPanel() {
               key={tx.txHash?.toString() ?? ''}
               onClick={() => {
                 setSelectedTx(tx);
-                setTransactionModalStatus('open');
+                setIsTransactionModalOpen(true);
               }}
             >
               <Typography variant="overline">{tx.name}</Typography>
@@ -344,7 +371,16 @@ export function TxPanel() {
           ))}
       </div>
 
-      <TransactionModal transaction={selectedTx} />
+      {selectedTx && (
+        <TransactionModal
+          transaction={selectedTx}
+          isOpen={isTransactionModalOpen}
+          onClose={() => {
+            setSelectedTx(null);
+            setIsTransactionModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

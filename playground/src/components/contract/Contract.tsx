@@ -8,6 +8,7 @@ import {
   FunctionType,
   DeployMethod,
   type DeployOptions,
+  TxStatus,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -174,6 +175,7 @@ export function ContractComponent() {
     if (currentContractArtifact) {
       loadCurrentContract();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentContractArtifact, currentContractAddress, wallet]);
 
   useEffect(() => {
@@ -190,14 +192,14 @@ export function ContractComponent() {
   ) => {
     setOpenCreateContractDialog(false);
     if (contract && publiclyDeploy) {
-      const deploymentResult = await sendTx(
+      const txReceipt = await sendTx(
         `Deploy ${currentContractArtifact.name}`,
         interaction,
         contract.address,
         opts,
       );
       // Temporarily ignore undeployed contracts
-      if (deploymentResult) {
+      if (txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);
       }
     }

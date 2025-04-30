@@ -190,7 +190,6 @@ export function NetworkSelector() {
           <MenuItem
             key="create"
             value=""
-            sx={{ marginTop: '1rem' }}
             onClick={() => {
               trackButtonClick('Add Custom Network', 'Network Selector');
               setOpen(false);
