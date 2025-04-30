@@ -2,7 +2,7 @@ import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
 import { AztecAddress, Fr } from '@aztec/aztec.js';
 import { useNotifications } from '@toolpad/core/useNotifications';
-import { Box, Button, CircularProgress } from '@mui/material';
+import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { AztecContext } from '../../../aztecEnv';
 import { useContext, useEffect, useState } from 'react';
 import { PREDEFINED_CONTRACTS } from '../../../constants';
@@ -271,8 +271,6 @@ export function Landing() {
   } = useContext(AztecContext);
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-  const [userHasAccount, setUserHasAccount] = useState(false);
-
   const [isLoadingPrivateVoting, setIsLoadingPrivateVoting] = useState(false);
   const [isLoadingPrivateTokens, setIsLoadingPrivateTokens] = useState(false);
 
@@ -455,14 +453,22 @@ export function Landing() {
             </div>
           </Box>
 
-          <Button
-            variant="contained"
-            css={cardButton}
-            onClick={handleCreateAccountButtonClick}
-            disabled={isCreatingAccount || !isPXEInitialized}
+
+          <Tooltip
+            title={!isPXEInitialized ? "Connect to a network to create an account" : ""}
+            placement="top"
           >
-            {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
-          </Button>
+            <span>
+              <Button
+                variant="contained"
+                css={cardButton}
+                onClick={handleCreateAccountButtonClick}
+                disabled={isCreatingAccount || !isPXEInitialized}
+              >
+                {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
+              </Button>
+            </span>
+          </Tooltip>
         </div>
 
         <div css={featureCard}>
@@ -478,18 +484,25 @@ export function Landing() {
             </div>
           </Box>
 
-          <Button
-            variant="contained"
-            css={cardButton}
-            onClick={async () => {
-              setIsLoadingPrivateVoting(true);
-              await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
-              setIsLoadingPrivateVoting(false);
-            }}
-            disabled={isLoadingPrivateVoting}
+          <Tooltip
+            title={!wallet ? "Connect and account to deploy and interact with a contract" : ""}
+            placement="top"
           >
-            {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
-          </Button>
+            <span>
+              <Button
+                variant="contained"
+                css={cardButton}
+                onClick={async () => {
+                  setIsLoadingPrivateVoting(true);
+                  await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_VOTING);
+                  setIsLoadingPrivateVoting(false);
+                }}
+                disabled={isLoadingPrivateVoting || !wallet}
+              >
+                {isLoadingPrivateVoting ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+              </Button>
+            </span>
+          </Tooltip>
         </div>
 
         <div css={featureCard}>
@@ -506,18 +519,27 @@ export function Landing() {
             </div>
           </Box>
 
-          <Button
-            variant="contained"
-            css={cardButton}
-            onClick={async () => {
-              setIsLoadingPrivateTokens(true);
-              await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
-              setIsLoadingPrivateTokens(false);
-            }}
+          <Tooltip
+            title={!wallet ? "Connect and account to deploy and interact with a contract" : ""}
+            placement="top"
           >
-            {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
-          </Button>
+            <span>
+              <Button
+                variant="contained"
+                css={cardButton}
+                onClick={async () => {
+                  setIsLoadingPrivateTokens(true);
+                  await handleContractButtonClick(PREDEFINED_CONTRACTS.SIMPLE_TOKEN);
+                  setIsLoadingPrivateTokens(false);
+                }}
+                disabled={isLoadingPrivateTokens || !wallet}
+              >
+                {isLoadingPrivateTokens ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Check it out'}
+              </Button>
+            </span>
+          </Tooltip>
         </div>
+
       </div>
     </div>
   );
