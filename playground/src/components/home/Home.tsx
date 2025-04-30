@@ -37,6 +37,7 @@ const headerFrame = css({
 const logo = css({
   width: '120px',
   marginLeft: '1rem',
+  marginTop: '2px',
   '@media (max-width: 900px)': {
     width: '90px',
     marginLeft: '0.5rem',
@@ -85,7 +86,6 @@ const contentLayout = css({
   position: 'relative',
   gap: '24px',
   flexGrow: 1,
-  paddingBottom: '4rem', // For the logs panel
   height: 'calc(100%)',
   paddingBottom: '100px',
   '@media (max-width: 900px)': {
@@ -162,7 +162,7 @@ export default function Home() {
         >
           <img css={logo} src={logoURL} alt="Aztec Logo" />
         </div>
-        <div css={headerTitle}>PLAYGROUND</div>
+        <div css={headerTitle}>Developer Playground</div>
         <a
           href="https://docs.aztec.network/"
           target="_blank"
