@@ -56,7 +56,7 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 Go to `main.nr` and delete the sample code. Replace it with this contract initialization:
 
 ```rust
-#include_code declaration noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr
+#include_code declaration noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr raw
 }
 ```
 
@@ -68,12 +68,22 @@ Inside this, paste these imports:
 
 We are using various utils within the Aztec `prelude` library:
 
-- `AztecAddress` - A type for storing an address on Aztec
-- `FunctionSelector` - Used for computing a selector to call a function
-- `PrivateContext` - exposes things such as the contract address, msg_sender, etc
-- `Map` - A data storage type for storing candidates with the number of votes they have
-- `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
-- `PublicImmutable` - an immutable storage value that is accessible in private and public execution.
+- `use dep::aztec::keys::getters::get_public_keys;`  
+  Imports a helper to retrieve public keys associated with the caller, used for computing a secure nullifier during voting.
+
+- `use dep::aztec::macros::{functions::{initializer, internal, private, public, utility}, storage::storage};`  
+  Brings in macros for defining different function types (`initializer`, `internal`, `private`, `public`, `utility`) and for declaring contract storage via `storage`.
+
+- `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`  
+  Imports:
+  - `AztecAddress`: a type for account/contract addresses,
+  - `Map`: a key-value storage structure,
+  - `PublicMutable`: public state that can be updated,
+  - `PublicImmutable`: public state that is read-only after being set once.
+
+- `use dep::aztec::protocol_types::traits::{Hash, ToField};`  
+  Provides the `Hash` and `ToField` traits, used for hashing values and converting them to a Field, used for nullifier creation and other computations.
+
 
 ## Set up storage
 

@@ -67,19 +67,21 @@ pub contract Counter {
 
 #include_code imports /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
-`AztecAddress, Map`
+- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`  
+  Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
 
-`AztecAddress` is a type for storing contract (including account) addresses. `Map` is a private state variable that functions like a dictionary, relating Fields to other state variables.
+- `use aztec::prelude::{AztecAddress, Map};`  
+  Brings in `AztecAddress` (used to identify accounts/contracts) and `Map` (used for creating state mappings, like our counters).
 
-`value_note`
+- `use aztec::protocol_types::traits::{FromField, ToField};`  
+  Provides traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
 
-Notes are fundamental to how Aztec manages privacy. A note is a privacy-preserving representation of some arbitrary information. A commitment to a note is stored on-chain, it is associated with a nullifier key (that can be owned by an owner) so it can be spent, and encrypted note information is often emitted on-chain for later retrieval. In this contract, we are using the `value_note` library. This is a type of note interface for storing a single Field, e.g. a balance - or, in our case, a counter.
+- `use easy_private_state::EasyPrivateUint;`  
+  Imports a wrapper to manage private integer-like state variables (ie our counter), abstracting away notes.
 
-We are also using `balance_utils` from this import, a useful library that allows us to utilize value notes as if they are simple balances.
+- `use value_note::{balance_utils, value_note::ValueNote};`  
+  Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
-`EasyPrivateUint`
-
-This allows us to store our counter in a way that acts as an integer, abstracting the note logic.
 
 ## Declare storage
 
