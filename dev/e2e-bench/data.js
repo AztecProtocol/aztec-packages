@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746026391176,
+  "lastUpdate": 1746026448390,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5d93a0eb0f97a85c61a77732402d47bd89d30513",
-          "message": "chore(contracts): core/staking -> core/slashing (#13748)\n\nupon suggestion from amin",
-          "timestamp": "2025-04-23T08:34:01Z",
-          "tree_id": "96db5660775e8c07620cc02d485f26ae7c83269c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5d93a0eb0f97a85c61a77732402d47bd89d30513"
-        },
-        "date": 1745400514575,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9038,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.25873656348683743,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 145854,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 145745,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8e83b22f4b187b2d09eb28118c6fccb4de914c52",
+          "message": "fix: generate recursion separator properly (#13931)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/995.\n\nInstead of setting the recursion separator to 42, we generate it by\nhashing the two input pairing point objects.",
+          "timestamp": "2025-04-30T14:28:18Z",
+          "tree_id": "87734d936afc18d82d3822c39bc02781bbfbf360",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8e83b22f4b187b2d09eb28118c6fccb4de914c52"
+        },
+        "date": 1746026447576,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8128,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23268611689917826,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 148970,
             "unit": "us"
           }
         ]
