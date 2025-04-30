@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: How to Run a Sequencer Node
 description: A comprehensive guide to setting up and running an Aztec Sequencer node on testnet or mainnet, including infrastructure requirements, configuration options, and troubleshooting tips.
 keywords:
