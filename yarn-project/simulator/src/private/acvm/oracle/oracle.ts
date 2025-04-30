@@ -175,7 +175,7 @@ export class Oracle {
     [offset]: ACVMField[],
     [status]: ACVMField[],
     [maxNotes]: ACVMField[],
-    [nestedArrayLength]: ACVMField[],
+    [packedRetrievedNoteLength]: ACVMField[],
   ): Promise<(ACVMField | ACVMField[])[]> {
     const noteDatas = await this.typedOracle.getNotes(
       Fr.fromString(storageSlot),
@@ -201,7 +201,7 @@ export class Oracle {
       }
     }
 
-    // The expected return type is a BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> where each
+    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
     // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
 
     const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
@@ -215,7 +215,7 @@ export class Oracle {
     const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfArrays.map(subArray => subArray.map(toACVMField));
 
     // At last we convert the array of arrays to a bounded vec of arrays
-    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +nestedArrayLength);
+    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedRetrievedNoteLength);
   }
 
   notifyCreatedNote(

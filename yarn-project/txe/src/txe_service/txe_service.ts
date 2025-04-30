@@ -291,7 +291,7 @@ export class TXEService {
     offset: ForeignCallSingle,
     status: ForeignCallSingle,
     maxNotes: ForeignCallSingle,
-    nestedArrayLength: ForeignCallSingle,
+    packedRetrievedNoteLength: ForeignCallSingle,
   ) {
     const noteDatas = await this.typedOracle.getNotes(
       fromSingle(storageSlot),
@@ -317,7 +317,7 @@ export class TXEService {
       }
     }
 
-    // The expected return type is a BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> where each
+    // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
     // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note]
 
     const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
@@ -337,7 +337,7 @@ export class TXEService {
       arrayOfArraysToBoundedVecOfArrays(
         returnDataAsArrayOfForeignCallSingleArrays,
         fromSingle(maxNotes).toNumber(),
-        fromSingle(nestedArrayLength).toNumber(),
+        fromSingle(packedRetrievedNoteLength).toNumber(),
       ),
     );
   }

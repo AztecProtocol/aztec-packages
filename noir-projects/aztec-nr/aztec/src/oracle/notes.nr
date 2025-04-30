@@ -106,8 +106,9 @@ unconstrained fn get_notes_oracle<let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NO
     _status: u8,
     // This is always set to MAX_NOTES. We need to pass it to TS in order to be correctly construct the BoundedVec
     _max_notes: u32,
-    // This is always set to NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be correctly construct the BoundedVec
-    _nested_array_length: u32,
+    // This is always set to NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD. We need to pass it to TS in order to be able to
+    // correctly construct the BoundedVec there.
+    _packed_retrieved_note_length: u32,
 ) -> BoundedVec<[Field; NOTE_PCKD_LEN + RETRIEVED_NOTE_OVERHEAD], MAX_NOTES> {}
 
 pub unconstrained fn get_notes<Note, let NOTE_PCKD_LEN: u32, let M: u32, let MAX_NOTES: u32>(
@@ -157,7 +158,7 @@ where
         let nonce = packed_retrieved_note[1];
         let nonzero_note_hash_counter = packed_retrieved_note[2] as bool;
 
-        let packed_note = array::subarray(packed_retrieved_note, 3);
+        let packed_note = array::subarray(packed_retrieved_note, RETRIEVED_NOTE_OVERHEAD);
         let note = Note::unpack(packed_note);
 
         let retrieved_note = RetrievedNote {

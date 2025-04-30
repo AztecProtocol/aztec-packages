@@ -127,9 +127,10 @@ pub fn preprocess_notes_min_sum(
         if sum < min_sum {
             let retrieved_note = notes.get_unchecked(i);
             selected.push(retrieved_note);
-            sum = sum.add(retrieved_note.note.get_value());
+            sum = sum + retrieved_note.note.get_value();
         }
     }
+
     selected
 }
 

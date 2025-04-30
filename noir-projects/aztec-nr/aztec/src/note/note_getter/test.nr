@@ -74,7 +74,7 @@ unconstrained fn can_return_zero_notes() {
 }
 
 #[test(should_fail_with = "Got more notes than limit.")]
-unconstrained fn rejects_mote_notes_than_limit() {
+unconstrained fn rejects_more_notes_than_limit() {
     let mut env = setup();
     let mut context = env.private();
 
@@ -101,15 +101,15 @@ unconstrained fn applies_filter_before_constraining() {
     notes_to_constrain.push(build_valid_retrieved_note(42));
 
     let filter_fn = |notes: BoundedVec<RetrievedNote<MockNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, _| {
-        let mut filtered = BoundedVec::new();
+        let mut selected = BoundedVec::new();
 
         for i in 0..notes.len() {
             // This will filter the notes so that only the valid one remains
             if notes.get_unchecked(i).note.value == 42 {
-                filtered.push(notes.get_unchecked(i));
+                selected.push(notes.get_unchecked(i));
             }
         }
-        filtered
+        selected
     };
 
     let options = NoteGetterOptions::with_filter(filter_fn, ());
