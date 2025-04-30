@@ -1,6 +1,5 @@
 use crate::context::PrivateContext;
 use crate::note::{
-    constants::VIEW_NOTE_ORACLE_RETURN_LENGTH,
     note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
     note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
@@ -8,9 +7,9 @@ use crate::note::{
     utils::compute_note_hash_for_read_request,
 };
 use crate::oracle;
-use crate::utils::{array, comparison::compare};
+use crate::utils::comparison::compare;
 use dep::protocol_types::{
-    constants::{GET_NOTES_ORACLE_RETURN_LENGTH, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::{Packable, ToField},
 };
 
