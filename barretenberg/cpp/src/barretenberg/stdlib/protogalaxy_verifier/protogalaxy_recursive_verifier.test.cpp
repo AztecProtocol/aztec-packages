@@ -314,7 +314,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
-        // manifestsproduced by each agree.
+        // manifests produced by each agree.
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
@@ -370,7 +370,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // Create a decider verifier circuit for recursively verifying the decider proof
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, verifier_accumulator };
-        decider_verifier.verify_proof(decider_proof);
+        [[maybe_unused]] auto output = decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
 
         // We expect the decider circuit check to fail due to the bad proof

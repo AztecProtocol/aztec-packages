@@ -82,7 +82,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         {
             using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
             using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-            using OuterPairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
@@ -101,7 +100,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             // Instantiate the recursive verifier using the native verification key
             stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
 
-            VerifierOutput output = verifier.verify_proof(inner_proof, OuterPairingPoints::construct_default(circuit));
+            VerifierOutput output = verifier.verify_proof(inner_proof);
             output.points_accumulator.set_public(); // useless for now but just checking if it breaks anything
         }
 
