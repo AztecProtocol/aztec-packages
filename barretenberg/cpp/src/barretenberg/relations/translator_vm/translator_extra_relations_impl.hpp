@@ -65,20 +65,20 @@ template <typename FF>
 template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
 void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulators,
                                                                const AllEntities& in,
-                                                               [[maybe_unused]] const Parameters& params,
+                                                               const Parameters& params,
                                                                const FF& scaling_factor)
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
-    // We use combination of lagrange polynomials at even indices in the minicircuit for copying the accumulator
+    // We use combination of lagrange polynomials at odd indices in the minicircuit for copying the accumulator
     auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
 
     // Lagrange ensuring the accumulator result is validated at the correct row
-    [[maybe_unused]] auto lagrange_result_row = View(in.lagrange_result_row);
+    auto lagrange_result_row = View(in.lagrange_result_row);
 
     // Lagrange at index (size of minicircuit - 1) is used to enforce that the accumulator is initialized to zero in the
     // circuit
-    [[maybe_unused]] auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
+    auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
@@ -135,22 +135,22 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     // // proof)
     auto tmp_9 = (accumulators_binary_limbs_0 - params.accumulated_result[0]) * lagrange_result_row;
     tmp_9 *= scaling_factor;
-    std::get<4>(accumulators) += tmp_9;
+    std::get<8>(accumulators) += tmp_9;
 
     // Contribution (10)
     auto tmp_10 = (accumulators_binary_limbs_1 - params.accumulated_result[1]) * lagrange_result_row;
     tmp_10 *= scaling_factor;
-    std::get<5>(accumulators) += tmp_10;
+    std::get<9>(accumulators) += tmp_10;
 
     // Contribution (11)
     auto tmp_11 = (accumulators_binary_limbs_2 - params.accumulated_result[2]) * lagrange_result_row;
     tmp_11 *= scaling_factor;
-    std::get<6>(accumulators) += tmp_11;
+    std::get<10>(accumulators) += tmp_11;
 
     // Contribution (12)
     auto tmp_12 = (accumulators_binary_limbs_3 - params.accumulated_result[3]) * lagrange_result_row;
     tmp_12 *= scaling_factor;
-    std::get<7>(accumulators) += tmp_12;
+    std::get<11>(accumulators) += tmp_12;
 };
 
 /**
