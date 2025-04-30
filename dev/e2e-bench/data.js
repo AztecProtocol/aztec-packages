@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746041615250,
+  "lastUpdate": 1746041920130,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d4d503a9ac16006a20002ee7ca1f654a9873dbdd",
-          "message": "feat: exec opcode spec table (#13594)\n\nThis adds some foundational stuff for the execution instruction\nspecfication table and a basic use-case within the execution loop.\n\n### Trace Changes\n- A precomputed table for the exec instruction specs.\n- Register information in execution trace and supports up to 7 operands\nin addressing.\n\n### Simulation\n- Adds the (temporary) `set_inputs` and `set_output` so that\n`TaggedValue` that are needed in the execution registers can be emitted\nas part of the ExecutionEvent.\n\n### Tracegen\n- Added new tables `SUBTRACE_INFO_MAP` `REGISTER_INFO_MAP`, these\ncontain information used in tracegen when placing values into their\nrespective registers\n- Updated `ExecutionTraceBuilder::process` to properly handle placing\nthe `inputs/outputs` from the execution event into respective registers.\nNOTE: Operands likely need the same treatment but this hasnt been done\nyet.\n\n### Testing\n- There is a new `ExecutionConstrainingTest` that tests the basic\ndecoding and allocation of registers for a simple `ADD`",
-          "timestamp": "2025-04-23T15:36:12Z",
-          "tree_id": "8e4a53e9092171cfd2952af35c18d33d92ccda20",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d4d503a9ac16006a20002ee7ca1f654a9873dbdd"
-        },
-        "date": 1745426223795,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9354,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2678010002902963,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 141964,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 295413,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "39e9b261a16957ffdcc44aaaf464e1cdb842830e",
+          "message": "feat: testing contract compilation fails as expected (#13896)\n\nIt is desirable to have the ability to test that a given contract fails\nwith a given compilation error. In this PR I introduce\n`noir-projects/noir-contracts-comp-failures` directory in which a\ncontract package can be defined along with the expected error message\nand then in the bootstrap.sh script the contracts are compiled and the\noutput is checked to contain a given error.\n\nThe compilation failure check is being run in CI and I verified that it\nfails as expected when the error does not match. Did that in [this\nrun](https://github.com/AztecProtocol/aztec-packages/actions/runs/14740278893/job/41376379014):\n<img width=\"624\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/a4cbe6be-4421-4bf3-87c4-1f7cacce90c1\"\n/>\n\nThe plan is to test more comp failures in followup PRs.",
+          "timestamp": "2025-04-30T18:39:48Z",
+          "tree_id": "d074de5b3a2bfc2771fa6405dd9dca7251279a86",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/39e9b261a16957ffdcc44aaaf464e1cdb842830e"
+        },
+        "date": 1746041919170,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8590,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2459183698563099,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137900,
             "unit": "us"
           }
         ]
