@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746009397819,
+  "lastUpdate": 1746018001439,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a00566c9e12c1afc053f6a56619a39de42bf0b02",
-          "message": "chore: remove circuit simulator (#13689)\n\nRemove all code related to the `CircuitSimulator`.\n\nThe idea of the `CircuitSimulator` was to allow us to write our\nverification algorithms once and for all in \"circuit\" format then\nachieve recursive verification through supplying a real builder (e.g.\nUltra/Mega) and native verification through supplying the\n`CircuitSimulator`. The motivation was that the recursive circuits\nshould be the first class objects, rather than their native\ncounterparts. In practice this proved to be too complicated and was\nnever used. We don't have time to flesh it out at this point and it adds\na very high degree of complexity and clutter to some of our most complex\ncode.",
-          "timestamp": "2025-04-22T22:32:11Z",
-          "tree_id": "7a4c9905e0ee8ecd06d0323f3316c041ecdf4284",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a00566c9e12c1afc053f6a56619a39de42bf0b02"
-        },
-        "date": 1745366809589,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9292,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2660263589557508,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 153623,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 150170,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d9085f2fcecd82374af846b7497ac3067921494",
+          "message": "chore: update proving cost changes (#13833)\n\nFixes #13600. \n\n\nAccompanying update tohe engineering design in\nhttps://github.com/AztecProtocol/engineering-designs/pull/59\n\nThe diff looks very large, but is mostly because we generated a new\nfixture structure.",
+          "timestamp": "2025-04-30T12:13:04Z",
+          "tree_id": "56fbb3ec7ae5a6368ddf0b3b8efc47912893596d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0d9085f2fcecd82374af846b7497ac3067921494"
+        },
+        "date": 1746017999945,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8257,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2363961687745719,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 147593,
             "unit": "us"
           }
         ]
