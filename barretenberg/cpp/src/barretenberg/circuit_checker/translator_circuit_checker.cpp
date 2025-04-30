@@ -89,7 +89,6 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
      *
      */
     for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
-        info("Gate index: ", i);
         // Get the values of P.x
         Fr op_code = circuit.get_variable(op_wire[i]);
         Fr p_x_lo = circuit.get_variable(x_lo_y_hi_wire[i]);

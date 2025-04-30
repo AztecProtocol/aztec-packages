@@ -559,8 +559,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
 
     // We don't care about the last value since we'll recompute it during witness generation anyway
-    Fq popped_value = accumulator_trace.back();
-    info("last accumulator value: ", popped_value);
     accumulator_trace.pop_back();
 
     for (const auto& ultra_op : ultra_ops) {

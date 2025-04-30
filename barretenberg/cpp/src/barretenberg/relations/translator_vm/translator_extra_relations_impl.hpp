@@ -11,7 +11,7 @@ namespace bb {
 
 /**
  * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
- * @details This relation enforces the opcode to be one of described values. Since we don't care about even
+ * @details This relation enforces the opcode to be one of described values. Since we don't care about odd
  * values in the opcode wire and usually just set them to zero, we don't use a lagrange polynomial to specify
  * the relation to be enforced just at odd indices, which brings the degree down by 1.
  *
@@ -89,7 +89,7 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     auto accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
     auto accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
 
-    // Contribution (1) (1-4 ensure transfer of accumulator limbs at even indices of the minicircuit)
+    // Contribution (1) (1-4 ensure transfer of accumulator limbs at odd indices of the minicircuit)
     auto tmp_1 = accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift;
     tmp_1 *= lagrange_odd_in_minicircuit;
     tmp_1 *= scaling_factor;

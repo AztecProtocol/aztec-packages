@@ -52,10 +52,10 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree((SOME_LAGRANGE)(A-B)) = 2
     static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS{
-        3, // transfer accumulator limb 0 at even index subrelation
-        3, // transfer accumulator limb 1 at even index subrelation
-        3, // transfer accumulator limb 2 at even index subrelation
-        3, // transfer accumulator limb 3 at even index subrelation
+        3, // transfer accumulator limb 0 at odd index subrelation
+        3, // transfer accumulator limb 1 at odd index subrelation
+        3, // transfer accumulator limb 2 at odd index subrelation
+        3, // transfer accumulator limb 3 at odd index subrelation
         3, // accumulator limb 0 is zero at the start of accumulation subrelation
         3, // accumulator limb 1 is zero at the start of accumulation subrelation
         3, // accumulator limb 2 is zero at the start of accumulation subrelation
@@ -77,14 +77,14 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row).is_zero();
+        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row).is_zero();
     }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
      * evaluation of polynomials in non-native field)
      * @details This relation enforces three pieces of logic:
      * 1) Accumulator starts as zero before we start accumulating stuff
-     * 2) Accumulator limbs stay the same if accumulation is not occurring (at even indices)
+     * 2) Accumulator limbs stay the same if accumulation is not occurring (at odd indices)
      * 3) Accumulator limbs result in the values specified by relation parameters after accumulation
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
