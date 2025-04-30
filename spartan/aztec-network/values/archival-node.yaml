@@ -40,7 +40,7 @@ fullNode:
       cpu: "3"
       memory: "10Gi"
   p2p:
-    archivedTxLimit: 10000000 # 10 million
+    archivedTxLimit: "10000000" # 10 million
 
 blobSink:
   enabled: false
