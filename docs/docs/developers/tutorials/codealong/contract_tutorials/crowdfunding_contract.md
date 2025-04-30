@@ -116,7 +116,7 @@ This contract uses another file called `config.nr`. Create this in the same dire
 
 #### Storage
 
-To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct:
+To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct in our `main.nr`:
 
 #include_code storage /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 

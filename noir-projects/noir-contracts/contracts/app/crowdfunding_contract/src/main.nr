@@ -6,9 +6,9 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Crowdfunding {
     // docs:end:empty-contract
-    use crate::config::Config;
-
     // docs:start:all-deps
+    use crate::config::Config;
+    
     use dep::aztec::{
         event::event_interface::EventInterface,
         macros::{
