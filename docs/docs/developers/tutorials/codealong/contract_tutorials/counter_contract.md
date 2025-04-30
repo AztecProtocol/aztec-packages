@@ -113,7 +113,7 @@ The `increment` function works very similarly to the `constructor`, but instead 
 
 ## Prevent double spending
 
-Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. Yu ican leran more about nullifiers and private state in the [Learn section](../../../../aztec/index.md#private-and-public-state).
+Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. You can learn more about nullifiers and private state in the [Learn section](../../../../aztec/index.md#private-and-public-state).
 
 ## Getting a counter
 
