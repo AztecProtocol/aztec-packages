@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746020544012,
+  "lastUpdate": 1746026391176,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7e7eb85a8e0f67821debfdd18bb4dedd5113d359",
-          "message": "feat!: remove slice read from CALL (#13729)\n\nChanges the opcode operands of CALL:\n### Old\n`INDIRECT_8, gasOffset, addrOffset, argsOffset, argsSizeOffset`\n\n### New\n`INDIRECT_16, l2GasOffset, daGasOffset, addrOffset, argsOffset,\nargsSizeOffset`",
-          "timestamp": "2025-04-23T06:55:16Z",
-          "tree_id": "0d47f3f3cb3e584e1bd0a99f45d3e6d543919b52",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7e7eb85a8e0f67821debfdd18bb4dedd5113d359"
-        },
-        "date": 1745395862173,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9224,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2640806481172898,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 149377,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 149612,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "48cfcfe56ea6cca4bf6de138079b9ff7c89d30ec",
+          "message": "refactor: use open zeppelin library (#13952)\n\nFixes #13873.\n\nReplaces most of the custom things in the `UserLib` with the open\nzeppelin checkpoint library. Still let the `UserLib` exist because the\n`add` and `sub` makes logic makes it simpler to use, and more plug and\nplay (also expect to be able to reuse it later).\n\n⚠️ Uses `uint32` for timestamps ⚠️",
+          "timestamp": "2025-04-30T13:26:03Z",
+          "tree_id": "c519d38515b3b6e5537ff0fed38ef8e0c9e99dc0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/48cfcfe56ea6cca4bf6de138079b9ff7c89d30ec"
+        },
+        "date": 1746026389907,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8438,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24157168470643484,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 145745,
             "unit": "us"
           }
         ]
