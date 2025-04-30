@@ -101,16 +101,6 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
 
   const transaction = props.transaction || currentTx;
 
-  // useEffect(() => {
-  //   console.log(window.Tally);
-  //   // @ts-expect-error Tally is loaded
-  //   if (window.Tally) {
-  //     // @ts-expect-error Tally is loaded
-  //     window.Tally.loadEmbeds();
-  //     console.log('Tally loaded');
-  //   }
-  // }, []);
-
   const handleCancelTx = async () => {
     if (!confirm('Are you sure you want to cancel this transaction?')) {
       return;
