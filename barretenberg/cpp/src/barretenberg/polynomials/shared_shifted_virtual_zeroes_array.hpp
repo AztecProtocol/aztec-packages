@@ -92,10 +92,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
 
     T& operator[](size_t index)
     {
-        if (index < start_ || index >= end_) {
-            vinfo("index = ", index, ", start_ = ", start_, ", end_ = ", end_);
-            ASSERT(false);
-        }
+        BB_ASSERT_GTE(index, start_);
+        BB_ASSERT_LT(index, end_);
         return data()[index - start_];
     }
     // get() is more useful, but for completeness with the non-const operator[]

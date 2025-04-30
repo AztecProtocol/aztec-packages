@@ -2,13 +2,14 @@
 pragma solidity >=0.8.27;
 
 import {UserLibBase} from "./base.t.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 contract PowerNowTest is UserLibBase {
-  using UserLib for DataStructures.User;
+  using UserLib for User;
+  using Checkpoints for Checkpoints.Trace224;
 
   Timestamp internal time;
 
@@ -28,6 +29,6 @@ contract PowerNowTest is UserLibBase {
 
     vm.warp(block.timestamp + _timeJump);
 
-    assertEq(user.powerNow(), user.checkpoints[user.numCheckPoints - 1].power);
+    assertEq(user.powerNow(), user.checkpoints.latest());
   }
 }

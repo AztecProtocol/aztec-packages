@@ -25,7 +25,7 @@ export RUSTFLAGS="-Dwarnings"
 # Update the noir-repo and compute hashes.
 function noir_sync {
   # Don't send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
-  denoise "scripts/sync.sh init && scripts/sync.sh update" >&2
+  dump_fail "scripts/sync.sh init && scripts/sync.sh update" >&2
 }
 
 # Calculate the content hash for caching, taking into account that `noir-repo`

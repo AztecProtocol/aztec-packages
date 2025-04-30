@@ -293,8 +293,57 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getValidatorsStats', async () => {
+    handler.validatorStats = {
+      stats: {
+        [EthAddress.random().toString()]: {
+          address: EthAddress.random(),
+          totalSlots: 10,
+          missedAttestations: {
+            currentStreak: 1,
+            count: 1,
+          },
+          missedProposals: {
+            currentStreak: 1,
+            rate: 1,
+            count: 1,
+          },
+          history: [{ slot: 1n, status: 'block-mined' }],
+        },
+      },
+      lastProcessedSlot: 20n,
+      initialSlot: 1n,
+      slotWindow: 10,
+    };
     const response = await context.client.getValidatorsStats();
-    expect(response).toBeDefined();
+    expect(response).toEqual(handler.validatorStats);
+  });
+
+  it('getValidatorsStats(empty)', async () => {
+    handler.validatorStats = {
+      stats: {},
+      initialSlot: 1n,
+      slotWindow: 10,
+    };
+    const response = await context.client.getValidatorsStats();
+    expect(response).toEqual(handler.validatorStats);
+  });
+
+  it('getValidatorsStats(noinitialslot)', async () => {
+    handler.validatorStats = {
+      stats: {},
+      slotWindow: 10,
+    };
+    const response = await context.client.getValidatorsStats();
+    expect(response).toEqual(handler.validatorStats);
+  });
+
+  it('getValidatorsStats(disabled)', async () => {
+    handler.validatorStats = {
+      stats: {},
+      slotWindow: 0,
+    };
+    const response = await context.client.getValidatorsStats();
+    expect(response).toEqual(handler.validatorStats);
   });
 
   it('simulatePublicCalls', async () => {
@@ -348,6 +397,8 @@ describe('AztecNodeApiSchema', () => {
 });
 
 class MockAztecNode implements AztecNode {
+  public validatorStats: ValidatorsStats | undefined;
+
   constructor(private artifact: ContractArtifact) {}
 
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
@@ -566,12 +617,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(BlockHeader.empty());
   }
   getValidatorsStats(): Promise<ValidatorsStats> {
-    return Promise.resolve({
-      stats: {},
-      lastProcessedSlot: 20n,
-      initialSlot: 1n,
-      slotWindow: 10,
-    } satisfies ValidatorsStats);
+    return Promise.resolve(this.validatorStats!);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);

@@ -2,6 +2,7 @@
  * Validation logic unit tests
  */
 import type { EpochCache } from '@aztec/epoch-cache';
+import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -95,8 +96,9 @@ describe('ValidationService', () => {
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockResolvedValue(undefined);
+    p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
     // Mock the p2pClient.requestTxs to return undefined for all transactions
-    p2pClient.requestTxs.mockImplementation(() => Promise.resolve([undefined]));
+    p2pClient.requestTxsByHash.mockImplementation(() => Promise.resolve([undefined]));
 
     await expect(validatorClient.ensureTransactionsAreAvailable(proposal)).rejects.toThrow(
       TransactionsNotAvailableError,
@@ -108,6 +110,7 @@ describe('ValidationService', () => {
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockResolvedValue(undefined);
+    p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
     epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
       currentProposer: proposal.getSender(),
       nextProposer: proposal.getSender(),
