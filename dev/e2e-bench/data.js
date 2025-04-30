@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746003282913,
+  "lastUpdate": 1746003297378,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2b6c627ead411e248d28f77667556c2e9312114a",
-          "message": "chore: starknet feature flag (#13681)\n\nAsked by Kesha to keep utmost separation going into audit / not impact\nnormal dev in this critical juncture",
-          "timestamp": "2025-04-22T18:19:10Z",
-          "tree_id": "b8aa82ef50f1615de9f395963c243b7c4699a94d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2b6c627ead411e248d28f77667556c2e9312114a"
-        },
-        "date": 1745350995284,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9334,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.26722313211698706,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 149176,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 144689,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ad6803bf8f830a6e4c76f3b4657889ec85d8e2c",
+          "message": "chore: log which civc final circuit fails to verify (#13939)",
+          "timestamp": "2025-04-30T08:11:57Z",
+          "tree_id": "e7ce33f1bc7196d802ba89623b10d7f5c8c0b95b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2ad6803bf8f830a6e4c76f3b4657889ec85d8e2c"
+        },
+        "date": 1746003296471,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8731,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2499673167733319,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 146428,
             "unit": "us"
           }
         ]
