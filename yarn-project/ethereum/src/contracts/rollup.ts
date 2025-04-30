@@ -176,6 +176,14 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
+  getL1FeesAt(timestamp: bigint) {
+    return this.rollup.read.getL1FeesAt([timestamp]);
+  }
+
+  getFeeAssetPerEth() {
+    return this.rollup.read.getFeeAssetPerEth();
+  }
+
   async getCommitteeAt(timestamp: bigint) {
     const { result } = await this.client.simulateContract({
       address: this.address,

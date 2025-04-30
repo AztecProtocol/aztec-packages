@@ -2,6 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
@@ -62,6 +63,28 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor
 #endif
 
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
+
+/**
+ * @brief Check that size of a ultra honk proof matches the corresponding constant
+ * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
+ * - ultra_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, various main.nr files of programs
+ * with recursive verification circuits
+ * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
+ */
+TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    UltraProver_<Flavor> prover(proving_key);
+    HonkProof ultra_proof = prover.construct_proof();
+    EXPECT_EQ(ultra_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
+}
 
 /**
  * @brief A quick test to ensure that none of our polynomials are identically zero
