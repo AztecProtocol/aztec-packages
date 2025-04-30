@@ -194,14 +194,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     epochCache: EpochCacheInterface,
     proofVerifier: ClientProtocolCircuitVerifier,
     worldStateSynchronizer: WorldStateSynchronizer,
-    store: AztecAsyncKVStore,
+    peerStore: AztecAsyncKVStore,
     telemetry: TelemetryClient,
     logger = createLogger('p2p:libp2p_service'),
   ) {
     const { p2pPort, maxPeerCount, listenAddress } = config;
     const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
 
-    const datastore = new AztecDatastore(store);
+    const datastore = new AztecDatastore(peerStore);
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
