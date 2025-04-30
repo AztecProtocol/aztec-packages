@@ -151,7 +151,7 @@ export function TxPanel() {
   const [currentFunFactIndex, setCurrentFunFactIndex] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [selectedTx, setSelectedTx] = useState<UserTx | null>(null);
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(true);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   const [seenPendingTxPopover, setSeenPendingTxPopover] = useLocalStorage('seenPendingTxPopover', false);
 
