@@ -5,6 +5,8 @@ metadata:
     name: alpha-nodes-backend-config
     namespace: alpha-nodes
 spec:
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
   healthCheck:
     checkIntervalSec: 15
     healthyThreshold: 2
