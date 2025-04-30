@@ -8,7 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod } from '@aztec/aztec.js';
+import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod, TxStatus } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import {
   convertFromUTF8BufferAsString,
@@ -24,14 +24,15 @@ import { useTransaction } from '../../../hooks/useTransaction';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
+
+
 export function AccountSelector() {
+  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, network, pendingTxUpdateCounter } = useContext(AztecContext);
+
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
-  const [isAccountsLoading, setIsAccountsLoading] = useState(true);
+  const [isAccountsLoading, setIsAccountsLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
-
   const [isOpen, setIsOpen] = useState(false);
-
-  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, network } = useContext(AztecContext);
 
   const { sendTx } = useTransaction();
 
@@ -70,25 +71,37 @@ export function AccountSelector() {
   };
 
   useEffect(() => {
-    const refreshAccounts = async () => {
-      setIsAccountsLoading(true);
+    const refreshAccounts = async (showLoading = true) => {
+      if (!walletDB || !pxe) {
+        return;
+      }
+
+      if (showLoading) {
+        setIsAccountsLoading(true);
+      }
       const accounts = await getAccounts();
       setAccounts(accounts);
-      setIsAccountsLoading(false);
+      if (showLoading) {
+        setIsAccountsLoading(false);
+      }
     };
-    if (walletDB && pxe) {
-      refreshAccounts();
+
+    refreshAccounts();
+
+    // Refresh accounts every 10 seconds, a new account may be created from other places
+    const interval = setInterval(() => refreshAccounts(false), 10000);
+    return () => clearInterval(interval);
+
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [wallet, walletDB, pxe, pendingTxUpdateCounter]);
+
+  // If there is only one account, select it automatically
+  useEffect(() => {
+    if (!isAccountsLoading && !wallet && accounts?.length === 1) {
+      handleAccountChange(accounts[0].value);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet, walletDB, pxe]);
-
-  // // If there is only one account, select it automatically
-  // useEffect(() => {
-  //   if (!isAccountsLoading && !wallet && accounts?.length === 1) {
-  //     handleAccountChange(accounts[0].value);
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [accounts, wallet, isAccountsLoading]);
+  }, [accounts, wallet, isAccountsLoading]);
 
   const handleAccountChange = async (address: string) => {
     if (address == '') {
@@ -133,18 +146,17 @@ export function AccountSelector() {
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => {
-    trackButtonClick('Create Account', 'Account Selector');
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
     if (accountWallet && publiclyDeploy) {
-      const deploymentResult = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
-      if (deploymentResult) {
+      const txReceipt = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
+      if (txReceipt?.status === TxStatus.SUCCESS) {
         setAccounts([
           ...accounts,
           { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
         ]);
         setWallet(accountWallet);
-      } else {
+      } else if (txReceipt?.status === TxStatus.DROPPED) {
         // Temporarily remove from accounts if deployment fails
         await walletDB.deleteAccount(accountWallet.getAddress());
       }
@@ -152,17 +164,24 @@ export function AccountSelector() {
     setIsAccountsLoading(false);
   };
 
+  if (isAccountsLoading) {
+    return (
+      <div css={navbarButtonStyle}>
+        <CircularProgress size={24} color="primary" sx={{ marginRight: '1rem' }} />
+        <Typography variant="body1">Loading account...</Typography>
+      </div>
+    );
+  }
+
   return (
     <div css={navbarButtonStyle}>
-      {isAccountsLoading ? (
-        <CircularProgress size={24} />
-      ) : (
-        <SwitchAccountIcon />
-      )}
+      <SwitchAccountIcon />
+
       <FormControl css={navbarSelect}>
         {!wallet?.getAddress().toString() && (
           <InputLabel id="account-label">SelectAccount</InputLabel>
         )}
+
         <Select
           fullWidth
           value={wallet?.getAddress().toString() ?? ''}
@@ -173,15 +192,11 @@ export function AccountSelector() {
           onChange={(e) => handleAccountChange(e.target.value)}
           disabled={isAccountsLoading}
           renderValue={selected => {
-            if (isAccountsLoading) {
-              return `Loading account...`;
+            const account = accounts.find(account => account.value === selected);
+            if (account) {
+              return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
             }
-            if (selected) {
-              const account = accounts.find(account => account.value === selected);
-              if (account) {
-                return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
-              }
-            }
+            return selected ?? 'Select Account';
           }}
         >
           {!isPXEInitialized && (
@@ -191,30 +206,36 @@ export function AccountSelector() {
               </Typography>
             </div>
           )}
+
           {isPXEInitialized && accounts.map(account => (
             <MenuItem key={account.key} value={account.value}>
               {account.key.split(':')[1]}&nbsp;(
               {formatFrAsString(account.value)})
             </MenuItem>
           ))}
+
           {isPXEInitialized && (
             <MenuItem
               key="create"
               value=""
               onClick={() => {
                 setIsOpen(false);
+                trackButtonClick('Create Account', 'Account Selector');
                 setOpenCreateAccountDialog(true);
               }}
             >
-              <AddIcon />
-              &nbsp;Create
+              <AddIcon sx={{ marginRight: '0.5rem' }} />
+              Create
             </MenuItem>
           )}
+
         </Select>
       </FormControl>
+
       {!isAccountsLoading && wallet && (
         <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
       )}
+
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </div>
   );

@@ -165,6 +165,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       sx={{
         backgroundColor: 'white',
         margin: '0.5rem',
+        border: 'none',
         marginBottom: '1rem',
         overflow: 'hidden',
         ...(!isExpanded && {
@@ -182,11 +183,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" css={functionName}>
             {fn.name}
-            <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}>
-            </Badge>
+            <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}></Badge>
           </Typography>
           <IconButton
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
@@ -253,11 +253,13 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                       <TableHead>
                         <TableRow>
                           <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                            Gate Count
+                          </TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {profileResults[fn.name].executionSteps.map((row) => (
+                        {profileResults[fn.name].executionSteps.map(row => (
                           <TableRow key={row.functionName}>
                             <TableCell component="th" scope="row">
                               {row.functionName}
@@ -268,12 +270,11 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                       </TableBody>
                     </Table>
                   </TableContainer>
-                )
-                  : (
-                    <Typography variant="body1" color="error">
-                      {profileResults?.[fn.name]?.error}
-                    </Typography>
-                  )}
+                ) : (
+                  <Typography variant="body1" color="error">
+                    {profileResults?.[fn.name]?.error}
+                  </Typography>
+                )}
               </Box>
             )}
 
