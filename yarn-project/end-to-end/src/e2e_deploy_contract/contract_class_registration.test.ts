@@ -204,7 +204,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
           await expect(
-            contract.methods.constructor(await AztecAddress.random(), await AztecAddress.random(), 43).prove(),
+            contract.methods.constructor(await AztecAddress.random(), await AztecAddress.random(), 43).simulate(),
           ).rejects.toThrow(/initialization hash does not match/i);
         });
 

@@ -39,7 +39,7 @@ describe('e2e_blacklist_token_contract mint', () => {
       it('as non-minter', async () => {
         const amount = 10000n;
         await expect(
-          asset.withWallet(wallets[1]).methods.mint_public(wallets[0].getAddress(), amount).prove(),
+          asset.withWallet(wallets[1]).methods.mint_public(wallets[0].getAddress(), amount).simulate(),
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
