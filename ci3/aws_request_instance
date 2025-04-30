@@ -33,6 +33,7 @@ cpu_map=(
   [96]="24xlarge"
   [128]="32xlarge"
   [192]="48xlarge"
+  [0192]="metal"
 )
 
 if [ "$arch" == "x86_64" ] || [ "$arch" == "amd64" ]; then

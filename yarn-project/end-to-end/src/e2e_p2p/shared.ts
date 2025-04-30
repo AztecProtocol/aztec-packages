@@ -3,8 +3,8 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, ProvenTx, type SentTx, TxStatus, getContractInstanceFromDeployParams } from '@aztec/aztec.js';
 import { timesAsync } from '@aztec/foundation/collection';
-import type { SpamContract } from '@aztec/noir-contracts.js/Spam';
-import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
 
 import type { NodeContext } from '../fixtures/setup_p2p_test.js';

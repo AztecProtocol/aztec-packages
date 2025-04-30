@@ -68,7 +68,7 @@ class ClientIVC {
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    using AggregationObject = stdlib::recursion::aggregation_state<ClientCircuit>;
+    using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -176,8 +176,8 @@ class ClientIVC {
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
 
-    AggregationObject perform_recursive_verification_and_databus_consistency_checks(
-        ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs, AggregationObject agg_obj);
+    PairingPoints perform_recursive_verification_and_databus_consistency_checks(
+        ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs, PairingPoints points_accumulator);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);

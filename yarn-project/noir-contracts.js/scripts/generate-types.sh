@@ -11,6 +11,9 @@ fi
 
 mkdir -p $OUT_DIR
 
+# Extract contract names from Nargo.toml, excluding test and docs contracts
+CONTRACTS=$(grep "contracts/" ../../noir-projects/noir-contracts/Nargo.toml | grep -v "contracts/test/" | grep -v "contracts/docs/" | sed 's/.*contracts\/[^/]*\/\([^"]*\)_contract.*/\1/')
+
 # Check for .json files existence
 if ! ls ../../noir-projects/noir-contracts/target/*.json >/dev/null 2>&1; then
   echo "Error: No .json files found in noir-contracts/target folder."
@@ -31,14 +34,19 @@ export = circuit;
 EOF
 );
 
-for ABI in $(find ../../noir-projects/noir-contracts/target -maxdepth 1 -type f ! -name 'debug_*' -name '*.json'); do
-  # Extract the filename from the path
-  filename=$(basename "$ABI")
-  dts_file=$(echo $filename | sed 's/.json/.d.json.ts/g');
+# Copy the artifacts to the artifacts folder
+for contract in $CONTRACTS; do
+  # Find the matching ABI file for this contract
+  ABI=$(find "../../noir-projects/noir-contracts/target" -name "${contract}_contract-*.json" | head -n 1)
+  if [ -n "$ABI" ]; then
+    # Extract the filename from the path
+    filename=$(basename "$ABI")
+    dts_file=$(echo $filename | sed 's/.json/.d.json.ts/g');
 
-  # Copy the JSON file to the artifacts folder
-  cp "$ABI" "artifacts/$filename"
-  echo "$decl" > "artifacts/$dts_file"
+    # Copy the JSON file to the artifacts folder
+    cp "$ABI" "artifacts/$filename"
+    echo "$decl" > "artifacts/$dts_file"
+  fi
 done
 
 # Generate types for the contracts
