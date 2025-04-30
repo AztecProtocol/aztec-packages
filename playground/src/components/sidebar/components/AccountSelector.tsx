@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
-import Select, { type SelectChangeEvent } from '@mui/material/Select';
+import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -10,35 +10,20 @@ import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
 import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
-
 import {
   convertFromUTF8BufferAsString,
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
 import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
-
 import { Fq, type AccountManager } from '@aztec/aztec.js';
-import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
 import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { useTransaction } from '../../../hooks/useTransaction';
-import { select } from '../../../styles/common';
-
-const modalContainer = css({
-  padding: '10px 0',
-});
-
-const loadingContainer = css({
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  flexDirection: 'column',
-  padding: '20px 0',
-  gap: '12px',
-});
-
+import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
+import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
+import { trackButtonClick } from '../../../utils/matomo';
 export function AccountSelector() {
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
@@ -94,14 +79,24 @@ export function AccountSelector() {
     if (walletDB && pxe) {
       refreshAccounts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet, walletDB, pxe]);
 
-  const handleAccountChange = async (event: SelectChangeEvent) => {
-    if (event.target.value == '') {
+  // // If there is only one account, select it automatically
+  // useEffect(() => {
+  //   if (!isAccountsLoading && !wallet && accounts?.length === 1) {
+  //     handleAccountChange(accounts[0].value);
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [accounts, wallet, isAccountsLoading]);
+
+  const handleAccountChange = async (address: string) => {
+    if (address == '') {
       return;
     }
+    trackButtonClick(`Select Account ${address}`, 'Account Selector');
     setIsAccountsLoading(true);
-    const accountAddress = AztecAddress.fromString(event.target.value);
+    const accountAddress = AztecAddress.fromString(address);
     const accountData = await walletDB.retrieveAccount(accountAddress);
     const type = convertFromUTF8BufferAsString(accountData.type);
     let accountManager: AccountManager;
@@ -138,10 +133,11 @@ export function AccountSelector() {
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => {
+    trackButtonClick('Create Account', 'Account Selector');
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
     if (accountWallet && publiclyDeploy) {
-      const deploymentResult = await sendTx(`Deployment of account`, interaction, accountWallet.getAddress(), opts);
+      const deploymentResult = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
       if (deploymentResult) {
         setAccounts([
           ...accounts,
@@ -156,33 +152,17 @@ export function AccountSelector() {
     setIsAccountsLoading(false);
   };
 
-  // Render loading state if accounts are being loaded
-  if (isAccountsLoading) {
-    return (
-      <div css={modalContainer}>
-        <div css={loadingContainer}>
-          <CircularProgress size={24} />
-          <Typography variant="body2">{!isPXEInitialized ? 'Not connected...' : 'Loading accounts...'}</Typography>
-        </div>
-      </div>
-    );
-  }
-
-  // If PXE is not initialized or network is not connected, show a message
-  if (!isPXEInitialized) {
-    return (
-      <div css={loadingContainer}>
-        <Typography variant="body2" color="warning.main">
-          Note: Connect to a network first to create and use accounts
-        </Typography>
-      </div>
-    );
-  }
-
   return (
-    <div css={modalContainer}>
-      <FormControl css={select}>
-        <InputLabel>Account</InputLabel>
+    <div css={navbarButtonStyle}>
+      {isAccountsLoading ? (
+        <CircularProgress size={24} />
+      ) : (
+        <SwitchAccountIcon />
+      )}
+      <FormControl css={navbarSelect}>
+        {!wallet?.getAddress().toString() && (
+          <InputLabel id="account-label">SelectAccount</InputLabel>
+        )}
         <Select
           fullWidth
           value={wallet?.getAddress().toString() ?? ''}
@@ -190,35 +170,51 @@ export function AccountSelector() {
           open={isOpen}
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
-          onChange={handleAccountChange}
+          onChange={(e) => handleAccountChange(e.target.value)}
           disabled={isAccountsLoading}
+          renderValue={selected => {
+            if (isAccountsLoading) {
+              return `Loading account...`;
+            }
+            if (selected) {
+              const account = accounts.find(account => account.value === selected);
+              if (account) {
+                return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
+              }
+            }
+          }}
         >
-          {accounts.map(account => (
+          {!isPXEInitialized && (
+            <div css={navbarSelectLabel}>
+              <Typography variant="body2" color="warning.main">
+                Note: Connect to a network first to create and use accounts
+              </Typography>
+            </div>
+          )}
+          {isPXEInitialized && accounts.map(account => (
             <MenuItem key={account.key} value={account.value}>
               {account.key.split(':')[1]}&nbsp;(
               {formatFrAsString(account.value)})
             </MenuItem>
           ))}
-          <MenuItem
-            key="create"
-            value=""
-            onClick={() => {
-              setIsOpen(false);
-              setOpenCreateAccountDialog(true);
-            }}
-          >
-            <AddIcon />
-            &nbsp;Create
-          </MenuItem>
+          {isPXEInitialized && (
+            <MenuItem
+              key="create"
+              value=""
+              onClick={() => {
+                setIsOpen(false);
+                setOpenCreateAccountDialog(true);
+              }}
+            >
+              <AddIcon />
+              &nbsp;Create
+            </MenuItem>
+          )}
         </Select>
-        {isAccountsLoading ? (
-          <div style={{ display: 'flex', alignItems: 'center', marginLeft: '0.5rem' }}>
-            <CircularProgress size={20} />
-          </div>
-        ) : (
-          <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
-        )}
       </FormControl>
+      {!isAccountsLoading && wallet && (
+        <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
+      )}
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </div>
   );

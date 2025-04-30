@@ -65,6 +65,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
           onChange={event => handleMethodChange(event.target.value as FeePaymentMethodType)}
           fullWidth
           disabled={isMethodChanging}
+          size="small"
         >
           {network.hasSponsoredFPC && <MenuItem value="sponsored_fpc">Sponsored Fee Paying Contract</MenuItem>}
           {wallet && <MenuItem value="fee_juice">Fee Juice</MenuItem>}
