@@ -200,9 +200,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
         mock_opcode_indices(constraint_system);
         uint32_t honk_recursion = 0;
-        if constexpr (IsMegaBuilder<BuilderType>) {
-            honk_recursion = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1336): Turn this on.
-        } else if constexpr (IsAnyOf<InnerFlavor, UltraFlavor>) {
+        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor>) {
             honk_recursion = 1;
         } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;

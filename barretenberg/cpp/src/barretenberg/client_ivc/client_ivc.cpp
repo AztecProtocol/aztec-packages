@@ -115,7 +115,6 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
 
     // Recursively verify the merge proof for the circuit being recursively verified
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
     RecursiveMergeVerifier merge_verifier{ &circuit };
     PairingPoints pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
 
@@ -265,7 +264,6 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     const StdlibProof<ClientCircuit> stdlib_merge_proof =
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
     RecursiveMergeVerifier merge_verifier{ &builder };
     PairingPoints points_accumulator = merge_verifier.verify_proof(stdlib_merge_proof);
 

@@ -334,6 +334,9 @@ void handle_IPA_accumulation(Builder& builder,
         nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
     OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
     HonkProof final_ipa_proof;
+    if (is_root_rollup) {
+        ASSERT(nested_ipa_claims.size() == 2 && "Root rollup must have two nested IPA claims.");
+    }
     if (nested_ipa_claims.size() == 2) {
         // If we have two claims, accumulate.
         auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
