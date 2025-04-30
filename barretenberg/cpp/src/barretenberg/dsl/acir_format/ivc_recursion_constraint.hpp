@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include <vector>
@@ -14,9 +13,6 @@
 namespace acir_format {
 
 using namespace bb;
-
-std::shared_ptr<ClientIVC::MegaVerificationKey> construct_kernel_vk_from_acir_program(
-    AcirProgram& program, const TraceSettings& trace_settings);
 
 std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
                                                             const TraceSettings& trace_settings);

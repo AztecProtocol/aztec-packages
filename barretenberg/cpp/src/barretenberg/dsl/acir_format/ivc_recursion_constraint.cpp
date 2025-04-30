@@ -21,31 +21,6 @@ namespace acir_format {
 using namespace bb;
 
 /**
- * @brief Construct a kernel circuit VK from an acir program with IVC recursion constraints
- *
- * @param program Acir program representing a kernel circuit
- * @param trace_settings needed for construction of the VK
- * @return std::shared_ptr<ClientIVC::MegaVerificationKey>
- */
-std::shared_ptr<ClientIVC::MegaVerificationKey> construct_kernel_vk_from_acir_program(
-    AcirProgram& program, const TraceSettings& trace_settings)
-{
-    using Builder = typename ClientIVC::ClientCircuit;
-    // Create a mock IVC instance from the IVC recursion constraints in the kernel program
-    auto mock_ivc = create_mock_ivc_from_constraints(program.constraints.ivc_recursion_constraints, trace_settings);
-
-    // Create kernel circuit from kernel program and the mocked IVC (empty witness mimics VK construction context)
-    const ProgramMetadata metadata{ mock_ivc };
-    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Manually construct the VK for the kernel circuit
-    auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
-    MegaProver prover(proving_key);
-
-    return std::make_shared<ClientIVC::MegaVerificationKey>(prover.proving_key->proving_key);
-}
-
-/**
  * @brief Create an IVC object with mocked state corresponding to a set of IVC recursion constraints
  * @details Construction of a kernel circuit requires two inputs: kernel prgram acir constraints and an IVC instance
  * containing state needed to complete the kernel logic, e.g. proofs for input to recursive verifiers. To construct

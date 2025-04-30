@@ -11,7 +11,6 @@
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -187,16 +186,10 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add multi scalar mul constraints
     for (size_t i = 0; i < constraint_system.multi_scalar_mul_constraints.size(); ++i) {
-        // if constexpr (IsMegaBuilder<Builder>) {
-        //     info("VK HASH prior to multi_scalar_mul constraints: ", proving_key_inspector::compute_vk_hash(builder));
-        // }
         const auto& constraint = constraint_system.multi_scalar_mul_constraints.at(i);
         create_multi_scalar_mul_constraint(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.multi_scalar_mul_constraints.at(i));
-        // if constexpr (IsMegaBuilder<Builder>) {
-        //     info("VK HASH POST multi_scalar_mul constraints: ", proving_key_inspector::compute_vk_hash(builder));
-        // }
     }
 
     // Add ec add constraints
@@ -254,7 +247,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // RecursionConstraints
     if constexpr (IsMegaBuilder<Builder>) {
-        // info("VK HASH prior to recursion constraints: ", proving_key_inspector::compute_vk_hash(builder));
         if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains unhandled recursion_constraints!");
         }
@@ -272,7 +264,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             process_ivc_recursion_constraints(
                 builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
         }
-        // info("VK HASH post ivc recursion constraints: ", proving_key_inspector::compute_vk_hash(builder));
 
         // We shouldn't have both honk recursion constraints and ivc recursion constraints.
         ASSERT((constraint_system.honk_recursion_constraints.empty() ||
@@ -283,7 +274,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             constraint_system.ivc_recursion_constraints.empty()) {
             PairingPoints::add_default_to_public_inputs(builder);
         }
-        // info("VK HASH final: ", proving_key_inspector::compute_vk_hash(builder));
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
 
@@ -560,7 +550,6 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
             populate_dummy_vk_in_constraint(builder, queue_entry.honk_verification_key, constraint.key);
         }
     }
-    // info("VK HASH post populate_dummy_vk_in_constraint: ", proving_key_inspector::compute_vk_hash(builder));
 
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
     std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
@@ -569,12 +558,8 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
         stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
             StdlibVerificationKey::from_witness_indices(builder, constraint.key)));
     }
-    // info("VK HASH post StdlibVerificationKey: ", proving_key_inspector::compute_vk_hash(builder));
-
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
     ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
-
-    // info("VK HASH post instantiate_stdlib_verification_queue: ", proving_key_inspector::compute_vk_hash(builder));
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
     // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
@@ -591,12 +576,9 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
             builder.assert_equal(witness_idx, constraint_witness_idx);
         }
     }
-    // info("VK HASH post assert_equal: ", proving_key_inspector::compute_vk_hash(builder));
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
     ivc->complete_kernel_circuit_logic(builder);
-
-    // info("VK HASH post complete_kernel_circuit_logic: ", proving_key_inspector::compute_vk_hash(builder));
 
     // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they
     // are handled simultaneously in the above function call; instead we track the total contribution

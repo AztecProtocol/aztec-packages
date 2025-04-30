@@ -109,7 +109,6 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
             break;
         }
     }
-    // size_t step_count = 0;
     // Accumulate the entire program stack into the IVC
     for (auto [program, precomputed_vk, function_name] : zip_view(folding_stack, precomputed_vks, function_names)) {
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
@@ -119,10 +118,6 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
         ivc->accumulate(circuit, precomputed_vk);
-
-        // if (step_count++ == 1) {
-        //     break;
-        // }
     }
 
     return ivc;

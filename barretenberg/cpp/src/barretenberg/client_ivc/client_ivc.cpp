@@ -196,12 +196,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Update the accumulator trace usage based on the present circuit
     trace_usage_tracker.update(circuit);
 
-    auto computed_vk = std::make_shared<MegaVerificationKey>(proving_key->proving_key);
-    // Check the equality of the computed vk and the precomputed vk
-    info("OUTER COMPUTED VK:");
-    // computed_vk->print();
-    // computed_vk->compare(precomputed_vk);
-
     // Set the verification key from precomputed if available, else compute it
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
