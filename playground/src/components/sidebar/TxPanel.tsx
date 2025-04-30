@@ -104,7 +104,7 @@ const arrowDown = css({
   height: 0,
   borderLeft: '8px solid transparent',
   borderRight: '8px solid transparent',
-  borderTop: '8px solid var(--mui-palette-primary-main)',
+  borderTop: '8px solid white',
   position: 'absolute',
   left: '50%',
   bottom: '-8px',
@@ -115,11 +115,11 @@ const popoverCss = css({
   transform: 'translateY(-130px) translateX(10px)',
   overflow: 'visible',
   '& .MuiPaper-root': {
-    backgroundColor: 'var(--mui-palette-primary-main)',
+    backgroundColor: 'white',
     color: 'var(--mui-palette-text-primary)',
     overflowX: 'visible',
     overflowY: 'visible',
-    boxShadow: 'none',
+    // boxShadow: 'none',
     animation: 'fadeIn 0.3s ease-in-out',
     animationDelay: '1s',
     animationFillMode: 'backwards',
@@ -131,13 +131,19 @@ const popoverCss = css({
 });
 
 export function TxPanel() {
-  const { setTransactionModalStatus, currentTx, walletDB, logs, pxe } = useContext(AztecContext);
+  const {
+    currentTx,
+    walletDB,
+    logs,
+    pxe,
+    setTransactionModalStatus,
+    setPendingTxUpdateCounter,
+    pendingTxUpdateCounter,
+  } = useContext(AztecContext);
 
-  const [numTransactions, setNumTransactions] = useState(0);
   const [currentFunFactIndex, setCurrentFunFactIndex] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [selectedTx, setSelectedTx] = useState<UserTx | null>(null);
-  const [txUpdateCounter, setTxUpdateCounter] = useState(0);
 
   const [seenPendingTxPopover, setSeenPendingTxPopover] = useLocalStorage('seenPendingTxPopover', false);
 
@@ -165,7 +171,7 @@ export function TxPanel() {
     } else {
       setTransactions([]);
     }
-  }, [currentTx, walletDB, txUpdateCounter]);
+  }, [currentTx, walletDB, pendingTxUpdateCounter]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -175,19 +181,7 @@ export function TxPanel() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const refreshTransactions = async () => {
-      const txs = await walletDB.retrieveAllTx();
-      setNumTransactions(txs.length);
-    };
-
-    if (walletDB) {
-      refreshTransactions();
-    } else {
-      setNumTransactions(0);
-    }
-  }, [currentTx, walletDB]);
-
+  // Update pending transactions status
   useEffect(() => {
     const refreshPendingTx = async () => {
       if (!pxe || !walletDB) {
@@ -199,7 +193,7 @@ export function TxPanel() {
         const txReceipt = await queryTxReceipt(tx, pxe);
         if (txReceipt) {
           await walletDB.updateTxStatus(tx.txHash, txReceipt.status);
-          setTxUpdateCounter(prev => prev + 1);
+          setPendingTxUpdateCounter(pendingTxUpdateCounter + 1);
         }
       }
     };
@@ -210,6 +204,8 @@ export function TxPanel() {
 
     const interval = setInterval(refreshPendingTx, 1000);
     return () => clearInterval(interval);
+
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [transactions, walletDB, pxe]);
 
   const pendingTx = currentTx && currentTx.status !== 'success' ? currentTx : null;
@@ -221,7 +217,7 @@ export function TxPanel() {
   const errorMessage = pendingTx?.error;
   const subtitle = hasError ? errorMessage : lastLog;
 
-  if (numTransactions === 0 && !pendingTx) {
+  if (transactions.length === 0 && !pendingTx) {
     // Return a div with 0 width, so we can have animation when it appears
     return <div css={{ width: '0px', padding: '0px', marginLeft: '-20px' }} />;
   }
@@ -253,10 +249,10 @@ export function TxPanel() {
 
               <Button
                 variant="contained"
-                color="secondary"
+                color="primary"
                 onClick={() => setSeenPendingTxPopover(true)}
                 size="small"
-                sx={{ marginTop: '0.5rem', borderRadius: '6px' }}
+                sx={{ marginTop: '1rem', borderRadius: '6px', width: '70px' }}
               >
                 Got it
               </Button>
@@ -315,14 +311,14 @@ export function TxPanel() {
         </Card>
       )}
       <div style={{ flexGrow: 0.75, overflowY: 'auto', marginTop: '0rem' }}>
-        {numTransactions > 0 && (
+        {transactions.length > 0 && (
           <>
             <Typography variant="overline">Past Transactions</Typography>
             <Divider sx={{ marginBottom: '1rem', marginTop: '0rem' }} />
           </>
         )}
 
-        {numTransactions > 0 &&
+        {transactions.length > 0 &&
           transactions.map(tx => (
             <Button
               css={txData}

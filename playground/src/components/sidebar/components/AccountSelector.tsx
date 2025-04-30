@@ -24,14 +24,15 @@ import { useTransaction } from '../../../hooks/useTransaction';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
+
+
 export function AccountSelector() {
+  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, network, pendingTxUpdateCounter } = useContext(AztecContext);
+
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
-
   const [isOpen, setIsOpen] = useState(false);
-
-  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, network } = useContext(AztecContext);
 
   const { sendTx } = useTransaction();
 
@@ -80,7 +81,7 @@ export function AccountSelector() {
       refreshAccounts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet, walletDB, pxe]);
+  }, [wallet, walletDB, pxe, pendingTxUpdateCounter]);
 
   // // If there is only one account, select it automatically
   // useEffect(() => {

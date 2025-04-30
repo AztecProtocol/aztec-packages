@@ -36,6 +36,7 @@ export function ContractSelector() {
     wallet,
     walletDB,
     isPXEInitialized,
+    pendingTxUpdateCounter,
     setCurrentContractArtifact,
     setCurrentContractAddress,
     setShowContractInterface,
@@ -55,7 +56,7 @@ export function ContractSelector() {
     if (walletDB && wallet) {
       refreshContracts();
     }
-  }, [currentContractAddress, walletDB, wallet]);
+  }, [currentContractAddress, walletDB, wallet, pendingTxUpdateCounter]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
