@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746026388171,
+  "lastUpdate": 1746026441606,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -2734,6 +2734,78 @@ window.BENCHMARK_DATA = {
             "value": 1790,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8e83b22f4b187b2d09eb28118c6fccb4de914c52",
+          "message": "fix: generate recursion separator properly (#13931)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/995.\n\nInstead of setting the recursion separator to 42, we generate it by\nhashing the two input pairing point objects.",
+          "timestamp": "2025-04-30T14:28:18Z",
+          "tree_id": "87734d936afc18d82d3822c39bc02781bbfbf360",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8e83b22f4b187b2d09eb28118c6fccb4de914c52"
+        },
+        "date": 1746026433286,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17452.92369599997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13739.260411 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2207617474,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 200168559,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20234.312363999947,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17024.015544 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56090.395536,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56090400000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4417.137084000046,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3743.779827 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11955.422682,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11955426000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2344.06",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
