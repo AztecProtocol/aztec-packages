@@ -17,7 +17,11 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr), and explain what is being added as we go.
+:::note
+This tutorial is compatible with the Aztec version #include_aztec_version. If you are using a different version or network, you can find the relevant tutorial by clicking the #include_aztec_version dropdown at the top of the page.
+:::
+
+We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr), and explain what is being added as we go.
 
 ## Requirements
 
@@ -45,9 +49,9 @@ Inside `Nargo.toml` paste the following:
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.86.0", directory="noir-projects/aztec-nr/aztec" }
-authwit={ git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.86.0", directory="noir-projects/aztec-nr/authwit"}
-compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.86.0", directory="noir-projects/aztec-nr/compressed-string"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+authwit={ git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
+compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/compressed-string"}
 ```
 
 We will be working within `main.nr` for the rest of the tutorial.
@@ -135,45 +139,14 @@ Before we can implement the functions, we need set up the contract storage, and 
 
 :::info Copy required files
 
-We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
+We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/nft_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
 
 :::
 
 Paste these imports:
 
 ```rust
-mod types;
-mod test;
-
-use dep::aztec::macros::aztec;
-
-// Minimal NFT implementation with `AuthWit` support that allows minting in public-only and transfers in both public
-// and private.
-#[aztec]
-pub contract NFT {
-    use crate::types::nft_note::{NFTNote, PartialNFTNote};
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-        compute_authwit_nullifier,
-    };
-    use dep::aztec::{
-        macros::{
-            events::event,
-            functions::{initializer, internal, private, public, utility, view},
-            storage::storage,
-        },
-        messages::logs::note::encode_and_encrypt_note,
-        note::{constants::MAX_NOTES_PER_PAGE, note_interface::NoteProperties},
-        prelude::{
-            AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
-            PublicContext, PublicImmutable, PublicMutable,
-        },
-        protocol_types::traits::Serialize,
-        utils::comparison::Comparator,
-    };
-    use dep::compressed_string::FieldCompressedString;
-    use aztec::protocol_types::traits::ToField;
-    use std::meta::derive;
+#include_code imports /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr raw
 }
 ```
 
@@ -185,7 +158,7 @@ We are importing:
 
 ### Types files
 
-We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src).
+We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/nft_contract/src).
 
 :::note
 
@@ -199,27 +172,7 @@ Now that we have dependencies imported into our contract we can define the stora
 
 Below the dependencies, paste the following Storage struct:
 
-```rust title="storage_struct" showLineNumbers 
-#[storage]
-struct Storage<Context> {
-    // The symbol of the NFT
-    symbol: PublicImmutable<FieldCompressedString, Context>,
-    // The name of the NFT
-    name: PublicImmutable<FieldCompressedString, Context>,
-    // The admin of the contract
-    admin: PublicMutable<AztecAddress, Context>,
-    // Addresses that can mint
-    minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-    // Contains the NFTs owned by each address in private.
-    private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
-    // A map from token ID to a boolean indicating if the NFT exists.
-    nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
-    // A map from token ID to the public owner of the NFT.
-    public_owners: Map<Field, PublicMutable<AztecAddress, Context>, Context>,
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L47-L65" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L47-L65</a></sub></sup>
-
+#include_code storage_struct /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ## Custom Notes
 
@@ -227,26 +180,7 @@ The contract storage uses a [custom note](../../../guides/smart_contracts/writin
 
 Randomness is required because notes are stored as commitments (hashes) in the note hash tree. Without randomness, the contents of a note may be derived through brute force (e.g. without randomness, if you know my Aztec address, you may be able to figure out which note hash in the tree is mine by hashing my address with many potential `token_id`s).
 
-```rust title="nft_note" showLineNumbers 
-/// A private note representing a token id associated to an account.
-#[custom_note]
-#[derive(Eq, Serialize)]
-pub struct NFTNote {
-    // The ordering of these fields is important given that it must:
-    //   a) match that of NFTPartialNotePrivateContent, and
-    //   b) have the public field at the end
-    // Correct ordering is checked by the tests in this module.
-
-    /// The owner of the note, i.e. the account whose nullifier secret key is required to compute the nullifier.
-    owner: AztecAddress,
-    /// Random value, protects against note hash preimage attacks.
-    randomness: Field,
-    /// The ID of the token represented by this note.
-    token_id: Field,
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/types/nft_note.nr#L23-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/types/nft_note.nr#L23-L40</a></sub></sup>
-
+#include_code nft_note /noir-projects/noir-contracts/contracts/app/nft_contract/src/types/nft_note.nr rust
 
 ## Functions
 
@@ -256,19 +190,7 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 This function sets the admin and makes them a minter, and sets the name and symbol.
 
-```rust title="constructor" showLineNumbers 
-#[public]
-#[initializer]
-fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
-    assert(!admin.is_zero(), "invalid admin");
-    storage.admin.write(admin);
-    storage.minters.at(admin).write(true);
-    storage.name.initialize(FieldCompressedString::from_string(name));
-    storage.symbol.initialize(FieldCompressedString::from_string(symbol));
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L67-L77" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L67-L77</a></sub></sup>
-
+#include_code constructor /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ### Public function implementations
 
@@ -282,68 +204,23 @@ Storage is referenced as `storage.variable`.
 
 The function checks that the `msg_sender` is the `admin`. If not, the transaction will fail. If it is, the `new_admin` is saved as the `admin`.
 
-```rust title="set_admin" showLineNumbers 
-#[public]
-fn set_admin(new_admin: AztecAddress) {
-    assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
-    storage.admin.write(new_admin);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L79-L85" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L79-L85</a></sub></sup>
-
+#include_code set_admin /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `set_minter`
 
 This function allows the `admin` to add or a remove a `minter` from the public `minters` mapping. It checks that `msg_sender` is the `admin` and finally adds the `minter` to the `minters` mapping.
 
-```rust title="set_minter" showLineNumbers 
-#[public]
-fn set_minter(minter: AztecAddress, approve: bool) {
-    assert(storage.admin.read().eq(context.msg_sender()), "caller is not an admin");
-    storage.minters.at(minter).write(approve);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L87-L93" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L87-L93</a></sub></sup>
-
+#include_code set_minter /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `mint`
 
 This public function checks that the `token_id` is not 0 and does not already exist and the `msg_sender` is authorized to mint. Then it indicates that the `token_id` exists, which is useful for verifying its existence if it gets transferred to private, and updates the owner in the `public_owners` mapping.
 
-```rust title="mint" showLineNumbers 
-#[public]
-fn mint(to: AztecAddress, token_id: Field) {
-    assert(token_id != 0, "zero token ID not supported");
-    assert(storage.minters.at(context.msg_sender()).read(), "caller is not a minter");
-    assert(storage.nft_exists.at(token_id).read() == false, "token already exists");
-
-    storage.nft_exists.at(token_id).write(true);
-
-    storage.public_owners.at(token_id).write(to);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L95-L106" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L95-L106</a></sub></sup>
-
+#include_code mint /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `transfer_in_public`
 
-```rust title="transfer_in_public" showLineNumbers 
-#[public]
-fn transfer_in_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
-    if (!from.eq(context.msg_sender())) {
-        assert_current_call_valid_authwit_public(&mut context, from);
-    } else {
-        assert(nonce == 0, "invalid nonce");
-    }
-
-    let public_owners_storage = storage.public_owners.at(token_id);
-    assert(public_owners_storage.read().eq(from), "invalid owner");
-
-    public_owners_storage.write(to);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L148-L162" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L148-L162</a></sub></sup>
-
+#include_code transfer_in_public /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ##### Authorizing token spends (via authwits)
 
@@ -355,15 +232,7 @@ If the `msg_sender` is the same as the account to debit from, the authorization 
 
 This public function finalizes a transfer that has been set up by a call to [`prepare_private_balance_increase`](#prepare_private_balance_increase) by reducing the public balance of the associated account and emitting the note for the intended recipient.
 
-```rust title="finalize_transfer_to_private" showLineNumbers 
-#[public]
-fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
-    let from = context.msg_sender();
-    _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L229-L235" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L229-L235</a></sub></sup>
-
+#include_code finalize_transfer_to_private /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ### Private function implementations
 
@@ -382,23 +251,7 @@ Storage is referenced as `storage.variable`.
 
 Transfers token with `token_id` from public balance of the sender to a private balance of `to`. Calls [`_prepare_private_balance_increase`](#prepare_private_balance_increase) to get the hiding point slot (a transient storage slot where we can keep the partial note) and then calls [`_finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) to finalize the transfer in the public context.
 
-```rust title="transfer_to_private" showLineNumbers 
-#[private]
-fn transfer_to_private(to: AztecAddress, token_id: Field) {
-    let from = context.msg_sender();
-
-    let nft = NFT::at(context.this_address());
-
-    // We prepare the private balance increase.
-    let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
-
-    // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
-    // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
-    nft._finalize_transfer_to_private_unsafe(from, token_id, partial_note).enqueue(&mut context);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L165-L179" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L165-L179</a></sub></sup>
-
+#include_code transfer_to_private /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `prepare_private_balance_increase`
 
@@ -412,108 +265,25 @@ This function calls `_prepare_private_balance_increase` which is marked as `#[co
 
 It also calls [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) to store the partial note in "transient storage" (more below)
 
-```rust title="prepare_private_balance_increase" showLineNumbers 
-#[private]
-fn prepare_private_balance_increase(to: AztecAddress) -> PartialNFTNote {
-    _prepare_private_balance_increase(to, &mut context, storage)
-}
-
-/// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
-/// us to have it inlined in the `transfer_to_private` function which results in one less kernel iteration.
-///
-/// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
-/// function.
-#[contract_library_method]
-fn _prepare_private_balance_increase(
-    to: AztecAddress,
-    context: &mut PrivateContext,
-    storage: Storage<&mut PrivateContext>,
-) -> PartialNFTNote {
-    // We create a partial note with unpopulated/zero token id for 'to'
-    let partial_note = NFTNote::partial(
-        to,
-        storage.private_nfts.at(to).storage_slot,
-        context,
-        to,
-        context.msg_sender(),
-    );
-
-    NFT::at(context.this_address())._store_nft_set_partial_note(partial_note).enqueue(context);
-
-    partial_note
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L183-L213" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L183-L213</a></sub></sup>
-
+#include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `cancel_authwit`
 
 Cancels a private authwit by emitting the corresponding nullifier.
 
-```rust title="cancel_authwit" showLineNumbers 
-#[private]
-fn cancel_authwit(inner_hash: Field) {
-    let on_behalf_of = context.msg_sender();
-    let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-    context.push_nullifier(nullifier);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L275-L282" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L275-L282</a></sub></sup>
-
+#include_code cancel_authwit /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `transfer_in_private`
 
 Transfers an NFT between two addresses in the private context. Uses [authwits](../../../../aztec/concepts/advanced/authwit.md) to allow contracts to transfer NFTs on behalf of other accounts.
 
-```rust title="transfer_in_private" showLineNumbers 
-#[private]
-fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
-    if (!from.eq(context.msg_sender())) {
-        assert_current_call_valid_authwit(&mut context, from);
-    } else {
-        assert(nonce == 0, "invalid nonce");
-    }
-
-    let nfts = storage.private_nfts;
-
-    let notes = nfts.at(from).pop_notes(NoteGetterOptions::new()
-        .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
-        .set_limit(1));
-    assert(notes.len() == 1, "NFT not found when transferring");
-
-    let new_note = NFTNote::new(token_id, to);
-
-    nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to, from));
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L284-L304" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L284-L304</a></sub></sup>
-
+#include_code transfer_in_private /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `transfer_to_public`
 
 Transfers and NFT from private storage to public storage. The private call enqueues a call to [`_finish_transfer_to_public`](#_finish_transfer_to_public) which updates the public owner of the `token_id`.
 
-```rust title="transfer_to_public" showLineNumbers 
-#[private]
-fn transfer_to_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
-    if (!from.eq(context.msg_sender())) {
-        assert_current_call_valid_authwit(&mut context, from);
-    } else {
-        assert(nonce == 0, "invalid nonce");
-    }
-
-    let notes = storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new()
-        .select(NFTNote::properties().token_id, Comparator.EQ, token_id)
-        .set_limit(1));
-    assert(notes.len() == 1, "NFT not found when transferring to public");
-
-    NFT::at(context.this_address())._finish_transfer_to_public(to, token_id).enqueue(
-        &mut context,
-    );
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L306-L324" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L306-L324</a></sub></sup>
-
+#include_code transfer_to_public /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ### Internal function implementations
 
@@ -525,51 +295,19 @@ It is labeled unsafe because the public function does not check the value of the
 
 This is transient storage since the storage is not permanent, but is scoped to the current transaction only, after which it will be reset. The partial note is stored the "hiding point slot" value (computed in `_prepare_private_balance_increase()`) in public storage. However subsequent enqueued call to `_finalize_transfer_to_private_unsafe()` will read the partial note in this slot, complete it and emit it. Since the note is completed, there is no use of storing the hiding point slot anymore so we will reset to empty. This saves a write to public storage too.
 
-```rust title="store_payload_in_transient_storage_unsafe" showLineNumbers 
-#[public]
-#[internal]
-fn _store_nft_set_partial_note(partial_note: PartialNFTNote) {
-    // We store the partial note in a slot equal to its commitment. This is safe because the commitment is computed
-    // using a generator different from the one used to compute storage slots, so there can be no collisions.
-    // We could consider storing all pending partial notes in e.g. some array, but ultimately this is pointless: all
-    // we need to verify is that the note is valid.
-    context.storage_write(partial_note.commitment(), true);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L215-L225" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L215-L225</a></sub></sup>
-
+#include_code store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `_finalize_transfer_to_private_unsafe`
 
 This function is labeled as unsafe because the sender is not enforced in this function, but it is safe because the sender is enforced in the execution of the private function that calls this function.
 
-```rust title="finalize_transfer_to_private_unsafe" showLineNumbers 
-#[public]
-#[internal]
-fn _finalize_transfer_to_private_unsafe(
-    from: AztecAddress,
-    token_id: Field,
-    partial_note: PartialNFTNote,
-) {
-    _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L237-L247" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L237-L247</a></sub></sup>
-
+#include_code finalize_transfer_to_private_unsafe /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `_finish_transfer_to_public`
 
 Updates the public owner of the `token_id` to the `to` address.
 
-```rust title="finish_transfer_to_public" showLineNumbers 
-#[public]
-#[internal]
-fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
-    storage.public_owners.at(token_id).write(to);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L326-L332" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L326-L332</a></sub></sup>
-
+#include_code finish_transfer_to_public /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ### View function implementations
 
@@ -579,29 +317,13 @@ NFT implements the following `view` functions:
 
 A getter function for reading the public `admin` value.
 
-```rust title="admin" showLineNumbers 
-#[public]
-#[view]
-fn get_admin() -> Field {
-    storage.admin.read().to_field()
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L132-L138" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L132-L138</a></sub></sup>
-
+#include_code admin /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `is_minter`
 
 A getter function for checking the value of associated with a `minter` in the public `minters` mapping.
 
-```rust title="is_minter" showLineNumbers 
-#[public]
-#[view]
-fn is_minter(minter: AztecAddress) -> bool {
-    storage.minters.at(minter).read()
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L140-L146" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L140-L146</a></sub></sup>
-
+#include_code is_minter /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `owner_of`
 
@@ -631,29 +353,7 @@ The NFT implements the following [utility](../../../../aztec/concepts/call_types
 
 A getter function for checking the private balance of the provided Aztec account. Returns an array of token IDs owned by `owner` in private and a flag indicating whether a page limit was reached.
 
-```rust title="get_private_nfts" showLineNumbers 
-#[utility]
-unconstrained fn get_private_nfts(
-    owner: AztecAddress,
-    page_index: u32,
-) -> ([Field; MAX_NOTES_PER_PAGE], bool) {
-    let offset = page_index * MAX_NOTES_PER_PAGE;
-    let mut options = NoteViewerOptions::new();
-    let notes = storage.private_nfts.at(owner).view_notes(options.set_offset(offset));
-
-    let mut owned_nft_ids = [0; MAX_NOTES_PER_PAGE];
-    for i in 0..options.limit {
-        if i < notes.len() {
-            owned_nft_ids[i] = notes.get_unchecked(i).token_id;
-        }
-    }
-
-    let page_limit_reached = notes.len() == options.limit;
-    (owned_nft_ids, page_limit_reached)
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L345-L365" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L345-L365</a></sub></sup>
-
+#include_code get_private_nfts /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 ## Compiling
 
@@ -673,7 +373,7 @@ aztec codegen target -o src/artifacts
 
 ### Optional: Dive deeper into this contract and concepts mentioned here
 
-- Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/yarn-project/end-to-end/src/e2e_nft.test.ts) for reference.
+- Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_nft.test.ts) for reference.
 - [Nullifier tree](../../../../aztec/concepts/advanced/storage/indexed_merkle_tree.mdx)
 - [Public / Private function calls](../../../../aztec/smart_contracts/functions/public_private_calls.md).
 - [Contract Storage](../../../../aztec/concepts/storage/index.md)

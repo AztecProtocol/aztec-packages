@@ -9,6 +9,10 @@ import Image from '@theme/IdealImage';
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, state management and creatively using nullifiers to prevent people from voting twice!
 
+:::note
+This tutorial is compatible with the Aztec version #include_aztec_version. If you are using a different version or network, you can find the relevant tutorial by clicking the #include_aztec_version dropdown at the top of the page.
+:::
+
 We will build this:
 
 <Image img={require('/img/tutorials/voting_flow.png')} />
@@ -48,7 +52,7 @@ We will need the Aztec library to create this contract. In your `Nargo.toml` you
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.3", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 ## Initiate the contract and define imports
@@ -56,8 +60,7 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-a
 Go to `main.nr` and delete the sample code. Replace it with this contract initialization:
 
 ```rust
-contract EasyPrivateVoting {
-
+#include_code declaration noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr raw
 }
 ```
 
@@ -65,42 +68,33 @@ This defines a contract called `Voter`. Everything will sit inside this block.
 
 Inside this, paste these imports:
 
-```rust title="imports" showLineNumbers 
-use dep::aztec::{
-    keys::getters::get_public_keys,
-    macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
-};
-use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
-use dep::aztec::protocol_types::traits::{Hash, ToField};
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16</a></sub></sup>
-
+#include_code imports noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 We are using various utils within the Aztec `prelude` library:
 
-- `AztecAddress` - A type for storing an address on Aztec
-- `FunctionSelector` - Used for computing a selector to call a function
-- `PrivateContext` - exposes things such as the contract address, msg_sender, etc
-- `Map` - A data storage type for storing candidates with the number of votes they have
-- `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
-- `PublicImmutable` - an immutable storage value that is accessible in private and public execution.
+- `use dep::aztec::keys::getters::get_public_keys;`  
+  Imports a helper to retrieve public keys associated with the caller, used for computing a secure nullifier during voting.
+
+- `use dep::aztec::macros::{functions::{initializer, internal, private, public, utility}, storage::storage};`  
+  Brings in macros for defining different function types (`initializer`, `internal`, `private`, `public`, `utility`) and for declaring contract storage via `storage`.
+
+- `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`  
+  Imports:
+  - `AztecAddress`: a type for account/contract addresses,
+  - `Map`: a key-value storage structure,
+  - `PublicMutable`: public state that can be updated,
+  - `PublicImmutable`: public state that is read-only after being set once.
+
+- `use dep::aztec::protocol_types::traits::{Hash, ToField};`  
+  Provides the `Hash` and `ToField` traits, used for hashing values and converting them to a Field, used for nullifier creation and other computations.
+
 
 ## Set up storage
 
 Under these imports, we need to set up our contract storage.
 Define the storage struct like so:
 
-```rust title="storage_struct" showLineNumbers 
-#[storage]
-struct Storage<Context> {
-    admin: PublicMutable<AztecAddress, Context>, // admin can end vote
-    tally: Map<Field, PublicMutable<Field, Context>, Context>, // we will store candidate as key and number of votes as value
-    vote_ended: PublicMutable<bool, Context>, // vote_ended is boolean
-    active_at_block: PublicImmutable<u32, Context>, // when people can start voting
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25</a></sub></sup>
-
+#include_code storage_struct noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 In this contract, we will store three vars:
 
@@ -113,18 +107,7 @@ In this contract, we will store three vars:
 
 The next step is to initialize the contract with a constructor. The constructor will take an address as a parameter and set the admin.
 
-```rust title="constructor" showLineNumbers 
-#[public]
-#[initializer]
-// annotation to mark function as a constructor
-fn constructor(admin: AztecAddress) {
-    storage.admin.write(admin);
-    storage.vote_ended.write(false);
-    storage.active_at_block.initialize(context.block_number() as u32);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36</a></sub></sup>
-
+#include_code constructor noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 This function takes the admin argument and writes it to the storage. We are also using this function to set the `vote_ended` boolean as false in the same way.
 
@@ -140,22 +123,7 @@ To ensure someone only votes once, we will create a nullifier as part of the fun
 
 Create a private function called `cast_vote`:
 
-```rust title="cast_vote" showLineNumbers 
-#[private]
-// annotation to mark function as private and expose private context
-fn cast_vote(candidate: Field) {
-    let msg_sender_npk_m_hash = get_public_keys(context.msg_sender()).npk_m.hash();
-
-    let secret = context.request_nsk_app(msg_sender_npk_m_hash); // get secret key of caller of function
-    let nullifier = std::hash::pedersen_hash([context.msg_sender().to_field(), secret]); // derive nullifier from sender and secret
-    context.push_nullifier(nullifier);
-    EasyPrivateVoting::at(context.this_address()).add_to_tally_public(candidate).enqueue(
-        &mut context,
-    );
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
-
+#include_code cast_vote noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like nullifier secrets.
 
@@ -165,17 +133,7 @@ After pushing the nullifier, we update the `tally` to reflect this vote. As we k
 
 Create this new public function like this:
 
-```rust title="add_to_tally_public" showLineNumbers 
-#[public]
-#[internal]
-fn add_to_tally_public(candidate: Field) {
-    assert(storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
-    let new_tally = storage.tally.at(candidate).read() + 1;
-    storage.tally.at(candidate).write(new_tally);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61</a></sub></sup>
-
+#include_code add_to_tally_public noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 The first thing we do here is assert that the vote has not ended.
 
@@ -187,14 +145,7 @@ The code after the assertion will only run if the assertion is true. In this sni
 
 We will create a function that anyone can call that will return the number of votes at a given vote Id. Paste this in your contract:
 
-```rust title="get_vote" showLineNumbers 
-#[utility]
-unconstrained fn get_vote(candidate: Field) -> Field {
-    storage.tally.at(candidate).read()
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75</a></sub></sup>
-
+#include_code get_vote noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 We set it as `utility` because we don't intend to call this as part of a transaction: we want to call it from our application code to e.g. display the result in a UI.
 
@@ -204,15 +155,7 @@ To ensure that only an `admin` can end a voting period, we can use another `asse
 
 Paste this function in your contract:
 
-```rust title="end_vote" showLineNumbers 
-#[public]
-fn end_vote() {
-    assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin
-    storage.vote_ended.write(true);
-}
-```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69</a></sub></sup>
-
+#include_code end_vote noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 Here, we are asserting that the `msg_sender()` is equal to the `admin` stored in public state.
 

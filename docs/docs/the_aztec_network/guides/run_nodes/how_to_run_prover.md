@@ -67,7 +67,7 @@ Executes the actual proof jobs. Agents are stateless, fetch work from the broker
 name: aztec-prover
 services:
   prover-node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3 # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings
@@ -100,7 +100,7 @@ services:
 
 
   agent:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3 # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings
@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
 
   broker:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3 # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings

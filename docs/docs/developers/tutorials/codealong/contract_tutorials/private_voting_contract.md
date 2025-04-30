@@ -9,6 +9,10 @@ import Image from '@theme/IdealImage';
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, state management and creatively using nullifiers to prevent people from voting twice!
 
+:::note
+This tutorial is compatible with the Aztec version #include_aztec_version. If you are using a different version or network, you can find the relevant tutorial by clicking the #include_aztec_version dropdown at the top of the page.
+:::
+
 We will build this:
 
 <Image img={require('/img/tutorials/voting_flow.png')} />
