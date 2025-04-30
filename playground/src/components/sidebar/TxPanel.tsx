@@ -202,8 +202,6 @@ export function TxPanel() {
         (tx.date + buffer) < Date.now()
       ));
 
-      console.log('pendingTxs', pendingTxs);
-
       for (const tx of pendingTxs) {
         const txReceipt = await queryTxReceipt(tx, pxe);
         if (txReceipt && txReceipt.status !== 'pending') {

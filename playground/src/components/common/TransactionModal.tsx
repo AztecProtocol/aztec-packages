@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState, useEffect } from 'react';
+import { useContext } from 'react';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
@@ -34,6 +34,7 @@ const container = css({
   minHeight: '500px',
   padding: '1rem',
   overflow: 'auto',
+  transition: 'height 0.3s ease-in-out',
   '@media (max-width: 900px)': {
     padding: '1rem 0',
   },
@@ -203,10 +204,23 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             Your transaction has been sent to the Aztec network.
             <br />
             <br />
-            We are waiting for a confirmation that your transaction was included in a block.
+            We are waiting for confirmation that your transaction has been included in a block.
           </Typography>
 
           {renderNewsletterSignup()}
+
+          <div css={buttonContainer}>
+            <Button
+              variant="contained"
+              color="primary"
+              href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackButtonClick('View on Explorer', 'Transaction Modal')}
+            >
+              View on Explorer
+            </Button>
+          </div>
         </div>
       </>
     )

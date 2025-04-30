@@ -141,7 +141,6 @@ export function ContractSelector() {
           onChange={handleContractChange}
           fullWidth
           renderValue={selected => {
-            console.log('selected', selected);
             const contract = contracts.find(contract => contract.value === selected);
             if (contract) {
               return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
