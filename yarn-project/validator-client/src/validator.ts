@@ -197,6 +197,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
     if (invalidProposal) {
       this.log.verbose(`Proposal is not valid, skipping attestation`);
+      this.metrics.incFailedAttestations('invalid_proposal');
       return undefined;
     }
 
@@ -210,6 +211,12 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal);
       }
     } catch (error: any) {
+      if (error instanceof Error) {
+        this.metrics.incFailedAttestations(error.name);
+      } else {
+        this.metrics.incFailedAttestations('unknown');
+      }
+
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation`, error, proposalInfo);
@@ -223,6 +230,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Provided all of the above checks pass, we can attest to the proposal
     this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
+    this.metrics.incAttestations();
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.doAttestToProposal(proposal);
@@ -285,9 +293,8 @@ export class ValidatorClient extends WithTracer implements Validator {
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
     const txHashes: TxHash[] = proposal.payload.txHashes;
-    const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
-
-    const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
+    const availability = await this.p2pClient.hasTxsInPool(txHashes);
+    const missingTxs = txHashes.filter((_, index) => !availability[index]);
 
     if (missingTxs.length === 0) {
       return; // All transactions are available
@@ -295,7 +302,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
 
-    const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
+    const requestedTxs = await this.p2pClient.requestTxsByHash(missingTxs);
     if (requestedTxs.some(tx => tx === undefined)) {
       throw new TransactionsNotAvailableError(missingTxs);
     }

@@ -160,19 +160,32 @@ pub contract SimpleToken {
     }
 
     #[private]
-    fn private_transfer(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+    fn private_transfer(to: AztecAddress, amount: u128) {
+        let from = context.msg_sender();
 
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+        let change = subtract_balance(
+            &mut context,
+            storage,
+            from,
+            amount,
+            INITIAL_TRANSFER_CALL_MAX_NOTES,
+        );
+        storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
             from,
         ));
-        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to, from));
+        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            &mut context,
+            to,
+            from,
+        ));
+
+        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+            &mut context,
+            to,
+            from,
+        ));
     }
 
     #[private]

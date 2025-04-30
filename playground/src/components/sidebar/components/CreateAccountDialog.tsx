@@ -21,6 +21,8 @@ import FormGroup from '@mui/material/FormGroup';
 import { progressIndicator, dialogBody, form } from '../../../styles/common';
 import { InfoText } from '../../common/InfoText';
 import { INFO_TEXT } from '../../../constants';
+import { Box, DialogContent } from '@mui/material';
+import { DialogActions } from '@mui/material';
 
 export function CreateAccountDialog({
   open,
@@ -114,8 +116,9 @@ export function CreateAccountDialog({
   return (
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Create account</DialogTitle>
-      <div css={dialogBody}>
-        <FormGroup css={form}>
+
+      <DialogContent sx={dialogBody}>
+        <FormGroup sx={form}>
           <FormControl>
             <InputLabel>Account type</InputLabel>
             <Select
@@ -126,7 +129,7 @@ export function CreateAccountDialog({
               onChange={event => setType(event.target.value as AccountType)}
             >
               <MenuItem value="schnorr">Schnorr</MenuItem>
-              <MenuItem value="ecdsasecp256r1">ECDSA R1</MenuItem>
+              <MenuItem value="ecdsasecp256r1">ECDSA R1 - Recommended</MenuItem>
               <MenuItem value="ecdsasecp256k1">ECDSA K1</MenuItem>
               <MenuItem value="aztec-keychain">Aztec Keychain (ECDSA R1)</MenuItem>
             </Select>
@@ -147,29 +150,33 @@ export function CreateAccountDialog({
           </FormControl>
           <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />
         </FormGroup>
-        <div css={{ flexGrow: 1, margin: 'auto' }}></div>
-        {!error ? (
-          isRegistering ? (
-            <div css={progressIndicator}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                Registering account...
-              </Typography>
-              <CircularProgress size={20} />
-            </div>
+
+        <Box sx={{ flexGrow: 1 }}></Box>
+
+        <DialogActions>
+          {!error ? (
+            isRegistering ? (
+              <div css={progressIndicator}>
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  Registering account...
+                </Typography>
+                <CircularProgress size={20} />
+              </div>
+            ) : (
+              <Button disabled={alias === '' || !feePaymentMethod || isRegistering} onClick={createAccount}>
+                Create and initialize
+              </Button>
+            )
           ) : (
-            <Button disabled={alias === '' || !feePaymentMethod || isRegistering} onClick={createAccount}>
-              Create and deploy
-            </Button>
-          )
-        ) : (
-          <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
-            An error occurred: {error}
-          </Typography>
-        )}
-        <Button color="error" onClick={handleClose} disabled={isRegistering}>
-          Cancel
-        </Button>
-      </div>
+            <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
+              An error occurred: {error}
+            </Typography>
+          )}
+          <Button color="error" onClick={handleClose} disabled={isRegistering}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </DialogContent>
     </Dialog>
   );
 }

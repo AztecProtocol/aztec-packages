@@ -25,9 +25,11 @@ interface FunctionParameterProps {
   parameter: ABIParameter;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onParameterChange: (value: any) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  defaultValue?: any;
 }
 
-export function FunctionParameter({ parameter, required, onParameterChange }: FunctionParameterProps) {
+export function FunctionParameter({ parameter, required, onParameterChange, defaultValue }: FunctionParameterProps) {
   const { walletDB } = useContext(AztecContext);
 
   const [manualInput, setManualInput] = useState(false);
@@ -65,6 +67,34 @@ export function FunctionParameter({ parameter, required, onParameterChange }: Fu
     }
   };
 
+  function getParameterType(type: AbiType) {
+    switch (type.kind) {
+      case 'field':
+        return 'number';
+      case 'integer':
+        return 'number';
+      case 'string':
+        return 'text';
+      default:
+        return 'text';
+    }
+  }
+
+  function getParameterLabel(type: AbiType) {
+    switch (type.kind) {
+      case 'field':
+        return 'number';
+      case 'integer':
+        return 'int';
+      case 'string':
+        return 'string';
+      case 'boolean':
+        return 'bool';
+      default:
+        return '';
+    }
+  }
+
   return (
     <div css={container}>
       {isAddressStruct(parameter.type) && !manualInput ? (
@@ -83,6 +113,7 @@ export function FunctionParameter({ parameter, required, onParameterChange }: Fu
           onOpen={handleOpen}
           loading={loading}
           fullWidth
+          defaultValue={defaultValue}
           sx={{ width: '100%', minWidth: '226px' }}
           css={css}
           renderInput={params => (
@@ -90,6 +121,7 @@ export function FunctionParameter({ parameter, required, onParameterChange }: Fu
               {...params}
               required={required}
               label={capitalize(parameter.name)}
+              size='small'
               slotProps={{
                 input: {
                   ...params.InputProps,
@@ -110,10 +142,12 @@ export function FunctionParameter({ parameter, required, onParameterChange }: Fu
           fullWidth
           css={css}
           variant="outlined"
+          defaultValue={defaultValue}
+          size='small'
           disabled={['array', 'struct', 'tuple'].includes(parameter.type.kind) && !isAddressStruct(parameter.type)}
           key={parameter.name}
-          type="text"
-          label={capitalize(parameter.name)}
+          type={getParameterType(parameter.type)}
+          label={`${capitalize(parameter.name)}  (${getParameterLabel(parameter.type)})`}
           onChange={e => handleParameterChange(e.target.value, parameter.type)}
         />
       )}
