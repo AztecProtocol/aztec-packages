@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { type ContractArtifact, ContractArtifactSchema } from '@aztec/stdlib/abi';
@@ -59,8 +60,22 @@ export function fromUintBoundedVec(storage: ForeignCallArray, length: ForeignCal
   return Buffer.concat(boundedStorage.map(str => hexToBuffer(str).slice(-uintByteSize)));
 }
 
-export function toSingle(obj: Fr | AztecAddress): ForeignCallSingle {
-  return obj.toString().slice(2);
+// Just like toACVMField in yarn-project/simulator/src/private/acvm/serialize.ts but returns a ForeignCallSingle
+// instead of an ACVMField.
+export function toSingle(
+  value: AztecAddress | EthAddress | Fr | Buffer | boolean | number | bigint,
+): ForeignCallSingle {
+  let valueAsField;
+  if (Buffer.isBuffer(value)) {
+    valueAsField = Fr.fromBuffer(value);
+  } else if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'bigint') {
+    valueAsField = new Fr(value);
+  } else if (typeof value === 'string') {
+    valueAsField = Fr.fromHexString(value);
+  } else {
+    valueAsField = value;
+  }
+  return valueAsField.toString().slice(2);
 }
 
 export function toArray(objs: Fr[]): ForeignCallArray {
@@ -100,7 +115,41 @@ export function arrayToBoundedVec(
   return [storage, len];
 }
 
-export function toForeignCallResult(obj: (ForeignCallSingle | ForeignCallArray)[]) {
+/**
+ * Converts a ForeignCallArray[][] into a tuple which represents a nr BoundedVec.
+ * If the input array is shorter than the maxLen, it pads the result with zeros,
+ * so that nr can correctly coerce this result into a BoundedVec.
+ * @param bVecStorage - The array underlying the BoundedVec.
+ * @param maxLen - the max length of the BoundedVec.
+ * @returns a tuple representing a BoundedVec.
+ */
+export function arrayOfArraysToBoundedVecOfArrays(
+  bVecStorage: ForeignCallArray[], // array of arrays
+  maxLen: number,
+): [ForeignCallArray[], ForeignCallSingle] {
+  if (bVecStorage.length > maxLen) {
+    throw new Error(`Array of length ${bVecStorage.length} larger than maxLen ${maxLen}`);
+  }
+
+  // We get the length of the nested arrays such as that is the length of the zero padding nested arrays
+  const nestedArrayLength = bVecStorage.length > 0 ? bVecStorage[0].length : 0;
+
+  // We get the number of nested arrays we need to create
+  const numPaddingNestedArrays = maxLen - bVecStorage.length;
+  const singleNestedPaddingArray = toArray(Array(nestedArrayLength).fill(new Fr(0)));
+
+  // Now we create the final padding array by repeating the single nested padding array
+  const padding = Array(numPaddingNestedArrays).fill(singleNestedPaddingArray);
+
+  // Now we pad the storage array with zero nested arrays to get an array of max length
+  const storage = bVecStorage.concat(padding);
+
+  // At last we get the actual length of the BoundedVec and return the values.
+  const len = toSingle(new Fr(bVecStorage.length));
+  return [storage, len];
+}
+
+export function toForeignCallResult(obj: (ForeignCallSingle | ForeignCallArray | ForeignCallArray[])[]) {
   return { values: obj };
 }
 
