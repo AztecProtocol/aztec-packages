@@ -33,10 +33,10 @@ const container = css({
   display: 'flex',
   height: '100%',
   width: '100%',
-  overflowY: 'visible',
+  overflow: 'hidden',
   justifyContent: 'center',
   alignItems: 'center',
-  paddingBottom: '100px',
+  maxHeight: 'calc(100vh - 280px)',
   '@media (max-width: 900px)': {
     maxHeight: 'none',
     height: 'auto',
@@ -46,7 +46,7 @@ const container = css({
 const contractFnContainer = css({
   display: 'block',
   width: '100%',
-  overflowY: 'visible',
+  overflowY: 'auto',
   color: 'black',
   height: '100%',
   '@media (max-width: 900px)': {

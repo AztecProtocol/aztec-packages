@@ -41,7 +41,6 @@ const cardsContainer = css({
   flexDirection: 'row',
   gap: '24px',
   width: '100%',
-  paddingBottom: '100px',
   '& > *': {
     flex: '1 1 0px', // Makes all children equal width
   },
