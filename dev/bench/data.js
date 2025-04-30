@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746020536548,
+  "lastUpdate": 1746022433660,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -2446,6 +2446,78 @@ window.BENCHMARK_DATA = {
             "value": 1826,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "distinct": true,
+          "id": "b29c067571ef178f7eca62e27fbcb4e2407bf15a",
+          "message": "rm breaking acir tests",
+          "timestamp": "2025-04-30T13:58:04Z",
+          "tree_id": "c36028cae648e581f2a553c9c2fa78a13b4bbfdf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b29c067571ef178f7eca62e27fbcb4e2407bf15a"
+        },
+        "date": 1746022425506,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17426.594623000026,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13816.062563000001 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2248486381,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 199568607,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20265.992047999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16970.332367 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55963.741321999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55963741000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4376.34665600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3739.511074 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11922.806843,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11922809000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2247.75",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
