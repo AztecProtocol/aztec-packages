@@ -56,6 +56,7 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompress(
     const std::filesystem::path& input_path)
 {
+    PROFILE_THIS();
     auto raw_steps = unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
     for (PrivateExecutionStepRaw& step : raw_steps) {
         step.bytecode = decompress(step.bytecode.data(), step.bytecode.size());
@@ -75,6 +76,7 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::parse_uncompressed
 
 void PrivateExecutionSteps::parse(const std::vector<PrivateExecutionStepRaw>& steps)
 {
+    PROFILE_THIS();
     for (const PrivateExecutionStepRaw& step : steps) {
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
         // use spans instead of vectors.
