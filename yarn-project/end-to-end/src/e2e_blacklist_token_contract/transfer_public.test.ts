@@ -79,7 +79,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       const amount = balance0 + 1n;
       const nonce = 0;
       await expect(
-        asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).prove(),
+        asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).simulate(),
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
@@ -88,7 +88,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       const amount = balance0 - 1n;
       const nonce = 1;
       await expect(
-        asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).prove(),
+        asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).simulate(),
       ).rejects.toThrow('Assertion failed: invalid nonce');
     });
 
@@ -124,7 +124,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       await validateActionInteraction.send().wait();
       // docs:end:set_public_authwit
       // Perform the transfer
-      await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
       expect(await asset.methods.balance_of_public(wallets[0].getAddress()).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_public(wallets[1].getAddress()).simulate()).toEqual(balance1);
@@ -164,13 +164,13 @@ describe('e2e_blacklist_token_contract transfer public', () => {
 
     it('transfer from a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer_public(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0n).prove(),
+        asset.methods.transfer_public(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0n).simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 
     it('transfer to a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer_public(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0n).prove(),
+        asset.methods.transfer_public(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0n).simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Recipient');
     });
   });
