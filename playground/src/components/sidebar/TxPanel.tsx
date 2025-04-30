@@ -195,9 +195,11 @@ export function TxPanel() {
       if (!pxe || !walletDB) {
         return;
       }
+
+      const buffer = (TX_TIMEOUT + 60) * 1000;
       const pendingTxs = transactions.filter(tx => (
         tx.status === 'pending' &&
-        (tx.date + (TX_TIMEOUT * 1000)) < Date.now()
+        (tx.date + buffer) < Date.now()
       ));
 
       console.log('pendingTxs', pendingTxs);
