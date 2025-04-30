@@ -139,68 +139,69 @@ export function NetworkSelector() {
   };
 
 
+  if (connecting) {
+    return (
+      <div css={navbarButtonStyle}>
+        <CircularProgress size={20} color="primary" sx={{ marginRight: '1rem' }} />
+        <Typography variant="body1">Connecting to {network?.name ?? 'network'}...</Typography>
+      </div>
+    );
+  }
+
   return (
     <div css={navbarButtonStyle}>
-      {connecting ? (
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <CircularProgress size={20} color="primary" />
-          <Typography variant="body1">Connecting to network...</Typography>
-        </div>
-      ) : (
-        <>
-          <NetworkIcon />
-          {!network?.nodeURL && (
-            <InputLabel id="network-label">Select Network</InputLabel>
-          )}
-          <FormControl css={navbarSelect}>
-            <Select
-              fullWidth
-              value={network?.nodeURL || ''}
-              displayEmpty
-              variant="outlined"
-              IconComponent={KeyboardArrowDownIcon}
-              open={isOpen}
-              onOpen={() => setOpen(true)}
-              onClose={() => setOpen(false)}
-              renderValue={selected => {
-                if (connecting) {
-                  return `Connecting to ${network?.name}...`;
-                }
-                if (selected && network?.nodeURL) {
-                  return `${network.name}`;
-                }
-              }}
-              disabled={connecting}
-              onChange={e => handleNetworkChange(e.target.value)}
+      <NetworkIcon />
+
+      <FormControl css={navbarSelect}>
+        <Select
+          fullWidth
+          value={network?.nodeURL || ''}
+          displayEmpty
+          variant="outlined"
+          IconComponent={KeyboardArrowDownIcon}
+          open={isOpen}
+          onOpen={() => setOpen(true)}
+          onClose={() => setOpen(false)}
+          renderValue={selected => {
+            if (connecting) {
+              return `Connecting to ${network?.name}...`;
+            }
+            if (selected && network?.nodeURL) {
+              return `${network.name}`;
+            }
+            return 'Select Network';
+          }}
+          disabled={connecting}
+          onChange={e => handleNetworkChange(e.target.value)}
+        >
+          {networks.map(network => (
+            <MenuItem
+              key={network.name}
+              value={network.nodeURL}
+              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
             >
-              {networks.map(network => (
-                <MenuItem
-                  key={network.name}
-                  value={network.nodeURL}
-                  sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
-                >
-                  <Typography variant="body1">{network.name}</Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
-                    {network.description} • {network.nodeURL}
-                  </Typography>
-                </MenuItem>
-              ))}
-              <MenuItem
-                key="create"
-                value=""
-                onClick={() => {
-                  trackButtonClick('Add Custom Network', 'Network Selector');
-                  setOpen(false);
-                  setOpenAddNetworksDialog(true);
-                }}
-              >
-                <AddIcon />
-                &nbsp;Add custom network
-              </MenuItem>
-            </Select>
-          </FormControl>
-        </>
-      )}
+              <Typography variant="body1">{network.name}</Typography>
+              <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                {network.description} • {network.nodeURL}
+              </Typography>
+            </MenuItem>
+          ))}
+
+          <MenuItem
+            key="create"
+            value=""
+            onClick={() => {
+              trackButtonClick('Add Custom Network', 'Network Selector');
+              setOpen(false);
+              setOpenAddNetworksDialog(true);
+            }}
+          >
+            <AddIcon sx={{ marginRight: '0.5rem' }} />
+            Add custom network
+          </MenuItem>
+        </Select>
+      </FormControl>
+
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
     </div>
   );

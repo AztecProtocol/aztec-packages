@@ -11,9 +11,10 @@ import {
 } from '@aztec/aztec.js';
 import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
+import { TX_TIMEOUT } from '../constants';
 
 export function useTransaction() {
-  const { walletDB, currentTx, setCurrentTx, transactionModalStatus, setTransactionModalStatus } = useContext(AztecContext);
+  const { walletDB, currentTx, setCurrentTx } = useContext(AztecContext);
   const notifications = useNotifications();
 
   async function sendTx(
@@ -22,10 +23,9 @@ export function useTransaction() {
     contractAddress: AztecAddress,
     opts: SendMethodOptions | DeployOptions,
     displayOptions?: {
-      openPopup?: boolean;
-      showNotification?: boolean;
+      showNotifications?: boolean;
     },
-  ): Promise<boolean> {
+  ): Promise<TxReceipt> {
 
     let receipt;
     let txHash;
@@ -34,11 +34,9 @@ export function useTransaction() {
       name,
       contractAddress,
     };
-    const modalStatus = (displayOptions?.openPopup ?? false) ? 'open' : 'minimized';
-    const showNotification = (displayOptions?.showNotification ?? true) && (transactionModalStatus === 'minimized');
+    const showNotifications = displayOptions?.showNotifications ?? true;
 
     setCurrentTx(tx);
-    setTransactionModalStatus(modalStatus);
 
     try {
       notifications.show('Proving transaction...', {
@@ -46,7 +44,7 @@ export function useTransaction() {
       });
       const provenInteraction = await interaction.prove(opts);
 
-      if (showNotification) {
+      if (showNotifications) {
         notifications.show('Proof generated successfully, sending transaction...', {
           severity: 'success',
         });
@@ -59,9 +57,9 @@ export function useTransaction() {
       });
 
       // TODO: Don't send the tx if the user has cancelled the transaction
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 180 });
+      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: TX_TIMEOUT });
 
-      if (showNotification && receipt.status === TxStatus.SUCCESS) {
+      if (showNotifications && receipt.status === TxStatus.SUCCESS) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
           severity: 'success',
         });
@@ -83,23 +81,23 @@ export function useTransaction() {
           error: receipt.error,
         },
       });
-      setTransactionModalStatus('closed');
     } catch (e) {
       if (e instanceof TimeoutError) {
+        const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, e.message);
         await walletDB.storeTx({
           contractAddress,
           txHash,
           name,
-          receipt: new TxReceipt(txHash, TxStatus.PENDING, e.message),
+          receipt: txReceipt,
         });
 
         setCurrentTx(null);
 
-        return false;
+        return txReceipt;
       }
 
       console.error('Transaction failed with error:', e);
-      if (showNotification) {
+      if (showNotifications) {
         notifications.show(`Transaction failed with error: ${e.message}`, {
           severity: 'error',
         });
@@ -114,7 +112,8 @@ export function useTransaction() {
         },
       });
     }
-    return receipt && receipt.status === TxStatus.SUCCESS;
+
+    return receipt;
   }
 
   return { sendTx };

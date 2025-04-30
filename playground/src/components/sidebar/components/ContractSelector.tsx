@@ -36,6 +36,7 @@ export function ContractSelector() {
     wallet,
     walletDB,
     isPXEInitialized,
+    pendingTxUpdateCounter,
     setCurrentContractArtifact,
     setCurrentContractAddress,
     setShowContractInterface,
@@ -52,17 +53,19 @@ export function ContractSelector() {
       setContracts(deployedContracts);
       setIsContractsLoading(false);
     };
+
     if (walletDB && wallet) {
       refreshContracts();
     }
-  }, [currentContractAddress, walletDB, wallet]);
+  }, [currentContractAddress, walletDB, wallet, pendingTxUpdateCounter]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
-    trackButtonClick(`Select Contract ${event.target.value}`, 'Contract Selector');
     const contractValue = event.target.value;
     if (contractValue === '') {
       return;
     }
+
+    trackButtonClick(`Select Contract ${contractValue}`, 'Contract Selector');
 
     // If 'upload your own' is selected, set the contract artifact to undefined, and allow the user to upload a new one
     if (contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
@@ -111,19 +114,26 @@ export function ContractSelector() {
 
   const selectedValue = currentContractAddress?.toString() || selectedPredefinedContract || '';
 
+  if (isContractsLoading) {
+    return (
+      <div css={navbarButtonStyle}>
+        <CircularProgress size={24} color="primary" sx={{ marginRight: '1rem' }} />
+        <Typography variant="body1">Loading contract...</Typography>
+      </div>
+    );
+  }
+
   return (
     <div css={navbarButtonStyle}>
-      {isContractsLoading ? (
-        <CircularProgress size={24} />
-      ) : (
-        <ArticleIcon />
-      )}
+      <ArticleIcon />
+
       <FormControl css={navbarSelect}>
         {!selectedValue && (
           <InputLabel id="contract-label">Select Contract</InputLabel>
         )}
+
         <Select
-          value={selectedValue}
+          value={selectedValue || ''}
           label="Contract"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
@@ -131,15 +141,11 @@ export function ContractSelector() {
           onChange={handleContractChange}
           fullWidth
           renderValue={selected => {
-            if (isContractsLoading) {
-              return `Loading contract...`;
+            const contract = contracts.find(contract => contract.value === selected);
+            if (contract) {
+              return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
             }
-            if (selected) {
-              const contract = contracts.find(contract => contract.value === selected);
-              if (contract) {
-                return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
-              }
-            }
+            return selected ?? 'Select Contract';
           }}
           disabled={isContractsLoading}
         >
@@ -150,6 +156,7 @@ export function ContractSelector() {
               </Typography>
             </div>
           )}
+
           {/* Predefined contracts */}
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>Easy Private Voting</MenuItem>
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_TOKEN}>Simple Token</MenuItem>
@@ -172,6 +179,7 @@ export function ContractSelector() {
           ))}
         </Select>
       </FormControl>
+
       {currentContractAddress && (
         <CopyToClipboardButton disabled={!currentContractAddress} data={currentContractAddress?.toString()} />
       )}

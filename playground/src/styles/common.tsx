@@ -44,18 +44,23 @@ export const dropdownIcon = css({
 export const navbarButtonStyle = css({
   height: '48px',
   borderRadius: '8px',
-  backgroundColor: '#CDD1D5',
+  backgroundColor: '#ffffff38',
   width: '300px',
   display: 'flex',
-  justifyContent: 'space-between',
   alignItems: 'center',
   padding: '12px 16px',
   fontSize: '16px',
   lineHeight: '15px',
   color: '#000000',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  transition: 'background-color 0.3s ease',
+
   '&:hover': {
-    backgroundColor: '#BCC0C4',
+    backgroundColor: '#f8f8f8',
   },
+
   '@media (max-width: 900px)': {
     width: '100%',
   },

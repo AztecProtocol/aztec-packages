@@ -1,9 +1,9 @@
-import { useCallback, useContext, useState, useEffect } from 'react';
+import { useContext } from 'react';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
-import CloseButton from '@mui/icons-material/Close';
+import MinimizeIcon from '@mui/icons-material/Minimize';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import { BLOCK_EXPLORER_TX_URL, DISCORD_URL, PLAYGROUND_URL } from '../../constants';
 import Button from '@mui/material/Button';
@@ -31,9 +31,10 @@ const minimizeButton = css({
 const container = css({
   display: 'flex',
   flexDirection: 'column',
-  minHeight: '450px',
+  minHeight: '500px',
   padding: '1rem',
   overflow: 'auto',
+  transition: 'height 0.3s ease-in-out',
   '@media (max-width: 900px)': {
     padding: '1rem 0',
   },
@@ -95,23 +96,11 @@ const buttonContainer = css({
 });
 
 
-export function TransactionModal(props: { transaction: UserTx }) {
-  const { currentTx, setCurrentTx, logs, transactionModalStatus, setTransactionModalStatus } = useContext(AztecContext);
-  const [isTxPanelOpen, setIsTxPanelOpen] = useState(transactionModalStatus === 'open');
+export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, onClose: () => void }) {
+  const { isOpen, onClose } = props;
+  const { currentTx, setCurrentTx, logs } = useContext(AztecContext);
 
   const transaction = props.transaction || currentTx;
-
-  useEffect(() => {
-    setIsTxPanelOpen(transactionModalStatus === 'open');
-  }, [transactionModalStatus]);
-
-  // Open the modal when the transaction is successful
-  useEffect(() => {
-    if (transaction?.status === 'success') {
-      setTransactionModalStatus('open');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transaction]);
 
   const handleCancelTx = async () => {
     if (!confirm('Are you sure you want to cancel this transaction?')) {
@@ -124,17 +113,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
     }
 
     setCurrentTx(null);
-    setTransactionModalStatus('closed');
   };
-
-  const minimizeModal = useCallback(() => {
-    if (currentTx?.status === 'error') {
-      setTransactionModalStatus('closed');
-    } else {
-      setTransactionModalStatus('minimized');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTx?.status]);
 
   const handleShareOnTwitter = async (txHash: string) => {
     if (!txHash) return;
@@ -162,9 +141,16 @@ export function TransactionModal(props: { transaction: UserTx }) {
   const isSending = transaction?.status === 'sending';
   const isSuccess = transaction?.status === 'success';
   const isPending = transaction?.status === 'pending';
-  const errorMessage = transaction?.error ?? transaction?.receipt?.error;
+  const errorMessage = transaction?.error ?? transaction?.receipt?.error ?? transaction?.status;
   const isTimeoutError = errorMessage && errorMessage.toLowerCase().includes('timeout awaiting');
 
+  function renderNewsletterSignup() {
+    return (
+      <div css={subtitleText} style={{ textAlign: 'center', marginTop: '2rem' }}>
+        Psst! Sign up for the <a href="https://tally.so/r/np5p0E" target="_blank" rel="noopener noreferrer">developer newsletter</a>
+      </div>
+    )
+  }
 
   function renderProvingState() {
     return (
@@ -197,6 +183,8 @@ export function TransactionModal(props: { transaction: UserTx }) {
             Cancel Transaction
           </Button>
         </div>
+
+        {renderNewsletterSignup()}
       </>
     )
   }
@@ -216,8 +204,23 @@ export function TransactionModal(props: { transaction: UserTx }) {
             Your transaction has been sent to the Aztec network.
             <br />
             <br />
-            We are waiting for a confirmation that your transaction was included in a block.
+            We are waiting for confirmation that your transaction has been included in a block.
           </Typography>
+
+          <div css={buttonContainer}>
+            <Button
+              variant="contained"
+              color="primary"
+              href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackButtonClick('View on Explorer', 'Transaction Modal')}
+            >
+              View on Explorer
+            </Button>
+          </div>
+
+          {renderNewsletterSignup()}
         </div>
       </>
     )
@@ -227,7 +230,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
     return (
       <>
         <Typography css={titleText}>
-          Congratulations! You transaction was successful!
+          Congratulations! You created a transaction on Aztec testnet
         </Typography>
 
         <div css={content}>
@@ -286,6 +289,7 @@ export function TransactionModal(props: { transaction: UserTx }) {
           </Button>
         </div>
 
+        {renderNewsletterSignup()}
       </>
     )
   }
@@ -315,10 +319,15 @@ export function TransactionModal(props: { transaction: UserTx }) {
 
         <div css={content}>
           <Typography css={subtitleText}>
-            Your transaction was successfully sent to the mempool but it took slightly longer to add it to a block.
+            Your transaction was successfully sent to the mempool but the network took longer than normal to be included it in a block due to network congestion.
             <br />
             <br />
-            It might be already included in a block by now. You can check the transaction status on a block explorer.
+            Want to learn more about transaction throughput and network congestion on Aztec testnet?
+            {' '}
+            Read <a href="https://aztec.network/blog/what-is-aztec-testnet" target="_blank" rel="noopener noreferrer">this article</a>.
+            <br />
+            <br />
+            We check the status of your transaction frequently. You can also check the transaction status on a block explorer.
           </Typography>
         </div>
 
@@ -334,6 +343,8 @@ export function TransactionModal(props: { transaction: UserTx }) {
             View on Explorer
           </Button>
         </div>
+
+        {renderNewsletterSignup()}
       </>
     )
   }
@@ -349,16 +360,16 @@ export function TransactionModal(props: { transaction: UserTx }) {
         />
       )}
 
-      <Dialog open={isTxPanelOpen} onClose={minimizeModal}>
+      <Dialog open={isOpen} onClose={onClose}>
         <DialogTitle>{transaction?.name}</DialogTitle>
 
         <DialogContent css={dialogBody}>
 
           <IconButton
             css={minimizeButton}
-            onClick={minimizeModal}
+            onClick={onClose}
           >
-            <CloseButton />
+            <MinimizeIcon />
           </IconButton>
 
           <div css={container}>

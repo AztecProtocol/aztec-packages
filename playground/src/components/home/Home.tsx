@@ -24,7 +24,7 @@ const headerFrame = css({
   alignItems: 'center',
   marginTop: '1rem',
   marginBottom: '2rem',
-  backgroundColor: '#CDD1D5',
+  backgroundColor: '#ffffff38',
   borderRadius: '10px',
   padding: '12px',
   height: '80px',
@@ -37,6 +37,7 @@ const headerFrame = css({
 const logo = css({
   width: '120px',
   marginLeft: '1rem',
+  marginTop: '2px',
   '@media (max-width: 900px)': {
     width: '90px',
     marginLeft: '0.5rem',
@@ -92,12 +93,10 @@ const contentLayout = css({
   },
 });
 
-
 export default function Home() {
   const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [showContractInterface, setShowContractInterface] = useState(false);
-  const [transactionModalStatus, setTransactionModalStatus] = useState<'open' | 'closed' | 'minimized'>('closed');
   const [node, setAztecNode] = useState(null);
   const [isPXEInitialized, setPXEInitialized] = useState(false);
   const [walletAlias, setWalletAlias] = useState('');
@@ -111,6 +110,8 @@ export default function Home() {
   const [network, setNetwork] = useState(null);
   const [totalLogCount, setTotalLogCount] = useState(0);
   const [defaultContractCreationParams, setDefaultContractCreationParams] = useState({});
+  const [pendingTxUpdateCounter, setPendingTxUpdateCounter] = useState(0);
+  const [isNetworkCongested, setIsNetworkCongested] = useState(false);
 
   const AztecContextInitialValue = {
     pxe,
@@ -128,9 +129,11 @@ export default function Home() {
     logsOpen,
     showContractInterface,
     totalLogCount,
-    transactionModalStatus,
+    pendingTxUpdateCounter,
     defaultContractCreationParams,
+    isNetworkCongested,
     setTotalLogCount,
+    setIsNetworkCongested,
     setNetwork,
     setConnecting,
     setLogsOpen,
@@ -146,18 +149,22 @@ export default function Home() {
     setWalletAlias,
     setCurrentContractArtifact,
     setCurrentContractAddress,
-    setTransactionModalStatus,
+    setPendingTxUpdateCounter,
   };
 
   return (
     <div css={container}>
       <div css={headerFrame}>
-        <div role="button" style={{ cursor: 'pointer' }} onClick={() => {
-          setShowContractInterface(false);
-        }}>
+        <div
+          role="button"
+          style={{ cursor: 'pointer' }}
+          onClick={() => {
+            setShowContractInterface(false);
+          }}
+        >
           <img css={logo} src={logoURL} alt="Aztec Logo" />
         </div>
-        <div css={headerTitle}>PLAYGROUND</div>
+        <div css={headerTitle}>Playground</div>
         <a
           href="https://docs.aztec.network/"
           target="_blank"

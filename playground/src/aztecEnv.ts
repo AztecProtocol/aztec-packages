@@ -103,14 +103,14 @@ export const AztecContext = createContext<{
   logs: Log[];
   logsOpen: boolean;
   showContractInterface: boolean;
-  transactionModalStatus: 'open' | 'closed' | 'minimized';
   currentContractArtifact: ContractArtifact;
   totalLogCount: number;
   defaultContractCreationParams: Record<string, unknown>;
+  pendingTxUpdateCounter: number;
+  isNetworkCongested: boolean;
   setTotalLogCount: (count: number) => void;
   setShowContractInterface: (showContractInterface: boolean) => void;
   setConnecting: (connecting: boolean) => void;
-  setTransactionModalStatus: (transactionModalStatus: 'open' | 'closed' | 'minimized') => void;
   setLogsOpen: (logsOpen: boolean) => void;
   setLogs: (logs: Log[]) => void;
   setWalletDB: (walletDB: WalletDB) => void;
@@ -123,6 +123,8 @@ export const AztecContext = createContext<{
   setCurrentContractArtifact: (currentContract: ContractArtifact) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
   setDefaultContractCreationParams: (defaultContractCreationParams: Record<string, unknown>) => void;
+  setPendingTxUpdateCounter: (pendingTxUpdateCounter: number) => void;
+  setIsNetworkCongested: (isNetworkCongested: boolean) => void;
 }>({
   pxe: null,
   connecting: false,
@@ -138,12 +140,12 @@ export const AztecContext = createContext<{
   totalLogCount: 0,
   logsOpen: false,
   showContractInterface: false,
-  transactionModalStatus: 'closed',
   defaultContractCreationParams: {},
+  pendingTxUpdateCounter: 0,
+  isNetworkCongested: false,
   setTotalLogCount: () => {},
   setShowContractInterface: () => {},
   setConnecting: () => {},
-  setTransactionModalStatus: () => {},
   setLogsOpen: () => {},
   setLogs: () => {},
   setWalletDB: () => {},
@@ -156,6 +158,8 @@ export const AztecContext = createContext<{
   setCurrentContractArtifact: () => {},
   setCurrentContractAddress: () => {},
   setDefaultContractCreationParams: () => {},
+  setPendingTxUpdateCounter: () => {},
+  setIsNetworkCongested: () => {},
 });
 
 export class AztecEnv {

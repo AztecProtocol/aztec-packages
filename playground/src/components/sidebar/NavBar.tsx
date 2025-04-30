@@ -3,6 +3,8 @@ import { NetworkSelector } from './components/NetworkSelector';
 import { AccountSelector } from './components/AccountSelector';
 import { AddressBook } from './components/AddressBook';
 import { ContractSelector } from './components/ContractSelector';
+import { NetworkCongestionNotice } from './components/NetworkCongestionNotice';
+
 
 const container = css({
   display: 'flex',
@@ -17,9 +19,8 @@ const container = css({
 
 const navbarContent = css({
   display: 'flex',
-  flexDirection: 'row-reverse',
   alignItems: 'center',
-  justifyContent: 'flex-start',
+  justifyContent: 'space-between',
   gap: '10px',
   flexWrap: 'wrap',
   '@media (max-width: 900px)': {
@@ -28,6 +29,7 @@ const navbarContent = css({
   },
 });
 
+
 export function NavBar() {
   return (
     <div css={[container]}>
@@ -35,8 +37,11 @@ export function NavBar() {
         <NetworkSelector />
         <AccountSelector />
         <ContractSelector />
+        <div css={{ flexGrow: 1 }} />
         <AddressBook />
       </div>
+
+      <NetworkCongestionNotice />
     </div>
   );
 }

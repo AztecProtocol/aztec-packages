@@ -1,4 +1,3 @@
-
 export const BLOCK_EXPLORER_TX_URL = 'https://aztecscan.xyz/tx-effects/';
 export const PLAYGROUND_URL = 'https://play.aztec.network/'; // TODO: this should be based on the network
 export const DISCORD_URL = 'https://discord.gg/aztec';
@@ -10,6 +9,8 @@ export const PREDEFINED_CONTRACTS = {
 };
 
 export const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
+
+export const TX_TIMEOUT = 180;
 
 export const TOKEN_ALLOWED_FUNCTIONS = [
   'mint_privately',
@@ -56,7 +57,7 @@ export const FUN_FACTS = [
   'The Aztec protocol was founded in 2017.',
   // "We're almost there...",
   'Aztec Connect was the first private DeFi application.',
-  'Aztec invented PLONK which is really cool and underpins all modern zkVMs.',
+  'Aztec invented PLONK which underpins modern zk proving systems and zkVMs.',
   'Aztec supports private, public, and hybrid smart contract execution.',
   'Aztec enables privacy and full composability across private and public calls.',
   'All Aztec transactions start off private (since account and transaction entrypoints are private).',
