@@ -239,6 +239,7 @@
         }
 
         function renderGraph(parent, name, dataset) {
+          const title = name.split('/').pop(); // truncate title to portion after last '/' if present
           const canvas = document.createElement('canvas');
           canvas.className = 'benchmark-chart';
           parent.appendChild(canvas);
@@ -256,6 +257,7 @@
             ],
           };
           const options = {
+            title: { display: true, text: title },
             scales: {
               xAxes: [
                 {
