@@ -10,9 +10,7 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
- * // TODO(https://github.com/AztecProtocol/barretenberg/issues/1309): Implement correct pairing point aggregation.
- * Method needs to accept an input agg object, aggregate the pairing points from both translator and merge, then return
- * the updated agg object.
+ *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
