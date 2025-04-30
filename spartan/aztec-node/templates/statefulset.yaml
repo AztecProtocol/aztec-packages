@@ -212,10 +212,14 @@ spec:
               value: {{ .Values.node.sentinel.enabled | quote }}
           ports:
             - containerPort: {{ .Values.service.httpPort }}
+              name: http-rpc
             - containerPort: {{ .Values.service.admin.port }}
+              name: admin
             - containerPort: {{ .Values.service.p2p.port }}
+              name: p2p-tcp
             - containerPort: {{ .Values.service.p2p.port }}
               protocol: UDP
+              name: p2p-udp
           resources:
             {{- toYaml .Values.node.resources | nindent 12 }}
       volumes:
