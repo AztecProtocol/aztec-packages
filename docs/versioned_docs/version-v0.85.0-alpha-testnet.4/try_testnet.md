@@ -23,7 +23,7 @@ id: try_testnet
 
 ## Chain Information
 
-**Version**: `0.85.0-alpha-testnet.3`
+**Version**: `0.85.0-alpha-testnet.4`
 
 **L1 Chain ID**: `11155111`
 
