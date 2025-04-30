@@ -103,7 +103,6 @@ export const AztecContext = createContext<{
   logs: Log[];
   logsOpen: boolean;
   showContractInterface: boolean;
-  transactionModalStatus: 'open' | 'closed' | 'minimized';
   currentContractArtifact: ContractArtifact;
   totalLogCount: number;
   defaultContractCreationParams: Record<string, unknown>;
@@ -141,7 +140,6 @@ export const AztecContext = createContext<{
   totalLogCount: 0,
   logsOpen: false,
   showContractInterface: false,
-  transactionModalStatus: 'closed',
   defaultContractCreationParams: {},
   pendingTxUpdateCounter: 0,
   isNetworkCongested: false,

@@ -82,6 +82,10 @@ const titleContainer = css({
   justifyContent: 'space-between',
   width: '100%',
   marginBottom: '1rem',
+  '@media (max-width: 900px)': {
+    gap: '1rem',
+    flexWrap: 'wrap',
+  },
 });
 
 const contractActions = css({
@@ -116,7 +120,7 @@ const loadingArtifactContainer = css({
 const contractName = css({
   marginRight: '0.5rem',
   fontSize: '2.0rem',
-  '@media (max-width: 1200px)': {
+  '@media (max-width: 900px)': {
     fontSize: '1.5rem',
   },
 });

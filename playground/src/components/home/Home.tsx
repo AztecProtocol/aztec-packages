@@ -86,7 +86,7 @@ const contentLayout = css({
   position: 'relative',
   gap: '24px',
   flexGrow: 1,
-  height: 'calc(100%)',
+  paddingBottom: '4rem', // For the logs panel
   '@media (max-width: 900px)': {
     flexWrap: 'wrap',
     maxHeight: 'auto',
@@ -164,7 +164,7 @@ export default function Home() {
         >
           <img css={logo} src={logoURL} alt="Aztec Logo" />
         </div>
-        <div css={headerTitle}>Developer Playground</div>
+        <div css={headerTitle}>Playground</div>
         <a
           href="https://docs.aztec.network/"
           target="_blank"
