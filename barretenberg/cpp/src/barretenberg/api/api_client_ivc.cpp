@@ -237,18 +237,8 @@ bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1374): Some constraints are known to
         // be different. This is a known issue that should eventually not allow verification.
-        std::vector<const char*> known_bad_constraints{
-            "sigma_1", "sigma_2", "sigma_3", "sigma_4", "id_1", "id_2", "id_3",    "id_4",      "lagrange_ecc_op",
-            "q_m",     "q_c",     "q_l",     "q_r",     "q_o",  "q_4",  "q_arith", "q_elliptic"
-        };
         for (auto [label, value1, value2] :
              zip_view(computed_vk->get_labels(), computed_vk->get_all(), precomputed_vk->get_all())) {
-            bool is_known_bad_copy_constraint =
-                std::find(known_bad_constraints.begin(), known_bad_constraints.end(), label) !=
-                known_bad_constraints.end();
-            if (is_known_bad_copy_constraint) {
-                continue;
-            }
             if (value1 != value2) {
                 info("FAIL: Verification key mismatch for function ",
                      function_name,
@@ -258,8 +248,6 @@ bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
                      value1,
                      " ",
                      value2);
-                info("We only report the first mismatch.");
-                // return false;
             }
         }
     }
