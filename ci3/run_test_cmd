@@ -182,7 +182,7 @@ function track_test {
 
 # Show PASSED and early out on success.
 function pass {
-  local line=" ${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
+  local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   track_test $test_hash "$line"
   echo -e "$line"
   exit
@@ -190,7 +190,7 @@ function pass {
 
 # Show FAILED and exit with error code.
 function fail {
-  local line=" ${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
@@ -203,7 +203,7 @@ function fail {
 
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
-  local line=" ${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"

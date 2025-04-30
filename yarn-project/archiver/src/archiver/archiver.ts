@@ -1,5 +1,5 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
+import { BlockTagTooOldError, RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -226,6 +226,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     } catch (error) {
       if (error instanceof NoBlobBodiesFoundError) {
         this.log.error(`Error syncing archiver: ${error.message}`);
+      } else if (error instanceof BlockTagTooOldError) {
+        this.log.warn(`Re-running archiver sync: ${error.message}`);
       } else {
         this.log.error('Error during archiver sync', error);
       }
