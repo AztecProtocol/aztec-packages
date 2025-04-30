@@ -137,7 +137,7 @@ pub fn recurse_expression<F: FieldElement>(
                 if polyref.next {
                     poly_name = format!("{}_shift", poly_name);
                 }
-                (1, format!("new_term.{}", poly_name), HashSet::new())
+                (1, format!("in.get(C::{})", poly_name), HashSet::new())
             }
         }
         AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation {

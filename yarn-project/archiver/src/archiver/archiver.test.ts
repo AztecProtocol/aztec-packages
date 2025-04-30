@@ -65,6 +65,16 @@ describe('Archiver', () => {
       .map((_, i) => getNumPrivateLogsForTx(i, blockNumber))
       .reduce((accum, num) => accum + num, 0);
 
+  const mockL1BlockNumbers = (...nums: bigint[]) => {
+    // During each archiver sync, we read the block number 3 times, so this ensures all three reads are consistent across the run.
+    for (const blockNum of nums) {
+      publicClient.getBlockNumber
+        .mockResolvedValueOnce(blockNum)
+        .mockResolvedValueOnce(blockNum)
+        .mockResolvedValueOnce(blockNum);
+    }
+  };
+
   let publicClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
@@ -189,7 +199,7 @@ describe('Archiver', () => {
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
-    publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
+    mockL1BlockNumbers(2500n, 2600n, 2700n);
 
     mockRollup.read.status
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, blocks[0].archive.root.toString(), GENESIS_ROOT])
@@ -332,7 +342,7 @@ describe('Archiver', () => {
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
-    publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n);
+    mockL1BlockNumbers(50n, 100n);
     mockRollup.read.status
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT])
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, blocks[1].archive.root.toString(), GENESIS_ROOT]);
@@ -445,7 +455,7 @@ describe('Archiver', () => {
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
-    publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
+    publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
@@ -479,7 +489,7 @@ describe('Archiver', () => {
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
-    publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
+    publicClient.getBlockNumber.mockResolvedValue(l1BlockForL2Block);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
 
@@ -507,7 +517,7 @@ describe('Archiver', () => {
     expect(notLastL1BlockForEpoch).toEqual(6n);
 
     logger.info(`Syncing archiver to L1 block ${notLastL1BlockForEpoch}`);
-    publicClient.getBlockNumber.mockResolvedValueOnce(notLastL1BlockForEpoch);
+    publicClient.getBlockNumber.mockResolvedValue(notLastL1BlockForEpoch);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
 
     await archiver.start(true);
@@ -520,7 +530,7 @@ describe('Archiver', () => {
     expect(lastL1BlockForEpoch).toEqual(7n);
 
     logger.info(`Syncing archiver to L1 block ${lastL1BlockForEpoch}`);
-    publicClient.getBlockNumber.mockResolvedValueOnce(lastL1BlockForEpoch);
+    publicClient.getBlockNumber.mockResolvedValue(lastL1BlockForEpoch);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT]);
 
     await archiver.start(true);
@@ -541,7 +551,7 @@ describe('Archiver', () => {
     const blobHashes = await makeVersionedBlobHashes(l2Block);
 
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
-    publicClient.getBlockNumber.mockResolvedValueOnce(lastL1BlockForEpoch);
+    publicClient.getBlockNumber.mockResolvedValue(lastL1BlockForEpoch);
     mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
 
@@ -559,6 +569,11 @@ describe('Archiver', () => {
     // Once epoch is flagged as complete, block number must be 1
     expect(await archiver.getBlockNumber()).toEqual(1);
     expect(await archiver.isEpochComplete(0n)).toBe(true);
+  });
+
+  it('starts new loop if latest L1 block has advanced beyond what a non-archive L1 node tracks', async () => {
+    publicClient.getBlockNumber.mockResolvedValueOnce(2000n).mockResolvedValueOnce(2400n);
+    await expect((archiver as any).sync(true)).rejects.toThrow(/more than 128 blocks behind/i);
   });
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune

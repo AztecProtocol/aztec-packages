@@ -1,11 +1,11 @@
 ---
-title: Transferring Tokens with Aztec.js
+title: Getting started with Aztec.js
 sidebar_position: 1
 ---
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
+In this guide, we will retrieving the Sandbox and deploy a pre-written token contract to it using Aztec.js. We will then use Aztec.js to interact with this contract and transfer tokens.
 
 This guide assumes you have followed the [quickstart](../../../../developers/getting_started.md).
 
