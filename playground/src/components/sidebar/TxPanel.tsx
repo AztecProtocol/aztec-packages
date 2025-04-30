@@ -4,11 +4,11 @@ import { useContext, useEffect, useState } from 'react';
 import ErrorIcon from '@mui/icons-material/Error';
 import SuccessIcon from '@mui/icons-material/CheckCircle';
 import Typography from '@mui/material/Typography';
-import { Box, Button, Card, CardContent, Divider, Popover, Tooltip } from '@mui/material';
+import { Box, Button, Card, Divider, Popover, Tooltip } from '@mui/material';
 import { loader } from '../../styles/common';
 import { FUN_FACTS } from '../../constants';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import type { UserTx } from '../../utils/txs';
+import { queryTxReceipt, type UserTx } from '../../utils/txs';
 import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
 import { TxHash } from '@aztec/aztec.js';
 import { TransactionModal } from '../common/TransactionModal';
@@ -79,6 +79,7 @@ const funFactsCss = css({
   alignItems: 'center',
   fontSize: '14px',
   background: '#ffffff69',
+  marginBottom: '2rem',
 });
 
 const txData = css({
@@ -130,12 +131,13 @@ const popoverCss = css({
 });
 
 export function TxPanel() {
-  const { setTransactionModalStatus, currentTx, walletDB, logs } = useContext(AztecContext);
+  const { setTransactionModalStatus, currentTx, walletDB, logs, pxe } = useContext(AztecContext);
 
   const [numTransactions, setNumTransactions] = useState(0);
   const [currentFunFactIndex, setCurrentFunFactIndex] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [selectedTx, setSelectedTx] = useState<UserTx | null>(null);
+  const [txUpdateCounter, setTxUpdateCounter] = useState(0);
 
   const [seenPendingTxPopover, setSeenPendingTxPopover] = useLocalStorage('seenPendingTxPopover', false);
 
@@ -163,7 +165,7 @@ export function TxPanel() {
     } else {
       setTransactions([]);
     }
-  }, [currentTx, walletDB]);
+  }, [currentTx, walletDB, txUpdateCounter]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -185,6 +187,30 @@ export function TxPanel() {
       setNumTransactions(0);
     }
   }, [currentTx, walletDB]);
+
+  useEffect(() => {
+    const refreshPendingTx = async () => {
+      if (!pxe || !walletDB) {
+        return;
+      }
+      const pendingTxs = transactions.filter(tx => tx.status === 'pending');
+
+      for (const tx of pendingTxs) {
+        const txReceipt = await queryTxReceipt(tx, pxe);
+        if (txReceipt) {
+          await walletDB.updateTxStatus(tx.txHash, txReceipt.status);
+          setTxUpdateCounter(prev => prev + 1);
+        }
+      }
+    };
+
+    if (walletDB && pxe) {
+      refreshPendingTx();
+    }
+
+    const interval = setInterval(refreshPendingTx, 1000);
+    return () => clearInterval(interval);
+  }, [transactions, walletDB, pxe]);
 
   const pendingTx = currentTx && currentTx.status !== 'success' ? currentTx : null;
   let lastLog = logs?.[0]?.message;
@@ -281,13 +307,11 @@ export function TxPanel() {
       )}
 
       {pendingTx && (
-        <Card>
-          <CardContent sx={funFactsCss}>
-            <LightbulbIcon sx={{ marginRight: '12px', color: '#FFB74D', fontSize: '30px' }} />
-            <Typography variant="body1" sx={{ fontSize: '15px', lineHeight: '1.1' }}>
-              {FUN_FACTS[currentFunFactIndex]}
-            </Typography>
-          </CardContent>
+        <Card sx={funFactsCss}>
+          <LightbulbIcon sx={{ marginRight: '12px', color: '#FFB74D', fontSize: '30px' }} />
+          <Typography variant="body1" sx={{ fontSize: '15px', lineHeight: '1.1' }}>
+            {FUN_FACTS[currentFunFactIndex]}
+          </Typography>
         </Card>
       )}
       <div style={{ flexGrow: 0.75, overflowY: 'auto', marginTop: '0rem' }}>
@@ -304,7 +328,7 @@ export function TxPanel() {
           transactions.map(tx => (
             <Button
               css={txData}
-              key={tx.txHash ?? ''}
+              key={tx.txHash?.toString() ?? ''}
               onClick={() => {
                 setSelectedTx(tx);
                 setTransactionModalStatus('open');

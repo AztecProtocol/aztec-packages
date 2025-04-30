@@ -1,4 +1,4 @@
-import { type ContractArtifact, AztecAddress, Fr, TxReceipt, type AuthWitness, type TxHash, Fq } from '@aztec/aztec.js';
+import { type ContractArtifact, AztecAddress, Fr, TxReceipt, type AuthWitness, type TxHash, Fq, TxStatus } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
@@ -156,6 +156,10 @@ export class WalletDB {
     await this.#transactions.set(`${txHash.toString()}:status`, Buffer.from(receipt.status.toString()));
     await this.#transactions.set(`${txHash.toString()}:date`, Buffer.from(Date.now().toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
+  }
+
+  async updateTxStatus(txHash: TxHash, status: TxStatus) {
+    await this.#transactions.set(`${txHash.toString()}:status`, Buffer.from(status.toString()));
   }
 
   async retrieveAllTx() {
