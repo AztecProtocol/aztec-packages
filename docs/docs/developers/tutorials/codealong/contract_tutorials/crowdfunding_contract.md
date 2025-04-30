@@ -63,7 +63,10 @@ Open the project in your preferred editor. If using VSCode and the LSP, you'll b
 
 In `main.nr`, rename the contract from `Main`, to `Crowdfunding`.
 
-#include_code empty-contract /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
+```rust
+#include_code empty-contract /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr raw
+}
+```
 
 Replace the example functions with an initializer that takes the required campaign info as parameters. Notice use of `#[aztec(...)]` macros inform the compiler that the function is a public initializer.
 
@@ -88,7 +91,11 @@ Add the required dependency by going to your project's `Nargo.toml` file, and ad
 ```rust
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/uint-note" }
+router = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/protocol/router_contract" }
 ```
+
+This clippet also imports some of the other dependencies we will be using.
 
 A word about versions:
 
@@ -103,6 +110,10 @@ use dep::aztec::protocol_types::address::AztecAddress;
 
 The `aztec::protocol_types` can be browsed [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src). And like rust dependencies, the relative path inside the dependency corresponds to `address::AztecAddress`.
 
+This contract uses another file called `config.nr`. Create this in the same directory as `main.nr` and paste this in:
+
+#include_code config.nr noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/config.nr rust
+
 #### Storage
 
 To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct:
@@ -113,7 +124,7 @@ The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir
 
 ---
 
-Back in main.nr, reference `use` of the type
+In `main.nr`, reference `use` of the type
 
 ```rust
 use dep::value_note::value_note::ValueNote;
@@ -176,6 +187,10 @@ The last point is achieved by emitting an unencrypted event log.
 Copy the last function into your Crowdfunding contract:
 
 #include_code operator-withdrawals /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
+
+This is emitting an event, which we will need to create. Paste this earlier in our contract after our `Storage` declaration:
+
+#include_code withdrawal-processed-event /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 You should be able to compile successfully with `aztec-nargo compile`.
 
