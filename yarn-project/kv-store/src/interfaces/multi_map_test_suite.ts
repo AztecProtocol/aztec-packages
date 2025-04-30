@@ -124,12 +124,17 @@ export function describeAztecMultiMap(
     });
 
     it('should be able to delete individual values for a single key', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+
+      await multiMap.deleteValue('foo', '2');
+
+      expect(await getValues('foo')).to.deep.equal(['1', '3']);
+
       await multiMap.set('foo', 'bar');
-      await multiMap.set('foo', 'baz');
 
-      await multiMap.deleteValue('foo', 'bar');
-
-      expect(await getValues('foo')).to.deep.equal(['baz']);
+      expect(await getValues('foo')).to.deep.equal(['1', '3', 'bar']);
     });
 
     it('supports range queries', async () => {
