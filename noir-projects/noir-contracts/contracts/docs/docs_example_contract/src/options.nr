@@ -46,18 +46,21 @@ where
 
 // docs:start:state_vars-OptionFilter
 pub fn filter_min_points(
-    cards: [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    cards: BoundedVec<RetrievedNote<CardNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     min_points: u8,
-) -> [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
-    let mut selected_cards = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    let mut num_selected = 0;
-    for i in 0..cards.len() {
-        if cards[i].is_some() & cards[i].unwrap_unchecked().note.points >= min_points {
-            selected_cards[num_selected] = cards[i];
-            num_selected += 1;
+) -> BoundedVec<RetrievedNote<CardNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+    let mut selected = BoundedVec::new();
+
+    for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+        if i < cards.len() {
+            let card = cards.get_unchecked(i);
+            if card.note.points >= min_points {
+                selected.push(card);
+            }
         }
     }
-    selected_cards
+
+    selected
 }
 // docs:end:state_vars-OptionFilter
 

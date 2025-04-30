@@ -78,22 +78,22 @@ impl<Context> Storage<1> for Deck<Context> {
 }
 
 pub fn filter_cards<let N: u32>(
-    retrieved_notes: [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    retrieved_notes: BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     desired_cards: [Card; N],
-) -> [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
-    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-
+) -> BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+    let mut selected = BoundedVec::new();
     let mut found = [false; N];
 
-    for i in 0..retrieved_notes.len() {
-        let retrieved_note = retrieved_notes[i];
-        if retrieved_note.is_some() {
-            let card_note = CardNote::from_note(retrieved_note.unwrap_unchecked().note);
+    for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+        if i < retrieved_notes.len() {
+            let retrieved_note = retrieved_notes.get_unchecked(i);
+            let card_note = CardNote::from_note(retrieved_note.note);
+
             for j in 0..N {
                 if !found[j]
                     & (card_note.card.strength == desired_cards[j].strength)
                     & (card_note.card.points == desired_cards[j].points) {
-                    selected[i] = retrieved_note;
+                    selected.push(retrieved_note);
                     found[j] = true;
                 }
             }

@@ -114,19 +114,19 @@ impl BalanceSet<&mut PrivateContext> {
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
 pub fn preprocess_notes_min_sum(
-    notes: [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     min_sum: u128,
-) -> [Option<RetrievedNote<UintNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
-    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
+) -> BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+    let mut selected = BoundedVec::new();
     let mut sum = 0 as u128;
     for i in 0..notes.len() {
         // Because we process notes in retrieved order, notes need to be sorted in descending amount order for this
         // filter to be useful. Consider a 'min_sum' of 4, and a set of notes with amounts [3, 2, 1, 1, 1, 1, 1]. If
         // sorted in descending order, the filter will only choose the notes with values 3 and 2, but if sorted in
         // ascending order it will choose 4 notes of value 1.
-        if notes[i].is_some() & sum < min_sum {
-            let retrieved_note = notes[i].unwrap_unchecked();
-            selected[i] = Option::some(retrieved_note);
+        if sum < min_sum {
+            let retrieved_note = notes.get_unchecked(i);
+            selected.push(retrieved_note);
             sum = sum.add(retrieved_note.note.get_value());
         }
     }

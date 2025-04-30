@@ -113,20 +113,22 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
 }
 
 pub fn filter_notes_min_sum<Note>(
-    retrieved_notes: [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     min_sum: u128,
-) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
+) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
 where
     Note: NoteType + OwnedNote,
 {
-    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
+    let mut selected = BoundedVec::new();
     let mut sum = 0 as u128;
-    for i in 0..retrieved_notes.len() {
-        if retrieved_notes[i].is_some() & sum < min_sum {
-            let retrieved_note = retrieved_notes[i].unwrap_unchecked();
-            selected[i] = Option::some(retrieved_note);
-            sum = sum.add(retrieved_note.note.get_amount());
+
+    for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+        if (i < notes.len()) & (sum < min_sum) {
+            let retrieved_note = notes.get_unchecked(i);
+            selected.push(retrieved_note);
+            sum = sum + retrieved_note.note.get_amount();
         }
     }
+
     selected
 }

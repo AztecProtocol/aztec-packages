@@ -7,17 +7,17 @@ use aztec::{
 };
 
 pub fn filter_notes_min_sum(
-    notes: [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    notes: BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     min_sum: Field,
-) -> [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
-    let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-
+) -> BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> {
+    let mut selected = BoundedVec::new();
     let mut sum = 0;
-    for i in 0..notes.len() {
-        if notes[i].is_some() & full_field_less_than(sum, min_sum) {
-            let retrieved_note = notes[i].unwrap_unchecked();
-            selected[i] = Option::some(retrieved_note);
-            sum += retrieved_note.note.value();
+
+    for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+        if (i < notes.len()) & (full_field_less_than(sum, min_sum)) {
+            let retrieved_note = notes.get_unchecked(i);
+            selected.push(retrieved_note);
+            sum = sum + retrieved_note.note.value();
         }
     }
 

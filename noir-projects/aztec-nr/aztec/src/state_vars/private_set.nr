@@ -64,8 +64,8 @@ where
         Note: Packable<N>,
     {
         let (retrieved_notes, note_hashes) = get_notes(self.context, self.storage_slot, options);
-        // We iterate in a range 0..options.limit instead of 0..notes.len() because options.limit is known at compile
-        // time and hence will result in less constraints when set to a lower value than
+        // We iterate in a range 0..options.limit instead of 0..retrieved_notes.len() because options.limit is known at
+        // compile time and hence will result in less constraints when set to a lower value than
         // MAX_NOTE_HASH_READ_REQUESTS_PER_CALL.
         for i in 0..options.limit {
             if i < retrieved_notes.len() {
