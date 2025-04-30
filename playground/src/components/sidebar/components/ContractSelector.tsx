@@ -45,6 +45,10 @@ export function ContractSelector() {
 
   useEffect(() => {
     const refreshContracts = async () => {
+      if (!walletDB || !wallet) {
+        return;
+      }
+
       setIsContractsLoading(true);
       const aliasedContracts = await walletDB.listAliases('contracts');
       const contracts = parseAliasedBuffersAsString(aliasedContracts);
@@ -53,9 +57,12 @@ export function ContractSelector() {
       setContracts(deployedContracts);
       setIsContractsLoading(false);
     };
-    if (walletDB && wallet) {
-      refreshContracts();
-    }
+
+    refreshContracts();
+
+    // Refresh contracts every 10 seconds
+    const interval = setInterval(refreshContracts, 10000);
+    return () => clearInterval(interval);
   }, [currentContractAddress, walletDB, wallet, pendingTxUpdateCounter]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {

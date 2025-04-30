@@ -72,15 +72,23 @@ export function AccountSelector() {
 
   useEffect(() => {
     const refreshAccounts = async () => {
+      if (!walletDB || !pxe) {
+        return;
+      }
+
       setIsAccountsLoading(true);
       const accounts = await getAccounts();
       setAccounts(accounts);
       setIsAccountsLoading(false);
     };
-    if (walletDB && pxe) {
-      refreshAccounts();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    refreshAccounts();
+
+    // Refresh accounts every 10 seconds, a new account may be created from other places
+    const interval = setInterval(refreshAccounts, 10000);
+    return () => clearInterval(interval);
+
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [wallet, walletDB, pxe, pendingTxUpdateCounter]);
 
   // // If there is only one account, select it automatically

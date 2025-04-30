@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from "react";
 import { AztecContext } from "../../../aztecEnv";
-import { DISCORD_URL } from "../../../constants";
 import { css } from "@emotion/react";
 import WarningIcon from '@mui/icons-material/WarningOutlined';
 
@@ -48,20 +47,12 @@ export function NetworkCongestionNotice() {
     return null;
   }
 
-  const discordLink = <a
-    href={DISCORD_URL}
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    join discord
-  </a>
-
   return (
     <div css={container}>
       <WarningIcon sx={{ color: '#f39c12', marginRight: '0.5rem' }} />
       <span>
         {network?.name ?? 'Network'} is congested right now.
-        Your transactions may take longer than normal to get included in a block.
+        Your transactions may take longer than normal to be included in a block.
       </span>
     </div>
   );

@@ -191,7 +191,7 @@ export function TxPanel() {
 
       for (const tx of pendingTxs) {
         const txReceipt = await queryTxReceipt(tx, pxe);
-        if (txReceipt) {
+        if (txReceipt && txReceipt.status !== 'pending') {
           await walletDB.updateTxStatus(tx.txHash, txReceipt.status);
           setPendingTxUpdateCounter(pendingTxUpdateCounter + 1);
         }
