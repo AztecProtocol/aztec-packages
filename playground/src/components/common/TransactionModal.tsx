@@ -3,7 +3,7 @@ import { css } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
-import CloseButton from '@mui/icons-material/Close';
+import MinimizeIcon from '@mui/icons-material/Minimize';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import { BLOCK_EXPLORER_TX_URL, DISCORD_URL, PLAYGROUND_URL } from '../../constants';
 import Button from '@mui/material/Button';
@@ -146,7 +146,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
 
   function renderNewsletterSignup() {
     return (
-      <div css={subtitleText} style={{ textAlign: 'center', margin: '1rem 0' }}>
+      <div css={subtitleText} style={{ textAlign: 'center', marginTop: '2rem' }}>
         Psst! Sign up for the <a href="https://tally.so/r/np5p0E" target="_blank" rel="noopener noreferrer">developer newsletter</a>
       </div>
     )
@@ -178,13 +178,13 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           )}
         </div>
 
-        {renderNewsletterSignup()}
-
         <div css={buttonContainer}>
           <Button variant="contained" color="error" onClick={handleCancelTx}>
             Cancel Transaction
           </Button>
         </div>
+
+        {renderNewsletterSignup()}
       </>
     )
   }
@@ -207,8 +207,6 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             We are waiting for confirmation that your transaction has been included in a block.
           </Typography>
 
-          {renderNewsletterSignup()}
-
           <div css={buttonContainer}>
             <Button
               variant="contained"
@@ -221,6 +219,8 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
               View on Explorer
             </Button>
           </div>
+
+          {renderNewsletterSignup()}
         </div>
       </>
     )
@@ -261,8 +261,6 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           </code>
         </div>
 
-        {renderNewsletterSignup()}
-
         <span style={{ backgroundColor: 'var(--mui-palette-grey-300)', textAlign: 'center', padding: '0.75rem', borderRadius: '6px', marginTop: '2rem' }}>
           Take a screenshot of above and share on X!
         </span>
@@ -291,6 +289,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           </Button>
         </div>
 
+        {renderNewsletterSignup()}
       </>
     )
   }
@@ -332,8 +331,6 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           </Typography>
         </div>
 
-        {renderNewsletterSignup()}
-
         <div css={buttonContainer}>
           <Button
             variant="contained"
@@ -346,6 +343,8 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             View on Explorer
           </Button>
         </div>
+
+        {renderNewsletterSignup()}
       </>
     )
   }
@@ -370,7 +369,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             css={minimizeButton}
             onClick={onClose}
           >
-            <CloseButton />
+            <MinimizeIcon />
           </IconButton>
 
           <div css={container}>
