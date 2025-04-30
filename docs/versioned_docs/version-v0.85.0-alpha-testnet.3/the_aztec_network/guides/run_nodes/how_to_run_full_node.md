@@ -11,7 +11,7 @@ tags:
 
 ## Background
 
-The Aztec full node is a critical infrastructure component that allows users to interact with the Aztec network.
+The Aztec full node is a critical infrastructure component that allows users to interact with the Aztec network. Full nodes provide a connection to the network and allow users to send and receive transactions and state updates without relying on a third party. Running a full node is a great way to support the Aztec network and get involved with the community. Running your own full node is the most privacy preserving way to interact with the Aztec network.
 
 ## Prerequisites
 
