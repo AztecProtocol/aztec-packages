@@ -14,6 +14,7 @@ import type { L1ReaderConfig } from '../l1_reader.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
+import { checkBlockTag } from './utils.js';
 
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
@@ -381,11 +382,13 @@ export class RollupContract {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.status([blockNumber], options);
   }
 
-  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.canPruneAtTime([timestamp], options);
   }
 

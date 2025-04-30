@@ -19,6 +19,10 @@ network:
 
   mempoolLimitBytes: "100000000" # approx 100MB
 
+blobs:
+  remoteBlobSinkUrl: ""
+  remoteBlobSinkEnabled: false
+
 storage:
   localSsd: false
   dataStoreMapSize: "134217728" # 128 GB

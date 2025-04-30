@@ -3,7 +3,7 @@ title: Communicating with L1
 tags: [contracts, portals]
 ---
 
-Follow the [token bridge tutorial](../../../../../developers/tutorials/codealong/contract_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../../../../developers/tutorials/codealong/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 
@@ -67,7 +67,7 @@ pub fn consume_l1_to_l2_message(
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/codealong/contract_tutorials/token_bridge.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/codealong/js_tutorials/token_bridge.md).
 
 ```rust title="claim_public" showLineNumbers 
 // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
@@ -377,3 +377,5 @@ Designated callers are enforced at the contract level for contracts that are not
 - Token bridge (Portal contract built for L1 -> L2, i.e., a non-native L2 asset)
   - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/l1-contracts/test/portals/TokenPortal.sol)
   - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
+
+For a full example of how to use a Portal, see the [Token Bridge tutorial](../../../../../developers/tutorials/codealong/js_tutorials/token_bridge.md).

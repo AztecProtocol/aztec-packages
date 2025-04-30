@@ -259,15 +259,6 @@ pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
     m.functions().any(|f: FunctionDefinition| is_fn_initializer(f))
 }
 
-pub(crate) comptime fn is_note(typ: Type) -> bool {
-    typ.as_data_type().map_or(false, |struc: (TypeDefinition, [Type])| {
-        let (def, _) = struc;
-        def.has_named_attribute("note")
-            | def.has_named_attribute("partial_note")
-            | def.has_named_attribute("custom_note")
-    })
-}
-
 /// Returns the typed expression of a trait method implementation.
 ///
 /// This helper function is preferred over directly inlining with `$typ::target_method()` in a quote,
