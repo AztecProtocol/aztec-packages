@@ -52,13 +52,13 @@ export function NetworkSelector() {
     initNetworkStore();
   }, []);
 
-  // Connect to the first network automatically
-  useEffect(() => {
-    if (isNetworkStoreInitialized && !network) {
-      handleNetworkChange(NETWORKS[0].nodeURL);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNetworkStoreInitialized]);
+  // // Connect to the first network automatically
+  // useEffect(() => {
+  //   if (isNetworkStoreInitialized && !network) {
+  //     handleNetworkChange(NETWORKS[0].nodeURL);
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [isNetworkStoreInitialized]);
 
   useEffect(() => {
     const refreshNetworks = async () => {
@@ -152,10 +152,6 @@ export function NetworkSelector() {
     <div css={navbarButtonStyle}>
       <NetworkIcon />
 
-      {!network?.nodeURL && (
-        <InputLabel id="network-label">Select Network</InputLabel>
-      )}
-
       <FormControl css={navbarSelect}>
         <Select
           fullWidth
@@ -173,6 +169,7 @@ export function NetworkSelector() {
             if (selected && network?.nodeURL) {
               return `${network.name}`;
             }
+            return 'Select Network';
           }}
           disabled={connecting}
           onChange={e => handleNetworkChange(e.target.value)}

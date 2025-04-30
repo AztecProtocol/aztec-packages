@@ -58,11 +58,12 @@ export function ContractSelector() {
   }, [currentContractAddress, walletDB, wallet]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
-    trackButtonClick(`Select Contract ${event.target.value}`, 'Contract Selector');
     const contractValue = event.target.value;
     if (contractValue === '') {
       return;
     }
+
+    trackButtonClick(`Select Contract ${contractValue}`, 'Contract Selector');
 
     // If 'upload your own' is selected, set the contract artifact to undefined, and allow the user to upload a new one
     if (contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
@@ -130,7 +131,7 @@ export function ContractSelector() {
         )}
 
         <Select
-          value={selectedValue}
+          value={selectedValue || ''}
           label="Contract"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
@@ -138,11 +139,12 @@ export function ContractSelector() {
           onChange={handleContractChange}
           fullWidth
           renderValue={selected => {
+            console.log('selected', selected);
             const contract = contracts.find(contract => contract.value === selected);
             if (contract) {
               return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
             }
-            return selected;
+            return selected ?? 'Select Contract';
           }}
           disabled={isContractsLoading}
         >

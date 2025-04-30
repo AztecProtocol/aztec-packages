@@ -26,7 +26,7 @@ import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
 export function AccountSelector() {
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
-  const [isAccountsLoading, setIsAccountsLoading] = useState(true);
+  const [isAccountsLoading, setIsAccountsLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -184,7 +184,7 @@ export function AccountSelector() {
             if (account) {
               return `${account?.key.split(':')[1]} (${formatFrAsString(account?.value)})`
             }
-            return selected;
+            return selected ?? 'Select Account';
           }}
         >
           {!isPXEInitialized && (
