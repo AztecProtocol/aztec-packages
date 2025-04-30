@@ -8,6 +8,7 @@ import {
   FunctionType,
   DeployMethod,
   type DeployOptions,
+  TxStatus,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -51,6 +52,7 @@ const contractFnContainer = css({
   '@media (max-width: 900px)': {
     height: 'auto',
   },
+  border: 'none',
 });
 
 const headerContainer = css({
@@ -80,6 +82,10 @@ const titleContainer = css({
   justifyContent: 'space-between',
   width: '100%',
   marginBottom: '1rem',
+  '@media (max-width: 900px)': {
+    gap: '1rem',
+    flexWrap: 'wrap',
+  },
 });
 
 const contractActions = css({
@@ -114,7 +120,7 @@ const loadingArtifactContainer = css({
 const contractName = css({
   marginRight: '0.5rem',
   fontSize: '2.0rem',
-  '@media (max-width: 1200px)': {
+  '@media (max-width: 900px)': {
     fontSize: '1.5rem',
   },
 });
@@ -170,9 +176,10 @@ export function ContractComponent() {
       }
       setIsLoadingArtifact(false);
     };
-    if (!!currentContractArtifact) {
+    if (currentContractArtifact) {
       loadCurrentContract();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentContractArtifact, currentContractAddress, wallet]);
 
   useEffect(() => {
@@ -189,14 +196,14 @@ export function ContractComponent() {
   ) => {
     setOpenCreateContractDialog(false);
     if (contract && publiclyDeploy) {
-      const deploymentResult = await sendTx(
+      const txReceipt = await sendTx(
         `Deploy ${currentContractArtifact.name}`,
         interaction,
         contract.address,
-        opts
+        opts,
       );
       // Temporarily ignore undeployed contracts
-      if (deploymentResult) {
+      if (txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);
       }
     }
@@ -247,8 +254,13 @@ export function ContractComponent() {
                 )}
 
                 {currentContractAddress && (
-                  <div css={contractActions} style={{ backgroundColor: 'var(--mui-palette-grey-200)', padding: '0px 12px', borderRadius: '6px' }}>
-                    <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
+                  <div
+                    css={contractActions}
+                    style={{ backgroundColor: 'var(--mui-palette-grey-200)', padding: '0px 12px', borderRadius: '6px' }}
+                  >
+                    <Typography color="text.secondary">
+                      {formatFrAsString(currentContractAddress.toString())}
+                    </Typography>
                     <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
                     <IconButton
                       onClick={() => {
@@ -261,7 +273,6 @@ export function ContractComponent() {
                     </IconButton>
                   </div>
                 )}
-
               </Box>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (
@@ -272,7 +283,13 @@ export function ContractComponent() {
               {!!ContractDocumentationLinks[currentContractArtifact.name] && (
                 <Typography variant="body2" css={{ marginTop: '-1.5rem', marginBottom: '2rem' }}>
                   <span>Find the in-depth tutorial for {currentContractArtifact.name} </span>
-                  <a href={ContractDocumentationLinks[currentContractArtifact.name]} target="_blank" rel="noopener noreferrer">here</a>
+                  <a
+                    href={ContractDocumentationLinks[currentContractArtifact.name]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    here
+                  </a>
                 </Typography>
               )}
             </div>
@@ -291,15 +308,22 @@ export function ContractComponent() {
             )
             .sort((a, b) => {
               if (ContractMethodOrder[currentContractArtifact.name]) {
-                return ContractMethodOrder[currentContractArtifact.name]?.indexOf(a.name) - ContractMethodOrder[currentContractArtifact.name]?.indexOf(b.name)
+                return (
+                  ContractMethodOrder[currentContractArtifact.name]?.indexOf(a.name) -
+                  ContractMethodOrder[currentContractArtifact.name]?.indexOf(b.name)
+                );
               }
               return 0;
             })
             .map(fn => (
-              <FunctionCard fn={fn} key={fn.name} contract={currentContract} contractArtifact={currentContractArtifact} onSendTxRequested={sendTx} />
+              <FunctionCard
+                fn={fn}
+                key={fn.name}
+                contract={currentContract}
+                contractArtifact={currentContractArtifact}
+                onSendTxRequested={sendTx}
+              />
             ))}
-
-
         </div>
       )}
     </div>

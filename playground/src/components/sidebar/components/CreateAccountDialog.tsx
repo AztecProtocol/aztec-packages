@@ -88,6 +88,7 @@ export function CreateAccountDialog({
         salt,
         signingKey,
       });
+
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
       deployMethod = await accountManager.getDeployMethod();
