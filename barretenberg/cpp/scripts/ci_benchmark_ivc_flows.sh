@@ -137,7 +137,7 @@ jobs=$((num_cpus / HARDWARE_CONCURRENCY))
 if [ -n "${IVC_BENCH:-}" ]; then
   # If IVC_BENCH is set, run only that benchmark.
   run_benchmark 1 "client_ivc_flow native $IVC_BENCH"
-  # run_benchmark 1 "client_ivc_flow wasm $IVC_BENCH"
+  run_benchmark 1 "client_ivc_flow wasm $IVC_BENCH"
 else
   for runtime in native wasm; do
     parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow '$runtime' {}"' ::: $(ls "$input_folder")
