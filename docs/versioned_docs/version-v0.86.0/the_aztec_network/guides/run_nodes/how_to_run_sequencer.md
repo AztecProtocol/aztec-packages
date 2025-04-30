@@ -52,9 +52,9 @@ To use the `aztec start` command, you need to obtain the following:
 
 - An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`.
 
-- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`.
+- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`. You can provide fallback URLs by separating them with commas.
 
-- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional (but recommended) remote server that serves blobs to the client. You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`.
+- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional remote server that serves blobs to the client. You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`.
 
 #### Ethereum Keys
 
