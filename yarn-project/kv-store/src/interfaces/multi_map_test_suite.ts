@@ -128,13 +128,29 @@ export function describeAztecMultiMap(
       await multiMap.set('foo', '2');
       await multiMap.set('foo', '3');
 
+      // Out-of-order delete
       await multiMap.deleteValue('foo', '2');
 
       expect(await getValues('foo')).to.deep.equal(['1', '3']);
 
+      // Insertion after delete
       await multiMap.set('foo', 'bar');
 
       expect(await getValues('foo')).to.deep.equal(['1', '3', 'bar']);
+
+      // Delete the last key
+      await multiMap.deleteValue('foo', 'bar');
+
+      expect(await getValues('foo')).to.deep.equal(['1', '3']);
+
+      // Reinsert the initially deleted key
+      await multiMap.set('foo', '2');
+
+      // LMDB and IndexedDB behave differently here, the former ordering by value and the
+      // latter by insertion. This is fine because there is no expectation for values in a map (or multimap) to
+      // be ordered.
+      const values = (await getValues('foo')).sort((a, b) => a.localeCompare(b));
+      expect(values).to.deep.equal(['1', '2', '3']);
     });
 
     it('supports range queries', async () => {
