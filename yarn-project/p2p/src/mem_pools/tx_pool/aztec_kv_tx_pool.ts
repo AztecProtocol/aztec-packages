@@ -413,6 +413,7 @@ export class AztecKVTxPool implements TxPool {
    */
   private async archiveTxs(txs: Tx[]): Promise<void> {
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    this.#log.verbose(`Archiving ${txs.length} txs`);
     await this.#archive.transactionAsync(async () => {
       // calcualte the head and tail indices of the archived txs by insertion order.
       let headIdx =
@@ -436,6 +437,7 @@ export class AztecKVTxPool implements TxPool {
         await this.#archivedTxIndices.set(headIdx, txHash);
         headIdx++;
       }
+      this.#log.verbose(`Total archived transactions: ${headIdx - tailIdx}`);
     });
   }
 
