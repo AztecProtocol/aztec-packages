@@ -142,8 +142,7 @@ pub struct Config {
 
 To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct in our `main.nr`:
 
-```rust
-#[storage]
+```rust title="storage" showLineNumbers #[storage]
 struct Storage<Context> {
     config: PublicImmutable<Config, Context>,
     // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
@@ -165,8 +164,7 @@ use dep::value_note::value_note::ValueNote;
 
 Now complete the initializer by setting the storage variables with the parameters:
 
-```rust
-#[public]
+```rust title="init" showLineNumbers #[public]
 #[initializer]
 fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
     storage.config.initialize(Config { donation_token, operator, deadline });
@@ -182,9 +180,10 @@ To check that the donation occurs before the campaign deadline, we must access t
 
 We read the deadline from public storage in private and use the router contract to assert that the current `timestamp` is before the deadline.
 
-```rust
+```rust title="call-check-deadline" showLineNumbers
 privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
 
 We perform this check via the router contract to not reveal which contract is performing the check - this is achieved by calling a private function on the router contract which then enqueues a call to a public function on the router contract. The result is that `msg_sender` in the public call will then be the router contract.
 Note that the privacy here is dependent upon what deadline value is chosen by the Crowdfunding contract deployer.
@@ -192,7 +191,7 @@ If it's unique to this contract, then there'll be a privacy leak regardless, as 
 
 Now conclude adding all dependencies to the `Crowdfunding` contract:
 
-```rust
+```rust title="all-deps" showLineNumbers
 use crate::config::Config;
 use dep::aztec::{
     event::event_interface::EventInterface,
@@ -212,6 +211,7 @@ use router::utils::privately_check_timestamp;
 use std::meta::derive;
 use token::Token;
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L11-L29" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L11-L29</a></sub></sup>
 
 Like before, you can find these and other `aztec::protocol_types` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-protocol-circuits/crates/types/src).
 
