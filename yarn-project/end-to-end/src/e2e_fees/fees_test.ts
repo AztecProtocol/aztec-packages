@@ -334,7 +334,7 @@ export class FeesTest {
         expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
 
         const sponsoredFPC = await setupSponsoredFPC(context.pxe);
-        this.logger.info(`SponsoredFPC deployed at ${this.sponsoredFPC.address}`);
+        this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
 
         return {
           sponsoredFPCAddress: sponsoredFPC.address,
