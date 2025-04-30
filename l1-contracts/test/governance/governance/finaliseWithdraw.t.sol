@@ -30,7 +30,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
     uint256[WITHDRAWAL_COUNT] memory _withdrawals,
     uint256[WITHDRAWAL_COUNT] memory _timejumps
   ) {
-    deposit = _depositAmount;
+    deposit = bound(_depositAmount, 1, type(uint224).max);
     uint256 sum = deposit;
 
     token.mint(address(this), deposit);
