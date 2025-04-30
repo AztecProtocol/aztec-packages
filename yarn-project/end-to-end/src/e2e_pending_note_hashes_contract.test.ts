@@ -5,7 +5,7 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
 } from '@aztec/constants';
-import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
+import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
 

@@ -16,7 +16,6 @@ pub struct BalanceSet<Context> {
 
 impl<Context> BalanceSet<Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
-        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { set: PrivateSet::new(context, storage_slot) }
     }
 }

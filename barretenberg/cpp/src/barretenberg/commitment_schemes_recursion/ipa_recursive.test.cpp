@@ -4,7 +4,7 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -68,7 +68,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
-        stdlib::recursion::aggregation_state<Builder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         return builder;
     }

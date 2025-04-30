@@ -13,7 +13,7 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
-const BOOT_NODE_UDP_PORT = 40400;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
 

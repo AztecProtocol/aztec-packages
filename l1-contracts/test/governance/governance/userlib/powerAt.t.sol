@@ -2,13 +2,16 @@
 pragma solidity >=0.8.27;
 
 import {UserLibBase} from "./base.t.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 contract PowerAtTest is UserLibBase {
-  using UserLib for DataStructures.User;
+  using UserLib for User;
+  using Checkpoints for Checkpoints.Trace224;
+  using SafeCast for uint256;
 
   Timestamp internal time;
 
@@ -63,22 +66,22 @@ contract PowerAtTest is UserLibBase {
 
     vm.warp(block.timestamp + 12);
 
-    uint256 index = bound(_index, 0, user.numCheckPoints - (_between ? 2 : 1));
+    uint32 index = bound(_index, 0, user.checkpoints.length() - (_between ? 2 : 1)).toUint32();
 
-    DataStructures.CheckPoint memory first = user.checkpoints[index];
+    Checkpoints.Checkpoint224 memory first = user.checkpoints.at(index);
 
     if (_between) {
-      DataStructures.CheckPoint memory second = user.checkpoints[index + 1];
-      time = first.time + Timestamp.wrap(Timestamp.unwrap(second.time - first.time) / 2);
+      Checkpoints.Checkpoint224 memory second = user.checkpoints.at(index + 1);
+      time = Timestamp.wrap(first._key) + Timestamp.wrap((second._key - first._key) / 2);
     } else {
-      if (index == user.numCheckPoints && _index % 2 == 0) {
+      if (index == user.checkpoints.length() && _index % 2 == 0) {
         time = Timestamp.wrap(block.timestamp - 12);
       } else {
-        time = first.time;
+        time = Timestamp.wrap(first._key);
       }
     }
 
-    assertEq(user.powerAt(time), first.power);
-    assertGt(first.power, 0);
+    assertEq(user.powerAt(time), first._value);
+    assertGt(first._value, 0);
   }
 }

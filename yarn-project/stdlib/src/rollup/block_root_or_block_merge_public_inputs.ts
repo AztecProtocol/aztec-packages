@@ -37,6 +37,10 @@ export class BlockRootOrBlockMergePublicInputs {
      */
     public outHash: Fr,
     /**
+     * The hashes of the proposed block headers of the constituent blocks.
+     */
+    public proposedBlockHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
+    /**
      * The summed `transaction_fee`s and recipients of the constituent blocks.
      */
     public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
@@ -71,6 +75,7 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readObject(GlobalVariables),
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -90,6 +95,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.startGlobalVariables,
       this.endGlobalVariables,
       this.outHash,
+      this.proposedBlockHeaderHashes,
       this.fees,
       this.vkTreeRoot,
       this.protocolContractTreeRoot,

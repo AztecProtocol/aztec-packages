@@ -1080,13 +1080,13 @@ fn generate_revert_instruction(
         opcode: avm_opcode,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(revert_data_pointer)
                 .direct_operand(revert_data_size_offset)
+                .indirect_operand(revert_data_pointer)
                 .build(),
         ),
         operands: vec![
-            make_operand(bits_needed, &revert_data_pointer.to_usize()),
             make_operand(bits_needed, &revert_data_size_offset.to_usize()),
+            make_operand(bits_needed, &revert_data_pointer.to_usize()),
         ],
         ..Default::default()
     });
@@ -1102,13 +1102,13 @@ fn generate_return_instruction(
         opcode: AvmOpcode::RETURN,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(return_data_pointer)
                 .direct_operand(return_data_size_offset)
+                .indirect_operand(return_data_pointer)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: return_data_pointer.to_usize() as u16 },
             AvmOperand::U16 { value: return_data_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: return_data_pointer.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1688,7 +1688,7 @@ pub fn patch_debug_info_pcs(
             for (original_opcode_location, source_locations) in opcode_locations_map.iter() {
                 let avm_opcode_location =
                     BrilligOpcodeLocation(brillig_pcs_to_avm_pcs[original_opcode_location.0]);
-                patched_locations.insert(avm_opcode_location, source_locations.clone());
+                patched_locations.insert(avm_opcode_location, *source_locations);
             }
             // insert the new map as a brillig locations map for the current function id
             patched_brillig_locations.insert(*brillig_function_id, patched_locations);
