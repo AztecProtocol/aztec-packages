@@ -34,7 +34,7 @@ export function NavBar() {
         <NetworkSelector />
         <AccountSelector />
         <ContractSelector />
-        <AddressBook style={{ marginRight: 'auto' }} />
+        <AddressBook />
       </div>
     </div>
   );
