@@ -177,7 +177,7 @@ class ClientIVC {
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
 
     PairingPoints perform_recursive_verification_and_databus_consistency_checks(
-        ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs, PairingPoints points_accumulator);
+        ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);

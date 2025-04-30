@@ -28,12 +28,10 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
                                    const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    PairingPoints verify_proof(const HonkProof& proof,
-                               const std::vector<std::vector<fr>>& public_inputs_vec_nt,
-                               PairingPoints points_accumulator);
-    PairingPoints verify_proof(const StdlibProof<Builder>& stdlib_proof,
-                               const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
-                               PairingPoints points_accumulator);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
+        const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
+        const StdlibProof<Builder>& stdlib_proof, const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
     std::shared_ptr<VerificationKey> key;
     Builder& builder;

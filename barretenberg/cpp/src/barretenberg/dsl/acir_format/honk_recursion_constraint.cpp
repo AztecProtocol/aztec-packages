@@ -206,10 +206,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
 template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
-    typename Flavor::CircuitBuilder& builder,
-    const RecursionConstraint& input,
-    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder> input_points_accumulator,
-    bool has_valid_witness_assignments)
+    typename Flavor::CircuitBuilder& builder, const RecursionConstraint& input, bool has_valid_witness_assignments)
     requires IsRecursiveFlavor<Flavor>
 {
     using Builder = typename Flavor::CircuitBuilder;
@@ -259,38 +256,24 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
-    HonkRecursionConstraintOutput<Builder> output;
-    UltraRecursiveVerifierOutput<Builder> verifier_output =
-        verifier.verify_proof(proof_fields, input_points_accumulator);
+    UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
-
-    output.points_accumulator = verifier_output.points_accumulator;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        output.ipa_claim = verifier_output.ipa_claim;
-        output.ipa_proof = verifier_output.ipa_proof;
-    }
-    return output;
+    return verifier_output;
 }
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraRecursiveFlavor_<UltraCircuitBuilder>>(
-    UltraCircuitBuilder& builder,
-    const RecursionConstraint& input,
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_points_accumulator,
-    bool has_valid_witness_assignments);
+    UltraRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                const RecursionConstraint& input,
+                                                bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(
-    UltraCircuitBuilder& builder,
-    const RecursionConstraint& input,
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder> input_points_accumulator,
-    bool has_valid_witness_assignments);
+    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                      const RecursionConstraint& input,
+                                                      bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
-    UltraRecursiveFlavor_<MegaCircuitBuilder>>(
-    MegaCircuitBuilder& builder,
-    const RecursionConstraint& input,
-    stdlib::recursion::PairingPoints<MegaCircuitBuilder> input_points_accumulator,
-    bool has_valid_witness_assignments);
+    UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
+                                               const RecursionConstraint& input,
+                                               bool has_valid_witness_assignments);
 } // namespace acir_format

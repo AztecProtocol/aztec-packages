@@ -19,7 +19,7 @@ namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct UltraRecursiveVerifierOutput {
     PairingPoints<Builder> points_accumulator;
-    OpeningClaim<grumpkin<Builder>> ipa_claim;
+    OpeningClaim<grumpkin<Builder>> ipa_claim; // WORKTODO: maybe omit or make optional depending on the flavor
     StdlibProof<Builder> ipa_proof;
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {
@@ -42,8 +42,9 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
     explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    Output verify_proof(const HonkProof& proof, PairingObject points_accumulator);
-    Output verify_proof(const StdlibProof<Builder>& proof, PairingObject points_accumulator);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(
+        const StdlibProof<Builder>& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;

@@ -53,7 +53,8 @@ class GoblinRecursiveVerifier {
      *
      * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
      */
-    GoblinRecursiveVerifierOutput verify(const GoblinProof&);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
+        const GoblinProof&);
 
   private:
     Builder* builder;

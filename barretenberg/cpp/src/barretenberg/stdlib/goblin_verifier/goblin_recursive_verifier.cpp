@@ -24,10 +24,10 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
                                             eccvm_verifier.transcript };
-    [[maybe_unused]] auto translator_pairing_points = translator_verifier.verify_proof(
+    PairingPoints<Builder> translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
-    // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
+    // Verify the consistency between the ECCVM and Translator transcript polynome\ial evaluations
     // In reality the Goblin Proof is going to already be a stdlib proof and this conversion is not going to happen here
     // (see https://github.com/AztecProtocol/barretenberg/issues/991)
     auto native_translation_evaluations = proof.translation_evaluations;
@@ -43,7 +43,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
 
     MergeVerifier merge_verifier{ builder };
     StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-    auto merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
-    return { merge_pairing_points, opening_claim, ipa_transcript };
+    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    translator_pairing_points.aggregate(merge_pairing_points);
+    return { translator_pairing_points, opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk
