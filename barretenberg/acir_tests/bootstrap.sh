@@ -133,9 +133,6 @@ function test_cmds {
 
   # Solidity tests. Isolate because anvil.
   local prefix="$tests_hash:ISOLATE=1"
-  echo "$prefix FLOW=sol $run_test assert_statement"
-  echo "$prefix:CPUS=8 FLOW=sol $run_test double_verify_proof"
-  echo "$prefix:CPUS=8 FLOW=sol $run_test double_verify_nested_proof"
   echo "$prefix FLOW=sol_honk $run_test assert_statement"
   echo "$prefix FLOW=sol_honk $run_test 1_mul"
   echo "$prefix FLOW=sol_honk $run_test slices"
@@ -155,25 +152,13 @@ function test_cmds {
   # bb.js tests.
   local prefix=$tests_hash
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
-  echo "$prefix BIN=$bbjs_bin FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x"
+  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x"
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
   echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array"
-  # 1_mul through bb.js build, all_cmds flow, to test all cli args.
-  echo "$prefix BIN=$bbjs_bin FLOW=all_cmds $run_test 1_mul"
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
   echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
-  # echo 1_mul through native bb build, all_cmds flow, to test all cli args.
-  echo "$prefix NATIVE=1 FLOW=all_cmds $run_test 1_mul"
-
-  # barretenberg-acir-tests-bb-ultra-plonk:
-  # Exclude honk tests.
-  for t in $plonk_tests; do
-    echo "$prefix SYS=ultra_plonk_deprecated FLOW=prove_then_verify $run_test $(basename $t)"
-  done
-  echo "$prefix SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement"
-  echo "$prefix SYS=ultra_plonk_deprecated FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_proof"
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # Exclude plonk tests.
