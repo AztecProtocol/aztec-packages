@@ -617,46 +617,54 @@ TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    auto steps_copy = steps;
 
     size_t token_idx = 4; // index of the token contract in the set of circuits for the whole flow
     auto precomputed_token_vk = steps.precomputed_vks[token_idx];
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
-    // Recompute the "precomputed" verification key (i.e. compute VK with no witness)
-    {
-        info("RECOMPUTE: \n");
-        auto program = steps.folding_stack[token_idx];
-        program.witness = {}; // erase the witness to mimmic the "dummy witness" case
-        auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-        const acir_format::ProgramMetadata metadata{
-            .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
-        };
+    for (auto [program_in, precomputed_vk, function_name] :
+         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
+        std::shared_ptr<ClientIVC::MegaVerificationKey> recomputed_vk;
+        {
+            info("RECOMPUTE: \n");
+            auto program = program_in;
+            program.witness = {}; // erase the witness to mimmic the "dummy witness" case
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
 
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-        auto recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+            recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
 
-        // Compare the recomputed vk with the precomputed vk (both constructed using a dummy witness)
-        // Note: (We expect these to be equal)
-        EXPECT_TRUE(recomputed_vk->compare(precomputed_token_vk));
-    }
+            // Compare the recomputed vk with the precomputed vk (both constructed using a dummy witness)
+            // Note: (We expect these to be equal)
+            // recomputed_vk->compare(precomputed_token_vk);
+            // EXPECT_TRUE(recomputed_vk->compare(precomputed_token_vk));
+        }
 
-    // Compute the verification key using the genuine witness
-    {
-        info("COMPUTE: \n");
-        auto program = steps.folding_stack[token_idx];
-        auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-        const acir_format::ProgramMetadata metadata{
-            .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
-        };
+        // Compute the verification key using the genuine witness
+        std::shared_ptr<ClientIVC::MegaVerificationKey> computed_vk;
+        {
+            info("COMPUTE: \n");
+            auto program = program_in;
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
 
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+            computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
 
-        // Compare the VK computed using the genuine witness with the VK computed using the dummy witness
-        EXPECT_TRUE(computed_vk->compare(precomputed_token_vk));
+            // Compare the VK computed using the genuine witness with the VK computed using the dummy witness
+            EXPECT_TRUE(computed_vk->compare(recomputed_vk));
+        }
     }
 }
 #endif

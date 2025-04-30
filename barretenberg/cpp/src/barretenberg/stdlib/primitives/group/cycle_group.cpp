@@ -1280,7 +1280,8 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     //    x-coordinate collisions in honest case) 3: When assigning to the point table, we conditionally assign either
     //    the output of the point addition (if not at infinity) or the generator point (if at infinity)
     // Note: if `base_point.is_point_at_infinity()` is constant, these conditional assigns produce zero gate overhead
-    cycle_group fallback_point(Group::affine_one);
+    // cycle_group fallback_point = Group::affine_one * 25;
+    cycle_group fallback_point = Group::affine_one;
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, /*is_infinity=*/false);
@@ -1293,8 +1294,11 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
     // to be constant = 2 gates)
     info("modded_base_point.is_constant() = ", modded_base_point.is_constant());
-    info("base_point.is_point_at_infinity() = ", base_point.is_point_at_infinity().get_value());
-    if (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
+    info("fallback_point.is_constant() = ", fallback_point.is_constant());
+    info("base_point.is_constant() = ", base_point.is_constant());
+    info("!base_point.is_point_at_infinity() = ", !base_point.is_point_at_infinity().get_value());
+    info("base_point = ", base_point.x.get_value(), ", ", base_point.y.get_value());
+    if (base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
         modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
