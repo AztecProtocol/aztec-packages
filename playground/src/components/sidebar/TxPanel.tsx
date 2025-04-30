@@ -281,7 +281,7 @@ export function TxPanel() {
                     marginRight: '0px',
                     width: '36px',
                     height: '36px',
-                    color: '#60ffc3',
+                    color: '#8d7dff',
                   }}
                 />
               )}
