@@ -292,7 +292,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const sender = whom;
       const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, sender, 42] });
       // Confirm that the tx reverts with the expected message
-      await expect(instance.methods.increment_public_value_no_init_check(whom, 10).send().wait()).rejects.toThrow(
+      await expect(instance.methods.increment_public_value_no_init_check(whom, 10).simulate()).rejects.toThrow(
         /No bytecode/,
       );
       // This time, don't throw on revert and confirm that the tx is included
