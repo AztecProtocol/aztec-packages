@@ -33,7 +33,7 @@ Let's start with the account contract itself in Aztec.nr. Create a new Aztec.nr 
 
 #include_code contract noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr rust
 
-For this to compile, youi will need to add the following dependencies to your `Nargo.toml`:
+For this to compile, you will need to add the following dependencies to your `Nargo.toml`:
 
 ```toml
 [dependencies]

@@ -84,7 +84,6 @@ pub contract Counter {
 - `use value_note::{balance_utils, value_note::ValueNote};`  
   Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
-
 ## Declare storage
 
 Add this below the imports. It declares the storage variables for our contract. We are going to store a mapping of values for each `AztecAddress`.

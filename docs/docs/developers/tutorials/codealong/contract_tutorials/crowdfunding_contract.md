@@ -136,8 +136,6 @@ Now complete the initializer by setting the storage variables with the parameter
 
 #include_code init /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
-You can compile the code so far with `aztec-nargo compile`.
-
 ### 2. Taking private donations
 
 #### Checking campaign duration against the timestamp
