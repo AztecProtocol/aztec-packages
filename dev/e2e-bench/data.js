@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746029808847,
+  "lastUpdate": 1746031198864,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "james.zaki@proton.me",
-            "name": "James Zaki",
-            "username": "jzaki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "7fb333a726dc3927ea4efcd73f2ab585122f746f",
-          "message": "chore: Update docs snippet (#13739)\n\nMoving simple docs snippet from simple test example (so it can be\ndeleted).",
-          "timestamp": "2025-04-23T13:06:22Z",
-          "tree_id": "e189a946bc521b8c3cbe0a41b8f4920401af4ab9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7fb333a726dc3927ea4efcd73f2ab585122f746f"
-        },
-        "date": 1745417264526,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9415,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2695414157123777,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 139979,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 140679,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7e95820806bf5a010a5ac59d78b21989daefde22",
+          "message": "chore: Enable l1 reorg e2e test on CI (#13944)\n\nI forgot to include it (again).",
+          "timestamp": "2025-04-30T15:50:56Z",
+          "tree_id": "ae2897ad17afa3545ffc685ed2bcbe0d41ecdeaf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7e95820806bf5a010a5ac59d78b21989daefde22"
+        },
+        "date": 1746031198221,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8762,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2508586892934515,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 156549,
             "unit": "us"
           }
         ]
