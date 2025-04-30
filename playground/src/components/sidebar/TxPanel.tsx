@@ -308,7 +308,7 @@ export function TxPanel() {
               {!hasError && pendingTx?.status === 'sending' && (
                 <SuccessIcon
                   style={{
-                    marginRight: '0.5rem',
+                    marginLeft: '0.4rem',
                     fontSize: '30px',
                     color: '#8d7dff',
                   }}
