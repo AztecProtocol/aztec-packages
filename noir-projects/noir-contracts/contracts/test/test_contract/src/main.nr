@@ -112,6 +112,7 @@ pub contract Test {
         struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
         struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
         nested_struct: NestedStorageStruct<Context>,
+        map_to_nested_struct: Map<AztecAddress, NestedStorageStruct<Context>, Context>,
         dummy_variable: PrivateImmutable<TestNote, Context>,
     }
 

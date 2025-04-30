@@ -40,6 +40,7 @@ unconstrained fn test_storage_slot_allocation() {
     //   struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
     //   struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
     //   nested_struct: NestedStorageStruct<Context>,
+    //   map_to_nested_struct: Map<AztecAddress, NestedStorageStruct<Context>, Context>,
     //   dummy_variable: PrivateImmutable<TestNote, Context>,
     // }
 
@@ -103,6 +104,10 @@ unconstrained fn test_storage_slot_allocation() {
     // nested_struct should allocate 7 slots because it holds a PublicImmutable of a single field value (1 slot
     // for the value, 1 for the hash) and a PublicMutable of a 5 field struct
     expected_slot += 7;
+
+    assert_eq(Test::storage_layout().map_to_nested_struct.slot, expected_slot);
+    // map_to_nested_struct should allocate 1 slot because it is a map
+    expected_slot += 1;
 
     // dummy_variable exists so that we can test how many slots the last variable was allocated.
     assert_eq(Test::storage_layout().dummy_variable.slot, expected_slot);
