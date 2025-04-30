@@ -91,6 +91,8 @@ pub contract Test {
     impl<Context> NestedStorageStruct<Context> {
         pub fn new(context: Context, storage_slot: Field) -> Self {
             Self {
+                // This is wrong - we need to increment the storage slots here. This `new` fn should be in some
+                // `StorageInitialization` or w/e trait, and we should derive it.
                 field_in_public_immutable: PublicImmutable::new(context, storage_slot),
                 struct_in_public_mutable: PublicMutable::new(context, storage_slot),
             }
