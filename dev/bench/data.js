@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746031196773,
+  "lastUpdate": 1746035167476,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -3886,6 +3886,78 @@ window.BENCHMARK_DATA = {
             "value": 1818,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3b1e34ebfc7cb0af03779bd67128e42aa4654a40",
+          "message": "chore!: remove all access to plonk via bberg interfaces (#13902)\n\nEffectively remove plonk from all bberg interfaces in preparation to\nremove it from the codebase entirely.",
+          "timestamp": "2025-04-30T16:34:37Z",
+          "tree_id": "9134d90eaf18477f57742edb9dd6e5337fb26ad3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3b1e34ebfc7cb0af03779bd67128e42aa4654a40"
+        },
+        "date": 1746035158627,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17709.76883200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13857.616782000001 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2269414084,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 204292812,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20320.58577900034,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17304.903435 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56504.741316,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56504744000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4422.722326999974,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3766.3042160000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12163.870633,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12163874000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2344.06",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
