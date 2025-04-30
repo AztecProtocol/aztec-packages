@@ -22,7 +22,7 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Token contract tests/Token/constructor/0/totalInstructions",
+            "name": "Token contract tests/Token/constructor/0/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -52,7 +52,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/mint_to_public/1/totalInstructions",
+            "name": "Token contract tests/Token/mint_to_public/1/totalInstructionsExecuted",
             "value": 1461,
             "unit": "#instructions"
           },
@@ -82,7 +82,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/2/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/2/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -112,7 +112,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/transfer_in_public/3/totalInstructions",
+            "name": "Token contract tests/Token/transfer_in_public/3/totalInstructionsExecuted",
             "value": 1907,
             "unit": "#instructions"
           },
@@ -142,7 +142,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/4/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/4/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -172,7 +172,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/5/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/5/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -202,7 +202,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/6/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/6/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -232,7 +232,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/burn_public/7/totalInstructions",
+            "name": "Token contract tests/Token/burn_public/7/totalInstructionsExecuted",
             "value": 1133,
             "unit": "#instructions"
           },
@@ -262,7 +262,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/8/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/8/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -292,7 +292,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/Token/constructor/0/totalInstructions",
+            "name": "AMM contract tests/Token/constructor/0/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -322,7 +322,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/Token/constructor/1/totalInstructions",
+            "name": "AMM contract tests/Token/constructor/1/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -352,7 +352,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/Token/constructor/2/totalInstructions",
+            "name": "AMM contract tests/Token/constructor/2/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -382,7 +382,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/constructor/3/totalInstructions",
+            "name": "AMM contract tests/AMM/constructor/3/totalInstructionsExecuted",
             "value": 1711,
             "unit": "#instructions"
           },
@@ -412,7 +412,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/set_minter/4/totalInstructions",
+            "name": "AMM contract tests/AMM/set_minter/4/totalInstructionsExecuted",
             "value": 635,
             "unit": "#instructions"
           },
@@ -442,7 +442,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/add_liquidity/5/totalInstructions",
+            "name": "AMM contract tests/AMM/add_liquidity/5/totalInstructionsExecuted",
             "value": 8882,
             "unit": "#instructions"
           },
@@ -472,7 +472,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructions",
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructionsExecuted",
             "value": 5365,
             "unit": "#instructions"
           },
@@ -502,7 +502,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/totalInstructions",
+            "name": "AMM contract tests/AMM/remove_liquidity/7/totalInstructionsExecuted",
             "value": 9286,
             "unit": "#instructions"
           },
@@ -532,7 +532,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructions",
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructionsExecuted",
             "value": 27058,
             "unit": "#instructions"
           },
@@ -562,7 +562,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructionsExecuted",
             "value": 5192,
             "unit": "#instructions"
           },
@@ -592,7 +592,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalInstructionsExecuted",
             "value": 6315,
             "unit": "#instructions"
           },
@@ -622,7 +622,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalInstructionsExecuted",
             "value": 7666,
             "unit": "#instructions"
           },
@@ -652,7 +652,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalInstructionsExecuted",
             "value": 8871,
             "unit": "#instructions"
           },
@@ -682,7 +682,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalInstructionsExecuted",
             "value": 10223,
             "unit": "#instructions"
           },
@@ -712,7 +712,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalInstructionsExecuted",
             "value": 11741,
             "unit": "#instructions"
           },
@@ -742,7 +742,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalInstructionsExecuted",
             "value": 13554,
             "unit": "#instructions"
           },
@@ -772,7 +772,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalInstructionsExecuted",
             "value": 14784,
             "unit": "#instructions"
           },
@@ -802,7 +802,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalInstructionsExecuted",
             "value": 16167,
             "unit": "#instructions"
           },
@@ -832,7 +832,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalInstructionsExecuted",
             "value": 17397,
             "unit": "#instructions"
           },
@@ -862,7 +862,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalInstructionsExecuted",
             "value": 39043,
             "unit": "#instructions"
           },
@@ -892,7 +892,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalInstructionsExecuted",
             "value": 39201,
             "unit": "#instructions"
           },
@@ -922,7 +922,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalInstructionsExecuted",
             "value": 74638,
             "unit": "#instructions"
           },
@@ -952,7 +952,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalInstructionsExecuted",
             "value": 74697,
             "unit": "#instructions"
           },
@@ -982,7 +982,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalInstructionsExecuted",
             "value": 287677,
             "unit": "#instructions"
           },
@@ -1012,7 +1012,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalInstructionsExecuted",
             "value": 9533,
             "unit": "#instructions"
           },
@@ -1042,7 +1042,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalInstructionsExecuted",
             "value": 3054,
             "unit": "#instructions"
           },
@@ -1072,7 +1072,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalInstructionsExecuted",
             "value": 2092,
             "unit": "#instructions"
           },
@@ -1102,7 +1102,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalInstructionsExecuted",
             "value": 22757,
             "unit": "#instructions"
           },
@@ -1132,7 +1132,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalInstructionsExecuted",
             "value": 22827,
             "unit": "#instructions"
           },
@@ -1182,7 +1182,7 @@ window.BENCHMARK_DATA = {
         "tool": "customSmallerIsBetter",
         "benches": [
           {
-            "name": "Token contract tests/Token/constructor/0/totalInstructions",
+            "name": "Token contract tests/Token/constructor/0/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -1212,7 +1212,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/mint_to_public/1/totalInstructions",
+            "name": "Token contract tests/Token/mint_to_public/1/totalInstructionsExecuted",
             "value": 1461,
             "unit": "#instructions"
           },
@@ -1242,7 +1242,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/2/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/2/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -1272,7 +1272,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/transfer_in_public/3/totalInstructions",
+            "name": "Token contract tests/Token/transfer_in_public/3/totalInstructionsExecuted",
             "value": 1907,
             "unit": "#instructions"
           },
@@ -1302,7 +1302,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/4/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/4/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -1332,7 +1332,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/5/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/5/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -1362,7 +1362,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/6/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/6/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -1392,7 +1392,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/burn_public/7/totalInstructions",
+            "name": "Token contract tests/Token/burn_public/7/totalInstructionsExecuted",
             "value": 1133,
             "unit": "#instructions"
           },
@@ -1422,7 +1422,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "Token contract tests/Token/balance_of_public/8/totalInstructions",
+            "name": "Token contract tests/Token/balance_of_public/8/totalInstructionsExecuted",
             "value": 612,
             "unit": "#instructions"
           },
@@ -1452,7 +1452,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/Token/constructor/0/totalInstructions",
+            "name": "AMM contract tests/Token/constructor/0/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -1482,7 +1482,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/Token/constructor/1/totalInstructions",
+            "name": "AMM contract tests/Token/constructor/1/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -1512,7 +1512,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/Token/constructor/2/totalInstructions",
+            "name": "AMM contract tests/Token/constructor/2/totalInstructionsExecuted",
             "value": 16988,
             "unit": "#instructions"
           },
@@ -1542,7 +1542,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/constructor/3/totalInstructions",
+            "name": "AMM contract tests/AMM/constructor/3/totalInstructionsExecuted",
             "value": 1711,
             "unit": "#instructions"
           },
@@ -1572,7 +1572,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/set_minter/4/totalInstructions",
+            "name": "AMM contract tests/AMM/set_minter/4/totalInstructionsExecuted",
             "value": 635,
             "unit": "#instructions"
           },
@@ -1602,7 +1602,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/add_liquidity/5/totalInstructions",
+            "name": "AMM contract tests/AMM/add_liquidity/5/totalInstructionsExecuted",
             "value": 8882,
             "unit": "#instructions"
           },
@@ -1632,7 +1632,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructions",
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructionsExecuted",
             "value": 5365,
             "unit": "#instructions"
           },
@@ -1662,7 +1662,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/totalInstructions",
+            "name": "AMM contract tests/AMM/remove_liquidity/7/totalInstructionsExecuted",
             "value": 9286,
             "unit": "#instructions"
           },
@@ -1692,7 +1692,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructions",
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructionsExecuted",
             "value": 27058,
             "unit": "#instructions"
           },
@@ -1722,7 +1722,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructionsExecuted",
             "value": 5192,
             "unit": "#instructions"
           },
@@ -1752,7 +1752,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalInstructionsExecuted",
             "value": 6315,
             "unit": "#instructions"
           },
@@ -1782,7 +1782,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalInstructionsExecuted",
             "value": 7666,
             "unit": "#instructions"
           },
@@ -1812,7 +1812,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalInstructionsExecuted",
             "value": 8871,
             "unit": "#instructions"
           },
@@ -1842,7 +1842,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalInstructionsExecuted",
             "value": 10223,
             "unit": "#instructions"
           },
@@ -1872,7 +1872,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalInstructionsExecuted",
             "value": 11741,
             "unit": "#instructions"
           },
@@ -1902,7 +1902,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalInstructionsExecuted",
             "value": 13554,
             "unit": "#instructions"
           },
@@ -1932,7 +1932,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalInstructionsExecuted",
             "value": 14784,
             "unit": "#instructions"
           },
@@ -1962,7 +1962,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalInstructionsExecuted",
             "value": 16167,
             "unit": "#instructions"
           },
@@ -1992,7 +1992,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalInstructionsExecuted",
             "value": 17397,
             "unit": "#instructions"
           },
@@ -2022,7 +2022,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalInstructionsExecuted",
             "value": 39043,
             "unit": "#instructions"
           },
@@ -2052,7 +2052,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalInstructionsExecuted",
             "value": 39201,
             "unit": "#instructions"
           },
@@ -2082,7 +2082,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalInstructionsExecuted",
             "value": 74638,
             "unit": "#instructions"
           },
@@ -2112,7 +2112,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalInstructionsExecuted",
             "value": 74697,
             "unit": "#instructions"
           },
@@ -2142,7 +2142,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalInstructionsExecuted",
             "value": 287677,
             "unit": "#instructions"
           },
@@ -2172,7 +2172,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalInstructionsExecuted",
             "value": 9533,
             "unit": "#instructions"
           },
@@ -2202,7 +2202,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalInstructionsExecuted",
             "value": 3054,
             "unit": "#instructions"
           },
@@ -2232,7 +2232,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalInstructionsExecuted",
             "value": 2092,
             "unit": "#instructions"
           },
@@ -2262,7 +2262,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalInstructionsExecuted",
             "value": 22831,
             "unit": "#instructions"
           },
@@ -2292,7 +2292,7 @@ window.BENCHMARK_DATA = {
             "unit": "us"
           },
           {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalInstructions",
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalInstructionsExecuted",
             "value": 22735,
             "unit": "#instructions"
           },
