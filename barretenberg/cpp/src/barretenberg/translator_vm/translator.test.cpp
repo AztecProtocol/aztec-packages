@@ -61,7 +61,8 @@ TEST_F(TranslatorTests, Basic)
     Fq evaluation_challenge_x = Fq::random_element();
 
     // Generate a circuit and its verification key (computed at runtime from the proving key)
-    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x, 10);
+    info(circuit_builder.num_gates);
 
     EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
     auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);

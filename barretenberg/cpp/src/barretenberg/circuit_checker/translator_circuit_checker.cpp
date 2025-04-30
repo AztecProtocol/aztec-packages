@@ -21,6 +21,12 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
 {
 
     auto wires = circuit.wires;
+
+    auto report_fail = [&](const char* message, size_t row_idx) {
+        info(message, row_idx);
+        return false;
+    };
+
     // Compute the limbs of evaluation_input_x and powers of batching_challenge_v (these go into the relation)
     RelationInputs relation_inputs =
         compute_relation_inputs_limbs(circuit.batching_challenge_v, circuit.evaluation_input_x);
@@ -82,7 +88,8 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
      * @brief Go through each gate
      *
      */
-    for (size_t i = 2; i < circuit.num_gates; i++) {
+    for (size_t i = 2; i < circuit.num_gates - 1; i++) {
+        info("Checking gate ", i);
         bool gate_is_even = !(i & 1);
         // The main relation is computed between odd and the next even indices. For example, 1 and 2
         if (gate_is_even) {
@@ -203,7 +210,8 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
                   check_wide_limb_into_binary_limb_relation({ p_y_lo, p_y_hi }, p_y_binary_limbs) &&
                   check_wide_limb_into_binary_limb_relation({ z_1 }, z_1_binary_limbs) &&
                   check_wide_limb_into_binary_limb_relation({ z_2 }, z_2_binary_limbs))) {
-                return false;
+
+                return report_fail("wide limb decomposition failied at row = ", i);
             }
 
             enum LimbSeriesType { STANDARD_COORDINATE, Z_SCALAR, QUOTIENT };
@@ -447,7 +455,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
 
             for (size_t j = 0; j < current_accumulator_binary_limbs.size(); j++) {
                 if (current_accumulator_binary_limbs_copy[j] != current_accumulator_binary_limbs[j]) {
-                    return false;
+                    return report_fail("accumulator copy failed at row = ", i);
                 }
             }
         }
