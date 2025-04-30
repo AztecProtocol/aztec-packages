@@ -59,7 +59,7 @@ export function useTransaction() {
       });
 
       // TODO: Don't send the tx if the user has cancelled the transaction
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 180 });
+      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: 10 });
 
       if (showNotification && receipt.status === TxStatus.SUCCESS) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
