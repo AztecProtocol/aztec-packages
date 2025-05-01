@@ -51,7 +51,7 @@ export interface Validator {
   registerBlockBuilder(blockBuilder: BlockBuilderCallback): void;
 
   // Block validation responsibilities
-  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined>;
+  createBlockProposal(header: BlockHeader, archive: Fr, txs: Tx[]): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
@@ -292,6 +292,12 @@ export class ValidatorClient extends WithTracer implements Validator {
    * @param proposal - The proposal to attest to
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
+    // TODO: only add the trnasactions that we are missing, but just going to add all for now
+    if (proposal.txs) {
+      await this.p2pClient.addTxs(proposal.txs);
+    }
+
+    // If the proposal has transactions attached to it, then we need to add them to our pool
     const txHashes: TxHash[] = proposal.payload.txHashes;
     const availability = await this.p2pClient.hasTxsInPool(txHashes);
     const missingTxs = txHashes.filter((_, index) => !availability[index]);
@@ -308,7 +314,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
   }
 
-  async createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal | undefined> {
+  async createBlockProposal(header: BlockHeader, archive: Fr, txs: Tx[]): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.globalVariables.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
       return Promise.resolve(undefined);

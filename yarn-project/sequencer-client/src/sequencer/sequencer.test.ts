@@ -212,7 +212,7 @@ describe('sequencer', () => {
       const txs = await toArray(txsIter);
       const processed = await processTxs(txs);
       logger.verbose(`Processed ${txs.length} txs`, { txHashes: await Promise.all(txs.map(tx => tx.getTxHash())) });
-      return [processed, [], []];
+      return [processed, [], txs, []];
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
@@ -376,6 +376,7 @@ describe('sequencer', () => {
     publicProcessor.process.mockResolvedValue([
       await processTxs(validTxs),
       [{ tx: invalidTx, error: new Error() }],
+      validTxs,
       [],
     ]);
 
@@ -607,6 +608,7 @@ class TestSubject extends Sequencer {
     numTxs: number;
     numFailedTxs: number;
     blockBuildingTimer: Timer;
+    usedTxs: Tx[];
   }> {
     return super.buildBlock(pendingTxs, newGlobalVariables, opts);
   }

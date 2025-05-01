@@ -234,6 +234,7 @@ export interface MakeConsensusPayloadOptions {
   header?: BlockHeader;
   archive?: Fr;
   txHashes?: TxHash[];
+  txs?: Tx[];
 }
 
 const makeAndSignConsensusPayload = async (
@@ -261,7 +262,7 @@ const makeAndSignConsensusPayload = async (
 
 export const makeBlockProposal = async (options?: MakeConsensusPayloadOptions): Promise<BlockProposal> => {
   const { payload, signature } = await makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
-  return new BlockProposal(payload, signature);
+  return new BlockProposal(payload, signature, options?.txs ?? []);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)

@@ -145,10 +145,11 @@ export class PublicProcessor implements Traceable {
       preprocessValidator?: TxValidator<Tx>;
       nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
     } = {},
-  ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
+    const usedTxs: Tx[] = [];
     const failed: FailedTx[] = [];
     const timer = new Timer();
 
@@ -252,6 +253,7 @@ export class PublicProcessor implements Traceable {
 
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
+        usedTxs.push(tx);
         returns = returns.concat(returnValues);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
@@ -289,7 +291,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, returns];
+    return [result, failed, usedTxs, returns];
   }
 
   @trackSpan('PublicProcessor.processTx', async tx => ({ [Attributes.TX_HASH]: (await tx.getTxHash()).toString() }))
