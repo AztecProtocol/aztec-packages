@@ -212,7 +212,7 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
     throw_or_abort("API function contract not implemented");
 }
 
-bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
+bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path)
 
 {
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -228,27 +228,9 @@ bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
         }
         std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
         auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        if (computed_vk->circuit_size != precomputed_vk->circuit_size ||
-            computed_vk->num_public_inputs != precomputed_vk->num_public_inputs ||
-            computed_vk->pub_inputs_offset != precomputed_vk->pub_inputs_offset) {
-            info("FAIL: VKs disagree on basic size parameters for function ", function_name);
+        if (computed_vk == precomputed_vk) {
+            info("FAIL: Precomputed VK does not match generated VK for ", function_name);
             return false;
-        }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1374): Some constraints are known to
-        // be different. This is a known issue that should eventually not allow verification.
-        for (auto [label, value1, value2] :
-             zip_view(computed_vk->get_labels(), computed_vk->get_all(), precomputed_vk->get_all())) {
-            if (value1 != value2) {
-                info("FAIL: Verification key mismatch for function ",
-                     function_name,
-                     ", value ",
-                     label,
-                     " ",
-                     value1,
-                     " ",
-                     value2);
-            }
         }
     }
     return true;
