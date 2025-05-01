@@ -38,9 +38,8 @@ struct OracleInput {
 struct ManaBaseFeeComponents {
   uint256 congestionCost;
   uint256 congestionMultiplier;
-  uint256 dataCost;
-  uint256 gasCost;
-  uint256 provingCost;
+  uint256 sequencerCost;
+  uint256 proverCost;
 }
 
 struct FeeHeader {
@@ -48,7 +47,7 @@ struct FeeHeader {
   uint256 manaUsed;
   uint256 feeAssetPriceNumerator;
   uint256 congestionCost;
-  uint256 provingCost;
+  uint256 proverCost;
 }
 
 struct L1FeeData {
@@ -113,7 +112,7 @@ library PriceLib {
 
 struct CompressedFeeHeader {
   uint64 congestionCost;
-  uint64 provingCost;
+  uint64 proverCost;
   uint48 feeAssetPriceNumerator;
   uint48 excessMana;
   uint32 manaUsed;
@@ -138,12 +137,12 @@ library FeeHeaderLib {
     return _compressedFeeHeader.congestionCost;
   }
 
-  function getProvingCost(CompressedFeeHeader storage _compressedFeeHeader)
+  function getProverCost(CompressedFeeHeader storage _compressedFeeHeader)
     internal
     view
     returns (uint256)
   {
-    return _compressedFeeHeader.provingCost;
+    return _compressedFeeHeader.proverCost;
   }
 
   function compress(FeeHeader memory _feeHeader) internal pure returns (CompressedFeeHeader memory) {
@@ -152,7 +151,7 @@ library FeeHeaderLib {
       manaUsed: _feeHeader.manaUsed.toUint32(),
       feeAssetPriceNumerator: _feeHeader.feeAssetPriceNumerator.toUint48(),
       congestionCost: _feeHeader.congestionCost.toUint64(),
-      provingCost: _feeHeader.provingCost.toUint64()
+      proverCost: _feeHeader.proverCost.toUint64()
     });
   }
 
@@ -166,7 +165,7 @@ library FeeHeaderLib {
       manaUsed: _compressedFeeHeader.manaUsed,
       feeAssetPriceNumerator: _compressedFeeHeader.feeAssetPriceNumerator,
       congestionCost: _compressedFeeHeader.congestionCost,
-      provingCost: _compressedFeeHeader.provingCost
+      proverCost: _compressedFeeHeader.proverCost
     });
   }
 }
@@ -209,7 +208,7 @@ library FeeLib {
       feeAssetPriceNumerator: 0,
       manaUsed: 0,
       congestionCost: 0,
-      provingCost: 0
+      proverCost: 0
     }).compress();
 
     feeStore.l1GasOracleValues = L1GasOracleValues({
@@ -231,7 +230,7 @@ library FeeLib {
     int256 _feeAssetPriceModifier,
     uint256 _manaUsed,
     uint256 _congestionCost,
-    uint256 _provingCost
+    uint256 _proverCost
   ) internal {
     require(
       SignedMath.abs(_feeAssetPriceModifier) <= MAX_FEE_ASSET_PRICE_MODIFIER,
@@ -246,7 +245,7 @@ library FeeLib {
       ),
       manaUsed: _manaUsed,
       congestionCost: _congestionCost,
-      provingCost: _provingCost
+      proverCost: _proverCost
     }).compress();
   }
 
@@ -285,30 +284,49 @@ library FeeLib {
 
     if (manaTarget == 0) {
       return ManaBaseFeeComponents({
-        dataCost: 0,
-        gasCost: 0,
-        provingCost: 0,
+        sequencerCost: 0,
+        proverCost: 0,
         congestionCost: 0,
         congestionMultiplier: 0
       });
     }
 
-    EthValue gasCostPerMana;
-    EthValue dataCostPerMana;
+    EthValue sequencerCostPerMana;
+    EthValue proverCostPerMana;
     EthValue total;
-    {
-      uint256 gasUsed = L1_GAS_PER_BLOCK_PROPOSED + BLOBS_PER_BLOCK * GAS_PER_BLOB_POINT_EVALUATION
-        + L1_GAS_PER_EPOCH_VERIFIED / TimeLib.getStorage().epochDuration;
 
+    {
       L1FeeData memory fees = FeeLib.getL1FeesAt(_timestamp);
-      gasCostPerMana =
-        EthValue.wrap(Math.mulDiv(gasUsed, fees.baseFee, manaTarget, Math.Rounding.Ceil));
-      dataCostPerMana = EthValue.wrap(
-        Math.mulDiv(
-          BLOBS_PER_BLOCK * BLOB_GAS_PER_BLOB, fees.blobFee, manaTarget, Math.Rounding.Ceil
-        )
-      );
-      total = dataCostPerMana + gasCostPerMana + feeStore.provingCostPerMana;
+
+      // Sequencer cost per mana
+      {
+        uint256 gasUsed =
+          L1_GAS_PER_BLOCK_PROPOSED + BLOBS_PER_BLOCK * GAS_PER_BLOB_POINT_EVALUATION;
+        uint256 ethUsed = gasUsed * fees.baseFee;
+        ethUsed += (BLOBS_PER_BLOCK * BLOB_GAS_PER_BLOB * fees.blobFee);
+
+        sequencerCostPerMana =
+          EthValue.wrap(Math.mulDiv(ethUsed, 1, manaTarget, Math.Rounding.Ceil));
+      }
+
+      // Prover cost per mana
+      {
+        proverCostPerMana = EthValue.wrap(
+          Math.mulDiv(
+            Math.mulDiv(
+              L1_GAS_PER_EPOCH_VERIFIED,
+              fees.baseFee,
+              TimeLib.getStorage().epochDuration,
+              Math.Rounding.Ceil
+            ),
+            1,
+            manaTarget,
+            Math.Rounding.Ceil
+          )
+        ) + feeStore.provingCostPerMana;
+      }
+
+      total = sequencerCostPerMana + proverCostPerMana;
     }
 
     CompressedFeeHeader storage parentFeeHeader = feeStore.feeHeaders[_blockOfInterest];
@@ -329,9 +347,8 @@ library FeeLib {
       _inFeeAsset ? FeeLib.getFeeAssetPerEthAtBlock(_blockOfInterest) : FeeAssetPerEthE9.wrap(1e9);
 
     return ManaBaseFeeComponents({
-      dataCost: FeeAssetValue.unwrap(dataCostPerMana.toFeeAsset(feeAssetPrice)),
-      gasCost: FeeAssetValue.unwrap(gasCostPerMana.toFeeAsset(feeAssetPrice)),
-      provingCost: FeeAssetValue.unwrap(feeStore.provingCostPerMana.toFeeAsset(feeAssetPrice)),
+      sequencerCost: FeeAssetValue.unwrap(sequencerCostPerMana.toFeeAsset(feeAssetPrice)),
+      proverCost: FeeAssetValue.unwrap(proverCostPerMana.toFeeAsset(feeAssetPrice)),
       congestionCost: FeeAssetValue.unwrap(congestionCost.toFeeAsset(feeAssetPrice)),
       congestionMultiplier: congestionMultiplier_
     });
@@ -369,8 +386,7 @@ library FeeLib {
   }
 
   function summedBaseFee(ManaBaseFeeComponents memory _components) internal pure returns (uint256) {
-    return _components.dataCost + _components.gasCost + _components.provingCost
-      + _components.congestionCost;
+    return _components.sequencerCost + _components.proverCost + _components.congestionCost;
   }
 
   function getStorage() internal pure returns (FeeStore storage storageStruct) {

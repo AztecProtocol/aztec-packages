@@ -4,7 +4,6 @@ export {
   Barretenberg,
   BarretenbergSync,
   BarretenbergVerifier,
-  UltraPlonkBackend,
   UltraHonkBackend,
   AztecClientBackend,
 } from './barretenberg/index.js';

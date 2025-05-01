@@ -131,11 +131,7 @@ struct ExecutionTraceUsageTracker {
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {
             std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size;
-            if (idx % 4 == 3) {
-                std::cout << std::endl;
-            } else {
-                std::cout << "\t";
-            }
+            std::cout << std::endl;
             idx++;
         }
         info("");
