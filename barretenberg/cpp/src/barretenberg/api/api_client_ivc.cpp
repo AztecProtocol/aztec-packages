@@ -228,7 +228,7 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
         }
         std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
         auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        if (computed_vk == precomputed_vk) {
+        if (computed_vk != precomputed_vk) {
             info("FAIL: Precomputed VK does not match generated VK for ", function_name);
             return false;
         }
