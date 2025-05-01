@@ -350,7 +350,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         for (auto& wire : wires) {
             wire.emplace_back(0);
             wire.emplace_back(0);
-            ASSERT(wire.size() == 2);
         }
         num_gates += 2;
     };

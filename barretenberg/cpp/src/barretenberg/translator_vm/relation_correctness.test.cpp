@@ -129,7 +129,6 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
  * and TranslatorAccumulatorTransferRelation)
  *
  */
-// This passing kinda means something is wrong with the circuit
 TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
 {
     using Flavor = TranslatorFlavor;
@@ -560,7 +559,6 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
     // Generate random EccOpQueue actions
-    // What is this number?
 
     for (size_t i = 0; i < ((mini_circuit_size >> 1) - 2); i++) {
         switch (engine.get_random_uint8() & 3) {

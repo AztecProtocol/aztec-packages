@@ -23,10 +23,7 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
-    {
-        return in.op.is_zero();
-    }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.op.is_zero(); }
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
      * @details This relation enforces the opcode to be one of described values. Since we don't care about even

@@ -26,7 +26,6 @@ class TranslatorCircuitChecker {
      * @brief Get the result of accumulation, stored as 4 binary limbs in the first row of the circuit.
      *
      */
-    // WORKTODO: this is clunky
     static Fq get_computation_result(const Builder& circuit)
     {
         BB_ASSERT_GT(circuit.num_gates, RESULT_ROW);
