@@ -5,7 +5,7 @@ use crate::{
     },
     blob_batching_public_inputs::{
         BatchingBlobCommitment, BlobAccumulationInputs, BlobAccumulatorPublicInputs, BLSPoint,
-        compress_to_blob_commitment,
+        compress_to_blob_commitment, FinalBlobBatchingChallenges,
     },
     blob_public_inputs::BlobCommitment,
 };
@@ -48,8 +48,7 @@ pub fn evaluate_blobs_and_batch(
     blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     kzg_commitments_points: [BLSPoint; BLOBS_PER_BLOCK],
     mut sponge_blob: SpongeBlob,
-    challenge_z: Field, // shared over epoch, verified in root
-    challenge_gamma: F, // shared over epoch, verified in root
+    final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulatorPublicInputs,
 ) -> BlobAccumulatorPublicInputs {
     // See components.nr out_sponge definition as to why we copy here:
@@ -62,8 +61,12 @@ pub fn evaluate_blobs_and_batch(
     for i in 0..BLOBS_PER_BLOCK {
         let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
         let c_i = compress_to_blob_commitment(kzg_commitments_points[i]);
-        let (z_i, y_i) =
-            evaluate_blob_for_batching(single_blob_fields, c_i, hashed_blobs_fields, challenge_z);
+        let (z_i, y_i) = evaluate_blob_for_batching(
+            single_blob_fields,
+            c_i,
+            hashed_blobs_fields,
+            final_blob_challenges.z,
+        );
         if !(y_i.is_zero()) & !(single_blob_fields[0] == 0) {
             // Only accumulate if the blob is non empty
             if is_empty(end_accumulator) {
@@ -73,12 +76,12 @@ pub fn evaluate_blobs_and_batch(
                 //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc
                 end_accumulator = BlobAccumulatorPublicInputs::init(
                     BlobAccumulationInputs { z_i, y_i, c_i },
-                    challenge_gamma,
+                    final_blob_challenges.gamma,
                 );
             } else {
                 end_accumulator = end_accumulator.accumulate(
                     BlobAccumulationInputs { z_i, y_i, c_i },
-                    challenge_gamma,
+                    final_blob_challenges.gamma,
                 );
             }
         }
@@ -146,16 +149,14 @@ mod tests {
             pad_end(blob, 0),
             kzg_commitments_in,
             sponge_blob,
-            final_challenges.z,
-            final_challenges.gamma,
+            final_challenges,
             BlobAccumulatorPublicInputs::empty(),
         );
         let final_acc = res.finalize_and_validate(final_challenges);
 
         assert_eq(final_acc.z, final_challenges.z);
-        assert_eq(F::from(final_acc.gamma), final_challenges.gamma);
         // Since i = 1, gamma_pow = gamma^1 = gamma:
-        assert_eq(final_acc.gamma_pow, final_challenges.gamma);
+        assert_eq(res.gamma_pow, final_challenges.gamma);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
         let expected_y: F = F {
@@ -252,17 +253,15 @@ mod tests {
             blob,
             kzg_commitments_in,
             sponge_blob,
-            final_challenges.z,
-            final_challenges.gamma,
+            final_challenges,
             start_acc,
         );
         // Finalize the output (actually done in the root circuit)
         let final_acc = output.finalize_and_validate(final_challenges);
 
         assert_eq(final_acc.z, final_challenges.z);
-        assert_eq(F::from(final_acc.gamma), final_challenges.gamma);
         assert_eq(
-            final_acc.gamma_pow,
+            output.gamma_pow,
             final_challenges.gamma.__pow(F::from(BLOBS_PER_BLOCK as Field)),
         );
 
