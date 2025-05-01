@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746103214839,
+  "lastUpdate": 1746105840416,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "640dd086401ef8ed05063fea8939062f69aebb8e",
-          "message": "refactor: bespoke export for client native prover / PXE server store lazy load (#13783)\n\nFixes: https://github.com/AztecProtocol/aztec-packages/issues/13656 (or\nmore like avoids the problematic import)\n\nCreates specific (and more descriptive) exports for `bb-prover`,\nfocusing on where the code should run (client/server) rather than the\ntask at hand (prover/verifier). This mimics the behavior of other\npackages with similar issues.\n\nWe still have to figure out publishing of native packages.",
-          "timestamp": "2025-04-24T12:06:29Z",
-          "tree_id": "abff4369fc949913de8495996c9a30310915387f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/640dd086401ef8ed05063fea8939062f69aebb8e"
-        },
-        "date": 1745501398068,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10307,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.29507856171627134,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 172250,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 142828,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "spypsy@users.noreply.github.com",
+            "name": "spypsy",
+            "username": "spypsy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7018daa67b6c16de2393990457d0c47f31778a82",
+          "message": "chore: use separate KV store for lip2p peers + logging missing txs (#13967)",
+          "timestamp": "2025-05-01T12:41:15Z",
+          "tree_id": "4b8cb2072d68cf0fce3e1a254cc6bd79932ed03d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7018daa67b6c16de2393990457d0c47f31778a82"
+        },
+        "date": 1746105839312,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8436,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2415048845570426,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 146066,
             "unit": "us"
           }
         ]
