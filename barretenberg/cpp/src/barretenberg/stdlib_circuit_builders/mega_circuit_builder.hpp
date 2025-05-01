@@ -39,6 +39,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
+    ecc_op_tuple queue_ecc_no_op();
 
     // Metadata for propagating databus return data commitments via the public input mechanism
     DatabusPropagationData databus_propagation_data;

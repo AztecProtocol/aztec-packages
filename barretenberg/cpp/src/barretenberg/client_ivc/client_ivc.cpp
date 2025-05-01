@@ -269,6 +269,9 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     fold_output.accumulator = nullptr;
 
     ClientCircuit builder{ goblin.op_queue };
+    // We do an "append only ultra ops" here
+    builder.queue_ecc_no_op();
+
     hide_op_queue_accumulation_result(builder);
 
     // The last circuit being folded is a kernel circuit whose public inputs need to be passed to the base rollup

@@ -206,6 +206,16 @@ class ECCOpQueue {
         return construct_and_populate_ultra_ops(op_code, accumulator);
     }
 
+    UltraOp no_op_ultra_only()
+    {
+        EccOpCode op_code{};
+        // Store eccvm operation
+        // append_eccvm_op(ECCVMOperation{ .op_code = op_code });
+
+        // Construct and store the operation in the ultra op format
+        return construct_and_populate_ultra_ops(op_code, accumulator);
+    }
+
     /**
      * @brief Write equality op using internal accumulator point
      *
