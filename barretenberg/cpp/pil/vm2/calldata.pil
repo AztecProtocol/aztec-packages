@@ -1,0 +1,31 @@
+// Calldata is largely going to constrained by calldata hashing
+namespace calldata;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit sel;
+    pol public value;
+    pol commit enqueued_call_id;
+    pol commit index;
+    // Designates end of bytecode id calldata
+    pol commit latch;
+    // Index increments until latch
+    sel * (1 - latch) * (index' - index - 1) = 0;
+
+    // If sel = 0, sel' != 1
+    #[TRACE_CONTINUITY]
+    (1 - sel) * sel' = 0;
+
+    // Bytecode id does not change until we latch
+    #[BC_ID_CONTINUITY]
+    sel * (1 - latch) * (1 - enqueued_call_id) * enqueued_call_id' = 0;
+
+    //=== CALLDATA Hashing === 
+    // TODO: Add more
+    // These will be the inputs to the poseidon2 round
+    pol commit hash_input_0;
+    pol commit hash_input_1;
+    pol commit hash_input_2;
+    // This is constrained by the public inputs / tx trace
+    pol commit output_hash;

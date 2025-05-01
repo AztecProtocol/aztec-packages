@@ -71,6 +71,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
     typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
+    typename S::template DefaultEventEmitter<DataCopyEvent> data_copy_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
     typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
@@ -130,8 +131,14 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     Alu alu(alu_emitter);
     ContextProvider context_provider(bytecode_manager, range_check, memory_emitter);
-    Execution execution(
-        alu, execution_components, context_provider, instruction_info_db, execution_emitter, context_stack_emitter);
+    DataCopy data_copy(data_copy_emitter);
+    Execution execution(alu,
+                        data_copy,
+                        execution_components,
+                        context_provider,
+                        instruction_info_db,
+                        execution_emitter,
+                        context_stack_emitter);
     TxExecution tx_execution(execution, context_provider, merkle_db, tx_event_emitter);
     Sha256 sha256(sha256_compression_emitter);
 

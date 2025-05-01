@@ -26,7 +26,11 @@ include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
 include "public_inputs.pil";
+<<<<<<< HEAD
 include "gas.pil";
+=======
+include "data_copy.pil";
+>>>>>>> a423283097 (feat(avm): cd_copy)
 
 namespace execution;
 
