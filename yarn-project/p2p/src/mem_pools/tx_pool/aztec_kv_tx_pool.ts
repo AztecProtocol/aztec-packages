@@ -322,6 +322,7 @@ export class AztecKVTxPool implements TxPool {
       let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       for (const hash of txHashes) {
         const key = hash.toString();
+        this.#nonEvictableTxs.delete(key);
         const tx = await this.getTxByHash(hash);
 
         if (tx) {
