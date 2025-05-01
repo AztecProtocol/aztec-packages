@@ -50,7 +50,7 @@ class LMDBStore : public LMDBStoreBase {
 
     Cursor::Ptr create_cursor(ReadTransaction::SharedPtr tx, const std::string& dbName);
 
-    uint64_t get_stats(std::vector<DBStats>& stats) const;
+    std::pair<uint64_t, uint64_t> get_stats(std::vector<DBStats>& stats) const;
 
   private:
     // mutex to protect the databases map

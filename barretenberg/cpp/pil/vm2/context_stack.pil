@@ -1,12 +1,11 @@
 namespace context_stack;
 
     pol commit context_id;
-    pol commit pc;
+    pol commit parent_id;
+    pol commit next_pc;
     pol commit msg_sender;
     pol commit contract_address;
-    
     pol commit is_static;
-    is_static * (1 - is_static) = 0;
 
     pol commit parent_calldata_offset_addr;
     pol commit parent_calldata_size_addr;

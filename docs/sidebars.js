@@ -127,6 +127,10 @@ const sidebar = {
       type: "doc",
       id: "migration_notes",
     },
+    {
+      type: "doc",
+      id: "sandbox_to_testnet_guide",
+    },
   ],
 
   roadmapSidebar: [

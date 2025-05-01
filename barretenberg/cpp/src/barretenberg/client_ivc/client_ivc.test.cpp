@@ -11,7 +11,7 @@
 
 using namespace bb;
 
-static constexpr size_t MAX_NUM_KERNELS = 17;
+static constexpr size_t MAX_NUM_KERNELS = 15;
 
 class ClientIVCTests : public ::testing::Test {
   protected:

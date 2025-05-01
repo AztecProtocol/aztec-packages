@@ -1,7 +1,7 @@
 import { type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
-import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 

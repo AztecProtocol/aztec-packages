@@ -84,14 +84,14 @@ std::vector<LMDBStore::Database::SharedPtr> LMDBStore::get_databases(const std::
     return dbs;
 }
 
-uint64_t LMDBStore::get_stats(std::vector<DBStats>& stats) const
+std::pair<uint64_t, uint64_t> LMDBStore::get_stats(std::vector<DBStats>& stats) const
 {
     std::vector<LMDBStore::Database::SharedPtr> dbs = get_databases();
     ReadTransaction::SharedPtr tx = create_read_transaction();
     for (const auto& db : dbs) {
         stats.push_back(db->get_stats(*tx));
     }
-    return _environment->get_map_size();
+    return { _environment->get_map_size(), _environment->get_data_file_size() };
 }
 
 void LMDBStore::put(std::vector<PutData>& data)

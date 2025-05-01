@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { AGGREGATION_OBJECT_LENGTH, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { parseBooleanEnv } from '@aztec/foundation/config';
@@ -9,6 +9,7 @@ import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testin
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { mockTx } from '@aztec/stdlib/testing';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlock } from '../block_builder/light.js';
@@ -19,6 +20,7 @@ describe('prover/bb_prover/full-rollup', () => {
   const FAKE_PROOFS = parseBooleanEnv(process.env.FAKE_PROOFS);
 
   let context: TestContext;
+  let previousBlockHeader: BlockHeader;
   let prover: BBNativeRollupProver | undefined;
   let log: Logger;
 
@@ -29,6 +31,7 @@ describe('prover/bb_prover/full-rollup', () => {
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
     context = await TestContext.new(log, 1, FAKE_PROOFS ? undefined : buildProver);
+    previousBlockHeader = context.getPreviousBlockHeader();
   });
 
   afterEach(async () => {
@@ -60,7 +63,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Starting new block #${blockNum}`);
 
-        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, context.getPreviousBlockHeader(blockNum));
+        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, previousBlockHeader);
         log.info(`Processing public functions`);
         const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
         expect(processed.length).toBe(nonEmptyTxs);
@@ -72,6 +75,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Updating world state with new block`);
         const block = await buildBlock(processed, globals, l1ToL2Messages, await context.worldState.fork());
+        previousBlockHeader = block.header;
         await context.worldState.handleL2BlockAndMessages(block, l1ToL2Messages);
       }
 
@@ -80,7 +84,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
       if (prover) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
-        epochResult.proof.numPublicInputs -= AGGREGATION_OBJECT_LENGTH;
+        epochResult.proof.numPublicInputs -= PAIRING_POINTS_SIZE;
         await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
       }
 

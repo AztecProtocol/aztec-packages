@@ -82,10 +82,13 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
-    ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
-    num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
+    // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
+    BB_ASSERT_GTE(prover.proving_key->proving_key.num_public_inputs,
+                  PAIRING_POINTS_SIZE,
+                  "Public inputs should contain a pairing point accumulator.");
+    num_inner_public_inputs -= PAIRING_POINTS_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        ASSERT(num_inner_public_inputs >= IPA_CLAIM_SIZE);
+        BB_ASSERT_GTE(num_inner_public_inputs, IPA_CLAIM_SIZE, "Public inputs should contain an IPA claim.");
         num_inner_public_inputs -= IPA_CLAIM_SIZE;
     }
     // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
@@ -133,7 +136,9 @@ bool _verify(const bool ipa_accumulation,
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
         // The extra calculation is for the IPA proof length.
-        ASSERT(complete_proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
+        BB_ASSERT_EQ(complete_proof.size(),
+                     HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs,
+                     "Honk proof has incorrect length while verifying.");
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
         auto ipa_proof = HonkProof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());

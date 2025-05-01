@@ -16,6 +16,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
+using context = bb::avm2::context<FF>;
 
 TEST(ExecutionConstrainingTest, Basic)
 {
@@ -41,6 +42,50 @@ TEST(ExecutionConstrainingTest, Continuity)
     // clang-format on
 
     check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1, execution::SR_TRACE_CONTINUITY_2);
+}
+
+TEST(ExecutionConstrainingTest, ContextSwitchingCall)
+{
+    TestTraceContainer trace({ {
+                                   { C::execution_next_context_id, 0 },
+                                   { C::precomputed_first_row, 1 },
+                               },
+                               // Dummy Row
+                               { { C::execution_sel, 1 },
+                                 { C::execution_pc, 0 },
+                                 { C::execution_next_pc, 1 },
+                                 { C::execution_context_id, 1 },
+                                 { C::execution_next_context_id, 2 } },
+                               // CALL
+                               {
+                                   { C::execution_sel, 1 },
+                                   { C::execution_pc, 1 },
+                                   { C::execution_next_pc, 2 },
+                                   { C::execution_sel_call, 1 },
+                                   { C::execution_context_id, 1 },
+                                   { C::execution_next_context_id, 2 },
+                                   { C::execution_rop4, /*cd offset=*/10 },
+                                   { C::execution_rop5, /*cd size=*/1 },
+                                   { C::execution_reg3, /*contract address=*/0xdeadbeef },
+                               },
+                               // Dummy Row in new context
+                               {
+                                   { C::execution_sel, 1 },
+                                   { C::execution_pc, 0 }, // pc=0 because it is after a CALL
+                                   { C::execution_next_pc, 20 },
+                                   { C::execution_context_id, 2 },      // Previous row next_context_id
+                                   { C::execution_next_context_id, 3 }, // Incremented due to previous call
+                                   { C::execution_parent_id, 1 },       // Previous row context id
+                                   { C::execution_contract_address, 0xdeadbeef },
+                                   { C::execution_parent_calldata_offset_addr, 10 },
+                                   { C::execution_parent_calldata_size_addr, 1 },
+                               },
+                               {
+                                   { C::execution_sel, 0 },
+                                   { C::execution_last, 1 },
+                               } });
+
+    check_relation<context>(trace);
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)

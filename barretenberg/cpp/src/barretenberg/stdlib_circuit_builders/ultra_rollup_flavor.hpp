@@ -12,19 +12,11 @@ namespace bb {
 
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
-    // Proof length formula:
-    // 1. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
-    // 2. IPA_CLAIM_SIZE public inputs for IPA claim
-    // 3. NUM_WITNESS_ENTITIES commitments
-    // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
-    // 5. NUM_ALL_ENTITIES sumcheck evaluations
-    // 6. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
-    // 7. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
-    // 8. KZG W commitment
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IPA_PROOF_LENGTH;
+    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
 
     using UltraFlavor::UltraFlavor;
     class ProvingKey : public UltraFlavor::ProvingKey {

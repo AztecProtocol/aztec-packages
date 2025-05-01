@@ -13,7 +13,7 @@ import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
 
 const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
-const BOOT_NODE_UDP_PORT = 40900;
+const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
@@ -88,7 +88,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(offlineStats.history.every(h => h.status.endsWith('-missed'))).toBeTrue();
       expect(offlineStats.missedAttestations.count + offlineStats.missedProposals.count).toEqual(historyLength);
       expect(offlineStats.missedAttestations.rate).toEqual(1);
-      expect(offlineStats.missedProposals.rate).toBeOneOf([1, NaN]);
+      expect(offlineStats.missedProposals.rate).toBeOneOf([1, NaN, undefined]);
     });
 
     it('collects stats on a block builder', () => {

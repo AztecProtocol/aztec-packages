@@ -12,7 +12,7 @@
 #include "barretenberg/plonk/proof_system/public_inputs/public_inputs.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/utils/kate_verification.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/plonk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/plonk_recursion/verifier/program_settings.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
@@ -178,12 +178,12 @@ lagrange_evaluations<typename Curve::Builder> get_lagrange_evaluations(
  * which includes detailed comments.
  */
 template <typename Curve, typename program_settings>
-aggregation_state<typename Curve::Builder> verify_proof(
+PairingPoints<typename Curve::Builder> verify_proof(
     typename Curve::Builder* context,
     std::shared_ptr<verification_key<Curve>> key,
     const plonk::transcript::Manifest& manifest,
     const plonk::proof& proof,
-    const aggregation_state<typename Curve::Builder> previous_output = aggregation_state<typename Curve::Builder>())
+    const PairingPoints<typename Curve::Builder> previous_output = PairingPoints<typename Curve::Builder>())
 {
     using Builder = typename Curve::Builder;
 
@@ -199,11 +199,11 @@ aggregation_state<typename Curve::Builder> verify_proof(
  * which includes detailed comments.
  */
 template <typename Curve, typename program_settings>
-aggregation_state<typename Curve::Builder> verify_proof_(
+PairingPoints<typename Curve::Builder> verify_proof_(
     typename Curve::Builder* context,
     std::shared_ptr<verification_key<Curve>> key,
     Transcript<typename Curve::Builder>& transcript,
-    const aggregation_state<typename Curve::Builder> previous_output = aggregation_state<typename Curve::Builder>())
+    const PairingPoints<typename Curve::Builder> previous_output = PairingPoints<typename Curve::Builder>())
 {
     using fr_ct = typename Curve::ScalarField;
     using fq_ct = typename Curve::BaseField;
@@ -394,17 +394,17 @@ aggregation_state<typename Curve::Builder> verify_proof_(
 
     rhs = (-rhs) - PI_Z;
 
-    auto result = aggregation_state<Builder>{ opening_result, rhs };
+    auto result = PairingPoints<Builder>{ opening_result, rhs };
     return result;
 }
 
 template <typename Flavor>
-aggregation_state<typename Flavor::CircuitBuilder> verify_proof(
+PairingPoints<typename Flavor::CircuitBuilder> verify_proof(
     typename Flavor::CircuitBuilder* context,
     std::shared_ptr<verification_key<bn254<typename Flavor::CircuitBuilder>>> key,
     const plonk::proof& proof,
-    const aggregation_state<typename Flavor::CircuitBuilder> previous_output =
-        aggregation_state<typename Flavor::CircuitBuilder>())
+    const PairingPoints<typename Flavor::CircuitBuilder> previous_output =
+        PairingPoints<typename Flavor::CircuitBuilder>())
 {
     // TODO(Cody): Be sure this is kosher
     const auto manifest =

@@ -1,4 +1,4 @@
-import type { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
+import type { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { Metrics } from '@aztec/telemetry-client';
 

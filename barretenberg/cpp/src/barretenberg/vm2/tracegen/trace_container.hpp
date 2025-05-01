@@ -37,6 +37,8 @@ class TraceContainer {
         }
         return result;
     }
+    // Extended version of get that works with shifted columns. More expensive.
+    const FF& get_column_or_shift(ColumnAndShifts col, uint32_t row) const;
 
     void set(Column col, uint32_t row, const FF& value);
     // Bulk setting for a given row.

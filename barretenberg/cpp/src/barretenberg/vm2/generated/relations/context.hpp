@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -12,20 +13,110 @@ template <typename FF_> class contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS = { 3 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 5, 5, 5, 5, 5, 5, 5, 5 };
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+        return (in.get(C::execution_sel)).is_zero();
+    }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        using C = ColumnAndShifts;
+
+        const auto execution_CALL = in.get(C::execution_sel_call) + in.get(C::execution_sel_static_call);
+        const auto execution_NOT_FIRST = (FF(1) - in.get(C::precomputed_first_row));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.execution_is_static * (FF(1) - new_term.execution_is_static);
+            auto tmp = execution_CALL * in.get(C::precomputed_first_row);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
+        }
+        { // INCR_CONTEXT_ID
+            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
+            auto tmp =
+                execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                (in.get(C::execution_next_context_id_shift) - (in.get(C::execution_next_context_id) + execution_CALL));
+            tmp *= scaling_factor;
+            std::get<1>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_CONTEXT_ID
+            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                       (((in.get(C::execution_next_context_id) - in.get(C::execution_context_id)) * execution_CALL +
+                         in.get(C::execution_context_id) + in.get(C::precomputed_first_row)) -
+                        in.get(C::execution_context_id_shift));
+            tmp *= scaling_factor;
+            std::get<2>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_PARENT_ID
+            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                       (((in.get(C::execution_context_id) - in.get(C::execution_parent_id)) *
+                             (execution_CALL + in.get(C::precomputed_first_row)) +
+                         in.get(C::execution_parent_id)) -
+                        in.get(C::execution_parent_id_shift));
+            tmp *= scaling_factor;
+            std::get<3>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_PC
+            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                       (in.get(C::execution_pc_shift) - (FF(1) - execution_CALL) * in.get(C::execution_next_pc));
+            tmp *= scaling_factor;
+            std::get<4>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_MSG_SENDER
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                       (((in.get(C::execution_contract_address) - in.get(C::execution_msg_sender)) * execution_CALL +
+                         in.get(C::execution_msg_sender)) -
+                        in.get(C::execution_msg_sender_shift));
+            tmp *= scaling_factor;
+            std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_CONTRACT_ADDR
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                       (((in.get(C::execution_reg3) - in.get(C::execution_contract_address)) * execution_CALL +
+                         in.get(C::execution_contract_address)) -
+                        in.get(C::execution_contract_address_shift));
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_IS_STATIC
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp =
+                execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                (in.get(C::execution_is_static_shift) -
+                 (in.get(C::execution_sel_static_call) + (FF(1) - execution_CALL) * in.get(C::execution_is_static)));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_CD_OFFSET
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            auto tmp =
+                execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                (((in.get(C::execution_rop4) - in.get(C::execution_parent_calldata_offset_addr)) * execution_CALL +
+                  in.get(C::execution_parent_calldata_offset_addr)) -
+                 in.get(C::execution_parent_calldata_offset_addr_shift));
+            tmp *= scaling_factor;
+            std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NEXT_CD_SIZE
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_FIRST * in.get(C::execution_sel_shift) *
+                       (((in.get(C::execution_rop5) - in.get(C::execution_parent_calldata_size_addr)) * execution_CALL +
+                         in.get(C::execution_parent_calldata_size_addr)) -
+                        in.get(C::execution_parent_calldata_size_addr_shift));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -36,9 +127,39 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case 1:
+            return "INCR_CONTEXT_ID";
+        case 2:
+            return "NEXT_CONTEXT_ID";
+        case 3:
+            return "NEXT_PARENT_ID";
+        case 4:
+            return "NEXT_PC";
+        case 5:
+            return "NEXT_MSG_SENDER";
+        case 6:
+            return "NEXT_CONTRACT_ADDR";
+        case 7:
+            return "NEXT_IS_STATIC";
+        case 8:
+            return "NEXT_CD_OFFSET";
+        case 9:
+            return "NEXT_CD_SIZE";
+        }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_INCR_CONTEXT_ID = 1;
+    static constexpr size_t SR_NEXT_CONTEXT_ID = 2;
+    static constexpr size_t SR_NEXT_PARENT_ID = 3;
+    static constexpr size_t SR_NEXT_PC = 4;
+    static constexpr size_t SR_NEXT_MSG_SENDER = 5;
+    static constexpr size_t SR_NEXT_CONTRACT_ADDR = 6;
+    static constexpr size_t SR_NEXT_IS_STATIC = 7;
+    static constexpr size_t SR_NEXT_CD_OFFSET = 8;
+    static constexpr size_t SR_NEXT_CD_SIZE = 9;
 };
 
 } // namespace bb::avm2

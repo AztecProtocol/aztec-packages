@@ -40,7 +40,7 @@ See here to [Bridge Fee Juice](../../../developers/reference/environment_referen
 
 :::
 
-One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
+One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/js_tutorials/token_bridge.md#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
 
 First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
 
@@ -86,7 +86,7 @@ import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 
 **The equivalent to specify fees via CLI...**
 
-import { CLI_Fees } from '@site/src/components/Snippets/snippets';
+import { CLI_Fees } from '@site/src/components/Snippets/general_snippets';
 
 <CLI_Fees />
 
@@ -219,7 +219,7 @@ The `paymentMethod` is an object for the type of payment. Each of the implementa
 
 #include_code gas_settings_vars yarn-project/stdlib/src/gas/gas_settings.ts javascript
 
-import { Gas_Settings_Components, Gas_Settings } from '@site/src/components/Snippets/snippets';
+import { Gas_Settings_Components, Gas_Settings } from '@site/src/components/Snippets/general_snippets';
 
 <Gas_Settings />
 

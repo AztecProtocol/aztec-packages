@@ -17,14 +17,16 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { SpecificProverNodeConfig } from './config.js';
+import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
-import { ProverNode, type ProverNodeOptions } from './prover-node.js';
+import { ProverNode } from './prover-node.js';
 
 describe('prover-node', () => {
   // Prover node dependencies
@@ -37,7 +39,7 @@ describe('prover-node', () => {
   let coordination: ProverCoordination;
   let mockCoordination: MockProxy<ProverCoordination>;
   let epochMonitor: MockProxy<EpochMonitor>;
-  let config: ProverNodeOptions;
+  let config: SpecificProverNodeConfig;
 
   // L1 genesis time
   let l1GenesisTime: number;
@@ -47,6 +49,7 @@ describe('prover-node', () => {
 
   // Blocks returned by the archiver
   let blocks: L2Block[];
+  let previousBlockHeader: BlockHeader;
 
   // Address of the publisher
   let address: EthAddress;
@@ -81,12 +84,13 @@ describe('prover-node', () => {
     coordination = mockCoordination;
 
     config = {
-      maxPendingJobs: 3,
-      pollingIntervalMs: 10,
-      maxParallelBlocksPerEpoch: 32,
-      txGatheringMaxParallelRequests: 10,
+      proverNodeMaxPendingJobs: 3,
+      proverNodePollingIntervalMs: 10,
+      proverNodeMaxParallelBlocksPerEpoch: 32,
       txGatheringIntervalMs: 100,
-      txGatheringTimeoutMs: 1000,
+      txGatheringBatchSize: 10,
+      txGatheringMaxParallelRequestsPerNode: 5,
+      proverNodeFailedEpochStore: undefined,
     };
 
     // World state returns a new mock db every time it is asked to fork
@@ -108,6 +112,7 @@ describe('prover-node', () => {
 
     // We create 3 fake blocks with 1 tx effect each
     blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
+    previousBlockHeader = await L2Block.random(19).then(b => b.header);
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocks.mockImplementation((from, limit) => {
@@ -127,6 +132,12 @@ describe('prover-node', () => {
       proven: { number: 0, hash: undefined },
       finalized: { number: 0, hash: undefined },
     });
+    l2BlockSource.getBlockHeader.mockImplementation(number =>
+      Promise.resolve(number === blocks[0].number - 1 ? previousBlockHeader : undefined),
+    );
+
+    // L1 to L2 message source returns no messages
+    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
 
     // Coordination plays along and returns a tx whenever requested
     mockCoordination.getTxsByHash.mockImplementation(hashes =>
@@ -194,10 +205,8 @@ describe('prover-node', () => {
     public nextJobRun: () => Promise<void> = () => Promise.resolve();
 
     protected override doCreateEpochProvingJob(
-      epochNumber: bigint,
+      data: EpochProvingJobData,
       deadline: Date | undefined,
-      _blocks: L2Block[],
-      _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,
     ): EpochProvingJob {
       const state = this.nextJobState;
@@ -207,11 +216,11 @@ describe('prover-node', () => {
       const job = mock<EpochProvingJob>({
         run,
         getState: () => state,
-        getEpochNumber: () => epochNumber,
+        getEpochNumber: () => data.epochNumber,
         getDeadline: () => deadline,
       });
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber, job });
+      jobs.push({ epochNumber: data.epochNumber, job });
       this.totalJobCount++;
       return job;
     }

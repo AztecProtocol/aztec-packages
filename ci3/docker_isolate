@@ -3,24 +3,70 @@
 # Carefully set things so we can use our git repo mounted as-is.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-name=docker-isolate-$(echo "$*" | sed 's/_/-/g; s/[^A-Za-z0-9-]//g')
-[ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
-trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
-docker rm -f $name &>/dev/null || true
+cmd=$1
+export CPUS=${CPUS:-2}
+export MEM=${MEM:-$((CPUS * 4))g}
 
-docker run --rm \
+function cleanup {
+  if [ -n "${cid:-}" ]; then
+    docker rm -f "$cid" &>/dev/null
+  fi
+}
+trap cleanup EXIT
+
+trap exit SIGINT SIGTERM
+
+# Compute container name.
+if [ -n "${NAME:-}" ]; then
+  name="$(echo "${NAME}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
+  name_arg="--name $name"
+  # Kill any existing container with the same name.
+  docker rm -f $name &>/dev/null || true
+fi
+
+# For pinning to given CPUs.
+[ -n "${CPU_LIST:-}" ] && cpuset_arg="--cpuset-cpus=$CPU_LIST"
+
+# Env vars to inject into the container.
+arg_env_vars=()
+for env in ${ENV_VARS_TO_INJECT:-}; do
+  if [ -n "${!env:-}" ]; then
+    echo "$env=${!env}"
+    arg_env_vars+=("-e" "$env=${!env}")
+  fi
+done
+
+# Tests don't usually need network access, so disable it by default.
+network_arg="--net=none"
+[ "${NET:-0}" -eq 1 ] && network_arg=""
+
+# Launch the container in the background.
+# Don't launch in the foreground or you can't process SIGINT/SIGTERM.
+# Don't use & as we want to block, and be sure it starts before processing any signals.
+set -x
+cid=$(docker run -d \
   ${name_arg:-} \
-  --cpus=${CPUS:-16} \
-  --memory=${MEM:-32g} \
+  ${network_arg:-} \
+  ${cpuset_arg:-} \
+  --cpus=$CPUS \
+  --memory=$MEM \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
-  -v$root:$root \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
   --workdir $PWD \
   -e HOME \
   -e VERBOSE \
-  -e IVC_BENCH \
   -e GIT_CONFIG_GLOBAL=$root/build-images/src/home/.gitconfig \
   -e FORCE_COLOR=true \
+  -e CPUS \
+  -e MEM \
+  "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
-  /bin/bash -c "$*"
+  /bin/bash -c "$cmd")
+set +x
+# At this point we know it's started, and can handle SIGTERM to kill the container.
+
+# Output logs, but use & so we can still handle signals.
+docker logs -f $cid &
+wait $!
+exit $(docker wait $cid)

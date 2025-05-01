@@ -17,6 +17,8 @@ struct GoblinRecursiveVerifierOutput {
     using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
     using Curve = grumpkin<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using PairingAccumulator = PairingPoints<Builder>;
+    PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
     std::shared_ptr<Transcript> ipa_transcript;
 };
