@@ -5,8 +5,9 @@ export const General = {
   VersionLatestSandbox: () => <code>0.86.0</code>,
   ViewTransactions: () => (
     <p>
-      Transactions and balances can be checked{" "}
-      <a href="https://aztecscan.xyz">here</a>.
+      Transactions and balances can be viewed in block explorers like{" "}
+      <a href="https://aztecexplorer.xyz">AztecExplorer</a> and{" "}
+      <a href="https://aztecscan.xyz">AztecScan</a>.
     </p>
   ),
   InstallationInstructions: () => (
