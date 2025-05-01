@@ -18,8 +18,7 @@ id: try_testnet
 
 ## Develop on Aztec Testnet
 
-- [Start running a full node](./the_aztec_network/guides/run_nodes/how_to_run_full_node.md) so you can interact with the network. If you need to access an Aztec node, you can use your locally running full node.
-- Follow the [getting started on testnet guide](./developers/getting_started.md)
+- Follow the [getting started on testnet guide](./developers/guides/getting_started_on_testnet.md)
 - Try the [`testnet` branch of the Aztec Starter template Github repo](https://github.com/AztecProtocol/aztec-starter/tree/testnet)
 - Follow our [tutorials](./developers/tutorials/codealong/contract_tutorials/counter_contract.md) in order to write your first contract, deploy it, and interact with it using Aztec CLI and Aztec.js
 

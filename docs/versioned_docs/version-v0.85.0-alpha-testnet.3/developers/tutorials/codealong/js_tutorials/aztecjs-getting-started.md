@@ -9,6 +9,10 @@ In this guide, we will retrieving the Sandbox and deploy a pre-written contract 
 
 This guide assumes you have followed the [quickstart](../../../../developers/getting_started.md).
 
+:::note
+This tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../../getting_started.md).
+:::
+
 ## Prerequisites
 
 - A running Aztec sandbox
