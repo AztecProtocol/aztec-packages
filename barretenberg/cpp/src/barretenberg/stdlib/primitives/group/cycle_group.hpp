@@ -133,6 +133,22 @@ template <typename Builder> class cycle_group {
             lo.set_origin_tag(tag);
             hi.set_origin_tag(tag);
         }
+        /**
+         * @brief Set the free witness flag for the cycle scalar's tags
+         */
+        void set_free_witness()
+        {
+            lo.set_free_witness();
+            hi.set_free_witness();
+        }
+        /**
+         * @brief Unset the free witness flag for the cycle scalar's tags
+         */
+        void unset_free_witness()
+        {
+            lo.unset_free_witness();
+            hi.unset_free_witness();
+        }
     };
 
     /**
@@ -285,6 +301,25 @@ template <typename Builder> class cycle_group {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
+    /**
+     * @brief Set the free witness flag for the cycle_group's tags
+     */
+    void set_free_witness()
+    {
+        x.set_free_witness();
+        y.set_free_witness();
+        _is_infinity.set_free_witness();
+    }
+
+    /**
+     * @brief Unset the free witness flag for the cycle_group's tags
+     */
+    void unset_free_witness()
+    {
+        x.unset_free_witness();
+        y.unset_free_witness();
+        _is_infinity.unset_free_witness();
+    }
     /**
      * @brief Set the witness indices representing the cycle_group to public
      *

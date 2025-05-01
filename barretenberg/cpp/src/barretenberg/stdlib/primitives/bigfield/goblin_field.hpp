@@ -86,7 +86,9 @@ template <class Builder> class goblin_field {
         uint256_t hi_v = converted.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS);
         field_ct lo = field_ct::from_witness(ctx, lo_v);
         field_ct hi = field_ct::from_witness(ctx, hi_v);
-        return goblin_field(lo, hi);
+        auto result = goblin_field(lo, hi);
+        result.set_free_witness();
+        return result;
     }
 
     /**
@@ -97,6 +99,7 @@ template <class Builder> class goblin_field {
         for (auto& limb : limbs) {
             limb.convert_constant_to_fixed_witness(builder);
         }
+        this->unset_free_witness();
     }
 
     static goblin_field conditional_assign(const bool_ct& predicate, const goblin_field& lhs, goblin_field& rhs)
@@ -140,6 +143,25 @@ template <class Builder> class goblin_field {
         limbs[1].set_origin_tag(tag);
     }
 
+    /**
+     * @brief Set the free witness flag for the goblin field's tags
+     */
+    void set_free_witness()
+    {
+        for (auto& limb : limbs) {
+            limb.set_free_witness();
+        }
+    }
+
+    /**
+     * @brief Unset the free witness flag for the goblin field's tags
+     */
+    void unset_free_witness()
+    {
+        for (auto& limb : limbs) {
+            limb.unset_free_witness();
+        }
+    }
     /**
      * @brief Set the witness indices for the limbs of the goblin field to public
      * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.

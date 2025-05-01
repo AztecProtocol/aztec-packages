@@ -363,9 +363,9 @@ template <typename TranscriptParams> class BaseTranscript {
         if constexpr (in_circuit) {
             if (reception_phase) {
                 reception_phase = false;
-                for (size_t i = 0; i < num_challenges; i++) {
-                    challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
-                }
+            }
+            for (size_t i = 0; i < num_challenges; i++) {
+                challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
             }
         }
         // Prepare for next round.
@@ -407,7 +407,19 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void add_to_hash_buffer(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-
+        if constexpr (in_circuit) {
+            if (!reception_phase) {
+                reception_phase = true;
+                round_index++;
+            }
+            if constexpr (is_iterable_v<T>) {
+                for (const auto& subelement : element) {
+                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+                }
+            } else {
+                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            }
+        }
         // TODO(Adrian): Ensure that serialization of affine elements (including point at infinity) is consistent.
         // TODO(Adrian): Consider restricting serialization (via concepts) to types T for which sizeof(T) reliably
         // returns the size of T in frs. (E.g. this is true for std::array but not for std::vector).
