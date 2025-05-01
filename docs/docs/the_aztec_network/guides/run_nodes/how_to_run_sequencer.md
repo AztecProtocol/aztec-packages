@@ -35,7 +35,7 @@ The archiver component complements this process by maintaining historical chain 
 Before following this guide, make sure you:
 
 - Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
-- You are using the correct version for the testnet by running `aztec-up 0.85.0-alpha-testnet.5`
+- You are using the correct version for the testnet by running `aztec-up alpha-testnet`
 - Are running a Linux or MacOS machine with access to a terminal
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
@@ -58,7 +58,7 @@ To use the `aztec start` command, you need to obtain the following:
 
 #### Ethereum Keys
 
-You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag. 
+You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
 
 The private key is needed as your validator will post blocks to Ethereum, and the public address will be the recipient of any block rewards.
 
@@ -158,7 +158,7 @@ name: aztec-node
 services:
   network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""

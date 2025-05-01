@@ -58,6 +58,12 @@ export const General = {
     </p>
   ),
 
+  AztecTestnetVersion: () => (
+    <span>
+      0.85.0-alpha-testnet.5
+    </span>
+  ),
+
   AztecWalletCLI: () => (
     <p>
       <b>AztecWallet</b> - is a CLI wallet, <code>aztec-wallet</code>, that
