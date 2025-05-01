@@ -2,8 +2,8 @@ name: Publish Barretenberg Mac
 
 on:
   push:
-    tags:
-      - "v*"
+    # tags:
+    #   - "v*"
   workflow_dispatch:
     # Allow pushing a manual nightly release
     inputs:
@@ -65,7 +65,7 @@ jobs:
         run: |
           version_string=${{ inputs.ref_name || inputs.tag || github.ref_name }}
           version_string=$(echo $version_string | sed "s/\//_/")
-          sed -i.bak "s/00000000\.00000000\.00000000/$version_string/g") src/barretenberg/bb/cli.cpp
+          sed -i.bak "s/00000000\.00000000\.00000000/$version_string/g" src/barretenberg/bb/cli.cpp
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
