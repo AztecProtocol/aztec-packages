@@ -32,16 +32,12 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     using View = typename Accumulator::View;
 
     auto op = View(in.op);
-    static const FF minus_one = FF(-1);
-    static const FF minus_two = FF(-2);
     static const FF minus_three = FF(-3);
     static const FF minus_four = FF(-4);
     static const FF minus_eight = FF(-8);
 
-    // Contribution (1) (op(op-1)(op-2)(op-3)(op-4)(op-8))
-    auto tmp_1 = op * (op + minus_one);
-    tmp_1 *= (op + minus_two);
-    tmp_1 *= (op + minus_three);
+    // Contribution (1) op(op-3)(op-4)(op-8))
+    auto tmp_1 = op * (op + minus_three);
     tmp_1 *= (op + minus_four);
     tmp_1 *= (op + minus_eight);
     tmp_1 *= scaling_factor;
