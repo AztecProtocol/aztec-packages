@@ -254,16 +254,33 @@ template <typename Flavor> class SumcheckProverRound {
                 size_t start = chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size;
                 size_t end = chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size;
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                    extend_edges(extended_edges, polynomials, edge_idx);
-                    // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
-                    // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
-                    // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
-                    // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
-                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                    extended_edges,
-                                                    relation_parameters,
-                                                    gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                    if constexpr (isRowSkippable<Flavor, decltype(polynomials), decltype(edge_idx)>) {
+                        if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
+                            extend_edges(extended_edges, polynomials, edge_idx);
+                            // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                            // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the
+                            // accumulators for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is
+                            // given by \f$
+                            // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                            // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
+                            accumulate_relation_univariates(
+                                thread_univariate_accumulators[thread_idx],
+                                extended_edges,
+                                relation_parameters,
+                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                        }
+                    } else {
+                        extend_edges(extended_edges, polynomials, edge_idx);
+                        // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                        // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
+                        // for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                        // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                        // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
+                        accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                        extended_edges,
+                                                        relation_parameters,
+                                                        gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                    }
                 }
             }
         });
@@ -313,16 +330,33 @@ template <typename Flavor> class SumcheckProverRound {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                extend_edges(extended_edges, polynomials, edge_idx);
-                // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
-                // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
-                // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
-                // \beta_{d-1}^{\ell_{d-1}}\f$.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_edges,
-                                                relation_parameters,
-                                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                if constexpr (isRowSkippable<Flavor, decltype(polynomials), decltype(edge_idx)>) {
+                    if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
+                        extend_edges(extended_edges, polynomials, edge_idx);
+                        // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                        // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the
+                        // accumulators for \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is
+                        // given by \f$
+                        // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                        // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
+                        accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                        extended_edges,
+                                                        relation_parameters,
+                                                        gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                    }
+                } else {
+
+                    extend_edges(extended_edges, polynomials, edge_idx);
+                    // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
+                    // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                    // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                    // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}}\f$.
+                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                    extended_edges,
+                                                    relation_parameters,
+                                                    gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                }
             }
         });
 

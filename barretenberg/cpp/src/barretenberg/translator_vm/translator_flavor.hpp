@@ -928,7 +928,22 @@ class TranslatorFlavor {
             this->lagrange_masking = verification_key->lagrange_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
-    }; // namespace bb
+    };
+
+    /**
+     * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
+     *
+     * @details When used in ClientIVC, the Translator has a large fixed size, which is often not fully utilized.
+     *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
+     *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
+     **/
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    static bool skip_entire_row(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                const EdgeType edge_idx)
+    {
+        return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]);
+    }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     using Transcript = NativeTranscript;
