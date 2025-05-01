@@ -9,7 +9,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
-import { TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -67,7 +67,7 @@ describe('ValidationService', () => {
   it('Should create a valid block proposal', async () => {
     const header = makeHeader();
     const archive = Fr.random();
-    const txs = [1, 2, 3, 4, 5].map(() => TxHash.random());
+    const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
 
     const blockProposal = await validatorClient.createBlockProposal(
       header.globalVariables.blockNumber,

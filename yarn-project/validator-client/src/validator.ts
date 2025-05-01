@@ -299,6 +299,12 @@ export class ValidatorClient extends WithTracer implements Validator {
    * @param proposal - The proposal to attest to
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
+    // TODO: only add the trnasactions that we are missing, but just going to add all for now
+    if (proposal.txs) {
+      await this.p2pClient.addTxs(proposal.txs);
+    }
+
+    // If the proposal has transactions attached to it, then we need to add them to our pool
     const txHashes: TxHash[] = proposal.payload.txHashes;
     const availability = await this.p2pClient.hasTxsInPool(txHashes);
     const missingTxs = txHashes.filter((_, index) => !availability[index]);
