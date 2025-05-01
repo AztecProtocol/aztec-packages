@@ -259,7 +259,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             uint32_t NUM_GATES_EXPECTED = 937885;
             BB_ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()),
                          NUM_GATES_EXPECTED,
-                         "UltraHonk Recursive verifier built in Ultra changed in gate count! Update this value if you "
+                         "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
                          "are sure this is expected.");
         }
     }
