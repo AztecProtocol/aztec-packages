@@ -176,8 +176,6 @@ fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L48-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L48-L59</a></sub></sup>
 
-You can compile the code so far with `aztec-nargo compile`.
-
 ### 2. Taking private donations
 
 #### Checking campaign duration against the timestamp
