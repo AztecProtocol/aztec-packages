@@ -102,7 +102,7 @@ name: aztec-node
 services:
   network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5
     environment:
       ETHEREUM_HOSTS: "" # update with L1 execution client URL
       L1_CONSENSUS_HOST_URLS: "" # update with L1 consensus client URL
