@@ -254,8 +254,7 @@ case "$cmd" in
     npc_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
     # Simulator benchmarks are published on each commit
     sim_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
-    # L1 gas benchmark is published on each commit
-    l1_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+    l1_hash=$(l1-contracts/bootstrap.sh hash)
     yp_hash=$(yarn-project/bootstrap.sh hash)
 
     if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then

@@ -132,8 +132,6 @@ function gas_report {
 }
 
 function bench {
-  local hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
-
   rm -rf bench-out && mkdir -p bench-out
   if cache_download l1-gas-bench-results-$hash.tar.gz; then
     return
