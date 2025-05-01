@@ -24,6 +24,10 @@ This reference will cover:
 1. Uniswap Portal - a contract on L1 that talks to the input token portal to withdraw the assets, executes the swap, and deposits the swapped tokens back to L2
 2. Uniswap L2 contract - a contract on L2 that creates the needed messages to perform the swap on L1
 
+:::note
+The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../../getting_started.md).
+:::
+
 <Image img={require("@site/static/img/tutorials/uniswap_flow.png")} />
 
 This diagram describes the private flow.
