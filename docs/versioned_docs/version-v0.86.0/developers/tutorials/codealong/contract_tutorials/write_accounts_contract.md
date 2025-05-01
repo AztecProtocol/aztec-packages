@@ -15,6 +15,8 @@ You will learn:
 - Typescript glue code to format and authenticate transactions
 - Deploying and testing the account contract
 
+This tutorial is compatible with the Aztec version `v0.86.0`. Install the correct version with `aztec-up 0.86.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 Writing your own account contract allows you to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of account abstraction in the Aztec network.
 
 It is highly recommended that you understand how an [account](../../../../aztec/concepts/accounts/index.md) is defined in Aztec, as well as the differences between privacy and authentication [keys](../../../../aztec/concepts/accounts/keys.md). You will also need to know how to write a contract in Noir, as well as some basic [Typescript](https://www.typescriptlang.org/).
@@ -84,6 +86,14 @@ pub contract SchnorrHardcodedAccount {
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55</a></sub></sup>
 
+For this to compile, you will need to add the following dependencies to your `Nargo.toml`:
+
+```toml
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.86.0", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.86.0", directory="noir-projects/aztec-nr/authwit" }
+schnorr = { git = "https://github.com/noir-lang/schnorr", tag = "v0.1.1" }
+```
 
 The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding authentication witness from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
