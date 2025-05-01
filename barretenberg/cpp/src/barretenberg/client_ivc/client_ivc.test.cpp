@@ -334,6 +334,45 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 };
 
 /**
+ * @brief Perform accumulation with a structured trace and precomputed verification keys
+ *
+ */
+TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
+{
+    const size_t NUM_CIRCUITS = 4;
+    const size_t log2_num_gates_nominal = 5;   // number of gates in baseline mocked circuit
+    const size_t log2_num_gates_overflow = 18; // number of gates in baseline mocked circuit
+
+    auto generate_vk = [&](size_t num_circuits, size_t log2_num_gates) {
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+        ClientIVCMockCircuitProducer circuit_producer;
+        for (size_t j = 0; j < num_circuits; ++j) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+            ivc.accumulate(circuit);
+        }
+        ivc.prove();
+        auto ivc_vk = ivc.get_vk();
+
+        // PCS verification keys will not match so set to null before comparing
+        ivc_vk.eccvm->pcs_verification_key = nullptr;
+
+        return ivc_vk;
+    };
+
+    auto civc_vk_nominal = generate_vk(NUM_CIRCUITS, log2_num_gates_nominal);
+    auto civc_vk_overflow = generate_vk(NUM_CIRCUITS, log2_num_gates_overflow);
+
+    // Check the equality of the Mega components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.mega.get(), *civc_vk_overflow.mega.get());
+
+    // Check the equality of the ECCVM components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.eccvm.get(), *civc_vk_overflow.eccvm.get());
+
+    // Check the equality of the Translator components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.translator.get(), *civc_vk_overflow.translator.get());
+};
+
+/**
  * @brief Run a test using functions shared with the ClientIVC benchmark.
  * @details We do have this in addition to the above tests anyway so we can believe that the benchmark is running on
  * real data EXCEPT the verification keys, whose correctness is not needed to assess the performance of the folding

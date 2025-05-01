@@ -599,6 +599,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      */
     bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
     {
+        info("indicator: ", indicator);
         FF total_sum =
             (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
         bool sumcheck_round_failed(false);

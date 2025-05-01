@@ -26,8 +26,9 @@ typename Flavor::Commitment compute_vk_hash(const Builder& circuit_in)
     // WORKTODO: I think this is where we get a complaing baout no pairing points be added. Do we just need to add a
     // default here?
 
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+    // TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    // auto proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+    auto proving_key = std::make_shared<DeciderProvingKey>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
 
     auto vk_hash = verification_key->hash();

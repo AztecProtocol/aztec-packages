@@ -6,6 +6,7 @@
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
@@ -261,6 +262,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
         builder.add_public_variable(fold_proof[i]);
     }
 
+    // info("VK HASH A: ", proving_key_inspector::compute_vk_hash(builder));
+
     const StdlibProof<ClientCircuit> stdlib_merge_proof =
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
 
@@ -268,12 +271,16 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     RecursiveMergeVerifier merge_verifier{ &builder };
     [[maybe_unused]] PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
 
+    // info("VK HASH B: ", proving_key_inspector::compute_vk_hash(builder));
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
 
     auto stdlib_decider_vk =
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
+
+    info("verifier_accumulator log size: ", verifier_accumulator->verification_key->log_circuit_size);
+    info("honk_verification_key log size: ", verification_queue[0].honk_verification_key->log_circuit_size);
 
     auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
 
@@ -282,9 +289,13 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
 
+    info("VK HASH A: ", proving_key_inspector::compute_vk_hash(builder));
+
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     decider.verify_proof(decider_proof);
+
+    info("VK HASH B: ", proving_key_inspector::compute_vk_hash(builder));
 
     PairingPoints::add_default_to_public_inputs(builder);
 
@@ -294,6 +305,7 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
 
+    // info("VK HASH E: ", proving_key_inspector::compute_vk_hash(builder));
     return { decider_pk, merge_proof };
 }
 
