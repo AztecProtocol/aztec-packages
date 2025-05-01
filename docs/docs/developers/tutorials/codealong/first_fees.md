@@ -362,8 +362,6 @@ CLI: `--from <sender address> --payment method=fee_juice,claim`
 
 :::
 
-import { General } from '@site/src/components/Snippets/general_snippets';
-
 :::tip Use a block explorer
 <General.ViewTransactions />
 
