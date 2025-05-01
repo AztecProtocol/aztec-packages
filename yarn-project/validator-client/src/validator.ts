@@ -57,7 +57,7 @@ export interface Validator {
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
-    txs: TxHash[],
+    txs: Tx[],
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
@@ -320,7 +320,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
-    txs: TxHash[],
+    txs: Tx[],
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);

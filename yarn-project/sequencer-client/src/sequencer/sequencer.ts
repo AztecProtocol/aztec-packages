@@ -498,7 +498,7 @@ export class Sequencer {
         maxBlockGas: this.maxBlockGas,
       };
       const limits = opts.validateOnly ? { deadline } : { deadline, ...proposerLimits };
-      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+      const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, limits, validator),
       );
 
@@ -542,6 +542,7 @@ export class Sequencer {
         numTxs: processedTxs.length,
         numFailedTxs: failedTxs.length,
         blockBuildingTimer,
+        usedTxs,
       };
     } finally {
       // We create a fresh processor each time to reset any cached state (eg storage writes)
@@ -613,7 +614,7 @@ export class Sequencer {
 
     try {
       const buildBlockRes = await this.buildBlock(pendingTxs, newGlobalVariables);
-      const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer } = buildBlockRes;
+      const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs } = buildBlockRes;
       this.metrics.recordBuiltBlock(workTimer.ms(), publicGas.l2Gas);
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
@@ -645,7 +646,7 @@ export class Sequencer {
 
       this.log.debug('Collecting attestations');
       const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
-      const attestations = await this.collectAttestations(block, txHashes);
+      const attestations = await this.collectAttestations(block, usedTxs);
       if (attestations !== undefined) {
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
@@ -663,7 +664,7 @@ export class Sequencer {
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.BLOCK_TXS_COUNT]: txHashes.length,
   }))
-  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txs: Tx[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
 
@@ -690,7 +691,7 @@ export class Sequencer {
       block.header.toPropose(),
       block.archive.root,
       block.header.state,
-      txHashes,
+      txs,
     );
     if (!proposal) {
       const msg = `Failed to create block proposal`;

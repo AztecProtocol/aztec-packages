@@ -242,6 +242,7 @@ export interface MakeConsensusPayloadOptions {
   archive?: Fr;
   stateReference?: StateReference;
   txHashes?: TxHash[];
+  txs?: Tx[];
 }
 
 const makeAndSignConsensusPayload = (
@@ -274,7 +275,7 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
     SignatureDomainSeparator.blockProposal,
     options,
   );
-  return new BlockProposal(blockNumber, payload, signature);
+  return new BlockProposal(blockNumber, payload, signature, options?.txs ?? []);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
