@@ -140,7 +140,7 @@ export interface PXE {
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - (optional) The result of the private execution of the transaction. The txRequest
-   * will be re-executed if not provided
+   * will be executed if not provided
    * @returns A result containing the proof and public inputs of the tail circuit.
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
