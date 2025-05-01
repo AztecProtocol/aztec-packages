@@ -590,7 +590,6 @@ TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongWireInstructionSpecInt
             C::instr_fetching_sel_op_dc_8,    C::instr_fetching_sel_op_dc_9,  C::instr_fetching_sel_op_dc_10,
             C::instr_fetching_sel_op_dc_11,   C::instr_fetching_sel_op_dc_12, C::instr_fetching_sel_op_dc_13,
             C::instr_fetching_sel_op_dc_14,   C::instr_fetching_sel_op_dc_15, C::instr_fetching_sel_op_dc_16,
-            C::instr_fetching_sel_op_dc_17,
         };
 
         // Mutate execution opcode
