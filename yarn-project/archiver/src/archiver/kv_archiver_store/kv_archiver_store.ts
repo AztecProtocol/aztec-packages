@@ -191,7 +191,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
+  getPublishedBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
     return toArray(this.#blockStore.getBlocks(start, limit));
   }
 
