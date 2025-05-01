@@ -4,6 +4,8 @@ sidebar_position: 0
 tags: [testnet]
 ---
 
+import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
+
 This guide will walk you through setting up and using the Aztec testnet. By the end, you'll have created an account, deployed a contract, and performed some basic operations.
 
 If you already have an app on sandbox, you might want to check out the [sandbox to testnet guide](../../sandbox_to_testnet_guide.md).
@@ -35,12 +37,12 @@ bash -i <(curl -s https://install.aztec.network)
 Then install the version of the network running the testnet:
 
 ```bash
-aztec-up 0.85.0-alpha-testnet.5
+aztec-up <AztecTestnetVersion />
 ```
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.5`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `<AztecTestnetVersion />`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 

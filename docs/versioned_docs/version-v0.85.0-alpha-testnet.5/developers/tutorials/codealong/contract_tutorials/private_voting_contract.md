@@ -64,7 +64,7 @@ use dep::aztec::macros::aztec;
 pub contract EasyPrivateVoting {
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6</a></sub></sup>
 
 This defines a contract called `EasyPrivateVoting`. Everything will sit inside this block.
 
