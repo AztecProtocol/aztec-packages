@@ -387,6 +387,11 @@ CLI: `--from <sender address> --payment method=fee_juice,claim`
 
 :::
 
+:::tip Use a block explorer
+<General.ViewTransactions />
+
+:::
+
 ### Fee Paying Contract payment (public/private) - Advanced
 
 Setting up your own FPC and authorising the asset is an involved process outside the scope of this tutorial, so below we will only look at the syntax for understanding.
