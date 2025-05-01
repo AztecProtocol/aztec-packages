@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746108704809,
+  "lastUpdate": 1746112350508,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -6692,6 +6692,78 @@ window.BENCHMARK_DATA = {
             "value": 1773,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8a77df7cf1f2b25fc2cb06a1d71aacc0e93c5ba2",
+          "message": "fix(cmake): clientivc uses libdeflate (#13973)",
+          "timestamp": "2025-05-01T14:26:05Z",
+          "tree_id": "14e8e0c6c34691c03cc29e6d7c9ed5a2f5743ef8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8a77df7cf1f2b25fc2cb06a1d71aacc0e93c5ba2"
+        },
+        "date": 1746112341700,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17502.062147999823,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13962.562567 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2191890123,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197604879,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20139.54649499988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17232.590505 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56113.033034,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56113037000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4444.920320000165,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3808.3842119999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12017.309726,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12017310000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2344.06",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
