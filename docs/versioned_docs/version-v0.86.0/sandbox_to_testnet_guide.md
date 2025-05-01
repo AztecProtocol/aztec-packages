@@ -81,9 +81,11 @@ const pxe = await createPXEService(node, fullConfig, true, store);
 
 There are multiple ways to pay for fees on testnet:
 
-- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet). You can read more about how to bridge fee tokens (fee juice) [here](./developers/tutorials/codealong/first_fees.md)
+- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet)
 - It is sponsored by your own contract
 - It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet. Read more about using a Sponsored FPC in Aztec.js [here](./developers/guides/js_apps/pay_fees.md#sponsored-fee-paying-contract) or via the [CLI here](./developers/reference/environment_reference/cli_wallet_reference#sponsored-fee-paying-contract).
+
+You can learn more about all of the ways to pay for transaction fees [here](./developers/guides/js_apps/pay_fees.md).
 
 You will need to specify the fee-payer for all transactions. An example using `aztec-wallet`:
 
