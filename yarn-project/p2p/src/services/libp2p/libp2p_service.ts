@@ -48,7 +48,9 @@ import type { P2PConfig } from '../../config.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
+import { ArchiveSource } from '../../msg_validators/tx_validator/block_header_validator.js';
 import {
+  BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
   GasTxValidator,
@@ -119,7 +121,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protected node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     protected mempools: MemPools<T>,
-    private archiver: L2BlockSource & ContractDataSource,
+    private archiver: L2BlockSource & ContractDataSource & ArchiveSource,
     epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
@@ -785,8 +787,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
           severity: PeerErrorSeverity.MidToleranceError,
         },
-      },
-      {
+        blockHeaderValidator: {
+          validator: new BlockHeaderTxValidator(this.archiver),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
         proofValidator: {
           validator: new TxProofValidator(this.proofVerifier),
           severity: PeerErrorSeverity.MidToleranceError,
