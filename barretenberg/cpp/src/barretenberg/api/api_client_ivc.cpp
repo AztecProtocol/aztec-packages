@@ -12,6 +12,7 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
 #include <stdexcept>
 
@@ -228,8 +229,8 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
         }
         std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
         auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        if (computed_vk == precomputed_vk) {
-            info("FAIL: Precomputed VK does not match generated VK for ", function_name);
+        std::string error_message = "FAIL: Precomputed vk does not match computed vk for function " + function_name;
+        if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
             return false;
         }
     }
