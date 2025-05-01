@@ -241,11 +241,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
-            if constexpr (std::same_as<Flavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
-                BB_ASSERT_EQ(outer_circuit.get_num_finalized_gates(),
-                             730689,
-                             "UltraHonk Recursive verifier built in Ultra changed in gate count.");
-            }
             OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
             auto proof = prover.construct_proof();
@@ -258,6 +253,14 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 OuterVerifier verifier(verification_key);
                 ASSERT(verifier.verify_proof(proof));
             }
+        }
+        // Check the size of the recursive verifier
+        if constexpr (std::same_as<Flavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
+            uint32_t NUM_GATES_EXPECTED = 730689;
+            BB_ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()),
+                         NUM_GATES_EXPECTED,
+                         "UltraHonk Recursive verifier built in Ultra changed in gate count! Update this value if you "
+                         "are sure this is expected.");
         }
     }
 
