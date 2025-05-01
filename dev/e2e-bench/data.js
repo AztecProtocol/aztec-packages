@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746087564936,
+  "lastUpdate": 1746092218869,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "467166f47f443412fcd7cd9ee9137896bbbe28b2",
-          "message": "chore: use public component key for pairing inputs (#13705)\n\nReplaces `pairing_point_accumulator_public_input_indices` and\n`contains_pairing_point_accumulator` with a `PublicComponentKey`\n`pairing_inputs_public_input_key`. This reduces the number of field\nelements in a honk VK (all variants) by 16. (The old components are\nstill used for Plonk so I couldn't remove them entirely yet).",
-          "timestamp": "2025-04-23T23:34:21Z",
-          "tree_id": "a2cbaea3c36656eaa4e21d4544f872a36ab90145",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/467166f47f443412fcd7cd9ee9137896bbbe28b2"
-        },
-        "date": 1745456101483,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9622,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2754609218740488,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 155998,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 151423,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "helloworld@mcgee.cat",
+            "name": "Cat McGee",
+            "username": "catmcgee"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1c63984ea112d03669c34b8286f0db62acfc6d27",
+          "message": "feat(docs): applying dogfooding feedback in docs (#13920)\n\n- addresses feedback\n- updates getting started to be tabbed sandbox/testnet\n- updates contract tutorials and versioned\n\n---------\n\nCo-authored-by: Josh Crites <jc@joshcrites.com>\nCo-authored-by: josh crites <critesjosh@gmail.com>\nCo-authored-by: James Zaki <james.zaki@proton.me>",
+          "timestamp": "2025-05-01T08:55:03Z",
+          "tree_id": "df7493aea8c314e78913ba40e1631ccc2a449ef0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c63984ea112d03669c34b8286f0db62acfc6d27"
+        },
+        "date": 1746092217808,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8182,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23423274020918858,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 150124,
             "unit": "us"
           }
         ]
