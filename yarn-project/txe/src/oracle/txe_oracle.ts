@@ -1,4 +1,4 @@
-import { Body, L2Block, Note } from '@aztec/aztec.js';
+import { type AztecNode, Body, L2Block, Note } from '@aztec/aztec.js';
 import {
   type L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
@@ -109,7 +109,7 @@ import {
 } from '@aztec/stdlib/tx';
 import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
-import { TXENode } from '../node/txe_node.js';
+import { TXEStateMachine } from '../state_machine/index.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 
@@ -136,7 +136,7 @@ export class TXE implements TypedOracle {
   private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
 
-  private node: TXENode;
+  private node: AztecNode;
 
   private simulationProvider = new WASMSimulator();
 
@@ -159,10 +159,12 @@ export class TXE implements TypedOracle {
     private contractAddress: AztecAddress,
     private nativeWorldStateService: NativeWorldStateService,
     private baseFork: MerkleTreeWriteOperations,
+    private stateMachine: TXEStateMachine,
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
-    this.node = new TXENode(this.blockNumber, this.ROLLUP_VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
+    this.node = stateMachine.node;
+
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
 
@@ -182,14 +184,16 @@ export class TXE implements TypedOracle {
 
   static async create(logger: Logger, store: AztecAsyncKVStore, protocolContracts: ProtocolContract[]) {
     const executionCache = new HashedValuesCache();
-    const nativeWorldStateService = await NativeWorldStateService.tmp();
+
+    const stateMachine = await TXEStateMachine.create(store);
+    const syncDataProvider = stateMachine.syncDataProvider;
+    const nativeWorldStateService = stateMachine.synchronizer.nativeWorldStateService;
     const baseFork = await nativeWorldStateService.fork();
 
     const addressDataProvider = new AddressDataProvider(store);
     const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
-    const syncDataProvider = new SyncDataProvider(store);
     const taggingDataProvider = new TaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
@@ -217,6 +221,7 @@ export class TXE implements TypedOracle {
       await AztecAddress.random(),
       nativeWorldStateService,
       baseFork,
+      stateMachine,
     );
   }
 
@@ -231,11 +236,11 @@ export class TXE implements TypedOracle {
   }
 
   getChainId(): Promise<Fr> {
-    return Promise.resolve(this.node.getChainId().then(id => new Fr(id)));
+    return Promise.resolve(new Fr(this.CHAIN_ID));
   }
 
   getVersion(): Promise<Fr> {
-    return Promise.resolve(this.node.getVersion().then(v => new Fr(v)));
+    return Promise.resolve(new Fr(this.ROLLUP_VERSION));
   }
 
   getMsgSender() {
@@ -268,7 +273,6 @@ export class TXE implements TypedOracle {
 
   setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
-    this.node.setBlockNumber(blockNumber);
   }
 
   getContractDataProvider() {
@@ -316,8 +320,8 @@ export class TXE implements TypedOracle {
 
     const stateReference = await snap.getStateReference();
     const inputs = PrivateContextInputs.empty();
-    inputs.txContext.chainId = new Fr(await this.node.getChainId());
-    inputs.txContext.version = new Fr(await this.node.getVersion());
+    inputs.txContext.chainId = new Fr(this.CHAIN_ID);
+    inputs.txContext.version = new Fr(this.ROLLUP_VERSION);
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
@@ -732,6 +736,7 @@ export class TXE implements TypedOracle {
     txEffect.publicDataWrites = this.publicDataWrites;
     txEffect.privateLogs = this.privateLogs;
     txEffect.publicLogs = this.publicLogs;
+    txEffect.txHash = new TxHash(new Fr(blockNumber));
 
     const body = new Body([txEffect]);
 
@@ -771,10 +776,6 @@ export class TXE implements TypedOracle {
       }
     }
 
-    // At this point we always have a single tx in the block so we set the tx index to 0.
-    const txIndexInBlock = 0;
-    await this.node.processTxEffect(blockNumber, txIndexInBlock, new TxHash(new Fr(blockNumber)), txEffect);
-
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
     const header = new BlockHeader(
@@ -792,14 +793,7 @@ export class TXE implements TypedOracle {
 
     await fork.updateArchive(l2Block.header);
 
-    // We've built a block with all of our state changes in a "fork".
-    // Now emulate a "sync" to this block, by letting cpp reapply the block's
-    // changes to the underlying unforked world state and comparing the results
-    // against the block's state reference (which is this state reference here in the fork).
-    // This essentially commits the state updates to the unforked state and sanity checks the roots.
-    await this.nativeWorldStateService.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
-
-    await this.syncDataProvider.setHeader(header);
+    await this.stateMachine.handleL2Block(l2Block);
 
     this.publicDataWrites = [];
     this.privateLogs = [];
@@ -934,8 +928,8 @@ export class TXE implements TypedOracle {
     const db = this.baseFork;
 
     const globalVariables = GlobalVariables.empty();
-    globalVariables.chainId = new Fr(await this.node.getChainId());
-    globalVariables.version = new Fr(await this.node.getVersion());
+    globalVariables.chainId = new Fr(this.CHAIN_ID);
+    globalVariables.version = new Fr(this.ROLLUP_VERSION);
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 

@@ -1,5 +1,5 @@
 ---
-title: Transferring Tokens with Aztec.js
+title: Getting Started with Aztec.js
 sidebar_position: 1
 ---
 
@@ -8,6 +8,10 @@ import Image from "@theme/IdealImage";
 In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
 
 This guide assumes you have followed the [quickstart](../../../../developers/getting_started.md).
+
+:::note
+This tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
+:::
 
 ## Prerequisites
 
@@ -37,6 +41,12 @@ mkdir src
 
 ```sh
 yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @types/node
+```
+
+and yarn config:
+
+```sh
+echo "nodeLinker: node-modules" > .yarnrc.yml
 ```
 
 4. Add a `tsconfig.json` file into the project root and paste this:
@@ -281,7 +291,9 @@ We can see that each account has the expected balance of tokens.
 
 ### Calling a view function
 
-<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="@site/static/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
+<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png">
+<img src="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" />
+</a>
 
 ## Create and submit a transaction
 
