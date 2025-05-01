@@ -243,7 +243,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
             if constexpr (std::same_as<Flavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
                 BB_ASSERT_EQ(outer_circuit.get_num_finalized_gates(),
-                             731001,
+                             730689,
                              "UltraHonk Recursive verifier built in Ultra changed in gate count.");
             }
             OuterProver prover(proving_key);
