@@ -1588,7 +1588,7 @@ fn handle_get_contract_instance(
     }
 
     assert!(inputs.len() == 1);
-    assert!(destinations.len() == 2);
+    assert!(destinations.len() == 1);
 
     let member_idx = match function {
         "avmOpcodeGetContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
@@ -1604,30 +1604,27 @@ fn handle_get_contract_instance(
     };
 
     let dest_offset_maybe = destinations[0];
-    let dest_offset = match dest_offset_maybe {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("GETCONTRACTINSTANCE dst destination should be a single value"),
+    let (dest_offset, dest_size) = match dest_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size),
+        _ => panic!("GETCONTRACTINSTANCE dst destination should be a HeapArray"),
     };
 
-    let exists_offset_maybe = destinations[1];
-    let exists_offset = match exists_offset_maybe {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("GETCONTRACTINSTANCE exists destination should be a single value"),
-    };
+    assert!(
+        dest_size == 2,
+        "GETCONTRACTINSTANCE destination should have length two: (exists: bool, member: Field)"
+    );
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETCONTRACTINSTANCE,
         indirect: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&address_offset)
-                .direct_operand(&dest_offset)
-                .direct_operand(&exists_offset)
+                .indirect_operand(&dest_offset)
                 .build(),
         ),
         operands: vec![
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: exists_offset.to_usize() as u16 },
         ],
         immediates: vec![AvmOperand::U8 { value: member_idx as u8 }],
         ..Default::default()
