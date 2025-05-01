@@ -28,6 +28,13 @@ The most straightforward way to pay for a transaction is via the sponsored fee p
 
 The most straightforward way to pay for a transaction is via the sponsored fee payment method, bootstrapping some transactions by skipping the need to bridge fee juice to the account. This method uses a type of fee paying contract configured to pay for a number of transactions without requiring payment, but also requires that there is a sponsor to pay for the transactions.
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
+:::tip Use a block explorer
+<General.ViewTransactions />
+
+:::
+
 ## Bridging Fee Juice
 
 ### Sandbox
