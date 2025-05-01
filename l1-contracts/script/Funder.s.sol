@@ -23,6 +23,15 @@ import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 
+contract Yeeter {
+  function yeet(address[] memory _to, uint256[] memory _amounts) public payable {
+    for (uint256 i = 0; i < _to.length; i++) {
+      (bool success,) = _to[i].call{value: _amounts[i]}("");
+      require(success, "Failed to yeet");
+    }
+  }
+}
+
 contract FunderScript is Test {
   using ProposalLib for DataStructures.Proposal;
 
@@ -30,7 +39,9 @@ contract FunderScript is Test {
 
   IRegistry public constant REGISTRY = IRegistry(0x4d2cC1d5fb6BE65240e0bFC8154243e69c0Fb19E);
 
-  uint256 public constant EOA_MIN_BALANCE = 1e18;
+  Yeeter public constant YEETER = Yeeter(0x2bf60b04B521E4A434431EFBb83807425a391910);
+
+  uint256 public constant EOA_MIN_BALANCE = 5e18;
 
   function getProposerEOAs() public returns (address[] memory) {
     Rollup rollup = Rollup(address(REGISTRY.getCanonicalRollup()));
@@ -60,19 +71,25 @@ contract FunderScript is Test {
 
     uint256 properlyFundedCount = 0;
     uint256 underFundedCount = 0;
+    uint256 fundingSpend = 0;
+
+    address[] memory toFund = new address[](eoas.length);
+    uint256[] memory amounts = new uint256[](eoas.length);
 
     for (uint256 i = 0; i < eoas.length; i++) {
       uint256 balance = eoas[i].balance;
       if (balance < EOA_MIN_BALANCE && eoas[i].code.length == 0) {
         emit log_named_address("Underfunded EOA", eoas[i]);
         emit log_named_decimal_uint("\tBalance", balance, 18);
+
+        uint256 amount = EOA_MIN_BALANCE - balance;
+        emit log_named_decimal_uint("\tFunding with ", amount, 18);
+        fundingSpend += amount;
+
+        toFund[underFundedCount] = eoas[i];
+        amounts[underFundedCount] = amount;
+
         underFundedCount++;
-        if (_fund) {
-          vm.broadcast(ME);
-          (bool success,) = eoas[i].call{value: EOA_MIN_BALANCE - balance}("");
-          require(success, "Failed to fund EOA");
-          emit log_named_decimal_uint("\tFunded with ", EOA_MIN_BALANCE - balance, 18);
-        }
       } else {
         properlyFundedCount++;
       }
@@ -80,5 +97,26 @@ contract FunderScript is Test {
 
     emit log_named_uint("Properly funded EOAs", properlyFundedCount);
     emit log_named_uint("Underfunded EOAs    ", underFundedCount);
+    emit log_named_decimal_uint("Funding spend", fundingSpend, 18);
+
+    if (_fund && underFundedCount > 0) {
+      address[] memory toYeet = new address[](underFundedCount);
+      uint256[] memory amountsToYeet = new uint256[](underFundedCount);
+
+      for (uint256 i = 0; i < underFundedCount; i++) {
+        toYeet[i] = toFund[i];
+        amountsToYeet[i] = amounts[i];
+      }
+
+      vm.broadcast(ME);
+      YEETER.yeet{value: fundingSpend}(toYeet, amountsToYeet);
+
+      // Ensure that the EOAs were funded
+      for (uint256 i = 0; i < underFundedCount; i++) {
+        assertEq(toFund[i].balance, EOA_MIN_BALANCE);
+      }
+
+      emit log("Funding complete");
+    }
   }
 }
