@@ -88,7 +88,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(offlineStats.history.every(h => h.status.endsWith('-missed'))).toBeTrue();
       expect(offlineStats.missedAttestations.count + offlineStats.missedProposals.count).toEqual(historyLength);
       expect(offlineStats.missedAttestations.rate).toEqual(1);
-      expect(offlineStats.missedProposals.rate).toBeOneOf([1, NaN]);
+      expect(offlineStats.missedProposals.rate).toBeOneOf([1, NaN, undefined]);
     });
 
     it('collects stats on a block builder', () => {

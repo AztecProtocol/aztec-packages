@@ -125,6 +125,10 @@ const sidebar = {
     },
     {
       type: "doc",
+      id: "try_testnet",
+    },
+    {
+      type: "doc",
       id: "migration_notes",
     },
     {

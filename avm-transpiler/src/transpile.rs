@@ -1080,13 +1080,13 @@ fn generate_revert_instruction(
         opcode: avm_opcode,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(revert_data_pointer)
                 .direct_operand(revert_data_size_offset)
+                .indirect_operand(revert_data_pointer)
                 .build(),
         ),
         operands: vec![
-            make_operand(bits_needed, &revert_data_pointer.to_usize()),
             make_operand(bits_needed, &revert_data_size_offset.to_usize()),
+            make_operand(bits_needed, &revert_data_pointer.to_usize()),
         ],
         ..Default::default()
     });
@@ -1102,13 +1102,13 @@ fn generate_return_instruction(
         opcode: AvmOpcode::RETURN,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(return_data_pointer)
                 .direct_operand(return_data_size_offset)
+                .indirect_operand(return_data_pointer)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: return_data_pointer.to_usize() as u16 },
             AvmOperand::U16 { value: return_data_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: return_data_pointer.to_usize() as u16 },
         ],
         ..Default::default()
     });

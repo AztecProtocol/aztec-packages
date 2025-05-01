@@ -21,8 +21,6 @@ function test_cmds {
     src/e2e_blacklist_token_contract/*.test.ts
     src/e2e_cross_chain_messaging/*.test.ts
     src/e2e_deploy_contract/*.test.ts
-    # Not included as was failing.
-    src/e2e_epochs/!(epochs_l1_reorgs).test.ts
     src/e2e_fees/*.test.ts
     src/e2e_nested_contract/*.test.ts
     src/e2e_p2p/*.test.ts

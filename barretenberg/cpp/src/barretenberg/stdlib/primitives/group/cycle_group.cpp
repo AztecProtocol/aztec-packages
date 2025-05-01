@@ -1287,7 +1287,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
     // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
     // to be constant = 2 gates)
-    if (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
+    if (base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
         modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
