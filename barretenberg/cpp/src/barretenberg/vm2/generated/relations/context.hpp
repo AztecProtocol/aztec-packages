@@ -15,7 +15,7 @@ template <typename FF_> class contextImpl {
 
     static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 3, 4, 5, 5, 5, 5,
                                                                             5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                                                                            5, 5, 5, 5, 5, 5, 5, 3, 3, 3 };
+                                                                            5, 5, 6, 5, 5, 6, 5, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,6 +34,8 @@ template <typename FF_> class contextImpl {
         const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
         const auto execution_SWITCH_CTX = in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call);
         const auto execution_DEFAULT_CTX_ROW = (FF(1) - execution_SWITCH_CTX);
+        const auto execution_NESTED_RET_REV_ONLY =
+            in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_error));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -223,14 +225,15 @@ template <typename FF_> class contextImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
-                       (in.get(C::execution_last_child_returndata_offset_addr_shift) - in.get(C::execution_rop1));
+            auto tmp = execution_NOT_LAST_EXEC * execution_NESTED_RET_REV_ONLY *
+                       (in.get(C::execution_last_child_returndata_offset_addr_shift) - in.get(C::execution_rop2));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
+            auto tmp = execution_NOT_LAST_EXEC *
+                       (in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_error)) *
                        in.get(C::execution_last_child_returndata_offset_addr_shift);
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
@@ -238,22 +241,23 @@ template <typename FF_> class contextImpl {
         { // RD_SIZE_OFFSET_NEXT_ROW
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
-                       (in.get(C::execution_last_child_returndata_size_addr_shift) -
-                        in.get(C::execution_last_child_returndata_size_addr));
+                       (in.get(C::execution_last_child_returndata_size_shift) -
+                        in.get(C::execution_last_child_returndata_size));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
-                       (in.get(C::execution_last_child_returndata_size_addr_shift) - in.get(C::execution_rop2));
+            auto tmp = execution_NOT_LAST_EXEC * execution_NESTED_RET_REV_ONLY *
+                       (in.get(C::execution_last_child_returndata_size_shift) - in.get(C::execution_reg1));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
-                       in.get(C::execution_last_child_returndata_size_addr_shift);
+            auto tmp = execution_NOT_LAST_EXEC *
+                       (in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_error)) *
+                       in.get(C::execution_last_child_returndata_size_shift);
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
@@ -265,15 +269,15 @@ template <typename FF_> class contextImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_return)) -
-                        in.get(C::execution_rollback_context));
+            auto tmp = (in.get(C::execution_rollback_context) -
+                        in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_return)));
             tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_nested_exit_call) * in.get(C::execution_sel_return) -
-                        in.get(C::execution_nested_return));
+            auto tmp = (in.get(C::execution_nested_return) -
+                        in.get(C::execution_nested_exit_call) * in.get(C::execution_sel_return));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }

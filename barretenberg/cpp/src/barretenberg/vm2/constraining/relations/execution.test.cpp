@@ -49,7 +49,7 @@ TEST(ExecutionConstrainingTest, Continuity)
     check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1, execution::SR_TRACE_CONTINUITY_2);
 }
 
-// This test currently does alot, consider splitting up the various exit call conditions
+// This test currently does a lot, consider splitting up the various exit call conditions
 TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
 {
     TestTraceContainer trace({ {
@@ -57,6 +57,7 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::precomputed_first_row, 1 },
                                    // Context Stack Rows
                                    { C::context_stack_sel, 1 },
+                                   { C::context_stack_entered_context_id, 2 },
                                    { C::context_stack_context_id, 1 },
                                    { C::context_stack_parent_id, 0 },
                                    { C::context_stack_next_pc, 2 },
@@ -107,8 +108,9 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_pc, 20 },
                                    { C::execution_next_pc, 30 },
                                    { C::execution_sel_return, 1 },
-                                   { C::execution_rop1, 500 }, // Return data offset
-                                   { C::execution_rop2, 600 }, // Return data size offset
+                                   { C::execution_rop1, 500 }, // Return data size offset
+                                   { C::execution_rop2, 600 }, // Return data offset
+                                   { C::execution_reg1, 200 }, // Return data size
                                    { C::execution_sel_exit_call, 1 },
                                    { C::execution_nested_exit_call, 1 },
                                    { C::execution_nested_return, 1 },
@@ -132,8 +134,8 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_is_static, 0 },
                                    { C::execution_parent_calldata_offset_addr, 0 },
                                    { C::execution_parent_calldata_size_addr, 0 },
-                                   { C::execution_last_child_returndata_offset_addr, 500 }, // Return data offset
-                                   { C::execution_last_child_returndata_size_addr, 600 },   // Return data size offset
+                                   { C::execution_last_child_returndata_size, 200 },        // Return data size
+                                   { C::execution_last_child_returndata_offset_addr, 600 }, // Return data offset
                                },
                                {
                                    { C::execution_sel, 0 },

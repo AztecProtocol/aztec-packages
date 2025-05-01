@@ -22,6 +22,7 @@ void ContextStackTraceBuilder::process(
                       { C::context_stack_context_id_inv, FF(event.id).invert() },
                       { C::context_stack_context_id, event.id },
                       { C::context_stack_parent_id, event.parent_id },
+                      { C::context_stack_entered_context_id, event.entered_context_id },
                       { C::context_stack_next_pc, event.next_pc },
                       { C::context_stack_msg_sender, event.msg_sender },
                       { C::context_stack_contract_address, event.contract_addr },

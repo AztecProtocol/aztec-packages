@@ -93,16 +93,15 @@ void ExecutionTraceBuilder::process(
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
-                { C::execution_sel_call, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
-                { C::execution_sel_static_call, ex_event.opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
+                { C::execution_sel_call, is_call ? 1 : 0 },
+                { C::execution_sel_static_call, is_static_call ? 1 : 0 },
                 { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                { C::execution_sel_return, ex_event.opcode == ExecutionOpCode::RETURN ? 1 : 0 },
-                { C::execution_sel_revert, ex_event.opcode == ExecutionOpCode::REVERT ? 1 : 0 },
+                { C::execution_sel_return, is_return ? 1 : 0 },
+                { C::execution_sel_revert, is_revert ? 1 : 0 },
                 { C::execution_sel_error, ex_event.error ? 1 : 0 },
                 { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Nested Context Control Flow
-                { C::execution_has_parent_ctx, ex_event.context_event.parent_id == 0 ? 1 : 0 },
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
                 { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
@@ -209,7 +208,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_parent_calldata_offset_addr, ex_event.context_event.parent_cd_addr },
                       { C::execution_parent_calldata_size_addr, ex_event.context_event.parent_cd_size_addr },
                       { C::execution_last_child_returndata_offset_addr, ex_event.context_event.last_child_rd_addr },
-                      { C::execution_last_child_returndata_size_addr, ex_event.context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_size, ex_event.context_event.last_child_rd_size_addr },
                       { C::execution_last_child_success, ex_event.context_event.last_child_success },
                       { C::execution_next_context_id, ex_event.next_context_id },
                   } });
