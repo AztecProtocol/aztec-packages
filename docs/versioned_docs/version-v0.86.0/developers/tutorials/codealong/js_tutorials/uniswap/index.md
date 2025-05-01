@@ -9,6 +9,10 @@ import Image from "@theme/IdealImage";
 
 This smart contract example allows someone with funds on L2 to be able to swap using L1 Uniswap and then get the swapped assets back to L2. In this example, L1 will refer to Ethereum and L2 will refer to Aztec.
 
+:::note
+The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../../getting_started.md).
+:::
+
 The flow will be:
 
 1. The user withdraws their “input” assets to L1 (i.e. burn them on L2 and create a L2 to L1 message to withdraw)

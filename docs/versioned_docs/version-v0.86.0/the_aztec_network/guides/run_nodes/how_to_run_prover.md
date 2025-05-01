@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 title: How to Run a Prover Node
 description: A comprehensive guide to setting up and running an Aztec Prover node on testnet or mainnet, including hardware requirements, configuration options, and performance optimization tips.
 keywords:
@@ -67,7 +67,7 @@ Executes the actual proof jobs. Agents are stateless, fetch work from the broker
 name: aztec-prover
 services:
   prover-node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5 # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings
@@ -99,7 +99,7 @@ services:
       - /home/my-node/node:/data # Local directory
 
   agent:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5 # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings
@@ -117,7 +117,7 @@ services:
     restart: unless-stopped
 
   broker:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5 # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings
