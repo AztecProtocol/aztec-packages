@@ -53,9 +53,11 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     {
         // Find the key with the largest circuit size and reaturn its circuit size and log circuit size
         auto* max_key = _data[0].get();
-        size_t max_circuit_size = static_cast<size_t>(max_key->verification_key->circuit_size.get_value());
+        size_t max_circuit_size =
+            static_cast<size_t>(static_cast<uint32_t>(max_key->verification_key->circuit_size.get_value()));
         for (const auto& key : _data) {
-            if (static_cast<size_t>(key->verification_key->circuit_size.get_value()) > max_circuit_size) {
+            if (static_cast<size_t>(static_cast<uint32_t>(key->verification_key->circuit_size.get_value())) >
+                max_circuit_size) {
                 max_key = key.get();
             }
         }
