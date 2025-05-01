@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746112350508,
+  "lastUpdate": 1746112356300,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -6764,6 +6764,222 @@ window.BENCHMARK_DATA = {
             "value": "2344.06",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8a77df7cf1f2b25fc2cb06a1d71aacc0e93c5ba2",
+          "message": "fix(cmake): clientivc uses libdeflate (#13973)",
+          "timestamp": "2025-05-01T14:26:05Z",
+          "tree_id": "14e8e0c6c34691c03cc29e6d7c9ed5a2f5743ef8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8a77df7cf1f2b25fc2cb06a1d71aacc0e93c5ba2"
+        },
+        "date": 1746112355022,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-deploy_ecdsar1+sponsored_fpc-ivc-proof",
+            "value": 18341,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-deploy_ecdsar1+sponsored_fpc-ivc-proof-memory",
+            "value": 997,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmdeploy_ecdsar1+sponsored_fpc-ivc-proof-wasm",
+            "value": 53802,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmdeploy_ecdsar1+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1877,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-deploy_schnorr+sponsored_fpc-ivc-proof",
+            "value": 17368,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-deploy_schnorr+sponsored_fpc-ivc-proof-memory",
+            "value": 992,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmdeploy_schnorr+sponsored_fpc-ivc-proof-wasm",
+            "value": 49896,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmdeploy_schnorr+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1876,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 30452,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1381,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 82694,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 2176,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof",
+            "value": 16600,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-memory",
+            "value": 981,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm",
+            "value": 49357,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1719,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof",
+            "value": 21756,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-memory",
+            "value": 1045,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm",
+            "value": 61383,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 1819,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof",
+            "value": 14005,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 962,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 43887,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1785,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof",
+            "value": 24562,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-memory",
+            "value": 1329,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm",
+            "value": 68771,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 2042,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 16102,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 978,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 49093,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1641,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
         ]
       }
