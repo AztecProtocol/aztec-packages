@@ -5,7 +5,7 @@ title: "Token Bridge Tutorial"
 This tutorial goes over how to create the contracts necessary to create a portal (aka token bridge) and how a developer can use it.
 
 :::note
-This tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../../getting_started.md).
+This tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
 :::
 
 In this tutorial, we will go over the components of a token bridge and how to deploy them, as well as show how to bridge tokens publicly from L1 to L2 and back, using aztec.js.

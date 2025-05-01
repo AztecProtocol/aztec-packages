@@ -6,7 +6,7 @@ tags: [testnet]
 
 This guide will walk you through setting up and using the Aztec testnet. By the end, you'll have created an account, deployed a contract, and performed some basic operations.
 
-If you already have an app on sandbox, you might want to check out the [sandbox to testnet guide](../sandbox_to_testnet_guide.md).
+If you already have an app on sandbox, you might want to check out the [sandbox to testnet guide](../../sandbox_to_testnet_guide.md).
 
 ## Key Terms
 
@@ -175,5 +175,5 @@ You should see `2n`.
 Congratulations! You've now learned the fundamentals of working with the Aztec testnet. Here are some resources to continue your journey:
 
 * [Aztec Playground](https://play.aztec.network/)
-* [Tutorials](./tutorials/codealong/contract_tutorials/counter_contract.md)
-* [Guide to run a node](../the_aztec_network/index.md)
+* [Tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
+* [Guide to run a node](../../the_aztec_network/index.md)
