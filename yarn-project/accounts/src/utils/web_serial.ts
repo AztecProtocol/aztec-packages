@@ -49,7 +49,7 @@ export async function sendCommandAndParseResponse(command: Command) {
 
       let endPosition = data.indexOf(Buffer.from('\n', 'utf-8'));
       while (endPosition !== -1) {
-        const toAppend = data.subarray(0, endPosition);
+        const toAppend = data.subarray(0, endPosition + 1);
         const lineIndex = currentData.length - 1;
         currentData[lineIndex] = Buffer.concat([currentData[lineIndex], Buffer.from(toAppend)]);
         currentData.push(Buffer.alloc(0));
