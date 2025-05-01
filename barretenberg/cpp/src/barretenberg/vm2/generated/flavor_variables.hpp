@@ -10,9 +10,11 @@
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
 #include "relations/call_opcode.hpp"
+#include "relations/calldata.hpp"
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
 #include "relations/context_stack.hpp"
+#include "relations/data_copy.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/execution_discard.hpp"
@@ -43,6 +45,7 @@
 #include "relations/lookups_call_opcode.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
+#include "relations/lookups_data_copy.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
@@ -61,11 +64,23 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2395;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 163;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2652;
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2638;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2327;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 170;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2584;
+>>>>>>> 7dfbf9b2b1 (feat(avm): cd_copy)
+>>>>>>> c063228abb (feat(avm): cd_copy)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -79,9 +94,11 @@ struct AvmFlavorVariables {
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
         avm2::call_opcode<FF_>,
+        avm2::calldata<FF_>,
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
         avm2::context_stack<FF_>,
+        avm2::data_copy<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::execution_discard<FF_>,
@@ -152,6 +169,9 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_call_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
+        lookup_data_copy_col_read_relation<FF_>,
+        lookup_data_copy_mem_read_relation<FF_>,
+        lookup_data_copy_mem_write_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,

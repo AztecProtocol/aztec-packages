@@ -48,6 +48,8 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::context_stack_parent_da_gas_limit, 4000 },
                                    { C::context_stack_parent_l2_gas_used, 500 },
                                    { C::context_stack_parent_da_gas_used, 1500 },
+                                   { C::context_stack_parent_calldata_addr, 0 },
+                                   { C::context_stack_parent_calldata_size, 0 },
                                },
                                // First Row of execution
                                {
@@ -130,6 +132,10 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_parent_da_gas_limit, 4000 },
                                    { C::execution_parent_l2_gas_used, 500 },
                                    { C::execution_parent_da_gas_used, 1500 },
+                                   { C::execution_parent_calldata_addr, 0 },
+                                   { C::execution_parent_calldata_size, 0 },
+                                   { C::execution_last_child_returndata_size, 200 }, // Return data size
+                                   { C::execution_last_child_returndata_addr, 600 }, // Return data offset
                                },
                                {
                                    { C::execution_sel, 0 },
