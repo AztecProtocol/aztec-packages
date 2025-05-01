@@ -277,6 +277,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
         -Fr(Fq::modulus)
     };
+
     /**
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
@@ -287,20 +288,14 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      */
     struct AccumulationInput {
         // Members necessary for the gate creation
-        Fr op_code; // Operator
-        Fr P_x_lo;
-        Fr P_x_hi;
+        UltraOp ultra_op;
         std::array<Fr, NUM_BINARY_LIMBS> P_x_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_x_microlimbs;
-        Fr P_y_lo;
-        Fr P_y_hi;
         std::array<Fr, NUM_BINARY_LIMBS> P_y_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_y_microlimbs;
 
-        Fr z_1;
         std::array<Fr, NUM_Z_LIMBS> z_1_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_1_microlimbs;
-        Fr z_2;
         std::array<Fr, NUM_Z_LIMBS> z_2_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_2_microlimbs;
 
@@ -311,13 +306,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
         std::array<Fr, NUM_RELATION_WIDE_LIMBS> relation_wide_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, 2> relation_wide_microlimbs;
-
-        // Additional
-        std::array<Fr, NUM_BINARY_LIMBS> x_limbs;
-        std::array<Fr, NUM_BINARY_LIMBS> v_limbs;
-        std::array<Fr, NUM_BINARY_LIMBS> v_squared_limbs = { 0 };
-        std::array<Fr, NUM_BINARY_LIMBS> v_cubed_limbs = { 0 };
-        std::array<Fr, NUM_BINARY_LIMBS> v_quarted_limbs = { 0 };
     };
 
     static constexpr std::string_view NAME_STRING = "TranslatorCircuitBuilder";
@@ -397,6 +385,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         });
     }
 
+    static void assert_well_formed_ultra_op(const UltraOp& ultra_op);
+
     /**
      * @brief Ensures the accumulation input is well-formed and can be used to create a gate.
      * @details There are two main types of checks: that members of the AccumulationInput are within the appropriate
@@ -417,6 +407,15 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      */
     void create_accumulation_gate(const AccumulationInput& acc_step);
 
+    void populate_wires_from_ultra_op(const UltraOp& ultra_op);
+
+    void insert_pair_into_wire(WireIds wire_index, Fr first, Fr second)
+    {
+        auto& current_wire = wires[wire_index];
+        current_wire.push_back(add_variable(first));
+        current_wire.push_back(add_variable(second));
+    }
+
     /**
      * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials representing
      * commitments to ECCOpQueue
@@ -425,13 +424,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      */
     void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue);
 
-    static AccumulationInput generate_witness_values(const Fr& op_code,
-                                                     const Fr& p_x_lo,
-                                                     const Fr& p_x_hi,
-                                                     const Fr& p_y_lo,
-                                                     const Fr& p_y_hi,
-                                                     const Fr& z1,
-                                                     const Fr& z2,
+    static AccumulationInput generate_witness_values(const UltraOp& ultra_op,
                                                      const Fq& previous_accumulator,
                                                      const Fq& batching_challenge_v,
                                                      const Fq& evaluation_input_x);

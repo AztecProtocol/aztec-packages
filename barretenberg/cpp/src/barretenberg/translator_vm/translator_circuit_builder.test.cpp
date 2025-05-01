@@ -17,32 +17,26 @@ using CircuitChecker = TranslatorCircuitChecker;
  */
 TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
 {
-    using Fr = ::curve::BN254::ScalarField;
     using Fq = ::curve::BN254::BaseField;
+    using Fr = ::curve::BN254::ScalarField;
 
     constexpr size_t NUM_LIMB_BITS = TranslatorCircuitBuilder::NUM_LIMB_BITS;
     constexpr size_t NUM_Z_BITS = TranslatorCircuitBuilder::NUM_Z_BITS;
 
     // Generate random EccOpQueue transcript values
-    Fr op;
-    switch (engine.get_random_uint8() % 6) {
+    EccOpCode op_code;
+    switch (engine.get_random_uint8() % 4) {
     case 0:
-        op = 0;
+        op_code = {};
         break;
     case 1:
-        op = 1;
+        op_code = { .eq = true, .reset = true };
         break;
     case 2:
-        op = 2;
+        op_code = { .mul = true };
         break;
     case 3:
-        op = 3;
-        break;
-    case 4:
-        op = 4;
-        break;
-    case 5:
-        op = 8;
+        op_code = { .add = true };
         break;
     }
     auto get_random_z_scalar = []() { return Fr(engine.get_random_uint256().slice(0, NUM_Z_BITS)); };
@@ -62,11 +56,13 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
 
     // Create a circuit builder
     auto circuit_builder = TranslatorCircuitBuilder(v, x);
+    UltraOp op = UltraOp{
+        .op_code = op_code, .x_lo = p_x_lo, .x_hi = p_x_hi, .y_lo = p_y_lo, .y_hi = p_y_hi, .z_1 = z_1, .z_2 = z_2
+    };
 
     // Generate the witness for a single step
     TranslatorCircuitBuilder::AccumulationInput single_accumulation_step =
-        TranslatorCircuitBuilder::generate_witness_values(
-            op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
+        TranslatorCircuitBuilder::generate_witness_values(op, previous_accumulator, v, x);
 
     // Submit one accumulation step in the builder
     circuit_builder.create_accumulation_gate(single_accumulation_step);
