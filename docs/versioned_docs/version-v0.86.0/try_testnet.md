@@ -18,6 +18,7 @@ id: try_testnet
 
 ## Develop on Aztec Testnet
 
+- [Start running a full node](./the_aztec_network/guides/run_nodes/how_to_run_full_node.md) so you can interact with the network. If you need to access an Aztec node, you can use your locally running full node.
 - Follow the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md)
 - Try the [`testnet` branch of the Aztec Starter template Github repo](https://github.com/AztecProtocol/aztec-starter/tree/testnet)
 
