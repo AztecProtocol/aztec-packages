@@ -17,6 +17,15 @@ export const General = {
     </p>
   ),
 
+  node_ver: () => (
+    <p>
+      When using Aztec libraries you will need Node.js version {">="} v18.xx.x
+      and {"<="} v20.17.x (lts/iron). You can use{" "}
+      <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
+      versions.
+    </p>
+  ),
+
   PXE: () => (
     <p>
       <b>PXE</b> - a client-side key manager, private contract storage, and
@@ -28,8 +37,8 @@ export const General = {
 
   AztecNode: () => (
     <p>
-      <b>Aztec Node</b> - a prover/sequencer that is part of a decentralised
-      Aztec network. The Aztec testnet rolls up to Ethereum Sepolia.
+      <b>Aztec Node</b> - A machine running aztec software as part of an Aztec
+      network. The Aztec testnet rolls up to Ethereum Sepolia.
     </p>
   ),
 
