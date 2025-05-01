@@ -55,13 +55,35 @@ Then initialize the PXE:
 const pxe = await createPXEService(node, pxeConfig);
 ```
 
+### PXE configuration
+
+In node.js, for example, you can initialize the PXE with the following code:
+
+```javascript
+import { createAztecNodeClient } from "@aztec/aztec.js";
+import { getPXEServiceConfig } from "@aztec/pxe/server";
+import { createStore } from "@aztec/kv-store/lmdb";
+
+const node = createAztecNodeClient(PXE_URL);
+const l1Contracts = await node.getL1ContractAddresses();
+const config = getPXEServiceConfig();
+const fullConfig = { ...config, l1Contracts };
+
+const store = await createStore("pxe1", {
+  dataDirectory: "store",
+  dataStoreMapSizeKB: 1e6,
+});
+
+const pxe = await createPXEService(node, fullConfig, true, store);
+```
+
 ## Paying for fees
 
 There are multiple ways to pay for fees on testnet:
 
-- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet)
+- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet). You can read more about how to bridge fee tokens (fee juice) [here](./developers/tutorials/codealong/first_fees.md)
 - It is sponsored by your own contract
-- It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet
+- It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet. Read more about using a Sponsored FPC in Aztec.js [here](./developers/guides/js_apps/pay_fees.md#sponsored-fee-paying-contract) or via the [CLI here](./developers/reference/environment_reference/cli_wallet_reference#sponsored-fee-paying-contract).
 
 You will need to specify the fee-payer for all transactions. An example using `aztec-wallet`:
 

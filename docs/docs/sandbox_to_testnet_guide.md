@@ -3,7 +3,7 @@ title: Migrating from Sandbox to Testnet
 tags: [sandbox, testnet]
 ---
 
-This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md).
+This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/getting_started.md).
 
 ## Main differences
 
@@ -33,7 +33,7 @@ export NODE_URL=http://34.107.66.170
 aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 
-You can find a full flow in the [getting started on testnet](./developers/guides/local_env/getting_started_on_testnet.md) guide.
+You can find a full flow in the [getting started on testnet](./developers/getting_started.md) guide.
 
 Instead of running a PXE locally, you can also use one directly with AztecJS in your app. For this, you will need to connect to an Aztec node and initialize the PXE.
 
@@ -55,13 +55,35 @@ Then initialize the PXE:
 const pxe = await createPXEService(node, pxeConfig);
 ```
 
+### PXE configuration
+
+In node.js, for example, you can initialize the PXE with the following code:
+
+```javascript
+import { createAztecNodeClient } from "@aztec/aztec.js";
+import { getPXEServiceConfig } from "@aztec/pxe/server";
+import { createStore } from "@aztec/kv-store/lmdb";
+
+const node = createAztecNodeClient(PXE_URL);
+const l1Contracts = await node.getL1ContractAddresses();
+const config = getPXEServiceConfig();
+const fullConfig = { ...config, l1Contracts };
+
+const store = await createStore("pxe1", {
+  dataDirectory: "store",
+  dataStoreMapSizeKB: 1e6,
+});
+
+const pxe = await createPXEService(node, fullConfig, true, store);
+```
+
 ## Paying for fees
 
 There are multiple ways to pay for fees on testnet:
 
-- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet)
+- The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet). You can read more about how to bridge fee tokens (fee juice) [here](./developers/tutorials/codealong/first_fees.md)
 - It is sponsored by your own contract
-- It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet
+- It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet. Read more about using a Sponsored FPC in Aztec.js [here](./developers/guides/js_apps/pay_fees.md#sponsored-fee-paying-contract) or via the [CLI here](./developers/reference/environment_reference/cli_wallet_reference#sponsored-fee-paying-contract).
 
 You will need to specify the fee-payer for all transactions. An example using `aztec-wallet`:
 
