@@ -8,7 +8,6 @@ pub contract Crowdfunding {
     // docs:end:empty-contract
     // docs:start:all-deps
     use crate::config::Config;
-    
     use dep::aztec::{
         event::event_interface::EventInterface,
         macros::{
