@@ -46,7 +46,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 
 ## Define the functions
 
-Go to `main.nr`, delete everything, and start with this contract initialization:
+Go to `main.nr`, and replace the boilerplate code with this contract initialization:
 
 ```rust
 #include_code setup /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr raw
