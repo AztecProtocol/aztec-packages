@@ -9,7 +9,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 
 export { BarretenbergVerifier } from './verifier.js';
-export { UltraPlonkBackend, UltraHonkBackend, AztecClientBackend } from './backend.js';
+export { UltraHonkBackend, AztecClientBackend } from './backend.js';
 
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */

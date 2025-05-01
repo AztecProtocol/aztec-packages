@@ -79,11 +79,10 @@ contract MinimalFeeModel {
     );
 
     return ManaBaseFeeComponentsModel({
-      data_cost: components.dataCost,
-      gas_cost: components.gasCost,
-      proving_cost: components.provingCost,
       congestion_cost: components.congestionCost,
-      congestion_multiplier: components.congestionMultiplier
+      congestion_multiplier: components.congestionMultiplier,
+      prover_cost: components.proverCost,
+      sequencer_cost: components.sequencerCost
     });
   }
 

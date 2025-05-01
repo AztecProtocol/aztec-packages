@@ -23,7 +23,7 @@ import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
 const NUM_NODES = 4;
 // Note: these ports must be distinct from the other e2e tests, else the tests will
 // interfere with each other.
-const BOOT_NODE_UDP_PORT = 45000;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'upgrade-'));
 

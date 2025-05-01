@@ -98,7 +98,7 @@ aztec-wallet deploy-account \
     --register-class
 ```
 
-Note: The first time you run these commands, it will take longer as some binaries are installed. This command is generating a client-side proof!
+Note: The first time you run these commands, it will take longer (maybe up to 5 minutes) as some binaries are installed. This command is generating a client-side proof!
 
 You should see the tx hash in your terminal.
 

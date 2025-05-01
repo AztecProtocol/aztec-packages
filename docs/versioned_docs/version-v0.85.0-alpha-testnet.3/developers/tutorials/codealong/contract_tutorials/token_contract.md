@@ -17,6 +17,8 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
+This tutorial is compatible with the Aztec version `v0.85.0-alpha-testnet.3`. If you are using a different version or network, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr), and explain what is being added as we go.
 
 ## Requirements
