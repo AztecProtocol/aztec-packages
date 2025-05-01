@@ -10,7 +10,7 @@ std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_nested_conte
                                                                                    AztecAddress msg_sender,
                                                                                    ContextInterface& parent_context,
                                                                                    MemoryAddress cd_offset_address,
-                                                                                   MemoryAddress cd_size_address,
+                                                                                   uint32_t cd_size,
                                                                                    bool is_static)
 {
     uint32_t context_id = next_context_id++;
@@ -22,7 +22,7 @@ std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_nested_conte
                                            std::make_unique<Memory>(context_id, range_check, memory_events),
                                            parent_context,
                                            cd_offset_address,
-                                           cd_size_address);
+                                           cd_size);
 }
 
 std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_enqueued_context(AztecAddress address,

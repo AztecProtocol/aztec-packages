@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
@@ -37,11 +38,16 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockMemory> memory;
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
+    StrictMock<MockDataCopy> data_copy;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
-    Execution execution =
-        Execution(alu, execution_components, instruction_info_db, execution_event_emitter, context_stack_event_emitter);
+    Execution execution = Execution(alu,
+                                    data_copy,
+                                    execution_components,
+                                    instruction_info_db,
+                                    execution_event_emitter,
+                                    context_stack_event_emitter);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -63,6 +69,7 @@ TEST_F(ExecutionSimulationTest, Call)
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
     MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
+    MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
@@ -76,6 +83,7 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(l2_gas_allocated));     // l2_gas_offset
     EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(da_gas_allocated));     // da_gas_offset
     EXPECT_CALL(memory, get(3)).WillOnce(ReturnRef(nested_address_value)); // contract_address
+    EXPECT_CALL(memory, get(4)).WillOnce(ReturnRef(cd_size));              // cd_size
 
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
@@ -86,7 +94,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     // Back in parent context
     EXPECT_CALL(context, set_child_context(_));
-    EXPECT_CALL(context, set_last_rd_offset(_));
+    EXPECT_CALL(context, set_last_rd_addr(_));
     EXPECT_CALL(context, set_last_rd_size(_));
     EXPECT_CALL(context, set_last_success(_));
 
@@ -94,8 +102,8 @@ TEST_F(ExecutionSimulationTest, Call)
                    /*l2_gas_offset=*/1,
                    /*da_gas_offset=*/2,
                    /*addr=*/3,
-                   /*cd_offset=*/5,
-                   /*cd_size=*/4);
+                   /*cd_size=*/4,
+                   /*cd_offset=*/5);
 }
 
 } // namespace

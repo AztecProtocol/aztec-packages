@@ -14,6 +14,7 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/data_copy.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
@@ -44,6 +45,7 @@ class ExecutionInterface {
 class Execution : public ExecutionInterface {
   public:
     Execution(AluInterface& alu,
+              DataCopyInterface& data_copy,
               ExecutionComponentsProviderInterface& execution_components,
               const InstructionInfoDBInterface& instruction_info_db,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
@@ -51,6 +53,7 @@ class Execution : public ExecutionInterface {
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
+        , data_copy(data_copy)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
     {}
@@ -72,6 +75,14 @@ class Execution : public ExecutionInterface {
               MemoryAddress cd_size);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
+    void cd_copy(ContextInterface& context,
+                 MemoryAddress cd_size_offset,
+                 MemoryAddress cd_offset,
+                 MemoryAddress dst_addr);
+    void rd_copy(ContextInterface& context,
+                 MemoryAddress rd_size_offset,
+                 MemoryAddress rd_offset,
+                 MemoryAddress dst_addr);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
@@ -99,6 +110,7 @@ class Execution : public ExecutionInterface {
     const InstructionInfoDBInterface& instruction_info_db;
 
     AluInterface& alu;
+    DataCopyInterface& data_copy;
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 
