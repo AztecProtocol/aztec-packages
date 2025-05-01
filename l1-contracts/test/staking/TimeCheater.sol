@@ -53,17 +53,17 @@ contract TimeCheater {
   }
 
   function cheat__setEpochNow(uint256 _epoch) public {
-    vm.warp(genesisTime + 1 + _epoch * slotDuration * epochDuration);
+    vm.warp(genesisTime + _epoch * slotDuration * epochDuration);
     currentEpoch = _epoch;
   }
 
   function cheat__progressEpoch() public {
     currentEpoch++;
-    vm.warp(genesisTime + 1 + currentEpoch * slotDuration * epochDuration);
+    vm.warp(genesisTime + currentEpoch * slotDuration * epochDuration);
   }
 
   function cheat_jumpForwardEpochs(uint256 _epochs) public {
     currentEpoch += _epochs;
-    vm.warp(genesisTime + 1 + currentEpoch * slotDuration * epochDuration);
+    vm.warp(genesisTime + currentEpoch * slotDuration * epochDuration);
   }
 }
