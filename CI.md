@@ -20,7 +20,7 @@ CI3:
   - Building the development container in `build-images`.
   - Running the bootstrap in CI in the development container.
   - Isolating any tests that require use of the network stack.
-  - Restricting resouces such a vcpus, memory and storage.
+  - Restricting resources such a vcpus, memory and storage.
   - Building a single final slim release image from `release-image`.
 - Provides a consistent command interface on `./bootstrap.sh` scripts, e.g. `./bootstrap.sh clean|fast|full|test|test_cmds`.
 - Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelised at once to leverage maximum system throughput.
