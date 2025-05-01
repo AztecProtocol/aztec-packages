@@ -41,7 +41,7 @@ Docker needs to be running in order to install the sandbox. Find instructions on
 Run:
 
 ```bash
--i <(curl -s https://install.aztec.network)
+bash -i <(curl -s https://install.aztec.network)
 ```
 
 This will install the following tools:
