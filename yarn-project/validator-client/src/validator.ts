@@ -101,14 +101,14 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
-    // Refresh epoch cache every second to trigger alert if participation in commitee changes
+    // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.myAddress = this.keyStore.getAddress();
-    this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommiteeUpdate.bind(this), log, 1000);
+    this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), log, 1000);
 
     this.log.verbose(`Initialized validator with address ${this.keyStore.getAddress().toString()}`);
   }
 
-  private async handleEpochCommiteeUpdate() {
+  private async handleEpochCommitteeUpdate() {
     try {
       const { committee, epoch } = await this.epochCache.getCommittee('now');
       if (epoch !== this.lastEpoch) {
