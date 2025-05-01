@@ -128,8 +128,10 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
 
-    // WORKTODO: extract agg obj from the decider_vk->public_inputs
+    PairingPoints nested_pairing_points = stdlib::PublicInputComponent<PairingPoints>::reconstruct(
+        decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
 
+    pairing_points.aggregate(nested_pairing_points);
     return pairing_points;
 }
 
