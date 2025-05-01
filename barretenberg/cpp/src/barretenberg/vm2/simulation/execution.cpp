@@ -48,8 +48,8 @@ void Execution::call(ContextInterface& context,
                      MemoryAddress l2_gas_offset,
                      MemoryAddress da_gas_offset,
                      MemoryAddress addr,
-                     MemoryAddress cd_offset,
-                     MemoryAddress cd_size)
+                     MemoryAddress cd_size_offset,
+                     MemoryAddress cd_offset)
 {
     auto& memory = context.get_memory();
 
@@ -58,23 +58,55 @@ void Execution::call(ContextInterface& context,
     const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
     const auto& allocated_da_gas_read = memory.get(da_gas_offset);
     const auto& contract_address = memory.get(addr);
-    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
+    // Cd offset loads are deferred to (possible) calldatacopy
+    const auto& cd_size = memory.get(cd_size_offset);
+
+    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
 
     // TODO(ilyas): How will we tag check these? We are just throwing right now on the first tag mismatch.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
-    // Cd size and cd offset loads are deferred to (possible) calldatacopy
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
                                                                /*parent_context=*/context,
                                                                /*cd_offset_addr=*/cd_offset,
-                                                               /*cd_size_addr=*/cd_size,
+                                                               /*cd_size_addr=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/false,
                                                                /*gas_limit=*/gas_limit);
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
+}
+
+void Execution::cd_copy(ContextInterface& context,
+                        MemoryAddress cd_size_offset,
+                        MemoryAddress cd_offset,
+                        MemoryAddress dst_addr)
+{
+    auto& memory = context.get_memory();
+    auto cd_copy_size = memory.get(cd_size_offset);
+    auto cd_offset_read = memory.get(cd_offset);
+    set_inputs({ cd_copy_size, cd_offset_read });
+
+    get_gas_tracker().consume_dynamic_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
+
+    data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
+}
+
+void Execution::rd_copy(ContextInterface& context,
+                        MemoryAddress rd_size_offset,
+                        MemoryAddress rd_offset,
+                        MemoryAddress dst_addr)
+{
+    auto& memory = context.get_memory();
+    auto rd_copy_size = memory.get(rd_size_offset);
+    auto rd_offset_read = memory.get(rd_offset);
+    set_inputs({ rd_copy_size, rd_offset_read });
+
+    get_gas_tracker().consume_dynamic_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
+
+    data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
 }
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
@@ -116,28 +148,6 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     set_inputs({ resolved_cond });
     if (!resolved_cond.as_ff().is_zero()) {
         context.set_next_pc(loc);
-    }
-}
-
-// FIXME: unconstrained!
-void Execution::calldata_copy(ContextInterface& context,
-                              MemoryAddress copy_size_offset,
-                              MemoryAddress cd_start_offset,
-                              MemoryAddress dst_offset)
-{
-    // FIXME: this is a fake implementation to make gas tests and lookups work.
-    auto& memory = context.get_memory();
-    auto copy_size = memory.get(copy_size_offset);
-    auto cd_start = memory.get(cd_start_offset);
-    // FIXME: each input need to be set separately.
-    set_inputs({ copy_size, cd_start });
-    uint32_t copy_size_u32 = copy_size.as<uint32_t>();
-    uint32_t cd_start_u32 = cd_start.as<uint32_t>();
-
-    get_gas_tracker().consume_dynamic_gas({ .l2Gas = copy_size_u32, .daGas = 0 });
-    for (uint32_t i = 0; i < copy_size_u32; ++i) {
-        const MemoryValue& value = memory.get(cd_start_u32 + i);
-        memory.set(dst_offset + i, value);
     }
 }
 
