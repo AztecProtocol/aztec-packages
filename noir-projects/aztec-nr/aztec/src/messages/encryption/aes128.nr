@@ -85,7 +85,7 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
     let mut bytes: [u8; 32] = [0; 32];
     for i in 0..16 {
         bytes[i] = rand1_bytes[i];
-        bytes[i + 1] = rand2_bytes[i];
+        bytes[16 + i] = rand2_bytes[i];
     }
     bytes
 }
