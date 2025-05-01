@@ -733,7 +733,7 @@ export class L1TxUtils {
 
     try {
       const result = await this.publicClient.simulate({
-        validation: true,
+        validation: false,
         blocks: [
           {
             blockOverrides,
