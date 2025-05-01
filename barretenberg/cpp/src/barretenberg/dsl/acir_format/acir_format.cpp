@@ -281,8 +281,19 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 #ifndef DISABLE_AZTEC_VM
         HonkRecursionConstraintsOutput<Builder> avm_output =
             process_avm_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-        honk_output.points_accumulator.aggregate(avm_output.points_accumulator);
-        // Append the ipa claims and proofs to honk_output
+
+        // This is a little annoying, but we should probably be explicit about these things so that its obvious how the
+        // pairing points are being aggregated.
+        if (honk_output.points_accumulator.has_data) {
+            if (avm_output.points_accumulator.has_data) {
+                honk_output.points_accumulator.aggregate(avm_output.points_accumulator);
+            }
+        } else {
+            if (avm_output.points_accumulator.has_data) {
+                honk_output.points_accumulator = avm_output.points_accumulator;
+            }
+        }
+        // Append the (potentially 0) ipa claims and proofs to honk_output
         honk_output.nested_ipa_claims.insert(honk_output.nested_ipa_claims.end(),
                                              avm_output.nested_ipa_claims.begin(),
                                              avm_output.nested_ipa_claims.end());
@@ -299,7 +310,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         } else if (metadata.honk_recursion != 0) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
-            honk_output.points_accumulator.set_public();
+            PairingPoints::add_default_to_public_inputs(builder);
         }
 
         // Accumulate the IPA claims and set it to be public inputs
@@ -477,10 +488,11 @@ void process_plonk_recursion_constraints(Builder& builder,
 }
 
 template <typename Builder>
-HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(Builder& builder,
-                                                                           AcirFormat& constraint_system,
-                                                                           bool has_valid_witness_assignments,
-                                                                           GateCounter<Builder>& gate_counter)
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
+process_honk_recursion_constraints(Builder& builder,
+                                   AcirFormat& constraint_system,
+                                   bool has_valid_witness_assignments,
+                                   GateCounter<Builder>& gate_counter)
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
@@ -584,10 +596,11 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
 }
 
 #ifndef DISABLE_AZTEC_VM
-HonkRecursionConstraintsOutput<Builder> process_avm_recursion_constraints(Builder& builder,
-                                                                          AcirFormat& constraint_system,
-                                                                          bool has_valid_witness_assignments,
-                                                                          GateCounter<Builder>& gate_counter)
+[[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
+process_avm_recursion_constraints(Builder& builder,
+                                  AcirFormat& constraint_system,
+                                  bool has_valid_witness_assignments,
+                                  GateCounter<Builder>& gate_counter)
 {
     HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints

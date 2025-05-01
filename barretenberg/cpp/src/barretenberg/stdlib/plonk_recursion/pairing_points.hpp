@@ -61,6 +61,8 @@ template <typename Builder_> struct PairingPoints {
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
+        ASSERT(this->has_data && "Cannot aggregate when accumulator is not set.");
+        ASSERT(other.has_data && "Cannot aggregate with null pairing points.");
         transcript.send_to_verifier("Accumulator_P0", P0);
         transcript.send_to_verifier("Accumulator_P1", P1);
         transcript.send_to_verifier("Aggregated_P0", other.P0);
@@ -122,6 +124,7 @@ template <typename Builder_> struct PairingPoints {
     uint32_t set_public()
     {
         Builder* ctx = P0.get_context();
+        ASSERT(this->has_data && "Calling set_public on empty pairing points.");
         if (ctx->pairing_inputs_public_input_key.is_set()) {
             throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
         }
