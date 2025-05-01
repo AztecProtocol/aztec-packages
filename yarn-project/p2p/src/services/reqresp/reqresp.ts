@@ -292,7 +292,8 @@ export class ReqResp {
       let retryAttempts = 0;
       while (pendingRequestIndices.size > 0 && batchSampler.activePeerCount > 0 && retryAttempts < maxRetryAttempts) {
         // Process requests in parallel for each available peer
-        const requestBatches = new Map<PeerId, number[]>();
+        type BatchEntry = { peerId: PeerId; indices: number[] };
+        const requestBatches = new Map<string, BatchEntry>();
 
         // Group requests by peer
         for (const requestIndex of pendingRequestIndices) {
@@ -300,11 +301,11 @@ export class ReqResp {
           if (!peer) {
             break;
           }
-
-          if (!requestBatches.has(peer)) {
-            requestBatches.set(peer, []);
+          const peerAsString = peer.toString();
+          if (!requestBatches.has(peerAsString)) {
+            requestBatches.set(peerAsString, { peerId: peer, indices: [] });
           }
-          requestBatches.get(peer)!.push(requestIndex);
+          requestBatches.get(peerAsString)!.indices.push(requestIndex);
         }
 
         // Make parallel requests for each peer's batch
@@ -316,7 +317,7 @@ export class ReqResp {
         // while simultaneously Peer Id 1 will send requests 4, 5, 6, 7 in serial
 
         const batchResults = await Promise.all(
-          Array.from(requestBatches.entries()).map(async ([peer, indices]) => {
+          Array.from(requestBatches.entries()).map(async ([peerAsString, { peerId: peer, indices }]) => {
             try {
               // Requests all going to the same peer are sent synchronously
               const peerResults: { index: number; response: InstanceType<SubProtocolMap[SubProtocol]['response']> }[] =
@@ -327,9 +328,7 @@ export class ReqResp {
                 // Check the status of the response buffer
                 if (response.status !== ReqRespStatus.SUCCESS) {
                   this.logger.debug(
-                    `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(
-                      response.status,
-                    )}`,
+                    `Request to peer ${peerAsString} failed with status ${prettyPrintReqRespStatus(response.status)}`,
                   );
 
                   // If we hit a rate limit or some failure, we remove the peer and return the results,
@@ -350,7 +349,7 @@ export class ReqResp {
 
               return { peer, results: peerResults };
             } catch (error) {
-              this.logger.debug(`Failed batch request to peer ${peer.toString()}:`, error);
+              this.logger.debug(`Failed batch request to peer ${peerAsString}:`, error);
               batchSampler.removePeerAndReplace(peer);
               return { peer, results: [] };
             }
