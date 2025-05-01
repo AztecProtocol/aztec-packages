@@ -107,8 +107,9 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_pc, 20 },
                                    { C::execution_next_pc, 30 },
                                    { C::execution_sel_return, 1 },
-                                   { C::execution_rop1, 500 }, // Return data offset
-                                   { C::execution_rop2, 600 }, // Return data size offset
+                                   { C::execution_rop1, 500 }, // Return data size offset
+                                   { C::execution_rop2, 600 }, // Return data offset
+                                   { C::execution_reg1, 200 }, // Return data size
                                    { C::execution_sel_exit_call, 1 },
                                    { C::execution_nested_exit_call, 1 },
                                    { C::execution_nested_return, 1 },
@@ -132,8 +133,8 @@ TEST(ExecutionConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_is_static, 0 },
                                    { C::execution_parent_calldata_offset_addr, 0 },
                                    { C::execution_parent_calldata_size_addr, 0 },
-                                   { C::execution_last_child_returndata_offset_addr, 500 }, // Return data offset
-                                   { C::execution_last_child_returndata_size_addr, 600 },   // Return data size offset
+                                   { C::execution_last_child_returndata_size, 200 },        // Return data size
+                                   { C::execution_last_child_returndata_offset_addr, 600 }, // Return data offset
                                },
                                {
                                    { C::execution_sel, 0 },

@@ -209,7 +209,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_parent_calldata_offset_addr, ex_event.context_event.parent_cd_addr },
                       { C::execution_parent_calldata_size_addr, ex_event.context_event.parent_cd_size_addr },
                       { C::execution_last_child_returndata_offset_addr, ex_event.context_event.last_child_rd_addr },
-                      { C::execution_last_child_returndata_size_addr, ex_event.context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_size, ex_event.context_event.last_child_rd_size_addr },
                       { C::execution_last_child_success, ex_event.context_event.last_child_success },
                       { C::execution_next_context_id, ex_event.next_context_id },
                   } });

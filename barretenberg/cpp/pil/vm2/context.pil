@@ -44,7 +44,7 @@ namespace execution;
     pol commit parent_calldata_size_addr;
 
     pol commit last_child_returndata_offset_addr;
-    pol commit last_child_returndata_size_addr;
+    pol commit last_child_returndata_size;
     pol commit last_child_success; // Careful with this for now...
 
     // ==== Helper columns ====
@@ -128,21 +128,24 @@ namespace execution;
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size_addr' - parent_calldata_size_addr) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size_addr' - rop5) = 0;
 
-    // nested_exit_call = 1 <==> rop1 (resolved operand 1 from execution trace)
-    // sel_enter_call   = 1 <==> last_child_returndata_offset_addr' = 0;
-    // otherwise        = 0 <==> last_child_returndata_offset_addr' = last_child_returndata_offset_addr
+    pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
+    // NESTED_RET_REV_ONLY = 1 <==> rop2 (resolved operand 2 from execution trace)
+    // sel_error           = 1 <==> last_child_returndata_size' = 0;
+    // sel_enter_call      = 1 <==> last_child_returndata_offset_addr' = 0;
+    // otherwise           = 0 <==> last_child_returndata_offset_addr' = last_child_returndata_offset_addr
     #[RD_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_offset_addr' - last_child_returndata_offset_addr) = 0;
-    NOT_LAST_EXEC * nested_exit_call * (last_child_returndata_offset_addr' - rop1) = 0;
-    NOT_LAST_EXEC * sel_enter_call * last_child_returndata_offset_addr' = 0;
+    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_offset_addr' - rop2) = 0;
+    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_offset_addr' = 0;
 
-    // nested_exit_call = 1 <==> rop2 (resolved operand 2 from execution trace)
-    // sel_enter_call   = 1 <==> last_child_returndata_size_addr' = 0;
-    // otherwise        = 0 <==> last_child_returndata_size_addr' = last_child_returndata_size_addr
+    // NESTED_RET_REV_ONLY = 1 <==> reg1 (intermediate register 1 from execution trace)
+    // sel_error               = 1 <==> last_child_returndata_size' = 0;
+    // sel_enter_call          = 1 <==> last_child_returndata_size' = 0;
+    // otherwise               = 0 <==> last_child_returndata_size' = last_child_returndata_size
     #[RD_SIZE_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size_addr' - last_child_returndata_size_addr) = 0;
-    NOT_LAST_EXEC * nested_exit_call * (last_child_returndata_size_addr' - rop2) = 0;
-    NOT_LAST_EXEC * sel_enter_call * last_child_returndata_size_addr' = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
+    NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - reg1) = 0;
+    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
 
     #[CTX_STACK_CALL]
     sel_enter_call {
