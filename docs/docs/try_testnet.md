@@ -7,7 +7,7 @@ id: try_testnet
 
 ## Explore testnet
 
-- [Read the announcement in our blog](https://aztec.network/blog)
+- [Read the announcement in our blog](https://aztec.network/blog/what-is-aztec-testnet)
 - [Check out our growing ecosystem of explorers, bridges, wallets, apps, and more](https://aztec.network/ecosystem)
 
 ## Take part
