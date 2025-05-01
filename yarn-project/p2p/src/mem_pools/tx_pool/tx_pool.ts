@@ -94,6 +94,18 @@ export interface TxPool {
    */
   setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void>;
 
+  /**
+   * Marks transactions as non-evictible in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictible.
+   */
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+
+  /**
+   * Marks transactions as evictible in the pool.
+   * @param txHashes - Hashes of the transactions to mark as evictible.
+   */
+  markTxsAsEvictable(txHashes: TxHash[]): Promise<void>;
+
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;
 }

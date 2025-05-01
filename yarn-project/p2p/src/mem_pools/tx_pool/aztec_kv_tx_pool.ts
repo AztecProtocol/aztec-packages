@@ -47,6 +47,9 @@ export class AztecKVTxPool implements TxPool {
   /** In-memory mapping of pending tx hashes to the hydrated pending tx in the pool. */
   #pendingTxs: Map<string, Tx>;
 
+  /** In-memory set of txs requested by a validator or prover to prevent them from being evicted during the request. */
+  #nonEvictableTxs: Set<string>;
+
   /** KV store for archived txs. */
   #archive: AztecAsyncKVStore;
 
@@ -93,6 +96,7 @@ export class AztecKVTxPool implements TxPool {
     this.#pendingTxSize = store.openSingleton('pendingTxSize');
     this.#maxTxPoolSize = config.maxTxPoolSize;
     this.#pendingTxs = new Map<string, Tx>();
+    this.#nonEvictableTxs = new Set<string>();
 
     this.#archivedTxs = archive.openMap('archivedTxs');
     this.#archivedTxIndices = archive.openMap('archivedTxIndices');
@@ -418,6 +422,16 @@ export class AztecKVTxPool implements TxPool {
     return undefined;
   }
 
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
+    txHashes.forEach(txHash => this.#nonEvictableTxs.add(txHash.toString()));
+    return Promise.resolve();
+  }
+
+  markTxsAsEvictable(txHashes: TxHash[]): Promise<void> {
+    txHashes.forEach(txHash => this.#nonEvictableTxs.delete(txHash.toString()));
+    return Promise.resolve();
+  }
+
   /**
    * Archives a list of txs for future reference. The number of archived txs is limited by the specified archivedTxLimit.
    * @param txs - The list of transactions to archive.
@@ -471,6 +485,10 @@ export class AztecKVTxPool implements TxPool {
     let pendingTxsSize = (await this.#pendingTxSize.getAsync()) ?? 0;
     if (pendingTxsSize > this.#maxTxPoolSize) {
       for await (const txHash of this.#pendingTxPriorityToHash.valuesAsync()) {
+        if (this.#nonEvictableTxs.has(txHash)) {
+          continue;
+        }
+
         this.#log.verbose(`Evicting tx ${txHash} from pool due to low priority to satisfy max tx size limit`);
         txsToEvict.push(TxHash.fromString(txHash));
 
@@ -525,6 +543,9 @@ export class AztecKVTxPool implements TxPool {
 
     const txsToEvict: TxHash[] = [];
     for await (const txHash of this.#pendingTxPriorityToHash.valuesAsync()) {
+      if (this.#nonEvictableTxs.has(txHash)) {
+        continue;
+      }
       const tx = await this.getPendingTxByHash(txHash);
       if (!tx) {
         continue;
@@ -582,6 +603,9 @@ export class AztecKVTxPool implements TxPool {
     const txsToEvict: TxHash[] = [];
 
     for await (const [txHash, headerHash] of this.#pendingTxHashToHeaderHash.entriesAsync()) {
+      if (this.#nonEvictableTxs.has(txHash)) {
+        continue;
+      }
       const tx = await this.getPendingTxByHash(txHash);
       if (!tx) {
         continue;

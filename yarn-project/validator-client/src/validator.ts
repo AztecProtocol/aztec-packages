@@ -387,6 +387,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Old style proposal, we will perform a request by hash from pool
     // This will request from network any txs that are missing
     const txHashes: TxHash[] = proposal.payload.txHashes;
+    this.p2pClient.markTxsAsNonEvictable(txHashes);
 
     // This part is just for logging that we are requesting from the network
     const availability = await this.p2pClient.hasTxsInPool(txHashes);
@@ -410,10 +411,12 @@ export class ValidatorClient extends WithTracer implements Validator {
       })
       .filter(hash => hash !== undefined);
     if (missingTxs.length > 0) {
+      this.p2pClient.markTxsAsEvictable(txHashes);
       throw new TransactionsNotAvailableError(missingTxs as TxHash[]);
     }
 
     await this.p2pClient.validate(retrievedTxs as Tx[]);
+    this.p2pClient.markTxsAsEvictable(txHashes);
 
     return retrievedTxs as Tx[];
   }

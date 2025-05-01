@@ -15,6 +15,8 @@ interface CoordinationPool {
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
   addTxs(txs: Tx[]): Promise<void>;
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+  markTxsAsEvictable(txHashes: TxHash[]): Promise<void>;
 }
 
 export interface TxSource {
@@ -36,6 +38,12 @@ class P2PCoordinationPool implements CoordinationPool {
   addTxs(txs: Tx[]): Promise<void> {
     return this.p2p.addTxs(txs);
   }
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
+    return this.p2p.markTxsAsNonEvictable(txHashes);
+  }
+  markTxsAsEvictable(txHashes: TxHash[]): Promise<void> {
+    return this.p2p.markTxsAsEvictable(txHashes);
+  }
 }
 
 // Wraps an in memory tx pool into a coordination pool. Used for testing when no p2p/tx pool is available.
@@ -53,6 +61,12 @@ class InMemoryCoordinationPool implements CoordinationPool {
   async addTxs(txs: Tx[]): Promise<void> {
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     txs.forEach((tx, index) => this.txs.set(hashes[index].toString(), tx));
+  }
+  markTxsAsNonEvictable(_txHashes: TxHash[]): Promise<void> {
+    return Promise.resolve();
+  }
+  markTxsAsEvictable(_txHashes: TxHash[]): Promise<void> {
+    return Promise.resolve();
   }
 }
 
@@ -74,13 +88,16 @@ export class CombinedProverCoordination implements ProverCoordination {
 
   public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
     const pool = this.p2p ? new P2PCoordinationPool(this.p2p) : new InMemoryCoordinationPool();
+    await pool.markTxsAsNonEvictable(txHashes);
     await this.#gatherTxs(txHashes, pool);
     const availability = await pool.hasTxsInPool(txHashes);
     const notFound = txHashes.filter((_, index) => !availability[index]);
     if (notFound.length > 0) {
+      await pool.markTxsAsEvictable(txHashes);
       throw new Error(`Could not find txs: ${notFound.map(tx => tx.toString())}`);
     }
     const txs = await pool.getTxsByHashFromPool(txHashes);
+    await pool.markTxsAsEvictable(txHashes);
     return txs.filter(tx => tx !== undefined) as Tx[];
   }
 

@@ -428,6 +428,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns The txs found, or undefined if not found in the order requested.
    */
   async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    await this.markTxsAsNonEvictable(txHashes);
     const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
     const missingTxHashes = txs
       .map((tx, index) => [tx, index] as const)
@@ -435,6 +436,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       .map(([_tx, index]) => txHashes[index]);
 
     if (missingTxHashes.length === 0) {
+      await this.markTxsAsEvictable(txHashes);
       return txs as Tx[];
     }
 
@@ -462,7 +464,24 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return undefined;
     });
 
+    await this.markTxsAsEvictable(txHashes);
     return await Promise.all(mergingTxsPromises);
+  }
+
+  /**
+   * Marks transactions as non-evictible in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictible.
+   */
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
+    return this.txPool.markTxsAsNonEvictable(txHashes);
+  }
+
+  /**
+   * Marks transactions as evictible in the pool.
+   * @param txHashes - Hashes of the transactions to mark as evictible.
+   */
+  markTxsAsEvictable(txHashes: TxHash[]): Promise<void> {
+    return this.txPool.markTxsAsEvictable(txHashes);
   }
 
   /**
@@ -620,10 +639,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** Request txs for unproven blocks so the prover node has more chances to get them. */
   private async requestMissingTxsFromUnprovenBlocks(blocks: L2Block[]): Promise<void> {
+    let txHashes: TxHash[] = [];
     try {
       const provenBlockNumber = Math.max(await this.getSyncedProvenBlockNum(), this.provenBlockNumberAtStart);
       const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
-      const txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+      txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+      await this.markTxsAsNonEvictable(txHashes);
       const missingTxHashes = await this.txPool
         .hasTxs(txHashes)
         .then(availability => txHashes.filter((_, index) => !availability[index]));
@@ -634,10 +655,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         );
         await this.requestTxsByHash(missingTxHashes);
       }
+      await this.markTxsAsEvictable(txHashes);
     } catch (err) {
       this.log.error(`Error requesting missing txs from unproven blocks`, err, {
         blocks: blocks.map(block => block.number),
       });
+      await this.markTxsAsEvictable(txHashes);
     }
   }
 
