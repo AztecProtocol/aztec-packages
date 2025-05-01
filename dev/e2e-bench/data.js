@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746046816981,
+  "lastUpdate": 1746069055612,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "75146596+Sarkoxed@users.noreply.github.com",
-            "name": "Sarkoxed",
-            "username": "Sarkoxed"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2de3bc51beeeb59e9e68b4f6ec1f40c6cdcda50d",
-          "message": "feat: SMT Verificaiton Module: Data Structures (#13658)\n\nThis pr adds new Symbolic objects: Tuple, Array and Set \n\n# Data Structures\n\n- Added `STuple`, `SymArray`, `SymSet` classes to ease up lookup tables\nand ROM/RAM arrays symbolic translation\n- Reflected new symbolic objects in `UltraCircuit`, `STerm` and `Solver`\n\n- Added tests for all of the new structures\n- Added pretty print for these structures\n\n# Bool\n\nadded tests for symbolic bool class\n\n# Solver\n\n- Added a few more default solver configurations to use. \n- Added `ff_bitsum` option to solver config. It allows solver to\nunderstand bitsums (namely constraints of the form `b0 + 2 * b1 + 4 * b2\n+ ... == X`)\n- Added few more debug solver options\n- Added few options to handle arrays and sets\n- Fixed a bug: `lookup_enabled` was not handled properly",
-          "timestamp": "2025-04-23T22:33:22Z",
-          "tree_id": "dd58a8ef4b06a0b8894d687f33380fa325dcdc8e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2de3bc51beeeb59e9e68b4f6ec1f40c6cdcda50d"
-        },
-        "date": 1745452746114,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8996,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2575493509627581,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 136035,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,43 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 138540,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "committer": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "distinct": true,
+          "id": "c1cbbadfca7e48cc892c818da16a62fd596fcc5a",
+          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"58fd8174c5\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"58fd8174c5\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
+          "timestamp": "2025-05-01T02:34:19Z",
+          "tree_id": "c69f068f9e6d6259cc2695f89afe1b667835960a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c1cbbadfca7e48cc892c818da16a62fd596fcc5a"
+        },
+        "date": 1746069054856,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8491,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2430789350225699,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 143217,
             "unit": "us"
           }
         ]
