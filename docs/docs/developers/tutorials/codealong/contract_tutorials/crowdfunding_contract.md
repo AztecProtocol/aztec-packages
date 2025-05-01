@@ -97,7 +97,7 @@ uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#incl
 router = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/protocol/router_contract" }
 ```
 
-This clippet also imports some of the other dependencies we will be using.
+This snippet also imports some of the other dependencies we will be using.
 
 A word about versions:
 
