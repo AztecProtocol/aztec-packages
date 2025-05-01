@@ -8,6 +8,7 @@ export bb=$(realpath ../cpp/build/bin/bb)
 tests_tar=barretenberg-acir-tests-$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
   $(cache_content_hash \
+    ./.rebuild_patterns \
     ../cpp/.rebuild_patterns \
     )).tar.gz
 
@@ -15,6 +16,7 @@ tests_hash=$(hash_str \
   $(../../noir/bootstrap.sh hash-tests) \
   $(cache_content_hash \
     ^barretenberg/acir_tests/ \
+    ./.rebuild_patterns \
     ../cpp/.rebuild_patterns \
     ../ts/.rebuild_patterns))
 

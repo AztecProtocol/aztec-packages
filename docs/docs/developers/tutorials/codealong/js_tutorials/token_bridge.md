@@ -7,6 +7,10 @@ This tutorial goes over how to create the contracts necessary to create a portal
 
 In this tutorial, we will go over the components of a token bridge and how to deploy them, as well as show how to bridge tokens publicly from L1 to L2 and back, using aztec.js.
 
+:::note
+The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
+:::
+
 The first half of this page reviews the process and contracts for bridging token from Ethereum (L1) to Aztec (L2). The second half the page (starting with [Running with Aztec.js](#running-with-aztecjs)) goes over writing your own Typescript script for:
 
 - deploying and initializing contracts to L1 and L2
@@ -15,6 +19,8 @@ The first half of this page reviews the process and contracts for bridging token
 - minting tokens on L2
 - sending tokens from L2 back to L1
 - withdrawing tokens from the L1 portal
+
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up #include_aztec_version`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Components
 
