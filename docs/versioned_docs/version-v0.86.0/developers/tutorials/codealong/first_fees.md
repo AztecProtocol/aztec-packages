@@ -1,5 +1,5 @@
 ---
-title: All about fees
+title: All About Fees
 sidebar_position: 4
 tags: [fees, accounts, transactions, cli, contracts]
 ---
@@ -359,6 +359,13 @@ Options for claim+pay with bridged funds that can be used in multiple commands:
 CLI: `--from <sender address> --payment method=fee_juice,claim`
 
 .js: `{ fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(newWallet, claim) }}`
+
+:::
+
+import { General } from '@site/src/components/Snippets/general_snippets';
+
+:::tip Use a block explorer
+<General.ViewTransactions />
 
 :::
 

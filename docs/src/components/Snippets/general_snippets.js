@@ -1,6 +1,14 @@
 import React from "react";
 
 export const General = {
+  VersionLatestTestnet: () => <code>0.85.0-alpha-testnet.5</code>,
+  VersionLatestSandbox: () => <code>0.86.0</code>,
+  ViewTransactions: () => (
+    <p>
+      Transactions and balances can be checked{" "}
+      <a href="https://aztecscan.xyz">here</a>.
+    </p>
+  ),
   InstallationInstructions: () => (
     <p>
       To use Aztec's suite of tools you'll need to:
