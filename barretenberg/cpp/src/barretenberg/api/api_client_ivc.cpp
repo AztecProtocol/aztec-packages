@@ -235,8 +235,6 @@ bool ClientIVCAPI::check_ivc(const std::filesystem::path& input_path)
             return false;
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1374): Some constraints are known to
-        // be different. This is a known issue that should eventually not allow verification.
         for (auto [label, value1, value2] :
              zip_view(computed_vk->get_labels(), computed_vk->get_all(), precomputed_vk->get_all())) {
             if (value1 != value2) {
