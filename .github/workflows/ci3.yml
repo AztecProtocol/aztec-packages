@@ -109,7 +109,7 @@ jobs:
         run: exec ./ci.sh ec2
 
       - name: Download benchmarks
-        # if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         run: |
           ./ci.sh gh-bench
 
@@ -193,8 +193,7 @@ jobs:
           max-items-in-chart: 50
 
       - name: Store l1 gas benchmark result
-        # TODO: Uncomment this when the benchmark is ready, using this to test
-        #if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: "L1 Gas Benchmark"
