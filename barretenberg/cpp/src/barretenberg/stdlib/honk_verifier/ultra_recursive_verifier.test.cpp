@@ -208,7 +208,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             output.ipa_claim.set_public();
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
         }
-        info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -241,6 +240,12 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
+            if constexpr (std::same_as<Flavor, UltraRecursiveFlavor_<UltraCircuitBuilder>>) {
+                BB_ASSERT_EQ(outer_circuit.get_num_finalized_gates(),
+                             731001,
+                             "UltraHonk Recursive verifier built in Ultra changed in gate count.");
+            }
             OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
             auto proof = prover.construct_proof();
