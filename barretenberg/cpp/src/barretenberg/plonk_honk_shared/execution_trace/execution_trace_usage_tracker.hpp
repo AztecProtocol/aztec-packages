@@ -127,11 +127,13 @@ struct ExecutionTraceUsageTracker {
 
     void print()
     {
+        // NOTE: This is used by downstream tools for parsing the required block sizes. Do not change this
+        // without updating (or consulting Grego).
         info("Largest circuit: ", max_gates_size, " gates. Trace details:");
+        info("Minimum required block sizes for structured trace: ");
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {
-            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size;
-            std::cout << std::endl;
+            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
             idx++;
         }
         info("");
