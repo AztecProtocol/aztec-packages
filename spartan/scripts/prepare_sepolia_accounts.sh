@@ -90,13 +90,18 @@ max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 # Total number of accounts needed
 total_accounts=$((num_validators + num_provers + num_bots))
 
-# Create a new mnemonic
-echo "Creating mnemonic..."
-cast wallet new-mnemonic --json >"$tmp_filename"
-MNEMONIC=$(jq -r '.mnemonic' "$tmp_filename")
+# Check if mnemonic is provided
+if [ -z "$MNEMONIC" ]; then
+  # Create a new mnemonic
+  echo "Creating mnemonic..."
+  cast wallet new-mnemonic --json >"$tmp_filename"
+  MNEMONIC=$(jq -r '.mnemonic' "$tmp_filename")
 
-echo "MNEMONIC:"
-echo "::add-mask::$MNEMONIC"
+  echo "MNEMONIC:"
+  echo "::add-mask::$MNEMONIC"
+else
+  echo "Using provided mnemonic"
+fi
 
 # Cast has a limit of 255 accounts per mnemonic command
 # We'll need to derive accounts in batches
