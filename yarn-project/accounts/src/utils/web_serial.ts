@@ -25,7 +25,7 @@ export async function sendCommandAndParseResponse(command: Command) {
     } else {
       port = await (navigator.serial as any).requestPort();
     }
-    await port.open({ baudRate: 115200 });
+    await port.open({ baudRate: 115200, bufferSize: 2 ** 18 });
     const currentData = [Buffer.alloc(0)];
 
     const writer = port.writable.getWriter();
@@ -38,7 +38,6 @@ export async function sendCommandAndParseResponse(command: Command) {
     let response;
 
     let portMode: 'command' | 'data' = 'command';
-    let currentExpectedBytes = 0;
     let currentDataBytesLeft = 0;
     let currentDataTransfer = Buffer.alloc(0);
     let currentCommand: Command | undefined;
@@ -70,15 +69,19 @@ export async function sendCommandAndParseResponse(command: Command) {
               throw new Error('Invalid command');
             }
 
+            console.log('Command %o', currentCommand!);
+
             switch (currentCommand!.type) {
               case CommandType.GET_ARTIFACT_RESPONSE_START: {
                 currentDataTransfer = Buffer.alloc(0);
-                currentDataBytesLeft = command.data.size;
+                currentDataBytesLeft = currentCommand!.data.size;
                 portMode = 'data';
+                console.log('Starting data transfer, bytes left: %d', currentDataBytesLeft);
                 break;
               }
               default: {
                 response = currentCommand;
+                reader.releaseLock();
               }
             }
           } catch (err) {
@@ -98,14 +101,19 @@ export async function sendCommandAndParseResponse(command: Command) {
           }
           if (currentDataBytesLeft <= 0) {
             portMode = 'command';
-            currentDataTransfer = currentDataTransfer.subarray(0, currentExpectedBytes);
+            currentDataTransfer = currentDataTransfer.subarray(0, currentCommand?.data.size);
             const uncompressed = await inflate(currentDataTransfer, {
               to: 'string',
             });
             const jsonStart = uncompressed.indexOf('{');
             const jsonEnd = uncompressed.lastIndexOf('}');
-            currentCommand!.data = { data: JSON.parse(uncompressed.slice(jsonStart, jsonEnd + 1)) };
+            console.log('Uncompressed data: %s', uncompressed.slice(jsonStart, jsonEnd + 1));
+            currentCommand!.data = {
+              ...currentCommand!.data,
+              data: JSON.parse(uncompressed.slice(jsonStart, jsonEnd + 1)),
+            };
             response = currentCommand;
+            reader.releaseLock();
           }
         }
       }

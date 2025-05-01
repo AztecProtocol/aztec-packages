@@ -7,12 +7,11 @@
 import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/fields';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
+import { type ContractArtifact, loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { CommandType, sendCommandAndParseResponse } from '../../utils/web_serial.js';
-import { getEcdsaRAccountContractArtifact } from '../ecdsa_r/lazy.js';
 import { EcdsaRSerialBaseAccountContract } from './account_contract.js';
 
 /**
@@ -28,8 +27,11 @@ export class EcdsaRSerialAccountContract extends EcdsaRSerialBaseAccountContract
     super(signingPublicKey);
   }
 
-  override getContractArtifact(): Promise<ContractArtifact> {
-    return getEcdsaRAccountContractArtifact();
+  override async getContractArtifact(): Promise<ContractArtifact> {
+    const {
+      data: { data },
+    } = await sendCommandAndParseResponse({ type: CommandType.GET_ARTIFACT_REQUEST, data: {} });
+    return loadContractArtifact(data);
   }
 }
 
