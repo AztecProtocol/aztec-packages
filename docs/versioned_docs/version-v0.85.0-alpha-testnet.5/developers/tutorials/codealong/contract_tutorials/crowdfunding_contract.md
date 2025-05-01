@@ -22,6 +22,8 @@ Along the way you will:
 - Wrap an address with its interface (token)
 - Create custom private value notes
 
+This tutorial is compatible with the Aztec version `v0.85.0-alpha-testnet.3`. Install the correct version with `aztec-up 0.85.0-alpha-testnet.3`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 ## Setup
 
 ### Install tools
@@ -64,6 +66,8 @@ Open the project in your preferred editor. If using VSCode and the LSP, you'll b
 In `main.nr`, rename the contract from `Main`, to `Crowdfunding`.
 
 ```rust title="empty-contract" showLineNumbers
+mod config;
+
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -100,7 +104,11 @@ Add the required dependency by going to your project's `Nargo.toml` file, and ad
 ```rust
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.5", directory="noir-projects/aztec-nr/aztec" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.5", directory="noir-projects/aztec-nr/uint-note" }
+router = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.5", directory="noir-projects/noir-contracts/contracts/protocol/router_contract" }
 ```
+
+This snippet also imports some of the other dependencies we will be using.
 
 A word about versions:
 
@@ -115,9 +123,25 @@ use dep::aztec::protocol_types::address::AztecAddress;
 
 The `aztec::protocol_types` can be browsed [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-protocol-circuits/crates/types/src). And like rust dependencies, the relative path inside the dependency corresponds to `address::AztecAddress`.
 
+This contract uses another file called `config.nr`. Create this in the same directory as `main.nr` and paste this in:
+
+```rust
+use dep::aztec::protocol_types::{address::AztecAddress, traits::Packable};
+use std::meta::derive;
+
+// PublicImmutable has constant read cost in private regardless of the size of what it stores, so we put all immutable
+// values in a single struct
+#[derive(Eq, Packable)]
+pub struct Config {
+    pub donation_token: AztecAddress, // Token used for donations (e.g. DAI)
+    pub operator: AztecAddress, // Crowdfunding campaign operator
+    pub deadline: u64, // End of the crowdfunding campaign after which no more donations are accepted
+}
+```
+
 #### Storage
 
-To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct:
+To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct in our `main.nr`:
 
 ```rust title="storage" showLineNumbers
 #[storage]
@@ -134,7 +158,7 @@ The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir
 
 ---
 
-Back in main.nr, reference `use` of the type
+In `main.nr`, reference `use` of the type
 
 ```rust
 use dep::value_note::value_note::ValueNote;
@@ -175,6 +199,7 @@ If it's unique to this contract, then there'll be a privacy leak regardless, as 
 Now conclude adding all dependencies to the `Crowdfunding` contract:
 
 ```rust title="all-deps" showLineNumbers
+use crate::config::Config;
 use dep::aztec::{
     event::event_interface::EventInterface,
     macros::{
@@ -272,9 +297,26 @@ fn withdraw(amount: u128) {
         ._publish_donation_receipts(amount, operator_address)
         .enqueue(&mut context);
 }
+
+#[public]
+#[internal]
+fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
+    WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
+}
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L92-L109" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L92-L109</a></sub></sup>
+<sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L92-L109" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L92-L109</a></sub></sup>
+
+This is emitting an event, which we will need to create. Paste this earlier in our contract after our `Storage` declaration:
+
+```rust
+#[derive(Serialize)]
+#[event]
+struct WithdrawalProcessed {
+    who: AztecAddress,
+    amount: u128,
+}
+```
 
 You should be able to compile successfully with `aztec-nargo compile`.
 

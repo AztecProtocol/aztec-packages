@@ -1,14 +1,12 @@
 ---
 title: Getting Started on Testnet
-sidebar_position: 6
-tags: [sandbox, testnet]
+sidebar_position: 0
+tags: [testnet]
 ---
-
-# Getting Started on Aztec Testnet
 
 This guide will walk you through setting up and using the Aztec testnet. By the end, you'll have created an account, deployed a contract, and performed some basic operations.
 
-If you already have an app on sandbox, you might want to check out the [sandbox to testnet guide](../../../sandbox_to_testnet_guide.md).
+If you already have an app on sandbox, you might want to check out the [sandbox to testnet guide](../../sandbox_to_testnet_guide.md).
 
 ## Key Terms
 
@@ -37,12 +35,12 @@ bash -i <(curl -s https://install.aztec.network)
 Then install the version of the network running the testnet:
 
 ```bash
-aztec-up 0.85.0-alpha-testnet.5
+aztec-up 0.85.0-alpha-testnet.3
 ```
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.5`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.3`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -88,7 +86,7 @@ This means you won't have to pay fees - a sponsor contract will pay them for you
 
 You should see that the contract `SponsoredFPC` was added at a specific address.
 
-3. Deploy your account (even though we don't have to):
+3. Deploy your account (required as we will be using public functions):
 
 ```bash
 aztec-wallet deploy-account \
@@ -98,9 +96,11 @@ aztec-wallet deploy-account \
     --register-class
 ```
 
-Note: The first time you run these commands, it will take longer (maybe up to 5 minutes) as some binaries are installed. This command is generating a client-side proof!
+Note: The first time you run these commands, it will take longer as some binaries are installed. This command is generating a client-side proof!
 
 You should see the tx hash in your terminal.
+
+If you see an error like `Timeout awaiting isMined` please note this is not an actual error. The transaction has still been sent and is simply waiting to be mined. You may see this if the network is more congested than normal. You can proceed to the next step.
 
 ## Step 2: Deploy and interact with a token contract
 
@@ -174,6 +174,6 @@ You should see `2n`.
 
 Congratulations! You've now learned the fundamentals of working with the Aztec testnet. Here are some resources to continue your journey:
 
-- [Aztec Playground](https://play.aztec.network/)
-- [Tutorials](../../tutorials/codealong/contract_tutorials/counter_contract.md)
-- [Guide to run a node](../../../the_aztec_network/index.md)
+* [Aztec Playground](https://play.aztec.network/)
+* [Tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
+* [Guide to run a node](../../the_aztec_network/index.md)
