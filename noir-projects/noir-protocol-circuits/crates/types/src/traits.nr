@@ -32,6 +32,11 @@ impl Empty for u8 {
         0
     }
 }
+impl Empty for u16 {
+    fn empty() -> Self {
+        0
+    }
+}
 impl Empty for u32 {
     fn empty() -> Self {
         0
@@ -106,6 +111,11 @@ impl ToField for u8 {
         self as Field
     }
 }
+impl ToField for u16 {
+    fn to_field(self) -> Field {
+        self as Field
+    }
+}
 impl ToField for u32 {
     fn to_field(self) -> Field {
         self as Field
@@ -151,6 +161,11 @@ impl FromField for u1 {
 impl FromField for u8 {
     fn from_field(value: Field) -> Self {
         value as u8
+    }
+}
+impl FromField for u16 {
+    fn from_field(value: Field) -> Self {
+        value as u16
     }
 }
 impl FromField for u32 {
