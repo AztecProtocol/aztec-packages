@@ -270,6 +270,10 @@ export class AztecKVTxPool implements TxPool {
           } satisfies TxAddedToPoolStats);
 
           const key = txHash.toString();
+          if (await this.#txs.hasAsync(key)) {
+            return;
+          }
+
           await this.#txs.set(key, tx.toBuffer());
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
