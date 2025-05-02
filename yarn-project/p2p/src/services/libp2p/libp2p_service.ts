@@ -721,21 +721,25 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const blockNumber = (await this.archiver.getBlockNumber()) + 1;
     const messageValidators = await this.createMessageValidators(blockNumber);
-    const outcome = await this.runValidations(tx, messageValidators);
 
-    if (outcome.allPassed) {
-      return true;
+    for (const validator of messageValidators) {
+      const outcome = await this.runValidations(tx, validator);
+
+      if (outcome.allPassed) {
+        continue;
+      }
+      const { name } = outcome.failure;
+      let { severity } = outcome.failure;
+
+      // Double spend validator has a special case handler
+      if (name === 'doubleSpendValidator') {
+        severity = await this.handleDoubleSpendFailure(tx, blockNumber);
+      }
+
+      this.peerManager.penalizePeer(peerId, severity);
+      return false;
     }
-    const { name } = outcome.failure;
-    let { severity } = outcome.failure;
-
-    // Double spend validator has a special case handler
-    if (name === 'doubleSpendValidator') {
-      severity = await this.handleDoubleSpendFailure(tx, blockNumber);
-    }
-
-    this.peerManager.penalizePeer(peerId, severity);
-    return false;
+    return true;
   }
 
   private async getGasFees(blockNumber: number): Promise<GasFees> {
@@ -758,53 +762,57 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param blockNumber - The block number to create validators for.
    * @returns The message validators.
    */
-  private async createMessageValidators(blockNumber: number): Promise<Record<string, MessageValidator>> {
+  private async createMessageValidators(blockNumber: number): Promise<Record<string, MessageValidator>[]> {
     const merkleTree = this.worldStateSynchronizer.getCommitted();
     const gasFees = await this.getGasFees(blockNumber - 1);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
-    return {
-      dataValidator: {
-        validator: new DataTxValidator(),
-        severity: PeerErrorSeverity.HighToleranceError,
+    return [
+      {
+        dataValidator: {
+          validator: new DataTxValidator(),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        metadataValidator: {
+          validator: new MetadataTxValidator({
+            l1ChainId: new Fr(this.config.l1ChainId),
+            rollupVersion: new Fr(this.config.rollupVersion),
+            blockNumber: new Fr(blockNumber),
+            protocolContractTreeRoot,
+            vkTreeRoot: getVKTreeRoot(),
+          }),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        doubleSpendValidator: {
+          validator: new DoubleSpendTxValidator({
+            nullifiersExist: async (nullifiers: Buffer[]) => {
+              const merkleTree = this.worldStateSynchronizer.getCommitted();
+              const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+              return indices.map(index => index !== undefined);
+            },
+          }),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        gasValidator: {
+          validator: new GasTxValidator(
+            new DatabasePublicStateSource(merkleTree),
+            ProtocolContractAddress.FeeJuice,
+            gasFees,
+          ),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        phasesValidator: {
+          validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
+          severity: PeerErrorSeverity.MidToleranceError,
+        },
       },
-      metadataValidator: {
-        validator: new MetadataTxValidator({
-          l1ChainId: new Fr(this.config.l1ChainId),
-          rollupVersion: new Fr(this.config.rollupVersion),
-          blockNumber: new Fr(blockNumber),
-          protocolContractTreeRoot,
-          vkTreeRoot: getVKTreeRoot(),
-        }),
-        severity: PeerErrorSeverity.HighToleranceError,
+      {
+        proofValidator: {
+          validator: new TxProofValidator(this.proofVerifier),
+          severity: PeerErrorSeverity.MidToleranceError,
+        },
       },
-      proofValidator: {
-        validator: new TxProofValidator(this.proofVerifier),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-      doubleSpendValidator: {
-        validator: new DoubleSpendTxValidator({
-          nullifiersExist: async (nullifiers: Buffer[]) => {
-            const merkleTree = this.worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.map(index => index !== undefined);
-          },
-        }),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      gasValidator: {
-        validator: new GasTxValidator(
-          new DatabasePublicStateSource(merkleTree),
-          ProtocolContractAddress.FeeJuice,
-          gasFees,
-        ),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      phasesValidator: {
-        validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-    };
+    ];
   }
 
   /**
