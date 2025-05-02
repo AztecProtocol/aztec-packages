@@ -529,9 +529,10 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
  */
 TEST_F(AcirIntegrationTest, MsgpackInputs)
 {
-    std::string input_path = "../../../ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/ivc-inputs.msgpack";
-    // std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-    //                          "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+    // std::string input_path =
+    // "../../../ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/ivc-inputs.msgpack";
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
@@ -573,69 +574,71 @@ TEST_F(AcirIntegrationTest, MsgpackInputs)
     hiding_vk->compare(dummy_hiding_vk);
 }
 
-// /**
-//  * @brief Debug the discrepancy resulting from MSM constraints in the token contract in the "dummy witness" vs real
-//  * witness case.
-//  */
-// TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
-// {
-//     // NOTE: to populate the test inputs at this location, run the following commands:
-//     //      export  AZTEC_CACHE_COMMIT=origin/master~3
-//     //      export DOWNLOAD_ONLY=1
-//     //      yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-//     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-//                              "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+/**
+ * @brief Debug the discrepancy resulting from MSM constraints in the token contract in the "dummy witness" vs real
+ * witness case.
+ */
+TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
+{
+    // NOTE: to populate the test inputs at this location, run the following commands:
+    //      export  AZTEC_CACHE_COMMIT=origin/master~3
+    //      export DOWNLOAD_ONLY=1
+    //      yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
-//     PrivateExecutionSteps steps;
-//     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-//     auto steps_copy = steps;
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    auto steps_copy = steps;
 
-//     size_t token_idx = 4; // index of the token contract in the set of circuits for the whole flow
-//     auto precomputed_token_vk = steps.precomputed_vks[token_idx];
+    size_t token_idx = 4; // index of the token contract in the set of circuits for the whole flow
+    auto precomputed_token_vk = steps.precomputed_vks[token_idx];
 
-//     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
-//     for (auto [program_in, precomputed_vk, function_name] :
-//          zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
-//         std::shared_ptr<ClientIVC::MegaVerificationKey> recomputed_vk;
-//         {
-//             info("RECOMPUTE: \n");
-//             auto program = program_in;
-//             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
-//             auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-//             const acir_format::ProgramMetadata metadata{
-//                 .ivc = ivc_constraints.empty() ? nullptr
-//                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
-//             };
+    for (auto [program_in, precomputed_vk, function_name] :
+         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
+        std::shared_ptr<ClientIVC::MegaVerificationKey> recomputed_vk;
+        {
+            info("RECOMPUTE: \n");
+            auto program = program_in;
+            program.witness = {}; // erase the witness to mimmic the "dummy witness" case
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
 
-//             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-//             auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-//             recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+            info("Circuit hash A: ", circuit.hash_circuit());
+            recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
 
-//             // Compare the recomputed vk with the precomputed vk (both constructed using a dummy witness)
-//             // Note: (We expect these to be equal)
-//             // recomputed_vk->compare(precomputed_token_vk);
-//             // EXPECT_TRUE(recomputed_vk->compare(precomputed_token_vk));
-//         }
+            // Compare the recomputed vk with the precomputed vk (both constructed using a dummy witness)
+            // Note: (We expect these to be equal)
+            // recomputed_vk->compare(precomputed_token_vk);
+            // EXPECT_TRUE(recomputed_vk->compare(precomputed_token_vk));
+        }
 
-//         // Compute the verification key using the genuine witness
-//         std::shared_ptr<ClientIVC::MegaVerificationKey> computed_vk;
-//         {
-//             info("COMPUTE: \n");
-//             auto program = program_in;
-//             auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-//             const acir_format::ProgramMetadata metadata{
-//                 .ivc = ivc_constraints.empty() ? nullptr
-//                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
-//             };
+        // Compute the verification key using the genuine witness
+        std::shared_ptr<ClientIVC::MegaVerificationKey> computed_vk;
+        {
+            info("COMPUTE: \n");
+            auto program = program_in;
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
 
-//             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-//             auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-//             computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
+            info("Circuit hash B: ", circuit.hash_circuit());
+            computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
 
-//             // Compare the VK computed using the genuine witness with the VK computed using the dummy witness
-//             EXPECT_TRUE(computed_vk->compare(recomputed_vk));
-//         }
-//     }
-// }
+            // Compare the VK computed using the genuine witness with the VK computed using the dummy witness
+            EXPECT_TRUE(computed_vk->compare(recomputed_vk));
+        }
+    }
+}
 #endif

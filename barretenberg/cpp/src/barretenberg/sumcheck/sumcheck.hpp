@@ -658,20 +658,21 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
                                   const std::array<FF, virtual_log_n>& padding_indicator_array)
         requires(!IsGrumpkinFlavor<Flavor>)
     {
-        using Builder = typename Flavor::CircuitBuilder;
-        auto print_vk_hash = [&](std::string_view label = "VK HASH") {
-            if constexpr (IsMegaFlavor<Flavor>) {
-                if constexpr (IsRecursiveFlavor<Flavor>) {
-                    if constexpr (IsMegaBuilder<Builder>) {
-                        // For recursive flavors, we need to compute the hash of the verification key
-                        // to be used in the recursive proof.
-                        auto builder = relation_parameters.beta.get_context();
-                        info(label,
-                             proving_key_inspector::compute_vk_hash<Builder, typename Flavor::NativeFlavor>(*builder));
-                    }
-                }
-            }
-        };
+        // using Builder = typename Flavor::CircuitBuilder;
+        // auto print_vk_hash = [&](std::string_view label = "VK HASH") {
+        //     if constexpr (IsMegaFlavor<Flavor>) {
+        //         if constexpr (IsRecursiveFlavor<Flavor>) {
+        //             if constexpr (IsMegaBuilder<Builder>) {
+        //                 // For recursive flavors, we need to compute the hash of the verification key
+        //                 // to be used in the recursive proof.
+        //                 auto builder = relation_parameters.beta.get_context();
+        //                 info(label,
+        //                      proving_key_inspector::compute_vk_hash<Builder, typename
+        //                      Flavor::NativeFlavor>(*builder));
+        //             }
+        //         }
+        //     }
+        // };
 
         bool verified(true);
 
@@ -694,7 +695,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             round.target_total_sum = libra_total_sum * libra_challenge;
         }
 
-        print_vk_hash("VK HASH sumcheck");
+        // print_vk_hash("VK HASH sumcheck");
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(virtual_log_n);

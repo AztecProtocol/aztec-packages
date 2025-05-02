@@ -30,7 +30,8 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     using ClaimBatch = ClaimBatcher::Batch;
 
     if constexpr (IsMegaBuilder<Builder>) {
-        info("VK HASH 1: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
+        // info("VK HASH 1: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
+        // info("Circuit hash = ", builder->hash_circuit());
     }
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
@@ -42,7 +43,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
 
     if constexpr (IsMegaBuilder<Builder>) {
-        info("VK HASH 2: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
+        // info("VK HASH 2: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
     }
 
     // info("log circuit size: ", accumulator->verification_key->log_circuit_size);
@@ -50,7 +51,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     constrain_log_circuit_size(padding_indicator_array, accumulator->verification_key->circuit_size);
 
     if constexpr (IsMegaBuilder<Builder>) {
-        info("VK HASH 3: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
+        // info("VK HASH 3: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
     }
 
     Sumcheck sumcheck(transcript, accumulator->target_sum);
@@ -59,7 +60,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
         accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges, padding_indicator_array);
 
     if constexpr (IsMegaBuilder<Builder>) {
-        info("VK HASH 4: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
+        // info("VK HASH 4: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
     }
 
     // Execute Shplemini rounds.

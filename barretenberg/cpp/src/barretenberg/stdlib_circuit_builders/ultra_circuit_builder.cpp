@@ -2863,21 +2863,29 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     ++this->num_gates;
 }
 
-template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit()
+template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit() const
 {
-    finalize_circuit(/*ensure_nonzero=*/false);
+    auto circuit = *this;
+    circuit.finalize_circuit(/*ensure_nonzero=*/false);
 
     size_t sum_of_block_sizes(0);
-    for (auto& block : blocks.get()) {
+    for (auto& block : circuit.blocks.get()) {
         sum_of_block_sizes += block.size();
     }
+    info("Sum of block sizes: ", sum_of_block_sizes);
 
     size_t num_bytes_in_selectors = sizeof(FF) * ExecutionTrace::NUM_SELECTORS * sum_of_block_sizes;
     size_t num_bytes_in_wires_and_copy_constraints =
-        sizeof(uint32_t) * (ExecutionTrace::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
+        sizeof(uint32_t) * (ExecutionTrace::NUM_WIRES * sum_of_block_sizes + circuit.real_variable_index.size());
     size_t num_bytes_to_hash = num_bytes_in_selectors + num_bytes_in_wires_and_copy_constraints;
 
-    std::vector<uint8_t> to_hash(num_bytes_to_hash);
+    info("circuit.real_variable_index.size() = ", circuit.real_variable_index.size());
+    info("circuit.variables.size() = ", circuit.variables.size());
+    info("Num bytes in selectors: ", num_bytes_in_selectors);
+    info("Num bytes in wires and copy constraints: ", num_bytes_in_wires_and_copy_constraints);
+    info("Num bytes to hash: ", num_bytes_to_hash);
+
+    std::vector<uint8_t> to_hash;
 
     const auto convert_and_insert = [&to_hash](auto& vector) {
         std::vector<uint8_t> buffer = to_buffer(vector);
@@ -2888,7 +2896,7 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
         std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
         std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
     }
-    convert_and_insert(this->real_variable_index);
+    convert_and_insert(circuit.real_variable_index);
 
     return from_buffer<uint256_t>(crypto::sha256(to_hash));
 }
