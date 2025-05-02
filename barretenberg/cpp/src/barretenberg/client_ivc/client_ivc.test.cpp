@@ -347,7 +347,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
     // "overflow" case where all (but importantly at least one) circuit overflows the structured trace.
     const size_t NUM_CIRCUITS = 4;
     const size_t log2_num_gates_nominal = 5;   // number of gates in baseline mocked circuits
-    const size_t log2_num_gates_overflow = 18; // number of gates in the "overflow"" mocked circuit
+    const size_t log2_num_gates_overflow = 18; // number of gates in the "overflow" mocked circuit
 
     TraceStructure trace_structure = SMALL_TEST_STRUCTURE;
 
