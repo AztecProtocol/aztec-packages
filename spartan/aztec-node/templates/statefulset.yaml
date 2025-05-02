@@ -62,6 +62,8 @@ spec:
             - |
               {{- if .Values.nodePortEnabled }}
               source /env/init-nodeport;
+              {{- else }}
+              export P2P_IP=$(hostname -i)
               {{- end }}
 
               start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start")
@@ -71,7 +73,12 @@ spec:
               if [[ -f /config/l1-publisher/mnemonic ]]; then
                 mnemonic=$(cat /config/l1-publisher/mnemonic)
                 mnemonic_start_index=$(cat /config/l1-publisher/mnemonicStartIndex)
+
+
                 export L1_PUBLISHER_KEY=$(cast wallet private-key --mnemonic "$mnemonic" --mnemonic-index $(($mnemonic_start_index + $pod_index)))
+                export VALIDATOR_PRIVATE_KEY=$L1_PUBLISHER_KEY
+                export SEQ_PUBLISHER_PRIVATE_KEY=$L1_PUBLISHER_KEY
+
               elif [[ -f /config/l1-publisher/privateKeys ]]; then
                 line_index=$(($pod_index + 1))
                 export L1_PUBLISHER_KEY=$(sed -n -e "${line_index}p;${line_index}q" /config/l1-publisher/privateKeys)
@@ -137,9 +144,13 @@ spec:
               value: "{{ .Values.network }}"
             {{- else }}
             - name: REGISTRY_CONTRACT_ADDRESS
-              value: "{{ .Values.customNetwork.registryAddress }}"
+              value: "{{ .Values.customNetwork.registryContractAddress }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.customNetwork.l1ChainId }}"
+            - name: SLASH_FACTORY_ADDRESS
+              value: "{{ .Values.customNetwork.slashFactoryAddress }}"
+            - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+              value: "{{ .Values.customNetwork.feeAssetHandlerContractAddress }}"
             {{- end }}
             - name: NODE_OPTIONS
               value: {{ join " " .Values.node.nodeJsOptions | quote }}
@@ -229,32 +240,30 @@ spec:
             secretName: {{ include "chart.name" . }}-l1-publisher
         {{- if .Values.nodePortEnabled }}
         - name: init-nodeport
-          configMap:
-            name: init-nodeport
-            emptyDir: {}
+          emptyDir: {}
         {{- end }}
-    {{- if not .Values.persistence.enabled }}
+  {{- if not .Values.persistence.enabled }}
         - name: storage
           emptyDir: {}
-    {{- else if .Values.persistence.existingClaim }}
+  {{- else if .Values.persistence.existingClaim }}
         - name: storage
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim }}
-    {{- else }}
-    volumeClaimTemplates:
-    - metadata:
-        name: storage
-          annotations:
-            {{- toYaml .Values.persistence.annotations | nindent 10 }}
-        spec:
-          accessModes:
-            {{- toYaml .Values.persistence.accessModes | nindent 10 }}
-          resources:
-            requests:
-              storage: {{ .Values.persistence.size | quote}}
-          storageClassName: {{ .Values.persistence.storageClassName }}
-          {{- if .Values.persistence.selector }}
-          selector:
-            {{- toYaml .Values.persistence.selector | nindent 10 }}
-          {{- end }}
-    {{- end }}
+  {{- else }}
+  volumeClaimTemplates:
+  - metadata:
+      name: storage
+      annotations:
+        {{- toYaml .Values.persistence.annotations | nindent 10 }}
+    spec:
+      accessModes:
+        {{- toYaml .Values.persistence.accessModes | nindent 12 }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.size | quote}}
+      storageClassName: {{ .Values.persistence.storageClassName }}
+      {{- if .Values.persistence.selector }}
+      selector:
+        {{- toYaml .Values.persistence.selector | nindent 12 }}
+      {{- end }}
+  {{- end }}

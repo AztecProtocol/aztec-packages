@@ -22,6 +22,8 @@ network:
 customNetwork:
   l1ChainId:
   registryContractAddress:
+  slashFactoryAddress:
+  feeAssetHandlerContractAddress:
 
 # Which rollup contract we want to follow from the registry
 rollupVersion: "canonical"
@@ -96,8 +98,7 @@ node:
     periodSeconds: 30
     # -- Failure threshold
     failureThreshold: 3
-
-resources: {}
+  resources: {}
 
 persistence:
   # -- Uses an emptyDir when not enabled
