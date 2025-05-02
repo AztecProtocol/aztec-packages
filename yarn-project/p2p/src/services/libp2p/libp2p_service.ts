@@ -271,6 +271,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          seenTTL: config.gossipsubSeenTTL,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
