@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
 import { BlockAttestation, BlockProposal, ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
-import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 
 import type { ValidatorKeyStore } from '../key_store/interface.js';
 
@@ -18,10 +18,12 @@ export class ValidationService {
    *
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
-  createBlockProposal(header: BlockHeader, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+  async createBlockProposal(header: BlockHeader, archive: Fr, txs: Tx[]): Promise<BlockProposal> {
     const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
+    // TODO: check if this is calculated earlier / can not be recomputed
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
-    return BlockProposal.createProposalFromSigner(new ConsensusPayload(header, archive, txs), payloadSigner);
+    return BlockProposal.createProposalFromSigner(new ConsensusPayload(header, archive, txHashes), txs, payloadSigner);
   }
 
   /**
