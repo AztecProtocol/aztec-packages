@@ -72,6 +72,16 @@ use std::aes128::aes128_encrypt;
 fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(
     shared_secret: Point,
 ) -> [u8; 32] {
+    // The output of this function needs to be 32 random bytes.
+    // A single field won't give us 32 bytes of entropy.
+    // So we compute two "random" fields, by poseidon-hashing with two different
+    // generators.
+    // We then extract the last 16 (big endian) bytes of each "random" field.
+    // Note: we use to_be_bytes because it's slightly more efficient. But we have to
+    // be careful not to take bytes from the "big end", because the "big" byte is
+    // not uniformly random over the byte: it only has < 6 bits of randomness, because
+    // it's the big end of a 254-bit field element.
+
     let rand1: Field = poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y],
         GENERATOR_INDEX__SYMMETRIC_KEY,
@@ -81,13 +91,15 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
         GENERATOR_INDEX__SYMMETRIC_KEY_2,
     );
 
-    let rand1_bytes: [u8; 32] = rand1.to_le_bytes();
-    let rand2_bytes: [u8; 32] = rand2.to_le_bytes();
+    let rand1_bytes: [u8; 32] = rand1.to_be_bytes();
+    let rand2_bytes: [u8; 32] = rand2.to_be_bytes();
 
     let mut bytes: [u8; 32] = [0; 32];
     for i in 0..16 {
-        bytes[i] = rand1_bytes[i];
-        bytes[16 + i] = rand2_bytes[i];
+        // We take bytes from the "little end" of the be-bytes arrays:
+        let j = 32 - i - 1;
+        bytes[i] = rand1_bytes[j];
+        bytes[16 + i] = rand2_bytes[j];
     }
 
     bytes
