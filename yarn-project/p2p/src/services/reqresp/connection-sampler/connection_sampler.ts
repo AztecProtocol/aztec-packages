@@ -213,7 +213,7 @@ export class ConnectionSampler {
     try {
       const streamAndPeerId = this.streams.get(streamId);
       if (!streamAndPeerId) {
-        this.logger.warn(`Stream ${streamId} not found`);
+        this.logger.debug(`Stream ${streamId} not found`);
         return;
       }
 
