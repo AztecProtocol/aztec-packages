@@ -2,7 +2,14 @@ import type { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { RawAssertionPayload } from '@aztec/noir-acvm_js';
 import { abiDecodeError } from '@aztec/noir-noirc_abi';
-import type { BrilligFunctionId, FunctionAbi, FunctionDebugMetadata, OpcodeLocation } from '@aztec/stdlib/abi';
+import type {
+  BrilligFunctionId,
+  DebugFileMap,
+  DebugInfo,
+  FunctionAbi,
+  LocationNodeDebugInfo,
+  OpcodeLocation,
+} from '@aztec/stdlib/abi';
 import {
   type FailingFunction,
   type NoirCallStack,
@@ -76,39 +83,40 @@ export function createSimulationError(error: Error, revertData?: Fr[]): Simulati
 }
 
 /**
- * Extracts a brillig location from an opcode location.
- * @param opcodeLocation - The opcode location to extract from. It should be in the format `acirLocation.brilligLocation` or `acirLocation`.
- * @returns The brillig location if the opcode location contains one.
+ * Resolves the source code locations from an array of opcode locations
  */
-function extractBrilligLocation(opcodeLocation: string): string | undefined {
-  const splitted = opcodeLocation.split('.');
-  if (splitted.length === 2) {
-    return splitted[1];
-  }
-  return undefined;
-}
-
-/**
- * Extracts the call stack from the location of a failing opcode and the debug metadata.
- * One opcode can point to multiple calls due to inlining.
- */
-function getSourceCodeLocationsFromOpcodeLocation(
-  opcodeLocation: string,
-  debug: FunctionDebugMetadata,
+export function resolveOpcodeLocations(
+  opcodeLocations: OpcodeLocation[],
+  debug: DebugInfo,
+  files: DebugFileMap,
   brilligFunctionId?: BrilligFunctionId,
 ): SourceCodeLocation[] {
-  const { debugSymbols, files } = debug;
-
-  let callStack = debugSymbols.locations[opcodeLocation] || [];
-  if (callStack.length === 0) {
-    const brilligLocation = extractBrilligLocation(opcodeLocation);
-    if (brilligFunctionId !== undefined && brilligLocation !== undefined) {
-      callStack = debugSymbols.brillig_locations[brilligFunctionId][brilligLocation] || [];
+  let locations = opcodeLocations.flatMap(opcodeLocation =>
+    getSourceCodeLocationsFromOpcodeLocation(opcodeLocation, debug, files, brilligFunctionId),
+  );
+  // Adds the acir call stack if the last location is a brillig opcode
+  if (locations.length > 0) {
+    const runtimeLocations = opcodeLocations[opcodeLocations.length - 1].split('.');
+    if (runtimeLocations.length === 2) {
+      const acirCallstackId = debug.acir_locations[runtimeLocations[0]];
+      if (acirCallstackId !== undefined) {
+        const callStack = debug.location_tree.locations[acirCallstackId];
+        const acirCallstack = getCallStackFromLocationNode(callStack, debug.location_tree.locations, files);
+        locations = locations.concat(acirCallstack);
+      }
     }
   }
-  return callStack.map(call => {
-    const { file: fileId, span } = call;
+  return locations;
+}
 
+function getCallStackFromLocationNode(
+  callStack: LocationNodeDebugInfo,
+  location_tree: LocationNodeDebugInfo[],
+  files: DebugFileMap,
+): SourceCodeLocation[] {
+  const result: SourceCodeLocation[] = [];
+  while (callStack.parent !== null) {
+    const { file: fileId, span } = callStack.value;
     const { path, source } = files[fileId];
 
     const locationText = source.substring(span.start, span.end);
@@ -118,30 +126,53 @@ function getSourceCodeLocationsFromOpcodeLocation(
     const line = previousLines.length;
     const column = previousLines[previousLines.length - 1].length + 1;
 
-    return {
+    result.push({
       filePath: path,
       line,
       column,
       fileSource: source,
       locationText,
-    };
-  });
+    });
+
+    callStack = location_tree[callStack.parent];
+  }
+  return result;
+}
+/**
+ * Extracts the call stack from the location of a failing opcode and the debug metadata.
+ * One opcode can point to multiple calls due to inlining.
+ */
+function getSourceCodeLocationsFromOpcodeLocation(
+  opcodeLocation: string,
+  debug: DebugInfo,
+  files: DebugFileMap,
+  brilligFunctionId?: BrilligFunctionId,
+): SourceCodeLocation[] {
+  let callstack_id = debug.acir_locations[opcodeLocation];
+  const brilligLocation = extractBrilligLocation(opcodeLocation);
+  if (brilligFunctionId !== undefined && brilligLocation !== undefined) {
+    callstack_id = debug.brillig_locations[brilligFunctionId][brilligLocation];
+    if (callstack_id === undefined) {
+      return [];
+    }
+  }
+
+  if (callstack_id === undefined) {
+    return [];
+  }
+  const callStack = debug.location_tree.locations[callstack_id];
+  return getCallStackFromLocationNode(callStack, debug.location_tree.locations, files);
 }
 
 /**
- * Extracts the source code locations for an array of opcode locations
- * @param opcodeLocations - The opcode locations that caused the error.
- * @param debug - The debug metadata of the function.
- * @returns The source code locations.
+ * Extracts a brillig location from an opcode location.
  */
-export function resolveOpcodeLocations(
-  opcodeLocations: OpcodeLocation[],
-  debug: FunctionDebugMetadata,
-  brilligFunctionId?: BrilligFunctionId,
-): SourceCodeLocation[] {
-  return opcodeLocations.flatMap(opcodeLocation =>
-    getSourceCodeLocationsFromOpcodeLocation(opcodeLocation, debug, brilligFunctionId),
-  );
+function extractBrilligLocation(opcodeLocation: string): string | undefined {
+  const splitted = opcodeLocation.split('.');
+  if (splitted.length === 2) {
+    return splitted[1];
+  }
+  return undefined;
 }
 
 export function resolveAssertionMessage(errorPayload: RawAssertionPayload, abi: FunctionAbi): string | undefined {
