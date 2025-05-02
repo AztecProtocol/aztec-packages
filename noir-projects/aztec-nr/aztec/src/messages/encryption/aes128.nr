@@ -68,10 +68,12 @@ use std::aes128::aes128_encrypt;
  * If you're calling this function for a differently-derived `shared_secret`, be
  * careful.
  *
+ * NEVER re-use the same iv and sym_key.
+ * Do not call this function more than once with the same shared_secret.
  */
-fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(
+fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
     shared_secret: Point,
-) -> [u8; 32] {
+) -> [[u8; 32]; N] {
     // The output of this function needs to be 32 random bytes.
     // A single field won't give us 32 bytes of entropy.
     // So we compute two "random" fields, by poseidon-hashing with two different
@@ -82,35 +84,56 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
     // not uniformly random over the byte: it only has < 6 bits of randomness, because
     // it's the big end of a 254-bit field element.
 
-    let rand1: Field = poseidon2_hash_with_separator(
-        [shared_secret.x, shared_secret.y],
-        GENERATOR_INDEX__SYMMETRIC_KEY,
-    );
-    let rand2: Field = poseidon2_hash_with_separator(
-        [shared_secret.x, shared_secret.y],
-        GENERATOR_INDEX__SYMMETRIC_KEY_2,
-    );
+    let mut all_bytes: [[u8; 32]; N] = std::mem::zeroed();
 
-    let rand1_bytes: [u8; 32] = rand1.to_be_bytes();
-    let rand2_bytes: [u8; 32] = rand2.to_be_bytes();
+    for k in 0..N {
+        assert(N < 256); // TODO: does this incur a range constraint, or is it comptime?
 
-    let mut bytes: [u8; 32] = [0; 32];
-    for i in 0..16 {
-        // We take bytes from the "little end" of the be-bytes arrays:
-        let j = 32 - i - 1;
-        bytes[i] = rand1_bytes[j];
-        bytes[16 + i] = rand2_bytes[j];
+        // We augment the domain separator with the loop index, so that we can
+        // generate N lots of randomness.
+        let k_shift = (k as u16 << 8);
+        let separator_1 = k_shift + GENERATOR_INDEX__SYMMETRIC_KEY as u16;
+        let separator_2 = k_shift + GENERATOR_INDEX__SYMMETRIC_KEY_2 as u16;
+
+        let rand1: Field =
+            poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_1);
+        let rand2: Field =
+            poseidon2_hash_with_separator([shared_secret.x, shared_secret.y], separator_2);
+
+        let rand1_bytes: [u8; 32] = rand1.to_be_bytes();
+        let rand2_bytes: [u8; 32] = rand2.to_be_bytes();
+
+        let mut bytes: [u8; 32] = [0; 32];
+        for i in 0..16 {
+            // We take bytes from the "little end" of the be-bytes arrays:
+            let j = 32 - i - 1;
+            bytes[i] = rand1_bytes[j];
+            bytes[16 + i] = rand2_bytes[j];
+        }
+
+        all_bytes[k] = bytes;
     }
 
-    bytes
+    all_bytes
 }
 
 // We'll keep this function around, because some users might need it if their
 // shared_secret is derived in a way which is not safe for usage with the
 // poseidon2 approach.
-fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256(
+/**
+ * @param shared_secret: an ECDH shared secret (Grumpkin)
+ * @param index_for_repeated_use: if you want to re-use the same ECDH shared secret
+ * to generate multiple (sym_key, iv) tuples, to then create multiple ciphertext, 
+ * you should use a different index here each time.
+ * The reason you might want to re-use the same ECDH shared secret, is so that you 
+ * only need to broadcast 1 ephemeral public key instead of 2. 
+ * You must never re-use the same sym_key or iv.
+ */
+fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256<let N: u32>(
     shared_secret: Point,
-) -> [u8; 32] {
+) -> [[u8; 32]; N] {
+    assert(N == 1); // Figuring out domain separation for more than 1 would be fiddly. Doable, but fiddly.
+
     let shared_secret_bytes: [u8; 32] = point_to_bytes(shared_secret);
 
     let mut shared_secret_bytes_with_separator: [u8; 33] = std::mem::zeroed();
@@ -119,38 +142,47 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha2
     }
     shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
 
-    sha256::digest(shared_secret_bytes_with_separator)
+    let mut result: [[u8; 32]; N] = std::mem::zeroed();
+
+    result[0] = sha256::digest(shared_secret_bytes_with_separator);
+    result
 }
 
-fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
+fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret<let N: u32>(
     shared_secret: Point,
-    randomness_extraction_fn: fn(Point) -> [u8; 32],
-) -> ([u8; 16], [u8; 16]) {
-    let random_256_bits = randomness_extraction_fn(shared_secret);
-    let mut sym_key = [0; 16];
-    let mut iv = [0; 16];
-    for i in 0..16 {
-        sym_key[i] = random_256_bits[i];
-        iv[i] = random_256_bits[i + 16];
+    randomness_extraction_fn: fn(Point) -> [[u8; 32]; N],
+) -> [([u8; 16], [u8; 16]); N] {
+    let many_random_256_bits = randomness_extraction_fn(shared_secret);
+    let mut many_pairs: [([u8; 16], [u8; 16]); N] = std::mem::zeroed();
+    for k in 0..N {
+        let random_256_bits = many_random_256_bits[k];
+        let mut sym_key = [0; 16];
+        let mut iv = [0; 16];
+        for i in 0..16 {
+            sym_key[i] = random_256_bits[i];
+            iv[i] = random_256_bits[i + 16];
+        }
+        many_pairs[k] = (sym_key, iv);
     }
-    (sym_key, iv)
+
+    many_pairs
 }
 
 // We'll keep this function around, because some users might need it if their
 // shared_secret is derived in a way which is not safe for usage with the
 // poseidon2 approach.
-pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256<let N: u32>(
     shared_secret: Point,
-) -> ([u8; 16], [u8; 16]) {
+) -> [([u8; 16], [u8; 16]); N] {
     derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
         shared_secret,
         extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256,
     )
 }
 
-pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
+pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
     shared_secret: Point,
-) -> ([u8; 16], [u8; 16]) {
+) -> [([u8; 16], [u8; 16]); N] {
     derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
         shared_secret,
         extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe,
@@ -194,11 +226,13 @@ impl LogEncryption for AES128 {
         // It is safe to call the `unsafe` function here, because we know the `shared_secret`
         // was derived using an AztecAddress (the recipient). See the block comment
         // at the start of this unsafe target function for more info.
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
+        let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
             ciphertext_shared_secret,
         );
+        let (sym_key_1, iv_1) = pairs[0];
+        let (sym_key_2, iv_2) = pairs[1];
 
-        let ciphertext_bytes = aes128_encrypt(plaintext_bytes, iv, sym_key);
+        let ciphertext_bytes = aes128_encrypt(plaintext_bytes, iv_2, sym_key_2);
 
         // |full_pt| = |pt_length| + |pt|
         // |pt_aes_padding| = 16 - (|full_pt| % 16)
@@ -220,21 +254,10 @@ impl LogEncryption for AES128 {
         header_plaintext[0] = (ciphertext_bytes_length >> 8) as u8;
         header_plaintext[1] = ciphertext_bytes_length as u8;
 
-        // TODO(#14010): this is insecure and wasteful:
-        // "Insecure", because the esk shouldn't be used twice (once for the header,
-        // and again for the proper ciphertext) (at least, I never got the
-        // "go ahead" that this would be safe, unfortunately).
-        // "Wasteful", because the exact same computation is happening further down.
-        // I'm leaving that 2nd computation where it is, because this 1st computation
-        // will be imminently deleted, when the header logic is deleted.
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
-            ciphertext_shared_secret,
-        );
-
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the
         // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
         // bytes larger than the input in this case.
-        let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv, sym_key);
+        let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv_1, sym_key_1);
         // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
         assert(header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES);
 
@@ -335,9 +358,15 @@ impl LogEncryption for AES128 {
 
         // Derive shared secret and symmetric key
         let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
+        // For the header:
+        let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
             ciphertext_shared_secret,
         );
+        // For the header:
+        let (sym_key_1, iv_1) = pairs[0];
+
+        // For the body:
+        let (sym_key_2, iv_2) = pairs[1];
 
         // Extract the header ciphertext
         let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
@@ -350,7 +379,7 @@ impl LogEncryption for AES128 {
             BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
         // Decrypt header
-        let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, iv, sym_key);
+        let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, iv_1, sym_key_1);
 
         // Extract ciphertext length from header (2 bytes, big-endian)
         let ciphertext_length =
@@ -364,7 +393,7 @@ impl LogEncryption for AES128 {
             BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
         // Decrypt main ciphertext and return it
-        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv, sym_key);
+        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv_2, sym_key_2);
 
         // Each field of the original note log was serialized to 32 bytes so we convert the bytes back to fields.
         fields_from_bytes(plaintext_bytes)
