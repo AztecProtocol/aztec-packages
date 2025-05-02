@@ -112,19 +112,19 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
 // We'll keep this function around, because some users might need it if their
 // shared_secret is derived in a way which is not safe for usage with the
 // poseidon2 approach.
-// fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256(
-//     shared_secret: Point,
-// ) -> [u8; 32] {
-//     let shared_secret_bytes: [u8; 32] = point_to_bytes(shared_secret);
+fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256(
+    shared_secret: Point,
+) -> [u8; 32] {
+    let shared_secret_bytes: [u8; 32] = point_to_bytes(shared_secret);
 
-//     let mut shared_secret_bytes_with_separator: [u8; 33] = std::mem::zeroed();
-//     for i in 0..shared_secret_bytes.len() {
-//         shared_secret_bytes_with_separator[i] = shared_secret_bytes[i];
-//     }
-//     shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
+    let mut shared_secret_bytes_with_separator: [u8; 33] = std::mem::zeroed();
+    for i in 0..shared_secret_bytes.len() {
+        shared_secret_bytes_with_separator[i] = shared_secret_bytes[i];
+    }
+    shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
 
-//     sha256::digest(shared_secret_bytes_with_separator)
-// }
+    sha256::digest(shared_secret_bytes_with_separator)
+}
 
 fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
     shared_secret: Point,
@@ -143,14 +143,14 @@ fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
 // We'll keep this function around, because some users might need it if their
 // shared_secret is derived in a way which is not safe for usage with the
 // poseidon2 approach.
-// pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
-//     shared_secret: Point,
-// ) -> ([u8; 16], [u8; 16]) {
-//     derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
-//         shared_secret,
-//         extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256,
-//     )
-// }
+pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+    shared_secret: Point,
+) -> ([u8; 16], [u8; 16]) {
+    derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
+        shared_secret,
+        extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256,
+    )
+}
 
 pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
     shared_secret: Point,
