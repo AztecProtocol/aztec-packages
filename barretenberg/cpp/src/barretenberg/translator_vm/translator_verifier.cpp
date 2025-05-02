@@ -120,6 +120,10 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+    info("op: ", commitments.op);
+    info("x_lo_y_hi: ", commitments.x_lo_y_hi);
+    info("x_hi_z_1: ", commitments.x_hi_z_1);
+    info("y_lo_z_2: ", commitments.y_lo_z_2);
 
     // Execute Shplemini
     bool consistency_checked = false;

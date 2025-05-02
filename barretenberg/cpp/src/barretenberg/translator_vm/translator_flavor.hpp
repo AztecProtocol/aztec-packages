@@ -617,6 +617,7 @@ class TranslatorFlavor {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1318)
         ProverPolynomials(size_t actual_mini_circuit_size)
         {
+            info("actual number of rows: ", actual_mini_circuit_size);
             const size_t mini_circuit_size = MINI_CIRCUIT_SIZE;
             const size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
 

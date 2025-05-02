@@ -335,11 +335,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         , evaluation_input_x(evaluation_input_x_)
     {
         add_variable(Fr::zero());
-        for (auto& wire : wires) {
-            wire.emplace_back(0);
-            wire.emplace_back(0);
-        }
-        num_gates += 2;
     };
 
     /**

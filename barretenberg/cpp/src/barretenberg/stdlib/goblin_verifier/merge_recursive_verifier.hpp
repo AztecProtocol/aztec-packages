@@ -27,6 +27,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     std::shared_ptr<Transcript> transcript;
 
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    std::array<Commitment, NUM_WIRES> T_commitments;
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
 

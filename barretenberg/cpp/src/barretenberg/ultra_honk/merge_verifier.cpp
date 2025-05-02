@@ -35,12 +35,15 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
     // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> t_commitments;
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
-    std::array<Commitment, NUM_WIRES> T_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         std::string suffix = std::to_string(idx);
         t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
         T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
         T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
+    }
+
+    for (size_t i = 0; i < 4; i++) {
+        info("merge commitment at ", i, " ", T_commitments[i]);
     }
 
     FF kappa = transcript->template get_challenge<FF>("kappa");

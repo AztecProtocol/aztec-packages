@@ -521,6 +521,16 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
+    auto first_ultra_op = ultra_ops[0];
+    populate_wires_from_ultra_op(first_ultra_op);
+    for (auto& wire : wires) {
+        if (wire.empty()) {
+            wire.push_back(zero_idx);
+            wire.push_back(zero_idx);
+        }
+    }
+    num_gates += 2;
+
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
     for (size_t i = 0; i < ultra_ops.size() - 1; i++) {
@@ -554,5 +564,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }
+    info(wires[WireIds::OP].size(), "Accumulator circuit size");
 }
 } // namespace bb
