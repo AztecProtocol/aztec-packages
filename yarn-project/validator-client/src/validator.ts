@@ -330,6 +330,8 @@ export class ValidatorClient extends WithTracer implements Validator {
       }
     }
 
+    this.log.verbose(`Using old style proposal with ${proposal.payload.txHashes.length} transactions`);
+
     // Old style proposal, we will perform a request by hash from pool
     // This will request from network any txs that are missing
     const txHashes: TxHash[] = proposal.payload.txHashes;
