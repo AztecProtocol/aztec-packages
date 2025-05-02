@@ -250,11 +250,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   async reExecuteTransactions(proposal: BlockProposal, txs: Tx[]) {
     const { header, txHashes } = proposal.payload;
 
-    // const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
-    //   tx => tx !== undefined,
-    // ) as Tx[];
-
-    // If we do not request all of the transactions, then we should fail
+    // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
       throw new TransactionsNotAvailableError(txHashes);
     }
@@ -302,7 +298,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Is this a new style proposal?
     if (proposal.txs && proposal.txs.length > 0) {
       // Yes, any txs that we already have we should use
-      // Maybe we could use the hashes in the proposal
+      // Maybe we could use the hashes in the proposal instead of re-deriving
       const hashes = await Promise.all(proposal.txs.map(tx => tx.getTxHash()));
       const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashes);
       for (let i = 0; i < proposal.txs.length; i++) {
