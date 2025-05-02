@@ -18,7 +18,7 @@ export class ContractInstanceUpdatedEvent {
   static isContractInstanceUpdatedEvent(log: PublicLog) {
     return (
       log.contractAddress.equals(ProtocolContractAddress.ContractInstanceDeployer) &&
-      log.log[0].equals(DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG)
+      log.fields[0].equals(DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG)
     );
   }
 

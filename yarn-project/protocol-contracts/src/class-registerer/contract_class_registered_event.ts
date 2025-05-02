@@ -21,16 +21,17 @@ export class ContractClassRegisteredEvent {
   ) {}
 
   static isContractClassRegisteredEvent(log: ContractClassLog) {
-    return log.fields[0].equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG);
+    return log.fields.fields[0].equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG);
   }
 
   static fromLog(log: ContractClassLog) {
-    const reader = new FieldReader(log.fields.slice(1));
+    const fieldsWithoutTag = log.fields.fields.slice(1);
+    const reader = new FieldReader(fieldsWithoutTag);
     const contractClassId = reader.readField();
     const version = reader.readField().toNumber();
     const artifactHash = reader.readField();
     const privateFunctionsRoot = reader.readField();
-    const packedPublicBytecode = bufferFromFields(reader.readFieldArray(log.fields.slice(1).length - reader.cursor));
+    const packedPublicBytecode = bufferFromFields(reader.readFieldArray(fieldsWithoutTag.length - reader.cursor));
 
     return new ContractClassRegisteredEvent(
       contractClassId,

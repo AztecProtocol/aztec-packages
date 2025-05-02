@@ -2,7 +2,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -473,7 +473,7 @@ export function describeArchiverDataStore(
         PublicLog.fromFields([
           AztecAddress.fromNumber(1).toField(), // log address
           tag, // field 0
-          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 1 to end
+          ...times(PUBLIC_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 1 to end
         ]);
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {

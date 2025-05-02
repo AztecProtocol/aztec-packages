@@ -152,7 +152,7 @@ export class TXENode implements AztecNode {
 
     // Store the public logs
     effect.publicLogs.forEach((log, logIndexInTx) => {
-      const tag = log.log[0];
+      const tag = log.fields[0];
       this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];

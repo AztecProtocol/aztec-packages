@@ -51,6 +51,12 @@ const main = async () => {
   );
 
   code += `
+    // Types added manually.
+    export type LogHash = {
+      value: Field;
+      length: u32;
+    }
+
     export * from '../artifacts/types.js';
   `;
   await fs.writeFile('./src/types/index.ts', code);

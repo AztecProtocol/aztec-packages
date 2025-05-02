@@ -24,11 +24,11 @@ export class UtilityFunctionBroadcastedEvent {
   ) {}
 
   static isUtilityFunctionBroadcastedEvent(log: ContractClassLog) {
-    return log.fields[0].equals(REGISTERER_UTILITY_FUNCTION_BROADCASTED_TAG);
+    return log.fields.fields[0].equals(REGISTERER_UTILITY_FUNCTION_BROADCASTED_TAG);
   }
 
   static fromLog(log: ContractClassLog) {
-    const reader = new FieldReader(log.fields.slice(1));
+    const reader = new FieldReader(log.fields.fields.slice(1));
     const event = UtilityFunctionBroadcastedEvent.fromFields(reader);
     while (!reader.isFinished()) {
       const field = reader.readField();

@@ -56,7 +56,7 @@ describe('e2e_nested_contract manual', () => {
       })
     ).logs;
     const processedLogs = extendedLogs.map(extendedLog =>
-      toBigIntBE(serializeToBuffer(extendedLog.log.log.filter(elt => !elt.isZero()))),
+      toBigIntBE(serializeToBuffer(extendedLog.log.getEmittedFields())),
     );
     expect(processedLogs).toEqual([20n, 40n]);
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(40n));

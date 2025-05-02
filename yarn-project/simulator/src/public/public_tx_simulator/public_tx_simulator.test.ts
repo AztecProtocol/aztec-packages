@@ -1,5 +1,4 @@
 import {
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   REGISTERER_CONTRACT_ADDRESS,
@@ -19,8 +18,8 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { ScopedLogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
-import { ContractClassLog } from '@aztec/stdlib/logs';
+import { LogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { fr, makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
@@ -174,19 +173,16 @@ describe('public_tx_simulator', () => {
         Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
       ),
     ];
-    const contractClassLog = ContractClassLog.fromFields([
-      new Fr(REGISTERER_CONTRACT_ADDRESS),
-      ...contractClassLogFields.concat(
-        new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - contractClassLogFields.length).fill(Fr.ZERO),
-      ),
-    ]);
-    tx.contractClassLogs.push(contractClassLog);
-    const contractClassLogHash = ScopedLogHash.fromFields([
-      await contractClassLog.hash(),
-      new Fr(7),
-      new Fr(contractClassLog.getEmittedLength()),
-      new Fr(REGISTERER_CONTRACT_ADDRESS),
-    ]);
+    const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
+    const emittedLength = contractClassLogFields.length;
+    const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+
+    tx.contractClassLogPreimages.push(logFields);
+
+    const contractClassLogHash = LogHash.from({
+      value: await logFields.hash(),
+      length: emittedLength,
+    }).scope(contractAddress);
     if (revertible) {
       tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
     } else {
@@ -881,10 +877,10 @@ describe('public_tx_simulator', () => {
 
     const contractClass = await contractsDB.getContractClass(contractClassId);
     if (kind == 'revertible') {
-      expect(tx.contractClassLogs.length).toEqual(0);
+      expect(tx.contractClassLogPreimages.length).toEqual(0);
       expect(contractClass).toBeUndefined();
     } else {
-      expect(tx.contractClassLogs.length).toEqual(1);
+      expect(tx.contractClassLogPreimages.length).toEqual(1);
       expect(contractClass).toBeDefined();
     }
   });

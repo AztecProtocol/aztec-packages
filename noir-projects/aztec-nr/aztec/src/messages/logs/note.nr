@@ -116,7 +116,10 @@ where
         assert_note_exists(*context, note_hash_counter);
 
         let encrypted_log = compute_note_log(note, storage_slot, recipient, sender);
-        context.emit_raw_note_log(encrypted_log, note_hash_counter);
+        // Regardless of the original note size `N, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
     }
 }
 
@@ -144,6 +147,9 @@ where
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
         let encrypted_log =
             unsafe { compute_note_log_unconstrained(note, storage_slot, recipient, sender) };
-        context.emit_raw_note_log(encrypted_log, note_hash_counter);
+        // Regardless of the original note size `N`, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_raw_note_log(encrypted_log, length, note_hash_counter);
     }
 }

@@ -124,7 +124,7 @@ describe('PendingTaggedLog', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     const fieldArrayStr = `[${serialized.map(f => f.toString()).join(',')}]`;
     updateInlineTestData(
-      'noir-projects/aztec-nr/aztec/src/discovery/pending_tagged_log.nr',
+      'noir-projects/aztec-nr/aztec/src/messages/discovery/pending_tagged_log.nr',
       'serialized_pending_tagged_log_from_typescript',
       fieldArrayStr,
     );

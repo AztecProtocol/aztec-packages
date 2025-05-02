@@ -1,4 +1,5 @@
 use crate::{
+    abis::side_effect::{counted::Counted, Ordered},
     address::AztecAddress,
     tests::types::TestValue,
     traits::{Deserialize, Empty, Serialize, ToField},
@@ -55,6 +56,12 @@ where
         };
         reader.finish();
         deserialized
+    }
+}
+
+impl<T> Ordered for Scoped<Counted<T>> {
+    fn counter(self) -> u32 {
+        self.inner.counter()
     }
 }
 

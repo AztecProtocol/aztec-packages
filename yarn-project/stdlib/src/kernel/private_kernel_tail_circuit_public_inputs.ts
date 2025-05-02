@@ -254,11 +254,23 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   getEmittedContractClassLogsLength() {
-    return this.getNonEmptyContractClassLogsHashes().reduce((total, log) => total + log.logHash.length, 0);
+    return (
+      this.forPublic
+        ? this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes.concat(
+            this.forPublic.revertibleAccumulatedData.contractClassLogsHashes,
+          )
+        : this.forRollup!.end.contractClassLogsHashes
+    ).reduce((total, log) => total + log.logHash.length, 0);
   }
 
   getEmittedPrivateLogsLength() {
-    return this.getNonEmptyPrivateLogs().reduce((total, log) => total + log.getEmittedLength(), 0);
+    return (
+      this.forPublic
+        ? this.forPublic.nonRevertibleAccumulatedData.privateLogs.concat(
+            this.forPublic.revertibleAccumulatedData.privateLogs,
+          )
+        : this.forRollup!.end.privateLogs
+    ).reduce((total, log) => total + log.emittedLength, 0);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {

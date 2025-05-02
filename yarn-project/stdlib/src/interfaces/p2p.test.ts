@@ -70,8 +70,8 @@ class MockP2P implements P2PApi {
     return Promise.resolve([BlockAttestation.empty()]);
   }
 
-  async getPendingTxs(): Promise<Tx[]> {
-    return [await Tx.random()];
+  getPendingTxs(): Promise<Tx[]> {
+    return Promise.resolve([Tx.random()]);
   }
 
   getEncodedEnr(): Promise<string | undefined> {

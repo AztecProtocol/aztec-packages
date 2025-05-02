@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { Body } from './body.js';
 
@@ -27,5 +28,11 @@ describe('Body', () => {
     // Replace the initial field with an invalid encoding
     fields[0] = new Fr(12);
     expect(() => Body.fromBlobFields(fields)).toThrow('Invalid fields');
+  });
+
+  it('convert to and from json', async () => {
+    const body = await Body.random();
+    const parsed = Body.schema.parse(JSON.parse(jsonStringify(body)));
+    expect(parsed).toEqual(body);
   });
 });

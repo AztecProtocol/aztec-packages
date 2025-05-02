@@ -1,18 +1,18 @@
 use crate::{
     abis::{log::Log, side_effect::Scoped},
     address::AztecAddress,
-    constants::{PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS},
+    constants::{PUBLIC_LOG_LENGTH, PUBLIC_LOG_SIZE_IN_FIELDS},
     traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct PublicLog {
-    pub log: Log<PUBLIC_LOG_DATA_SIZE_IN_FIELDS>,
+    pub log: Log<PUBLIC_LOG_SIZE_IN_FIELDS>,
     pub contract_address: AztecAddress,
 }
 
-impl Scoped<Log<PUBLIC_LOG_DATA_SIZE_IN_FIELDS>> for PublicLog {
-    fn inner(self) -> Log<PUBLIC_LOG_DATA_SIZE_IN_FIELDS> {
+impl Scoped<Log<PUBLIC_LOG_SIZE_IN_FIELDS>> for PublicLog {
+    fn inner(self) -> Log<PUBLIC_LOG_SIZE_IN_FIELDS> {
         self.log
     }
     fn contract_address(self) -> AztecAddress {
@@ -32,15 +32,15 @@ impl Empty for PublicLog {
     }
 }
 
-impl Serialize<PUBLIC_LOG_SIZE_IN_FIELDS> for PublicLog {
-    fn serialize(self) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
+impl Serialize<PUBLIC_LOG_LENGTH> for PublicLog {
+    fn serialize(self) -> [Field; PUBLIC_LOG_LENGTH] {
         // Note: we ensure that the address of a public log goes first, unlike generic Scoped<T> impls
         array_concat([self.contract_address.to_field()], self.log.serialize())
     }
 }
 
-impl Deserialize<PUBLIC_LOG_SIZE_IN_FIELDS> for PublicLog {
-    fn deserialize(fields: [Field; PUBLIC_LOG_SIZE_IN_FIELDS]) -> Self {
+impl Deserialize<PUBLIC_LOG_LENGTH> for PublicLog {
+    fn deserialize(fields: [Field; PUBLIC_LOG_LENGTH]) -> Self {
         let mut reader = Reader::new(fields);
         Self {
             contract_address: reader.read_struct(AztecAddress::deserialize),

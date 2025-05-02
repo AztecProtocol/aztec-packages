@@ -1,5 +1,5 @@
-import { PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
-import { timesParallel } from '@aztec/foundation/collection';
+import { PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { padArrayEnd, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -27,7 +27,7 @@ import { NoteDataProvider } from '../storage/note_data_provider/note_data_provid
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { PXEOracleInterface, trimTrailingZeros } from './pxe_oracle_interface.js';
+import { PXEOracleInterface } from './pxe_oracle_interface.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
 
 jest.setTimeout(30_000);
@@ -439,11 +439,11 @@ describe('PXEOracleInterface', () => {
       const tag = await computeSiloedTagForIndex(senders[0], recipient.address, contractAddress, 0);
 
       // Create a public log with the correct tag
-      const logContent = [Fr.ONE, tag, ...Array(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 2).fill(Fr.random())] as Tuple<
+      const logContent = [Fr.ONE, tag, ...Array(PUBLIC_LOG_SIZE_IN_FIELDS - 2).fill(Fr.random())] as Tuple<
         Fr,
-        typeof PUBLIC_LOG_DATA_SIZE_IN_FIELDS
+        typeof PUBLIC_LOG_SIZE_IN_FIELDS
       >;
-      const log = new PublicLog(await AztecAddress.random(), logContent);
+      const log = new PublicLog(await AztecAddress.random(), logContent, PUBLIC_LOG_SIZE_IN_FIELDS);
       const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, 0, log);
 
       logs[tag.toString()] = [scopedLog];
@@ -662,7 +662,7 @@ describe('PXEOracleInterface', () => {
       const result = await pxeOracleInterface.getLogByTag(tag);
 
       // The implementation returns hex strings, not Buffer objects
-      expect(result?.logContent).toEqual(scopedLog.log.toFields());
+      expect(result?.logContent).toEqual(scopedLog.log.getEmittedFields());
       expect(result?.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result?.txHash).toEqual(scopedLog.txHash);
       expect(result?.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
@@ -684,19 +684,16 @@ describe('PXEOracleInterface', () => {
       await expect(pxeOracleInterface.getLogByTag(tag)).rejects.toThrow(/failed to retrieve tx effects/);
     });
 
-    it('trims zero padding from log fields', async () => {
+    it('returns log fields that are actually emitted', async () => {
       const logContent = [Fr.random(), Fr.random()];
-      const logContentWithPadding = [
-        ...logContent,
-        ...Array(PRIVATE_LOG_SIZE_IN_FIELDS - logContent.length).fill(Fr.ZERO),
-      ] as Tuple<Fr, typeof PRIVATE_LOG_SIZE_IN_FIELDS>;
 
+      const log = new PrivateLog(padArrayEnd(logContent, Fr.ZERO, PRIVATE_LOG_SIZE_IN_FIELDS), logContent.length);
       const scopedLogWithPadding = new TxScopedL2Log(
         TxHash.random(),
         randomInt(100),
         randomInt(100),
         randomInt(100),
-        new PrivateLog(logContentWithPadding),
+        log,
       );
 
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
@@ -830,34 +827,4 @@ describe('PXEOracleInterface', () => {
       }),
     );
   };
-
-  describe('trimTrailingZeros', () => {
-    function toFr(arr: number[]): Fr[] {
-      return arr.map(x => new Fr(x));
-    }
-
-    it('does not modify arrays with no zeros', () => {
-      expect(trimTrailingZeros(toFr([1, 2, 3]))).toEqual(toFr([1, 2, 3]));
-    });
-
-    it('removes zeros at the end', () => {
-      expect(trimTrailingZeros(toFr([1, 2, 3, 0, 0]))).toEqual(toFr([1, 2, 3]));
-    });
-
-    it('does not remove zeros not at the end', () => {
-      expect(trimTrailingZeros(toFr([1, 0, 2, 3, 0, 0]))).toEqual(toFr([1, 0, 2, 3]));
-    });
-
-    it('does not modify the original array', () => {
-      const original = toFr([1, 0, 2, 3, 0, 0]);
-      const result = trimTrailingZeros(original);
-
-      expect(result.length != original.length);
-      expect(original).toEqual(toFr([1, 0, 2, 3, 0, 0]));
-    });
-
-    it('works on an empty array', () => {
-      expect(trimTrailingZeros(toFr([]))).toEqual(toFr([]));
-    });
-  });
 });

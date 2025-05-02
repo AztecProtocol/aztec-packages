@@ -60,20 +60,21 @@ export class DataTxValidator implements TxValidator<Tx> {
 
   async #hasCorrectContractClassLogs(tx: Tx): Promise<TxValidationResult> {
     const contractClassLogsHashes = tx.data.getNonEmptyContractClassLogsHashes();
-    const hashedContractClasslogs = await Promise.all(tx.contractClassLogs.map(l => l.hash()));
-    if (contractClassLogsHashes.length !== hashedContractClasslogs.length) {
+    if (contractClassLogsHashes.length !== tx.contractClassLogPreimages.length) {
       this.#log.warn(
         `Rejecting tx ${await Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
           contractClassLogsHashes.length
-        }. Got ${hashedContractClasslogs.length}.`,
+        }. Got ${tx.contractClassLogPreimages.length}.`,
       );
       return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_COUNT] };
     }
+
+    const expectedHashes = await Promise.all(tx.contractClassLogPreimages.map(l => l.hash()));
     for (const [i, logHash] of contractClassLogsHashes.entries()) {
-      const hashedLog = hashedContractClasslogs[i];
-      if (!logHash.value.equals(hashedLog)) {
-        if (hashedContractClasslogs.some(l => logHash.value.equals(l))) {
-          const matchingLogIndex = hashedContractClasslogs.findIndex(l => logHash.value.equals(l));
+      const hash = expectedHashes[i];
+      if (!logHash.value.equals(hash)) {
+        if (expectedHashes.some(h => logHash.value.equals(h))) {
+          const matchingLogIndex = expectedHashes.findIndex(l => logHash.value.equals(l));
           this.#log.warn(
             `Rejecting tx ${await Tx.getHash(
               tx,
@@ -84,20 +85,23 @@ export class DataTxValidator implements TxValidator<Tx> {
           this.#log.warn(
             `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
               logHash.value
-            } from the kernels. Got ${hashedLog} in the tx.`,
+            } from the kernels. Got ${hash} in the tx.`,
           );
           return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOGS] };
         }
       }
-      if (logHash.logHash.length !== tx.contractClassLogs[i].getEmittedLength()) {
+
+      const expectedMinLength = 1 + tx.contractClassLogPreimages[i].fields.findLastIndex(f => !f.isZero());
+      if (expectedMinLength > logHash.logHash.length) {
         this.#log.warn(
           `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs length. Expected ${
             logHash.logHash.length
-          } from the kernel's log hashes. Got ${tx.contractClassLogs[i].getEmittedLength()} in the tx.`,
+          } from the kernel's log hashes. Got ${expectedMinLength} in the tx.`,
         );
         return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_LENGTH] };
       }
     }
+
     return { result: 'valid' };
   }
 }

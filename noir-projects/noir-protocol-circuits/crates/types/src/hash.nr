@@ -10,17 +10,15 @@ use crate::{
     },
     address::{AztecAddress, EthAddress},
     constants::{
-        FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__OUTER_NULLIFIER,
-        GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE,
+        GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
+        GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},
-    utils::{
-        arrays::{array_concat, unsafe_padded_array_length},
-        field::{field_from_bytes, field_from_bytes_32_trunc},
-    },
+    utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
 };
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
@@ -115,11 +113,11 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     } else {
         let mut fields = private_log.inner.log.fields;
         fields[0] = compute_siloed_private_log_field(private_log.contract_address, fields[0]);
-        PrivateLog { fields }
+        PrivateLog::new(fields, private_log.inner.log.length)
     }
 }
 
-fn compute_siloed_contract_class_log_field(
+pub fn compute_siloed_contract_class_log_field(
     contract_address: AztecAddress,
     first_field: Field,
 ) -> Field {
@@ -139,15 +137,8 @@ pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> Contract
     }
 }
 
-pub fn compute_contract_class_log_hash(contract_class_log: ContractClassLog) -> Field {
-    let array = contract_class_log.log.fields;
-    // Safety: The below length is constrained in the base rollup.
-    let length = unsafe { unsafe_padded_array_length(array) };
-    if length == 0 {
-        0
-    } else {
-        poseidon2_hash(array)
-    }
+pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) -> Field {
+    poseidon2_hash(log)
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {

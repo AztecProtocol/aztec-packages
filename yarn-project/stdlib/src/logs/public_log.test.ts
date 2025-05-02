@@ -1,6 +1,7 @@
-import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { PublicLog } from './public_log.js';
@@ -24,29 +25,32 @@ describe('PublicLog', () => {
     expect(res).toEqual(log);
   });
 
-  it('number of fields matches constant', () => {
-    const fields = log.toFields();
-    expect(fields.length).toBe(PUBLIC_LOG_SIZE_IN_FIELDS);
+  it('convert to and from json', () => {
+    const parsed = PublicLog.schema.parse(JSON.parse(jsonStringify(log)));
+    expect(parsed).toEqual(log);
   });
 
-  it('number of emitted fields is correct', () => {
+  it('number of fields matches constant', () => {
+    const fields = log.toFields();
+    expect(fields.length * Fr.SIZE_IN_BYTES).toBe(PublicLog.SIZE_IN_BYTES);
+  });
+
+  it('number of emitted fields is correct', async () => {
+    const address = await AztecAddress.random();
     const smallLogFields = [new Fr(1), new Fr(2), new Fr(3)];
     const smallLog = new PublicLog(
-      AztecAddress.fromField(Fr.ONE),
-      padArrayEnd(smallLogFields, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS),
+      address,
+      padArrayEnd(smallLogFields, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS),
+      smallLogFields.length,
     );
-    // The address is always part of the log, throughout kernels and rollup circuits
-    const expectedSmall = [Fr.ONE].concat(smallLogFields);
-    expect(smallLog.getEmittedFields()).toEqual(expectedSmall);
-    expect(smallLog.getEmittedLength()).toBe(expectedSmall.length);
+    expect(smallLog.toBlobFields().length).toEqual(smallLogFields.length + 1 /* length */ + 1 /* contract address */);
 
-    const largeLogFields = Array.from({ length: PUBLIC_LOG_DATA_SIZE_IN_FIELDS }, () => Fr.random());
+    const largeLogFields = Array.from({ length: PUBLIC_LOG_SIZE_IN_FIELDS }, () => Fr.random());
     const largeLog = new PublicLog(
-      AztecAddress.fromField(Fr.ONE),
-      padArrayEnd(largeLogFields, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS),
+      address,
+      padArrayEnd(largeLogFields, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS),
+      largeLogFields.length,
     );
-    const expectedLarge = [Fr.ONE].concat(largeLogFields);
-    expect(largeLog.getEmittedFields()).toEqual(expectedLarge);
-    expect(largeLog.getEmittedLength()).toBe(expectedLarge.length);
+    expect(largeLog.toBlobFields().length).toEqual(largeLogFields.length + 1 /* length */ + 1 /* contract address */);
   });
 });

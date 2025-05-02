@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { TxEffect } from './tx_effect.js';
 
@@ -19,6 +20,12 @@ describe('TxEffect', () => {
     const txEffect = TxEffect.empty();
     const fields = txEffect.toBlobFields();
     expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
+  });
+
+  it('convert to and from json', async () => {
+    const txEffect = await TxEffect.random();
+    const parsed = TxEffect.schema.parse(JSON.parse(jsonStringify(txEffect)));
+    expect(parsed).toEqual(txEffect);
   });
 
   it('fails with invalid fields', async () => {

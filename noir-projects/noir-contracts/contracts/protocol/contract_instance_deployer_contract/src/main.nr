@@ -141,7 +141,10 @@ pub contract ContractInstanceDeployer {
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
         let padded_log = array_concat(payload, [0; 3]);
-        context.emit_private_log(padded_log);
+        // Only the payload needs to be emitted. Since the siloed tag of this event log is publicly known, it's
+        // acceptable to pad the log with 0s and reveal the actual payload length.
+        let length = payload.len();
+        context.emit_private_log(padded_log, length);
     }
 
     #[public]
