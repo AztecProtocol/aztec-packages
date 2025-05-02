@@ -109,7 +109,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param block - The block received from the peer.
    * @returns The attestation for the block, if any.
    */
-  private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
+  private blockReceivedCallback: (block: BlockProposal, peerId: PeerId) => Promise<BlockAttestation | undefined>;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
 
@@ -152,7 +152,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
-    this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
+    this.blockReceivedCallback = async (block: BlockProposal, _: PeerId): Promise<BlockAttestation | undefined> => {
       this.logger.debug(
         `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber.toNumber()} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageIdentifier() },
@@ -456,6 +456,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.logger.verbose('Block received callback registered');
   }
 
+  public registerTxIngressBlockProposalCallback() {
+    this.blockReceivedCallback = this.extractTxsFromBlockProposal.bind(this);
+    this.logger.verbose('Tx extraction from block proposal callback registered');
+  }
+
   /**
    * Subscribes to a topic.
    * @param topic - The topic to subscribe to.
@@ -590,7 +595,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!result || !block) {
       return;
     }
-    await this.processValidBlockProposal(block);
+    await this.processValidBlockProposal(block, source);
   }
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -600,7 +605,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
   }))
-  private async processValidBlockProposal(block: BlockProposal) {
+  private async processValidBlockProposal(block: BlockProposal, peerId: PeerId) {
     this.logger.verbose(
       `Received block ${block.blockNumber.toNumber()} for slot ${block.slotNumber.toNumber()} from external peer.`,
       {
@@ -610,7 +615,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         block: block.blockNumber.toNumber(),
       },
     );
-    const attestation = await this.blockReceivedCallback(block);
+    const attestation = await this.blockReceivedCallback(block, peerId);
 
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
@@ -695,13 +700,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return true;
   }
 
-  @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
-    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
-  }))
-  private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
-    const messageValidators = await this.createMessageValidators(blockNumber);
-
+  private async executeValidatorsOnTransaction(
+    tx: Tx,
+    messageValidators: Record<string, MessageValidator>[],
+    peerId: PeerId,
+    blockNumber: number,
+  ): Promise<boolean> {
     for (const validator of messageValidators) {
       const outcome = await this.runValidations(tx, validator);
 
@@ -720,6 +724,16 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return false;
     }
     return true;
+  }
+
+  @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
+  }))
+  private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
+    const messageValidators = await this.createMessageValidators(blockNumber);
+
+    return this.executeValidatorsOnTransaction(tx, messageValidators, peerId, blockNumber);
   }
 
   private async getGasFees(blockNumber: number): Promise<GasFees> {
@@ -829,6 +843,33 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // If all validations pass, allPassed will be true, if failed, then the failure will be the first validation to fail
     return result;
+  }
+
+  private async extractTxsFromBlockProposal(block: BlockProposal, peerId: PeerId): Promise<undefined> {
+    const receivedTxs = block.txs ?? [];
+    const receivedTxHashes = await Promise.all(receivedTxs.map(tx => tx.getTxHash()));
+    if (receivedTxHashes.length === 0) {
+      return undefined;
+    }
+    // Check if we already have the transactions in our pool
+    const haveAlready = await this.mempools.txPool.hasTxs(receivedTxHashes);
+    const newTxs = receivedTxs.filter((_, i) => !haveAlready[i]);
+    if (newTxs.length === 0) {
+      return undefined;
+    }
+    // Validate the transactions
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
+    const messageValidators = await this.createMessageValidators(blockNumber);
+    const validationResults = await Promise.all(
+      newTxs.map(tx => this.executeValidatorsOnTransaction(tx, messageValidators, peerId, blockNumber)),
+    );
+    const validTxs = newTxs.filter((_, i) => validationResults[i]);
+    if (validTxs.length === 0) {
+      return undefined;
+    }
+    this.logger.verbose(`Adding ${validTxs.length} new txs to the tx pool, extracted from a block proposal.`);
+    await this.mempools.txPool.addTxs(validTxs);
+    return undefined;
   }
 
   /**

@@ -78,6 +78,7 @@ export async function createProverCoordination(
     deps.epochCache,
     deps.telemetry,
   );
+  p2pClient.registerTransactionExtractionForBlockProposals();
   await p2pClient.start();
 
   return new CombinedProverCoordination(p2pClient, nodes, coordinationConfig);
