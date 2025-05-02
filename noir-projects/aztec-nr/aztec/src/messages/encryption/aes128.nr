@@ -120,15 +120,6 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
 // We'll keep this function around, because some users might need it if their
 // shared_secret is derived in a way which is not safe for usage with the
 // poseidon2 approach.
-/**
- * @param shared_secret: an ECDH shared secret (Grumpkin)
- * @param index_for_repeated_use: if you want to re-use the same ECDH shared secret
- * to generate multiple (sym_key, iv) tuples, to then create multiple ciphertext, 
- * you should use a different index here each time.
- * The reason you might want to re-use the same ECDH shared secret, is so that you 
- * only need to broadcast 1 ephemeral public key instead of 2. 
- * You must never re-use the same sym_key or iv.
- */
 fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256<let N: u32>(
     shared_secret: Point,
 ) -> [[u8; 32]; N] {
