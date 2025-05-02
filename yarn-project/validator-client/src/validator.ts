@@ -358,7 +358,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       })
       .filter(hash => hash !== undefined);
     if (missingTxs.length > 0) {
-      throw new TransactionsNotAvailableError(missingTxs);
+      throw new TransactionsNotAvailableError(missingTxs as TxHash[]);
     }
     return retrievedTxs as Tx[];
   }
