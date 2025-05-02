@@ -89,8 +89,8 @@ void PrivateExecutionSteps::parse(const std::vector<PrivateExecutionStepRaw>& st
         // use spans instead of vectors.
         std::vector<uint8_t> bytecode_buf(step.bytecode.begin(), step.bytecode.end());
         std::vector<uint8_t> witness_buf(step.witness.begin(), step.witness.end());
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(bytecode_buf);
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(witness_buf);
+        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(bytecode_buf));
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(witness_buf));
 
         folding_stack[i] = { constraints, witness };
         if (step.vk.empty()) {
