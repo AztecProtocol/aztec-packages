@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 
-#include "gmock/gmock.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"

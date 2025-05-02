@@ -243,7 +243,6 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeValueIsCorrect)
 
 TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 {
-
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -306,7 +305,6 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 
 TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
 {
-
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
