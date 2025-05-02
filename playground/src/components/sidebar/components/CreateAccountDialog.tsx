@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { Fr, DeployMethod, type DeployOptions, AccountWallet } from '@aztec/aztec.js';
+import { Fr, DeployMethod, type DeployOptions, AccountWallet, Fq, AccountManager } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getEcdsaRAccount, getEcdsaKAccount, getEcdsaRSerialAccount } from '@aztec/accounts/ecdsa/lazy';
 import Button from '@mui/material/Button';
@@ -38,7 +38,6 @@ export function CreateAccountDialog({
 }) {
   const [alias, setAlias] = useState('');
   const [type, setType] = useState<AccountType>('ecdsasecp256r1');
-  const [secretKey] = useState(Fr.random());
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState(null);
 
@@ -49,30 +48,33 @@ export function CreateAccountDialog({
   const createAccount = async () => {
     setIsRegistering(true);
     try {
-      const salt = Fr.random();
-      let accountManager;
-      let signingKey;
+      let accountManager: AccountManager;
+      let secretKey: Fr | undefined;
+      let signingKey: Fq | Buffer | undefined;
       switch (type) {
         case 'schnorr': {
+          secretKey = Fr.random();
           signingKey = deriveSigningKey(secretKey);
-          accountManager = await getSchnorrAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await getSchnorrAccount(pxe, secretKey, signingKey);
           break;
         }
         case 'ecdsasecp256r1': {
+          secretKey = Fr.random();
           signingKey = randomBytes(32);
-          accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey);
           break;
         }
         case 'ecdsasecp256k1': {
+          secretKey = Fr.random();
           signingKey = randomBytes(32);
-          accountManager = await getEcdsaKAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await getEcdsaKAccount(pxe, secretKey, signingKey);
           break;
         }
         case 'aztec-keychain': {
           // Index of the key
           const signingKeyIndex = 0;
           signingKey = Buffer.from([signingKeyIndex]);
-          accountManager = await getEcdsaRSerialAccount(pxe, secretKey, signingKeyIndex, salt);
+          accountManager = await getEcdsaRSerialAccount(pxe, signingKeyIndex);
           break;
         }
         default: {
@@ -85,15 +87,22 @@ export function CreateAccountDialog({
         type,
         secretKey: accountWallet.getSecretKey(),
         alias,
-        salt,
+        salt: accountManager.getInstance().salt,
         signingKey,
       });
+
+      const { isContractInitialized } = await pxe.getContractMetadata(accountWallet.getAddress());
+
+      if (isContractInitialized) {
+        onClose(accountWallet, false);
+        return;
+      }
 
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
       deployMethod = await accountManager.getDeployMethod();
       opts = {
-        contractAddressSalt: salt,
+        contractAddressSalt: accountManager.getInstance().salt,
         fee: {
           paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
         },

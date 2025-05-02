@@ -195,15 +195,12 @@ export function ContractComponent() {
     opts?: DeployOptions,
   ) => {
     setOpenCreateContractDialog(false);
-    if (contract && publiclyDeploy) {
-      const txReceipt = await sendTx(
-        `Deploy ${currentContractArtifact.name}`,
-        interaction,
-        contract.address,
-        opts,
-      );
+    if (contract) {
+      const txReceipt = publiclyDeploy
+        ? await sendTx(`Deploy ${currentContractArtifact.name}`, interaction, contract.address, opts)
+        : undefined;
       // Temporarily ignore undeployed contracts
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+      if (!publiclyDeploy || txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);
       }
     }

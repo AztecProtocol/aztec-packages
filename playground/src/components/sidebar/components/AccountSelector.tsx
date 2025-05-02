@@ -133,12 +133,8 @@ export function AccountSelector() {
         break;
       }
       case 'aztec-keychain': {
-        accountManager = await getEcdsaRSerialAccount(
-          pxe,
-          accountData.secretKey,
-          accountData.signingKey[0],
-          accountData.salt,
-        );
+        accountManager = await getEcdsaRSerialAccount(pxe, accountData.signingKey[0]);
+        break;
       }
       default: {
         throw new Error('Unknown account type');
@@ -157,9 +153,11 @@ export function AccountSelector() {
   ) => {
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
-    if (accountWallet && publiclyDeploy) {
-      const txReceipt = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+    if (accountWallet) {
+      const txReceipt = publiclyDeploy
+        ? await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts)
+        : undefined;
+      if (!publiclyDeploy || txReceipt?.status === TxStatus.SUCCESS) {
         setAccounts([
           ...accounts,
           { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
@@ -169,6 +167,7 @@ export function AccountSelector() {
         // Temporarily remove from accounts if deployment fails
         await walletDB.deleteAccount(accountWallet.getAddress());
       }
+    } else {
     }
     setIsAccountsLoading(false);
   };
@@ -243,7 +242,9 @@ export function AccountSelector() {
         <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
       )}
 
-      <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
+      {openCreateAccountDialog && (
+        <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
+      )}
     </div>
   );
 }
