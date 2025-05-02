@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746197156755,
+  "lastUpdate": 1746197957754,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "michaeljklein@users.noreply.github.com",
-            "name": "Michael J Klein",
-            "username": "michaeljklein"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d5d2d140ed85c86703c8a2563ad44e901cec1cc6",
-          "message": "chore: enable --pedantic-solving for all tests with nargo (#11224)\n\nThis PR is a continuation of [this PR in\nNoir](https://github.com/noir-lang/noir/pull/6716) which enables\n`--pedantic-solving` in all tests that use `nargo`, including some I\nmissed in `noir`.\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2025-04-29T19:21:29Z",
-          "tree_id": "233d1a1ea02d7779108b6111558dc4611fadfd52",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d5d2d140ed85c86703c8a2563ad44e901cec1cc6"
-        },
-        "date": 1745957339873,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17649.54006599987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13936.158665 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2223352735,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 197739893,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20365.242792000117,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17009.202648000002 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56167.33329,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56167334000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4422.110520999922,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3855.141681 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11892.324349,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11892327000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2247.75",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -9066,6 +8994,78 @@ window.BENCHMARK_DATA = {
             "value": 2362,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9d1d63c91860d2a8d8274fd1761efe0c419f5c12",
+          "message": "fix!: fix hiding circuit VK consistency in overflow case (#14011)\n\nPrior to this update, the PG recursive verifier was not treating the\ncircuit size and log circuit size as witnesses. This led to the\n`padding_indicator_array` used in the decider recursive verifier in the\nhiding circuit being populated with constant values. This is turn led to\ndifferent constraints in the case where the accumulator had a circuit\nsize larger than the nominal one determined by the structured trace\n(which occurs when the overflow mechanism is active for example).\n\nThis PR makes those values witnesses and adds an additional CIVC VK\nconsistency test for the case where one or more of the circuits\noverflows and results in an accumulator with larger dyadic size than the\nnominal structured trace dyadic size.\n\n---------\n\nCo-authored-by: sergei iakovenko <105737703+iakovenkos@users.noreply.github.com>",
+          "timestamp": "2025-05-02T13:39:15Z",
+          "tree_id": "8607a58002fc04b33e1853e470161e1fa299b66d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9d1d63c91860d2a8d8274fd1761efe0c419f5c12"
+        },
+        "date": 1746197948771,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17615.862299999662,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14262.775683000002 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2258748670,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201203176,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20381.023281000125,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17296.007627 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56742.380191000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56742382000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4471.131203999903,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3905.07638 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12187.217036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12187221000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2215.88",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
