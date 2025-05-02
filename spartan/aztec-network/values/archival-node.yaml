@@ -41,6 +41,9 @@ fullNode:
       memory: "10Gi"
   p2p:
     archivedTxLimit: "10000000" # 10 million
+  startupProbe:
+    periodSeconds: 60
+    failureThreshold: 60
 
 blobSink:
   enabled: false
