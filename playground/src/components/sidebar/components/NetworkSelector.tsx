@@ -11,13 +11,13 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { AztecContext, AztecEnv, WebLogger } from '../../../aztecEnv';
 import { NetworkDB, WalletDB } from '../../../utils/storage';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
-import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
+import { navbarButtonStyle, navbarSelect } from '../../../styles/common';
 import { NETWORKS } from '../../../utils/networks';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import NetworkIcon from '@mui/icons-material/Public';
-import { InputLabel } from '@mui/material';
+import { DialogTitle, Dialog, DialogContent, IconButton } from '@mui/material';
 import { trackButtonClick } from '../../../utils/matomo';
-
+import CloseIcon from '@mui/icons-material/Close';
 
 export function NetworkSelector() {
   const {
@@ -41,7 +41,7 @@ export function NetworkSelector() {
   const [isNetworkStoreInitialized, setIsNetworkStoreInitialized] = useState(false);
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [isOpen, setOpen] = useState(false);
-
+  const [showNetworkDownNotification, setShowNetworkDownNotification] = useState(false);
   const notifications = useNotifications();
 
   useEffect(() => {
@@ -82,11 +82,11 @@ export function NetworkSelector() {
   }, [isNetworkStoreInitialized]);
 
   const handleNetworkChange = async (nodeURL: string) => {
+    let network = null;
     try {
-      trackButtonClick(`Connect to ${nodeURL}`, 'Network Selector');
       setConnecting(true);
       setPXEInitialized(false);
-      const network = networks.find(network => network.nodeURL === nodeURL);
+      network = networks.find(network => network.nodeURL === nodeURL);
       const node = await AztecEnv.connectToNode(network.nodeURL);
       setAztecNode(node);
       setNetwork(network);
@@ -112,9 +112,16 @@ export function NetworkSelector() {
       console.error(error);
       setConnecting(false);
       setNetwork(null);
-      notifications.show('Failed to connect to network', {
-        severity: 'error',
-      });
+
+      // (temp) show a dialog when the testnet connection fails
+      // TODO: Remove this once the network is stable
+      if (network?.name === 'Aztec Testnet') {
+        setShowNetworkDownNotification(true);
+      } else {
+        notifications.show('Failed to connect to network', {
+          severity: 'error',
+        });
+      }
     }
   };
 
@@ -203,6 +210,24 @@ export function NetworkSelector() {
       </FormControl>
 
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
+
+      <Dialog open={showNetworkDownNotification} onClose={() => setShowNetworkDownNotification(false)}>
+        <DialogTitle css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>
+            Testnet is congested
+          </span>
+          <IconButton onClick={() => setShowNetworkDownNotification(false)} >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent css={{ margin: '1.5rem 0' }}>
+          <Typography>
+            The Playground is currently unavailable with the Public Testnet while we troubleshoot network congestion.
+            Please check back in a few hours or use the Playground with the local sandbox instead.
+          </Typography>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

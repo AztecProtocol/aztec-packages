@@ -107,7 +107,8 @@ export function AccountSelector() {
     if (address == '') {
       return;
     }
-    trackButtonClick(`Select Account ${address}`, 'Account Selector');
+    trackButtonClick(`Select Account`, 'Account Selector');
+
     setIsAccountsLoading(true);
     const accountAddress = AztecAddress.fromString(address);
     const accountData = await walletDB.retrieveAccount(accountAddress);

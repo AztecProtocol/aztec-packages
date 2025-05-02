@@ -290,7 +290,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               size="small"
-              onClick={() => simulate(fn.name)}
+              onClick={() => {
+                trackButtonClick(`Simulate Transaction`, 'Contract Interaction');
+                simulate(fn.name);
+              }}
               endIcon={<PsychologyIcon />}
               css={actionButton}
             >
@@ -305,7 +308,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               onClick={() => {
-                trackButtonClick(`Send ${fn.name}`, 'Contract Interaction');
+                trackButtonClick(`Send Transaction`, 'Contract Interaction');
                 setOpenSendTxDialog(true);
               }}
               endIcon={<SendIcon />}
@@ -322,7 +325,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               onClick={() => {
-                trackButtonClick(`Authwit ${fn.name}`, 'Contract Interaction');
+                trackButtonClick(`Create Authwit`, 'Contract Interaction');
                 setOpenCreateAuthwitDialog(true);
               }}
               endIcon={<VpnKeyIcon />}
@@ -338,7 +341,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               size="small"
-              onClick={() => profile(fn.name)}
+              onClick={() => {
+                trackButtonClick(`Profile Transaction`, 'Contract Interaction');
+                profile(fn.name);
+              }}
               endIcon={<TroubleshootIcon />}
               css={actionButton}
             >
