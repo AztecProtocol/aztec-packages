@@ -65,7 +65,7 @@ export function ContractSelector() {
       return;
     }
 
-    trackButtonClick(`Select Contract ${contractValue}`, 'Contract Selector');
+    trackButtonClick(`Contract Change`, 'Contract Selector');
 
     // If 'upload your own' is selected, set the contract artifact to undefined, and allow the user to upload a new one
     if (contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
