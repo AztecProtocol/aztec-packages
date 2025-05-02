@@ -408,7 +408,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     }
 
     const localTotalMessageCount = await this.store.getTotalL1ToL2MessageCount();
-    const destinationTotalMessageCount = await this.inbox.read.totalMessagesInserted();
+    const destinationTotalMessageCount = await this.inbox.read.totalMessagesInserted({
+      blockNumber: currentL1BlockNumber,
+    });
 
     if (localTotalMessageCount === destinationTotalMessageCount) {
       await this.store.setMessageSynchedL1BlockNumber(currentL1BlockNumber);
