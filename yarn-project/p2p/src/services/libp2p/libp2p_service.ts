@@ -832,24 +832,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     });
 
     // A promise that resolves when all validations have been run
-    const allValidations = Promise.all(validationPromises);
-
-    // A promise that resolves when the first validation fails
-    const firstFailure = Promise.race(
-      validationPromises.map(async promise => {
-        const result = await promise;
-        return result.isValid ? new Promise(() => {}) : result;
-      }),
-    );
-
-    // Wait for the first validation to fail or all validations to pass
-    const result = await Promise.race([
-      allValidations.then(() => ({ allPassed: true as const })),
-      firstFailure.then(failure => ({ allPassed: false as const, failure: failure as ValidationResult })),
-    ]);
-
-    // If all validations pass, allPassed will be true, if failed, then the failure will be the first validation to fail
-    return result;
+    const allValidations = await Promise.all(validationPromises);
+    const failed = allValidations.find(x => !x.isValid);
+    if (failed) {
+      return {
+        allPassed: false,
+        failure: {
+          isValid: { result: 'invalid' as const, reason: ['Failed validation'] },
+          name: failed.name,
+          severity: failed.severity,
+        },
+      };
+    } else {
+      return {
+        allPassed: true,
+      };
+    }
   }
 
   /**
