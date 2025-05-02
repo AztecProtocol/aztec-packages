@@ -264,15 +264,16 @@ export class AztecKVTxPool implements TxPool {
       await Promise.all(
         txs.map(async (tx, i) => {
           const { txHash, txStats } = hashesAndStats[i];
+          const key = txHash.toString();
+          if (await this.#txs.hasAsync(key)) {
+            this.#log.debug(`Tx ${txHash.toString()} already exists in the pool`);
+            return;
+          }
+
           this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
             eventName: 'tx-added-to-pool',
             ...txStats,
           } satisfies TxAddedToPoolStats);
-
-          const key = txHash.toString();
-          if (await this.#txs.hasAsync(key)) {
-            return;
-          }
 
           await this.#txs.set(key, tx.toBuffer());
 
