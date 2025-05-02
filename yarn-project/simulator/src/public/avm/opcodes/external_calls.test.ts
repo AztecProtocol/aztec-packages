@@ -49,16 +49,16 @@ describe('External Calls', () => {
         ...Buffer.from('1234', 'hex'), // l2GasOffset
         ...Buffer.from('5678', 'hex'), // daGasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
-        ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
+        ...Buffer.from('b234', 'hex'), // argsOffset
       ]);
       const inst = new Call(
         /*indirect=*/ 0x1234,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
+        /*argsOffset=*/ 0xb234,
       );
 
       expect(Call.fromBuffer(buf)).toEqual(inst);
@@ -87,7 +87,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset);
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -124,7 +124,7 @@ describe('External Calls', () => {
         new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, 0).as(Opcode.SET_8, Set.wireFormat8),
         new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, argsSize).as(Opcode.SET_8, Set.wireFormat8),
         new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, 2).as(Opcode.SET_8, Set.wireFormat8),
-        new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 3),
+        new CalldataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 1, /*csOffsetAddress=*/ 0, /*dstOffset=*/ 3),
         new Return(/*indirect=*/ 0, /*sizeOffset=*/ 2, /*retOffset=*/ 3),
       ]);
       const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
@@ -142,7 +142,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(3, args);
 
-      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset);
+      const instruction = new Call(/*indirect=*/ 0, l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset);
       await instruction.execute(context);
 
       // Use SuccessCopy to get success
@@ -200,8 +200,8 @@ describe('External Calls', () => {
         l2GasOffset,
         daGasOffset,
         addrOffset,
-        /*argsOffset=*/ 0,
         argsSizeOffset,
+        /*argsOffset=*/ 0,
       );
       await instruction.execute(context);
 
@@ -229,16 +229,16 @@ describe('External Calls', () => {
         ...Buffer.from('1234', 'hex'), // l2GasOffset
         ...Buffer.from('5678', 'hex'), // daGasOffset
         ...Buffer.from('a234', 'hex'), // addrOffset
-        ...Buffer.from('b234', 'hex'), // argsOffset
         ...Buffer.from('c234', 'hex'), // argsSizeOffset
+        ...Buffer.from('b234', 'hex'), // argsOffset
       ]);
       const inst = new StaticCall(
         /*indirect=*/ 0x1234,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
         /*argsSizeOffset=*/ 0xc234,
+        /*argsOffset=*/ 0xb234,
       );
 
       expect(StaticCall.fromBuffer(buf)).toEqual(inst);
@@ -281,8 +281,8 @@ describe('External Calls', () => {
         l2GasOffset,
         daGasOffset,
         addrOffset,
-        argsOffset,
         argsSizeOffset,
+        argsOffset,
       );
       await instruction.execute(context);
       // Ideally we'd mock the nested call.
