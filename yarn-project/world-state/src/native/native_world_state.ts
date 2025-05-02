@@ -37,7 +37,7 @@ import { NativeWorldState } from './native_world_state_instance.js';
 
 // The current version of the world state database schema
 // Increment this when making incompatible changes to the database schema
-export const WORLD_STATE_DB_VERSION = 1; // The initial version
+export const WORLD_STATE_DB_VERSION = 2;
 
 export const WORLD_STATE_DIR = 'world_state';
 
