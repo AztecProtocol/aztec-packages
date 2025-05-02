@@ -72,28 +72,28 @@ use std::aes128::aes128_encrypt;
 fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(
     shared_secret: Point,
 ) -> [u8; 32] {
-    // dep::protocol_types::debug_log::debug_log_format("MIKE, about to poseidon2 hash: {}", [0]);
+    dep::protocol_types::debug_log::debug_log_format("MIKE, about to poseidon2 hash: {}", [0]);
     let rand1: Field = poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y],
         GENERATOR_INDEX__SYMMETRIC_KEY,
     );
-    // dep::protocol_types::debug_log::debug_log_format("MIKE, rand1: {}", [rand1]);
+    dep::protocol_types::debug_log::debug_log_format("MIKE, rand1: {}", [rand1]);
     let rand2: Field = poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y],
         GENERATOR_INDEX__SYMMETRIC_KEY_2,
     );
-    // dep::protocol_types::debug_log::debug_log_format("MIKE, rand2: {}", [rand2]);
+    dep::protocol_types::debug_log::debug_log_format("MIKE, rand2: {}", [rand2]);
 
-    let rand1_bytes: [u8; 16] = rand1.to_le_bytes();
-    // dep::protocol_types::debug_log::debug_log_format(
-    //     "MIKE, rand1 bytes: {}",
-    //     rand1_bytes.map(|b| b as Field),
-    // );
-    let rand2_bytes: [u8; 16] = rand2.to_le_bytes();
-    // dep::protocol_types::debug_log::debug_log_format(
-    //     "MIKE, rand2 bytes: {}",
-    //     rand2_bytes.map(|b| b as Field),
-    // );
+    let rand1_bytes: [u8; 32] = rand1.to_le_bytes();
+    dep::protocol_types::debug_log::debug_log_format(
+        "MIKE, rand1 bytes: {}",
+        rand1_bytes.map(|b| b as Field),
+    );
+    let rand2_bytes: [u8; 32] = rand2.to_le_bytes();
+    dep::protocol_types::debug_log::debug_log_format(
+        "MIKE, rand2 bytes: {}",
+        rand2_bytes.map(|b| b as Field),
+    );
 
     let mut bytes: [u8; 32] = [0; 32];
     for i in 0..16 {
@@ -101,10 +101,10 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
         bytes[16 + i] = rand2_bytes[i];
     }
 
-    // dep::protocol_types::debug_log::debug_log_format(
-    //     "MIKE, ARE THESE THE BYTES YOU ARE LOOKING FOR? (1): {}",
-    //     bytes.map(|b| b as Field),
-    // );
+    dep::protocol_types::debug_log::debug_log_format(
+        "MIKE, ARE THESE THE BYTES YOU ARE LOOKING FOR? (1): {}",
+        bytes.map(|b| b as Field),
+    );
 
     bytes
 }
@@ -155,10 +155,10 @@ pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
 pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
     shared_secret: Point,
 ) -> ([u8; 16], [u8; 16]) {
-    // dep::protocol_types::debug_log::debug_log_format(
-    //     "MIKE, derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe: {}",
-    //     [0],
-    // );
+    dep::protocol_types::debug_log::debug_log_format(
+        "MIKE, derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe: {}",
+        [0],
+    );
     derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
         shared_secret,
         extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe,
@@ -188,10 +188,10 @@ impl LogEncryption for AES128 {
         let ciphertext_shared_secret =
             derive_ecdh_shared_secret_using_aztec_address(eph_sk, recipient);
 
-        // dep::protocol_types::debug_log::debug_log_format(
-        //     "MIKE, HERE'S THE CIPHERTEXT SHARED SECRET: ciphertext_shared_secret: {}",
-        //     [ciphertext_shared_secret.x, ciphertext_shared_secret.y],
-        // );
+        dep::protocol_types::debug_log::debug_log_format(
+            "MIKE, HERE'S THE CIPHERTEXT SHARED SECRET: ciphertext_shared_secret: {}",
+            [ciphertext_shared_secret.x, ciphertext_shared_secret.y],
+        );
 
         // TODO: also use this shared secret for deriving note randomness.
 
@@ -212,14 +212,14 @@ impl LogEncryption for AES128 {
             ciphertext_shared_secret,
         );
 
-        // dep::protocol_types::debug_log::debug_log_format(
-        //     "MIKE, ENCRYPTING: sym_key: {}",
-        //     sym_key.map(|b| b as Field),
-        // );
-        // dep::protocol_types::debug_log::debug_log_format(
-        //     "MIKE, ENCRYPTING: iv: {}",
-        //     iv.map(|b| b as Field),
-        // );
+        dep::protocol_types::debug_log::debug_log_format(
+            "MIKE, ENCRYPTING: sym_key: {}",
+            sym_key.map(|b| b as Field),
+        );
+        dep::protocol_types::debug_log::debug_log_format(
+            "MIKE, ENCRYPTING: iv: {}",
+            iv.map(|b| b as Field),
+        );
 
         let ciphertext_bytes = aes128_encrypt(plaintext_bytes, iv, sym_key);
 
@@ -254,14 +254,14 @@ impl LogEncryption for AES128 {
             ciphertext_shared_secret,
         );
 
-        // dep::protocol_types::debug_log::debug_log_format(
-        //     "MIKE, ENCRYPTING AGAIN: sym_key: {}",
-        //     sym_key.map(|b| b as Field),
-        // );
-        // dep::protocol_types::debug_log::debug_log_format(
-        //     "MIKE, ENCRYPTING AGAIN: iv: {}",
-        //     iv.map(|b| b as Field),
-        // );
+        dep::protocol_types::debug_log::debug_log_format(
+            "MIKE, ENCRYPTING AGAIN: sym_key: {}",
+            sym_key.map(|b| b as Field),
+        );
+        dep::protocol_types::debug_log::debug_log_format(
+            "MIKE, ENCRYPTING AGAIN: iv: {}",
+            iv.map(|b| b as Field),
+        );
 
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the
         // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
@@ -371,14 +371,14 @@ impl LogEncryption for AES128 {
             ciphertext_shared_secret,
         );
 
-        // dep::protocol_types::debug_log::debug_log_format(
-        //     "MIKE, DECRYPTING: sym_key: {}",
-        //     sym_key.map(|b| b as Field),
-        // );
-        // dep::protocol_types::debug_log::debug_log_format(
-        //     "MIKE, DECRYPTING: iv: {}",
-        //     iv.map(|b| b as Field),
-        // );
+        dep::protocol_types::debug_log::debug_log_format(
+            "MIKE, DECRYPTING: sym_key: {}",
+            sym_key.map(|b| b as Field),
+        );
+        dep::protocol_types::debug_log::debug_log_format(
+            "MIKE, DECRYPTING: iv: {}",
+            iv.map(|b| b as Field),
+        );
 
         // Extract the header ciphertext
         let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
