@@ -41,6 +41,7 @@ export const createP2PClient = async <T extends P2PClientType>(
   const logger = deps.logger ?? createLogger('p2p');
   const store = deps.store ?? (await createStore('p2p', 1, config, createLogger('p2p:lmdb-v2')));
   const archive = await createStore('p2p-archive', 1, config, createLogger('p2p-archive:lmdb-v2'));
+  const peerStore = await createStore('p2p-peers', 1, config, createLogger('p2p-peer:lmdb-v2'));
 
   const mempools: MemPools<T> = {
     txPool:
@@ -83,7 +84,7 @@ export const createP2PClient = async <T extends P2PClientType>(
       epochCache,
       proofVerifier,
       worldStateSynchronizer,
-      store,
+      peerStore,
       telemetry,
       createLogger(`${logger.module}:libp2p_service`),
     );
