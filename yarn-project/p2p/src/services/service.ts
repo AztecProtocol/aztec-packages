@@ -68,6 +68,8 @@ export interface P2PService {
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];
+
+  validate(txs: Tx[]): Promise<void>;
 }
 
 /**
@@ -113,6 +115,4 @@ export interface PeerDiscoveryService extends EventEmitter {
   getEnr(): ENR | undefined;
 
   bootstrapNodeEnrs: ENR[];
-
-  validate(txs: Tx[]): Promise<void>;
 }
