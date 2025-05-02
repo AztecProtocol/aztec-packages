@@ -288,8 +288,12 @@ export class ValidatorClient extends WithTracer implements Validator {
    * @param proposal - The proposal to attest to
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal): Promise<Tx[]> {
+    if (proposal.payload.txHashes.length === 0) {
+      this.log.verbose(`Received block proposal with no transactions, skipping transaction availability check`);
+      return [];
+    }
     // Is this a new style proposal?
-    if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length == proposal.payload.txHashes.length) {
+    if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length === proposal.payload.txHashes.length) {
       // Yes, any txs that we already have we should use
       this.log.info(`Using new style proposal with ${proposal.txs.length} transactions`);
 
@@ -304,6 +308,8 @@ export class ValidatorClient extends WithTracer implements Validator {
         );
       }
 
+      let usedFromProposal = 0;
+
       // Fill any holes with txs in the proposal, provided their hash matches the hash in the payload
       for (let i = 0; i < txsToUse.length; i++) {
         if (txsToUse[i] === undefined) {
@@ -312,6 +318,7 @@ export class ValidatorClient extends WithTracer implements Validator {
           if (hashOfTxInProposal.equals(hashesFromPayload[i])) {
             // Hash is equal, we can use the tx from the proposal
             txsToUse[i] = proposal.txs[i];
+            usedFromProposal++;
           } else {
             this.log.warn(
               `Unable to take tx: ${hashOfTxInProposal.toString()} from the proposal, it does not match payload hash: ${hashesFromPayload[
@@ -326,6 +333,9 @@ export class ValidatorClient extends WithTracer implements Validator {
       if (txsToUse.some(tx => tx === undefined)) {
         this.log.warn(`Failed to use transactions from proposal. Falling back to old proposal logic`);
       } else {
+        this.log.info(
+          `Successfully used ${usedFromProposal}/${hashesFromPayload.length} transactions from the proposal`,
+        );
         return txsToUse as Tx[];
       }
     }
