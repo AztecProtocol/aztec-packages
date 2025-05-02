@@ -59,9 +59,14 @@ describe('ValidationService', () => {
 
   it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
     config.validatorReexecute = true;
-    p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
+    const fakeTx = await mockTx();
+    p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(fakeTx));
     const val = ValidatorClient.new(config, epochCache, p2pClient);
-    await expect(val.reExecuteTransactions(await makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);
+    await expect(
+      val.reExecuteTransactions(await makeBlockProposal({ txs: [fakeTx], txHashes: [await fakeTx.getTxHash()] }), [
+        fakeTx,
+      ]),
+    ).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 
   it('Should create a valid block proposal', async () => {
@@ -91,6 +96,7 @@ describe('ValidationService', () => {
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockResolvedValue(undefined);
     p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
+    p2pClient.getTxsByHash.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => undefined)));
     // Mock the p2pClient.requestTxs to return undefined for all transactions
     p2pClient.requestTxsByHash.mockImplementation(() => Promise.resolve([undefined]));
 
