@@ -51,6 +51,8 @@ import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
 import {
+  ArchiveCache,
+  BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
   GasTxValidator,
@@ -806,8 +808,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
           severity: PeerErrorSeverity.MidToleranceError,
         },
-      },
-      {
+        blockHeaderValidator: {
+          validator: new BlockHeaderTxValidator(new ArchiveCache(this.worldStateSynchronizer.getCommitted())),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
         proofValidator: {
           validator: new TxProofValidator(this.proofVerifier),
           severity: PeerErrorSeverity.MidToleranceError,
