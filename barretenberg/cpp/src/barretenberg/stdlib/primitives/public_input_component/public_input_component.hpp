@@ -60,8 +60,7 @@ class PublicInputComponent {
     {
         // Ensure that the key has been set
         if (!key.is_set()) {
-            info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
-            ASSERT(false);
+            ASSERT(false && "ERROR: Trying to construct a PublicInputComponent from an invalid key!");
         }
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it

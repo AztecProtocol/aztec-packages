@@ -153,11 +153,15 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Perform recursive verification and databus consistency checks for each entry in the verification queue
-    PairingPoints current_points_accumulator = PairingPoints::construct_default(circuit);
+    PairingPoints current_points_accumulator;
     for (auto& verifier_input : stdlib_verification_queue) {
         PairingPoints pairing_points =
             perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
-        current_points_accumulator.aggregate(pairing_points);
+        if (current_points_accumulator.has_data) {
+            current_points_accumulator.aggregate(pairing_points);
+        } else {
+            current_points_accumulator = pairing_points;
+        }
     }
     current_points_accumulator.set_public();
     stdlib_verification_queue.clear();

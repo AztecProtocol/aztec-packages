@@ -295,13 +295,16 @@ static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .busread = 1 << 7,
                                                             .lookup = 72000,
                                                             .pub_inputs = 1 << 7,
-                                                            .arithmetic = 198000,
+                                                            .arithmetic = 170000,
                                                             .delta_range = 90000,
                                                             .elliptic = 9000,
                                                             .aux = 136000,
-                                                            .poseidon2_external = 2650,
-                                                            .poseidon2_internal = 15200,
+                                                            .poseidon2_external = 5000,
+                                                            .poseidon2_internal =
+                                                                25000, // Should be 5.7x poseidon2_external
                                                             .overflow = 0 };
+// convert to decimal and sum these numbers:
+//
 
 /**
  * @brief An example structuring of size 2^18.
