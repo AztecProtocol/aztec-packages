@@ -336,7 +336,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.txPool.addTxs(filteredTxs);
     }
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
-    this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
+    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}}) from peers`);
 
     // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
     return txs;
@@ -421,9 +421,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Returns transactions in the transaction pool by hash.
    * If a transaction is not in the pool, it will be requested from the network.
    * @param txHashes - Hashes of the transactions to look for.
-   * @returns The txs found, not necessarily on the same order as the hashes.
+   * @returns The txs found, or undefined if not found in the order requested.
    */
-  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
     const missingTxHashes = txs
       .map((tx, index) => [tx, index] as const)
@@ -436,7 +436,29 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes);
     const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
-    return txs.filter((tx): tx is Tx => !!tx).concat(fetchedMissingTxs);
+
+    // TODO: optimize
+    // Merge the found txs in order
+    const mergingTxsPromises = txHashes.map(async txHash => {
+      // Is it in the txs list from the mempool?
+      for (const tx of txs) {
+        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+          return tx;
+        }
+      }
+
+      // Is it in the fetched missing txs?
+      for (const tx of fetchedMissingTxs) {
+        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+          return tx;
+        }
+      }
+
+      // Otherwise return undefined
+      return undefined;
+    });
+
+    return await Promise.all(mergingTxsPromises);
   }
 
   /**
