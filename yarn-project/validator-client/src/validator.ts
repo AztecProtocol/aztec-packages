@@ -243,11 +243,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   async reExecuteTransactions(proposal: BlockProposal, txs: Tx[]) {
     const { header, txHashes } = proposal.payload;
 
-    // const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
-    //   tx => tx !== undefined,
-    // ) as Tx[];
-
-    // If we do not request all of the transactions, then we should fail
+    // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
       throw new TransactionsNotAvailableError(txHashes);
     }
@@ -293,18 +289,45 @@ export class ValidatorClient extends WithTracer implements Validator {
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal): Promise<Tx[]> {
     // Is this a new style proposal?
-    if (proposal.txs && proposal.txs.length > 0) {
+    if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length == proposal.payload.txHashes.length) {
       // Yes, any txs that we already have we should use
-      // Maybe we could use the hashes in the proposal
-      const hashes = await Promise.all(proposal.txs.map(tx => tx.getTxHash()));
-      const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashes);
-      for (let i = 0; i < proposal.txs.length; i++) {
+      this.log.info(`Using new style proposal with ${proposal.txs.length} transactions`);
+
+      // Request from the pool based on the signed hashes in the payload
+      const hashesFromPayload = proposal.payload.txHashes;
+      const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashesFromPayload);
+
+      const missingTxs = txsToUse.filter(tx => tx === undefined).length;
+      if (missingTxs > 0) {
+        this.log.verbose(
+          `Missing ${missingTxs}/${hashesFromPayload.length} transactions in the tx pool, will attempt to take from the proposal`,
+        );
+      }
+
+      // Fill any holes with txs in the proposal, provided their hash matches the hash in the payload
+      for (let i = 0; i < txsToUse.length; i++) {
         if (txsToUse[i] === undefined) {
-          // We don't have the transaction, take from the proposal
-          txsToUse[i] = proposal.txs[i];
+          // We don't have the transaction, take from the proposal, provided the hash is the same
+          const hashOfTxInProposal = await proposal.txs[i].getTxHash();
+          if (hashOfTxInProposal.equals(hashesFromPayload[i])) {
+            // Hash is equal, we can use the tx from the proposal
+            txsToUse[i] = proposal.txs[i];
+          } else {
+            this.log.warn(
+              `Unable to take tx: ${hashOfTxInProposal.toString()} from the proposal, it does not match payload hash: ${hashesFromPayload[
+                i
+              ].toString()}`,
+            );
+          }
         }
       }
-      return txsToUse as Tx[];
+
+      // See if we still have any holes, if there are then we were not successful and will try the old method
+      if (txsToUse.some(tx => tx === undefined)) {
+        this.log.warn(`Failed to use transactions from proposal. Falling back to old proposal logic`);
+      } else {
+        return txsToUse as Tx[];
+      }
     }
 
     // Old style proposal, we will perform a request by hash from pool
