@@ -62,7 +62,7 @@ class TranslatorProvingKey {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);
                     } else {
 
-                        ASSERT(wire[i] == 0,
+                        ASSERT(circuit.get_variable(wire[i]) == 0,
                                "Wire " + std::to_string(wire_idx) + " value at index " + std::to_string(i) +
                                    " is expected to be 0 but found " + std::to_string(wire[i]));
                     }

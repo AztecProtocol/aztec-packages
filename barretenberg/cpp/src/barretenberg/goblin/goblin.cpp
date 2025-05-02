@@ -44,30 +44,31 @@ void Goblin::prove_translator()
     TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
     auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
     TranslatorProver translator_prover(translator_key, transcript);
-    goblin_proof.translator_proof = translator_prover.construct_proof();
     auto ensure_equality =
-        [&](const bb::Polynomial<Fr>& translator_wire, const bb::Polynomial<Fr>& merge_wire, size_t i) {
-            size_t up_to = merge_wire.size() <= translator_wire.size() ? merge_wire.size() : translator_wire.size() + 1;
+        [&](const bb::Polynomial<Fr>& translator_wire, const bb::Polynomial<Fr>& merge_wire, size_t idx) {
+            size_t up_to = merge_wire.size() <= translator_wire.size() ? merge_wire.size() : translator_wire.size();
+            info("checking equality ", idx);
             for (size_t i = 0; i < up_to; ++i) {
                 ASSERT(merge_wire[i] == translator_wire[i]);
             }
             if (translator_wire.size() > merge_wire.size()) {
-                info("here for", i);
                 for (size_t i = up_to; i < translator_wire.size(); ++i) {
                     ASSERT(translator_wire[i] == 0);
                 }
             }
-            // auto comm1 = commitment_key->commit_special(translator_wire);
-            // auto comm2 = commitment_key->commit_special(merge_wire);
-            // info("translator: ", comm1);
-            // info("merge: ", comm2);
+            auto comm1 = commitment_key->commit_special(translator_wire);
+            auto comm2 = commitment_key->commit_special(merge_wire);
+            info("translator: ", comm1);
+            info("merge: ", comm2);
         };
 
+    commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(262145);
     auto T_last = op_queue->construct_ultra_ops_table_columns();
-    ensure_equality(T_last[0], translator_key->proving_key->polynomials.op, 0);
-    ensure_equality(T_last[1], translator_key->proving_key->polynomials.x_lo_y_hi, 1);
-    ensure_equality(T_last[2], translator_key->proving_key->polynomials.x_hi_z_1, 2);
-    ensure_equality(T_last[3], translator_key->proving_key->polynomials.y_lo_z_2, 3);
+    ensure_equality(translator_key->proving_key->polynomials.op, T_last[0], 0);
+    ensure_equality(translator_key->proving_key->polynomials.x_lo_y_hi, T_last[1], 1);
+    ensure_equality(translator_key->proving_key->polynomials.x_hi_z_1, T_last[2], 2);
+    ensure_equality(translator_key->proving_key->polynomials.y_lo_z_2, T_last[3], 3);
+    goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
 GoblinProof Goblin::prove(MergeProof merge_proof_in)
