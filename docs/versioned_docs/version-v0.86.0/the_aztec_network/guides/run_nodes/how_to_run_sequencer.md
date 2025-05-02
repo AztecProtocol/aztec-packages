@@ -88,7 +88,8 @@ aztec start --node --archiver --sequencer \
   --l1-consensus-host-urls https://example.com \
   --sequencer.validatorPrivateKey 0xYourPrivateKey \
   --sequencer.coinbase 0xYourAddress \
-  --p2p.p2pIp 999.99.999.99
+  --p2p.p2pIp 999.99.999.99 \
+  --p2p.maxTxPoolSize 1000000000
 ```
 
 :::tip
