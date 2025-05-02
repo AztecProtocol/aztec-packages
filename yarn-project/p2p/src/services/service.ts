@@ -1,5 +1,6 @@
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
@@ -112,4 +113,6 @@ export interface PeerDiscoveryService extends EventEmitter {
   getEnr(): ENR | undefined;
 
   bootstrapNodeEnrs: ENR[];
+
+  validate(txs: Tx[]): Promise<void>;
 }
