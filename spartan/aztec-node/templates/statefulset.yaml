@@ -21,10 +21,8 @@ spec:
         app: node
     spec:
       dnsPolicy: ClusterFirst
+      hostNetwork: true
       affinity:
-        # If we are using the node port option, we need to make sure not to schedule two validators on the same node
-        # TODO(md): in future, this is only required if we run all with the same ports, and can potentially be relaxed
-        {{- if .Values.service.p2p.nodePortEnabled }}
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
@@ -35,7 +33,6 @@ spec:
                       - node
               topologyKey: kubernetes.io/hostname
               namespaceSelector: {}
-        {{- end }}
       initContainers:
       {{- if .Values.initContainers }}
         {{- tpl (toYaml .Values.initContainers | nindent 8) $ }}
@@ -156,6 +153,10 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.service.p2p.enabled }}"
+            - name: P2P_PORT
+              value: "{{ .Values.service.p2p.port }}"
+            - name: P2P_QUERY_FOR_IP
+              value: "true"
             {{- if .Values.node.remoteUrl.archiver }}
             - name: ARCHIVER_URL
               value: {{ .Values.node.remoteUrl.archiver | quote }}
