@@ -20,7 +20,7 @@ pub fn generate_ephemeral_key_pair() -> (Scalar, Point) {
 
     // TODO(#12757): compute the key pair without constraining eph_sk twice (once in from_field, once in the black box
     // called by fixed_base_scalar_mul).
-    let eph_sk: EmbeddedCurveScalar = EmbeddedCurveScalar::from_field(randomness);
+    let eph_sk = EmbeddedCurveScalar::from_field(randomness);
     let eph_pk = fixed_base_scalar_mul(eph_sk);
 
     // dep::protocol_types::debug_log::debug_log_format(
