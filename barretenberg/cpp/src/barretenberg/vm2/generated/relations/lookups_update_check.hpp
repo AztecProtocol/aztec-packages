@@ -78,7 +78,7 @@ struct lookup_update_check_update_hash_public_data_read_settings_ {
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
-    static constexpr Column DST_SELECTOR = Column::public_data_read_sel;
+    static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_public_data_read_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_public_data_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -87,9 +87,9 @@ struct lookup_update_check_update_hash_public_data_read_settings_ {
         ColumnAndShifts::update_check_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::public_data_read_value,
-        ColumnAndShifts::public_data_read_slot,
-        ColumnAndShifts::public_data_read_root
+        ColumnAndShifts::public_data_check_value,
+        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_root
     };
 };
 
