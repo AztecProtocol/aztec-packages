@@ -347,6 +347,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         , evaluation_input_x(evaluation_input_x_)
     {
         add_variable(Fr::zero());
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): The builder should not add data to
+        // wires populated from the op queue. Adding two zeroes at the beginning of these  wires (and subsequently
+        // random data) should be done as part of the op queue logic.
         for (auto& wire : wires) {
             wire.emplace_back(0);
             wire.emplace_back(0);
