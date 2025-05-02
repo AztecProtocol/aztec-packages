@@ -17,7 +17,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 export class GasTxValidator implements TxValidator<Tx> {
-  #log = createLogger('sequencer:tx_validator:tx_gas');
+  #log = createLogger('p2p:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
   #gasFees: GasFees;
