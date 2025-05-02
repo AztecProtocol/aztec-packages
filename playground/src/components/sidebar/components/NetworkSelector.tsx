@@ -84,7 +84,6 @@ export function NetworkSelector() {
   const handleNetworkChange = async (nodeURL: string) => {
     let network = null;
     try {
-      trackButtonClick(`Connect to ${nodeURL}`, 'Network Selector');
       setConnecting(true);
       setPXEInitialized(false);
       network = networks.find(network => network.nodeURL === nodeURL);
