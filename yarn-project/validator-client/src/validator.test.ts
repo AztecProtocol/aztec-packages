@@ -61,7 +61,9 @@ describe('ValidationService', () => {
     config.validatorReexecute = true;
     p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
     const val = ValidatorClient.new(config, epochCache, p2pClient);
-    await expect(val.reExecuteTransactions(await makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);
+    await expect(val.reExecuteTransactions(await makeBlockProposal(), [])).rejects.toThrow(
+      BlockBuilderNotProvidedError,
+    );
   });
 
   it('Should create a valid block proposal', async () => {

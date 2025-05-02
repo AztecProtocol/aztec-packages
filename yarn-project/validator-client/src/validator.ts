@@ -204,11 +204,11 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Check that all of the transactions in the proposal are available in the tx pool before attesting
     this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
     try {
-      await this.ensureTransactionsAreAvailable(proposal);
+      const txs = await this.ensureTransactionsAreAvailable(proposal);
 
       if (this.config.validatorReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
-        await this.reExecuteTransactions(proposal);
+        await this.reExecuteTransactions(proposal, txs);
       }
     } catch (error: any) {
       if (error instanceof Error) {
@@ -240,14 +240,14 @@ export class ValidatorClient extends WithTracer implements Validator {
    * Re-execute the transactions in the proposal and check that the state updates match the header state
    * @param proposal - The proposal to re-execute
    */
-  async reExecuteTransactions(proposal: BlockProposal) {
+  async reExecuteTransactions(proposal: BlockProposal, txs: Tx[]) {
     const { header, txHashes } = proposal.payload;
 
-    const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
-      tx => tx !== undefined,
-    ) as Tx[];
+    // const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
+    //   tx => tx !== undefined,
+    // ) as Tx[];
 
-    // If we cannot request all of the transactions, then we should fail
+    // If we do not request all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
       throw new TransactionsNotAvailableError(txHashes);
     }
@@ -291,27 +291,51 @@ export class ValidatorClient extends WithTracer implements Validator {
    * 3. If we cannot retrieve them from the network, throw an error
    * @param proposal - The proposal to attest to
    */
-  async ensureTransactionsAreAvailable(proposal: BlockProposal) {
-    // TODO: only add the trnasactions that we are missing, but just going to add all for now
-    if (proposal.txs) {
-      await this.p2pClient.addTxs(proposal.txs);
+  async ensureTransactionsAreAvailable(proposal: BlockProposal): Promise<Tx[]> {
+    // Is this a new style proposal?
+    if (proposal.txs && proposal.txs.length > 0) {
+      // Yes, any txs that we already have we should use
+      // Maybe we could use the hashes in the proposal
+      const hashes = await Promise.all(proposal.txs.map(tx => tx.getTxHash()));
+      const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashes);
+      for (let i = 0; i < proposal.txs.length; i++) {
+        if (txsToUse[i] === undefined) {
+          // We don't have the transaction, take from the proposal
+          txsToUse[i] = proposal.txs[i];
+        }
+      }
+      return txsToUse as Tx[];
     }
 
-    // If the proposal has transactions attached to it, then we need to add them to our pool
+    // Old style proposal, we will perform a request by hash from pool
+    // This will request from network any txs that are missing
     const txHashes: TxHash[] = proposal.payload.txHashes;
-    const availability = await this.p2pClient.hasTxsInPool(txHashes);
-    const missingTxs = txHashes.filter((_, index) => !availability[index]);
 
-    if (missingTxs.length === 0) {
-      return; // All transactions are available
+    // This part is just for logging that we are requesting from the network
+    const availability = await this.p2pClient.hasTxsInPool(txHashes);
+    const notAvailable = availability.filter(availability => availability === false);
+    if (notAvailable.length) {
+      this.log.verbose(
+        `Missing ${notAvailable.length} transactions in the tx pool, will need to request from the network`,
+      );
     }
 
-    this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
-
-    const requestedTxs = await this.p2pClient.requestTxsByHash(missingTxs);
-    if (requestedTxs.some(tx => tx === undefined)) {
+    // This will request from the network any txs that are missing
+    const retrievedTxs = await this.p2pClient.getTxsByHash(txHashes);
+    const missingTxs = retrievedTxs
+      .map((tx, index) => {
+        // Return the hash of any that we did not get
+        if (tx === undefined) {
+          return txHashes[index];
+        } else {
+          return undefined;
+        }
+      })
+      .filter(hash => hash !== undefined);
+    if (missingTxs.length > 0) {
       throw new TransactionsNotAvailableError(missingTxs);
     }
+    return retrievedTxs as Tx[];
   }
 
   async createBlockProposal(header: BlockHeader, archive: Fr, txs: Tx[]): Promise<BlockProposal | undefined> {
