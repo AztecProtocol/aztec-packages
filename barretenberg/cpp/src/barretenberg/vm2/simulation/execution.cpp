@@ -22,7 +22,7 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     memory.set(dst_addr, c);
 
     set_inputs({ a, b });
-    set_outputs({ c });
+    set_output(c);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
@@ -30,7 +30,7 @@ void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t t
 {
     TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
     context.get_memory().set(dst_addr, tagged_value);
-    set_outputs({ tagged_value });
+    set_output(tagged_value);
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
@@ -40,7 +40,7 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     memory.set(dst_addr, v);
 
     set_inputs({ v });
-    set_outputs({ v });
+    set_output(v);
 }
 
 void Execution::call(ContextInterface& context,
@@ -156,7 +156,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             dispatch_opcode(opcode, context, resolved_operands);
             // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
             ex_event.inputs = get_inputs();
-            ex_event.output = get_outputs();
+            ex_event.output = get_output();
 
             // Move on to the next pc.
             context.set_pc(context.get_next_pc());
