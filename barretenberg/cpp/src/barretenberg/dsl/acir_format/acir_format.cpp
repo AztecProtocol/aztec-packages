@@ -7,6 +7,7 @@
 #include "acir_format.hpp"
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -633,6 +634,7 @@ process_avm_recursion_constraints(Builder& builder,
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
+    PROFILE_THIS();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
@@ -653,6 +655,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  */
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
+    PROFILE_THIS();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
@@ -686,6 +689,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
 {
+    PROFILE_THIS();
     Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
 
     AcirProgram program{ constraint_system, witness };
