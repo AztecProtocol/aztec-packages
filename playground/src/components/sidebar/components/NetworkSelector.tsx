@@ -221,10 +221,13 @@ export function NetworkSelector() {
           </IconButton>
         </DialogTitle>
 
-        <DialogContent css={{ margin: '1.5rem 0' }}>
-          <Typography>
+        <DialogContent>
+          <Typography sx={{ marginBottom: '1rem' }}>
             The Playground is currently unavailable with the Public Testnet while we troubleshoot network congestion.
+            <br />
+            <br />
             Please check back in a few hours or use the Playground with the local sandbox instead.
+            Please visit the <a href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener noreferrer">Aztec Docs</a> to get started.
           </Typography>
         </DialogContent>
       </Dialog>
