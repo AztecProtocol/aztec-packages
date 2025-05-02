@@ -2,8 +2,8 @@ name: Publish Barretenberg Mac
 
 on:
   push:
-    # tags:
-    #   - "v*"
+    tags:
+      - "v*"
   workflow_dispatch:
     # Allow pushing a manual nightly release
     inputs:
