@@ -298,7 +298,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               size="small"
-              onClick={() => simulate(fn.name)}
+              onClick={() => {
+                trackButtonClick(`Simulate Transaction`, 'Contract Interaction');
+                simulate(fn.name);
+              }}
               endIcon={<PsychologyIcon />}
               css={actionButton}
             >
