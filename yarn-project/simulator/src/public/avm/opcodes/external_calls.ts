@@ -22,17 +22,17 @@ abstract class ExternalCall extends Instruction {
     private l2GasOffset: number,
     private daGasOffset: number,
     private addrOffset: number,
-    private argsOffset: number,
     private argsSizeOffset: number,
+    private argsOffset: number,
   ) {
     super();
   }
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory;
-    const operands = [this.l2GasOffset, this.daGasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset];
+    const operands = [this.l2GasOffset, this.daGasOffset, this.addrOffset, this.argsSizeOffset, this.argsOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [l2GasOffset, daGasOffset, addrOffset, argsOffset, argsSizeOffset] = addressing.resolve(operands, memory);
+    const [l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset] = addressing.resolve(operands, memory);
     // TODO: Should be U32
     memory.checkTags(TypeTag.FIELD, l2GasOffset);
     memory.checkTags(TypeTag.FIELD, daGasOffset);
