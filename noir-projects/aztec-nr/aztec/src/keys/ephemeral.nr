@@ -13,20 +13,10 @@ pub fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     // sender will cooperate in the random value generation.
     let randomness = unsafe { random() };
 
-    dep::protocol_types::debug_log::debug_log_format(
-        "MIKE, WE SUCCESSFULLY GOT SOME RANDOMNESS: randomness: {}",
-        [randomness],
-    );
-
     // TODO(#12757): compute the key pair without constraining eph_sk twice (once in from_field, once in the black box
     // called by fixed_base_scalar_mul).
     let eph_sk = EmbeddedCurveScalar::from_field(randomness);
     let eph_pk = fixed_base_scalar_mul(eph_sk);
-
-    dep::protocol_types::debug_log::debug_log_format(
-        "MIKE, WE HAVE DERIVED THE EPH KEYPAIR: {}",
-        [eph_sk.lo, eph_sk.hi, eph_pk.x, eph_pk.y],
-    );
 
     (eph_sk, eph_pk)
 }
