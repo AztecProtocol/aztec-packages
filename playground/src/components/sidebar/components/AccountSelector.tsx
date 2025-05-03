@@ -15,7 +15,8 @@ import {
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
-import { getEcdsaRAccount, getEcdsaKAccount, getEcdsaRSerialAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getEcdsaRSerialAccount } from '@thunkar/aztec-keychain-accounts/ecdsa';
 
 import { Fq, type AccountManager } from '@aztec/aztec.js';
 import { AztecContext } from '../../../aztecEnv';

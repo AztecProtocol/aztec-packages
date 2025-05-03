@@ -73,6 +73,7 @@ __metadata:
     "@mui/material": "npm:^6.3.1"
     "@mui/styles": "npm:^6.3.1"
     "@playwright/test": "npm:1.49.0"
+    "@thunkar/aztec-keychain-accounts": "link:../../aztec-keychain/integration"
     "@toolpad/core": "npm:^0.14.0"
     "@types/buffer-json": "npm:^2"
     "@types/node": "npm:^22.10.5"
@@ -2983,6 +2984,12 @@ __metadata:
   checksum: 10c0/4629d2fbb2ea67c2e9dc03af235c0991c79ebdddcbc19aed5d5732fb29ce01c13331e9b1a491584b9069bd6ecde6581dcbf871f11b7eefdebbab34de6cf2197e
   languageName: node
   linkType: hard
+
+"@thunkar/aztec-keychain-accounts@link:../../aztec-keychain/integration::locator=%40aztec%2Fplayground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@thunkar/aztec-keychain-accounts@link:../../aztec-keychain/integration::locator=%40aztec%2Fplayground%40workspace%3A."
+  languageName: node
+  linkType: soft
 
 "@tokenizer/token@npm:^0.3.0":
   version: 0.3.0
