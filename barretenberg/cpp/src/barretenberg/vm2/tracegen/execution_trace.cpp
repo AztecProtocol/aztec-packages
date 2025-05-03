@@ -51,13 +51,12 @@ void ExecutionTraceBuilder::process(
 
         std::array<TaggedValue, operand_columns> registers = {};
         size_t input_counter = 0;
-        size_t output_counter = 0;
         auto register_info = REGISTER_INFO_MAP.at(ex_event.opcode);
         for (uint8_t i = 0; i < operand_columns; ++i) {
             if (register_info.is_active(i)) {
                 if (register_info.is_write(i)) {
                     // If this is a write operation, we need to get the value from the output.
-                    registers[i] = ex_event.output[output_counter++];
+                    registers[i] = ex_event.output;
                 } else {
                     // If this is a read operation, we need to get the value from the input.
                     registers[i] = ex_event.inputs[input_counter++];
@@ -71,6 +70,8 @@ void ExecutionTraceBuilder::process(
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
+                { C::execution_sel_call, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
+                { C::execution_sel_static_call, ex_event.opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
                 { C::execution_bytecode_id, ex_event.bytecode_id },
                 // Operands
                 { C::execution_op1, operands.at(0) },
@@ -165,7 +166,9 @@ void ExecutionTraceBuilder::process(
         trace.set(row,
                   { {
                       { C::execution_context_id, ex_event.context_event.id },
+                      { C::execution_parent_id, ex_event.context_event.parent_id },
                       { C::execution_pc, ex_event.context_event.pc },
+                      { C::execution_next_pc, ex_event.context_event.next_pc },
                       { C::execution_is_static, ex_event.context_event.is_static },
                       { C::execution_msg_sender, ex_event.context_event.msg_sender },
                       { C::execution_contract_address, ex_event.context_event.contract_addr },
@@ -174,6 +177,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_last_child_returndata_offset_addr, ex_event.context_event.last_child_rd_addr },
                       { C::execution_last_child_returndata_size_addr, ex_event.context_event.last_child_rd_size_addr },
                       { C::execution_last_child_success, ex_event.context_event.last_child_success },
+                      { C::execution_next_context_id, ex_event.next_context_id },
                   } });
 
         row++;

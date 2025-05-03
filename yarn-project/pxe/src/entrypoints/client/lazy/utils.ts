@@ -1,4 +1,4 @@
-import { BBWASMLazyPrivateKernelProver } from '@aztec/bb-prover/wasm/lazy';
+import { BBWASMLazyPrivateKernelProver } from '@aztec/bb-prover/client/wasm/lazy';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';

@@ -125,7 +125,15 @@ const sidebar = {
     },
     {
       type: "doc",
+      id: "try_testnet",
+    },
+    {
+      type: "doc",
       id: "migration_notes",
+    },
+    {
+      type: "doc",
+      id: "sandbox_to_testnet_guide",
     },
   ],
 

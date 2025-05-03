@@ -9,10 +9,10 @@ import {
   createPXEClient,
   makeFetch,
 } from '@aztec/aztec.js';
-import { CounterContract } from '@aztec/noir-contracts.js/Counter';
-import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
+import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
 
 import { DeployTest } from './deploy_test.js';

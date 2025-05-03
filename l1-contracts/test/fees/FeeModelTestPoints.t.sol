@@ -7,7 +7,8 @@ import {TestBase} from "../base/Base.sol";
 import {OracleInput} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
   MAX_FEE_ASSET_PRICE_MODIFIER,
-  MINIMUM_CONGESTION_MULTIPLIER
+  MINIMUM_CONGESTION_MULTIPLIER,
+  EthValue
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -47,9 +48,8 @@ struct L1GasOracleValuesModel {
 struct ManaBaseFeeComponentsModel {
   uint256 congestion_cost;
   uint256 congestion_multiplier;
-  uint256 data_cost;
-  uint256 gas_cost;
-  uint256 proving_cost;
+  uint256 prover_cost;
+  uint256 sequencer_cost;
 }
 
 struct BlockHeaderModel {
@@ -81,11 +81,13 @@ struct TestPoint {
 struct FullFeeData {
   L1Metadata[] l1_metadata;
   TestPoint[] points;
+  uint256 proving_cost;
 }
 
 contract FeeModelTestPoints is TestBase {
   L1Metadata[] public l1Metadata;
   TestPoint[] public points;
+  EthValue public provingCost;
 
   constructor() {
     string memory root = vm.projectRoot();
@@ -101,6 +103,8 @@ contract FeeModelTestPoints is TestBase {
     for (uint256 i = 0; i < data.points.length; i++) {
       points.push(data.points[i]);
     }
+
+    provingCost = EthValue.wrap(data.proving_cost);
   }
 
   function assertEq(L1FeesModel memory a, L1FeesModel memory b) internal pure {
@@ -149,8 +153,9 @@ contract FeeModelTestPoints is TestBase {
       b.congestion_multiplier,
       string.concat(_message, " congestion_multiplier mismatch")
     );
-    assertEq(a.data_cost, b.data_cost, string.concat(_message, " data_cost mismatch"));
-    assertEq(a.gas_cost, b.gas_cost, string.concat(_message, " gas_cost mismatch"));
-    assertEq(a.proving_cost, b.proving_cost, string.concat(_message, " proving_cost mismatch"));
+    assertEq(a.prover_cost, b.prover_cost, string.concat(_message, " prover_cost mismatch"));
+    assertEq(
+      a.sequencer_cost, b.sequencer_cost, string.concat(_message, " sequencer_cost mismatch")
+    );
   }
 }

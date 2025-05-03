@@ -1,8 +1,8 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
@@ -25,7 +25,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
   afterAll(() => {
     if (process.env.BENCH_OUTPUT) {
-      writeFileSync(process.env.BENCH_OUTPUT, metrics.toJSON());
+      writeFileSync(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
     } else if (process.env.BENCH_OUTPUT_MD) {
       writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
     } else {
@@ -35,17 +35,17 @@ describe('Public TX simulator apps tests: benchmarks', () => {
   });
 
   it('Token Contract test', async () => {
-    tester.setMetricsPrefix('Token');
+    tester.setMetricsPrefix('Token contract tests');
     await tokenTest(tester, logger);
   });
 
   it('AMM Contract test', async () => {
-    tester.setMetricsPrefix('AMM');
+    tester.setMetricsPrefix('AMM contract tests');
     await ammTest(tester, logger);
   });
 
   it('AVM simulator bulk test', async () => {
-    tester.setMetricsPrefix('AvmTest');
+    tester.setMetricsPrefix('AvmTest contract tests');
     const deployer = AztecAddress.fromNumber(42);
 
     const avmTestContract = await tester.registerAndDeployContract(
@@ -69,7 +69,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     ];
 
     const bulkResult = await tester.simulateTxWithLabel(
-      /*txLabel=*/ 'bulk_testing',
+      /*txLabel=*/ 'AvmTest/bulk_testing',
       /*sender=*/ deployer,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -96,7 +96,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
         deployer,
         /*contractArtifact=*/ AvmGadgetsTestContractArtifact,
       );
-      tester.setMetricsPrefix(`AvmGadgetsTest`);
+      tester.setMetricsPrefix(`AvmGadgetsTest contract tests`);
     });
 
     describe.each(
@@ -105,7 +105,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     )('sha256_hash_%s', (length: number) => {
       it(`sha256_hash_${length}`, async () => {
         const result = await tester.simulateTxWithLabel(
-          /*txLabel=*/ `sha256_hash_${length}`,
+          /*txLabel=*/ `AvmGadgetsTest/sha256_hash_${length}`,
           /*sender=*/ deployer,
           /*setupCalls=*/ [],
           /*appCalls=*/ [
@@ -122,7 +122,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     it('keccak_hash', async () => {
       const result = await tester.simulateTxWithLabel(
-        /*txLabel=*/ 'keccak_hash',
+        /*txLabel=*/ 'AvmGadgetsTest/keccak_hash',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -138,7 +138,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     it('keccak_f1600', async () => {
       const result = await tester.simulateTxWithLabel(
-        /*txLabel=*/ 'keccak_f1600',
+        /*txLabel=*/ 'AvmGadgetsTest/keccak_f1600',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -154,7 +154,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     it('poseidon2_hash', async () => {
       const result = await tester.simulateTxWithLabel(
-        /*txLabel=*/ 'poseidon2_hash',
+        /*txLabel=*/ 'AvmGadgetsTest/poseidon2_hash',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -170,7 +170,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     it('pedersen_hash', async () => {
       const result = await tester.simulateTxWithLabel(
-        /*txLabel=*/ 'pedersen_hash',
+        /*txLabel=*/ 'AvmGadgetsTest/pedersen_hash',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -186,7 +186,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     it('pedersen_hash_with_index', async () => {
       const result = await tester.simulateTxWithLabel(
-        /*txLabel=*/ 'pedersen_hash_with_index',
+        /*txLabel=*/ 'AvmGadgetsTest/pedersen_hash_with_index',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [

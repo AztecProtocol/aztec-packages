@@ -81,7 +81,7 @@ class MockTranscript {
     template <typename T> T get_challenge(const std::string&)
     {
         // No heap overreads, please
-        ASSERT(current_challenge_index < challenges.size());
+        BB_ASSERT_LT(current_challenge_index, challenges.size());
         T result = static_cast<T>(challenges[current_challenge_index]);
         current_challenge_index++;
         return result;
@@ -94,11 +94,11 @@ class MockTranscript {
     {
         if constexpr (std::is_same_v<bb::curve::Grumpkin::ScalarField, T> ||
                       std::is_same_v<bb::curve::Grumpkin::BaseField, T>) {
-            ASSERT(field_elements.size() > current_field_index);
+            BB_ASSERT_GT(field_elements.size(), current_field_index);
             return field_elements[current_field_index++];
         }
         if constexpr (std::is_same_v<bb::curve::Grumpkin::AffineElement, T>) {
-            ASSERT(group_elements.size() > current_group_index);
+            BB_ASSERT_GT(group_elements.size(), current_group_index);
             return group_elements[current_group_index++];
         }
     }

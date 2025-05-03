@@ -382,16 +382,16 @@ concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
-concept IsUltraHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
 #else
 template <typename T>
-concept IsUltraHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
 #endif
 template <typename T>
-concept IsUltraFlavor = IsUltraHonkFlavor<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
+concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra> || IsUltraFlavor<T>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra> || IsUltraOrMegaHonk<T>;
 
 
 template <typename T>

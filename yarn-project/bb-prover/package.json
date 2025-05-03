@@ -4,9 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./wasm/bundle": "./dest/wasm/bundle.js",
-    "./wasm/lazy": "./dest/wasm/lazy.js",
-    "./prover": "./dest/prover/index.js",
+    "./client/wasm/bundle": "./dest/prover/client/wasm/bundle.js",
+    "./client/wasm/lazy": "./dest/prover/client/wasm/lazy.js",
+    "./client/native": "./dest/prover/client/native/bb_native_private_kernel_prover.js",
     "./verifier": "./dest/verifier/index.js",
     "./test": "./dest/test/index.js",
     "./config": "./dest/config.js"
@@ -85,6 +85,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
