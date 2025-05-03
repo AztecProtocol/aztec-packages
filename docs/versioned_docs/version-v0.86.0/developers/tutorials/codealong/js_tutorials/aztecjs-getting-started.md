@@ -41,7 +41,7 @@ mkdir src
 3. Add necessary yarn packages
 
 ```sh
-yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @types/node
+yarn add @aztec/aztec.js@0.86.0 @aztec/accounts@0.86.0 @aztec/noir-contracts.js@0.86.0 typescript @types/node
 ```
 
 and yarn config:
