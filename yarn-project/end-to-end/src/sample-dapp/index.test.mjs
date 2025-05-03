@@ -2,6 +2,7 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
+
 // docs:end:imports
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
