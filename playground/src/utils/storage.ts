@@ -272,9 +272,9 @@ export class WalletDB {
     }
     const type = typeBuffer.toString('utf8') as AccountType;
     const secretKeyBuffer = await this.#accounts.getAsync(`${address.toString()}:sk`);
-    const secretKey = secretKeyBuffer ?? Fr.fromBuffer(secretKeyBuffer);
+    const secretKey = Fr.fromBuffer(secretKeyBuffer!);
     const saltBuffer = await this.#accounts.getAsync(`${address.toString()}:salt`);
-    const salt = saltBuffer ?? Fr.fromBuffer(saltBuffer);
+    const salt = Fr.fromBuffer(saltBuffer!);
     const signingKey = await this.#accounts.getAsync(`${address.toString()}:signingKey`)!;
     return { address, secretKey, salt, type, signingKey };
   }

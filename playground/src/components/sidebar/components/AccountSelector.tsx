@@ -8,7 +8,14 @@ import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod, TxStatus } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  type DeployOptions,
+  AccountWalletWithSecretKey,
+  DeployMethod,
+  TxStatus,
+  Fr,
+} from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import {
   convertFromUTF8BufferAsString,
