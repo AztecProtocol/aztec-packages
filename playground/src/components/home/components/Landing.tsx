@@ -287,6 +287,7 @@ export function Landing() {
 
   async function handleContractButtonClick(contractValue: string) {
     trackButtonClick(`Check Out ${contractValue}`, 'Landing Page');
+
     let contractArtifactJSON;
     let defaultContractCreationParams;
 
