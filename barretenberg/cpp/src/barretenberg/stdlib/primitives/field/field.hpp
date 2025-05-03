@@ -203,6 +203,15 @@ template <typename Builder> class field_t {
 
     void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
     OriginTag get_origin_tag() const { return tag; };
+    /**
+     * @brief Set the free witness flag for the field element's tag
+     */
+    void set_free_witness() { tag.set_free_witness(); }
+
+    /**
+     * @brief Unset the free witness flag for the field element's tag
+     */
+    void unset_free_witness() { tag.unset_free_witness(); }
 
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 
@@ -299,9 +308,15 @@ template <typename Builder> class field_t {
         context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
+        unset_free_witness();
     }
 
-    static field_t from_witness(Builder* ctx, const bb::fr& input) { return field_t(witness_t<Builder>(ctx, input)); }
+    static field_t from_witness(Builder* ctx, const bb::fr& input)
+    {
+        auto result = field_t(witness_t<Builder>(ctx, input));
+        result.set_free_witness();
+        return result;
+    }
 
     /**
      * Fix a witness. The value of the witness is constrained with a selector
@@ -312,6 +327,7 @@ template <typename Builder> class field_t {
         auto context = get_context();
         ASSERT(context != nullptr);
         context->fix_witness(witness_index, get_value());
+        unset_free_witness();
     }
 
     /**

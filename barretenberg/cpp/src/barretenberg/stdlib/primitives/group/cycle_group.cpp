@@ -159,6 +159,7 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
     result._is_constant = false;
     result._is_standard = true;
     result.validate_is_on_curve();
+    result.set_free_witness();
     return result;
 }
 
@@ -196,6 +197,7 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
     result._is_standard = true;
+    result.unset_free_witness();
     return result;
 }
 
@@ -860,6 +862,8 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
     field_t hi = witness_t(context, hi_v);
+    lo.set_free_witness();
+    hi.set_free_witness();
     return cycle_scalar(lo, hi);
 }
 
@@ -882,6 +886,8 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
     field_t hi = witness_t(context, hi_v);
+    lo.set_free_witness();
+    hi.set_free_witness();
     cycle_scalar result{ lo, hi, num_bits, true, false };
     return result;
 }

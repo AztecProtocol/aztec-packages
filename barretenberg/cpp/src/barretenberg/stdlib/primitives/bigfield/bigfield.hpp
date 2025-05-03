@@ -219,7 +219,9 @@ template <typename Builder, typename T> class bigfield {
         uint256_t input_u256(input);
         field_t<Builder> low(witness_t<Builder>(ctx, bb::fr(input_u256.slice(0, NUM_LIMB_BITS * 2))));
         field_t<Builder> hi(witness_t<Builder>(ctx, bb::fr(input_u256.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4))));
-        return bigfield(low, hi);
+        auto result = bigfield(low, hi);
+        result.set_free_witness();
+        return result;
     }
 
     bigfield& operator=(const bigfield& other);
@@ -452,10 +454,14 @@ template <typename Builder, typename T> class bigfield {
      **/
     void fix_witness()
     {
+        // Origin tags should be updated within
         for (auto& limb : binary_basis_limbs) {
             limb.element.fix_witness();
         }
         prime_basis_limb.fix_witness();
+
+        // This is now effectively a constant
+        unset_free_witness();
     }
 
     Builder* get_context() const { return context; }
@@ -477,6 +483,27 @@ template <typename Builder, typename T> class bigfield {
                              prime_basis_limb.tag);
     }
 
+    /**
+     * @brief Set the free witness flag for the bigfield
+     */
+    void set_free_witness()
+    {
+        for (auto& limb : binary_basis_limbs) {
+            limb.element.set_free_witness();
+        }
+        prime_basis_limb.set_free_witness();
+    }
+
+    /**
+     * @brief Unset the free witness flag for the bigfield
+     */
+    void unset_free_witness()
+    {
+        for (auto& limb : binary_basis_limbs) {
+            limb.element.unset_free_witness();
+        }
+        prime_basis_limb.unset_free_witness();
+    }
     /**
      * @brief Set the witness indices of the binary basis limbs to public
      *

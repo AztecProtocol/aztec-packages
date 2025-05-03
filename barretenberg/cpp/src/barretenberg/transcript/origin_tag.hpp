@@ -56,20 +56,25 @@ void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
 
 #ifndef NDEBUG
 struct OriginTag {
-    static constexpr size_t CONSTANT = 0;
+    static constexpr size_t CONSTANT = static_cast<size_t>(-1);
+    static constexpr size_t FREE_WITNESS = static_cast<size_t>(-2);
     // Parent tag is supposed to represent the index of a unique trancript object that generated the value. It uses
     // a concrete index, not bits for now, since we never expect two different indices to be used in the same
     // computation apart from equality assertion
-    size_t parent_tag = 0;
+    size_t parent_tag = CONSTANT;
 
     // Child tag specifies which submitted values and challenges have been used to generate this element
     // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the
     // round) The higher 128 bits represent using a challenge value from an corresponding round (the shift
     // represents the round)
-    numeric::uint256_t child_tag = 0;
+    numeric::uint256_t child_tag = numeric::uint256_t(0);
 
     // Instant death is used for poisoning values we should never use in arithmetic
     bool instant_death = false;
+
+    // Free witness is used for witnesses that don't have an origin
+    bool free_witness = false;
+
     // Default Origin Tag has everything set to zero and can't cause any issues
     OriginTag() = default;
     OriginTag(const OriginTag& other) = default;
@@ -108,12 +113,43 @@ struct OriginTag {
      */
     OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     {
+        // Elements with instant death should not be touched
         if (tag_a.instant_death || tag_b.instant_death) {
             throw_or_abort("Touched an element that should not have been touched");
         }
-        if (tag_a.parent_tag != tag_b.parent_tag && (tag_a.parent_tag != 0U) && (tag_b.parent_tag != 0U)) {
+        if (tag_a.parent_tag == CONSTANT) {
+            *this = tag_b;
+            return;
+        }
+        if (tag_b.parent_tag == CONSTANT) {
+            *this = tag_a;
+            return;
+        }
+
+        // A free witness element should not interact with an element that has an origin
+        if (tag_a.is_free_witness()) {
+            if (!tag_b.is_free_witness() && !tag_b.is_empty()) {
+                throw_or_abort("A free witness element should not interact with an element that has an origin");
+            } else {
+                // If both are free witnesses or one of them is empty, just use tag_a
+                *this = tag_a;
+                return;
+            }
+        }
+        if (tag_b.is_free_witness()) {
+            if (!tag_a.is_free_witness() && !tag_a.is_empty()) {
+                throw_or_abort("A free witness element should not interact with an element that has an origin");
+            } else {
+                // If both are free witnesses or one of them is empty, just use tag_b
+                *this = tag_b;
+                return;
+            }
+        }
+        // Elements from different transcripts shouldn't interact
+        if (tag_a.parent_tag != tag_b.parent_tag) {
             throw_or_abort("Tags from different transcripts were involved in the same computation");
         }
+
         check_child_tags(tag_a.child_tag, tag_b.child_tag);
         parent_tag = tag_a.parent_tag;
         child_tag = tag_a.child_tag | tag_b.child_tag;
@@ -128,10 +164,12 @@ struct OriginTag {
      * @param tag
      * @param rest
      */
-    template <class... T> OriginTag(const OriginTag& tag, const T&... rest)
+    template <class... T>
+    OriginTag(const OriginTag& tag, const T&... rest)
+        : parent_tag(tag.parent_tag)
+        , child_tag(tag.child_tag)
     {
-        parent_tag = tag.parent_tag;
-        child_tag = tag.child_tag;
+
         if (tag.instant_death) {
             throw_or_abort("Touched an element that should not have been touched");
         }
@@ -139,9 +177,35 @@ struct OriginTag {
             if (next_tag.instant_death) {
                 throw_or_abort("Touched an element that should not have been touched");
             }
-            if (parent_tag != next_tag.parent_tag && (parent_tag != 0U) && (next_tag.parent_tag != 0U)) {
+            if (parent_tag == CONSTANT) {
+                *this = next_tag;
+                continue;
+            }
+            if (next_tag.parent_tag == CONSTANT) {
+                continue;
+            }
+            // A free witness element should not interact with an element that has an origin
+            if (is_free_witness()) {
+                if (!next_tag.is_free_witness() && !next_tag.is_empty()) {
+                    throw_or_abort("A free witness element should not interact with an element that has an origin");
+                } else {
+                    // If both are free witnesses or one of them is empty, just use the free one
+                    continue;
+                }
+            }
+            if (next_tag.is_free_witness()) {
+                if (!is_free_witness() && !is_empty()) {
+                    throw_or_abort("A free witness element should not interact with an element that has an origin");
+                } else {
+                    // If both are free witnesses or one of them is empty, just use the free one
+                    *this = next_tag;
+                    continue;
+                }
+            }
+            if (parent_tag != next_tag.parent_tag) {
                 throw_or_abort("Tags from different transcripts were involved in the same computation");
             }
+
             check_child_tags(child_tag, next_tag.child_tag);
             child_tag |= next_tag.child_tag;
         }
@@ -151,7 +215,10 @@ struct OriginTag {
     void poison() { instant_death = true; }
     void unpoison() { instant_death = false; }
     bool is_poisoned() const { return instant_death; }
-    bool is_empty() const { return !instant_death && parent_tag == 0 && child_tag == uint256_t(0); };
+    bool is_empty() const { return !instant_death && parent_tag == CONSTANT; };
+    bool is_free_witness() const { return parent_tag == FREE_WITNESS; }
+    void set_free_witness() { parent_tag = FREE_WITNESS; }
+    void unset_free_witness() { parent_tag = CONSTANT; }
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {
@@ -180,6 +247,9 @@ struct OriginTag {
     void unpoison() {}
     static bool is_poisoned() { return false; }
     static bool is_empty() { return true; };
+    bool is_free_witness() const { return false; }
+    void set_free_witness() {}
+    void unset_free_witness() {}
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
 {

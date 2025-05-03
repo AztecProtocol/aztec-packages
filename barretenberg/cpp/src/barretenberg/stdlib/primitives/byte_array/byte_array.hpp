@@ -97,6 +97,26 @@ template <typename Builder> class byte_array {
         return tag;
     }
 
+    /**
+     * @brief Set the free witness flag for the byte array
+     */
+    void set_free_witness()
+    {
+        for (auto& value : values) {
+            value.set_free_witness();
+        }
+    }
+
+    /**
+     * @brief Unset the free witness flag for the byte array
+     */
+    void unset_free_witness()
+    {
+        for (auto& value : values) {
+            value.unset_free_witness();
+        }
+    }
+
   private:
     Builder* context;
     bytes_t values;

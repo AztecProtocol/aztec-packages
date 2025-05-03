@@ -250,12 +250,17 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
                                        (size_t)NUM_LIMB_BITS,
                                        (size_t)num_last_limb_bits);
 
+        // Mark the element as coming out of nowhere
+        result.set_free_witness();
         return result;
     } else {
-        return bigfield(witness_t(ctx, fr(limbs[0] + limbs[1] * shift_1)),
-                        witness_t(ctx, fr(limbs[2] + limbs[3] * shift_1)),
-                        can_overflow,
-                        maximum_bitlength);
+        auto result = bigfield(witness_t(ctx, fr(limbs[0] + limbs[1] * shift_1)),
+                               witness_t(ctx, fr(limbs[2] + limbs[3] * shift_1)),
+                               can_overflow,
+                               maximum_bitlength);
+        // Mark the element as coming out of nowhere
+        result.set_free_witness();
+        return result;
     }
 }
 
@@ -2091,7 +2096,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(const bigfield& other) const
 {
     Builder* ctx = this->context ? this->context : other.context;
-
+    (void)OriginTag(get_origin_tag(), other.get_origin_tag());
     if (is_constant() && other.is_constant()) {
         std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
         ASSERT(get_value() == other.get_value()); // We expect constants to be less than the target modulus
