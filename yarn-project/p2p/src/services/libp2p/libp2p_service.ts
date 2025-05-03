@@ -756,6 +756,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return gasFees;
   }
 
+  public async validate(txs: Tx[]): Promise<void> {
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
+    const messageValidators = await this.createMessageValidators(blockNumber);
+
+    await Promise.all(
+      txs.map(async tx => {
+        for (const validator of messageValidators) {
+          const outcome = await this.runValidations(tx, validator);
+          if (!outcome.allPassed) {
+            throw new Error('Invalid tx detected', { cause: { outcome } });
+          }
+        }
+      }),
+    );
+  }
+
   /**
    * Create message validators for the given block number.
    *
