@@ -387,6 +387,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         this.config.l1ConsensusHostApiKeys?.forEach(apiKey => {
           error.message = error.message.replace(apiKey, '********');
         });
+        this.config.l1RpcUrls.forEach(url => {
+          // only show the host part of the url
+          const urlObj = new URL(url);
+          error.message = error.message.replace(url, urlObj.host);
+        });
       }
       throw error;
     }

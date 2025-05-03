@@ -39,6 +39,10 @@ describe('aztec node', () => {
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let l2LogsSource: MockProxy<L2LogsSource>;
+  let contractSource: MockProxy<ContractDataSource>;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let worldState: MockProxy<WorldStateSynchronizer>;
   let lastBlockNumber: number;
   let node: AztecNode;
   let feePayer: AztecAddress;
@@ -100,19 +104,16 @@ describe('aztec node', () => {
       }
     });
 
-    const worldState = mock<WorldStateSynchronizer>({
+    worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getBlockNumber.mockImplementation(() => Promise.resolve(lastBlockNumber));
 
-    const l2LogsSource = mock<L2LogsSource>();
-
-    const l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-
-    // all txs use the same allowed FPC class
-    const contractSource = mock<ContractDataSource>();
+    l2LogsSource = mock<L2LogsSource>();
+    contractSource = mock<ContractDataSource>();
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
@@ -238,6 +239,57 @@ describe('aztec node', () => {
 
         const nodeInfo = await node.getNodeInfo();
         expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
+      });
+    });
+
+    describe('getCurrentBaseFees', () => {
+      it('obfuscates API keys and URLs in error messages', async () => {
+        const apiKey = 'secret-api-key-123';
+        const rpcUrl = `https://mainnet.infura.io/v3/${apiKey}`;
+        const errorMessage = `Error calling L1: ${rpcUrl}`;
+
+        // Mock the globalVariableBuilder to throw an error
+        globalVariablesBuilder.getCurrentBaseFees.mockRejectedValue(new Error(errorMessage));
+
+        // Configure node with the API key and RPC URL
+        const config = getConfigEnvVars();
+        config.l1ConsensusHostApiKeys = [apiKey];
+        config.l1RpcUrls = [rpcUrl];
+
+        const nodeWithConfig = new AztecNodeService(
+          {
+            ...config,
+            l1Contracts: {
+              ...config.l1Contracts,
+              rollupAddress: EthAddress.ZERO,
+              registryAddress: EthAddress.ZERO,
+              inboxAddress: EthAddress.ZERO,
+              outboxAddress: EthAddress.ZERO,
+            },
+          },
+          p2p,
+          l2BlockSource,
+          l2LogsSource,
+          contractSource,
+          l1ToL2MessageSource,
+          worldState,
+          undefined,
+          undefined,
+          12345,
+          rollupVersion.toNumber(),
+          globalVariablesBuilder,
+          new TestCircuitVerifier(),
+        );
+
+        // Expect the error to be thrown with obfuscated values
+        await expect(nodeWithConfig.getCurrentBaseFees()).rejects.toThrow(
+          expect.objectContaining({
+            message: expect.stringContaining('mainnet.infura.io'),
+          }),
+        );
+
+        // Verify the error message doesn't contain the API key
+        await expect(nodeWithConfig.getCurrentBaseFees()).rejects.toThrow(expect.not.stringContaining(apiKey));
       });
     });
 
