@@ -35,6 +35,7 @@ The archiver component complements this process by maintaining historical chain 
 Before following this guide, make sure you:
 
 - Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
+- Set up `docker` on your system. Refer to the [Docker installation guide](https://docs.docker.com/engine/install/).
 - You are using the correct version for the testnet by running `aztec-up alpha-testnet`
 - Are running a Linux or MacOS machine with access to a terminal
 
@@ -101,7 +102,7 @@ For a full overview of all available commands, check out the [CLI reference shee
 
 :::tip
 
-If you are unable to determine your public ip. Running the command `curl ifconfig.me` can retrieve it for you.
+If you are unable to determine your public ip. Running the command `curl ipv4.icanhazip.com` can retrieve it for you.
 :::
 
 ### Register as a Validator
@@ -159,7 +160,7 @@ name: aztec-node
 services:
   network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5
+    image: aztecprotocol/aztec:alpha-testnet
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
