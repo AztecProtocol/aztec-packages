@@ -22,15 +22,10 @@ Create a new file `src/index.test.mjs` with the imports we'll be using and an em
 
 ```js
 import {
-  Contract,
-  ExtendedNote,
-  Fr,
-  Note,
-  computeSecretHash,
-  createPXEClient,
-  waitForPXE,
+    createPXEClient,
+    waitForPXE,
 } from "@aztec/aztec.js";
-import { createAccount } from "@aztec/accounts/testing";
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const {

@@ -274,6 +274,8 @@ Let's run through the entire process of depositing, minting and withdrawing toke
 
 Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
 
+Make sure you are using version `0.85.0-alpha-testnet.5` of the sandbox. Install with `aztec-up 0.85.0-alpha-testnet.5`.
+
 ### ProjectSetup
 
 Create a new directory for the tutorial and install the dependencies:
@@ -283,7 +285,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js@0.85.0-alpha-testnet.5 @aztec/noir-contracts.js@0.85.0-alpha-testnet.5 @aztec/l1-artifacts@0.85.0-alpha-testnet.5 @aztec/accounts@0.85.0-alpha-testnet.5 @aztec/ethereum@0.85.0-alpha-testnet.5 @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```
