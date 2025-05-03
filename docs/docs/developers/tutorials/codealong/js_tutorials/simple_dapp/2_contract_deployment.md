@@ -39,7 +39,7 @@ The `Token` contract also requires some helper files. You can view the files [he
 
 Add this `balance_set.nr` file at `token/src/types/balance_set.nr`.
 
-#include_code balance_set noir-projects/noir-contracts/contracts/apps/token_contract/src/types/balance_set.nr rust
+#include_code balance_set noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr rust
 
 ## Compile your contract
 
