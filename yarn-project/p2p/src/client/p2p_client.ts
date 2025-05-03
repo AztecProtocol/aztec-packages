@@ -117,6 +117,8 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    */
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
+  validate(tx: Tx[]): Promise<void>;
+
   /**
    * Checks if transactions exist in the pool
    * @param txHashes - The hashes of the transactions to check for
@@ -886,5 +888,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const oldState = this.currentState;
     this.currentState = newState;
     this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
+  }
+  public validate(txs: Tx[]): Promise<void> {
+    return this.p2pService.validate(txs);
   }
 }
