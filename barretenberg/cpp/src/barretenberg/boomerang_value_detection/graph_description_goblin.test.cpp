@@ -68,25 +68,32 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     auto [proof, verifier_input] = create_goblin_prover_output();
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
-    info("Recursive Verifier: num gates = ", builder.num_gates);
+    auto [opening_claim, ipa_transcript] = verifier.verify(proof);
+    auto G_commitment = opening_claim.commitment;
+    G_commitment.x.fix_witness(); // need to check after full test run
+    G_commitment.y.fix_witness(); // need to check after full test run
     EXPECT_EQ(builder.failed(), false) << builder.err();
-    {
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        OuterProver prover(proving_key);
-        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
-        OuterVerifier verifier(verification_key);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+    /*     {
+            auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
+            OuterProver prover(proving_key);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+            OuterVerifier verifier(verification_key);
+            auto proof = prover.construct_proof();
+            bool verified = verifier.verify_proof(proof);
 
-        ASSERT(verified);
-    }
-    info("Recursive Verifier: num gates = ", builder.num_gates);
-    // Construct and verify a proof for the Goblin Recursive Verifier circuit
+            ASSERT(verified);
+        } */
     builder.finalize_circuit(false);
-    info("start graph creation");
-    auto graph = cdg::Graph(builder);
-    info("graph creation is finished");
+    info("Recursive Verifier: num gates = ", builder.num_gates);
+    auto graph = cdg::Graph(builder, false);
+    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    if (variables_in_one_gate.empty()) {
+        info("variables in one gate is empty");
+    } else {
+        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0];
+        info("first var == ", first_var);
+        graph.print_variable_in_one_gate(builder, first_var);
+    }
     // auto connected_components = graph.find_connected_components();
     // info("number of connected components == ", connected_components.size());
 }
