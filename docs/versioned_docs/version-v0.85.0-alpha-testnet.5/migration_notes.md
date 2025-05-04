@@ -24,7 +24,6 @@ The following renamings have taken place:
 Most contracts barely used these modules, the only frequent imports are the `encode_and_encrypt` functions:
 
 ```diff
-paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address,bananaFPC.address,aliceWallet,sequencerAddress),
 - use dep::aztec::messages::logs::note::encode_and_encrypt_note;
 + use dep::aztec::messages::logs::note::encode_and_encrypt_note;
 ```
