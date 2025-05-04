@@ -36,7 +36,7 @@ main().catch((err) => {
 });
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16</a></sub></sup>
 
 Make sure the [Sandbox is running](../../../../getting_started.md) and run the example
 
@@ -66,7 +66,7 @@ async function showAccounts(pxe) {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17</a></sub></sup>
 
 Call the `showAccounts` function from `main`, run again the above, and you should see something like:
 

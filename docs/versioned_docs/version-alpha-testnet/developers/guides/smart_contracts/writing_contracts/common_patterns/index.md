@@ -27,7 +27,7 @@ const burnAuthwit = await user1Wallet.createAuthWit({
 });
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts#L70-L78</a></sub></sup>
 
 Here you approve a contract to burn funds on your behalf.
 
@@ -50,7 +50,7 @@ const validateActionInteraction = await wallets[0].setPublicAuthWit(
 await validateActionInteraction.send().wait();
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76</a></sub></sup>
 
 Here you approve someone to transfer funds publicly on your behalf
 
@@ -77,7 +77,7 @@ pub fn verify_private_authwit(self, inner_hash: Field) -> Field {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/authwit/src/account.nr#L71-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/account.nr#L71-L86</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/authwit/src/account.nr#L71-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/authwit/src/account.nr#L71-L86</a></sub></sup>
 
 Note be careful to ensure that the nullifier is not deterministic and that no one could do a preimage analysis attack. More in [the anti pattern section on deterministic nullifiers](#deterministic-nullifiers)
 
@@ -148,7 +148,7 @@ await contract.methods
   .simulate();
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_persistence.test.ts#L364-L377</a></sub></sup>
 
 Note that this requires your contract to have a utility function that processes these notes and adds them to PXE.
 
@@ -165,7 +165,7 @@ unconstrained fn deliver_transparent_note(
 ) {
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315</a></sub></sup>
 
 ### Revealing encrypted logs conditionally
 
@@ -204,7 +204,7 @@ impl AddressNote {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24</a></sub></sup>
 
 ### L1 -- L2 interactions
 
@@ -263,4 +263,4 @@ fn cast_vote(candidate: Field) {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>

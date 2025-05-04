@@ -15,7 +15,7 @@ Retrieves the number of versions that have been deployed.
 function numberOfVersions() external view returns (uint256);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L22-L24</a></sub></sup>
 
 | Name        | Description                                    |
 | ----------- | ---------------------------------------------- |
@@ -29,7 +29,7 @@ Retrieves the current rollup contract.
 function getCanonicalRollup() external view returns (IRollup);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L14-L16</a></sub></sup>
 
 | Name        | Description        |
 | ----------- | ------------------ |
@@ -43,7 +43,7 @@ Retrieves the rollup contract for a specfic version.
 function getRollup(uint256 _chainId) external view returns (IRollup);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/governance/interfaces/IRegistry.sol#L18-L20</a></sub></sup>
 
 | Name        | Description        |
 | ----------- | ------------------ |

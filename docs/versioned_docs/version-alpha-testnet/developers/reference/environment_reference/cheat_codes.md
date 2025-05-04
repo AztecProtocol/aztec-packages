@@ -554,7 +554,7 @@ const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
 expect(balance).toEqual(mintAmount);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L182-L199" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L182-L199</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L182-L199" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_cheat_codes.test.ts#L182-L199</a></sub></sup>
 
 ## Participate
 

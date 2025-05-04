@@ -52,8 +52,9 @@ Start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sand
 
 :::note Sandbox + aztec.js?
 If you are specifically wanting to test aztec.js with the sandbox, then you will need to use the default command which includes the PXE:
+
 - `aztec start --sandbox`
-:::
+  :::
 
 ### Specifying the network URL for your PXE
 
@@ -193,7 +194,7 @@ aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --salt 0 --fr
 aztec-wallet deploy-account --from main --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
 ```
 
-The equivalent using aztec.js - get sponsored fpc address (helper functions [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/aztec/src/sandbox/sponsored_fpc.ts)) and use payment method:
+The equivalent using aztec.js - get sponsored fpc address (helper functions [here](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/aztec/src/sandbox/sponsored_fpc.ts)) and use payment method:
 
 ```javascript
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js"; // helper functions linked above
@@ -278,7 +279,9 @@ import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 // Below we'll deploy the new account (eg schnorrAccount2) with fee juice from test wallet
 
 const useFeeJuice = new FeeJuicePaymentMethod(testWallets[0].getAddress());
-await schnorrAccount2.deploy({ fee: { deployWallet: testWallets[0], paymentMethod: useFeeJuice } }).wait();
+await schnorrAccount2
+  .deploy({ fee: { deployWallet: testWallets[0], paymentMethod: useFeeJuice } })
+  .wait();
 ```
 
 :::note Payment: Fee Juice
@@ -330,7 +333,7 @@ aztec-wallet deploy-account --from accBFJ --payment method=fee_juice,claim
 
 The equivalent using aztec.js - bridge fee juice, (pass two txs), create and use payment method:
 
-(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
+(See also the [aztec-wallet](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) implementation to initialise a fee juice portal manager)
 
 ```javascript
 import {
@@ -345,11 +348,12 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 // Below we'll deploy the new account (eg schnorrAccount3) via a claim to bridged fee juice
 
 const { l1ChainId } = await pxe.getNodeInfo(); // foundry chainid 31337 for sandbox use
-const l1RpcUrls = ['http://localhost:8545]'] // for sandbox use, or see https://chainlist.org/chain/11155111> eg ['https://rpc.sepolia.ethpandaops.io']
+const l1RpcUrls = ["http://localhost:8545]"]; // for sandbox use, or see https://chainlist.org/chain/11155111> eg ['https://rpc.sepolia.ethpandaops.io']
 const chain = createEthereumChain(l1RpcUrls, l1ChainId);
 
 // eg l1 private key, or for sandbox...
-const mnemonicOrPrivateKey = 'test test test test test test test test test test test junk';
+const mnemonicOrPrivateKey =
+  "test test test test test test test test test test test junk";
 
 const { publicClient, walletClient } = createL1Clients(
   chain.rpcUrls,
@@ -532,7 +536,7 @@ Please refer to the snippets in the sections above, and report any discrepancies
 
 - [`aztec` CLI tool](../../reference/environment_reference/cli_reference)
 - [`aztec-wallet` CLI tool](../../reference/environment_reference/cli_wallet_reference)
-- [`aztec.js` source](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/aztec.js)
+- [`aztec.js` source](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/aztec.js)
 - [Glossary](../../../glossary)
 - Search bar and AI above
 - Tags below :)

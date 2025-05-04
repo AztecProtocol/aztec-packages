@@ -123,7 +123,7 @@ First import them:
 aztec-wallet import-test-accounts
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/cli-wallet/test/flows/basic.sh#L9-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/basic.sh#L9-L11</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/cli-wallet/test/flows/basic.sh#L9-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/basic.sh#L9-L11</a></sub></sup>
 
 Then use the alias (test0, test1...) when paying in fee juice. Eg to create accounts:
 
@@ -132,7 +132,7 @@ aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
 aztec-wallet create-account -a bob --payment method=fee_juice,feePayer=test0
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/up_quick_start.sh#L21-L24</a></sub></sup>
 
 ### Mint and Bridge Fee Juice
 
@@ -145,7 +145,7 @@ aztec-wallet create-account -a main --register-only
 aztec-wallet bridge-fee-juice 1000000000000000000 main --mint --no-wait
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11</a></sub></sup>
 
 You'll have to wait for two blocks to pass for bridged fee juice to be ready on Aztec.
 For the sandbox you do this by putting through two arbitrary transactions. Eg:
@@ -156,7 +156,7 @@ aztec-wallet deploy Counter --init initialize --args 0 accounts:test0 -f test0 -
 aztec-wallet send increment -ca counter --args accounts:test0 accounts:test0 -f test0
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L17-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L17-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L17-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L17-L20</a></sub></sup>
 
 Now the funded account can deploy itself with the bridged fees, claiming the bridged fee juice and deploying the contract in one transaction:
 
@@ -164,7 +164,7 @@ Now the funded account can deploy itself with the bridged fees, claiming the bri
 aztec-wallet deploy-account -f main --payment method=fee_juice,claim
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27</a></sub></sup>
 
 #### Minting on Testnet
 

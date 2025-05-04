@@ -27,7 +27,7 @@ function sendL2Message(
 ) external returns (bytes32, uint256);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L21-L35" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L21-L35</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L21-L35" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L21-L35</a></sub></sup>
 
 | Name        | Type                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -60,7 +60,7 @@ Allows the `Rollup` to consume multiple messages in a single transaction.
 function consume(uint256 _toConsume) external returns (bytes32);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L37-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L37-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L37-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L37-L49</a></sub></sup>
 
 | Name        | Type      | Description                |
 | ----------- | --------- | -------------------------- |

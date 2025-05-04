@@ -86,7 +86,7 @@ function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
   returns (bytes32, uint256)
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/test/portals/TokenPortal.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L55-L66</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/test/portals/TokenPortal.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L55-L66</a></sub></sup>
 
 #### `depositToAztecPrivate` (TokenPortal.sol)
 
@@ -102,7 +102,7 @@ function depositToAztecPrivate(uint256 _amount, bytes32 _secretHashForL2MessageC
   returns (bytes32, uint256)
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/test/portals/TokenPortal.sol#L89-L99" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L89-L99</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/test/portals/TokenPortal.sol#L89-L99" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L89-L99</a></sub></sup>
 
 **So how do we privately consume the message on Aztec?**
 
@@ -130,7 +130,7 @@ fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_inde
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
 
 What's happening here?
 
@@ -173,7 +173,7 @@ fn exit_to_l1_public(
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L73-L92" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L73-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L73-L92" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L73-L92</a></sub></sup>
 
 #### `exit_to_L1_private` (TokenBridge.nr)
 
@@ -204,7 +204,7 @@ fn exit_to_l1_private(
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
 
 Since this is a private method, it can't read what token is publicly stored. So instead the user passes a token address, and `_assert_token_is_same()` checks that this user provided address is same as the one in storage.
 
@@ -257,7 +257,7 @@ function withdraw(
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/test/portals/TokenPortal.sol#L122-L161" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L122-L161</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/test/portals/TokenPortal.sol#L122-L161" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L122-L161</a></sub></sup>
 
 #### `token_portal_withdraw` (TokenPortal.sol)
 
@@ -275,7 +275,7 @@ Let's run through the entire process of depositing, minting and withdrawing toke
 
 Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
 
-Make sure you are using version `0.85.0-alpha-testnet.5` of the sandbox. Install with `aztec-up 0.85.0-alpha-testnet.5`.
+Make sure you are using version `alpha-testnet` of the sandbox. Install with `aztec-up alpha-testnet`.
 
 ### ProjectSetup
 
@@ -286,7 +286,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js@0.85.0-alpha-testnet.5 @aztec/noir-contracts.js@0.85.0-alpha-testnet.5 @aztec/l1-artifacts@0.85.0-alpha-testnet.5 @aztec/accounts@0.85.0-alpha-testnet.5 @aztec/ethereum@0.85.0-alpha-testnet.5 @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js@alpha-testnet @aztec/noir-contracts.js@alpha-testnet @aztec/l1-artifacts@alpha-testnet @aztec/accounts@alpha-testnet @aztec/ethereum@alpha-testnet @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```
@@ -360,7 +360,7 @@ import { TokenBridgeContract } from "@aztec/noir-contracts.js/TokenBridge";
 import { getContract } from "viem";
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L2-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L2-L27</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L2-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L2-L27</a></sub></sup>
 
 ### Utility functions
 
@@ -438,7 +438,7 @@ async function addMinter(
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L28-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L28-L78</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L28-L78" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L28-L78</a></sub></sup>
 
 ### Sandbox Setup
 
@@ -489,7 +489,7 @@ const l2TokenContract = await TokenContract.deploy(
 logger.info(`L2 token contract deployed at ${l2TokenContract.address}`);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L97-L102" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L97-L102</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L97-L102" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L97-L102</a></sub></sup>
 
 Add the following code to `index.ts` to deploy the L1 token contract and set up the `L1TokenManager` (a utility class to interact with the L1 token contract):
 
@@ -509,7 +509,7 @@ const l1TokenManager = new L1TokenManager(
 );
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L105-L113" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L105-L113</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L105-L113" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L105-L113</a></sub></sup>
 
 Add the following code to `index.ts` to deploy the L1 portal contract:
 
@@ -524,7 +524,7 @@ const l1Portal = getContract({
 });
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L116-L125" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L116-L125</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L116-L125" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L116-L125</a></sub></sup>
 
 Add the following code to `index.ts` to deploy the L2 bridge contract:
 
@@ -539,7 +539,7 @@ const l2BridgeContract = await TokenBridgeContract.deploy(
 logger.info(`L2 token bridge contract deployed at ${l2BridgeContract.address}`);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L127-L136" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L127-L136</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L127-L136" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L127-L136</a></sub></sup>
 
 Run `yarn start` to confirm that all of the contracts are deployed.
 
@@ -554,7 +554,7 @@ await l2TokenContract.methods
   .wait();
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L139-L141" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L139-L141</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L139-L141" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L139-L141</a></sub></sup>
 
 Add the following code to `index.ts` to set up the L1 portal contract and `L1TokenPortalManager` (a utility class to interact with the L1 portal contract):
 
@@ -580,7 +580,7 @@ const l1PortalManager = new L1TokenPortalManager(
 );
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L144-L160" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L144-L160</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L144-L160" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L144-L160</a></sub></sup>
 
 ### Bridge tokens
 
@@ -605,7 +605,7 @@ await l2TokenContract.methods
   .wait();
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L162-L169" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L162-L169</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L162-L169" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L162-L169</a></sub></sup>
 
 We have to send two additional transactions because the network must process 2 blocks for the message to be processed by the archiver. We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when the subtree containing the message is included in the block. Then when it's included it becomes available for consumption in the next block.
 
@@ -629,7 +629,7 @@ const balance = await l2TokenContract.methods
 logger.info(`Public L2 balance of ${ownerAztecAddress} is ${balance}`);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L172-L179" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L172-L179</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L172-L179" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L172-L179</a></sub></sup>
 
 Run `yarn start` to confirm that tokens are claimed on Aztec.
 
@@ -656,7 +656,7 @@ const authwit = await ownerWallet.setPublicAuthWit(
 await authwit.send().wait();
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L183-L196" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L183-L196</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L183-L196" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L183-L196</a></sub></sup>
 
 We have to send a public authwit to allow the bridge contract to burn tokens on behalf of the user.
 
@@ -685,7 +685,7 @@ const newL2Balance = await l2TokenContract.methods
 logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L198-L212" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L198-L212</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L198-L212" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L198-L212</a></sub></sup>
 
 Add the following code to `index.ts` to complete the withdraw process on L1:
 
@@ -705,6 +705,6 @@ const newL1Balance = await l1TokenManager.getL1TokenBalance(ownerEthAddress);
 logger.info(`New L1 balance of ${ownerEthAddress} is ${newL1Balance}`);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L214-L228" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L214-L228</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L214-L228" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L214-L228</a></sub></sup>
 
 Run `yarn start` to run the script and see the entire process in action.

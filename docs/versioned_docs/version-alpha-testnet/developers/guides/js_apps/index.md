@@ -28,7 +28,7 @@ import {
 } from "@aztec/aztec.js";
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/e2e_simple.test.ts#L1-L4" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_simple.test.ts#L1-L4</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/e2e_simple.test.ts#L1-L4" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_simple.test.ts#L1-L4</a></sub></sup>
 
 ## Flow
 

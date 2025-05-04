@@ -42,7 +42,7 @@ aztec-up alpha-testnet
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.5`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `alpha-testnet`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -176,6 +176,6 @@ You should see `2n`.
 
 Congratulations! You've now learned the fundamentals of working with the Aztec testnet. Here are some resources to continue your journey:
 
-* [Aztec Playground](https://play.aztec.network/)
-* [Tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
-* [Guide to run a node](../../the_aztec_network/index.md)
+- [Aztec Playground](https://play.aztec.network/)
+- [Tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
+- [Guide to run a node](../../the_aztec_network/index.md)

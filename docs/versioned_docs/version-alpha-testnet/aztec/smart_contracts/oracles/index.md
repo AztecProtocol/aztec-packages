@@ -25,7 +25,7 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 /// Oracles module
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3</a></sub></sup>
 
 ## Inbuilt oracles
 

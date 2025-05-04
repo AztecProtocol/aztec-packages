@@ -60,7 +60,7 @@ fn call_create_note(
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L135-L156" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L135-L156</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L135-L156" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L135-L156</a></sub></sup>
 
 ## Get the note from the PXE
 
@@ -71,7 +71,7 @@ let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_RE
     get_notes(&mut context, storage_slot, options);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L171-L174" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L171-L174</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L171-L174" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L171-L174</a></sub></sup>
 
 In this example, we fetch notes located in the storage slot that we pass in from the function parameters. The notes also must match the criteria specified by the getter options that we declare and are able to customize.
 
@@ -83,7 +83,7 @@ To prove that a note existed in a specified block, call `prove_note_inclusion` o
 context.historical_header.prove_note_inclusion(retrieved_note, test::NOTE_STORAGE_SLOT);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/aztec/src/history/note_inclusion/test.nr#L10-L12" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/history/note_inclusion/test.nr#L10-L12</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/history/note_inclusion/test.nr#L10-L12" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/history/note_inclusion/test.nr#L10-L12</a></sub></sup>
 
 This will only prove the note existed at the specific block number, not whether or not the note has been nullified. You can prove that a note existed and had not been nullified in a specified block by using `prove_note_validity` on the block header which takes the following arguments:
 
@@ -91,7 +91,7 @@ This will only prove the note existed at the specific block number, not whether 
 context.historical_header.prove_note_validity(retrieved_note, test::NOTE_STORAGE_SLOT, context);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/aztec/src/history/note_validity/test.nr#L25-L27" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/history/note_validity/test.nr#L25-L27</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/history/note_validity/test.nr#L25-L27" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/history/note_validity/test.nr#L25-L27</a></sub></sup>
 
 ## Create a nullifier to prove inclusion of
 
@@ -101,7 +101,7 @@ You can easily nullify a note like so:
 destroy_note_unsafe(&mut context, retrieved_note, note_hash);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L252-L254" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L252-L254</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L252-L254" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L252-L254</a></sub></sup>
 
 This function gets a note from the PXE and nullifies it with `remove()`.
 
@@ -115,7 +115,7 @@ Call `prove_nullifier_inclusion` on a block header like so:
 context.historical_header.prove_nullifier_inclusion(siloed_nullifier);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/aztec/src/history/nullifier_inclusion/test.nr#L60-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/history/nullifier_inclusion/test.nr#L60-L62</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/history/nullifier_inclusion/test.nr#L60-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/history/nullifier_inclusion/test.nr#L60-L62</a></sub></sup>
 
 It takes the nullifier as an argument.
 

@@ -23,7 +23,7 @@ fn test_to_from_field() {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/card_game_contract/src/cards.nr#L40-L47" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/card_game_contract/src/cards.nr#L40-L47</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/card_game_contract/src/cards.nr#L40-L47" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/card_game_contract/src/cards.nr#L40-L47</a></sub></sup>
 
 To learn more about Noir testing, please refer to [the Noir docs](https://Noir-lang.org/docs/tooling/testing/).
 
@@ -69,7 +69,7 @@ Since TXE tests are written in Noir and executed with `aztec-nargo`, they all ru
 `aztec-nr` provides an utility class called `TestEnvironment`, that should take care of the most common operations needed to setup contract testing. Setting up a new test environment with `TestEnvironment::new()` **will reset the current test's TXE state**.
 
 :::tip
-You can find all of the methods available in the `TestEnvironment` [here (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr).
+You can find all of the methods available in the `TestEnvironment` [here (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr).
 :::
 
 ```rust title="txe_test_increment" showLineNumbers
@@ -109,7 +109,7 @@ unconstrained fn test_increment() {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L101-L138" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L101-L138</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L101-L138" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L101-L138</a></sub></sup>
 
 :::warning
 Tests run significantly faster as `unconstrained` functions. This means we generate bytecode (Brillig) and not circuits (ACIR), which _should_ yield exactly the same results. Any other behavior is considered a bug.
@@ -127,7 +127,7 @@ use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
 use dep::aztec::test::helpers::test_environment::TestEnvironment;
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L93-L100" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L93-L100</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L93-L100" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L93-L100</a></sub></sup>
 
 ### Deploying contracts
 
@@ -179,7 +179,7 @@ let transfer_amount = 1000 as u128;
 Token::at(token_contract_address).transfer(recipient, transfer_amount).call(&mut env.private());
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer.nr#L11-L15" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer.nr#L11-L15</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer.nr#L11-L15" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer.nr#L11-L15</a></sub></sup>
 
 #### Public
 
@@ -191,7 +191,7 @@ Token::at(token_contract_address).transfer_in_public(owner, owner, transfer_amou
 );
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L29-L33" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L29-L33</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L29-L33" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L29-L33</a></sub></sup>
 
 #### Utility
 
@@ -212,7 +212,7 @@ pub unconstrained fn check_private_balance(
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L143-L156" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L143-L156</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L143-L156" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L143-L156</a></sub></sup>
 
 ### Creating accounts
 
@@ -268,7 +268,7 @@ pub unconstrained fn check_public_balance(
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L96-L112" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L96-L112</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L96-L112" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L96-L112</a></sub></sup>
 
 Reading notes:
 
@@ -287,7 +287,7 @@ assert(
 );
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L114-L127" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L114-L127</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L114-L127" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L114-L127</a></sub></sup>
 
 ### Authwits
 
@@ -310,7 +310,7 @@ env.impersonate(recipient);
 transfer_private_from_call_interface.call(&mut env.private());
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L11-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L11-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L11-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L11-L24</a></sub></sup>
 
 #### Public
 
@@ -324,7 +324,7 @@ authwit_cheatcodes::add_public_authwit_from_call_interface(
 );
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L115-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L115-L123</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L115-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_public.nr#L115-L123</a></sub></sup>
 
 ### Storing notes in cache
 
@@ -341,7 +341,7 @@ env.add_note(
 );
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L177-L186" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L177-L186</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L177-L186" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr#L177-L186</a></sub></sup>
 
 ### Time traveling
 
@@ -379,7 +379,7 @@ unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L30-L48" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L30-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L30-L48" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/transfer_in_private.nr#L30-L48</a></sub></sup>
 
 You can also use the `assert_public_call_fails` or `assert_private_call_fails` methods on the `TestEnvironment` to check that a call fails.
 
@@ -389,7 +389,7 @@ let set_admin_call_interface = Token::at(token_contract_address).set_admin(recip
 env.assert_public_call_fails(set_admin_call_interface);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/token_contract/src/test/access_control.nr#L34-L38" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/access_control.nr#L34-L38</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/token_contract/src/test/access_control.nr#L34-L38" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/test/access_control.nr#L34-L38</a></sub></sup>
 
 ### Logging
 
@@ -406,4 +406,4 @@ export LOG_LEVEL="debug"
 
 ### All Cheatcodes
 
-You can find the full list of cheatcodes available in the TXE [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/aztec-nr/aztec/src/test/helpers/cheatcodes.nr)
+You can find the full list of cheatcodes available in the TXE [here](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/aztec/src/test/helpers/cheatcodes.nr)

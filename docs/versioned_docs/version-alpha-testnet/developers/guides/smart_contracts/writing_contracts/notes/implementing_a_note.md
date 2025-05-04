@@ -29,7 +29,7 @@ pub struct CardNote {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr#L3-L14</a></sub></sup>
 
 In this example, we are implementing a card note that holds a number of `points` as `u8`.
 

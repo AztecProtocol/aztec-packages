@@ -21,11 +21,8 @@ We'll need to [install and run the Sandbox](../../../../getting_started.md).
 Create a new file `src/index.test.mjs` with the imports we'll be using and an empty test suite to begin with:
 
 ```js
-import {
-    createPXEClient,
-    waitForPXE,
-} from "@aztec/aztec.js";
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
+import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const {
@@ -49,12 +46,23 @@ beforeAll(async () => {
   [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
 
   const initialBalance = 69;
-  token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TokenSymbol', 18).send().deployed();
-  await token.methods.mint_to_private(owner.getAddress(), owner.getAddress(), initialBalance).send().wait();
+  token = await TokenContract.deploy(
+    owner,
+    owner.getAddress(),
+    "TokenName",
+    "TokenSymbol",
+    18
+  )
+    .send()
+    .deployed();
+  await token.methods
+    .mint_to_private(owner.getAddress(), owner.getAddress(), initialBalance)
+    .send()
+    .wait();
 }, 120_000);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L11-L22" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L11-L22</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L11-L22" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L11-L22</a></sub></sup>
 
 :::tip
 Instead of creating new accounts in our test suite, we can use the ones already initialized by the Sandbox upon startup. This can provide a speed boost to your tests setup. However, bear in mind that you may accidentally introduce an interdependency across test suites by reusing the same accounts.
@@ -82,7 +90,7 @@ it("increases recipient funds on transfer", async () => {
 }, 30_000);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L24-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L24-L32</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L24-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L24-L32</a></sub></sup>
 
 In this example, we assert that the `recipient`'s balance is increased by the amount transferred. We could also test that the `owner`'s funds are decremented by the same amount, or that a transaction that attempts to send more funds than those available would fail.
 

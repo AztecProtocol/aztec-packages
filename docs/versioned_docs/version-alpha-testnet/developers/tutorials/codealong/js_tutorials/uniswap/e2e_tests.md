@@ -244,7 +244,7 @@ it("should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)", asy
 });
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L192-L375" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L192-L375</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L192-L375" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L192-L375</a></sub></sup>
 
 ## Public flow test
 
@@ -483,4 +483,4 @@ it("should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)", asy
 // });
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L378-L611" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L378-L611</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L378-L611" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/shared/uniswap_l1_l2.ts#L378-L611</a></sub></sup>

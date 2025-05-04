@@ -9,7 +9,7 @@ import Image from '@theme/IdealImage';
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, state management and creatively using nullifiers to prevent people from voting twice!
 
-This tutorial is compatible with the Aztec version `v0.85.0-alpha-testnet.5`. Install the correct version with `aztec-up alpha-testnet`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `alpha-testnet`. Install the correct version with `aztec-up alpha-testnet`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 We will build this:
 
@@ -50,7 +50,7 @@ We will need the Aztec library to create this contract. In your `Nargo.toml` you
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.85.0-alpha-testnet.5", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="alpha-testnet", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 ## Initiate the contract and define imports
@@ -64,7 +64,8 @@ use dep::aztec::macros::aztec;
 pub contract EasyPrivateVoting {
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6</a></sub></sup>
+
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6</a></sub></sup>
 
 This defines a contract called `EasyPrivateVoting`. Everything will sit inside this block.
 
@@ -79,7 +80,7 @@ use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
 use dep::aztec::protocol_types::traits::{Hash, ToField};
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16</a></sub></sup>
 
 We are using various utils within the Aztec `prelude` library:
 
@@ -91,6 +92,7 @@ We are using various utils within the Aztec `prelude` library:
 
 - `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`
   Imports:
+
   - `AztecAddress`: a type for account/contract addresses,
   - `Map`: a key-value storage structure,
   - `PublicMutable`: public state that can be updated,
@@ -98,7 +100,6 @@ We are using various utils within the Aztec `prelude` library:
 
 - `use dep::aztec::protocol_types::traits::{Hash, ToField};`
   Provides the `Hash` and `ToField` traits, used for hashing values and converting them to a Field, used for nullifier creation and other computations.
-
 
 ## Set up storage
 
@@ -115,7 +116,7 @@ struct Storage<Context> {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25</a></sub></sup>
 
 In this contract, we will store three vars:
 
@@ -139,7 +140,7 @@ fn constructor(admin: AztecAddress) {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36</a></sub></sup>
 
 This function takes the admin argument and writes it to the storage. We are also using this function to set the `vote_ended` boolean as false in the same way.
 
@@ -170,7 +171,7 @@ fn cast_vote(candidate: Field) {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
 
 In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like nullifier secrets.
 
@@ -190,7 +191,7 @@ fn add_to_tally_public(candidate: Field) {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61</a></sub></sup>
 
 The first thing we do here is assert that the vote has not ended.
 
@@ -209,7 +210,7 @@ unconstrained fn get_vote(candidate: Field) -> Field {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75</a></sub></sup>
 
 We set it as `utility` because we don't intend to call this as part of a transaction: we want to call it from our application code to e.g. display the result in a UI.
 
@@ -227,7 +228,7 @@ fn end_vote() {
 }
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69</a></sub></sup>
 
 Here, we are asserting that the `msg_sender()` is equal to the `admin` stored in public state.
 

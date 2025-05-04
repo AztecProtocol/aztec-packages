@@ -103,7 +103,7 @@ let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
 schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86</a></sub></sup>
 
 ### Storing signing keys
 
@@ -121,7 +121,7 @@ Using an immutable private note removes the need to nullify the note on every re
 signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30</a></sub></sup>
 
 :::note
 When it comes to storing the signing key in a private note, there are several details that rely on the wallets:

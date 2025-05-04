@@ -24,7 +24,7 @@ Inserts the root of a merkle tree containing all of the L2 to L1 messages in a b
 function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight) external;
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L22-L33</a></sub></sup>
 
 | Name             | Type      | Description                                                            |
 | ---------------- | --------- | ---------------------------------------------------------------------- |
@@ -62,7 +62,7 @@ function consume(
 ) external;
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53</a></sub></sup>
 
 | Name             | Type        | Description                                                                                 |
 | ---------------- | ----------- | ------------------------------------------------------------------------------------------- |
@@ -97,7 +97,7 @@ function hasMessageBeenConsumedAtBlockAndIndex(uint256 _l2BlockNumber, uint256 _
   returns (bool);
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.85.0-alpha-testnet.5/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L55-L66</a></sub></sup>
 
 | Name             | Type      | Description                                                                                   |
 | ---------------- | --------- | --------------------------------------------------------------------------------------------- |

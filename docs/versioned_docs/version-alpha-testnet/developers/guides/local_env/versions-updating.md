@@ -4,15 +4,21 @@ sidebar_position: 0
 tags: [sandbox]
 ---
 
-- Current version: `v0.85.0-alpha-testnet.5`
-- Update with `aztec-up`
+- Update with `aztec-up alpha-testnet`
 
 On this page you will find
 
-- [Understanding versions](#versions)
-- [How to automatically update Aztec sandbox and aztec-nargo](#updating)
-- [How to update Aztec.nr packages](#updating-aztecnr-packages)
-- [How to update Aztec.js packages](#updating-aztecjs-packages)
+- [Versions](#versions)
+  - [Checking tool versions](#checking-tool-versions)
+  - [Dependency versions](#dependency-versions)
+  - [Example contract versions](#example-contract-versions)
+  - [Language server version (aztec-nargo)](#language-server-version-aztec-nargo)
+- [Updating](#updating)
+  - [Steps to keep up to date](#steps-to-keep-up-to-date)
+- [Updating Aztec.nr packages](#updating-aztecnr-packages)
+  - [Automatic update](#automatic-update)
+  - [Manual update](#manual-update)
+- [Updating Aztec.js packages](#updating-aztecjs-packages)
 
 ## Versions
 
@@ -36,7 +42,7 @@ Check the `git=` github url, tag, and directory.
 
 Example contracts serve as a helpful reference between versions of the Aztec.nr framework since they are strictly maintained with each release.
 
-Code referenced in the documentation is sourced from contracts within [this directory (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.85.0-alpha-testnet.5/noir-projects/noir-contracts/contracts).
+Code referenced in the documentation is sourced from contracts within [this directory (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/alpha-testnet/noir-projects/noir-contracts/contracts).
 
 As in the previous section, the location of the noir contracts moved at version `0.24.0`, from `yarn-project/noir-contracts` before, to `noir-projects/noir-contracts`.
 
@@ -130,9 +136,9 @@ To update the aztec.nr packages manually, update the tags of the `aztec.nr` depe
 ```diff
 [dependencies]
 -aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/aztec" }
-+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.85.0-alpha-testnet.5", directory="noir-projects/aztec-nr/aztec" }
++aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="alpha-testnet", directory="noir-projects/aztec-nr/aztec" }
 -value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/value-note" }
-+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.85.0-alpha-testnet.5", directory="noir-projects/aztec-nr/value-note" }
++value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="alpha-testnet", directory="noir-projects/aztec-nr/value-note" }
 ```
 
 Go to the contract directory and try compiling it with `aztec-nargo compile` to verify that the update was successful:
@@ -151,7 +157,7 @@ To update Aztec.js packages, go to your `package.json` and replace the versions 
 ```diff
 [dependencies]
 -"@aztec/accounts": "0.7.5",
-+"@aztec/accounts": "v0.85.0-alpha-testnet.5",
++"@aztec/accounts": "alpha-testnet",
 -"@aztec/noir-contracts.js": "0.35.1",
-+"@aztec/accounts": "v0.85.0-alpha-testnet.5",
++"@aztec/accounts": "alpha-testnet",
 ```
