@@ -354,7 +354,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_sel_op_dc_14, op_dc_selectors.at(14) },
                       { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) },
                       { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
-                      { C::instr_fetching_sel_op_dc_17, op_dc_selectors.at(17) },
 
                       // Parsing errors
                       { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },

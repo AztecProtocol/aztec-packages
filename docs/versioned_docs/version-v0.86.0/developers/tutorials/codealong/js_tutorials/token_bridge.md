@@ -1,8 +1,13 @@
 ---
 title: "Token Bridge Tutorial"
+sidebar_position: 3
 ---
 
 This tutorial goes over how to create the contracts necessary to create a portal (aka token bridge) and how a developer can use it.
+
+:::note
+The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
+:::
 
 In this tutorial, we will go over the components of a token bridge and how to deploy them, as well as show how to bridge tokens publicly from L1 to L2 and back, using aztec.js.
 
@@ -270,6 +275,8 @@ Let's run through the entire process of depositing, minting and withdrawing toke
 
 Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
 
+Make sure you are using version `0.86.0` of the sandbox. Install with `aztec-up 0.86.0`.
+
 ### ProjectSetup
 
 Create a new directory for the tutorial and install the dependencies:
@@ -279,7 +286,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js@0.86.0 @aztec/noir-contracts.js@0.86.0 @aztec/l1-artifacts@0.86.0 @aztec/accounts@0.86.0 @aztec/ethereum@0.86.0 @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```

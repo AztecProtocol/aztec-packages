@@ -28,7 +28,7 @@ type AttributeNames = ValuesOf<typeof Attributes>;
 
 /**
  * This is a set of attributes that could lead to high cardinality in the metrics.
- * If you find youself wanting to capture this data in a metric consider if it makes sense to capture
+ * If you find yourself wanting to capture this data in a metric consider if it makes sense to capture
  * as the metric value instead of an attribute or consider logging instead.
  *
  * Think twice before removing an attribute from this list.

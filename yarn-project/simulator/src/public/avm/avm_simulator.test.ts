@@ -100,10 +100,10 @@ describe('AVM simulator: injected bytecode', () => {
     bytecode = encodeToBytecode([
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
-      new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
+      new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
-      new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySizeOffset=*/ 0),
+      new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
     ]);
   });
 

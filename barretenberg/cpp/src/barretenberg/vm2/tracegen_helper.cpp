@@ -28,7 +28,7 @@
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -258,10 +258,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.range_check);
                 },
                 [&]() {
-                    PublicDataTreeReadTraceBuilder public_data_tree_read_trace_builder;
-                    AVM_TRACK_TIME("tracegen/public_data_read",
-                                   public_data_tree_read_trace_builder.process(events.public_data_read_events, trace));
-                    clear_events(events.public_data_read_events);
+                    PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/public_data_tree_check",
+                        public_data_tree_check_trace_builder.process(events.public_data_tree_check_events, trace));
+                    clear_events(events.public_data_tree_check_events);
                 },
                 [&]() {
                     UpdateCheckTraceBuilder update_check_trace_builder;
@@ -298,7 +299,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                                                   AddressDerivationTraceBuilder::lookup_jobs(),
                                                   FieldGreaterThanTraceBuilder::lookup_jobs(),
                                                   MerkleCheckTraceBuilder::lookup_jobs(),
-                                                  PublicDataTreeReadTraceBuilder::lookup_jobs(),
+                                                  PublicDataTreeCheckTraceBuilder::lookup_jobs(),
                                                   UpdateCheckTraceBuilder::lookup_jobs(),
                                                   NullifierTreeCheckTraceBuilder::lookup_jobs(),
                                                   MemoryTraceBuilder::lookup_jobs());
