@@ -1,5 +1,5 @@
 ---
-title: Building a full-stack app
+title: Node.js app that interacts with contracts
 sidebar_position: 1
 ---
 
