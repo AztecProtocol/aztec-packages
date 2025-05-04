@@ -99,10 +99,11 @@ case "$cmd" in
       'INSTANCE_POSTFIX=${USER}_{} bootstrap_ec2 2>&1 | cache_log "Grind {}"'
     ;;
   "ga")
-    parallel --tag --line-buffered --halt now,fail=1 denoise "{}" \
-      "JOB_ID=x1 ARCH=amd64 ./ci.sh ec2-test" \
-      "JOB_ID=x2 ARCH=amd64 ./ci.sh ec2-test" \
-      "JOB_ID=a1 ARCH=arm64 ./ci.sh ec2"
+    # We perform two full runs of all tests on x86, and a single run on arm64 (allowing use of test cache).
+    parallel --tag --line-buffered --halt now,fail=1 'denoise {}' ::: \
+      "JOB_ID=x1 ARCH=amd64 USE_TEST_CACHE=0 ./ci.sh ec2" \
+      "JOB_ID=x2 ARCH=amd64 USE_TEST_CACHE=0 ./ci.sh ec2" \
+      "JOB_ID=a1 ARCH=arm64 USE_TEST_CACHE=1 ./ci.sh ec2"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
