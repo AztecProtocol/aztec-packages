@@ -742,7 +742,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const bool_t y_coordinates_match = (y == other.y);
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match).normalize();
     const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
-
+    if constexpr (IsUltraBuilder<Builder>) {
+        infinity_predicate.get_context()->update_used_witnesses(infinity_predicate.witness_index);
+    }
     auto x1 = x;
     auto y1 = y;
     auto x2 = other.x;
