@@ -157,7 +157,7 @@ name: aztec-node
 services:
   network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5
+    image: aztecprotocol/aztec:alpha-testnet
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
