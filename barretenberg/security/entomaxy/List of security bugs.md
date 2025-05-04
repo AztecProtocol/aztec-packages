@@ -4,6 +4,7 @@ This list is a collection of bugs. Its goal is to help developers, auditors and 
 
 ## List of bugs
 
+### Unordered/old
 | BarVD-ID | Component | Short description | Type | Potential Impact | Mechanism of finding | Found with a tool? | Found internally (yes or no) | Found by | Link to issue | Link to fix | Link to description |
 |-----------|-----------|-------------------|------|------------------|----------------------|-------------------|------------------------------|-----------|--------------|------------|---------------------|
 | BarVD-001 | Bigfield stdlib primitive| insufficient constraint for non-native field arithmetic | Soundness | fraudulent recursive proofs | Manual code review | No | Yes | | | | [Description](https://medium.com/@jaosef/54dff729a24f) |
@@ -21,3 +22,9 @@ This list is a collection of bugs. Its goal is to help developers, auditors and 
 | BarVD-013 | Join-split circuit | public key nullifier uses only the x coordinate of the public key | Soundness | Spending other person's funds | Manual code review | No | Yes | @arielgabizon | | | [Description](https://hackmd.io/@aztec-network/HJDt63w69?type=view) |
 | BarVD-014 | claim-proof circuit | incorrect implementation of integer arithemtic in field | Soundness | Draining rollup funds | Manual code review | No | No | [@lucash-dev](https://github.com/lucash-dev) | | | [Description](https://hackmd.io/@aztec-network/claim-proof-bug) |
 | BarVD-015 | stdlib/logic | 3bit overflow in AND/XOR | Soundness |  | acir_formal_proofs | Yes | Yes | @defkit & @Sarkoxed | | https://github.com/AztecProtocol/aztec-packages/pull/11651 |  |
+
+### Protogalaxy
+| BarVD-PG-ID | Component | Short description | Type | Potential Impact | Mechanism of finding | Found with a tool? | Found internally (yes or no) | Found by | Link to issue | Link to fix | Link to description |
+|-------------|-----------|-------------------|------|------------------|----------------------|-------------------|------------------------------|-----------|--------------|------------|---------------------|
+| BarVD-PG-001 | Protogalaxy recursive verifier |  | Soundness |  | Manual code review + Origin Tag Mechanism | No and Yes | Yes | @Rumata888 | https://github.com/AztecProtocol/barretenberg/issues/1381 | https://github.com/AztecProtocol/aztec-packages/pull/14004 | [Description](../descriptions/Protogalaxy%20recursive%20verifier%20transcript%20bug.md) |
+

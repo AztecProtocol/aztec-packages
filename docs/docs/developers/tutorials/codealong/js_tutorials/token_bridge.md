@@ -145,6 +145,8 @@ We call this pattern _designed caller_ which enables a new paradigm **where we c
 
 Let's run through the entire process of depositing, minting and withdrawing tokens in Typescript, so you can see how it works in practice.
 
+Make sure you are using version #include_aztec_version of the sandbox. Install with `aztec-up #include_version_without_prefix`.
+
 ### Prerequisites
 
 Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
@@ -158,7 +160,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix @aztec/l1-artifacts@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/ethereum@#include_version_without_prefix @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```

@@ -138,6 +138,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         const auto rhs = instance_commitments[i].get_value();
         const auto output = lhs * lhs_scalar + rhs * rhs_scalar;
         output_commitments.emplace_back(Commitment::from_witness(builder, output));
+        // Add the output commitment to the transcript to ensure the they can't be spoofed
+        transcript->add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i), output_commitments[i]);
     }
 
     std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
