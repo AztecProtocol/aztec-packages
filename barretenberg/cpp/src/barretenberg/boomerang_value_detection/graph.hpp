@@ -64,7 +64,12 @@ template <typename FF> class Graph_ {
     Graph_(Graph_&& other) = delete;
     Graph_& operator=(const Graph_& other) = delete;
     Graph_&& operator=(Graph_&& other) = delete;
+<<<<<<< HEAD
     Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
+=======
+    Graph_(const bb::StandardCircuitBuilder_<FF>& circuit_constructor);
+    Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool graph = true);
+>>>>>>> 076cd60d41 (some experiments with graph acceleration)
 
     /**
      * @brief Convert a vector of variable indices to their real indices
