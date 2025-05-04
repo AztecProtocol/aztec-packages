@@ -1,5 +1,6 @@
 ---
 title: "Token Bridge Tutorial"
+sidebar_position: 3
 ---
 
 This tutorial goes over how to create the contracts necessary to create a portal (aka token bridge) and how a developer can use it.
@@ -275,7 +276,6 @@ Let's run through the entire process of depositing, minting and withdrawing toke
 Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
 
 Make sure you are using version `0.86.0` of the sandbox. Install with `aztec-up 0.86.0`.
-
 
 ### ProjectSetup
 

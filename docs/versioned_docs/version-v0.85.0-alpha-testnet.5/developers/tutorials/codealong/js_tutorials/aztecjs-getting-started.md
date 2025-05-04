@@ -1,6 +1,6 @@
 ---
 title: Getting Started with Aztec.js
-sidebar_position: 1
+sidebar_position: 0
 ---
 
 import Image from "@theme/IdealImage";
