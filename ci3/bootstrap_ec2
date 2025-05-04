@@ -27,7 +27,6 @@ cores=${CPUS:-$cores}
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
-  echo_stderr "on_exit trapped ${iid:-}"
   set +e
   if [ -n "${iid:-}" ]; then
     if [ "$NO_TERMINATE" -eq 0 ]; then
@@ -117,7 +116,10 @@ if [ -t 1 ]; then
     run_cmd="run; exec zsh"
   fi
 else
-  run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
+  # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
+  run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps"
+  # If the caller isn't logging the run, we need to log it ourselves.
+  [ -z "${PARENT_LOG_URL:-}" ] && run_cmd+=" | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
 container_script=$(cat <<EOF
