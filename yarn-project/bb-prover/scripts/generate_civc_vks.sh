@@ -12,7 +12,7 @@ cd ..
 # - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
 # - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
 
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v5.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v6.tar.gz"
 hash=$(hash_str $(../bootstrap.sh hash) "$pinned_civc_inputs_url")
 
 if cache_download bb-prover-vks-$hash.tar.gz; then
