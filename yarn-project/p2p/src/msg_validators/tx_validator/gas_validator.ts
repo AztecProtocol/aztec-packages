@@ -55,7 +55,7 @@ export class GasTxValidator implements TxValidator<Tx> {
       maxFeesPerGas.feePerL2Gas.lt(this.#gasFees.feePerL2Gas);
 
     if (notEnoughMaxFees) {
-      this.#log.warn(`Skipping transaction ${await tx.getTxHash()} due to insufficient fee per gas`, {
+      this.#log.debug(`Skipping transaction ${await tx.getTxHash()} due to insufficient fee per gas`, {
         txMaxFeesPerGas: maxFeesPerGas.toInspect(),
         currentGasFees: this.#gasFees.toInspect(),
       });
