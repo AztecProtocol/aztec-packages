@@ -99,11 +99,17 @@ case "$cmd" in
       'INSTANCE_POSTFIX=${USER}_{} bootstrap_ec2 2>&1 | cache_log "Grind {}"'
     ;;
   "ga")
+    export RUN_ID=${RUN_ID:-$(date +%s%3N)}
+    export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
+    run() {
+      DENOISE=1 DENOISE_WIDTH=32 JOB_ID=$1 INSTANCE_POSTFIX=${USER}_$1 ARCH=$2 USE_TEST_CACHE=$3 denoise "./ci.sh ec2"
+    }
+    export -f run
     # We perform two full runs of all tests on x86, and a single run on arm64 (allowing use of test cache).
-    parallel --tag --line-buffered --halt now,fail=1 'denoise {}' ::: \
-      "JOB_ID=x1 ARCH=amd64 USE_TEST_CACHE=0 ./ci.sh ec2" \
-      "JOB_ID=x2 ARCH=amd64 USE_TEST_CACHE=0 ./ci.sh ec2" \
-      "JOB_ID=a1 ARCH=arm64 USE_TEST_CACHE=1 ./ci.sh ec2"
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x1 amd64 0' \
+      'run x2 amd64 0' \
+      'run a2 arm64 1' | DUP=1 cache_log "GA CI run" $RUN_ID
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.

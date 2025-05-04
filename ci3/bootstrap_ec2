@@ -27,6 +27,7 @@ cores=${CPUS:-$cores}
 
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
+  echo_stderr "on_exit trapped ${iid:-}"
   set +e
   if [ -n "${iid:-}" ]; then
     if [ "$NO_TERMINATE" -eq 0 ]; then
@@ -64,15 +65,17 @@ fi
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 echo_header "request build instance"
-# Terminate any existing instance with the same name.
+# Terminate any existing instances with the same name.
 existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
-  --filters "Name=tag:Name,Values=$instance_name" \
+  --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
   --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
   --output text)
 if [ -n "$existing_instance" ]; then
-  echo "Terminating existing instance: $existing_instance"
-  aws ec2 --region us-east-2 terminate-instances --instance-ids $existing_instance > /dev/null 2>&1
+  for i in $existing_instance; do
+    echo "Terminating existing instance: $i"
+    aws ec2 --region us-east-2 terminate-instances --instance-ids $i > /dev/null 2>&1
+  done
 fi
 
 # Request new instance.
@@ -138,7 +141,7 @@ container_script=$(cat <<EOF
   source ci3/source_refname
   source ci3/source_redis
   ci_log_id=\$(log_ci_run)
-  export PARENT_LOG_URL=http://ci.aztec-labs.com/\$ci_log_id
+  export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
 
   # Heartbeat.
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
@@ -202,65 +205,11 @@ function run {
     echo Done in \$SECONDS seconds.
 
     # Capture net status.
-    echo Installing and starting sysdig...
-    sudo apt-get update &>/dev/null
-    sudo apt-get install -y sysdig net-tools &>/dev/null
-    sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
-    netfile_pid=\$!
-
-    # Tail the sysdig log and watch for "Address already in use" errors.
-    tail -F /tmp/netfile | while read -r line; do
-        if echo \"\$line\" | grep -q EADDRINUSE; then
-            timestamp=\$(echo \"\$line\" | awk '{print \$1}')
-            cid=\$(echo \"\$line\" | grep -oP '(?<=\(cid: )[^\)]+')
-            filename=\"/tmp/netfile-\${timestamp//[:.]/}\"
-
-            echo \"Begin netstat dump for container \$cid at \$timestamp\" > \$filename
-            if [[ \"\$cid\" = \"host\" ]] || [[ -z \"\$cid\" ]]; then
-                # If sysdig reports no container id or the host, run netstat.
-                sudo netstat -tulnp | grep LISTEN >> \$filename;
-
-            else
-                # Otherwise, we get the container pid and use nsenter to inspect it with netstat
-                # We use nsenter to run netstat in the container namespace, without having to install it there
-                pid=\$(docker inspect -f '{{.State.Pid}}' \$cid)
-
-                if [[ -z \"\$pid\" ]]; then
-                    # But we sometimes run docker-in-docker. So the host docker does not know anything about this
-                    # container id, and we need to ask a docker container for it. But the container returns the pid
-                    # from its own process namespace, so we need to manually tell nsenter the namespace to use.
-
-                    echo \"Container \$cid not found at \$(date). Trying nested container.\" >> \$filename;
-                    host_container_id=\$(docker ps | grep aztecprotocol/devbox:3.0 | awk '{print \$1}')
-                    if [[ -z \"\$host_container_id\" ]]; then
-                      echo \"Host container not found. Giving up.\" >> \$filename;
-                      docker ps --no-trunc >> \$filename;
-                      continue;
-                    fi
-
-                    # Get the host container pid and the inner container pid.
-                    host_container_pid=\$(docker inspect -f '{{.State.Pid}}' \$host_container_id)
-                    inner_container_pid=\$(docker exec \$host_container_id docker inspect -f {{.State.Pid}} \$cid)
-                    if [[ -z \"\$host_container_pid\" ]] || [[ -z \"\$inner_container_pid\" ]]; then
-                      echo \"Host or inner container pid not found. Giving up.\" >> \$filename;
-                      continue;
-                    fi
-
-                    # Now run netstat with nsenter using the nested process ids
-                    # This would be easier if I knew a way of mapping the nested pid to the host process namespace, but I didn't manage to do it.
-                    ns_path=/proc/\$host_container_pid/root/proc/\$inner_container_pid/ns;
-                    echo \"Netstat output for container \$cid in container \$host_container_id retrieved from \$ns_path\" >> \$filename;
-                    sudo nsenter --pid=\$ns_path/pid --net=\$ns_path/net netstat -tulnp >> \$filename;
-
-                else
-                  # We found the container pid, just nsenter to it and run netstat.
-                  sudo nsenter -t \$pid -n netstat -tulnp >> \$filename;
-                fi
-            fi
-            echo \"End netstat dump for container \$cid at \$timestamp\" >> \$filename
-        fi
-    done &
-    netstat_pid=\$!
+    # echo Installing and starting sysdig...
+    # sudo apt-get update &>/dev/null
+    # sudo apt-get install -y sysdig net-tools &>/dev/null
+    # sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
+    # netfile_pid=\$!
 
     # Capture cpu load.
     mpstat 2 &> /tmp/cpufile &
@@ -270,8 +219,8 @@ function run {
     vmstat -w -S M 2 &> /tmp/memfile &
     memfile_pid=\$!
 
-    # Kill monitoring processes on exit
-    trap 'sudo kill \$netstat_pid \$netfile_pid \$cpufile_pid \$memfile_pid' EXIT
+    # Kill monitoring processes on exit.
+    trap 'sudo kill \$cpufile_pid \$memfile_pid' EXIT
 
     echo Starting devbox...
     docker run --privileged ${docker_args:-} \
@@ -310,6 +259,7 @@ function run {
       -e NPM_TOKEN=${NPM_TOKEN:-} \
       -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
       -e REF_NAME=${REF_NAME:-} \
+      -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
       -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
       --pids-limit=32768 \
       aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
