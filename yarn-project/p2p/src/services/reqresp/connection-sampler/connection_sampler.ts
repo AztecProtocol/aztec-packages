@@ -189,6 +189,8 @@ export class ConnectionSampler {
   async dialProtocol(peerId: PeerId, protocol: string, timeout?: number): Promise<Stream> {
     // Dialling at the same time can cause race conditions where two different streams
     // end up with the same id, hence a serial queue
+    this.logger.debug(`Dial queue length: ${this.dialQueue.length()}`);
+
     const abortController = new AbortController();
     this.dialAttempts.push(abortController);
     let timeoutHandle: NodeJS.Timeout | undefined;
