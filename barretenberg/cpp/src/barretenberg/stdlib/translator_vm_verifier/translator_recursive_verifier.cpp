@@ -83,6 +83,9 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     CommitmentLabels commitment_labels;
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
+    if constexpr (IsUltraBuilder<Builder>) {
+        accumulated_result.get_context()->update_used_witnesses(accumulated_result.prime_basis_limb.witness_index);
+    }
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
