@@ -600,7 +600,7 @@ pub struct YourType {
 
 `WithHash<T>` is a struct that allows for efficient reading of value `T` from public storage in private.
 This is achieved by storing the value with its hash, then obtaining the values via an oracle and verifying them against the hash.
-This results in in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.
+This results in a fewer tree inclusion proofs for values `T` that are packed into more than a single field.
 
 `WithHash<T>` is leveraged by state variables like `PublicImmutable`.
 This is a breaking change because now we require values stored in `PublicImmutable` and `SharedMutable` to implement the `Eq` trait.
@@ -802,7 +802,7 @@ Function changes in the Archiver
 
 ### [fees, fpc] Changes in setting up FPC as fee payer on AztecJS and method names in FPC
 
-On AztecJS, setting up `PrivateFeePaymentMethod` and `PublicFeePaymentMethod` are now the same. The don't need to specify a sequencer address or which coin to pay in. The coins are set up in the FPC contract!
+On AztecJS, setting up `PrivateFeePaymentMethod` and `PublicFeePaymentMethod` are now the same. They don't need to specify a sequencer address or which coin to pay in. The coins are set up in the FPC contract!
 
 ```diff
 - paymentMethod: new PrivateFeePaymentMethod(bananaCoin.address,bananaFPC.address,aliceWallet,sequencerAddress),
@@ -1164,7 +1164,7 @@ impl NullifiableNote for MyCustomNote {
 
 ### [Aztec.nr] Make `TestEnvironment` unconstrained
 
-All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Becuase they work with mutable references, and these are not allowed to cross the constrained/unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
+All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Because they work with mutable references, and these are not allowed to cross the constrained/unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
 
 ```diff
 #[test]
@@ -1293,7 +1293,7 @@ The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no lon
 
 `OwnedNote` allowed having a U128 `value` in the custom note while `ValueNote` restricted to just a Field.
 
-We have removed `OwnedNote` but are introducing a more genric `UintNote` within aztec.nr
+We have removed `OwnedNote` but are introducing a more generic `UintNote` within aztec.nr
 
 ```
 #[aztec(note)]
@@ -1594,7 +1594,7 @@ These changes were done because having the note hash exposed allowed us to not h
 
 The `get_notes` and `view_notes` function no longer return an array of options (i.e. `[Option<Note>, N_NOTES]`) but instead a `BoundedVec<Note, N_NOTES>`. This better conveys the useful property the old array had of having all notes collapsed at the beginning of the array, which allows for powerful optimizations and gate count reduction when setting the `options.limit` value.
 
-A `BoundedVec` has a `max_len()`, which equals the number of elements it can hold, and a `len()`, which equals the number of elements it currently holds. Since `len()` is typically not knwon at compile time, iterating over a `BoundedVec` looks slightly different than iterating over an array of options:
+A `BoundedVec` has a `max_len()`, which equals the number of elements it can hold, and a `len()`, which equals the number of elements it currently holds. Since `len()` is typically not known at compile time, iterating over a `BoundedVec` looks slightly different than iterating over an array of options:
 
 ```diff
 - let option_notes = get_notes(options);
@@ -1628,7 +1628,7 @@ The biggest difference is related to "cancelling" an authwit. Since it is no lon
 
 There are also a few general changes to how authwits are generated, namely to more easily support the data required for a validity lookup now. Previously we could lookup the `message_hash` directly at the account contract, now we instead need to use the `inner_hash` and the contract of the consumer to figure out if it have already been emitted.
 
-A minor extension have been made to the authwit creations to make it easier to sign a specific a hash with a specific caller, e.g., the `inner_hash` can be provided as `{consumer, inner_hash}` to the `createAuthWit` where it previously needed to do a couple of manual steps to compute the outer hash. The `computeOuterAuthWitHash` have been amde internal and the `computeAuthWitMessageHash` can instead be used to compute the values similarly to other authwit computations.
+A minor extension have been made to the authwit creations to make it easier to sign a specific a hash with a specific caller, e.g., the `inner_hash` can be provided as `{consumer, inner_hash}` to the `createAuthWit` where it previously needed to do a couple of manual steps to compute the outer hash. The `computeOuterAuthWitHash` have been made internal and the `computeAuthWitMessageHash` can instead be used to compute the values similarly to other authwit computations.
 
 ```diff
 const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), entrypointPackedArgs.hash]);
@@ -1644,7 +1644,7 @@ const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionSelector.toField(), 
 +);
 ```
 
-If the wallet is used to compute the authwit, it will populate the chain id and version instead of requiring it to be provided by tha actor.
+If the wallet is used to compute the authwit, it will populate the chain id and version instead of requiring it to be provided by the actor.
 
 ```diff
 const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead')]);
