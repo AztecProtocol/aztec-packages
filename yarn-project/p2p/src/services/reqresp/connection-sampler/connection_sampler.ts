@@ -187,6 +187,7 @@ export class ConnectionSampler {
   async dialProtocol(peerId: PeerId, protocol: string): Promise<Stream> {
     // Dialling at the same time can cause race conditions where two different streams
     // end up with the same id, hence a serial queue
+    this.logger.warn('Dial queue length', this.dialQueue.length());
     const stream = await this.dialQueue.put(() =>
       this.libp2p.dialProtocol(peerId, protocol, { signal: this.abortController.signal }),
     );
