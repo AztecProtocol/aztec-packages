@@ -1,5 +1,6 @@
 ---
 title: Node.js app that interacts with contracts
+sidebar_position: 1
 ---
 
 In this tutorial we'll go through the steps for building a simple application that interacts with the Aztec Sandbox. We'll be building a console application using Javascript and NodeJS, but you may reuse the same concepts here for a web-based app. All Aztec libraries are written in Typescript and fully typed, so you can use Typescript instead of Javascript to make the most out of its type checker.

@@ -22,15 +22,10 @@ Create a new file `src/index.test.mjs` with the imports we'll be using and an em
 
 ```js
 import {
-  Contract,
-  ExtendedNote,
-  Fr,
-  Note,
-  computeSecretHash,
-  createPXEClient,
-  waitForPXE,
+    createPXEClient,
+    waitForPXE,
 } from "@aztec/aztec.js";
-import { createAccount } from "@aztec/accounts/testing";
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const {
@@ -45,7 +40,7 @@ describe("token contract", () => {
 
 Let's set up our test suite. We'll make sure the Sandbox is running, create two fresh accounts to test with, and deploy an instance of our contract. `aztec.js` provides the helper functions we need to do this:
 
-```javascript title="setup" showLineNumbers 
+```javascript title="setup" showLineNumbers
 let owner, recipient, token;
 
 beforeAll(async () => {
@@ -54,7 +49,8 @@ beforeAll(async () => {
   [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
 
   const initialBalance = 69;
-  token = await deployToken(owner, initialBalance, createLogger('e2e:sample_dapp'));
+  token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TokenSymbol', 18).send().deployed();
+  await token.methods.mint_to_private(owner.getAddress(), owner.getAddress(), initialBalance).send().wait();
 }, 120_000);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L11-L22" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L11-L22</a></sub></sup>
@@ -68,7 +64,7 @@ Instead of creating new accounts in our test suite, we can use the ones already 
 
 Now that we have a working test environment, we can write our first test for exercising the `transfer` function on the token contract. We will use the same `aztec.js` methods we used when building our dapp:
 
-```javascript title="test" showLineNumbers 
+```javascript title="test" showLineNumbers
 it('increases recipient funds on transfer', async () => {
   expect(await token.withWallet(recipient).methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
   await token.methods.transfer(recipient.getAddress(), 20).send().wait();
