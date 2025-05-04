@@ -40,6 +40,13 @@ Before following this guide, make sure you:
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
 
+## Requirements
+
+- Network: 25 Mbps up/down
+- CPU: 8-cores
+- RAM: 16 GiB
+- Storage: 1 TB SSD
+
 ## Setting Up Your Sequencer
 
 This guide will describe how to setup your sequencer using the `aztec start` command. For more advanced setups, refer to the Advanced Configuration section below.
