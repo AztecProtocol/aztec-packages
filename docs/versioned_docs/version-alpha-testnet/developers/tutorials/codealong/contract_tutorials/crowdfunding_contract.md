@@ -156,16 +156,6 @@ struct Storage<Context> {
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L38-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L38-L45</a></sub></sup>
 
-The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/alpha-testnet/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
-
----
-
-In `main.nr`, reference `use` of the type
-
-```rust
-use dep::value_note::value_note::ValueNote;
-```
-
 Now complete the initializer by setting the storage variables with the parameters:
 
 ```rust title="init" showLineNumbers

@@ -4,7 +4,7 @@ sidebar_position: 0
 tags: [sandbox]
 ---
 
-- Update with `aztec-up alpha-testnet`
+- Update to the latest testnet version with `aztec-up alpha-testnet`
 
 On this page you will find
 
