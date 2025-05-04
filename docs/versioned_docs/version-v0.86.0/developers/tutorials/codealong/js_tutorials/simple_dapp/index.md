@@ -11,7 +11,7 @@ This tutorial will focus on environment setup, including creating accounts and d
 This tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../../getting_started.md).
 :::
 
-The full code for this tutorial is [available on the `aztec-packages` repository](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/sample-dapp).
+The full code for this tutorial is [available on the `aztec-packages` repository](https://github.com/AztecProtocol/aztec-packages/tree/v0.86.0/yarn-project/end-to-end/src/sample-dapp).
 
 ## Dependencies
 
