@@ -54,6 +54,7 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
     return verification_key.hash();
 }
 
+// A catch-all for Flavor/Builder combinations where the VK hash is not implemented.
 template <typename Flavor, typename Builder>
 uint256_t compute_vk_hash(const Builder&, const TraceSettings& = TraceSettings{ AZTEC_TRACE_STRUCTURE })
     requires(!IsMegaFlavor<Flavor> || !IsMegaBuilder<Builder>)

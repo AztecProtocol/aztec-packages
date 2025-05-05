@@ -7,7 +7,6 @@
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -57,6 +56,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
                                                                       Flavor::REPEATED_COMMITMENTS,
                                                                       Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+
     return { pairing_points[0], pairing_points[1] };
 }
 
