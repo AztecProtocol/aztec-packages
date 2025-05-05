@@ -5,7 +5,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
-import { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
@@ -97,13 +96,6 @@ describe('AVM Integration', () => {
     );
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    // TODO(dbanks12): stop overriding the public inputs once C++ supports them all
-    const minimalPublicInputs = AvmCircuitPublicInputs.empty();
-    minimalPublicInputs.globalVariables.blockNumber = avmCircuitInputs.publicInputs.globalVariables.blockNumber;
-    minimalPublicInputs.startTreeSnapshots = avmCircuitInputs.publicInputs.startTreeSnapshots;
-    minimalPublicInputs.reverted = avmCircuitInputs.publicInputs.reverted;
-    // override
-    avmCircuitInputs.publicInputs = minimalPublicInputs;
     const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
 
     const baseWitnessResult = await witnessGenMockPublicBaseCircuit({

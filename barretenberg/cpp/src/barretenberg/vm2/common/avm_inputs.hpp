@@ -21,46 +21,30 @@
 namespace bb::avm2 {
 
 ////////////////////////////////////////////////////////////////////////////
-// Public Inputs
+// Avm Circuit Public Inputs
 ////////////////////////////////////////////////////////////////////////////
 
-struct GlobalVariables {
-    FF blockNumber;
-
-    bool operator==(const GlobalVariables& other) const = default;
-
-    MSGPACK_FIELDS(blockNumber);
-};
-
-struct AppendOnlyTreeSnapshot {
-    FF root;
-    uint64_t nextAvailableLeafIndex;
-
-    std::size_t hash() const noexcept { return utils::hash_as_tuple(root, nextAvailableLeafIndex); }
-    bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
-    friend std::ostream& operator<<(std::ostream& os, const AppendOnlyTreeSnapshot& obj)
-    {
-        os << "root: " << obj.root << ", nextAvailableLeafIndex: " << obj.nextAvailableLeafIndex;
-        return os;
-    }
-
-    MSGPACK_FIELDS(root, nextAvailableLeafIndex);
-};
-
-struct TreeSnapshots {
-    AppendOnlyTreeSnapshot l1ToL2MessageTree;
-    AppendOnlyTreeSnapshot noteHashTree;
-    AppendOnlyTreeSnapshot nullifierTree;
-    AppendOnlyTreeSnapshot publicDataTree;
-
-    bool operator==(const TreeSnapshots& other) const = default;
-
-    MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
-};
-
 struct PublicInputs {
+    ///////////////////////////////////
+    // Inputs
     GlobalVariables globalVariables;
     TreeSnapshots startTreeSnapshots;
+    Gas startGasUsed;
+    GasSettings gasSettings;
+    AztecAddress feePayer;
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
+    PublicCallRequest publicTeardownCallRequest;
+    PrivateToAvmAccumulatedDataArrayLengths previousNonRevertibleAccumulatedDataArrayLengths;
+    PrivateToAvmAccumulatedDataArrayLengths previousRevertibleAccumulatedDataArrayLengths;
+    PrivateToAvmAccumulatedData previousNonRevertibleAccumulatedData;
+    PrivateToAvmAccumulatedData previousRevertibleAccumulatedData;
+    ///////////////////////////////////
+    // Outputs
+    TreeSnapshots endTreeSnapshots;
+    Gas endGasUsed;
+    AvmAccumulatedData accumulatedData;
+    FF transactionFee;
     bool reverted;
 
     static PublicInputs from(const std::vector<uint8_t>& data);
@@ -98,7 +82,23 @@ struct PublicInputs {
 
     bool operator==(const PublicInputs& other) const = default;
 
-    MSGPACK_FIELDS(globalVariables, startTreeSnapshots, reverted);
+    MSGPACK_FIELDS(globalVariables,
+                   startTreeSnapshots,
+                   startGasUsed,
+                   gasSettings,
+                   feePayer,
+                   publicSetupCallRequests,
+                   publicAppLogicCallRequests,
+                   publicTeardownCallRequest,
+                   previousNonRevertibleAccumulatedDataArrayLengths,
+                   previousRevertibleAccumulatedDataArrayLengths,
+                   previousNonRevertibleAccumulatedData,
+                   previousRevertibleAccumulatedData,
+                   endTreeSnapshots,
+                   endGasUsed,
+                   accumulatedData,
+                   transactionFee,
+                   reverted);
 };
 
 ////////////////////////////////////////////////////////////////////////////
