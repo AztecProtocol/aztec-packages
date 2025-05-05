@@ -54,6 +54,7 @@ export class ConnectionSampler {
     for (const attempt of this.dialAttempts) {
       attempt.abort();
     }
+    this.dialAttempts = [];
     await this.dialQueue.end();
 
     // Close all active streams
@@ -198,30 +199,32 @@ export class ConnectionSampler {
       timeoutHandle = setTimeout(() => abortController.abort(), timeout);
     }
 
-    const stream = await this.dialQueue.put(() =>
-      this.libp2p.dialProtocol(peerId, protocol, { signal: abortController.signal }),
-    );
+    try {
+      const stream = await this.dialQueue.put(() =>
+        this.libp2p.dialProtocol(peerId, protocol, { signal: abortController.signal }),
+      );
 
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
+      this.streams.set(stream.id, { stream, peerId });
+      const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
+      this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
+
+      this.logger.trace('Dialed protocol', {
+        streamId: stream.id,
+        protocol,
+        peerId: peerId.toString(),
+        activeConnectionsCount: updatedActiveConnectionsCount,
+      });
+      return stream;
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+
+      const idx = this.dialAttempts.indexOf(abortController);
+      if (idx > -1) {
+        this.dialAttempts.splice(idx, 1);
+      }
     }
-
-    const idx = this.dialAttempts.indexOf(abortController);
-    if (idx > 0) {
-      this.dialAttempts.splice(idx, 1);
-    }
-
-    this.streams.set(stream.id, { stream, peerId });
-    const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
-    this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
-
-    this.logger.trace('Dialed protocol', {
-      streamId: stream.id,
-      protocol,
-      peerId: peerId.toString(),
-      activeConnectionsCount: updatedActiveConnectionsCount,
-    });
-    return stream;
   }
 
   /**
