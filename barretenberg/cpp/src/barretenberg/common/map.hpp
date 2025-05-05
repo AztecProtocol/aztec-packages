@@ -1,11 +1,9 @@
 #pragma once
 #include <algorithm>
 #include <array>
-#include <memory>
 #include <type_traits>
 
 namespace bb::transform {
-
 /*
  * Generic map function for mapping a containers element to another type.
  */
