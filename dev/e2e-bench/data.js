@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746327140890,
+  "lastUpdate": 1746430205954,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "429a53b8ad85c739b19a58bb3d8e4a6ab55d6159",
-          "message": "chore: hook new benchmarks (#13832)\n\nTesting it out before adding more metrics",
-          "timestamp": "2025-04-25T18:46:38Z",
-          "tree_id": "3d930748b0c1751fd100691091cec087e1c8d66a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/429a53b8ad85c739b19a58bb3d8e4a6ab55d6159"
-        },
-        "date": 1745610421704,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8673,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2483064876774181,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 159487,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1939,6 +1900,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 148140,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6a77748ac3d1779f16d5695447f434ea27d10d8",
+          "message": "feat!: improving perf insights + avoid simulating on proving (#13928)\n\nIntroduces new timing info in`profileTx`, but in the process got\ndistracted by a few things, so I'm branching this off before adding more\nbenchmarks:\n\n- Adds a contract deployment benchmark to our key flows\n- Avoids resimulating kernels (in brillig) before proving. We're going\nto do witgen anyways! This should improve our performance across the\nboard. Simulation is still recommended, but that's left as a wallet\nresponsibility\n- Allows playground to profile txs taking into account fee payments\nand/or authwits\n\n---------\n\nCo-authored-by: Nicolás Venturo <nicolas.venturo@gmail.com>",
+          "timestamp": "2025-05-05T06:56:12Z",
+          "tree_id": "1d7996c4d2a2d73f3cf2a8d35dedd2a092be208f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f6a77748ac3d1779f16d5695447f434ea27d10d8"
+        },
+        "date": 1746430205244,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8283,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2371243831209173,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 140290,
             "unit": "us"
           }
         ]
