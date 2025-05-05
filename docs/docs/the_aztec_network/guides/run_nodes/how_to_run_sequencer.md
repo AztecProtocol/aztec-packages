@@ -26,29 +26,146 @@ tags:
 
 The Aztec sequencer node is critical infrastructure responsible for ordering transactions and producing blocks.
 
-When transactions enter the network, the sequencer node bundles them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of other sequencer nodes (validators in this context) who re-execute the transactions to verify their correctness. These validators attest to the block's validity by signing it, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
+The sequencer node takes part in three key actions:
+1. Assemble unprocessed transactions and propose the next block
+2. Attest to correct execution of txs in the proposed block (if part of validator committee)
+3. Submit the successfully attested block to L1
+
+When transactions are sent to the Aztec network, sequencer nodes bundles them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of other sequencer nodes (validators in this context) who re-execute public transactions and verify private function proofs so they can attest to correct execution. These validators attest to the block's validity by signing it, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
 
 The archiver component complements this process by maintaining historical chain data. It continuously monitors L1 for new blocks, processes them, and maintains a synchronized view of the chain state. This includes managing contract data, transaction logs, and L1-to-L2 messages, making it essential for network synchronization and data availability.
 
-## Prerequisites
+## Setup
 
-Before following this guide, make sure you:
+### Requirements
 
-- Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
-- Set up `docker` on your system. Refer to the [Docker installation guide](https://docs.docker.com/engine/install/).
-- You are using the correct version for the testnet by running `aztec-up alpha-testnet`
-- Are running a Linux or MacOS machine with access to a terminal
-
-Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
-
-## Requirements
-
-- Network: 25 Mbps up/down
+A computer running Linux or MacOS with the following specifictions:
 - CPU: 8-cores
 - RAM: 16 GiB
 - Storage: 1 TB SSD
 
-## Setting Up Your Sequencer
+A Network connection of at least 25 Mbps up/down.
+
+### Installation
+
+import { General, Fees } from '@site/src/components/Snippets/general_snippets';
+
+<General.InstallationInstructions />
+
+Now install the latest testnet version of aztec: `aztec-up alpha-testnet`
+
+
+Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
+
+
+## Sequencer Quickstart
+
+In a directory of your choosing, create a `.env` file with the following environment variables.
+
+```bash
+# Note: Variable names are specific to the aztec command parameters.
+
+# A public rpc provider url (signup to a service for more requests) NB: don't share your access token
+export ETHEREUM_HOSTS="<url>"
+
+# A public rpc provider url that supports consensus client requests
+export L1_CONSENSUS_HOST_URLS="<url>"
+
+# Private key of testnet L1 EOA that holds Sepolia ETH (0.01 Sepolia ETH can get you started)
+export VALIDATOR_PRIVATE_KEY="0x<hex value>"
+
+# Recipient of block rewards (for node security on mainnet, this should be a different address to the validator eoa)
+export COINBASE="0x<eth address>"
+
+# IP address of computer running node (you can get this by running, `curl api.ipify.org`, on your node)
+export P2P_IP="x.x.x.x"
+```
+
+Next save the following to a file named `start.sh`, and make it executable `chmod u+x start.sh`.
+
+```bash
+# Brings in private environment variables required for the aztec command
+source .env
+
+# Starts the node (as an archiver and sequencer) for Aztec's alpha testnet
+aztec start --node --archiver --sequencer --network alpha-testnet
+```
+
+Now you can start your node as a sequencer via `./start.sh`.
+
+**Additional Parameters**
+
+The comprehensive list of parameters can be seen via: `aztec help start`
+
+For example:
+- To set the max tx pool size to 1 billion (from its default of 100 million):
+  - `P2P_MAX_TX_POOL_SIZE=1000000000` or `--p2p.maxTxPoolSize 1000000000`
+- Set a separate blob sink url
+  - `BLOB_SINK_URL="<url>"` OR `--sequencer.blobSinkUrl <url>`
+
+### Next steps
+
+To add your sequencer to the set of validators create a new script, `add.sh`, and like before the bring in the private env vars to then make the request.
+
+```bash
+source .env
+
+L1_CHAIN_ID="11155111"
+STAKING_ASSET_HANDLER="0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2" # L1 contract address
+PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY # eg to use validator key to make request
+
+aztec add-l1-validator --staking-asset-handler=$STAKING_ASSET_HANDLER \
+  --l1-rpc-urls $ETHEREUM_HOSTS \
+  --private-key $PRIVATE_KEY \
+  --attester "<address>" \
+  --proposer-eoa "<address>"
+```
+
+(Use `aztec help add-l1-validator` for further parameter details)
+
+Run the script to make the request: `./add.sh`
+
+:::note Validator Quota Filled
+
+In the absence of real-world staking incentives, becoming a validator is throttled with time, so you may see `ValidatorQuotaFilledUntil(uint256 _timestamp)` at the beginning of the text returned.
+
+The timestamp is when the next round of sequencers can be added as validators, so try again right after that.
+
+:::
+
+
+### Issues/Resolutions
+
+See the next section regarding any issues, and also the [Aztec discord server](https://discord.gg/aztec), namely the `# operator | faq` channel.
+
+#### "No blob bodies found", "rpc rate", "quota limit"
+Register rpc url.
+
+#### "Insufficient L1 funds"
+EOA needs sepolia eth, use faucet.
+
+#### "CodeError: stream reset"
+Seen occasionally in logs. Reason: ...
+Ignore.
+
+#### "Skipping tx ... due to insufficient fee per gas"
+Seen often in logs. Reason: ...
+Ignore.
+
+#### "Rejecting tx ... for referencing an unknown block header"
+Seen often in logs. Reason: ...
+Ignore.
+
+#### "SYNC_BLOCK failed"
+`ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: block state does not match world state`
+
+- Stop aztec
+- Delete current snapshot: `rm -rf ~/.aztec/alpha-testnet/data/archiver`
+- Update to latest version: `aztec-up alpha-testnet`
+- Start aztec
+
+
+## Deeper dive
 
 This guide will describe how to setup your sequencer using the `aztec start` command. For more advanced setups, refer to the Advanced Configuration section below.
 
