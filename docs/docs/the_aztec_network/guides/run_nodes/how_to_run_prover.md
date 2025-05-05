@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 title: How to Run a Prover Node
 description: A comprehensive guide to setting up and running an Aztec Prover node on testnet or mainnet, including hardware requirements, configuration options, and performance optimization tips.
 keywords:
@@ -22,6 +22,7 @@ tags:
   - tutorial
   - infrastructure
 ---
+import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 ## Background
 
@@ -67,7 +68,7 @@ Executes the actual proof jobs. Agents are stateless, fetch work from the broker
 name: aztec-prover
 services:
   prover-node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:alpha-testnet # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings
@@ -90,7 +91,7 @@ services:
       L1_CONSENSUS_HOST_URL: # CL RPC endpoint
       LOG_LEVEL: info
       PROVER_BROKER_HOST: http://broker:8080
-      PROVER_PUBLISHER_PRIVATE_KEY:  # The node needs to publish proofs to L1. Replace with your private key
+      PROVER_PUBLISHER_PRIVATE_KEY: # The node needs to publish proofs to L1. Replace with your private key
     ports:
       - "8080:8080"
       - "40400:40400"
@@ -98,9 +99,8 @@ services:
     volumes:
       - /home/my-node/node:/data # Local directory
 
-
   agent:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:alpha-testnet # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings
@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
 
   broker:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2 # Always refer to the docs to check that you're using the correct image.
+    image: aztecprotocol/aztec:alpha-testnet # Always refer to the docs to check that you're using the correct image.
     command:
       - node
       - --no-warnings

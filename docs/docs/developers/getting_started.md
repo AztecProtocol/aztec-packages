@@ -1,9 +1,14 @@
 ---
 title: Getting Started
 sidebar_position: 0
-tags: [sandbox]
+tags: [sandbox. testnet]
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Get started on your local environment using the sandbox. If you'd rather jump into testnet, read the [getting started on testnet guide](./guides/getting_started_on_testnet.md).
+     
 The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
 
 What's included in the sandbox:
@@ -15,14 +20,15 @@ What's included in the sandbox:
 
 All of this comes packages in a Docker container to make it easy to install and run.
 
-This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
+This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
 
 ## Prerequisites
 
+import { General, Fees } from '@site/src/components/Snippets/general_snippets';
+
 You need two global dependencies on your machine:
 
-- Node.js {'>='} v18.xx.x and {'<='} v20.17.x (lts/iron) (later versions, eg v22.9, gives an error around 'assert')
-  - Recommend installing with [nvm](https://github.com/nvm-sh/nvm)
+- <General.node_ver />
 - Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
 
 ## Install and run the sandbox
@@ -84,7 +90,7 @@ import { CLI_Add_Test_Accounts } from '@site/src/components/Snippets/general_sni
 
 <CLI_Add_Test_Accounts />
 
-To add the test accounts:
+To add the test accounts in the PXE, run this in another terminal:
 
 ```bash
 aztec-wallet import-test-accounts
@@ -118,6 +124,8 @@ Deploy tx hash:  0a632ded6269bda38ad6b54cd49bef033078218b4484b902e326c30ce9dc6a3
 Deploy tx fee:   200013616
 Account stored in database with aliases last & my-wallet
 ```
+
+You may need to scroll up as there are some other logs printed after it.
 
 You can double check by running `aztec-wallet get-alias accounts:my-wallet`.
 

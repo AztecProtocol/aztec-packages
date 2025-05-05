@@ -101,14 +101,14 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
-    // Refresh epoch cache every second to trigger alert if participation in commitee changes
+    // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.myAddress = this.keyStore.getAddress();
-    this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommiteeUpdate.bind(this), log, 1000);
+    this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), log, 1000);
 
     this.log.verbose(`Initialized validator with address ${this.keyStore.getAddress().toString()}`);
   }
 
-  private async handleEpochCommiteeUpdate() {
+  private async handleEpochCommitteeUpdate() {
     try {
       const { committee, epoch } = await this.epochCache.getCommittee('now');
       if (epoch !== this.lastEpoch) {
@@ -256,7 +256,9 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // If we cannot request all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
-      throw new TransactionsNotAvailableError(txHashes);
+      const foundTxHashes = await Promise.all(txs.map(async tx => await tx.getTxHash()));
+      const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.includes(txHash));
+      throw new TransactionsNotAvailableError(missingTxHashes);
     }
 
     // Assertion: This check will fail if re-execution is not enabled
@@ -300,9 +302,8 @@ export class ValidatorClient extends WithTracer implements Validator {
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
     const txHashes: TxHash[] = proposal.payload.txHashes;
-    const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
-
-    const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
+    const availability = await this.p2pClient.hasTxsInPool(txHashes);
+    const missingTxs = txHashes.filter((_, index) => !availability[index]);
 
     if (missingTxs.length === 0) {
       return; // All transactions are available
@@ -310,7 +311,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
 
-    const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
+    const requestedTxs = await this.p2pClient.requestTxsByHash(missingTxs);
     if (requestedTxs.some(tx => tx === undefined)) {
       throw new TransactionsNotAvailableError(missingTxs);
     }

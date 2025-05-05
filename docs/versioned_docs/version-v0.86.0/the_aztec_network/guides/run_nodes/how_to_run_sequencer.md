@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: How to Run a Sequencer Node
 description: A comprehensive guide to setting up and running an Aztec Sequencer node on testnet or mainnet, including infrastructure requirements, configuration options, and troubleshooting tips.
 keywords:
@@ -35,7 +35,17 @@ The archiver component complements this process by maintaining historical chain 
 Before following this guide, make sure you:
 
 - Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
+- You are using the correct version for the testnet by running `aztec-up alpha-testnet`
 - Are running a Linux or MacOS machine with access to a terminal
+
+Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
+
+## Requirements
+
+- Network: 25 Mbps up/down
+- CPU: 8-cores
+- RAM: 16 GiB
+- Storage: 1 TB SSD
 
 ## Setting Up Your Sequencer
 
@@ -47,11 +57,11 @@ To use the `aztec start` command, you need to obtain the following:
 
 #### RPCs
 
-- An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`.
+- An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`. Popular execution clients include [Geth](https://geth.ethereum.org/) or [Nethermind](https://nethermind.io/). You can run your own node or use a service like [Alchemy](https://www.alchemy.com/) or [Infura](https://www.infura.io/).
 
-- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`.
+- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`. You can provide fallback URLs by separating them with commas. Not all RPC providers support consensus endpoints, [Quicknode](https://www.quicknode.com/) and [dRPC](https://drpc.org/) have been known to work for consensus endpoints.
 
-- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional (but recommended) remote server that serves blobs to the client. You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`.
+- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional remote server that serves blobs to the client. You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`.
 
 #### Ethereum Keys
 
@@ -79,12 +89,14 @@ You'll need Sepolia ETH to cover gas costs. Here are some options:
 To boot up a sequencer using `aztec start`, run the following command:
 
 ```bash
-aztec start --network alpha-testnet \
+aztec start --node --archiver --sequencer \
+  --network alpha-testnet \
   --l1-rpc-urls https://example.com \
   --l1-consensus-host-urls https://example.com \
   --sequencer.validatorPrivateKey 0xYourPrivateKey \
-  --sequencer.coinbase 0xYourAddress
-  --p2p.p2pIp 999.99.999.99
+  --sequencer.coinbase 0xYourAddress \
+  --p2p.p2pIp 999.99.999.99 \
+  --p2p.maxTxPoolSize 1000000000
 ```
 
 :::tip
@@ -103,14 +115,19 @@ Once your node is fully synced, you can register as a validator using the `add-l
 
 ```bash
 aztec add-l1-validator \
-  --network alpha-testnet \
   --l1-rpc-urls https://eth-sepolia.g.example.com/example/your-key \
   --private-key your-private-key \
   --attester your-validator-address \
   --proposer-eoa your-validator-address \
   --staking-asset-handler 0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2 \
-  --l1-chain-id 11155111 \
+  --l1-chain-id 11155111
 ```
+
+:::warning
+
+You may see a warning when trying to register as a validator. To maintain network health there is a daily quota for validators to join the validator set. If you are not able to join, it could mean that today's quota of validators has already been added to the set. If you see this, you can try again later. Read [our blog post](https://aztec.network/blog/what-is-aztec-testnet) for more info.
+
+:::
 
 ## Advanced Configuration
 
@@ -147,7 +164,7 @@ name: aztec-node
 services:
   network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3
+    image: aztecprotocol/aztec:alpha-testnet
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
@@ -197,5 +214,7 @@ network_mode: "host"
 You can run your own Sepolia ETH Node. However, at the moment only [`geth`](https://github.com/ethereum/go-ethereum) and [`reth`](https://github.com/paradigmxyz/reth) nodes are confirmed to work reliably with the Aztec client.
 
 :::
+
+Once you have your node running, head to the [Aztec Discord](https://discord.gg/aztec) to interact with other network operators.
 
 Happy sequencing!

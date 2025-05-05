@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Some notes if you have to work on this script.
-# - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
+# - First of all, I'm sorry (edit: not sorry). It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
 # - You can call ./bootstrap.sh compile <contract names> to compile and process select contracts.

@@ -9,6 +9,8 @@ import Image from '@theme/IdealImage';
 
 In this tutorial we will go through writing a very simple private voting smart contract in Aztec.nr. You will learn about private functions, public functions, composability between them, state management and creatively using nullifiers to prevent people from voting twice!
 
+This tutorial is compatible with the Aztec version `v0.86.0`. Install the correct version with `aztec-up 0.86.0`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 We will build this:
 
 <Image img={require('/img/tutorials/voting_flow.png')} />
@@ -55,13 +57,16 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.86.0",
 
 Go to `main.nr` and delete the sample code. Replace it with this contract initialization:
 
-```rust
-contract EasyPrivateVoting {
+```rust title="declaration" showLineNumbers
+use dep::aztec::macros::aztec;
 
+#[aztec]
+pub contract EasyPrivateVoting {
 }
 ```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L1-L6</a></sub></sup>
 
-This defines a contract called `Voter`. Everything will sit inside this block.
+This defines a contract called `EasyPrivateVoting`. Everything will sit inside this block.
 
 Inside this, paste these imports:
 
@@ -75,15 +80,24 @@ use dep::aztec::protocol_types::traits::{Hash, ToField};
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16</a></sub></sup>
 
-
 We are using various utils within the Aztec `prelude` library:
 
-- `AztecAddress` - A type for storing an address on Aztec
-- `FunctionSelector` - Used for computing a selector to call a function
-- `PrivateContext` - exposes things such as the contract address, msg_sender, etc
-- `Map` - A data storage type for storing candidates with the number of votes they have
-- `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
-- `PublicImmutable` - an immutable storage value that is accessible in private and public execution.
+- `use dep::aztec::keys::getters::get_public_keys;`  
+  Imports a helper to retrieve public keys associated with the caller, used for computing a secure nullifier during voting.
+
+- `use dep::aztec::macros::{functions::{initializer, internal, private, public, utility}, storage::storage};`  
+  Brings in macros for defining different function types (`initializer`, `internal`, `private`, `public`, `utility`) and for declaring contract storage via `storage`.
+
+- `use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};`  
+  Imports:
+  - `AztecAddress`: a type for account/contract addresses,
+  - `Map`: a key-value storage structure,
+  - `PublicMutable`: public state that can be updated,
+  - `PublicImmutable`: public state that is read-only after being set once.
+
+- `use dep::aztec::protocol_types::traits::{Hash, ToField};`  
+  Provides the `Hash` and `ToField` traits, used for hashing values and converting them to a Field, used for nullifier creation and other computations.
+
 
 ## Set up storage
 
@@ -100,7 +114,6 @@ struct Storage<Context> {
 }
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25</a></sub></sup>
-
 
 In this contract, we will store three vars:
 
@@ -124,7 +137,6 @@ fn constructor(admin: AztecAddress) {
 }
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36</a></sub></sup>
-
 
 This function takes the admin argument and writes it to the storage. We are also using this function to set the `vote_ended` boolean as false in the same way.
 
@@ -156,7 +168,6 @@ fn cast_vote(candidate: Field) {
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
 
-
 In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like nullifier secrets.
 
 To do this, we make an oracle call to fetch the caller's secret key, hash it to create a nullifier, and push the nullifier to Aztec.
@@ -176,7 +187,6 @@ fn add_to_tally_public(candidate: Field) {
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L53-L61</a></sub></sup>
 
-
 The first thing we do here is assert that the vote has not ended.
 
 `assert()` takes two arguments: the assertion, in this case that `storage.vote_ended` is not false, and the error thrown if the assertion fails.
@@ -195,7 +205,6 @@ unconstrained fn get_vote(candidate: Field) -> Field {
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L70-L75</a></sub></sup>
 
-
 We set it as `utility` because we don't intend to call this as part of a transaction: we want to call it from our application code to e.g. display the result in a UI.
 
 ## Allowing an admin to end a voting period
@@ -212,7 +221,6 @@ fn end_vote() {
 }
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L63-L69</a></sub></sup>
-
 
 Here, we are asserting that the `msg_sender()` is equal to the `admin` stored in public state.
 
@@ -242,7 +250,7 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Utility functions](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility) can be used to get contract information
+- [Utility functions](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility).
 - [Oracles](../../../../aztec/smart_contracts/oracles/index.md)
 - [Nullifier secrets](../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
 - [How to deploy a contract to the sandbox](../../../guides/js_apps/deploy_contract.md)

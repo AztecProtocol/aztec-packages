@@ -144,6 +144,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         const auto rhs = instance_commitments[i].get_value();
         const auto output = lhs * lhs_scalar + rhs * rhs_scalar;
         output_commitments.emplace_back(Commitment::from_witness(builder, output));
+        // Add the output commitment to the transcript to ensure the they can't be spoofed
+        transcript->add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i), output_commitments[i]);
     }
 
     // info("builder.variables.size() D: ", builder->variables.size());
@@ -186,7 +188,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
-    auto [accumulator_circuit_size, accumulator_log_circuit_size] = keys_to_fold.get_max_log_circuit_size();
+    auto [accumulator_circuit_size, accumulator_log_circuit_size] = keys_to_fold.get_max_circuit_size_and_log_size();
     accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
     accumulator->verification_key->circuit_size = accumulator_circuit_size;
 

@@ -11,7 +11,7 @@ import type {
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, type BlockProposal, ConsensusPayload, type P2PClientType } from '@aztec/stdlib/p2p';
+import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
@@ -293,20 +293,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Requests the transactions with the given hashes from the network.
-   *
-   * If a transaction can be retrieved, it will be returned, if not an undefined
-   * will be returned. In place.
-   *
-   * @param txHashes - The hashes of the transactions to request.
-   * @returns A promise that resolves to an array of transactions or undefined.
-   */
-  public async requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const res = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
-    return Promise.resolve(res ?? []);
-  }
-
-  /**
    * Uses the Request Response protocol to request a transaction from the network.
    *
    * If the underlying request response protocol fails, then we return undefined.
@@ -332,11 +318,23 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
   public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const txs = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
+    const timeoutMs = 8000; // Longer timeout for now
+    const maxPeers = Math.min(Math.ceil(txHashes.length / 3), 10);
+    const maxRetryAttempts = 10; // Keep retrying within the timeout
+
+    const txs = await this.p2pService.sendBatchRequest(
+      ReqRespSubProtocol.TX,
+      txHashes,
+      timeoutMs,
+      maxPeers,
+      maxRetryAttempts,
+    );
 
     // Some transactions may return undefined, so we filter them out
     const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
-    await this.txPool.addTxs(filteredTxs);
+    if (filteredTxs.length > 0) {
+      await this.txPool.addTxs(filteredTxs);
+    }
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
     this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
 
@@ -558,18 +556,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
   }
 
-  private async addAttestationsToPool(blocks: PublishedL2Block[]): Promise<void> {
-    const attestations = blocks.flatMap(block => {
-      const payload = ConsensusPayload.fromBlock(block.block);
-      return block.signatures
-        .filter(sig => !sig.isEmpty)
-        .map(signature => new BlockAttestation(block.block.header.globalVariables.blockNumber, payload, signature));
-    });
-    await this.attestationPool?.addAttestations(attestations);
-    const slots = blocks.map(b => b.block.header.getSlot()).sort((a, b) => Number(a - b));
-    this.log.debug(`Added ${attestations.length} attestations for slots ${slots[0]}-${slots.at(-1)} to the pool`);
-  }
-
   /**
    * Deletes txs from these blocks.
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
@@ -594,7 +580,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     await this.markTxsAsMinedFromBlocks(blocks.map(b => b.block));
-    await this.addAttestationsToPool(blocks);
+    void this.requestMissingTxsFromUnprovenBlocks(blocks.map(b => b.block));
+
     const lastBlock = blocks.at(-1)!.block;
     await Promise.all(
       blocks.map(async block => this.synchedBlockHashes.set(block.block.number, (await block.block.hash()).toString())),
@@ -603,6 +590,29 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     await this.synchedLatestSlot.set(lastBlock.header.getSlot());
     this.log.verbose(`Synched to latest block ${lastBlock.number}`);
     await this.startServiceIfSynched();
+  }
+
+  /** Request txs for unproven blocks so the prover node has more chances to get them. */
+  private async requestMissingTxsFromUnprovenBlocks(blocks: L2Block[]): Promise<void> {
+    try {
+      const provenBlockNumber = Math.max(await this.getSyncedProvenBlockNum(), this.provenBlockNumberAtStart);
+      const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
+      const txHashes = unprovenBlocks.flatMap(block => block.body.txEffects.map(txEffect => txEffect.txHash));
+      const missingTxHashes = await this.txPool
+        .hasTxs(txHashes)
+        .then(availability => txHashes.filter((_, index) => !availability[index]));
+      if (missingTxHashes.length > 0) {
+        this.log.verbose(
+          `Requesting ${missingTxHashes.length} missing txs from peers for ${unprovenBlocks.length} unproven mined blocks`,
+          { missingTxHashes, unprovenBlockNumbers: unprovenBlocks.map(block => block.number) },
+        );
+        await this.requestTxsByHash(missingTxHashes);
+      }
+    } catch (err) {
+      this.log.error(`Error requesting missing txs from unproven blocks`, err, {
+        blocks: blocks.map(block => block.number),
+      });
+    }
   }
 
   /**

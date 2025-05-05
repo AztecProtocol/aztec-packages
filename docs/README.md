@@ -166,6 +166,8 @@ The `#include_aztec_version` and `#include_code` macros look for the version tag
 COMMIT_TAG=v0.84.0 yarn build
 ```
 
+You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
+
 ### How do I change the versions that show in the website
 
 When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.

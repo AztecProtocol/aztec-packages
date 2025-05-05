@@ -57,7 +57,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    * @param txHashes - Hashes of the txs to query.
    * @returns A list of transactions or undefined if the transactions are not found.
    */
-  requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
   /**
    * Request a transaction from another peer by its tx hash.

@@ -14,7 +14,7 @@ This guide assumes you have an Aztec app on sandbox and you wish to deploy it on
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.3`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.5`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -23,7 +23,7 @@ The testnet is version dependent. It is currently running version `0.85.0-alpha-
 To connect a local PXE to testnet, install the testnet version of the sandbox.
 
 ```sh
-VERSION=0.85.0-alpha-testnet.3 aztec-up
+VERSION=0.85.0-alpha-testnet.5 aztec-up
 ```
 
 When you run `aztec-wallet` commands, make sure to include a `node-url` option. An example:
@@ -55,18 +55,42 @@ Then initialize the PXE:
 const pxe = await createPXEService(node, pxeConfig);
 ```
 
+### PXE configuration
+
+In node.js, for example, you can initialize the PXE with the following code:
+
+```javascript
+import { createAztecNodeClient } from "@aztec/aztec.js";
+import { getPXEServiceConfig } from "@aztec/pxe/server";
+import { createStore } from "@aztec/kv-store/lmdb";
+
+const node = createAztecNodeClient(PXE_URL);
+const l1Contracts = await node.getL1ContractAddresses();
+const config = getPXEServiceConfig();
+const fullConfig = { ...config, l1Contracts };
+
+const store = await createStore("pxe1", {
+  dataDirectory: "store",
+  dataStoreMapSizeKB: 1e6,
+});
+
+const pxe = await createPXEService(node, fullConfig, true, store);
+```
+
 ## Paying for fees
 
 There are multiple ways to pay for fees on testnet:
 
 - The user pays for their own (in which case you will need to send them tokens, or get them to use the faucet)
 - It is sponsored by your own contract
-- It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet
+- It is sponsored by the canonical sponsored fee payment contract (FPC) deployed to testnet. Read more about using a Sponsored FPC in Aztec.js [here](./developers/guides/js_apps/pay_fees.md#sponsored-fee-paying-contract) or via the [CLI here](./developers/reference/environment_reference/cli_wallet_reference#sponsored-fee-paying-contract).
+
+You can learn more about all of the ways to pay for transaction fees [here](./developers/guides/js_apps/pay_fees.md).
 
 You will need to specify the fee-payer for all transactions. An example using `aztec-wallet`:
 
 ```sh
-aztec-wallet create-account --payment method=fee_juice,feePayer=main --node-url $AZTEC_NODE
+aztec-wallet create-account --payment method=fee_juice,feePayer=main --node-url $NODE_URL
 ```
 
 An example using Aztec.js:

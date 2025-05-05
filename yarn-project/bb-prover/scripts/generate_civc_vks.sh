@@ -3,9 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cd ..
 
-# NOTE: This is very hacky. we pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
-# TODO(https://github.com/AztecProtocol/barretenberg/issues/1296): This should just be a boolean interface,
-# bypassing the need for this this scheme, until then...
+# NOTE: This is hacky but has not proven problematic. We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1296): Ideally should just be a boolean interface. Low priority until this causes issues.
 #
 # This prevents us from having a chicken and egg problem as IVC input generation occurs as a last phase
 # and for purposes of VK generation, stale inputs work just fine.
@@ -13,7 +12,7 @@ cd ..
 # - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
 # - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
 
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v3.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v5.tar.gz"
 hash=$(hash_str $(../bootstrap.sh hash) "$pinned_civc_inputs_url")
 
 if cache_download bb-prover-vks-$hash.tar.gz; then

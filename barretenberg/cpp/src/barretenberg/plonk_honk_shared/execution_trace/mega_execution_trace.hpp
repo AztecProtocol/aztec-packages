@@ -295,12 +295,12 @@ static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .busread = 1 << 7,
                                                             .lookup = 72000,
                                                             .pub_inputs = 1 << 7,
-                                                            .arithmetic = 198000,
+                                                            .arithmetic = 170000,
                                                             .delta_range = 90000,
                                                             .elliptic = 9000,
                                                             .aux = 136000,
-                                                            .poseidon2_external = 2500,
-                                                            .poseidon2_internal = 14500,
+                                                            .poseidon2_external = 5000,
+                                                            .poseidon2_internal = 25000,
                                                             .overflow = 0 };
 
 /**
