@@ -1,5 +1,5 @@
 import { PRIVATE_LOG_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
@@ -23,8 +23,16 @@ export class PrivateLog {
     public emittedLength: number,
   ) {}
 
+  static from(fields: FieldsOf<PrivateLog>) {
+    return new PrivateLog(...PrivateLog.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<PrivateLog>) {
+    return [fields.fields, fields.emittedLength] as const;
+  }
+
   toFields(): Fr[] {
-    return serializeToFields(this.fields, this.emittedLength);
+    return serializeToFields(...PrivateLog.getFields(this));
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
