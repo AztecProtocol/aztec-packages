@@ -64,7 +64,7 @@ export class BlockStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
+  async addBlocks(blocks: PublishedL2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
     if (blocks.length === 0) {
       return true;
     }
@@ -78,14 +78,14 @@ export class BlockStore {
       const hasPreviousBlock =
         firstBlockNumber === INITIAL_L2_BLOCK_NUM ||
         (previousBlockNumber !== undefined && previousBlockNumber === firstBlockNumber - 1);
-      if (!hasPreviousBlock) {
+      if (!opts.force && !hasPreviousBlock) {
         throw new InitialBlockNumberNotSequentialError(firstBlockNumber, previousBlockNumber);
       }
 
       // Iterate over blocks array and insert them, checking that the block numbers are sequential.
       let previousBlock: PublishedL2Block | undefined = undefined;
       for (const block of blocks) {
-        if (previousBlock && previousBlock.block.number + 1 !== block.block.number) {
+        if (!opts.force && previousBlock && previousBlock.block.number + 1 !== block.block.number) {
           throw new BlockNumberNotSequentialError(block.block.number, previousBlock.block.number);
         }
         previousBlock = block;
