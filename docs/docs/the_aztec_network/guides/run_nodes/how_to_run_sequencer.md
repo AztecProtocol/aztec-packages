@@ -81,7 +81,7 @@ export COINBASE="0x<eth address>"
 export P2P_IP="x.x.x.x"
 ```
 
-Next save the following to a file named `start.sh`, and make it executable `chmod u+x start.sh`.
+Now in a terminal start your node as a sequencer:
 
 ```bash
 # Brings in private environment variables required for the aztec command
@@ -91,7 +91,6 @@ source .env
 aztec start --node --archiver --sequencer --network alpha-testnet
 ```
 
-Now you can start your node as a sequencer via `./start.sh`.
 
 **Additional Parameters**
 
@@ -105,15 +104,20 @@ For example:
 
 ### Next steps
 
-To add your sequencer to the set of validators create a new script, `add.sh`, and like before the bring in the private env vars to then make the request.
+To add your sequencer to the set of validators, in a terminal define required variables:
 
 ```bash
 source .env
 
-L1_CHAIN_ID="11155111"
+L1_CHAIN_ID="11155111" # Sepolia chaind
 STAKING_ASSET_HANDLER="0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2" # L1 contract address
 PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY # eg to use validator key to make request
+```
 
+Then run the aztec command to add your address as an L1 validator:
+
+```bash
+# Requests addition into validater set
 aztec add-l1-validator --staking-asset-handler=$STAKING_ASSET_HANDLER \
   --l1-rpc-urls $ETHEREUM_HOSTS \
   --private-key $PRIVATE_KEY \
@@ -121,9 +125,7 @@ aztec add-l1-validator --staking-asset-handler=$STAKING_ASSET_HANDLER \
   --proposer-eoa "<address>"
 ```
 
-(Use `aztec help add-l1-validator` for further parameter details)
-
-Run the script to make the request: `./add.sh`
+**Tip**: Use `aztec help add-l1-validator` for further parameter details.
 
 :::note Validator Quota Filled
 
