@@ -123,7 +123,7 @@ template <typename Builder> class DSLBigInts {
     /// The input value is decomposed into the binary basis for the binary limbs
     /// The input array must be:
     /// the 4 witness index of the binary limbs, and the index of the prime limb
-    void set_value(uint256_t value, std::array<uint32_t, 5> const& limbs_idx)
+    void set_value(uint256_t value, const std::array<uint32_t, 5> limbs_idx)
     {
         uint256_t limb_modulus = uint256_t(1) << big_bn254_fq::NUM_LIMB_BITS;
         builder->variables[limbs_idx[4]] = value;

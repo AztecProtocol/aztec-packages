@@ -23,9 +23,9 @@ struct Sha256Input {
 };
 
 struct Sha256Compression {
-    std::shared_ptr<std::array<WitnessOrConstant<bb::fr>, 16>> inputs;
-    std::shared_ptr<std::array<WitnessOrConstant<bb::fr>, 8>> hash_values;
-    std::shared_ptr<std::array<uint32_t, 8>> result;
+    std::array<WitnessOrConstant<bb::fr>, 16> inputs;
+    std::array<WitnessOrConstant<bb::fr>, 8> hash_values;
+    std::array<uint32_t, 8> result;
 
     friend bool operator==(Sha256Compression const& lhs, Sha256Compression const& rhs) = default;
     // for serialization, update with any new fields

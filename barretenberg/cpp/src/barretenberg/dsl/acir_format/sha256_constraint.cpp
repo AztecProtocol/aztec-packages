@@ -24,12 +24,12 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     // Note that we do not range-check the inputs, which should be 32 bits,
     // because of the lookup-tables.
     size_t i = 0;
-    for (const auto& witness_index_num_bits : *constraint.inputs) {
+    for (const auto& witness_index_num_bits : constraint.inputs) {
         inputs[i] = to_field_ct(witness_index_num_bits, builder);
         ++i;
     }
     i = 0;
-    for (const auto& witness_index_num_bits : *constraint.hash_values) {
+    for (const auto& witness_index_num_bits : constraint.hash_values) {
         hash_inputs[i] = to_field_ct(witness_index_num_bits, builder);
         ++i;
     }
@@ -37,15 +37,14 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     // Compute sha256 compression
     auto output_bytes = bb::stdlib::sha256_plookup::sha256_block<Builder>(hash_inputs, inputs);
 
-    auto& result = *constraint.result;
     for (size_t i = 0; i < 8; ++i) {
         auto normalised_output = output_bytes[i].normalize();
         if (normalised_output.is_constant()) {
-            builder.fix_witness(result[i], normalised_output.get_value());
+            builder.fix_witness(constraint.result[i], normalised_output.get_value());
         } else {
             bb::poly_triple assert_equal{
                 .a = normalised_output.witness_index,
-                .b = result[i],
+                .b = constraint.result[i],
                 .c = 0,
                 .q_m = 0,
                 .q_l = 1,
