@@ -3,10 +3,13 @@ import { inspect } from 'util';
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { Fr } from '../fields/index.js';
+import { createLogger } from '../log/pino-logger.js';
 import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 import { bufferToHex } from '../string/index.js';
+
+const log = createLogger('foundation:eth-address');
 
 /**
  * Represents an Ethereum address as a 20-byte buffer and provides various utility methods
@@ -20,9 +23,28 @@ export class EthAddress {
   /** Represents a zero Ethereum address with 20 bytes filled with zeros. */
   public static ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
 
+  private static readonly cache = new Map<string, WeakRef<EthAddress>>();
+  private static handler: NodeJS.Timeout | undefined;
+  private static cacheHits = 0;
+  private static cacheMisses = 0;
+
   constructor(private buffer: Buffer) {
     if (buffer.length !== EthAddress.SIZE_IN_BYTES) {
       throw new Error(`Expect buffer size to be ${EthAddress.SIZE_IN_BYTES}. Got ${buffer.length}.`);
+    }
+
+    if (!EthAddress.handler) {
+      EthAddress.handler = setInterval(() => {
+        let count = 0;
+        for (const val of EthAddress.cache.values()) {
+          if (val.deref()) {
+            count++;
+          }
+        }
+        log.info(
+          `There are ${EthAddress.cache.size} WeakRefs in the cache and ${count} instances. We've had ${EthAddress.cacheHits} hits and ${EthAddress.cacheMisses} misses so far`,
+        );
+      }, 60_000);
     }
   }
 
@@ -38,7 +60,17 @@ export class EthAddress {
     if (!EthAddress.isAddress(address)) {
       throw new Error(`Invalid address string: ${address}`);
     }
-    return new EthAddress(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+    const maybeAddr = EthAddress.cache.get(address)?.deref();
+    if (maybeAddr) {
+      EthAddress.cacheHits++;
+      return maybeAddr;
+    } else {
+      const addr = new EthAddress(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+      EthAddress.cacheMisses++;
+      EthAddress.cache.set(address, new WeakRef(addr));
+
+      return addr;
+    }
   }
 
   /**
