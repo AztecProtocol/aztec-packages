@@ -27,4 +27,25 @@ class MemBn254CrsFactory : public CrsFactory<curve::BN254> {
     std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> verifier_crs_;
 };
 
+/**
+ * Derives reference strings from a file, that is secondarily backed by the network.
+ */
+class NetBn254CrsFactory : public CrsFactory<curve::BN254> {
+  public:
+    NetBn254CrsFactory();
+    NetBn254CrsFactory(NetBn254CrsFactory&& other) = default;
+
+    std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> get_prover_crs(size_t degree) override
+    {
+        return prover_crs_->get_prover_crs(degree);
+    }
+    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> get_verifier_crs(size_t degree = 0) override
+    {
+        return prover_crs_->get_verifier_crs(degree);
+    }
+
+  private:
+    std::shared_ptr<MemBn254CrsFactory> prover_crs_;
+};
+
 } // namespace bb::srs::factories

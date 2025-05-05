@@ -1,4 +1,5 @@
 #include "mem_bn254_crs_factory.hpp"
+#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -82,5 +83,7 @@ std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> MemBn254CrsFactor
     }
     return verifier_crs_;
 }
+
+const std::string CRS_PATH = getHomeDir() + "/.bb-crs";
 
 } // namespace bb::srs::factories
