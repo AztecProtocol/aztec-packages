@@ -62,7 +62,12 @@ describe('e2e_token_contract transfer private', () => {
       expect(amount).toBeGreaterThan(0n);
       await expect(
         asset.methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, 1).simulate(),
-      ).rejects.toThrow('Assertion failed: invalid nonce');
+      ).rejects.toThrow(
+        expect.objectContaining({
+          message: expect.stringMatching(/Assertion failed: invalid nonce 'nonce == 0'/),
+          stack: expect.stringMatching(/at nonce == 0[\s\S]*at Token\.transfer_in_private.*/),
+        }),
+      );
     });
 
     it('transfer more than balance on behalf of other', async () => {
