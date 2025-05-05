@@ -37,7 +37,7 @@ import {
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { WitnessMap } from '@aztec/noir-types';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type ProofAndVerificationKey,
@@ -48,19 +48,19 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
-import type {
-  BaseOrMergeRollupPublicInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
-  MergeRollupInputs,
-  PrivateBaseRollupInputs,
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type MergeRollupInputs,
+  type PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
-  SingleTxBlockRootRollupInputs,
-  TubeInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
+  type TubeInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
@@ -80,7 +80,7 @@ import {
   generateAvmProofV2,
   generateProof,
   generateTubeProof,
-  verifyAvmProof,
+  verifyAvmProofV2,
   verifyProof,
 } from '../../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
@@ -187,7 +187,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     inputs: AvmCircuitInputs,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const proofAndVk = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey);
+    await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey, inputs.publicInputs);
     return proofAndVk;
   }
 
@@ -673,9 +673,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.verifyWithKey(getUltraHonkFlavorForCircuit(circuitType), verificationKey, proof);
   }
 
-  public async verifyAvmProof(proof: Proof, verificationKey: VerificationKeyData) {
+  public async verifyAvmProof(
+    proof: Proof,
+    verificationKey: VerificationKeyData,
+    publicInputs: AvmCircuitPublicInputs,
+  ) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger),
+      verifyAvmProofV2(
+        this.config.bbBinaryPath,
+        this.config.bbWorkingDirectory,
+        proofPath,
+        publicInputs,
+        vkPath,
+        logger,
+      ),
     );
   }
 
