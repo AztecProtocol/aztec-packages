@@ -33,11 +33,11 @@ describe('e2e_avm_simulator', () => {
     describe('Assertions & error enriching', () => {
       /**
        * Expect an error like:
-       * Assertion failed: This assertion should fail! 'quote { $self }'
+       * Assertion failed: This assertion should fail! 'not_true == true'
        * ...
+       * at not_true == true (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:16)
+       * at inner_helper_with_failed_assertion() (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
        * at quote { $self } (../std/meta/expr.nr:269:9)
-       * at inner_helper_with_failed_assertion() (../../../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
-       * at not_true == true (../../../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:16)
        * at function.name();
        * let call = quote { $name($args) (/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:59:20)
        * at AvmTest.0xc3515746
