@@ -137,6 +137,7 @@ class AvmGoblinRecursiveVerifier {
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk };
         GoblinRecursiveVerifierOutput goblin_verifier_output = goblin_verifier.verify(inner_output.goblin_proof);
+        goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
@@ -145,7 +146,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         return RecursiveAvmGoblinOutput{
-            .points_accumulator = mega_verifier_output.points_accumulator,
+            .points_accumulator = goblin_verifier_output.points_accumulator,
             .ipa_claim = goblin_verifier_output.opening_claim,
             .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
         };

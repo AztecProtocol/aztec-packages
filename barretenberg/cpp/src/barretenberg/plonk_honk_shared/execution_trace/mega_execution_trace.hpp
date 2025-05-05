@@ -303,8 +303,6 @@ static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .poseidon2_internal =
                                                                 25000, // Should be 5.7x poseidon2_external
                                                             .overflow = 0 };
-// convert to decimal and sum these numbers:
-//
 
 /**
  * @brief An example structuring of size 2^18.

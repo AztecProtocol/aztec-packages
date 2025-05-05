@@ -19,7 +19,7 @@ namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct UltraRecursiveVerifierOutput {
     PairingPoints<Builder> points_accumulator;
-    OpeningClaim<grumpkin<Builder>> ipa_claim; // WORKTODO: maybe omit or make optional depending on the flavor
+    OpeningClaim<grumpkin<Builder>> ipa_claim;
     StdlibProof<Builder> ipa_proof;
 };
 template <typename Flavor> class UltraRecursiveVerifier_ {

@@ -25,7 +25,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     PairingPoints<Builder> translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
-    // Verify the consistency between the ECCVM and Translator transcript polynome\ial evaluations
+    // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
     // In reality the Goblin Proof is going to already be a stdlib proof and this conversion is not going to happen here
     // (see https://github.com/AztecProtocol/barretenberg/issues/991)
     auto native_translation_evaluations = proof.translation_evaluations;
