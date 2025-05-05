@@ -27,6 +27,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     [[maybe_unused]] auto translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
+    // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
     translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
                                            eccvm_verifier.translation_masking_term_eval);
 

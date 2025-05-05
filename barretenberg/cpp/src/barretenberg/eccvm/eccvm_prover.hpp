@@ -31,7 +31,7 @@ class ECCVMProver {
     using Polynomial = typename Flavor::Polynomial;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
+    using TranslationEvaluations = bb::TranslationEvaluations_<FF>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;

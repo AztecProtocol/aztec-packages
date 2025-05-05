@@ -12,14 +12,12 @@
 
 namespace bb {
 /**
- * @brief Stores the evaluations from ECCVM, checked against the translator evaluations as a final step of translator.
+ * @brief Stores the evaluations of `op`, `Px`, `Py`, `z1`, and `z2` computed by the ECCVM Prover. These evaluations are
+ * batched and checked against the `accumulated_result`, which is computed and verified by Translator.
  *
  * @tparam BF The base field of BN254, translation evaluations are represented in the base field.
- * @tparam FF The scalar field of BN254, used in Goblin to help convert the proof into a buffer for ACIR. Note that this
- * struct is also used by ECCVMVerifiers, where the second template parameter is not required, hence we set it to `void`
- * by default.
  */
-template <typename BF, typename FF = void> struct TranslationEvaluations_ {
+template <typename BF> struct TranslationEvaluations_ {
     BF op, Px, Py, z1, z2;
     static size_t size() { return field_conversion::calc_num_bn254_frs<BF>() * NUM_TRANSLATION_EVALUATIONS; }
 
