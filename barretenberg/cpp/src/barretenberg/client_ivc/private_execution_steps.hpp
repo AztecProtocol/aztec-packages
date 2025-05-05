@@ -44,6 +44,6 @@ struct PrivateExecutionSteps {
     std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>> precomputed_vks;
 
     std::shared_ptr<ClientIVC> accumulate();
-    void parse(std::vector<PrivateExecutionStepRaw> steps);
+    void parse(std::vector<PrivateExecutionStepRaw>&& steps);
 };
 } // namespace bb
