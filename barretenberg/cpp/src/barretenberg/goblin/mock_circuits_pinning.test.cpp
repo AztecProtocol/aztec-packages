@@ -64,17 +64,7 @@ TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
 }
 
-TEST_F(MegaMockCircuitsPinning, ClientIVCBenchStructuredCircuitSize)
-{
-    Goblin goblin;
-    MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    GoblinMockCircuits::PairingPoints::add_default_to_public_inputs(app_circuit);
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
-    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
-}
-
-TEST_F(MegaMockCircuitsPinning, E2EStructuredCircuitSize)
+TEST_F(MegaMockCircuitsPinning, AztecStructuredCircuitSize)
 {
     Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
