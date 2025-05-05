@@ -326,7 +326,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;

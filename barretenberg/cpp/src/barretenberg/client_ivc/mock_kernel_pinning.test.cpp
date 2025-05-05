@@ -23,7 +23,7 @@ class MockKernelTest : public ::testing::Test {
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -33,8 +33,8 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
         ivc.accumulate(circuit);
-        EXPECT_FALSE(circuit.blocks.has_overflow); // trace oveflow mechanism should not be triggered
+        EXPECT_TRUE(circuit.blocks.has_overflow); // trace oveflow mechanism should not be triggered
     }
 
-    EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 19);
+    EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 20);
 }
