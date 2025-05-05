@@ -968,6 +968,8 @@ export class TXE implements TypedOracle {
         contractsDB,
         globalVariables,
         /*doMerkleOperations=*/ false,
+        /*skipFeeEnforcement=*/ false,
+        /*clientInitiatedSimulation=*/ true,
       );
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
