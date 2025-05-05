@@ -28,6 +28,7 @@ import '@aztec/stdlib/testing/jest';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
+import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from './errors.js';
 import type { PublishedL2Block } from './structs/published.js';
 
 /**
@@ -84,6 +85,18 @@ export function describeArchiverDataStore(
       it('allows duplicate blocks', async () => {
         await store.addBlocks(blocks);
         await expect(store.addBlocks(blocks)).resolves.toBe(true);
+      });
+
+      it('throws an error if the previous block does not exist in the store', async () => {
+        const block = makePublished(await L2Block.random(2), 2);
+        await expect(store.addBlocks([block])).rejects.toThrow(InitialBlockNumberNotSequentialError);
+        await expect(store.getPublishedBlocks(1, 10)).resolves.toEqual([]);
+      });
+
+      it('throws an error if there is a gap in the blocks being added', async () => {
+        const blocks = [makePublished(await L2Block.random(1), 1), makePublished(await L2Block.random(3), 3)];
+        await expect(store.addBlocks(blocks)).rejects.toThrow(BlockNumberNotSequentialError);
+        await expect(store.getPublishedBlocks(1, 10)).resolves.toEqual([]);
       });
     });
 

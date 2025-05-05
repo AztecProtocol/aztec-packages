@@ -8,6 +8,7 @@ import { Body, L2Block, L2BlockHash } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
+import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from '../errors.js';
 import type { L1PublishedData, PublishedL2Block } from '../structs/published.js';
 
 export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
@@ -69,7 +70,26 @@ export class BlockStore {
     }
 
     return await this.db.transactionAsync(async () => {
+      // Check that the block immediately before the first block to be added is present in the store.
+      const firstBlockNumber = blocks[0].block.number;
+      const [previousBlockNumber] = await toArray(
+        this.#blocks.keysAsync({ reverse: true, limit: 1, end: firstBlockNumber - 1 }),
+      );
+      const hasPreviousBlock =
+        firstBlockNumber === INITIAL_L2_BLOCK_NUM ||
+        (previousBlockNumber !== undefined && previousBlockNumber === firstBlockNumber - 1);
+      if (!hasPreviousBlock) {
+        throw new InitialBlockNumberNotSequentialError(firstBlockNumber, previousBlockNumber);
+      }
+
+      // Iterate over blocks array and insert them, checking that the block numbers are sequential.
+      let previousBlock: PublishedL2Block | undefined = undefined;
       for (const block of blocks) {
+        if (previousBlock && previousBlock.block.number + 1 !== block.block.number) {
+          throw new BlockNumberNotSequentialError(block.block.number, previousBlock.block.number);
+        }
+        previousBlock = block;
+
         await this.#blocks.set(block.block.number, {
           header: block.block.header.toBuffer(),
           archive: block.block.archive.toBuffer(),
