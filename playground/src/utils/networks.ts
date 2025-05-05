@@ -21,7 +21,7 @@ export const NETWORKS: Network[] = [
     hasTestAccounts: false,
     hasSponsoredFPC: true,
     sponsoredFPC: {
-      version: '0.85.0-alpha-testnet.2',
+      version: 'alpha-testnet',
       address: AztecAddress.fromString('0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5'),
     },
   },
