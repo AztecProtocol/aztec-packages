@@ -28,7 +28,12 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
   return new VerificationKeyData(vkAsFields, rawBinary);
 }
 
-// TODO: This was adapted from the above function. A refactor might be needed.
+/**
+ * Reads the verification key data stored in a binary file at the specified directory location and parses into a VerificationKeyData.
+ * We do not assume any JSON file available but only the binary version, contrary to the above extractVkData() method.
+ * @param vkDirectoryPath - The directory containing the verification key binary data file.
+ * @returns The verification key data
+ */
 export async function extractAvmVkData(vkDirectoryPath: string): Promise<VerificationKeyData> {
   const rawBinary = await fs.readFile(path.join(vkDirectoryPath, VK_FILENAME));
 
