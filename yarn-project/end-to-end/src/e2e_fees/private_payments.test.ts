@@ -307,8 +307,6 @@ describe('e2e_fees private_payment', () => {
       bananaCoin.methods
         .mint_to_private(from, aliceAddress, 10)
         .send({
-          // we need to skip public simulation otherwise the PXE refuses to accept the TX
-          skipPublicSimulation: true,
           fee: {
             gasSettings,
             paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet),

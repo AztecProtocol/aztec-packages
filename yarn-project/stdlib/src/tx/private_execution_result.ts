@@ -135,6 +135,7 @@ export class PrivateCallExecutionResult {
      * Note: These are preimages to `contractClassLogsHashes`.
      */
     public contractClassLogs: CountedContractClassLog[],
+    public profileResult?: PrivateExecutionProfileResult,
   ) {}
 
   static get schema(): ZodFor<PrivateCallExecutionResult> {
@@ -247,4 +248,8 @@ export function collectNested<T>(
   return thisExecutionReads.concat(
     executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
   );
+}
+
+export class PrivateExecutionProfileResult {
+  constructor(public timings: { witgen: number }) {}
 }

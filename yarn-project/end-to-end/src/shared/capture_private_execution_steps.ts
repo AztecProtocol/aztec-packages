@@ -44,9 +44,16 @@ export async function capturePrivateExecutionStepsIfEnvSet(
   if (profileMode === 'full') {
     // If we have gate counts, write the steps in human-readable format.
     await fs.writeFile(
-      path.join(resultsDirectory, 'steps.json'),
+      path.join(resultsDirectory, 'profile.json'),
       JSON.stringify(
-        result.executionSteps.map(step => ({ fnName: step.functionName, gateCount: step.gateCount })),
+        {
+          syncTime: result.syncTime,
+          steps: result.executionSteps.map(step => ({
+            fnName: step.functionName,
+            gateCount: step.gateCount,
+            timings: step.timings,
+          })),
+        },
         null,
         2,
       ),

@@ -303,7 +303,7 @@ export class ClientFlowsBenchmark {
       'deploy_sponsored_fpc',
       async () => {
         const sponsoredFPC = await setupSponsoredFPC(this.pxe);
-        this.logger.info(`SponsoredFPC deployed at ${sponsoredFPC.address}`);
+        this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
         return { sponsoredFPCAddress: sponsoredFPC.address };
       },
       async ({ sponsoredFPCAddress }) => {

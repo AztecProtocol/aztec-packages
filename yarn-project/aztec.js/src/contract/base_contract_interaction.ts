@@ -49,8 +49,7 @@ export abstract class BaseContractInteraction {
    */
   protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
     const txRequest = await this.create(options);
-    const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
-    return await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+    return await this.wallet.proveTx(txRequest);
   }
 
   // docs:start:prove
@@ -92,7 +91,7 @@ export abstract class BaseContractInteraction {
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    opts?: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });

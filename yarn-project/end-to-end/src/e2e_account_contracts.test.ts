@@ -78,7 +78,7 @@ const itShouldBehaveLikeAnAccountContract = (
       const entrypoint = randomContract.getInterface(accountAddress, nodeInfo);
       const invalidWallet = new AccountWallet(pxe, entrypoint);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
-      await expect(childWithInvalidWallet.methods.value(42).prove()).rejects.toThrow('Cannot satisfy constraint');
+      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrow('Cannot satisfy constraint');
     });
   });
 };
