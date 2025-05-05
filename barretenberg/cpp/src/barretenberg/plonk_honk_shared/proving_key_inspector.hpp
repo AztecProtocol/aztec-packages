@@ -18,20 +18,10 @@ namespace bb::proving_key_inspector {
 template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct NativeFlavorHelper {
     using type = Flavor;
 };
-
 template <typename Flavor> struct NativeFlavorHelper<Flavor, true> {
     using type = typename Flavor::NativeFlavor;
 };
 
-template <typename Flavor, typename Builder>
-uint256_t compute_vk_hash(const Builder&, const TraceSettings& = TraceSettings{ AZTEC_TRACE_STRUCTURE })
-    requires(!IsMegaFlavor<Flavor> || !IsMegaBuilder<Builder>)
-{
-    info("compute_vk_hash: Not implemented for this Flavor/Builder, returning 0.");
-    return 0;
-}
-
-//
 /**
  * @brief Compute the hash of the verification key that results from constructing a proving key from the given circuit.
  * @details This is useful for identifying the point of divergence for two circuits that are expected to be identical,
@@ -62,6 +52,14 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
     VerificationKey verification_key{ proving_key.proving_key };
 
     return verification_key.hash();
+}
+
+template <typename Flavor, typename Builder>
+uint256_t compute_vk_hash(const Builder&, const TraceSettings& = TraceSettings{ AZTEC_TRACE_STRUCTURE })
+    requires(!IsMegaFlavor<Flavor> || !IsMegaBuilder<Builder>)
+{
+    info("compute_vk_hash: Not implemented for this Flavor/Builder, returning 0.");
+    return 0;
 }
 
 // Determine whether a polynomial has at least one non-zero coefficient

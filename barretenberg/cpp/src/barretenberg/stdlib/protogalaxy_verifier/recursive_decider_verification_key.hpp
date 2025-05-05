@@ -63,6 +63,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     {
         is_accumulator = verification_key->is_accumulator;
         if (is_accumulator) {
+
             for (auto [native_public_input] : zip_view(verification_key->public_inputs)) {
                 public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
             }
@@ -84,7 +85,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                 challenge = FF::from_witness(builder, verification_key->gate_challenges[challenge_idx]);
                 challenge_idx++;
             }
-
             relation_parameters.eta = FF::from_witness(builder, verification_key->relation_parameters.eta);
             relation_parameters.eta_two = FF::from_witness(builder, verification_key->relation_parameters.eta_two);
             relation_parameters.eta_three = FF::from_witness(builder, verification_key->relation_parameters.eta_three);

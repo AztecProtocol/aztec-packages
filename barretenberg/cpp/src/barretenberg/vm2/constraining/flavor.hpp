@@ -25,7 +25,6 @@ namespace bb::avm2 {
 
 class AvmFlavor {
   public:
-    using CircuitBuilder = void;
     using Curve = AvmFlavorSettings::Curve;
     using G1 = AvmFlavorSettings::G1;
     using PCS = AvmFlavorSettings::PCS;

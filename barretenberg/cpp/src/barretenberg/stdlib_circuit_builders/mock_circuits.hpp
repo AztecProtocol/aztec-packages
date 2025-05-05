@@ -141,10 +141,10 @@ class MockCircuits {
         const size_t num_preamble_gates = builder.num_gates;
         ASSERT(target_dyadic_size >= num_preamble_gates);
 
-        // // For good measure, include a gate with some public inputs
-        // if (target_dyadic_size > num_preamble_gates) {
-        //     add_arithmetic_gates_with_public_inputs(builder, 1);
-        // }
+        // For good measure, include a gate with some public inputs
+        if (target_dyadic_size > num_preamble_gates) {
+            add_arithmetic_gates_with_public_inputs(builder, 1);
+        }
 
         // A proper treatment of this would dynamically calculate how many gates to add given static information about
         // Builder, but a major overhaul of the execution trace is underway, so we just elect to use a hack. Namely, for

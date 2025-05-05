@@ -624,68 +624,6 @@ class MegaFlavor {
                        lagrange_ecc_op,
                        databus_id);
 
-        // A methid that compares the verification key with another verification key and prints the differences
-        bool compare(const std::shared_ptr<VerificationKey>& other_vk) const
-        {
-            info("Comparing verification keys...");
-            bool is_equal = true;
-            if (this->circuit_size != other_vk->circuit_size) {
-                is_equal = false;
-                info("circuit_size: ", this->circuit_size, " != ", other_vk->circuit_size);
-            }
-            if (this->num_public_inputs != other_vk->num_public_inputs) {
-                is_equal = false;
-                info("num_public_inputs: ", this->num_public_inputs, " != ", other_vk->num_public_inputs);
-            }
-            if (this->pub_inputs_offset != other_vk->pub_inputs_offset) {
-                is_equal = false;
-                info("pub_inputs_offset: ", this->pub_inputs_offset, " != ", other_vk->pub_inputs_offset);
-            }
-            if (this->pairing_inputs_public_input_key.start_idx !=
-                other_vk->pairing_inputs_public_input_key.start_idx) {
-                is_equal = false;
-                info("pairing_inputs_public_input_key: ",
-                     this->pairing_inputs_public_input_key.start_idx,
-                     " != ",
-                     other_vk->pairing_inputs_public_input_key.start_idx);
-            }
-            if (this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx !=
-                other_vk->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx) {
-                is_equal = false;
-                info("databus_propagation_data.app_return_data_commitment_pub_input_key: ",
-                     this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
-                     " != ",
-                     other_vk->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            }
-            if (this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx !=
-                other_vk->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx) {
-                is_equal = false;
-                info("databus_propagation_data.kernel_return_data_commitment_pub_input_key: ",
-                     this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx,
-                     " != ",
-                     other_vk->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            }
-            if (this->databus_propagation_data.is_kernel != other_vk->databus_propagation_data.is_kernel) {
-                is_equal = false;
-                info("databus_propagation_data.is_kernel: ",
-                     this->databus_propagation_data.is_kernel,
-                     " != ",
-                     other_vk->databus_propagation_data.is_kernel);
-            }
-            CommitmentLabels labels;
-            for (auto [label, commitment, other_commitment] :
-                 zip_view(labels.get_precomputed(), this->get_all(), other_vk->get_all())) {
-                if (commitment != other_commitment) {
-                    is_equal = false;
-                    info(label, ": ", commitment, " != ", other_commitment);
-                }
-            }
-            if (is_equal) {
-                info("\nVerification keys are equal!\n");
-            }
-            return is_equal;
-        };
-
         // Compute a hash of the full contents of the verification key
         uint256_t hash() const
         {

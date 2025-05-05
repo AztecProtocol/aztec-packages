@@ -2863,6 +2863,13 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     ++this->num_gates;
 }
 
+/**
+ * @brief Compute a hash of some of the main circuit components.
+ * @note This hash can differ for circuits that will ultimately result in an identical verification key. For example,
+ * when we construct circuits from acir programs with dummy witnesses, the hash will in general disagree with the hash
+ * of the circuit constructed using a genuine witness.
+ *
+ */
 template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit() const
 {
     // Copy the circuit and finalize without modifying the original

@@ -29,10 +29,6 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    // if constexpr (IsMegaBuilder<Builder>) {
-    info("VK HASH 1: ", proving_key_inspector::compute_vk_hash<Flavor>(*builder));
-    // }
-
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
@@ -41,35 +37,18 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     const auto padding_indicator_array =
         compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
 
-    if constexpr (IsMegaBuilder<Builder>) {
-        // info("VK HASH 2: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
-    }
-
-    // info("log circuit size: ", accumulator->verification_key->log_circuit_size);
-
     constrain_log_circuit_size(padding_indicator_array, accumulator->verification_key->circuit_size);
-
-    if constexpr (IsMegaBuilder<Builder>) {
-        // info("VK HASH 3: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
-    }
 
     Sumcheck sumcheck(transcript, accumulator->target_sum);
 
     SumcheckOutput<Flavor> output = sumcheck.verify(
         accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges, padding_indicator_array);
 
-    if constexpr (IsMegaBuilder<Builder>) {
-        // info("VK HASH 4: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
-    }
-
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
-    // if constexpr (IsMegaBuilder<Builder>) {
-    //     info("VK HASH D: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
-    // }
     const auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                                       claim_batcher,
                                                                       output.challenge,
@@ -78,9 +57,6 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
                                                                       Flavor::REPEATED_COMMITMENTS,
                                                                       Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    // if constexpr (IsMegaBuilder<Builder>) {
-    //     info("VK HASH E: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
-    // }
     return { pairing_points[0], pairing_points[1] };
 }
 
