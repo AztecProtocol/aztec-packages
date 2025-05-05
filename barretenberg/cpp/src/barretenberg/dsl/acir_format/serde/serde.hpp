@@ -357,6 +357,14 @@ template <class... Types> struct Serializable<std::variant<Types...>> {
     }
 };
 
+// Shared pointers
+template <class Type> struct Serializable<std::shared_ptr<Type>> {
+    template <typename Serializer> static void serialize(const std::shared_ptr<Type>& value, Serializer& serializer)
+    {
+        Serializable<Type>::serialize(*value, serializer);
+    }
+};
+
 // --- Implementation of Deserializable for base types ---
 
 // string
@@ -598,6 +606,14 @@ template <class... Types> struct Deserializable<std::variant<Types...>> {
             throw_or_abort("Unknown variant index for enum");
         }
         return cases.at(index)(deserializer);
+    }
+};
+
+// Shared pointers
+template <class Type> struct Deserializable<std::shared_ptr<Type>> {
+    template <typename Deserializer> static std::shared_ptr<Type> deserialize(Deserializer& serializer)
+    {
+        return std::make_shared<Type>(Deserializable<Type>::deserialize(serializer));
     }
 };
 

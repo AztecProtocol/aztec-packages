@@ -37,12 +37,6 @@ std::array<OutElem, SIZE> map(std::array<InElem, SIZE> const& in, F&& op)
     return result;
 }
 
-template <typename InElem, typename F> auto map_shared_ptr(std::shared_ptr<InElem> const& in, F&& op)
-{
-    auto result = map(*in, op);
-    return std::make_shared<decltype(result)>(result);
-}
-
 /*
  * Generic map function for mapping a containers element to another type.
  * This version passes the element index as a second argument to the operator function.

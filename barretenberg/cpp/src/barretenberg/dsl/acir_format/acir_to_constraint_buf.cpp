@@ -600,8 +600,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .iv = transform::map(arg.iv, [](auto& e) { return parse_input(e); }),
-                    .key = transform::map(arg.key, [](auto& e) { return parse_input(e); }),
+                    .iv = transform::map(*arg.iv, [](auto& e) { return parse_input(e); }),
+                    .key = transform::map(*arg.key, [](auto& e) { return parse_input(e); }),
                     .outputs = transform::map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.aes128_constraints.back().outputs) {
@@ -610,9 +610,9 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
-                    .inputs = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .hash_values = transform::map(arg.hash_values, [](auto& e) { return parse_input(e); }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .inputs = transform::map(*arg.inputs, [](auto& e) { return parse_input(e); }),
+                    .hash_values = transform::map(*arg.hash_values, [](auto& e) { return parse_input(e); }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.sha256_compression.back().result) {
                     af.constrained_witness.insert(output);
@@ -627,7 +627,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                                                      .num_bits = e.num_bits,
                                                  };
                                              }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.blake2s_constraints.back().result) {
                     af.constrained_witness.insert(output);
@@ -642,7 +642,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                                                      .num_bits = e.num_bits,
                                                  };
                                              }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.blake3_constraints.back().result) {
                     af.constrained_witness.insert(output);
@@ -651,13 +651,13 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message =
-                        transform::map(arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
-                        transform::map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_x_indices =
-                        transform::map(arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
-                        transform::map(arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
                 });
                 af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
@@ -665,14 +665,14 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
                     .hashed_message =
-                        transform::map(arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_x_indices =
-                        transform::map(arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
-                        transform::map(arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
                     .signature =
-                        transform::map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
                 af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
@@ -680,21 +680,21 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
                     .points = transform::map(arg.points, [](auto& e) { return parse_input(e); }),
                     .scalars = transform::map(arg.scalars, [](auto& e) { return parse_input(e); }),
-                    .out_point_x = arg.outputs[0].value,
-                    .out_point_y = arg.outputs[1].value,
-                    .out_point_is_infinite = arg.outputs[2].value,
+                    .out_point_x = (*arg.outputs)[0].value,
+                    .out_point_y = (*arg.outputs)[1].value,
+                    .out_point_is_infinite = (*arg.outputs)[2].value,
                 });
                 af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_x);
                 af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_y);
                 af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_is_infinite);
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
-                auto input_1_x = parse_input(arg.input1[0]);
-                auto input_1_y = parse_input(arg.input1[1]);
-                auto input_1_infinite = parse_input(arg.input1[2]);
-                auto input_2_x = parse_input(arg.input2[0]);
-                auto input_2_y = parse_input(arg.input2[1]);
-                auto input_2_infinite = parse_input(arg.input2[2]);
+                auto input_1_x = parse_input((*arg.input1)[0]);
+                auto input_1_y = parse_input((*arg.input1)[1]);
+                auto input_1_infinite = parse_input((*arg.input1)[2]);
+                auto input_2_x = parse_input((*arg.input2)[0]);
+                auto input_2_y = parse_input((*arg.input2)[1]);
+                auto input_2_infinite = parse_input((*arg.input2)[2]);
 
                 af.ec_add_constraints.push_back(EcAdd{
                     .input1_x = input_1_x,
@@ -703,9 +703,9 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .input2_x = input_2_x,
                     .input2_y = input_2_y,
                     .input2_infinite = input_2_infinite,
-                    .result_x = arg.outputs[0].value,
-                    .result_y = arg.outputs[1].value,
-                    .result_infinite = arg.outputs[2].value,
+                    .result_x = (*arg.outputs)[0].value,
+                    .result_y = (*arg.outputs)[1].value,
+                    .result_infinite = (*arg.outputs)[2].value,
                 });
                 af.constrained_witness.insert(af.ec_add_constraints.back().result_x);
                 af.constrained_witness.insert(af.ec_add_constraints.back().result_y);
@@ -713,8 +713,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
-                    .state = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .state = transform::map(*arg.inputs, [](auto& e) { return parse_input(e); }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.keccak_permutations.back().result) {
                     af.constrained_witness.insert(output);
