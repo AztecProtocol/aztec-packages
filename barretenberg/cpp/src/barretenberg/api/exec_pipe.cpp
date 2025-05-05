@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-std::vector<uint8_t> exec_pipe(const std::string& command)
+std::vector<uint8_t> exec_pipe([[maybe_unused]] const std::string& command)
 {
 #ifdef __wasm__
     throw_or_abort("Can't use popen() in wasm! Implement this functionality natively.");

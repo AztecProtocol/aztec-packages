@@ -8,4 +8,4 @@
 
 // IMPORTANT do not allow user-controlled strings here as there is an easily-exploitable
 // command injection vulnerability if so.
-std::vector<uint8_t> exec_pipe([[maybe_unused]] std::string const& command);
+std::vector<uint8_t> exec_pipe(std::string const& command);
