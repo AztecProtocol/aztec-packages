@@ -101,7 +101,8 @@ export function resolveOpcodeLocations(
     if (runtimeLocations.length === 2) {
       const acirCallstackId = debug.acir_locations[runtimeLocations[0]];
       if (acirCallstackId !== undefined) {
-        const acirCallstack = getCallStackFromLocationNode(acirCallstackId, debug.location_tree.locations, files);
+        const callStack = debug.location_tree.locations[acirCallstackId];
+        const acirCallstack = getCallStackFromLocationNode(callStack, debug.location_tree.locations, files);
         locations = locations.concat(acirCallstack);
       }
     }
@@ -110,38 +111,34 @@ export function resolveOpcodeLocations(
 }
 
 function getCallStackFromLocationNode(
-  callStackID: number,
+  callStack: LocationNodeDebugInfo,
   locationTree: LocationNodeDebugInfo[],
   files: DebugFileMap,
 ): SourceCodeLocation[] {
   const result: SourceCodeLocation[] = [];
-  let currentCallStackID: number | null = callStackID;
 
-  while (currentCallStackID !== null) {
-    const callStack: LocationNodeDebugInfo = locationTree[currentCallStackID];
-
+  while (callStack.parent !== null) {
     const { file: fileId, span } = callStack.value;
-    // Some locations are dummies inserted by the compiler, so we need to skip them since no file will correspond.
-    if (files[fileId]) {
-      const { path, source } = files[fileId];
 
-      const locationText = source.substring(span.start, span.end);
-      const precedingText = source.substring(0, span.start);
-      const previousLines = precedingText.split('\n');
-      // Lines and columns in stacks are one indexed.
-      const line = previousLines.length;
-      const column = previousLines[previousLines.length - 1].length + 1;
+    const { path, source } = files[fileId];
 
-      result.unshift({
-        filePath: path,
-        line,
-        column,
-        fileSource: source,
-        locationText,
-      });
-    }
+    const locationText = source.substring(span.start, span.end);
+    const precedingText = source.substring(0, span.start);
+    const previousLines = precedingText.split('\n');
+    // Lines and columns in stacks are one indexed.
+    const line = previousLines.length;
+    const column = previousLines[previousLines.length - 1].length + 1;
 
-    currentCallStackID = callStack.parent;
+    // Unshift since we are exploring child nodes first
+    result.unshift({
+      filePath: path,
+      line,
+      column,
+      fileSource: source,
+      locationText,
+    });
+
+    callStack = locationTree[callStack.parent];
   }
 
   return result;
@@ -168,8 +165,8 @@ function getSourceCodeLocationsFromOpcodeLocation(
   if (callStackID === undefined) {
     return [];
   }
-
-  return getCallStackFromLocationNode(callStackID, debug.location_tree.locations, files);
+  const callStack = debug.location_tree.locations[callStackID];
+  return getCallStackFromLocationNode(callStack, debug.location_tree.locations, files);
 }
 
 /**
