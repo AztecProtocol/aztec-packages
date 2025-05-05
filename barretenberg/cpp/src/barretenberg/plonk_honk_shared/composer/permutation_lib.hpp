@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file permutation_lib.hpp
  * @brief Contains various functions that help construct Honk and Plonk Sigma and Id polynomials
@@ -190,7 +196,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
 
     size_t pub_inputs_offset = 0;
-    if constexpr (IsUltraFlavor<Flavor>) {
+    if constexpr (IsUltraOrMegaHonk<Flavor>) {
         pub_inputs_offset = proving_key->pub_inputs_offset;
     }
     for (size_t i = 0; i < num_public_inputs; ++i) {
@@ -433,7 +439,7 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
             compute_plonk_permutation_lagrange_polynomials_from_mapping("id", mapping.ids, key);
             compute_monomial_and_coset_fft_polynomials_from_lagrange<Flavor::NUM_WIRES>("id", key);
         }
-    } else if constexpr (IsUltraFlavor<Flavor>) { // any UltraHonk flavor
+    } else if constexpr (IsUltraOrMegaHonk<Flavor>) { // any UltraHonk flavor
         // Compute Honk-style sigma and ID polynomials from the corresponding mappings
         {
 

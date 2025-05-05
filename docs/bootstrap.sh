@@ -8,8 +8,8 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; |
-      awk '{ print "^" $1 }' | sort -u)
+    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
 if semver check $REF_NAME; then
@@ -37,11 +37,7 @@ function release_docs {
   yarn install
   yarn build
 
-  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev --prod 2>&1); then
-    echo "Netlify deploy failed with error:"
-    echo "$deploy_output"
-    exit 1
-  fi
+  yarn netlify deploy --site aztec-docs-dev --prod 2>&1
 }
 
 case "$cmd" in
@@ -54,7 +50,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "release")
+  "release-docs")
     release_docs
     ;;
   *)

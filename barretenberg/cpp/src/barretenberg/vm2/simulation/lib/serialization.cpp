@@ -40,11 +40,11 @@ const std::vector<OperandType> three_operand_format16 = {
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT8, OperandType::UINT16 };
 
 const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
-                                                        /*gasOffset=*/OperandType::UINT16,
+                                                        /*l2GasOffset=*/OperandType::UINT16,
+                                                        /*daGasOffset=*/OperandType::UINT16,
                                                         /*addrOffset=*/OperandType::UINT16,
                                                         /*argsOffset=*/OperandType::UINT16,
-                                                        /*argsSizeOffset=*/OperandType::UINT16,
-                                                        /*successOffset=*/OperandType::UINT16 };
+                                                        /*argsSizeOffset=*/OperandType::UINT16 };
 
 // Contrary to TS, the format does not contain the WireOpCode byte which prefixes any instruction.
 // The format for WireOpCode::SET has to be handled separately as it is variable based on the tag.
@@ -139,7 +139,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
     { WireOpCode::L1TOL2MSGEXISTS,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     { WireOpCode::GETCONTRACTINSTANCE,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
     { WireOpCode::EMITUNENCRYPTEDLOG,
       {
           OperandType::INDIRECT8,

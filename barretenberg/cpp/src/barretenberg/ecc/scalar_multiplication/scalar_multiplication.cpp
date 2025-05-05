@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -209,14 +215,14 @@ void compute_wnaf_states(uint64_t* point_schedule,
     using Fr = typename Curve::ScalarField;
     const size_t num_points = num_initial_points * 2;
     constexpr size_t MAX_NUM_ROUNDS = 256;
-    constexpr size_t MAX_NUM_THREADS = 128;
     const size_t num_rounds = get_num_rounds(num_points);
     const size_t bits_per_bucket = get_optimal_bucket_width(num_initial_points);
     const size_t wnaf_bits = bits_per_bucket + 1;
     const size_t num_threads = get_num_cpus_pow2();
     const size_t num_initial_points_per_thread = num_initial_points / num_threads;
     const size_t num_points_per_thread = num_points / num_threads;
-    std::array<std::array<uint64_t, MAX_NUM_ROUNDS>, MAX_NUM_THREADS> thread_round_counts;
+    BB_ASSERT_LT(num_rounds, MAX_NUM_ROUNDS);
+    std::vector<std::array<uint64_t, MAX_NUM_ROUNDS>> thread_round_counts(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
         for (size_t j = 0; j < num_rounds; ++j) {
             thread_round_counts[i][j] = 0;
@@ -906,8 +912,9 @@ typename Curve::Element pippenger_internal(std::span<const typename Curve::Affin
 {
     PROFILE_THIS();
 
-    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
-           "Pippenger runtime state is too small to support this many points");
+    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+                  state.num_points / 2,
+                  "Pippenger runtime state is too small to support this many points");
     // multiplication_runtime_state state;
     compute_wnaf_states<Curve>(state.point_schedule, state.skew_table, state.round_counts, scalars, num_initial_points);
     organize_buckets(state.point_schedule, num_initial_points * 2);
@@ -926,8 +933,9 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
 
-    ASSERT(scalars_.start_index + scalars_.size() <= state.num_points / 2 &&
-           "Pippenger runtime state is too small to support this many points");
+    BB_ASSERT_LTE(scalars_.start_index + scalars_.size(),
+                  state.num_points / 2,
+                  "Pippenger runtime state is too small to support this many points");
 
     // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
     // If we fall below this theshold, fall back to the traditional scalar multiplication algorithm.
@@ -990,8 +998,9 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
 {
     PROFILE_THIS();
 
-    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
-           "Pippenger runtime state is too small to support this many points");
+    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+                  state.num_points / 2,
+                  "Pippenger runtime state is too small to support this many points");
 
     // our windowed non-adjacent form algorthm requires that each thread can work on at least 8 points.
     const size_t threshold = get_num_cpus_pow2() * 8;
@@ -1001,7 +1010,7 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     }
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
     // We need a padding of points.
-    ASSERT((numeric::round_up_power_2(scalars.start_index + scalars.size())) * 2 <= points.size());
+    BB_ASSERT_LTE((numeric::round_up_power_2(scalars.start_index + scalars.size())) * 2, points.size());
     // We do not optimize for the small case at all.
     return pippenger_internal(
         points, scalars, numeric::round_up_power_2(scalars.start_index + scalars.size()), state, false);
@@ -1027,8 +1036,9 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
                                          std::span<const typename Curve::AffineElement> points,
                                          pippenger_runtime_state<Curve>& state)
 {
-    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
-           "Pippenger runtime state is too small to support this many points");
+    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+                  state.num_points / 2,
+                  "Pippenger runtime state is too small to support this many points");
     return pippenger(scalars, points, state, false);
 }
 
@@ -1040,9 +1050,10 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1135): We don't need start_index more scalars here.
     std::vector<typename Curve::AffineElement> G_mod((scalars.start_index + scalars.size()) * 2);
-    ASSERT(scalars.start_index + scalars.size() <= points.size());
-    ASSERT(scalars.start_index + scalars.size() <= state.num_points / 2 &&
-           "Pippenger runtime state is too small to support this many points");
+    BB_ASSERT_LTE(scalars.start_index + scalars.size(), points.size());
+    BB_ASSERT_LTE(scalars.start_index + scalars.size(),
+                  state.num_points / 2,
+                  "Pippenger runtime state is too small to support this many points");
     bb::scalar_multiplication::generate_pippenger_point_table<Curve>(
         points.data(), &G_mod[0], scalars.start_index + scalars.size());
     return pippenger(scalars, G_mod, state, false);

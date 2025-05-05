@@ -282,7 +282,7 @@ export class FullProverTest {
     this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
-      proverCoordinationNodeUrl: undefined,
+      proverCoordinationNodeUrls: [],
       dataDirectory: undefined,
       proverId: this.proverAddress.toField(),
       realProofs: this.realProofs,
@@ -291,9 +291,10 @@ export class FullProverTest {
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
-      txGatheringTimeoutMs: 60000,
       txGatheringIntervalMs: 1000,
-      txGatheringMaxParallelRequests: 100,
+      txGatheringBatchSize: 10,
+      txGatheringMaxParallelRequestsPerNode: 100,
+      proverNodeFailedEpochStore: undefined,
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const { prefilledPublicData } = await getGenesisValues(
@@ -316,10 +317,10 @@ export class FullProverTest {
 
   private async mintL1ERC20(recipient: Hex, amount: bigint) {
     const erc20Address = this.context.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
-    const client = this.context.deployL1ContractsValues.walletClient;
+    const client = this.context.deployL1ContractsValues.l1Client;
     const erc20 = getContract({ abi: TestERC20Abi, address: erc20Address.toString(), client });
     const hash = await erc20.write.mint([recipient, amount]);
-    await this.context.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash });
+    await this.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash });
   }
 
   snapshot = <T>(
@@ -399,19 +400,14 @@ export class FullProverTest {
       throw new Error('No verifier');
     }
 
-    const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
+    const { l1Client, l1ContractAddresses } = this.context.deployL1ContractsValues;
     const rollup = getContract({
       abi: RollupAbi,
       address: l1ContractAddresses.rollupAddress.toString(),
-      client: walletClient,
+      client: l1Client,
     });
 
-    const { address: verifierAddress } = await deployL1Contract(
-      walletClient,
-      publicClient,
-      HonkVerifierAbi,
-      HonkVerifierBytecode,
-    );
+    const { address: verifierAddress } = await deployL1Contract(l1Client, HonkVerifierAbi, HonkVerifierBytecode);
     this.logger.info(`Deployed honk verifier at ${verifierAddress}`);
 
     await rollup.write.setEpochVerifier([verifierAddress.toString()]);

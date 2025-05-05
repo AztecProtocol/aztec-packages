@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #ifndef DISABLE_AZTEC_VM
 #pragma once
 
@@ -11,16 +17,16 @@ using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
 
-stdlib::recursion::aggregation_state<Builder> create_avm2_recursion_constraints(
+stdlib::recursion::PairingPoints<Builder> create_avm2_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
-    const stdlib::recursion::aggregation_state<Builder>& input_aggregation_object,
+    const stdlib::recursion::PairingPoints<Builder>& input_points_accumulator,
     bool has_valid_witness_assignments);
 
 HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
-    const stdlib::recursion::aggregation_state<Builder>& input_aggregation_object,
+    const stdlib::recursion::PairingPoints<Builder>& input_points_accumulator,
     bool has_valid_witness_assignments);
 
 } // namespace acir_format

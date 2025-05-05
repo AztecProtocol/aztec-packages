@@ -104,6 +104,11 @@ export class BlockStore {
         throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
       }
 
+      const proven = await this.getProvenL2BlockNumber();
+      if (from - blocksToUnwind < proven) {
+        await this.setProvenL2BlockNumber(from - blocksToUnwind);
+      }
+
       for (let i = 0; i < blocksToUnwind; i++) {
         const blockNumber = from - i;
         const block = await this.getBlock(blockNumber);
@@ -130,8 +135,8 @@ export class BlockStore {
    * @returns The requested L2 blocks
    */
   async *getBlocks(start: number, limit: number): AsyncIterableIterator<PublishedL2Block> {
-    for await (const blockStorage of this.#blocks.valuesAsync(this.#computeBlockRange(start, limit))) {
-      const block = await this.getBlockFromBlockStorage(blockStorage);
+    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+      const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
       if (block) {
         yield block;
       }
@@ -148,7 +153,7 @@ export class BlockStore {
     if (!blockStorage || !blockStorage.header) {
       return Promise.resolve(undefined);
     }
-    return this.getBlockFromBlockStorage(blockStorage);
+    return this.getBlockFromBlockStorage(blockNumber, blockStorage);
   }
 
   /**
@@ -158,12 +163,18 @@ export class BlockStore {
    * @returns The requested L2 block headers
    */
   async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
-    for await (const blockStorage of this.#blocks.valuesAsync(this.#computeBlockRange(start, limit))) {
-      yield BlockHeader.fromBuffer(blockStorage.header);
+    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+      const header = BlockHeader.fromBuffer(blockStorage.header);
+      if (header.getBlockNumber() !== blockNumber) {
+        throw new Error(
+          `Block number mismatch when retrieving block header from archive (expected ${blockNumber} but got ${header.getBlockNumber()})`,
+        );
+      }
+      yield header;
     }
   }
 
-  private async getBlockFromBlockStorage(blockStorage: BlockStorage) {
+  private async getBlockFromBlockStorage(blockNumber: number, blockStorage: BlockStorage) {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = (await header.hash()).toString();
@@ -174,6 +185,13 @@ export class BlockStore {
     }
     const body = Body.fromBuffer(blockBodyBuffer);
     const block = new L2Block(archive, header, body);
+    if (block.number !== blockNumber) {
+      throw new Error(
+        `Block number mismatch when retrieving block from archive (expected ${blockNumber} but got ${
+          block.number
+        } with hash ${await block.hash()})`,
+      );
+    }
     const signatures = blockStorage.signatures.map(Signature.fromBuffer);
     return { block, l1: blockStorage.l1, signatures };
   }
@@ -270,7 +288,11 @@ export class BlockStore {
   }
 
   async getProvenL2BlockNumber(): Promise<number> {
-    return (await this.#lastProvenL2Block.getAsync()) ?? 0;
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getSynchedL2BlockNumber(),
+      this.#lastProvenL2Block.getAsync(),
+    ]);
+    return (provenBlockNumber ?? 0) > latestBlockNumber ? latestBlockNumber : provenBlockNumber ?? 0;
   }
 
   setProvenL2BlockNumber(blockNumber: number) {

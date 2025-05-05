@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 // Copyright (c) Facebook, Inc. and its affiliates
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
@@ -10,7 +16,7 @@
 #include "serde.hpp"
 
 // Maximum length supported in practice (e.g. Java).
-constexpr size_t BINCODE_MAX_LENGTH = (1ull << 31) - 1;
+constexpr size_t BINCODE_MAX_LENGTH = (1ULL << 31) - 1;
 
 namespace serde {
 

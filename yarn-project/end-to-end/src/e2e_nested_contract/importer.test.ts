@@ -1,5 +1,5 @@
-import { ImportTestContract } from '@aztec/noir-contracts.js/ImportTest';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { ImportTestContract } from '@aztec/noir-test-contracts.js/ImportTest';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { NestedContractTest } from './nested_contract_test.js';
 

@@ -196,7 +196,7 @@ export class ReqResp {
         this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
-        if (response && response.status !== ReqRespStatus.SUCCESS) {
+        if (response.status !== ReqRespStatus.SUCCESS) {
           this.logger.debug(
             `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(response.status)}`,
           );
@@ -262,7 +262,7 @@ export class ReqResp {
     subProtocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     timeoutMs = 10000,
-    maxPeers = Math.min(10, requests.length),
+    maxPeers = Math.max(10, Math.ceil(requests.length / 3)),
     maxRetryAttempts = 3,
   ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
     const responseValidator = this.subProtocolValidators[subProtocol];
@@ -325,7 +325,7 @@ export class ReqResp {
                 const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
 
                 // Check the status of the response buffer
-                if (response && response.status !== ReqRespStatus.SUCCESS) {
+                if (response.status !== ReqRespStatus.SUCCESS) {
                   this.logger.debug(
                     `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(
                       response.status,
@@ -421,7 +421,7 @@ export class ReqResp {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
-  ): Promise<ReqRespResponse | undefined> {
+  ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
@@ -439,6 +439,12 @@ export class ReqResp {
     } catch (e: any) {
       this.metrics.recordRequestError(subProtocol);
       this.handleResponseError(e, peerId, subProtocol);
+
+      // If there is an exception, we return an unknown response
+      return {
+        status: ReqRespStatus.FAILURE,
+        data: Buffer.from([]),
+      };
     } finally {
       // Only close the stream if we created it
       if (stream) {

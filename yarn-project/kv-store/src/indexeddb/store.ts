@@ -73,7 +73,11 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
         const objectStore = db.createObjectStore('data', { keyPath: 'slot' });
 
         objectStore.createIndex('key', ['container', 'key'], { unique: false });
-        objectStore.createIndex('keyCount', ['container', 'key', 'keyCount'], { unique: false });
+        // Keep count of the maximum number of keys ever inserted in the container
+        // This allows unique slots for repeated keys, which is useful for multi-maps
+        objectStore.createIndex('keyCount', ['container', 'key', 'keyCount'], { unique: true });
+        // Keep an index on the pair key-hash for a given container, allowing us to efficiently
+        // delete unique values from multi-maps
         objectStore.createIndex('hash', ['container', 'key', 'hash'], { unique: true });
       },
     });
@@ -179,7 +183,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   estimateSize(): Promise<StoreSize> {
-    return Promise.resolve({ mappingSize: 0, actualSize: 0, numItems: 0 });
+    return Promise.resolve({ mappingSize: 0, physicalFileSize: 0, actualSize: 0, numItems: 0 });
   }
 
   close(): Promise<void> {

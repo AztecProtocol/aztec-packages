@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "client_ivc_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -11,11 +17,11 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Clie
     auto stdlib_mega_vk = std::make_shared<RecursiveVerificationKey>(builder.get(), ivc_verification_key.mega);
 
     // Dummy aggregation object until we do proper aggregation
-    auto agg_obj = aggregation_state<Builder>::construct_default(*builder);
+    auto points_accumulator = PairingPoints<Builder>::construct_default(*builder);
 
     // Perform recursive decider verification
     MegaVerifier verifier{ builder.get(), stdlib_mega_vk };
-    verifier.verify_proof(proof.mega_proof, agg_obj);
+    verifier.verify_proof(proof.mega_proof, points_accumulator);
 
     // Perform Goblin recursive verification
     GoblinVerificationKey goblin_verification_key{};

@@ -1,6 +1,6 @@
 import { type AztecAddress, Comparator, type Wallet } from '@aztec/aztec.js';
-import { NoteGetterContract } from '@aztec/noir-contracts.js/NoteGetter';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { NoteGetterContract } from '@aztec/noir-test-contracts.js/NoteGetter';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 
@@ -78,8 +78,9 @@ describe('e2e_note_getter', () => {
 
     const VALUE = 5;
 
-    // To prevent tests from interacting with one another, we'll have each use a different storage slot.
-    let storageSlot = TestContract.storage.example_set.slot.toNumber();
+    // To prevent tests from interacting with one another, we'll have each use a different storage slot. We start with
+    // a large storage slot to try to avoid collisions with other state variables as well.
+    let storageSlot = 1000;
 
     beforeEach(() => {
       storageSlot += 1;
@@ -94,11 +95,12 @@ describe('e2e_note_getter', () => {
     }
 
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
+      const expectedError = 'Assertion failed: Attempted to read past end of BoundedVec';
       await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
-        'index < self.len', // from BoundedVec::get
+        expectedError,
       );
-      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
-        `Assertion failed: Attempted to read past end of BoundedVec`,
+      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
+        expectedError,
       );
     }
 

@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -9,9 +9,9 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { PublicContractsDB, PublicTxSimulationTester } from '../../../server.js';
+import { PublicContractsDB } from '../../../server.js';
 import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
-import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from '../public_processor.js';

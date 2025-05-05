@@ -22,7 +22,7 @@ import { L2Block } from '@aztec/stdlib/block';
 import express, { json } from 'express';
 import type { Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData } from 'viem';
+import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
@@ -134,12 +134,17 @@ describe('SequencerPublisher', () => {
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
     (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
+    (l1TxUtils as any).client = {
+      account: {
+        address: '0x1234567890123456789012345678901234567890',
+      },
+    };
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
     l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
-    header = l2Block.header.toBuffer();
+    header = l2Block.header.toPropose().toBuffer();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
   });
@@ -215,9 +220,10 @@ describe('SequencerPublisher', () => {
 
     const args = [
       {
-        header: `0x${header.toString('hex')}`,
-        archive: `0x${archive.toString('hex')}`,
-        blockHash: `0x${blockHash.toString('hex')}`,
+        header: toHex(header),
+        archive: toHex(archive),
+        stateReference: toHex(l2Block.header.state.toBuffer()),
+        blockHash: toHex(blockHash),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },

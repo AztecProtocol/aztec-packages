@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
@@ -50,7 +56,7 @@ inline bb::fr hash_native(std::vector<bb::fr> const& inputs)
 inline bb::fr compute_tree_root_native(std::vector<bb::fr> const& input)
 {
     // Check if the input vector size is a power of 2.
-    ASSERT(input.size() > 0);
+    BB_ASSERT_GT(input.size(), static_cast<size_t>(0));
     ASSERT(numeric::is_power_of_two(input.size()));
     auto layer = input;
     while (layer.size() > 1) {
@@ -68,7 +74,7 @@ inline bb::fr compute_tree_root_native(std::vector<bb::fr> const& input)
 inline std::vector<bb::fr> compute_tree_native(std::vector<bb::fr> const& input)
 {
     // Check if the input vector size is a power of 2.
-    ASSERT(input.size() > 0);
+    BB_ASSERT_GT(input.size(), static_cast<size_t>(0));
     ASSERT(numeric::is_power_of_two(input.size()));
     auto layer = input;
     std::vector<bb::fr> tree(input);

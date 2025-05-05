@@ -105,6 +105,13 @@ export class AztecKVTxPool implements TxPool {
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, () => store.estimateSize());
   }
 
+  public async isEmpty(): Promise<boolean> {
+    for await (const _ of this.#txs.entriesAsync()) {
+      return false;
+    }
+    return true;
+  }
+
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
@@ -216,6 +223,22 @@ export class AztecKVTxPool implements TxPool {
       return tx;
     }
     return undefined;
+  }
+
+  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const txs = await Promise.all(txHashes.map(txHash => this.#txs.getAsync(txHash.toString())));
+    return txs.map((buffer, index) => {
+      if (buffer) {
+        const tx = Tx.fromBuffer(buffer);
+        tx.setTxHash(txHashes[index]);
+        return tx;
+      }
+      return undefined;
+    });
+  }
+
+  async hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
   }
 
   /**
@@ -339,6 +362,11 @@ export class AztecKVTxPool implements TxPool {
   public async getAllTxHashes(): Promise<TxHash[]> {
     const vals = await toArray(this.#txs.keysAsync());
     return vals.map(x => TxHash.fromString(x));
+  }
+
+  public setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void> {
+    this.#maxTxPoolSize = maxSizeBytes;
+    return Promise.resolve();
   }
 
   /**

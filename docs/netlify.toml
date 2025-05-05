@@ -177,3 +177,19 @@
 [[redirects]]
     from = "/tutorials/codealong/contract_tutorials/token_bridge/*"
     to = "/tutorials/codealong/contract_tutorials/token_bridge"
+
+[[redirects]]
+    from = "/run_node/*"
+    to = "/the_aztec_network/guides/run_nodes"
+
+[[redirects]]
+    from = "/developers/tutorials/codealong/contract_tutorials/uniswap/*"
+    to = "/developers/tutorials/codealong/js_tutorials/uniswap"
+
+[[redirects]]
+    from = "/developers/tutorials/codealong/contract_tutorials/token_bridge"
+    to = "/developers/tutorials/codealong/js_tutorials/token_bridge"
+
+[[redirects]]
+    from = "/developers/tutorials/codealong/cli_wallet/faceid_wallet"
+    to = "/developers/tutorials/codealong/faceid_wallet"

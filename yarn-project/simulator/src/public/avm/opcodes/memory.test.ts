@@ -369,15 +369,15 @@ describe('Memory instructions', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // cdOffsetAddress
+        0x10, // indirect
         ...Buffer.from('2345', 'hex'), // copysizeOffset
+        ...Buffer.from('1234', 'hex'), // cdOffsetAddress
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
-        /*indirect=*/ 0x01,
-        /*cdOffsetAddress=*/ 0x1234,
+        /*indirect=*/ 0x10,
         /*copysizeOffset=*/ 0x2345,
+        /*cdOffsetAddress=*/ 0x1234,
         /*dstOffset=*/ 0x3456,
       );
 
@@ -392,7 +392,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint32(0)); // size
       context.machineState.memory.set(3, new Uint16(12)); // not overwritten
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.get(3);
       expect(actual).toEqual(new Uint16(12));
@@ -404,7 +404,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(0)); // cdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(1), new Field(2), new Field(3)]);
@@ -416,7 +416,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(1)); // cdoffset
       context.machineState.memory.set(1, new Uint32(2)); // size
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
       expect(actual).toEqual([new Field(2), new Field(3)]);
@@ -431,8 +431,8 @@ describe('Memory instructions', () => {
       await expect(
         new CalldataCopy(
           /*indirect=*/ 0,
-          /*cdStartOffset=*/ 0,
           /*copySizeOffset=*/ 1,
+          /*cdStartOffset=*/ 0,
           /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 2,
         ).execute(context),
       ).rejects.toThrow(MemorySliceOutOfRangeError);
@@ -444,7 +444,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(2)); // cdStart = 2
       context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdStartOffset=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0).execute(
+      await new CalldataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 1, /*cdStartOffset=*/ 0, /*dstOffset=*/ 0).execute(
         context,
       );
 
@@ -481,15 +481,15 @@ describe('Memory instructions', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         ReturndataCopy.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // rdOffsetAddress
+        0x10, // indirect
         ...Buffer.from('2345', 'hex'), // copysizeOffset
+        ...Buffer.from('1234', 'hex'), // rdOffsetAddress
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new ReturndataCopy(
-        /*indirect=*/ 0x01,
-        /*cdOffsetAddress=*/ 0x1234,
+        /*indirect=*/ 0x10,
         /*copysizeOffset=*/ 0x2345,
+        /*cdOffsetAddress=*/ 0x1234,
         /*dstOffset=*/ 0x3456,
       );
 
@@ -504,7 +504,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint32(0)); // size
       context.machineState.memory.set(3, new Uint16(12)); // not overwritten
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.get(3);
       expect(actual).toEqual(new Uint16(12));
@@ -516,7 +516,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(0)); // rdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(1), new Field(2), new Field(3)]);
@@ -528,7 +528,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(1)); // rdoffset
       context.machineState.memory.set(1, new Uint32(2)); // size
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
       expect(actual).toEqual([new Field(2), new Field(3)]);
@@ -543,8 +543,8 @@ describe('Memory instructions', () => {
       await expect(
         new ReturndataCopy(
           /*indirect=*/ 0,
-          /*rdStartOffset=*/ 0,
           /*copySizeOffset=*/ 1,
+          /*rdStartOffset=*/ 0,
           /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 1,
         ).execute(context),
       ).rejects.toThrow(MemorySliceOutOfRangeError);
@@ -556,7 +556,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(2)); // rdStart = 2
       context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdStartOffset=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0).execute(
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 1, /*rdStartOffset=*/ 0, /*dstOffset=*/ 0).execute(
         context,
       );
 

@@ -1,5 +1,5 @@
 import { type AccountWallet, Fr, type Logger, TxStatus } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 
@@ -29,14 +29,14 @@ describe('e2e_double_spend', () => {
 
       // We try emitting again, but our TX is dropped due to trying to emit a duplicate nullifier
       // first confirm that it fails simulation
-      await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
+      await expect(contract.methods.emit_nullifier_public(nullifier).simulate()).rejects.toThrow(
         /Attempted to emit duplicate nullifier/,
       );
       // if we skip simulation before submitting the tx,
       // tx will be included in a block but with app logic reverted
-      await expect(
-        contract.methods.emit_nullifier_public(nullifier).send({ skipPublicSimulation: true }).wait(),
-      ).rejects.toThrow(TxStatus.APP_LOGIC_REVERTED);
+      await expect(contract.methods.emit_nullifier_public(nullifier).send().wait()).rejects.toThrow(
+        TxStatus.APP_LOGIC_REVERTED,
+      );
     });
   });
 });

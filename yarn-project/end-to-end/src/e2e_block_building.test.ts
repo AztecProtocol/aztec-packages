@@ -21,9 +21,9 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import type { TestDateProvider } from '@aztec/foundation/timer';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { type PublicContractsDB, PublicProcessorFactory, TelemetryPublicTxSimulator } from '@aztec/simulator/server';
@@ -173,7 +173,7 @@ describe('e2e_block_building', () => {
       const NULLIFIER_COUNT = 128;
       const sentNullifierTxs = [];
       for (let i = 0; i < NULLIFIER_COUNT; i++) {
-        sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send({ skipPublicSimulation: true }));
+        sentNullifierTxs.push(another.methods.emit_nullifier(Fr.random()).send());
       }
       await Promise.all(sentNullifierTxs.map(tx => tx.wait({ timeout: 600 })));
       logger.info(`Nullifier txs sent`);
@@ -184,7 +184,7 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 128;
       const sentTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        sentTxs.push(contract.methods.increment_public_value(ownerAddress, i).send({ skipPublicSimulation: true }));
+        sentTxs.push(contract.methods.increment_public_value(ownerAddress, i).send());
       }
 
       await Promise.all(sentTxs.map(tx => tx.wait({ timeout: 600 })));
@@ -220,7 +220,7 @@ describe('e2e_block_building', () => {
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
-      const provenTxs = await asyncMap(methods, method => method.prove({ skipPublicSimulation: true }));
+      const provenTxs = await asyncMap(methods, method => method.prove());
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
@@ -260,11 +260,7 @@ describe('e2e_block_building', () => {
       );
 
       const deployerTx = await deployer.prove({});
-      const callInteractionTx = await callInteraction.prove({
-        // we have to skip simulation of public calls simulation is done on individual transactions
-        // and the tx deploying the contract might go in the same block as this one
-        skipPublicSimulation: true,
-      });
+      const callInteractionTx = await callInteraction.prove();
 
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
         deployerTx.send().wait(),
@@ -521,7 +517,7 @@ describe('e2e_block_building', () => {
       const txs = [];
       for (let i = 0; i < 24; i++) {
         const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
-        txs.push(tx.send({ skipPublicSimulation: false }));
+        txs.push(tx.send());
       }
 
       logger.info('Waiting for txs to be mined');
@@ -529,7 +525,9 @@ describe('e2e_block_building', () => {
     });
   });
 
-  describe('reorgs', () => {
+  // Due to #13723, this test is disabled.
+  // TODO: bring back once fixed: #13770
+  describe.skip('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
     let ownerAddress: AztecAddress;

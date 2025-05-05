@@ -75,15 +75,15 @@ describe('e2e_blacklist_token_contract access control', () => {
         t.asset
           .withWallet(t.other)
           .methods.update_roles(await AztecAddress.random(), newRole.toNoirStruct())
-          .prove(),
-      ).rejects.toThrow(/Assertion failed: caller is not admin .*/);
+          .simulate(),
+      ).rejects.toThrow('Assertion failed: caller is not admin');
     });
 
     it('revoke minter from non admin', async () => {
       const noRole = new Role();
       await expect(
-        t.asset.withWallet(t.other).methods.update_roles(t.admin.getAddress(), noRole.toNoirStruct()).prove(),
-      ).rejects.toThrow(/Assertion failed: caller is not admin .*/);
+        t.asset.withWallet(t.other).methods.update_roles(t.admin.getAddress(), noRole.toNoirStruct()).simulate(),
+      ).rejects.toThrow('Assertion failed: caller is not admin');
     });
   });
 });

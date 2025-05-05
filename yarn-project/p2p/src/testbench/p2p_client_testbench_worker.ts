@@ -34,6 +34,7 @@ import type { PubSubLibp2p } from '../util.js';
 function mockTxPool(): TxPool {
   // Mock all methods
   return {
+    isEmpty: () => Promise.resolve(false),
     addTxs: () => Promise.resolve(),
     getTxByHash: () => Promise.resolve(undefined),
     getArchivedTxByHash: () => Promise.resolve(undefined),
@@ -45,11 +46,15 @@ function mockTxPool(): TxPool {
     getPendingTxHashes: () => Promise.resolve([]),
     getMinedTxHashes: () => Promise.resolve([]),
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
+    getTxsByHash: () => Promise.resolve([]),
+    hasTxs: () => Promise.resolve([]),
+    setMaxTxPoolSize: () => Promise.resolve(),
   };
 }
 
 function mockAttestationPool(): AttestationPool {
   return {
+    isEmpty: () => Promise.resolve(false),
     addAttestations: () => Promise.resolve(),
     deleteAttestations: () => Promise.resolve(),
     deleteAttestationsOlderThan: () => Promise.resolve(),

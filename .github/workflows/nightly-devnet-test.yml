@@ -1,0 +1,40 @@
+name: Devnet network tests
+on:
+  workflow_dispatch:
+  schedule:
+    # Run nightly at 0300
+    - cron: "0 3 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # This path is a workaround because the runner does not have perms to upload files anywhere else
+  STATE_S3_BASE_PATH: s3://aztec-ci-artifacts/build-cache
+  STATE_S3_KEY: build-cache/devnet-nightly-tests-state.json
+  AZTEC_VERSION: alpha-testnet
+  NODE_URL: http://34.169.170.55:8080
+  L1_URL: http://34.169.72.63:8545
+  FAUCET_URL: http://34.169.129.31:8086
+
+jobs:
+  cli-wallet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Checkout smoke tests (note that this is not pinned to a version, the CLI wallet installed is though)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            spartan/devnet-smoke-tests
+
+      - name: Run smoke tests
+        run: |
+          ./spartan/devnet-smoke-tests/main.sh

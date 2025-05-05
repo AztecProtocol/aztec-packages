@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../../primitives/curves/bn254.hpp"
@@ -149,9 +155,7 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
             field_pt borrow = field_pt::from_witness(context, need_borrow);
 
             // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
-            if constexpr (IsSimulator<Builder>) {
-                context->create_range_constraint(borrow.get_value(), 1, "borrow");
-            } else if constexpr (HasPlookup<Builder>) {
+            if constexpr (HasPlookup<Builder>) {
                 context->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
             } else {
                 context->create_range_constraint(borrow.get_witness_index(), 1, "borrow");
@@ -255,7 +259,7 @@ template <typename Curve> struct verification_key {
         // NOTE: For now `contains_pairing_point_accumulator` and `pairing_point_accumulator_public_input_indices` need
         // to be circuit constants!
         key->contains_pairing_point_accumulator = inner_proof_contains_pairing_point_accumulator;
-        for (size_t i = 0; i < PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+        for (size_t i = 0; i < PAIRING_POINTS_SIZE; ++i) {
             key->pairing_point_accumulator_public_input_indices[i] = pairing_point_accumulator_public_input_indices[i];
         }
 

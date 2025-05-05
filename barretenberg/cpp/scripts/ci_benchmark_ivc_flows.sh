@@ -85,9 +85,9 @@ function client_ivc_flow {
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc"
 
-  if [ -f "$output/op-counts.json" ]; then
-    scripts/google-bench/summarize-op-counts "$output/op-counts.json"
-  fi
+  #if [ -f "$output/op-counts.json" ] && [ "$runtime" != wasm ]; then
+  #  python3 scripts/analyze_client_ivc_bench.py --prefix . --json $output/op-counts.json --benchmark ""
+  #fi
 
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))

@@ -48,8 +48,7 @@ describe('e2e_gov_proposal', () => {
     'should build/propose blocks while voting',
     async () => {
       const { address: newGovernanceProposerAddress } = await deployL1Contract(
-        deployL1ContractsValues.walletClient,
-        deployL1ContractsValues.publicClient,
+        deployL1ContractsValues.l1Client,
         NewGovernanceProposerPayloadAbi,
         NewGovernanceProposerPayloadBytecode,
         [deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()],
@@ -59,11 +58,11 @@ describe('e2e_gov_proposal', () => {
         governanceProposerPayload: newGovernanceProposerAddress,
       });
       const rollup = new RollupContract(
-        deployL1ContractsValues.publicClient,
+        deployL1ContractsValues.l1Client,
         deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       );
       const governanceProposer = new GovernanceProposerContract(
-        deployL1ContractsValues.publicClient,
+        deployL1ContractsValues.l1Client,
         deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString(),
       );
 

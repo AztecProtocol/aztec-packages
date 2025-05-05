@@ -20,7 +20,7 @@ CI3:
   - Building the development container in `build-images`.
   - Running the bootstrap in CI in the development container.
   - Isolating any tests that require use of the network stack.
-  - Restricting resouces such a vcpus, memory and storage.
+  - Restricting resources such a vcpus, memory and storage.
   - Building a single final slim release image from `release-image`.
 - Provides a consistent command interface on `./bootstrap.sh` scripts, e.g. `./bootstrap.sh clean|fast|full|test|test_cmds`.
 - Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelised at once to leverage maximum system throughput.
@@ -64,17 +64,23 @@ This will enable running the ci script simply with `ci <cmd>`, and being able to
 
 After cloning the repository, run:
 
-`./bootstrap.sh`
+```
+./bootstrap.sh
+```
 
 This is the same as running:
 
-`./boostrap.sh fast`
+```
+./bootstrap.sh fast
+```
 
 A fast bootstrap will use the S3 cache to get the repository into a runnable state as fast as possible.
 
 If you want to build everything from scratch and not use the cache:
 
-`./bootstrap.sh full`
+```
+./bootstrap.sh full
+```
 
 After running any of the above, you should have a fully runnable repository, including being able to run all the tests. If something doesn't run without further intervention, somethings wrong and you should let me know.
 
@@ -92,7 +98,9 @@ This erases untracked files, submodules, etc. Use with caution locally.
 
 You should be able to just do:
 
-`./bootstrap.sh test`
+```
+./bootstrap.sh test
+```
 
 However this will run _the entire repository test suite_. This isn't recommended unless you have a very powerful machine or a lot of patience. I would rather you didn't do this on the mainframe at present as if several users do it at once it could cause issues.
 
@@ -108,7 +116,9 @@ Tests for all projects are run in parallel. At present it's limited to half the 
 
 To see the test commands that are run for a given project, run:
 
-`./bootstrap.sh test_cmds`
+```
+./bootstrap.sh test_cmds
+```
 
 The test commands are filtered to not include matching patterns in the root `.test_skip_patterns` file.
 

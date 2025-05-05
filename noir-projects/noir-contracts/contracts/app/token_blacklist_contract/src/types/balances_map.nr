@@ -3,6 +3,7 @@ use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::note_emission::OuterNoteEmission,
     protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
+    state_vars::storage::Storage,
 };
 use dep::aztec::prelude::{
     AztecAddress, Map, NoteGetterOptions, NoteHash, NoteType, NoteViewerOptions, PrivateSet,
@@ -13,6 +14,13 @@ use std::ops::Add;
 
 pub struct BalancesMap<Note, Context> {
     map: Map<AztecAddress, PrivateSet<Note, Context>, Context>,
+}
+
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
+impl<Note, Context> Storage<1> for BalancesMap<Note, Context> {
+    fn get_storage_slot(self) -> Field {
+        self.map.get_storage_slot()
+    }
 }
 
 impl<Note, Context> BalancesMap<Note, Context> {

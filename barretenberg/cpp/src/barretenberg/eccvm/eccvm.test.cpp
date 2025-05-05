@@ -149,7 +149,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(CONST_ECCVM_LOG_N, verifier_transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
@@ -188,6 +188,14 @@ TEST_F(ECCVMTests, FixedVK)
     // Set verifier PCS key to null in both the fixed VK and the generated VK
     fixed_vk.pcs_verification_key = nullptr;
     verifier.key->pcs_verification_key = nullptr;
+
+    auto labels = verifier.key->get_labels();
+    size_t index = 0;
+    for (auto [vk_commitment, fixed_commitment] : zip_view(verifier.key->get_all(), fixed_vk.get_all())) {
+        EXPECT_EQ(vk_commitment, fixed_commitment)
+            << "Mismatch between vk_commitment and fixed_commitment at label: " << labels[index];
+        ++index;
+    }
 
     // Check that the fixed VK is equal to the generated VK
     EXPECT_EQ(fixed_vk, *verifier.key.get());
