@@ -736,11 +736,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     if (number < 0) {
       number = await this.store.getSynchedL2BlockNumber();
     }
-    if (number == 0) {
+    if (number === 0) {
       return undefined;
     }
-    const blocks = await this.store.getBlocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0].block;
+    const publishedBlock = await this.store.getBlock(number);
+    return publishedBlock?.block;
   }
 
   public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
@@ -1125,7 +1125,9 @@ class ArchiverStoreHelper
 
     return opResults.every(Boolean);
   }
-
+  getBlock(number: number): Promise<PublishedL2Block | undefined> {
+    return this.store.getBlock(number);
+  }
   getBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
     return this.store.getBlocks(from, limit);
   }

@@ -51,6 +51,12 @@ export interface ArchiverDataStore {
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
 
   /**
+   * Returns the block for the given number, or undefined if not exists.
+   * @param number - The block number to return.
+   */
+  getBlock(number: number): Promise<PublishedL2Block | undefined>;
+
+  /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.

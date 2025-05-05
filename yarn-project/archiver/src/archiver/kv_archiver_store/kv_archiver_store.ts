@@ -184,6 +184,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
   }
 
+  getBlock(number: number): Promise<PublishedL2Block | undefined> {
+    return this.#blockStore.getBlock(number);
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    *

@@ -130,7 +130,7 @@ export class BlockStore {
    * @returns The requested L2 blocks
    */
   async *getBlocks(start: number, limit: number): AsyncIterableIterator<PublishedL2Block> {
-    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+    for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
       if (block) {
         yield block;
@@ -158,7 +158,7 @@ export class BlockStore {
    * @returns The requested L2 block headers
    */
   async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
-    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+    for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const header = BlockHeader.fromBuffer(blockStorage.header);
       if (header.getBlockNumber() !== blockNumber) {
         throw new Error(
@@ -166,6 +166,19 @@ export class BlockStore {
         );
       }
       yield header;
+    }
+  }
+
+  private async *getBlockStorages(start: number, limit: number) {
+    let expectedBlockNumber = start;
+    for await (const [blockNumber, blockStorage] of this.#blocks.entriesAsync(this.#computeBlockRange(start, limit))) {
+      if (blockNumber !== expectedBlockNumber) {
+        throw new Error(
+          `Block number mismatch when iterating blocks from archive (expected ${expectedBlockNumber} but got ${blockNumber})`,
+        );
+      }
+      expectedBlockNumber++;
+      yield [blockNumber, blockStorage] as const;
     }
   }
 
