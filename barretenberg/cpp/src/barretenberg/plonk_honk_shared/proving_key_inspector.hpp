@@ -14,12 +14,23 @@
 
 namespace bb::proving_key_inspector {
 
-template <typename Builder, typename Flavor = MegaFlavor>
-typename Flavor::Commitment compute_vk_hash(const Builder& circuit_in)
-    requires(IsMegaFlavor<Flavor>)
+template <typename Flavor, typename Builder>
+typename Flavor::Commitment compute_vk_hash(const Builder&,
+                                            const TraceSettings& = TraceSettings{ AZTEC_TRACE_STRUCTURE })
+    requires(!IsMegaFlavor<Flavor> || !IsMegaBuilder<typename Flavor::CircuitBuilder>)
 {
-    using DeciderProvingKey = typename bb::DeciderProvingKey_<Flavor>;
-    using VerificationKey = typename Flavor::VerificationKey;
+    info("compute_vk_hash: Unsupported Flavor/Builder, returning default Commitment.");
+    return typename Flavor::Commitment{}; // or some safe default
+}
+
+template <typename Flavor, typename Builder>
+typename Flavor::Commitment compute_vk_hash(
+    const Builder& circuit_in, const TraceSettings& trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE })
+    requires(IsMegaFlavor<Flavor> && IsMegaBuilder<Builder>)
+{
+    using NativeFlavor = std::conditional_t<IsRecursiveFlavor<Flavor>, typename Flavor::NativeFlavor, Flavor>;
+    using DeciderProvingKey = typename bb::DeciderProvingKey_<NativeFlavor>;
+    using VerificationKey = NativeFlavor::VerificationKey;
 
     Builder circuit = circuit_in;
 
@@ -28,11 +39,10 @@ typename Flavor::Commitment compute_vk_hash(const Builder& circuit_in)
 
     // TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // auto proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-    auto proving_key = std::make_shared<DeciderProvingKey>(circuit);
+    auto proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
     auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
 
     auto vk_hash = verification_key->hash();
-    // info("VK Hash: ", vk_hash);
     return vk_hash;
 }
 

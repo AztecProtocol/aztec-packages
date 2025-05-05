@@ -63,7 +63,6 @@ template <typename Builder> class bool_t {
 
     void must_imply(const std::vector<std::pair<bool_t, std::string>>& conds) const;
 
-    // WORKTODO: This seems odd. shouldn't this take into account the witness index? i.e variables[witness_index]?
     bool get_value() const { return witness_bool ^ witness_inverted; }
 
     bool is_constant() const { return witness_index == IS_CONSTANT; }

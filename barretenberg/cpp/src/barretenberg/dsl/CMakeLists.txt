@@ -7,8 +7,7 @@ set(DSL_DEPENDENCIES
     stdlib_keccak
     stdlib_poseidon2
     stdlib_schnorr
-    stdlib_honk_verifier
-    libdeflate::libdeflate_static)
+    stdlib_honk_verifier)
 
 if (NOT DISABLE_AZTEC_VM)
     list(APPEND DSL_DEPENDENCIES vm2)

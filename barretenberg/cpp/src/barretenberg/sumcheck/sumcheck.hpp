@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -658,22 +657,6 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
                                   const std::array<FF, virtual_log_n>& padding_indicator_array)
         requires(!IsGrumpkinFlavor<Flavor>)
     {
-        // using Builder = typename Flavor::CircuitBuilder;
-        // auto print_vk_hash = [&](std::string_view label = "VK HASH") {
-        //     if constexpr (IsMegaFlavor<Flavor>) {
-        //         if constexpr (IsRecursiveFlavor<Flavor>) {
-        //             if constexpr (IsMegaBuilder<Builder>) {
-        //                 // For recursive flavors, we need to compute the hash of the verification key
-        //                 // to be used in the recursive proof.
-        //                 auto builder = relation_parameters.beta.get_context();
-        //                 info(label,
-        //                      proving_key_inspector::compute_vk_hash<Builder, typename
-        //                      Flavor::NativeFlavor>(*builder));
-        //             }
-        //         }
-        //     }
-        // };
-
         bool verified(true);
 
         // Pad gate challenges for Protogalaxy DeciderVerifier and AVM
@@ -695,8 +678,6 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             round.target_total_sum = libra_total_sum * libra_challenge;
         }
 
-        // print_vk_hash("VK HASH sumcheck");
-
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(virtual_log_n);
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
@@ -708,14 +689,9 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
 
-            // std::string label = "VK HASH " + std::to_string(round_idx);
             const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
-            // print_vk_hash(label);
             round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
-            // print_vk_hash(label);
             gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
-
-            // print_vk_hash(label);
 
             verified = verified && checked;
         }
@@ -727,8 +703,6 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
-
-        // print_vk_hash("VK HASH POST");
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value

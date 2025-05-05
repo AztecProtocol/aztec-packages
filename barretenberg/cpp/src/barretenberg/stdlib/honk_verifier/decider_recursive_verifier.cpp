@@ -29,10 +29,9 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    if constexpr (IsMegaBuilder<Builder>) {
-        // info("VK HASH 1: ", proving_key_inspector::compute_vk_hash<Builder, MegaZKFlavor>(*builder));
-        // info("Circuit hash = ", builder->hash_circuit());
-    }
+    // if constexpr (IsMegaBuilder<Builder>) {
+    info("VK HASH 1: ", proving_key_inspector::compute_vk_hash<Flavor>(*builder));
+    // }
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);

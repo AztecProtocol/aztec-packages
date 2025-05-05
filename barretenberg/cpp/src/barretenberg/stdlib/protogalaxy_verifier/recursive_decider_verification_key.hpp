@@ -63,17 +63,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     {
         is_accumulator = verification_key->is_accumulator;
         if (is_accumulator) {
-            // info("builder.variables.size() A: ", builder->variables.size());
-            // info("num public inputs: ", verification_key->public_inputs.size());
             for (auto [native_public_input] : zip_view(verification_key->public_inputs)) {
                 public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
             }
-            // info("builder.variables.size() B: ", builder->variables.size());
             for (size_t alpha_idx = 0; alpha_idx < alphas.size(); alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
 
-            // info("builder.variables.size() C: ", builder->variables.size());
             auto other_comms = verification_key->witness_commitments.get_all();
             size_t comm_idx = 0;
             for (auto& comm : witness_commitments.get_all()) {
@@ -81,14 +77,14 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                 comm_idx++;
             }
             target_sum = FF::from_witness(builder, verification_key->target_sum);
-            // info("builder.variables.size() D: ", builder->variables.size());
+
             size_t challenge_idx = 0;
             gate_challenges = std::vector<FF>(verification_key->gate_challenges.size());
             for (auto& challenge : gate_challenges) {
                 challenge = FF::from_witness(builder, verification_key->gate_challenges[challenge_idx]);
                 challenge_idx++;
             }
-            // info("builder.variables.size() E: ", builder->variables.size());
+
             relation_parameters.eta = FF::from_witness(builder, verification_key->relation_parameters.eta);
             relation_parameters.eta_two = FF::from_witness(builder, verification_key->relation_parameters.eta_two);
             relation_parameters.eta_three = FF::from_witness(builder, verification_key->relation_parameters.eta_three);
@@ -98,7 +94,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                 FF::from_witness(builder, verification_key->relation_parameters.public_input_delta);
             relation_parameters.lookup_grand_product_delta =
                 FF::from_witness(builder, verification_key->relation_parameters.lookup_grand_product_delta);
-            // info("builder.variables.size() F: ", builder->variables.size());
         }
     }
 

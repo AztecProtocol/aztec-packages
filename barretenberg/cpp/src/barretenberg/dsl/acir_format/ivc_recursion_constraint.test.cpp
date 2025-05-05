@@ -190,7 +190,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
-        info("construct_kernel_vk_from_acir_program circuit hash = ", kernel.hash_circuit());
         MegaProver prover(proving_key);
 
         return std::make_shared<ClientIVC::MegaVerificationKey>(prover.proving_key->proving_key);

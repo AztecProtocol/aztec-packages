@@ -51,11 +51,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
     static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
 
-    // info("builder.variables.size() A: ", builder->variables.size());
-
     run_oink_verifier_on_each_incomplete_key(proof);
-
-    // info("builder.variables.size() B: ", builder->variables.size());
 
     std::shared_ptr<DeciderVK> accumulator = keys_to_fold[0];
 
@@ -71,8 +67,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     // Combiner quotient round
     perturbator_coeffs[0] = accumulator->target_sum;
     const FF perturbator_evaluation = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
-
-    // info("builder.variables.size() C: ", builder->variables.size());
 
     std::array<FF, COMBINER_LENGTH>
         combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
@@ -147,8 +141,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         // Add the output commitment to the transcript to ensure the they can't be spoofed
         transcript->add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i), output_commitments[i]);
     }
-
-    // info("builder.variables.size() D: ", builder->variables.size());
 
     std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
     for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {

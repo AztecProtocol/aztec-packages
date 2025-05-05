@@ -624,23 +624,6 @@ class MegaFlavor {
                        lagrange_ecc_op,
                        databus_id);
 
-        // Print out the verification key
-        void print() const
-        {
-            info("circuit_size: ", circuit_size);
-            info("num_public_inputs: ", num_public_inputs);
-            info("pub_inputs_offset: ", pub_inputs_offset);
-            info("pairing_inputs_public_input_key: ", pairing_inputs_public_input_key.start_idx);
-            info("databus_propagation_data.app_return_data_commitment_pub_input_key: ",
-                 databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            info("databus_propagation_data.kernel_return_data_commitment_pub_input_key: ",
-                 databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            info("databus_propagation_data.is_kernel: ", databus_propagation_data.is_kernel);
-            CommitmentLabels labels;
-            for (auto [label, commitment] : zip_view(labels.get_precomputed(), this->get_all())) {
-                info(label, ": ", commitment);
-            }
-        };
         // A methid that compares the verification key with another verification key and prints the differences
         bool compare(const std::shared_ptr<VerificationKey>& other_vk) const
         {
