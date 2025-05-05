@@ -91,6 +91,7 @@ export async function executePrivateFunction(
     rawReturnValues,
     nestedExecutions,
     contractClassLogs,
+    { timings: { witgen: duration } },
   );
 }
 

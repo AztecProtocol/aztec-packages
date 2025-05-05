@@ -61,8 +61,6 @@ export type BotConfig = {
   maxPendingTxs: number;
   /** Whether to flush after sending each 'setup' transaction */
   flushSetupTransactions: boolean;
-  /** Whether to skip public simulation of txs before sending them. */
-  skipPublicSimulation: boolean;
   /** L2 gas limit for the tx (empty to have the bot trigger an estimate gas). */
   l2GasLimit: number | undefined;
   /** DA gas limit for the tx (empty to have the bot trigger an estimate gas). */
@@ -98,7 +96,6 @@ export const BotConfigSchema = z
     followChain: z.enum(BotFollowChain),
     maxPendingTxs: z.number().int().nonnegative(),
     flushSetupTransactions: z.boolean(),
-    skipPublicSimulation: z.boolean(),
     l2GasLimit: z.number().int().nonnegative().optional(),
     daGasLimit: z.number().int().nonnegative().optional(),
     contract: z.nativeEnum(SupportedTokenContracts),
@@ -218,11 +215,6 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   flushSetupTransactions: {
     env: 'BOT_FLUSH_SETUP_TRANSACTIONS',
     description: 'Make a request for the sequencer to build a block after each setup transaction.',
-    ...booleanConfigHelper(false),
-  },
-  skipPublicSimulation: {
-    env: 'BOT_SKIP_PUBLIC_SIMULATION',
-    description: 'Whether to skip public simulation of txs before sending them.',
     ...booleanConfigHelper(false),
   },
   l2GasLimit: {
