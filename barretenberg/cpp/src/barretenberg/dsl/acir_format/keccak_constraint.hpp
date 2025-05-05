@@ -23,8 +23,8 @@ struct HashInput {
 };
 
 struct Keccakf1600 {
-    std::array<WitnessOrConstant<bb::fr>, 25> state;
-    std::array<uint32_t, 25> result;
+    std::shared_ptr<std::array<WitnessOrConstant<bb::fr>, 25>> state;
+    std::shared_ptr<std::array<uint32_t, 25>> result;
 
     // For serialization, update with any new fields
     MSGPACK_FIELDS(state, result);

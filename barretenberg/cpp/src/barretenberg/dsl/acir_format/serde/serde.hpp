@@ -514,10 +514,10 @@ template <typename T> struct Deserializable<std::optional<T>> {
 template <typename T, typename Allocator> struct Deserializable<std::vector<T, Allocator>> {
     template <typename Deserializer> static std::vector<T> deserialize(Deserializer& deserializer)
     {
-        std::vector<T> result;
         size_t len = deserializer.deserialize_len();
+        std::vector<T> result(len);
         for (size_t i = 0; i < len; i++) {
-            result.push_back(Deserializable<T>::deserialize(deserializer));
+            result[i] = Deserializable<T>::deserialize(deserializer);
         }
         return result;
     }

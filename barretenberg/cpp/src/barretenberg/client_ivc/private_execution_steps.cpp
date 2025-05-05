@@ -73,6 +73,7 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::parse_uncompressed
     // Unlike load_and_decompress, we don't need to decompress the bytecode and witness fields
     return raw_steps;
 }
+
 void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw> steps)
 {
     PROFILE_THIS();
@@ -90,7 +91,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw> steps)
         acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
         acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(step.witness));
 
-        folding_stack[i] = { constraints, witness };
+        folding_stack[i] = { std::move(constraints), std::move(witness) };
         if (step.vk.empty()) {
             // For backwards compatibility, but it affects performance and correctness.
             precomputed_vks[i] = nullptr;

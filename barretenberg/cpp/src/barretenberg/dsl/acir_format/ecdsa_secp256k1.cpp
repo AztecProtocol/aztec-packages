@@ -47,15 +47,15 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
     using bool_ct = bb::stdlib::bool_t<Builder>;
     using byte_array_ct = bb::stdlib::byte_array<Builder>;
 
-    if (has_valid_witness_assignments == false) {
+    if (!has_valid_witness_assignments) {
         dummy_ecdsa_constraint(builder, input);
     }
 
-    auto new_sig = ecdsa_convert_signature(builder, input.signature);
+    auto new_sig = ecdsa_convert_signature(builder, *input.signature);
 
-    byte_array_ct message = ecdsa_array_of_bytes_to_byte_array(builder, input.hashed_message);
-    auto pub_key_x_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, input.pub_x_indices);
-    auto pub_key_y_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, input.pub_y_indices);
+    byte_array_ct message = ecdsa_array_of_bytes_to_byte_array(builder, *input.hashed_message);
+    auto pub_key_x_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, *input.pub_x_indices);
+    auto pub_key_y_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, *input.pub_y_indices);
 
     auto pub_key_x_fq = typename secp256k1_ct::fq_ct(pub_key_x_byte_arr);
     auto pub_key_y_fq = typename secp256k1_ct::fq_ct(pub_key_y_byte_arr);
@@ -72,13 +72,13 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
     pub_key_y_fq.assert_is_in_field();
     typename secp256k1_ct::g1_bigfr_ct public_key = typename secp256k1_ct::g1_bigfr_ct(pub_key_x_fq, pub_key_y_fq);
     for (size_t i = 0; i < 32; ++i) {
-        sig.r[i].assert_equal(field_ct::from_witness_index(&builder, input.signature[i]));
-        sig.s[i].assert_equal(field_ct::from_witness_index(&builder, input.signature[i + 32]));
-        pub_key_x_byte_arr[i].assert_equal(field_ct::from_witness_index(&builder, input.pub_x_indices[i]));
-        pub_key_y_byte_arr[i].assert_equal(field_ct::from_witness_index(&builder, input.pub_y_indices[i]));
+        sig.r[i].assert_equal(field_ct::from_witness_index(&builder, (*input.signature)[i]));
+        sig.s[i].assert_equal(field_ct::from_witness_index(&builder, (*input.signature)[i + 32]));
+        pub_key_x_byte_arr[i].assert_equal(field_ct::from_witness_index(&builder, (*input.pub_x_indices)[i]));
+        pub_key_y_byte_arr[i].assert_equal(field_ct::from_witness_index(&builder, (*input.pub_y_indices)[i]));
     }
-    for (size_t i = 0; i < input.hashed_message.size(); ++i) {
-        message[i].assert_equal(field_ct::from_witness_index(&builder, input.hashed_message[i]));
+    for (size_t i = 0; i < input.hashed_message->size(); ++i) {
+        message[i].assert_equal(field_ct::from_witness_index(&builder, (*input.hashed_message)[i]));
     }
 
     bool_ct signature_result =
@@ -120,7 +120,7 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
     // We don't use them in a gate, so when we call assert_equal, they will be
     // replaced as if they never existed.
     for (size_t i = 0; i < 32; ++i) {
-        uint32_t m_wit = builder.add_variable(input.hashed_message[i]);
+        uint32_t m_wit = builder.add_variable((*input.hashed_message)[i]);
         uint32_t x_wit = builder.add_variable(pub_x_value.slice(248 - i * 8, 256 - i * 8));
         uint32_t y_wit = builder.add_variable(pub_y_value.slice(248 - i * 8, 256 - i * 8));
         uint32_t r_wit = builder.add_variable(signature.r[i]);
@@ -133,17 +133,17 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
     }
 
     // Call assert_equal(from, to) to replace the value in `to` by the value in `from`
-    for (size_t i = 0; i < input.hashed_message.size(); ++i) {
-        builder.assert_equal(message_indices_[i], input.hashed_message[i]);
+    for (size_t i = 0; i < input.hashed_message->size(); ++i) {
+        builder.assert_equal(message_indices_[i], (*input.hashed_message)[i]);
     }
-    for (size_t i = 0; i < input.pub_x_indices.size(); ++i) {
-        builder.assert_equal(pub_x_indices_[i], input.pub_x_indices[i]);
+    for (size_t i = 0; i < input.pub_x_indices->size(); ++i) {
+        builder.assert_equal(pub_x_indices_[i], (*input.pub_x_indices)[i]);
     }
-    for (size_t i = 0; i < input.pub_y_indices.size(); ++i) {
-        builder.assert_equal(pub_y_indices_[i], input.pub_y_indices[i]);
+    for (size_t i = 0; i < input.pub_y_indices->size(); ++i) {
+        builder.assert_equal(pub_y_indices_[i], (*input.pub_y_indices)[i]);
     }
-    for (size_t i = 0; i < input.signature.size(); ++i) {
-        builder.assert_equal(signature_[i], input.signature[i]);
+    for (size_t i = 0; i < input.signature->size(); ++i) {
+        builder.assert_equal(signature_[i], (*input.signature)[i]);
     }
 }
 

@@ -1,9 +1,11 @@
 #pragma once
 #include <algorithm>
 #include <array>
+#include <memory>
 #include <type_traits>
 
 namespace bb::transform {
+
 /*
  * Generic map function for mapping a containers element to another type.
  */
@@ -33,6 +35,12 @@ std::array<OutElem, SIZE> map(std::array<InElem, SIZE> const& in, F&& op)
     std::array<OutElem, SIZE> result;
     std::transform(in.begin(), in.end(), result.begin(), op);
     return result;
+}
+
+template <typename InElem, typename F> auto map_shared_ptr(std::shared_ptr<InElem> const& in, F&& op)
+{
+    auto result = map(*in, op);
+    return std::make_shared<decltype(result)>(result);
 }
 
 /*

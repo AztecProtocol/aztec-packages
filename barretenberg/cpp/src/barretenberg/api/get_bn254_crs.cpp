@@ -9,7 +9,7 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
     std::string url = "https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat";
 
     // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
-    std::string command = "curl --output - -H \"Range: bytes=0-" + std::to_string(g1_end) + "\" '" + url + "'";
+    std::string command = "curl -H \"Range: bytes=0-" + std::to_string(g1_end) + "\" '" + url + "'";
 
     auto data = exec_pipe(command);
     // Header + num_points * sizeof point.
@@ -24,7 +24,7 @@ std::vector<uint8_t> download_bn254_g2_data()
 {
     std::string url = "https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat";
     // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
-    std::string command = "curl --output - '" + url + "'";
+    std::string command = "curl '" + url + "'";
     return exec_pipe(command);
 }
 } // namespace
@@ -32,7 +32,7 @@ std::vector<uint8_t> download_bn254_g2_data()
 namespace bb {
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
 {
-    // TODO: per Charlie this should just download and replace the flat file portion atomically so we have no race
+    // TODO(AD): per Charlie this should just download and replace the flat file portion atomically so we have no race
     // condition
     std::filesystem::create_directories(path);
 

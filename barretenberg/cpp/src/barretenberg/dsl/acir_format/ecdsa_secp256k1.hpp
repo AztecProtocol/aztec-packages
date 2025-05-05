@@ -18,19 +18,19 @@ using witness_ct = bb::stdlib::witness_t<Builder>;
 
 struct EcdsaSecp256k1Constraint {
     // This is the byte representation of the hashed message.
-    std::array<uint32_t, 32> hashed_message;
+    std::shared_ptr<std::array<uint32_t, 32>> hashed_message;
 
     // This is the computed signature
     //
-    std::array<uint32_t, 64> signature;
+    std::shared_ptr<std::array<uint32_t, 64>> signature;
 
     // This is the supposed public key which signed the
     // message, giving rise to the signature.
     // Since Fr does not have enough bits to represent
     // the prime field in secp256k1, a byte array is used.
     // Can also use low and hi where lo=128 bits
-    std::array<uint32_t, 32> pub_x_indices;
-    std::array<uint32_t, 32> pub_y_indices;
+    std::shared_ptr<std::array<uint32_t, 32>> pub_x_indices;
+    std::shared_ptr<std::array<uint32_t, 32>> pub_y_indices;
 
     // This is the result of verifying the signature
     uint32_t result;
@@ -75,7 +75,7 @@ bb::stdlib::byte_array<Builder> ecdsa_array_of_bytes_to_byte_array(Builder& buil
 // gcc needs to be able to see the implementation order to generate code for
 // all Builder specializations (e.g. bb::Goblin::Builder vs. bb::UltraCircuitBuilder)
 template <typename Builder>
-bb::crypto::ecdsa_signature ecdsa_convert_signature(Builder& builder, std::array<uint32_t, 64> signature)
+bb::crypto::ecdsa_signature ecdsa_convert_signature(Builder& builder, std::array<uint32_t, 64> const& signature)
 {
 
     bb::crypto::ecdsa_signature signature_cr;
