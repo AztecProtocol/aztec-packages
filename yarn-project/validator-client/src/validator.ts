@@ -338,11 +338,13 @@ export class ValidatorClient extends WithTracer implements Validator {
         this.log.info(
           `Successfully used ${usedFromProposal}/${hashesFromPayload.length} transactions from the proposal`,
         );
+
+        await this.p2pClient.validate(txsToUse as Tx[]);
         return txsToUse as Tx[];
       }
     }
 
-    this.log.verbose(`Using old style proposal with ${proposal.payload.txHashes.length} transactions`);
+    this.log.info(`Using old style proposal with ${proposal.payload.txHashes.length} transactions`);
 
     // Old style proposal, we will perform a request by hash from pool
     // This will request from network any txs that are missing
@@ -372,6 +374,9 @@ export class ValidatorClient extends WithTracer implements Validator {
     if (missingTxs.length > 0) {
       throw new TransactionsNotAvailableError(missingTxs as TxHash[]);
     }
+
+    await this.p2pClient.validate(retrievedTxs as Tx[]);
+
     return retrievedTxs as Tx[];
   }
 

@@ -49,6 +49,8 @@ import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
 import {
+  ArchiveCache,
+  BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
   GasTxValidator,
@@ -733,6 +735,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return gasFees;
   }
 
+  public async validate(txs: Tx[]): Promise<void> {
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
+    const messageValidators = await this.createMessageValidators(blockNumber);
+
+    await Promise.all(
+      txs.map(async tx => {
+        for (const validator of messageValidators) {
+          const outcome = await this.runValidations(tx, validator);
+          if (!outcome.allPassed) {
+            throw new Error('Invalid tx detected', { cause: { outcome } });
+          }
+        }
+      }),
+    );
+  }
+
   /**
    * Create message validators for the given block number.
    *
@@ -785,8 +803,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
           severity: PeerErrorSeverity.MidToleranceError,
         },
-      },
-      {
+        blockHeaderValidator: {
+          validator: new BlockHeaderTxValidator(new ArchiveCache(this.worldStateSynchronizer.getCommitted())),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
         proofValidator: {
           validator: new TxProofValidator(this.proofVerifier),
           severity: PeerErrorSeverity.MidToleranceError,
@@ -811,24 +831,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     });
 
     // A promise that resolves when all validations have been run
-    const allValidations = Promise.all(validationPromises);
-
-    // A promise that resolves when the first validation fails
-    const firstFailure = Promise.race(
-      validationPromises.map(async promise => {
-        const result = await promise;
-        return result.isValid ? new Promise(() => {}) : result;
-      }),
-    );
-
-    // Wait for the first validation to fail or all validations to pass
-    const result = await Promise.race([
-      allValidations.then(() => ({ allPassed: true as const })),
-      firstFailure.then(failure => ({ allPassed: false as const, failure: failure as ValidationResult })),
-    ]);
-
-    // If all validations pass, allPassed will be true, if failed, then the failure will be the first validation to fail
-    return result;
+    const allValidations = await Promise.all(validationPromises);
+    const failed = allValidations.find(x => !x.isValid);
+    if (failed) {
+      return {
+        allPassed: false,
+        failure: {
+          isValid: { result: 'invalid' as const, reason: ['Failed validation'] },
+          name: failed.name,
+          severity: failed.severity,
+        },
+      };
+    } else {
+      return {
+        allPassed: true,
+      };
+    }
   }
 
   /**

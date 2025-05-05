@@ -26,7 +26,7 @@ export class RandomSampler {
 export class ConnectionSampler {
   private readonly logger = createLogger('p2p:reqresp:connection-sampler');
   private cleanupInterval: NodeJS.Timeout;
-  private abortController: AbortController = new AbortController();
+  private dialAttempts: AbortController[] = [];
 
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
   private readonly streams: Map<string, StreamAndPeerId> = new Map();
@@ -51,7 +51,9 @@ export class ConnectionSampler {
     this.logger.info('Stopping connection sampler');
     clearInterval(this.cleanupInterval);
 
-    this.abortController.abort();
+    for (const attempt of this.dialAttempts) {
+      attempt.abort();
+    }
     await this.dialQueue.end();
 
     // Close all active streams
@@ -184,12 +186,30 @@ export class ConnectionSampler {
    * @param protocol - The protocol
    * @returns The stream
    */
-  async dialProtocol(peerId: PeerId, protocol: string): Promise<Stream> {
+  async dialProtocol(peerId: PeerId, protocol: string, timeout?: number): Promise<Stream> {
     // Dialling at the same time can cause race conditions where two different streams
     // end up with the same id, hence a serial queue
+    this.logger.debug(`Dial queue length: ${this.dialQueue.length()}`);
+
+    const abortController = new AbortController();
+    this.dialAttempts.push(abortController);
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    if (timeout) {
+      timeoutHandle = setTimeout(() => abortController.abort(), timeout);
+    }
+
     const stream = await this.dialQueue.put(() =>
-      this.libp2p.dialProtocol(peerId, protocol, { signal: this.abortController.signal }),
+      this.libp2p.dialProtocol(peerId, protocol, { signal: abortController.signal }),
     );
+
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+
+    const idx = this.dialAttempts.indexOf(abortController);
+    if (idx > 0) {
+      this.dialAttempts.splice(idx, 1);
+    }
 
     this.streams.set(stream.id, { stream, peerId });
     const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
@@ -213,7 +233,7 @@ export class ConnectionSampler {
     try {
       const streamAndPeerId = this.streams.get(streamId);
       if (!streamAndPeerId) {
-        this.logger.warn(`Stream ${streamId} not found`);
+        this.logger.debug(`Stream ${streamId} not found`);
         return;
       }
 
