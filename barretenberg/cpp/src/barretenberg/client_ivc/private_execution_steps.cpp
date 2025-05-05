@@ -88,8 +88,8 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
         // use spans instead of vectors.
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(steps[i].bytecode));
-        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(steps[i].witness));
+        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(std::move(step.witness));
 
         folding_stack[i] = { std::move(constraints), std::move(witness) };
         if (step.vk.empty()) {

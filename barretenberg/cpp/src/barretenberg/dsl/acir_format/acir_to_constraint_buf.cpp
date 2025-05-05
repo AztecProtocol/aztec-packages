@@ -34,7 +34,7 @@ using namespace bb;
  *       make a decision and commit to it.
  */
 template <typename T>
-T deserialize_any_format(std::vector<uint8_t> const& buf,
+T deserialize_any_format(std::vector<uint8_t>&& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
                          std::function<T(std::vector<uint8_t>)> decode_bincode)
 {
@@ -50,7 +50,7 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
     // returns true for a `bincode` encoded program, and we have to check
     // whether the value parsed is plausible.
 
-    if (buf.size() > 0) {
+    if (!buf.empty()) {
         // Once we remove support for legacy bincode format, we should expect to always
         // have a format marker corresponding to acir::serialization::Format::Msgpack,
         // but until then a match could be pure coincidence.
@@ -76,17 +76,17 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
         // from it, so let's just acknowledge that for now we don't want to
         // exercise this code path and treat the whole data as bincode.
     }
-    return decode_bincode(buf);
+    return decode_bincode(std::move(buf));
 }
 
 /**
  * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
  * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
  */
-Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
+Acir::Program deserialize_program(std::vector<uint8_t>&& buf)
 {
     return deserialize_any_format<Acir::Program>(
-        buf,
+        std::move(buf),
         [](auto o) -> Acir::Program {
             Acir::Program program;
             try {
@@ -107,10 +107,10 @@ Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
 /**
  * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
  */
-Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf)
+Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
 {
     return deserialize_any_format<Witnesses::WitnessStack>(
-        buf,
+        std::move(buf),
         [](auto o) {
             Witnesses::WitnessStack witness_stack;
             try {
@@ -926,12 +926,12 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     return af;
 }
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
     // to work with a single ACIR function
-    auto program = deserialize_program(buf);
+    auto program = deserialize_program(std::move(buf));
     auto circuit = program.functions[0];
 
     return circuit_serde_to_acir_format(circuit);
@@ -963,20 +963,20 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     return wv;
 }
 
-WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
+WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `witness_buf_to_witness_stack` once Honk fully supports all ACIR test flows. For now the backend still
     // expects to work with the stop of the `WitnessStack`.
-    auto witness_stack = deserialize_witness_stack(buf);
+    auto witness_stack = deserialize_witness_stack(std::move(buf));
     auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
 
     return witness_map_to_witness_vector(w);
 }
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf)
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t>&& buf)
 {
-    auto program = deserialize_program(buf);
+    auto program = deserialize_program(std::move(buf));
 
     std::vector<AcirFormat> constraint_systems;
     constraint_systems.reserve(program.functions.size());
@@ -987,9 +987,9 @@ std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& b
     return constraint_systems;
 }
 
-WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
+WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf)
 {
-    auto witness_stack = deserialize_witness_stack(buf);
+    auto witness_stack = deserialize_witness_stack(std::move(buf));
     WitnessVectorStack witness_vector_stack;
     witness_vector_stack.reserve(witness_stack.stack.size());
     for (auto const& stack_item : witness_stack.stack) {
@@ -1002,7 +1002,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
 {
     vinfo("in get_acir_program_stack; witness path is ", witness_path);
     std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
-    std::vector<AcirFormat> constraint_systems = program_buf_to_acir_format(bytecode);
+    std::vector<AcirFormat> constraint_systems = program_buf_to_acir_format(std::move(bytecode));
     WitnessVectorStack witness_stack = [&]() {
         if (witness_path.empty()) {
             info("producing a stack of empties");
@@ -1011,7 +1011,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
             return stack_of_empties;
         }
         std::vector<uint8_t> witness_data = get_bytecode(witness_path);
-        return witness_buf_to_witness_stack(witness_data);
+        return witness_buf_to_witness_stack(std::move(witness_data));
     }();
 
     return { std::move(constraint_systems), std::move(witness_stack) };

@@ -435,7 +435,8 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
 
     for (const PrivateExecutionStepRaw& step : raw_steps) {
         std::vector<uint8_t> bytecode_vec(step.bytecode.begin(), step.bytecode.end());
-        const acir_format::AcirFormat constraint_system = acir_format::circuit_buf_to_acir_format(bytecode_vec);
+        const acir_format::AcirFormat constraint_system =
+            acir_format::circuit_buf_to_acir_format(std::move(bytecode_vec));
 
         // Create an acir program from the constraint system
         acir_format::AcirProgram program{ constraint_system };
