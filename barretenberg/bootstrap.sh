@@ -36,7 +36,7 @@ case "$cmd" in
   hash)
     hash
     ;;
-  ""|clean|ci|fast|test|test_cmds|release)
+  ""|clean|ci|fast|test|test_cmds|bench_cmds|release)
     bootstrap_all $cmd $@
     ;;
   bench)

@@ -238,15 +238,24 @@ function build {
   parallel --line-buffer --tag --halt now,fail=1 "denoise '{}/bootstrap.sh ${1:-}'" ::: ${non_dependent_projects[@]}
 }
 
+function bench_cmds {
+  if [ "$#" -eq 0 ]; then
+    # Ordered with longest running first, to ensure they get scheduled earliest.
+    set -- barretenberg/cpp barretenberg/acir_tests noir-projects/noir-protocol-circuits
+  fi
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
+}
+
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/bootstrap.sh bench"
-  denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
-  denoise "yarn-project/simulator/bootstrap.sh bench"
-  denoise "yarn-project/end-to-end/bootstrap.sh bench"
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
+
+  # denoise "yarn-project/simulator/bootstrap.sh bench"
+  # denoise "yarn-project/end-to-end/bootstrap.sh bench"
+
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
@@ -370,7 +379,7 @@ case "$cmd" in
       docs/bootstrap.sh release-docs
     fi
     ;;
-  test|test_cmds|bench|release|release_dryrun)
+  test|test_cmds|bench|bench_cmds|release|release_dryrun)
     $cmd "$@"
     ;;
   *)
