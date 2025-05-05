@@ -86,12 +86,7 @@ struct TraceSettings {
 
     size_t size() const { return structure->size() + static_cast<size_t>(overflow_capacity); }
 
-    size_t dyadic_size() const
-    {
-        const size_t total_size = size();
-        const size_t lower_dyadic = 1 << numeric::get_msb(total_size);
-        return total_size > lower_dyadic ? lower_dyadic << 1 : lower_dyadic;
-    }
+    size_t dyadic_size() const { return numeric::round_up_power_2(size()); }
 };
 
 class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
@@ -279,7 +274,7 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
                                                       .busread = 1 << 14,
                                                       .lookup = 1 << 14,
                                                       .pub_inputs = 1 << 14,
-                                                      .arithmetic = 1 << 15,
+                                                      .arithmetic = 1 << 16,
                                                       .delta_range = 1 << 14,
                                                       .elliptic = 1 << 14,
                                                       .aux = 1 << 14,

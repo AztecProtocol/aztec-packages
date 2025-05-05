@@ -43,6 +43,7 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
     FF translation_masking_term_eval;
+
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
