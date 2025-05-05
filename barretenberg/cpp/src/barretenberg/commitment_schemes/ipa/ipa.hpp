@@ -451,32 +451,16 @@ template <typename Curve_> class IPA {
      * @param opening_claim
      * @param transcript
      * @return VerifierAccumulator
-     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
-     * function with parallelisation
      */
     static VerifierAccumulator reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
-        // Step 1.
-        // Receive polynomial_degree + 1 = d from the prover
-        auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
-                                       // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
-                                       // Grumpkin
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
-        const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
-
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         typename Curve::Builder* builder = generator_challenge.get_context();
 
-        const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
-        if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
-        }
         auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
         std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
         std::vector<Fr> round_challenges_inv(CONST_ECCVM_LOG_N);
@@ -487,8 +471,6 @@ template <typename Curve_> class IPA {
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-            stdlib::bool_t<typename Curve::Builder> dummy_round  = stdlib::witness_t(builder, i >= log_poly_length);
 
             std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
@@ -498,8 +480,8 @@ template <typename Curve_> class IPA {
 
             msm_elements[2 * i] = element_L;
             msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[i]);
-            msm_scalars[2 * i + 1] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges[i]);
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] =  round_challenges[i];
         }
 
         //  Step 4.
@@ -510,13 +492,12 @@ template <typename Curve_> class IPA {
         Fr b_zero = Fr(1);
         Fr challenge = opening_claim.opening_pair.challenge;
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - log_poly_length);
 
-            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge);
+            Fr monomial = round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge;
             b_zero *= Fr(1) + monomial;
             if (i != CONST_ECCVM_LOG_N - 1) // this if statement is fine because the number of iterations is constant
             {
-                challenge = Fr::conditional_assign(dummy_round, challenge, challenge * challenge);
+                challenge = challenge.sqr();
             }
         }
 
@@ -540,12 +521,10 @@ template <typename Curve_> class IPA {
         auto neg_commitment = -opening_claim.commitment;
         ipa_relation.assert_equal(neg_commitment);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of a field_t.
-        Fr stdlib_log_poly_length(static_cast<uint256_t>(log_poly_length));
-        return {stdlib_log_poly_length, round_challenges_inv, G_zero};
+
+        return { round_challenges_inv, G_zero};
     }
 
-  public:
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
      *
@@ -613,47 +592,33 @@ template <typename Curve_> class IPA {
      * @param opening_claim
      * @param transcript
      * @return VerifierAccumulator
-     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
-     * function with parallelisation
      */
     static bool full_verify_recursive(const std::shared_ptr<VK>& vk,
                                                     const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
-        // Step 1.
-        // Receive polynomial_degree + 1 = d from the prover
-        auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
-                                       // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
-                                       // Grumpkin
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
-        const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
-        debug("poly_length = ", poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         typename Curve::Builder* builder = generator_challenge.get_context();
 
-        const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
-        if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
-        }
-        auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
-        std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
-        std::vector<Fr> round_challenges_inv(CONST_ECCVM_LOG_N);
+        constexpr  size_t log_poly_length = CONST_ECCVM_LOG_N;
+        constexpr size_t poly_length = 1UL<<log_poly_length;
+
+        constexpr size_t pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
 
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-            stdlib::bool_t<typename Curve::Builder> dummy_round  = stdlib::witness_t(builder, i >= log_poly_length);
+        for (size_t i = 0; i < log_poly_length; i++) {
 
-            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
+            std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -661,8 +626,8 @@ template <typename Curve_> class IPA {
 
             msm_elements[2 * i] = element_L;
             msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[i]);
-            msm_scalars[2 * i + 1] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges[i]);
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
         }
 
         //  Step 4.
@@ -672,14 +637,13 @@ template <typename Curve_> class IPA {
 
         Fr b_zero = Fr(1);
         Fr challenge = opening_claim.opening_pair.challenge;
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - log_poly_length);
+        for (size_t i = 0; i < log_poly_length; i++) {
 
-            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge);
+            Fr monomial = round_challenges_inv[log_poly_length - 1 - i] * challenge;
             b_zero *= Fr(1) + monomial;
-            if (i != CONST_ECCVM_LOG_N - 1) // this if statement is fine because the number of iterations is constant
+            if (i != log_poly_length - 1) // this if statement is fine because the number of iterations is constant
             {
-                challenge = Fr::conditional_assign(dummy_round, challenge, challenge * challenge);
+                challenge = challenge.sqr();
             }
         }
 
@@ -688,13 +652,13 @@ template <typename Curve_> class IPA {
         // We implement a linear-time algorithm to optimally compute this vector
         // Note: currently requires an extra vector of size `poly_length / 2` to cache temporaries
         //       this might able to be optimized if we care enough, but the size of this poly shouldn't be large relative to the builder polynomial sizes
-        std::vector<Fr> s_vec_temporaries(poly_length / 2);
-        std::vector<Fr> s_vec(poly_length);
+        std::vector<Fr> s_vec_temporaries(1<<(CONST_ECCVM_LOG_N-1));
+        std::vector<Fr> s_vec(1<<CONST_ECCVM_LOG_N);
 
         Fr* previous_round_s = &s_vec_temporaries[0];
         Fr* current_round_s = &s_vec[0];
         // if number of rounds is even we need to swap these so that s_vec always contains the result
-        if ((log_poly_length & 1) == 0)
+        if constexpr ((CONST_ECCVM_LOG_N & 1) == 0)
         {
             std::swap(previous_round_s, current_round_s);
         }
@@ -818,13 +782,11 @@ template <typename Curve_> class IPA {
             throw_or_abort("IPA log_poly_length is too large: " + std::to_string(uint32_t(log_poly_length.get_value())));
         }
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - uint32_t(log_poly_length.get_value()));
 
-            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), u_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * r_pow);
+            Fr monomial = u_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * r_pow;
 
             challenge_poly_eval *= (Fr(1) + monomial);
-            r_pow = Fr::conditional_assign(dummy_round, r_pow, r_pow * r_pow);
+            r_pow = r_pow.sqr();
         }
         return challenge_poly_eval;
     }
