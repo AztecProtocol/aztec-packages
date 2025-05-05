@@ -22,10 +22,10 @@ export async function enrichSimulationError(
   const mentionedFunctions: Map<string, Set<FunctionSelector>> = new Map();
 
   err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
+    if (!mentionedFunctions.has(contractAddress.toString())) {
+      mentionedFunctions.set(contractAddress.toString(), new Set());
+    }
     if (functionSelector) {
-      if (!mentionedFunctions.has(contractAddress.toString())) {
-        mentionedFunctions.set(contractAddress.toString(), new Set());
-      }
       mentionedFunctions.get(contractAddress.toString())!.add(functionSelector);
     }
   });
