@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746434599547,
+  "lastUpdate": 1746435189950,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "807b03d09f8effc2553ab7228ec716c44b0f9452",
-          "message": "feat: new assert functionality for bb (#13854)\n\nI thought our asserts could use more helpful information to aid\ndebugging time.\n\nExample:\n```\nBB_ASSERT_GT(1, 1, \"false\");\n``` \nproduces:\n```\nAssertion failed: (1 > 1)\n  Left   : 1\n  Right  : 1\n  Reason : false\n```",
-          "timestamp": "2025-04-26T00:37:23Z",
-          "tree_id": "34214f56bcfd1d375460548c478a9842dd33df17",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/807b03d09f8effc2553ab7228ec716c44b0f9452"
-        },
-        "date": 1745632806292,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8303,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23770630530237194,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 141928,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1939,6 +1900,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 157108,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gregojquiros@gmail.com",
+            "name": "Gregorio Juliana",
+            "username": "Thunkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4602e1c898504106fa4ebf5d0c96f9a343aaa69",
+          "message": "chore: avoid unnecesary async chunks (#14076)\n\nMaster version of:\nhttps://github.com/AztecProtocol/aztec-packages/pull/14074",
+          "timestamp": "2025-05-05T08:13:58Z",
+          "tree_id": "16d899fcc1b8a11abf2f38a1eb05639ce0d2bcc5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c4602e1c898504106fa4ebf5d0c96f9a343aaa69"
+        },
+        "date": 1746435189166,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8152,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23339477839865974,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 148418,
             "unit": "us"
           }
         ]
