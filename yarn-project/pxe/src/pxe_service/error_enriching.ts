@@ -85,7 +85,7 @@ export async function enrichPublicSimulationError(
       try {
         // Public functions are simulated as a single Brillig entry point.
         // Thus, we can safely assume here that the Brillig function id is `0`.
-        const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo.debugSymbols, debugInfo.files, 0);
+        const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
         err.setNoirCallStack(parsedCallStack);
       } catch (err) {
         logger.warn(

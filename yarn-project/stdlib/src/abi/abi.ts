@@ -209,19 +209,12 @@ export interface FunctionDebugMetadata {
 
 export const FunctionDebugMetadataSchema = z.object({
   debugSymbols: z.object({
-    location_tree: z.object({
-      locations: z.array(
-        z.object({
-          parent: z.number().nullable(),
-          value: z.object({
-            span: z.object({ start: z.number(), end: z.number() }),
-            file: z.number(),
-          }),
-        }),
-      ),
-    }),
-    acir_locations: z.record(z.number()),
-    brillig_locations: z.record(z.record(z.number())),
+    locations: z.record(
+      z.array(z.object({ span: z.object({ start: z.number(), end: z.number() }), file: z.number() })),
+    ),
+    brillig_locations: z.record(
+      z.record(z.array(z.object({ span: z.object({ start: z.number(), end: z.number() }), file: z.number() }))),
+    ),
   }),
   files: z.record(z.object({ source: z.string(), path: z.string() })),
 }) satisfies z.ZodType<FunctionDebugMetadata>;
@@ -253,10 +246,10 @@ export const FunctionArtifactSchema = FunctionAbiSchema.and(
 ) satisfies ZodFor<FunctionArtifact>;
 
 /** A file ID. It's assigned during compilation. */
-type FileId = number;
+export type FileId = number;
 
 /** A pointer to a specific section of the source code. */
-interface SourceCodeLocation {
+export interface SourceCodeLocation {
   /** The section of the source code. */
   span: {
     /** The byte where the section starts. */
@@ -276,22 +269,12 @@ export type OpcodeLocation = string;
 
 export type BrilligFunctionId = number;
 
-export type OpcodeToLocationsMap = Record<OpcodeLocation, number>;
-
-export type LocationNodeDebugInfo = {
-  parent: number | null;
-  value: SourceCodeLocation;
-};
-
-export type LocationTree = {
-  locations: LocationNodeDebugInfo[];
-};
+export type OpcodeToLocationsMap = Record<OpcodeLocation, SourceCodeLocation[]>;
 
 /** The debug information for a given function. */
 export interface DebugInfo {
   /** A map of the opcode location to the source code location. */
-  location_tree: LocationTree;
-  acir_locations: OpcodeToLocationsMap;
+  locations: OpcodeToLocationsMap;
   /** For each Brillig function, we have a map of the opcode location to the source code location. */
   brillig_locations: Record<BrilligFunctionId, OpcodeToLocationsMap>;
 }

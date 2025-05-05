@@ -30,25 +30,11 @@ describe('e2e_avm_simulator', () => {
       secondAvmContract = await AvmTestContract.deploy(wallet).send().deployed();
     });
 
-    describe('Assertions & error enriching', () => {
-      /**
-       * Expect an error like:
-       * Assertion failed: This assertion should fail! 'quote { $self }'
-       * ...
-       * at quote { $self } (../std/meta/expr.nr:269:9)
-       * at inner_helper_with_failed_assertion() (../../../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
-       * at not_true == true (../../../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:16)
-       * at function.name();
-       * let call = quote { $name($args) (/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:59:20)
-       * at AvmTest.0xc3515746
-       */
+    describe('Assertions', () => {
       describe('Not nested', () => {
-        it('PXE processes user code assertions and recovers message (properly enriched)', async () => {
+        it('PXE processes user code assertions and recovers message', async () => {
           await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
-            expect.objectContaining({
-              message: expect.stringMatching(/Assertion failed: This assertion should fail! 'not_true == true'/),
-              stack: expect.stringMatching(/at inner_helper_with_failed_assertion[\s\S]*at AvmTest\..*/),
-            }),
+            "Assertion failed: This assertion should fail! 'not_true == true'",
           );
         });
         it('PXE processes user code assertions and recovers message (complex)', async () => {
