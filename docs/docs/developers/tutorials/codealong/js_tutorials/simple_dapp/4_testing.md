@@ -21,17 +21,7 @@ We'll need to [install and run the Sandbox](../../../../getting_started.md).
 Create a new file `src/index.test.mjs` with the imports we'll be using and an empty test suite to begin with:
 
 ```js
-import {
-  Contract,
-  ExtendedNote,
-  Fr,
-  Note,
-  computeSecretHash,
-  createPXEClient,
-  waitForPXE,
-} from "@aztec/aztec.js";
-import { createAccount } from "@aztec/accounts/testing";
-import { TokenContract } from "@aztec/noir-contracts.js/Token";
+#include_code imports yarn-project/end-to-end/src/sample-dapp/index.test.mjs raw
 
 const {
   PXE_URL = "http://localhost:8080",

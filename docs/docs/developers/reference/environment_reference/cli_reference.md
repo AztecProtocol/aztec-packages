@@ -3,6 +3,7 @@ title: CLI Reference
 tags: [sandbox]
 sidebar_position: 2
 ---
+import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This reference guide provides documentation for the Aztec CLI commands (`aztec`) and their options. The CLI is a powerful tool for interacting with the Aztec network, managing accounts, deploying contracts, and more.
 
@@ -122,7 +123,7 @@ Options:
 Here is an example of how to start a node that connects to the alpha-testnet.
 
 ```bash
-aztec-up 0.85.0-alpha-testnet.3
+aztec-up alpha-testnet
 
 export DATA_DIRECTORY=/any/directory/to/store/node/data
 export BLOB_SINK_URL=<blob-sink-url>

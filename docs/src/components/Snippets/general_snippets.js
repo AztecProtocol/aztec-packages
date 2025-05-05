@@ -1,7 +1,7 @@
 import React from "react";
 
 export const General = {
-  VersionLatestTestnet: () => <code>0.85.0-alpha-testnet.5</code>,
+  VersionLatestTestnet: () => <code>alpha-testnet</code>,
   VersionLatestSandbox: () => <code>0.86.0</code>,
   ViewTransactions: () => (
     <p>
@@ -56,6 +56,12 @@ export const General = {
       <b>Aztec Sandbox</b> - runs a set of Aztec tools for convenient local
       development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
+  ),
+
+  AztecTestnetVersion: () => (
+    <span>
+      alpha-testnet
+    </span>
   ),
 
   AztecWalletCLI: () => (

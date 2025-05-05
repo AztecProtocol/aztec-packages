@@ -122,7 +122,7 @@ Options:
 Here is an example of how to start a node that connects to the alpha-testnet.
 
 ```bash
-aztec-up 0.85.0-alpha-testnet.3
+aztec-up alpha-testnet
 
 export DATA_DIRECTORY=/any/directory/to/store/node/data
 export BLOB_SINK_URL=<blob-sink-url>

@@ -3,6 +3,7 @@ title: Getting Started on Testnet
 sidebar_position: 0
 tags: [testnet]
 ---
+import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This guide will walk you through setting up and using the Aztec testnet. By the end, you'll have created an account, deployed a contract, and performed some basic operations.
 
@@ -35,12 +36,12 @@ bash -i <(curl -s https://install.aztec.network)
 Then install the version of the network running the testnet:
 
 ```bash
-aztec-up 0.85.0-alpha-testnet.3
+aztec-up alpha-testnet
 ```
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.3`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `alpha-testnet`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 

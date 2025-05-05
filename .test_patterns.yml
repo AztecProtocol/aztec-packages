@@ -114,6 +114,8 @@ tests:
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
+    # Too noisey, skipping.
+    skip: true
     error_regex: "Expected: >= 2"
     owners:
       - *palla
@@ -210,12 +212,8 @@ tests:
       - *esau
 
   # boxes
-  - regex: "boxes/scripts/run_test.sh"
-    error_regex: "Test timeout of 90000ms exceeded."
-    owners:
-      - *grego
-  - regex: "boxes/scripts/run_test.sh"
-    error_regex: "expect(locator).toBeVisible()"
+  - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"
+    error_regex: "WARN: sequencer Too far into slot for INITIALIZING_PROPOSAL"
     owners:
       - *grego
 
