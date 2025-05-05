@@ -136,6 +136,19 @@ export function describeArchiverDataStore(
       it('throws an error if `from` it is out of range', async () => {
         await expect(store.getPublishedBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).rejects.toThrow('Invalid start: -99');
       });
+
+      it('throws an error if unexpected initial block number is found', async () => {
+        await store.addBlocks([makePublished(await L2Block.random(21), 31)]);
+        await expect(store.getPublishedBlocks(20, 1)).rejects.toThrow(`mismatch`);
+      });
+
+      it('throws an error if a gap is found', async () => {
+        await store.addBlocks([
+          makePublished(await L2Block.random(20), 30),
+          makePublished(await L2Block.random(22), 32),
+        ]);
+        await expect(store.getPublishedBlocks(20, 2)).rejects.toThrow(`mismatch`);
+      });
     });
 
     describe('getSyncedL2BlockNumber', () => {
