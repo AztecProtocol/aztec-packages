@@ -320,7 +320,7 @@ describe('e2e_fees private_payment', () => {
   it('insufficient funded amount is correctly handled', async () => {
     // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
     await expect(
-      bananaCoin.methods.private_get_name().prove({
+      bananaCoin.methods.private_get_name().simulate({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(
