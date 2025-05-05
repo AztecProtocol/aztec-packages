@@ -44,7 +44,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user1Wallet)
         .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(/unauthorized/);
   }, 60_000);
 
@@ -77,7 +77,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_private(ownerAddress, wrongBridgeAmount, claim.claimSecret, claim.messageLeafIndex)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 60_000);
 
@@ -98,7 +98,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, Fr.random(), claim.messageLeafIndex)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
   });
 });

@@ -22,9 +22,7 @@ export const submitComplexTxsTo = async (
   const seed = 1234n;
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
-    const tx = spamContract.methods
-      .spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic)
-      .send({ skipPublicSimulation: true });
+    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic).send();
     const txHash = await tx.getTxHash();
 
     logger.info(`Tx sent with hash ${txHash}`);
@@ -84,7 +82,7 @@ export async function createPXEServiceAndPrepareTransactions(
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   const txs = await timesAsync(numTxs, async () => {
-    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ skipPublicSimulation: true });
+    const tx = await contract.methods.emit_nullifier(Fr.random()).prove();
     const txHash = await tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;

@@ -158,7 +158,7 @@ describe('e2e_avm_simulator', () => {
     describe('Nested calls', () => {
       it('Nested call to non-existent contract reverts & rethrows by default', async () => {
         // The nested call reverts and by default caller rethrows
-        await expect(avmContract.methods.nested_call_to_nothing().send().wait()).rejects.toThrow(/No bytecode/);
+        await expect(avmContract.methods.nested_call_to_nothing().simulate()).rejects.toThrow(/No bytecode/);
       });
       it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
         // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.

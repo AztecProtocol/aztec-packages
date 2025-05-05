@@ -105,10 +105,9 @@ describe('full_prover', () => {
 
       // Prove them
       logger.info(`Proving txs`);
-      const provingOpts = { skipPublicSimulation: true };
       const [publicProvenTx, privateProvenTx] = await Promise.all([
-        publicInteraction.prove(provingOpts),
-        privateInteraction.prove(provingOpts),
+        publicInteraction.prove(),
+        privateInteraction.prove(),
       ]);
 
       // Verify them
@@ -197,10 +196,9 @@ describe('full_prover', () => {
 
     // Prove them
     logger.info(`Proving txs`);
-    const provingOpts = { skipPublicSimulation: true };
     const [publicProvenTx, firstPrivateProvenTx] = await Promise.all([
-      publicInteraction.prove(provingOpts),
-      firstPrivateInteraction.prove(provingOpts),
+      publicInteraction.prove(),
+      firstPrivateInteraction.prove(),
     ]);
 
     // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
@@ -217,7 +215,7 @@ describe('full_prover', () => {
       provenAssets[0].methods.set_admin(sender),
       provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0),
     ];
-    const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove(provingOpts)));
+    const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove()));
     const secondBlockTxs = await Promise.all(secondBlockProvenTxs.map(p => p.send()));
     await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10 })));
 
@@ -278,8 +276,8 @@ describe('full_prover', () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_in_public(sender, recipient, 1n, 0);
 
-    const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
-    const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
+    const sentPrivateTx = privateInteraction.send();
+    const sentPublicTx = publicInteraction.send();
 
     const results = await Promise.allSettled([
       sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),
@@ -304,7 +302,7 @@ describe('full_prover', () => {
       logger.info(`Creating and proving tx`);
       const sendAmount = 1n;
       const interaction = provenAssets[0].methods.transfer(recipient, sendAmount);
-      const provenTx = await interaction.prove({ skipPublicSimulation: true });
+      const provenTx = await interaction.prove();
       const wallet = (provenTx as any).wallet;
 
       // Verify the tx proof
