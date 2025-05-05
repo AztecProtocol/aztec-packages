@@ -686,15 +686,15 @@ class MegaFlavor {
             return is_equal;
         };
 
-        Commitment hash() const
+        // Compute a hash of the full contents of the verification key
+        uint256_t hash() const
         {
-            Commitment commit_hash = Commitment::infinity();
-            FF scalar = 1;
-            for (const auto& commitment : this->get_all()) {
-                commit_hash = commit_hash + commitment * scalar;
-                scalar *= 2;
+            std::vector<uint8_t> buffer;
+            for (const FF& field : this->to_field_elements()) {
+                std::vector<uint8_t> field_bytes = field.to_buffer();
+                buffer.insert(buffer.end(), field_bytes.begin(), field_bytes.end());
             }
-            return commit_hash;
+            return from_buffer<uint256_t>(crypto::sha256(buffer));
         }
     };
     /**

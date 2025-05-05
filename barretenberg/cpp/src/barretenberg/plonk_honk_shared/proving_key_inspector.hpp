@@ -14,36 +14,54 @@
 
 namespace bb::proving_key_inspector {
 
-template <typename Flavor, typename Builder>
-typename Flavor::Commitment compute_vk_hash(const Builder&,
-                                            const TraceSettings& = TraceSettings{ AZTEC_TRACE_STRUCTURE })
-    requires(!IsMegaFlavor<Flavor> || !IsMegaBuilder<typename Flavor::CircuitBuilder>)
-{
-    info("compute_vk_hash: Unsupported Flavor/Builder, returning default Commitment.");
-    return typename Flavor::Commitment{}; // or some safe default
-}
+// Helper for extracting a native Flavor from either a native or recursive flavor.
+template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct NativeFlavorHelper {
+    using type = Flavor;
+};
+
+template <typename Flavor> struct NativeFlavorHelper<Flavor, true> {
+    using type = typename Flavor::NativeFlavor;
+};
 
 template <typename Flavor, typename Builder>
-typename Flavor::Commitment compute_vk_hash(
-    const Builder& circuit_in, const TraceSettings& trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE })
+uint256_t compute_vk_hash(const Builder&, const TraceSettings& = TraceSettings{ AZTEC_TRACE_STRUCTURE })
+    requires(!IsMegaFlavor<Flavor> || !IsMegaBuilder<Builder>)
+{
+    info("compute_vk_hash: Not implemented for this Flavor/Builder, returning 0.");
+    return 0;
+}
+
+//
+/**
+ * @brief Compute the hash of the verification key that results from constructing a proving key from the given circuit.
+ * @details This is useful for identifying the point of divergence for two circuits that are expected to be identical,
+ * for example, the circuit constructed from a given acir program with or without a genuine witness.
+ *
+ * @tparam Flavor Determines the type of PK and VK to be constructed.
+ * @tparam Builder The builder for the circuit in question.
+ */
+template <typename Flavor, typename Builder>
+uint256_t compute_vk_hash(const Builder& circuit_in,
+                          const TraceSettings& trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE })
     requires(IsMegaFlavor<Flavor> && IsMegaBuilder<Builder>)
 {
-    using NativeFlavor = std::conditional_t<IsRecursiveFlavor<Flavor>, typename Flavor::NativeFlavor, Flavor>;
+    using NativeFlavor = typename NativeFlavorHelper<Flavor>::type;
     using DeciderProvingKey = typename bb::DeciderProvingKey_<NativeFlavor>;
     using VerificationKey = NativeFlavor::VerificationKey;
 
-    Builder circuit = circuit_in;
+    Builder circuit = circuit_in; // Copy the circuit to avoid modifying the original
 
-    // WORKTODO: I think this is where we get a complaing baout no pairing points be added. Do we just need to add a
-    // default here?
+    // Avoid hitting debugging ASSERTs by correctly setting the pairing point accumulator public component key idx
+    uint32_t pairing_points_idx = static_cast<uint32_t>(circuit.public_inputs.size()) - PAIRING_POINTS_SIZE;
+    if (circuit.databus_propagation_data.is_kernel) {
+        pairing_points_idx -= PROPAGATED_DATABUS_COMMITMENTS_SIZE;
+    }
+    circuit.pairing_inputs_public_input_key.start_idx = pairing_points_idx;
 
-    // TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    // auto proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-    auto proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    DeciderProvingKey proving_key{ circuit, trace_settings };
+    VerificationKey verification_key{ proving_key.proving_key };
 
-    auto vk_hash = verification_key->hash();
-    return vk_hash;
+    return verification_key.hash();
 }
 
 // Determine whether a polynomial has at least one non-zero coefficient

@@ -2,6 +2,7 @@
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
@@ -527,58 +528,7 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
  * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
  *
  */
-TEST_F(AcirIntegrationTest, MsgpackInputs)
-{
-    // std::string input_path =
-    // "../../../ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc/ivc-inputs.msgpack";
-    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
-
-    PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
-    ClientIVC::Proof proof = ivc->prove();
-    auto hiding_vk = ivc->get_vk().mega;
-
-    // Verify the proof
-    [[maybe_unused]] bool result = ivc->verify(proof);
-    EXPECT_TRUE(result);
-
-    // Compute a hiding circuit vk as would be done in write_vk
-    std::shared_ptr<ClientIVC::MegaVerificationKey> dummy_hiding_vk;
-    {
-        const size_t num_public_inputs_in_final_circuit = steps.folding_stack.back().constraints.public_inputs.size();
-        info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-
-        ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
-        ClientIVCMockCircuitProducer circuit_producer;
-
-        // Initialize the IVC with an arbitrary circuit
-        // We segfault if we only call accumulate once
-        static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-        MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
-        ivc.accumulate(circuit_0);
-
-        // Create another circuit and accumulate
-        MegaCircuitBuilder circuit_1 = circuit_producer.create_next_circuit(
-            ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
-        ivc.accumulate(circuit_1);
-
-        // Construct the hiding circuit and its VK (stored internally in the IVC)
-        ivc.construct_hiding_circuit_key();
-
-        dummy_hiding_vk = ivc.get_vk().mega;
-    }
-    // Compare the hiding vk computed using the genuine witness with the vk computed using the dummy witness
-    hiding_vk->compare(dummy_hiding_vk);
-}
-
-/**
- * @brief Debug the discrepancy resulting from MSM constraints in the token contract in the "dummy witness" vs real
- * witness case.
- */
-TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
+TEST_F(AcirIntegrationTest, ClientIVCMsgpackInputs)
 {
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
@@ -589,18 +539,35 @@ TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-    auto steps_copy = steps;
 
-    size_t token_idx = 4; // index of the token contract in the set of circuits for the whole flow
-    auto precomputed_token_vk = steps.precomputed_vks[token_idx];
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    ClientIVC::Proof proof = ivc->prove();
+
+    EXPECT_TRUE(ivc->verify(proof));
+}
+
+/**
+ * @brief Check that for a set of programs to be accumulated via CIVC, the verification keys computed with a dummy
+ * witness are identical to those computed with the genuine provided witness.
+ */
+TEST_F(AcirIntegrationTest, DummyWitnessVkConsistency)
+{
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    uint256_t recomputed_vk_hash{ 0 };
+    uint256_t computed_vk_hash{ 0 };
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     for (auto [program_in, precomputed_vk, function_name] :
          zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
-        std::shared_ptr<ClientIVC::MegaVerificationKey> recomputed_vk;
+
+        // Compute the VK using the program constraints but no witness (i.e. mimic the "dummy witness" case)
         {
-            info("RECOMPUTE: \n");
             auto program = program_in;
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
             auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
@@ -610,19 +577,11 @@ TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-            recomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-
-            // Compare the recomputed vk with the precomputed vk (both constructed using a dummy witness)
-            // Note: (We expect these to be equal)
-            // recomputed_vk->compare(precomputed_token_vk);
-            // EXPECT_TRUE(recomputed_vk->compare(precomputed_token_vk));
+            recomputed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
         }
 
         // Compute the verification key using the genuine witness
-        std::shared_ptr<ClientIVC::MegaVerificationKey> computed_vk;
         {
-            info("COMPUTE: \n");
             auto program = program_in;
             auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
@@ -631,12 +590,10 @@ TEST_F(AcirIntegrationTest, MultiScalarMulDiscrepancyDebug)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-            auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(circuit, trace_settings);
-            computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-
-            // Compare the VK computed using the genuine witness with the VK computed using the dummy witness
-            // EXPECT_TRUE(computed_vk->compare(recomputed_vk));
+            computed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
         }
+
+        EXPECT_EQ(recomputed_vk_hash, computed_vk_hash);
     }
 }
 #endif
