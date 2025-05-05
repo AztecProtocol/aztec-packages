@@ -186,9 +186,10 @@ describe('e2e_token_contract transfer private', () => {
       // Should fail as the returned value from the badAccount is malformed
       const txCancelledAuthwit = asset
         .withWallet(wallets[1])
-        .methods.transfer_in_private(badAccount.address, accounts[1].address, 0, nonce)
-        .send();
-      await expect(txCancelledAuthwit.wait()).rejects.toThrow('Assertion failed: Message not authorized by account');
+        .methods.transfer_in_private(badAccount.address, accounts[1].address, 0, nonce);
+      await expect(txCancelledAuthwit.simulate()).rejects.toThrow(
+        'Assertion failed: Message not authorized by account',
+      );
     });
   });
 });

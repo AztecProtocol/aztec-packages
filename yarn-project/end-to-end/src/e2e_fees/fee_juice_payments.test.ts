@@ -51,6 +51,16 @@ describe('e2e_fees Fee Juice payments', () => {
       expect(await feeJuiceContract.methods.balance_of_public(bobAddress).simulate()).toEqual(0n);
     });
 
+    it('fails to simulate a tx', async () => {
+      const paymentMethod = new FeeJuicePaymentMethod(bobAddress);
+      await expect(
+        feeJuiceContract
+          .withWallet(bobWallet)
+          .methods.check_balance(0n)
+          .simulate({ fee: { gasSettings, paymentMethod }, skipFeeEnforcement: false }),
+      ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/i);
+    });
+
     it('fails to send a tx', async () => {
       const paymentMethod = new FeeJuicePaymentMethod(bobAddress);
       await expect(
@@ -59,7 +69,7 @@ describe('e2e_fees Fee Juice payments', () => {
           .methods.check_balance(0n)
           .send({ fee: { gasSettings, paymentMethod } })
           .wait(),
-      ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/i);
+      ).rejects.toThrow(/Invalid tx: Insufficient fee payer balance/i);
     });
 
     it('claims bridged funds and pays with them on the same tx', async () => {

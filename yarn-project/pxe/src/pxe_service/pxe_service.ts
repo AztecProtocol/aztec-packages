@@ -648,12 +648,16 @@ export class PXEService implements PXE {
 
   public proveTx(
     txRequest: TxExecutionRequest,
-    privateExecutionResult: PrivateExecutionResult,
+    privateExecutionResult?: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
     return this.#putInJobQueue(async () => {
       try {
+        if (!privateExecutionResult) {
+          await this.synchronizer.sync();
+          privateExecutionResult = await this.#executePrivate(txRequest);
+        }
         const { publicInputs, clientIvcProof } = await this.#prove(
           txRequest,
           this.proofCreator,
@@ -674,6 +678,7 @@ export class PXEService implements PXE {
   public profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'full' | 'execution-steps' | 'gates',
+    skipProofGeneration: boolean = true,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
@@ -692,16 +697,19 @@ export class PXEService implements PXE {
           `Profiling transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
           txInfo,
         );
+        const syncTimer = new Timer();
         await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
+
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
 
-        const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-          simulate: true,
+        const { executionSteps, timings } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+          simulate: skipProofGeneration,
           skipFeeEnforcement: false,
           profileMode,
         });
 
-        return new TxProfileResult(executionSteps);
+        return new TxProfileResult(executionSteps, syncTime, timings?.proving);
       } catch (err: any) {
         throw this.#contextualizeError(
           err,

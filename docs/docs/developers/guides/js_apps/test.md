@@ -74,7 +74,7 @@ We can check that a call to a private function would fail by simulating it local
 
 Under the hood, the `send()` method executes a simulation, so we can just call the usual `send().wait()` to catch the same failure.
 
-#include_code local-tx-fails-send /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+#include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 #### A transaction is dropped
 
@@ -90,7 +90,7 @@ Public function calls can be caught failing locally similar to how we catch priv
 
 #### A public call fails on the sequencer
 
-We can ignore a local simulation error for a public function via the `skipPublicSimulation`. This will submit a failing call to the sequencer, who will include the transaction, but without any side effects from our application logic. Requesting the receipt for the transaction will also show it has a reverted status.
+This will submit a failing call to the sequencer, who will include the transaction, but without any side effects from our application logic. Requesting the receipt for the transaction will also show it has a reverted status.
 
 #include_code pub-reverted /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 

@@ -33,11 +33,11 @@ describe('e2e_voting_contract', () => {
 
       // We try voting again, but our TX is dropped due to trying to emit duplicate nullifiers
       // first confirm that it fails simulation
-      await expect(votingContract.methods.cast_vote(candidate).send().wait()).rejects.toThrow(/Nullifier collision/);
+      await expect(votingContract.methods.cast_vote(candidate).simulate()).rejects.toThrow(/Nullifier collision/);
       // if we skip simulation, tx fails
-      await expect(
-        votingContract.methods.cast_vote(candidate).send({ skipPublicSimulation: true }).wait(),
-      ).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
+      await expect(votingContract.methods.cast_vote(candidate).send().wait()).rejects.toThrow(
+        TX_ERROR_EXISTING_NULLIFIER,
+      );
     });
   });
 });
