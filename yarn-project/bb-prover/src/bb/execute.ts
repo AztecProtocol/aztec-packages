@@ -657,24 +657,27 @@ async function verifyProofInternal(
     logger.verbose(`bb-prover (verify) BB out - ${message}`);
   };
 
-  // take proofFullPath and remove the suffix past the / to get the directory
-  const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
-  const publicInputsFullPath = join(proofDir, '/public_inputs');
-
-  logger.debug(`public inputs path: ${publicInputsFullPath}`);
   try {
     let args;
-    // Specify the public inputs path in the case of UH verification.
+
     if (command == 'verify') {
+      // Specify the public inputs path in the case of UH verification.
+      // Take proofFullPath and remove the suffix past the / to get the directory.
+      const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
+      const publicInputsFullPath = join(proofDir, '/public_inputs');
+      logger.debug(`public inputs path: ${publicInputsFullPath}`);
+
       args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
     } else {
       args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
     }
+
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {
       args.push(loggingArg);
     }
+
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, args, logFunction);
     const duration = timer.ms();

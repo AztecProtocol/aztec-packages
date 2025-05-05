@@ -18,6 +18,7 @@ import {
   type BBResult,
   type BBSuccess,
   BB_RESULT,
+  VK_FILENAME,
   generateAvmProof,
   generateAvmProofV2,
   verifyAvmProof,
@@ -142,7 +143,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
       this.bbWorkingDirectory,
       proofRes.proofPath!,
       publicInputs,
-      proofRes.vkDirectoryPath!,
+      path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
       this.logger,
     );
   }
