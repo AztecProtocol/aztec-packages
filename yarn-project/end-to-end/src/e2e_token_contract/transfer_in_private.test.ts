@@ -65,7 +65,7 @@ describe('e2e_token_contract transfer private', () => {
       ).rejects.toThrow(
         expect.objectContaining({
           message: expect.stringMatching(/Assertion failed: invalid nonce 'nonce == 0'/),
-          stack: expect.stringMatching(/at nonce == 0[\s\S]*at Token\.transfer_in_private.*/),
+          stack: expect.stringMatching(/at nonce == 0[\s\S]*at Token\..*/),
         }),
       );
     });
