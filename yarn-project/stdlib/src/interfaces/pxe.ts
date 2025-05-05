@@ -139,12 +139,13 @@ export interface PXE {
    * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
-   * @param privateExecutionResult - The result of the private execution of the transaction
+   * @param privateExecutionResult - (optional) The result of the private execution of the transaction. The txRequest
+   * will be executed if not provided
    * @returns A result containing the proof and public inputs of the tail circuit.
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
+  proveTx(txRequest: TxExecutionRequest, privateExecutionResult?: PrivateExecutionResult): Promise<TxProvingResult>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
@@ -188,6 +189,7 @@ export interface PXE {
   profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'gates' | 'execution-steps' | 'full',
+    skipProofGeneration?: boolean,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult>;
 
@@ -455,12 +457,16 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(z.void()),
   updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
-  proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
+  proveTx: z
+    .function()
+    .args(TxExecutionRequest.schema, optional(PrivateExecutionResult.schema))
+    .returns(TxProvingResult.schema),
   profileTx: z
     .function()
     .args(
       TxExecutionRequest.schema,
       z.union([z.literal('gates'), z.literal('full'), z.literal('execution-steps')]),
+      optional(z.boolean()),
       optional(schemas.AztecAddress),
     )
     .returns(TxProfileResult.schema),

@@ -99,7 +99,7 @@ describe('e2e_note_getter', () => {
       await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
         expectedError,
       );
-      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
+      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
         expectedError,
       );
     }

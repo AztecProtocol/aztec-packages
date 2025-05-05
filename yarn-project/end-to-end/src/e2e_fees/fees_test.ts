@@ -349,16 +349,15 @@ export class FeesTest {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
         expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
 
-        this.sponsoredFPC = await setupSponsoredFPC(context.pxe);
-        this.logger.info(`SponsoredFPC deployed at ${this.sponsoredFPC.address}`);
+        const sponsoredFPC = await setupSponsoredFPC(context.pxe);
+        this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
 
         return {
-          sponsoredFPCAddress: this.sponsoredFPC.address,
+          sponsoredFPCAddress: sponsoredFPC.address,
         };
       },
       async data => {
-        const sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.aliceWallet);
-        this.sponsoredFPC = sponsoredFPC;
+        this.sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.aliceWallet);
       },
     );
   }
