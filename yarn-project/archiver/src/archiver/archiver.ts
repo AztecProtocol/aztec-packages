@@ -899,6 +899,39 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       } as L2BlockId,
     };
   }
+
+  public async rollbackTo(targetL2BlockNumber: number): Promise<void> {
+    const currentBlocks = await this.getL2Tips();
+    const currentL2Block = currentBlocks.latest.number;
+    const currentProvenBlock = currentBlocks.proven.number;
+    // const currentFinalizedBlock = currentBlocks.finalized.number;
+
+    if (targetL2BlockNumber >= currentL2Block) {
+      throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);
+    }
+    const blocksToUnwind = currentL2Block - targetL2BlockNumber;
+    const [targetL2Block] = await this.store.getBlocks(targetL2BlockNumber, 1);
+    if (!targetL2Block) {
+      throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
+    }
+    const targetL1BlockNumber = targetL2Block.l1.blockNumber;
+    this.log.info(`Unwinding ${blocksToUnwind} blocks from L2 block ${currentL2Block}`);
+    await this.store.unwindBlocks(currentL2Block, blocksToUnwind);
+    this.log.info(`Unwinding L1 to L2 messages to ${targetL2BlockNumber}`);
+    await this.store.rollbackL1ToL2MessagesToL2Block(targetL2BlockNumber, currentL2Block);
+    this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
+    await this.store.setBlockSynchedL1BlockNumber(targetL1BlockNumber);
+    await this.store.setMessageSynchedL1BlockNumber(targetL1BlockNumber);
+    if (targetL2BlockNumber < currentProvenBlock) {
+      this.log.info(`Clearing proven L2 block number`);
+      await this.store.setProvenL2BlockNumber(0);
+    }
+    // TODO(palla/reorg): Set the finalized block when we add support for it.
+    // if (targetL2BlockNumber < currentFinalizedBlock) {
+    //   this.log.info(`Clearing finalized L2 block number`);
+    //   await this.store.setFinalizedL2BlockNumber(0);
+    // }
+  }
 }
 
 enum Operation {
@@ -1091,7 +1124,7 @@ class ArchiverStoreHelper
     return opResults.every(Boolean);
   }
 
-  async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+  public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
       throw new Error(`Can only remove from the tip`);
@@ -1198,5 +1231,11 @@ class ArchiverStoreHelper
   }
   estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
+  }
+  rollbackL1ToL2MessagesToL2Block(
+    targetBlockNumber: number | bigint,
+    currentBlockNumber: number | bigint,
+  ): Promise<void> {
+    return this.store.rollbackL1ToL2MessagesToL2Block(targetBlockNumber, currentBlockNumber);
   }
 }

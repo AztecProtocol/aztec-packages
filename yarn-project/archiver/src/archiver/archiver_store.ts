@@ -250,4 +250,10 @@ export interface ArchiverDataStore {
 
   /** Closes the underlying data store. */
   close(): Promise<void>;
+
+  /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
+  rollbackL1ToL2MessagesToL2Block(
+    targetBlockNumber: number | bigint,
+    currentBlockNumber: number | bigint,
+  ): Promise<void>;
 }
