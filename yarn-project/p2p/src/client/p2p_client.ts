@@ -70,7 +70,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   constructor(
     _clientType: T,
-    store: AztecAsyncKVStore,
+    private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
@@ -89,6 +89,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
+  }
+
+  public clear(): Promise<void> {
+    return this.store.clear();
   }
 
   public isP2PClient(): true {

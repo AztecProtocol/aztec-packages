@@ -359,4 +359,11 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   public estimateSize(): Promise<StoreSize> {
     return this.db.estimateSize();
   }
+
+  public rollbackL1ToL2MessagesToL2Block(
+    targetBlockNumber: number | bigint,
+    currentBlock: number | bigint,
+  ): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(BigInt(targetBlockNumber), BigInt(currentBlock));
+  }
 }

@@ -309,6 +309,26 @@ export function describeArchiverDataStore(
           await store.getL1ToL2Messages(l2BlockNumber);
         }).rejects.toThrow(`L1 to L2 message gap found in block ${l2BlockNumber}`);
       });
+
+      it('removes messages up to the given block number', async () => {
+        for (let blockNum = 1n; blockNum < 5n; blockNum++) {
+          await store.addL1ToL2Messages({
+            lastProcessedL1BlockNumber: blockNum,
+            retrievedData: generateBlockMessages(blockNum, l1ToL2MessageSubtreeSize),
+          });
+        }
+
+        for (let blockNum = 1n; blockNum < 5n; blockNum++) {
+          expect(await store.getL1ToL2Messages(blockNum)).toHaveLength(l1ToL2MessageSubtreeSize);
+        }
+
+        await store.rollbackL1ToL2MessagesToL2Block(2n, 4n);
+
+        expect(await store.getL1ToL2Messages(1n)).toHaveLength(l1ToL2MessageSubtreeSize);
+        expect(await store.getL1ToL2Messages(2n)).toHaveLength(l1ToL2MessageSubtreeSize);
+        expect(await store.getL1ToL2Messages(3n)).toHaveLength(0);
+        expect(await store.getL1ToL2Messages(4n)).toHaveLength(0);
+      });
     });
 
     describe('contractInstances', () => {
