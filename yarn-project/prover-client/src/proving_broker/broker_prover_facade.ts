@@ -6,6 +6,7 @@ import type {
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { sha256 } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
@@ -393,13 +394,19 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+    this.log.info(`getAvmProof() called with skipPublicInputsValidation: ${skipPublicInputsValidation}`);
+
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PUBLIC_VM, inputs, epochNumber),
       ProvingRequestType.PUBLIC_VM,
       inputs,
       epochNumber,
       signal,
-    );
+    ).then(result => {
+      // Override the default value of skipPublicInputsValidation potentially set in BBNativeRollupProver.getAvmProof().
+      result.proof.proof[0] = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
+      return result;
+    });
   }
 
   getBaseParityProof(
