@@ -1,1 +1,1 @@
-barretenberg_module(srs polynomials api)
+barretenberg_module(srs polynomials)
