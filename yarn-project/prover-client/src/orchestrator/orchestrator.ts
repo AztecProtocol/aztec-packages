@@ -1,6 +1,4 @@
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -17,6 +15,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import { L2Block } from '@aztec/stdlib/block';
 import type {
   EpochProver,
@@ -26,7 +25,6 @@ import type {
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import { BaseParityInputs } from '@aztec/stdlib/parity';
-import { makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   EmptyBlockRootRollupInputs,
@@ -37,7 +35,6 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/stdlib/tx';
-import { VerificationKeyData } from '@aztec/stdlib/vks';
 import {
   Attributes,
   type TelemetryClient,
@@ -940,14 +937,18 @@ export class ProvingOrchestrator implements EpochProver {
             throw err;
           } else {
             logger.warn(
-              `Error thrown when proving AVM circuit but AVM_PROVING_STRICT is off. Faking AVM proof and carrying on. ${inspect(
-                err,
-              )}.`,
+              `Error thrown when proving AVM circuit but AVM_PROVING_STRICT is off. Use snapshotted
+               AVM inputs and carrying on. ${inspect(err)}.`,
             );
-            return {
-              proof: makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
-              verificationKey: VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
-            };
+
+            try {
+              const minimalPublicTxResult = await createAvmMinimalPublicTx();
+              const snapshotInputs = minimalPublicTxResult.avmProvingRequest.inputs;
+              return await this.prover.getAvmProof(snapshotInputs, true, signal, provingState.epochNumber);
+            } catch (err) {
+              logger.error(`Error thrown when proving snapshotted AVM inputs.`, err);
+              throw err;
+            }
           }
         }
       },
