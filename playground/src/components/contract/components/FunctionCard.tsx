@@ -35,6 +35,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import { Badge, Box, Paper, Tooltip } from '@mui/material';
 import { ContractMethodDescriptions } from '../../../utils/constants';
+import { trackButtonClick } from '../../../utils/matomo';
 
 type SimulationResult = {
   success: boolean;
@@ -50,6 +51,7 @@ const simulationContainer = css({
 });
 
 const functionName = css({
+  marginBottom: '0.5rem',
   '@media (max-width: 1200px)': {
     fontSize: '1.2rem',
   },
@@ -86,6 +88,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const { wallet } = useContext(AztecContext);
 
   const simulate = async (fnName: string) => {
+    trackButtonClick(`Simulate ${fnName}`, 'Contract Interaction');
     setIsWorking(true);
     let result;
     try {
@@ -113,7 +116,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   ) => {
     setOpenCreateAuthwitDialog(false);
     if (isPublic && interaction && opts) {
-      onSendTxRequested(`${fn.name} public authwit`, interaction, contract?.address, opts);
+      onSendTxRequested(`Authwit ${fn.name}`, interaction, contract?.address, opts);
     }
   };
 
@@ -143,7 +146,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         }
         setIsWorking(false);
       } else {
-        onSendTxRequested(name, interaction, contract.address, opts);
+        onSendTxRequested(`Execute ${name}`, interaction, contract.address, opts);
       }
     }
   };
@@ -160,13 +163,21 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       sx={{
         backgroundColor: 'white',
         margin: '0.5rem',
+        border: 'none',
+        marginBottom: '1rem',
         overflow: 'hidden',
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
+        '&:last-child': {
+          marginBottom: '0',
+        },
+        '@media (max-width: 900px)': {
+          margin: '0.5rem 0px',
+        },
       }}
     >
-      <CardContent sx={{ textAlign: 'left', position: 'relative' }}>
+      <CardContent sx={{ textAlign: 'left', position: 'relative', padding: '12px 16px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" css={functionName}>
             {fn.name}
@@ -183,7 +194,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           </IconButton>
         </Box>
 
-        <Typography variant="caption" sx={{ marginBottom: '1rem' }}>
+        <Typography variant="caption" sx={{ lineHeight: '1rem', display: 'block' }}>
           {ContractMethodDescriptions[contractArtifact.name]?.[fn.name]}
         </Typography>
 

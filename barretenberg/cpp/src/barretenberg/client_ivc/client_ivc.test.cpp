@@ -395,7 +395,7 @@ TEST(ClientIVCBenchValidation, Full6)
     bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     size_t total_num_circuits{ 12 };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
@@ -414,7 +414,7 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
         bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
         bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
-        ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+        ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
         size_t total_num_circuits{ 12 };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         auto mocked_vkeys = mock_verification_keys(total_num_circuits);
@@ -430,7 +430,7 @@ TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
@@ -445,7 +445,7 @@ TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
     bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
