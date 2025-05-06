@@ -36,7 +36,16 @@ class ContextInterface {
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
     virtual const AztecAddress& get_msg_sender() const = 0;
+    virtual const FF& get_transaction_fee() const = 0;
+    virtual const FF& get_chain_id() const = 0;
+    virtual const FF& get_version() const = 0;
+    virtual const FF& get_block_number() const = 0;
+    virtual const uint64_t& get_timestamp() const = 0;
+    virtual const FF& get_fee_per_l2_gas() const = 0;
+    virtual const FF& get_fee_per_da_gas() const = 0;
     virtual bool get_is_static() const = 0;
+    virtual FF get_l2_gas_left() const = 0;
+    virtual FF get_da_gas_left() const = 0;
 
     // Input / Output
     virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
