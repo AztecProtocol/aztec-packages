@@ -96,12 +96,6 @@ aztec start --node --archiver --sequencer --network alpha-testnet
 
 The comprehensive list of parameters can be seen via: `aztec help start`
 
-For example:
-- To set the max tx pool size to 1 billion (from its default of 100 million):
-  - `P2P_MAX_TX_POOL_SIZE=1000000000` or `--p2p.maxTxPoolSize 1000000000`
-- Set a separate blob sink url
-  - `BLOB_SINK_URL="<url>"` OR `--sequencer.blobSinkUrl <url>`
-
 ### Next steps
 
 To add your sequencer to the set of validators, in a terminal define required variables:
