@@ -933,7 +933,7 @@ export class ProvingOrchestrator implements EpochProver {
       async (signal: AbortSignal) => {
         const inputs = txProvingState.getAvmInputs();
         try {
-          return await this.prover.getAvmProof(inputs, true, signal, provingState.epochNumber);
+          return await this.prover.getAvmProof(inputs, false, signal, provingState.epochNumber);
         } catch (err) {
           if (process.env.AVM_PROVING_STRICT) {
             logger.error(`Error thrown when proving AVM circuit with AVM_PROVING_STRICT on`, err);
