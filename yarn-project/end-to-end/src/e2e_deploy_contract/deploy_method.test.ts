@@ -145,12 +145,10 @@ describe('e2e_deploy_contract deploy method', () => {
     // First send the deploy transaction
     // Pay priority fee to ensure the deployment transaction gets processed first.
     const maxPriorityFeesPerGas = new GasFees(1n, 0n);
-    const deployTxPromise = deployTx
-      .send({ skipPublicSimulation: true, fee: { gasSettings: { maxPriorityFeesPerGas } } })
-      .wait({ timeout: 600 });
+    const deployTxPromise = deployTx.send({ fee: { gasSettings: { maxPriorityFeesPerGas } } }).wait({ timeout: 600 });
 
     // Then send the public call transaction
-    const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+    const publicCallTxPromise = publicCall.send().wait({ timeout: 600 });
 
     logger.debug('Deploying a contract and calling a public function in the same block');
     const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);

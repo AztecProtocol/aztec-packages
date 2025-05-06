@@ -1,7 +1,7 @@
 import React from "react";
 
 export const General = {
-  VersionLatestTestnet: () => <code>0.85.0-alpha-testnet.5</code>,
+  VersionLatestTestnet: () => <code>alpha-testnet</code>,
   VersionLatestSandbox: () => <code>0.86.0</code>,
   ViewTransactions: () => (
     <p>
@@ -60,7 +60,7 @@ export const General = {
 
   AztecTestnetVersion: () => (
     <span>
-      0.85.0-alpha-testnet.5
+      alpha-testnet
     </span>
   ),
 

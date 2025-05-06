@@ -94,11 +94,10 @@ describe('e2e_deploy_contract legacy', () => {
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
     const firstOpts: DeployOptions = {
-      skipPublicSimulation: true,
       skipClassRegistration: true,
       skipPublicDeployment: true,
     };
-    const secondOpts: DeployOptions = { skipPublicSimulation: true };
+    const secondOpts: DeployOptions = {};
 
     await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
     const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];

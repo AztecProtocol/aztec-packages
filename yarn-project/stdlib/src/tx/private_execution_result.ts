@@ -136,6 +136,7 @@ export class PrivateCallExecutionResult {
      * But keep them as ContractClassLog so that we can verify the log hashes before submitting the tx (TODO).
      */
     public contractClassLogs: CountedContractClassLog[],
+    public profileResult?: PrivateExecutionProfileResult,
   ) {}
 
   static get schema(): ZodFor<PrivateCallExecutionResult> {
@@ -248,4 +249,8 @@ export function collectNested<T>(
   return thisExecutionReads.concat(
     executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
   );
+}
+
+export class PrivateExecutionProfileResult {
+  constructor(public timings: { witgen: number }) {}
 }

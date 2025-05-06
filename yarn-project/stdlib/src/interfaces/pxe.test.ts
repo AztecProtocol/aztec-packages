@@ -361,6 +361,7 @@ class MockPXE implements PXE {
   profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'gates' | 'full' | 'execution-steps' | 'none',
+    skipProofGeneration = true,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
@@ -368,7 +369,8 @@ class MockPXE implements PXE {
     if (msgSender) {
       expect(msgSender).toBeInstanceOf(AztecAddress);
     }
-    return Promise.resolve(new TxProfileResult([]));
+    const provingTime = skipProofGeneration ? 1 : undefined;
+    return Promise.resolve(new TxProfileResult([], 1, provingTime));
   }
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
