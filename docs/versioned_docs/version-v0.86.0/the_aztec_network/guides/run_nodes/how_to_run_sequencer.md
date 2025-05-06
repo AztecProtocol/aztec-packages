@@ -60,63 +60,51 @@ Join the [Discord](https://discord.gg/aztec) to connect with the community and g
 
 ## Sequencer Quickstart
 
-In a directory of your choosing, create a `.env` file with the following environment variables.
+With the alpha-testnet version of the aztec tools, you now need to define required variables for your node.
+
+The following variable names are specific to the aztec start command:
+- `ETHEREUM_HOSTS=<url>`: One or more comma-separated public rpc provider url(s). NB - don't share your access token
+  - Signup to a service for more requests, Or use one like https://aztec-alpha-testnet-fullnode.zkv.xyz/
+- `L1_CONSENSUS_HOST_URLS=<url>`: One or more comma-separated public rpc provider url(s) that supports consensus client requests
+- `VALIDATOR_PRIVATE_KEY="Ox<hex value>`: Private key of testnet L1 EOA that holds Sepolia ETH (0.01 Sepolia ETH can get you started)
+- `COINBASE="0x<eth address>`: Recipient of block rewards (for node security on mainnet, this should be a different address to the validator eoa)
+- `P2P_IP="x.x.x.x"`: IP address of computer running the node (you can get this by running, `curl api.ipify.org`, on your node)
+
+Now in a terminal start your node as a sequencer and archiver:
+
+If the above variables are set you can simply use: `aztec start --node --archiver --sequencer --network alpha-testnet`
+
+Otherwise you can specify values via the CLI flags (using values in place of the variable names):
 
 ```bash
-# Note: Variable names are specific to the aztec command parameters.
-
-# A public rpc provider url (signup to a service for more requests) NB: don't share your access token
-export ETHEREUM_HOSTS="<url>"
-
-# A public rpc provider url that supports consensus client requests
-export L1_CONSENSUS_HOST_URLS="<url>"
-
-# Private key of testnet L1 EOA that holds Sepolia ETH (0.01 Sepolia ETH can get you started)
-export VALIDATOR_PRIVATE_KEY="0x<hex value>"
-
-# Recipient of block rewards (for node security on mainnet, this should be a different address to the validator eoa)
-export COINBASE="0x<eth address>"
-
-# IP address of computer running node (you can get this by running, `curl api.ipify.org`, on your node)
-export P2P_IP="x.x.x.x"
+aztec start --node --archiver --sequencer \
+  --network alpha-testnet \
+  --l1-rpc-urls $ETHEREUM_HOSTS \
+  --l1-consensus-host-urls $L1_CONSENSUS_HOST_URLS \
+  --sequencer.validatorPrivateKey $VALIDATOR_PRIVATE_KEY \
+  --sequencer.coinbase $COINBASE \
+  --p2p.p2pIp $P2P_IP
 ```
 
-Now in a terminal start your node as a sequencer:
-
-```bash
-# Brings in private environment variables required for the aztec command
-source .env
-
-# Starts the node (as an archiver and sequencer) for Aztec's alpha testnet
-aztec start --node --archiver --sequencer --network alpha-testnet
-```
-
-
-**Additional Parameters**
-
-The comprehensive list of parameters can be seen via: `aztec help start`
+**Additional Parameters**: The comprehensive list of parameters can be seen via: `aztec help start`
 
 ### Next steps
 
-To add your sequencer to the set of validators, in a terminal define required variables:
+To add your sequencer you'll need the following few values, as well as `ETHEREUM_HOSTS` from before:
+
+- `STAKING_ASSET_HANDLER="0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2"`: Constant L1 contract address
+- `L1_CHAIN_ID="11155111"`: Sepolia chainid
+- `PRIVATE_KEY="0x<hex value>`: private key of account with sepolia eth to make transaction (eg can use funded validator key)
+
+Then run the aztec command to add your address as an L1 validator, with rpc url(s) for Etheruem L1 execution requests:
 
 ```bash
-source .env
-
-L1_CHAIN_ID="11155111" # Sepolia chaind
-STAKING_ASSET_HANDLER="0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2" # L1 contract address
-PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY # eg to use validator key to make request
-```
-
-Then run the aztec command to add your address as an L1 validator:
-
-```bash
-# Requests addition into validater set
-aztec add-l1-validator --staking-asset-handler=$STAKING_ASSET_HANDLER \
+aztec add-l1-validator --staking-asset-handler=0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2 \
   --l1-rpc-urls $ETHEREUM_HOSTS \
-  --private-key $PRIVATE_KEY \
-  --attester "<address>" \
-  --proposer-eoa "<address>"
+  --l1-chain-id 11155111 \
+  --private-key "0x<hex value>" \
+  --attester "0x<eth address>" \
+  --proposer-eoa "0x<eth address>"
 ```
 
 **Tip**: Use `aztec help add-l1-validator` for further parameter details.
@@ -134,6 +122,9 @@ The timestamp is when the next round of sequencers can be added as validators, s
 
 See the next section regarding any issues, and also the [Aztec discord server](https://discord.gg/aztec), namely the `# operator | faq` channel.
 
+### Update aztec alpha-testnet version
+To make sure you're using the latest version, run: `aztec-up alpha-testnet`, then restart your node.
+
 #### "No blob bodies found", "rpc rate", "quota limit"
 Register rpc url.
 
@@ -142,14 +133,6 @@ EOA needs sepolia eth, use faucet.
 
 #### "CodeError: stream reset"
 Seen occasionally in logs. Reason: ...
-Ignore.
-
-#### "Skipping tx ... due to insufficient fee per gas"
-Seen often in logs. Reason: ...
-Ignore.
-
-#### "Rejecting tx ... for referencing an unknown block header"
-Seen often in logs. Reason: ...
 Ignore.
 
 #### "SYNC_BLOCK failed"
