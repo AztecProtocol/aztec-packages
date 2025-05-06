@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746500762747,
+  "lastUpdate": 1746542561148,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "michaeljklein@users.noreply.github.com",
-            "name": "Michael J Klein",
-            "username": "michaeljklein"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d5d2d140ed85c86703c8a2563ad44e901cec1cc6",
-          "message": "chore: enable --pedantic-solving for all tests with nargo (#11224)\n\nThis PR is a continuation of [this PR in\nNoir](https://github.com/noir-lang/noir/pull/6716) which enables\n`--pedantic-solving` in all tests that use `nargo`, including some I\nmissed in `noir`.\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2025-04-29T19:21:29Z",
-          "tree_id": "233d1a1ea02d7779108b6111558dc4611fadfd52",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d5d2d140ed85c86703c8a2563ad44e901cec1cc6"
-        },
-        "date": 1745957354407,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8408,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.24071235451345294,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 141047,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1939,6 +1900,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 141306,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "30c2030c13c80df5c03f441139dde3387b0931cb",
+          "message": "chore: better handling of ultra ops in translator circuit builder (#13990)\n\nThis PR attempts to improve clarity in the circuit builder and reduce\nthe size of existing methods by separating the logic that checks ultra\nops and the logic that populates corresponding wire data using the ultra\nop from other builder logic. This will additionally help code\nshareability in upcoming modifications. I also fixed the\n`TranslatorOpcodeConstraintRelation` as it was accepting some opcodes\nthat are not supported",
+          "timestamp": "2025-05-06T13:39:06Z",
+          "tree_id": "e42723a846cc88379cccfd442b0bb139ed4108ae",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/30c2030c13c80df5c03f441139dde3387b0931cb"
+        },
+        "date": 1746542560398,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8235,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2357618136118969,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 135845,
             "unit": "us"
           }
         ]
