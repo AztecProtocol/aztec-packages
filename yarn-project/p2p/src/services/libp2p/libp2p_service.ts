@@ -612,6 +612,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         block: block.blockNumber.toNumber(),
       },
     );
+    // Grab any transactions in the proposal
     await this.extractTxsFromBlockProposal(block, peerId);
     const attestation = await this.blockReceivedCallback(block);
 
