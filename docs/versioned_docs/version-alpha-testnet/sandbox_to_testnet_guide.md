@@ -5,7 +5,7 @@ tags: [sandbox, testnet]
 
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
-This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/getting_started.md).
+This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/guides/getting_started_on_testnet.md).
 
 ## Main differences
 
@@ -35,7 +35,7 @@ export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 
-You can find a full flow in the [getting started on testnet](./developers/getting_started.md) guide.
+You can find a full flow in the [getting started on testnet](./developers/guides/getting_started_on_testnet.md) guide.
 
 Instead of running a PXE locally, you can also use one directly with AztecJS in your app. For this, you will need to connect to an Aztec node and initialize the PXE.
 
