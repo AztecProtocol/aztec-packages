@@ -1,6 +1,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 #include <gtest/gtest.h>
 
@@ -76,7 +77,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::BN254>> CommitmentKeyTest<curve::BN254>::create_commitment_key<
     CommitmentKey<curve::BN254>>(const size_t num_points)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::default_crs_path());
     return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
 }
 
@@ -85,7 +86,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpkin>::create_commitment_key<
     CommitmentKey<curve::Grumpkin>>(const size_t num_points)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    srs::init_file_crs_factory(bb::srs::default_crs_path());
     return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
 }
 

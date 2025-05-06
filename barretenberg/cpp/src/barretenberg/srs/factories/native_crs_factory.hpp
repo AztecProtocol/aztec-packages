@@ -7,6 +7,21 @@
 #include <memory>
 
 namespace bb::srs::factories {
+
+/**
+ * @details The transcript is divided into G1 and G2 point files:
+ * The G1 flat file:
+ *      | XX XX XX XX | ‾\          ‾\
+ *            ...         > G1 point  \
+ *      | XX XX XX XX | _/             \
+ *            ...                       > 64 bytes each
+ *      | XX XX XX XX | ‾\             /
+ *            ...         > G1 point  /
+ *      | XX XX XX XX | _/          _/
+ *
+ * BN254 has one 128 byte G2 point. Grumpkin has no G2 points.
+ */
+
 MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path,
                                   size_t dyadic_circuit_size,
                                   bool allow_download = true);
@@ -31,7 +46,7 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
         }
         return mem_crs_->get_prover_crs(degree);
     }
-    std::shared_ptr<VerifierCrs<curve::BN254>> get_verifier_crs(size_t degree) override
+    std::shared_ptr<VerifierCrs<curve::BN254>> get_verifier_crs(size_t degree = 0) override
     {
         if (degree > last_degree_) {
             mem_crs_ = std::make_shared<MemBn254CrsFactory>(init_bn254_crs(path_, degree, allow_download_));

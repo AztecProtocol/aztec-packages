@@ -1,5 +1,4 @@
 #include "mem_grumpkin_crs_factory.hpp"
-#include "../io.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
@@ -34,14 +33,14 @@ class MemVerifierCrs : public VerifierCrs<Grumpkin> {
 
   private:
     size_t num_points;
-    std::shared_ptr<Grumpkin::AffineElement[]> monomials_;
+    std::shared_ptr<Grumpkin::AffineElement[]> monomials_; // NOLINT
 };
 
 } // namespace
 
 namespace bb::srs::factories {
 
-MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(std::vector<Grumpkin::AffineElement> const& points)
+MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(std::vector<Grumpkin::AffineElement>&& points)
     : prover_crs_(std::make_shared<MemProverCrs<Grumpkin>>(points))
     , verifier_crs_(std::make_shared<MemVerifierCrs>(points))
 {

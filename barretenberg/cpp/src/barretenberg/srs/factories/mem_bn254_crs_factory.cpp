@@ -41,8 +41,7 @@ class MemVerifierCrs : public VerifierCrs<curve::BN254> {
 
 namespace bb::srs::factories {
 
-MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& points,
-                                       g2::affine_element const& g2_point)
+MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element>&& points, g2::affine_element const& g2_point)
     : prover_crs_(std::make_shared<MemProverCrs<curve::BN254>>(points))
 {
     auto g1_identity = g1::affine_element();

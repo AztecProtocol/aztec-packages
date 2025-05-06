@@ -11,7 +11,7 @@ template <class FF> class GrandProductTests : public testing::Test {
     using Polynomial = bb::Polynomial<FF>;
 
   public:
-    void SetUp() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    void SetUp() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
 
     static void populate_span(auto& polynomial_view, const auto& polynomial)
     {

@@ -85,13 +85,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     }
 
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-        }
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
 
     /**
      * @brief Create inner circuit and call check_circuit on it

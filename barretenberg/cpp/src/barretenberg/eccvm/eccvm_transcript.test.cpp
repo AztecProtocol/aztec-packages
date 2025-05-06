@@ -4,6 +4,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
@@ -11,7 +12,7 @@ using namespace bb;
 
 class ECCVMTranscriptTests : public ::testing::Test {
   public:
-    void SetUp() override { srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path()); };
+    void SetUp() override { srs::init_file_crs_factory(srs::default_crs_path()); };
     using FF = grumpkin::fr;
     using Flavor = ECCVMFlavor;
 

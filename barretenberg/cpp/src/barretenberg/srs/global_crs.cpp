@@ -19,30 +19,30 @@ std::filesystem::path default_crs_path()
     return base / ".bb-crs";
 }
 
-void init_bn254_crs_mem_factory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point)
+void init_bn254_crs_mem_factory(std::vector<g1::affine_element>&& points, g2::affine_element const& g2_point)
 {
-    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(points, g2_point);
+    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(std::move(points), g2_point);
 }
 
-void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement> const& points)
+void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement>&& points)
 {
-    grumpkin_crs_factory = std::make_shared<factories::MemGrumpkinCrsFactory>(points);
+    grumpkin_crs_factory = std::make_shared<factories::MemGrumpkinCrsFactory>(std::move(points));
 }
 
 // Initializes the crs using the memory buffers
 void init_bn254_net_crs_factory(const std::filesystem::path& path)
 {
     if (bn254_crs_factory != nullptr) {
-        throw_or_abort("bn254_crs_factory already initialized");
+        return;
     }
     bn254_crs_factory = std::make_shared<factories::NativeBn254CrsFactory>(path);
 }
 
 // Initializes crs from a file path this we use in the entire codebase
-void init_bn254_crs_file_factory(const std::filesystem::path& path)
+void init_bn254_file_crs_factory(const std::filesystem::path& path)
 {
     if (bn254_crs_factory != nullptr) {
-        throw_or_abort("bn254_crs_factory already initialized");
+        return;
     }
     bn254_crs_factory = std::make_shared<factories::NativeBn254CrsFactory>(path, /* allow download = false */ false);
 }
@@ -51,15 +51,15 @@ void init_bn254_crs_file_factory(const std::filesystem::path& path)
 void init_grumpkin_net_crs_factory(const std::filesystem::path& path)
 {
     if (bn254_crs_factory != nullptr) {
-        throw_or_abort("grumpkin_crs_factory already initialized");
+        return;
     }
     grumpkin_crs_factory = std::make_shared<factories::NativeGrumpkinCrsFactory>(path);
 }
 
-void init_grumpkin_file_crs_factory(std::string path)
+void init_grumpkin_file_crs_factory(const std::filesystem::path& path)
 {
     if (grumpkin_crs_factory != nullptr) {
-        throw_or_abort("grumpkin_crs_factory already initialized");
+        return;
     }
     grumpkin_crs_factory =
         std::make_shared<factories::NativeGrumpkinCrsFactory>(path, /* allow download = false */ false);

@@ -13,11 +13,7 @@ namespace bb {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) adapt for grumpkin
 acir_proofs::AcirComposer verifier_init()
 {
-    acir_proofs::AcirComposer acir_composer(0, verbose_logging);
-    // WORKTODO
-    // auto g2_data = get_bn254_g2_data(CRS_PATH);
-    // srs::init_crs_factory({}, g2_data);
-    return acir_composer;
+    return { 0, verbose_logging };
 }
 
 std::string to_json(const std::vector<bb::fr>& data)

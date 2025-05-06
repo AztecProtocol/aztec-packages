@@ -171,7 +171,7 @@ template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_bui
 
 class UltraRelationCorrectnessTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
 };
 
 /**

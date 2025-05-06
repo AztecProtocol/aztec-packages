@@ -15,7 +15,7 @@ namespace bb::srs::factories {
  */
 class MemBn254CrsFactory : public CrsFactory<curve::BN254> {
   public:
-    MemBn254CrsFactory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point);
+    MemBn254CrsFactory(std::vector<g1::affine_element>&& points, g2::affine_element const& g2_point);
     MemBn254CrsFactory(MemBn254CrsFactory&& other) = default;
 
     std::shared_ptr<ProverCrs<curve::BN254>> get_prover_crs(size_t degree) override;

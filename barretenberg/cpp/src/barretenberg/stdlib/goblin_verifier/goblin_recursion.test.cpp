@@ -11,11 +11,7 @@ using namespace bb;
 
 class GoblinRecursionTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;

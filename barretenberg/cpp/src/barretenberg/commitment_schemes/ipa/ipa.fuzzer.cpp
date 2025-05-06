@@ -4,11 +4,12 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+#include "barretenberg/srs/global_crs.hpp"
 #define IPA_FUZZ_TEST
-#include "ipa.hpp"
 #include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "ipa.hpp"
 
 namespace bb {
 
@@ -48,11 +49,10 @@ using namespace bb;
  */
 extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_ignition_crs_path());
+    srs::init_file_crs_factory(srs::default_crs_path());
     ck = std::make_shared<CommitmentKey<Curve>>(COMMITMENT_TEST_NUM_POINTS);
-    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
-        bb::srs::get_grumpkin_crs_path(), COMMITMENT_TEST_NUM_POINTS);
-    vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS, crs_factory);
+    vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS,
+                                                                  srs::get_bn254_crs_factory());
 }
 
 // This define is needed to make ProxyClass a friend of IPA

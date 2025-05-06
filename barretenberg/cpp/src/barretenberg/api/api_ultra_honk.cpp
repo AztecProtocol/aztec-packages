@@ -92,10 +92,6 @@ bool _verify(const bool ipa_accumulation,
     using VerificationKey = typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
 
-    // WORKTODO
-    // auto g2_data = get_bn254_g2_data(CRS_PATH);
-    // srs::init_crs_factory({}, g2_data);
-
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
     auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
