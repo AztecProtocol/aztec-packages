@@ -96,7 +96,12 @@ export class TestBroker implements ProvingJobProducer {
 export class MockProver implements ServerCircuitProver {
   constructor() {}
 
-  getAvmProof(_inputs: AvmCircuitInputs, _signal?: AbortSignal, _epochNumber?: number) {
+  getAvmProof(
+    _inputs: AvmCircuitInputs,
+    _skipPublicInputsValidation?: boolean,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ) {
     return Promise.resolve(
       makeProofAndVerificationKey(
         makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
