@@ -77,7 +77,7 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).prove(),
+      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).simulate(),
     ).rejects.toThrow();
   });
 

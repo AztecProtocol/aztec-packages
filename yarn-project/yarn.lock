@@ -1442,7 +1442,10 @@ __metadata:
   resolution: "@aztec/txe@workspace:txe"
   dependencies:
     "@aztec/accounts": "workspace:^"
+    "@aztec/archiver": "workspace:^"
+    "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/bb-prover": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"

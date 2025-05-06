@@ -57,7 +57,6 @@ describe(`deploys and transfers a private only token`, () => {
         skipPublicDeployment: true,
         skipClassRegistration: true,
         skipInitialization: false,
-        skipPublicSimulation: true,
       })
       .deployed({ timeout: 300 });
 

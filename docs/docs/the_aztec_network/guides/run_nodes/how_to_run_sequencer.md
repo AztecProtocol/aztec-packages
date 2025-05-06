@@ -35,10 +35,18 @@ The archiver component complements this process by maintaining historical chain 
 Before following this guide, make sure you:
 
 - Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
-- You are using the correct version for the testnet by running `aztec-up 0.85.0-alpha-testnet.5`
+- Set up `docker` on your system. Refer to the [Docker installation guide](https://docs.docker.com/engine/install/).
+- You are using the correct version for the testnet by running `aztec-up alpha-testnet`
 - Are running a Linux or MacOS machine with access to a terminal
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
+
+## Requirements
+
+- Network: 25 Mbps up/down
+- CPU: 8-cores
+- RAM: 16 GiB
+- Storage: 1 TB SSD
 
 ## Setting Up Your Sequencer
 
@@ -50,17 +58,19 @@ To use the `aztec start` command, you need to obtain the following:
 
 #### RPCs
 
-- An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`.
+- An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`. Popular execution clients include [Geth](https://geth.ethereum.org/) or [Nethermind](https://nethermind.io/). You can run your own node or use a service like [Alchemy](https://www.alchemy.com/) or [Infura](https://www.infura.io/).
 
-- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`. You can provide fallback URLs by separating them with commas.
+- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`. Popular consensus clients include [Lighthouse](https://lighthouse.sigmaprime.io/) or [Prysm](https://prysmaticlabs.com/). Not all RPC providers support consensus endpoints, [Quicknode](https://www.quicknode.com/) and [dRPC](https://drpc.org/) have been known to work for consensus endpoints.
 
-- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional remote server that serves blobs to the client. You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`.
+- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional remote server that serves blobs to the client. This is often called a "blob sink" or "blob storage service". You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`. Some providers like [Alchemy](https://www.alchemy.com/) offer blob storage services as part of their infrastructure offerings.
 
 #### Ethereum Keys
 
 You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
 
 The private key is needed as your validator will post blocks to Ethereum, and the public address will be the recipient of any block rewards.
+
+Disclaimer: you may want to generate and use a new Ethereum private key.
 
 #### Networking
 
@@ -88,7 +98,8 @@ aztec start --node --archiver --sequencer \
   --l1-consensus-host-urls https://example.com \
   --sequencer.validatorPrivateKey 0xYourPrivateKey \
   --sequencer.coinbase 0xYourAddress \
-  --p2p.p2pIp 999.99.999.99
+  --p2p.p2pIp 999.99.999.99 \
+  --p2p.maxTxPoolSize 1000000000
 ```
 
 :::tip
@@ -98,7 +109,7 @@ For a full overview of all available commands, check out the [CLI reference shee
 
 :::tip
 
-If you are unable to determine your public ip. Running the command `curl ifconfig.me` can retrieve it for you.
+If you are unable to determine your public ip. Running the command `curl ipv4.icanhazip.com` can retrieve it for you.
 :::
 
 ### Register as a Validator
@@ -117,7 +128,7 @@ aztec add-l1-validator \
 
 :::warning
 
-You may see a warning when trying to register as a validator. To maintain network health there is a daily quota for validators to join the validator set. If you are not able to join, it could mean that today's quota of validators has already been added to the set. If you see this, you can try again later.
+You may see a warning when trying to register as a validator. To maintain network health there is a daily quota for validators to join the validator set. If you are not able to join, it could mean that today's quota of validators has already been added to the set. If you see this, you can try again later. Read [our blog post](https://aztec.network/blog/what-is-aztec-testnet) for more info.
 
 :::
 
@@ -154,9 +165,9 @@ If you would like to run in a docker compose, you can use a configuration like t
 ```yml
 name: aztec-node
 services:
-  network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.3
+    network_mode: host # Optional, run with host networking
+    image: aztecprotocol/aztec:alpha-testnet
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
@@ -171,8 +182,8 @@ services:
       - 40400:40400/udp
       - 8080:8080
 
-  volumes:
-    - /home/my-node/node:/data # Local directory
+    volumes:
+      - /home/my-node/node:/data # Local directory
 ```
 
 ## Troubleshooting
@@ -181,7 +192,7 @@ services:
 
 If you're hosting your own Ethereum execution or consensus client locally (rather than using an external RPC like Alchemy), you need to ensure that the prover node inside Docker can reach it.
 
-By default, Docker runs containers on a bridge network that isolates them from the host machine’s network interfaces. This means localhost inside the container won’t point to the host’s localhost.
+By default, Docker runs containers on a bridge network that isolates them from the host machine's network interfaces. This means localhost inside the container won't point to the host's localhost.
 
 To fix this:
 
@@ -193,7 +204,7 @@ This tells Docker to route traffic from the container to the host machine. For e
 ```
 
 Option 2: Add a host network entry to your Docker Compose file (advanced users)
-This gives your container direct access to the host’s network stack, but removes Docker’s network isolation. Add to your `docker-compose.yml`
+This gives your container direct access to the host's network stack, but removes Docker's network isolation. Add to your `docker-compose.yml`
 
 ```yaml
 network_mode: "host"

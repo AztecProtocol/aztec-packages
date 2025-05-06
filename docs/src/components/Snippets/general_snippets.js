@@ -1,6 +1,15 @@
 import React from "react";
 
 export const General = {
+  VersionLatestTestnet: () => <code>alpha-testnet</code>,
+  VersionLatestSandbox: () => <code>0.86.0</code>,
+  ViewTransactions: () => (
+    <p>
+      Transactions and balances can be viewed in block explorers like{" "}
+      <a href="https://aztecexplorer.xyz">AztecExplorer</a> and{" "}
+      <a href="https://aztecscan.xyz">AztecScan</a>.
+    </p>
+  ),
   InstallationInstructions: () => (
     <p>
       To use Aztec's suite of tools you'll need to:
@@ -17,6 +26,15 @@ export const General = {
     </p>
   ),
 
+  node_ver: () => (
+    <p>
+      When using Aztec libraries you will need Node.js version {">="} v18.xx.x
+      and {"<="} v20.17.x (lts/iron). You can use{" "}
+      <a href="https://github.com/nvm-sh/nvm">nvm</a> to help manage node
+      versions.
+    </p>
+  ),
+
   PXE: () => (
     <p>
       <b>PXE</b> - a client-side key manager, private contract storage, and
@@ -28,8 +46,8 @@ export const General = {
 
   AztecNode: () => (
     <p>
-      <b>Aztec Node</b> - a prover/sequencer that is part of a decentralised
-      Aztec network. The Aztec testnet rolls up to Ethereum Sepolia.
+      <b>Aztec Node</b> - A machine running aztec software as part of an Aztec
+      network. The Aztec testnet rolls up to Ethereum Sepolia.
     </p>
   ),
 
@@ -38,6 +56,12 @@ export const General = {
       <b>Aztec Sandbox</b> - runs a set of Aztec tools for convenient local
       development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
+  ),
+
+  AztecTestnetVersion: () => (
+    <span>
+      alpha-testnet
+    </span>
   ),
 
   AztecWalletCLI: () => (

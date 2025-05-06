@@ -651,7 +651,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       const latestLocalL2Block =
         lastRetrievedBlock ??
         (latestLocalL2BlockNumber > 0
-          ? await this.store.getBlocks(latestLocalL2BlockNumber, 1).then(([b]) => b)
+          ? await this.store.getPublishedBlocks(latestLocalL2BlockNumber, 1).then(([b]) => b)
           : undefined);
       const targetL1BlockNumber = latestLocalL2Block?.l1.blockNumber ?? maxBigint(currentL1BlockNumber - 64n, 0n);
       const latestLocalL2BlockArchive = latestLocalL2Block?.block.archive.root.toString();
@@ -824,7 +824,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     const limitWithProven = proven
       ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
       : limit;
-    return limitWithProven === 0 ? [] : await this.store.getBlocks(from, limitWithProven);
+    return limitWithProven === 0 ? [] : await this.store.getPublishedBlocks(from, limitWithProven);
   }
 
   /**
@@ -840,7 +840,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     if (number == 0) {
       return undefined;
     }
-    const blocks = await this.store.getBlocks(number, 1);
+    const blocks = await this.store.getPublishedBlocks(number, 1);
     return blocks.length === 0 ? undefined : blocks[0].block;
   }
 
@@ -1027,7 +1027,7 @@ enum Operation {
  * I would have preferred to not have this type. But it is useful for handling the logic that any
  * store would need to include otherwise while exposing fewer functions and logic directly to the archiver.
  */
-class ArchiverStoreHelper
+export class ArchiverStoreHelper
   implements
     Omit<
       ArchiverDataStore,
@@ -1046,7 +1046,7 @@ class ArchiverStoreHelper
 {
   #log = createLogger('archiver:block-helper');
 
-  constructor(private readonly store: ArchiverDataStore) {}
+  constructor(protected readonly store: ArchiverDataStore) {}
 
   /**
    * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
@@ -1213,7 +1213,7 @@ class ArchiverStoreHelper
     }
 
     // from - blocksToUnwind = the new head, so + 1 for what we need to remove
-    const blocks = await this.getBlocks(from - blocksToUnwind + 1, blocksToUnwind);
+    const blocks = await this.getPublishedBlocks(from - blocksToUnwind + 1, blocksToUnwind);
 
     const opResults = await Promise.all([
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
@@ -1239,8 +1239,8 @@ class ArchiverStoreHelper
     return opResults.every(Boolean);
   }
 
-  getBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
-    return this.store.getBlocks(from, limit);
+  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
+    return this.store.getPublishedBlocks(from, limit);
   }
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);

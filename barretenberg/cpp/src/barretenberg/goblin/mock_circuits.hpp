@@ -82,8 +82,8 @@ class GoblinMockCircuits {
         PROFILE_THIS();
 
         if (large) { // Results in circuit size 2^19
-            stdlib::generate_sha256_test_circuit(builder, 11);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 10);
+            stdlib::generate_sha256_test_circuit(builder, 9);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, 9);
             stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
             stdlib::generate_sha256_test_circuit(builder, 8);

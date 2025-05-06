@@ -294,7 +294,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 };
 
 /**
- * @brief Perform accumulation with a structured trace and precomputed verification keys
+ * @brief Ensure that the CIVC VK is independent of the number of circuits accumulated
  *
  */
 TEST_F(ClientIVCTests, VKIndependenceTest)
@@ -331,6 +331,56 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 
     // Check the equality of the Translator components of the ClientIVC VKeys.
     EXPECT_EQ(*civc_vk_2.translator.get(), *civc_vk_20.translator.get());
+};
+
+/**
+ * @brief Ensure that the CIVC VK is independent of whether any of the circuits being accumulated overflows the
+ * structured trace
+ * @details If one of the circuits being accumulated overflows the structured trace, the dyadic size of the accumulator
+ * may increase. In this case we want to ensure that the CIVC VK (and in particular the hiding circuit VK) is identical
+ * to the non-overflow case. This requires, for example, that the padding_indicator_array logic used in somecheck is
+ * functioning properly.
+ */
+TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
+{
+    // Run IVC for two sets of circuits: a nomical case where all circuits fit within the structured trace and an
+    // "overflow" case where all (but importantly at least one) circuit overflows the structured trace.
+    const size_t NUM_CIRCUITS = 4;
+    const size_t log2_num_gates_nominal = 5;   // number of gates in baseline mocked circuits
+    const size_t log2_num_gates_overflow = 18; // number of gates in the "overflow" mocked circuit
+
+    TraceStructure trace_structure = SMALL_TEST_STRUCTURE;
+
+    // Check that we will indeed overflow the trace structure
+    EXPECT_TRUE(1 << log2_num_gates_overflow > trace_structure.size()); // 1 << 18 > 1 << 16
+
+    auto generate_vk = [&](size_t num_circuits, size_t log2_num_gates) {
+        ClientIVC ivc{ { trace_structure } };
+        ClientIVCMockCircuitProducer circuit_producer;
+        for (size_t j = 0; j < num_circuits; ++j) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+            ivc.accumulate(circuit);
+        }
+        ivc.prove();
+        auto ivc_vk = ivc.get_vk();
+
+        // PCS verification keys will not match so set to null before comparing
+        ivc_vk.eccvm->pcs_verification_key = nullptr;
+
+        return ivc_vk;
+    };
+
+    auto civc_vk_nominal = generate_vk(NUM_CIRCUITS, log2_num_gates_nominal);
+    auto civc_vk_overflow = generate_vk(NUM_CIRCUITS, log2_num_gates_overflow);
+
+    // Check the equality of the Mega components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.mega.get(), *civc_vk_overflow.mega.get());
+
+    // Check the equality of the ECCVM components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.eccvm.get(), *civc_vk_overflow.eccvm.get());
+
+    // Check the equality of the Translator components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.translator.get(), *civc_vk_overflow.translator.get());
 };
 
 /**

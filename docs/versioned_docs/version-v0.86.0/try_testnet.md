@@ -12,19 +12,19 @@ id: try_testnet
 
 ## Take part
 
-- [Run a node](./the_aztec_network/index.md)
+- [Run a node](./the_aztec_network/guides/run_nodes/how_to_run_sequencer.md)
 - [Interact with testnet using Playground, a tool for deploying & interacting with contracts](https://play.aztec.network/)
 - [Get inspiration for what you could build](./developers/inspiration.md)
 
 ## Develop on Aztec Testnet
 
-- [Start running a full node](./the_aztec_network/guides/run_nodes/how_to_run_full_node.md) so you can interact with the network. If you need to access an Aztec node, you can use your locally running full node.
-- Follow the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md)
+- Follow the [getting started on testnet guide](./developers/guides/getting_started_on_testnet.md)
 - Try the [`testnet` branch of the Aztec Starter template Github repo](https://github.com/AztecProtocol/aztec-starter/tree/testnet)
+- Follow our [tutorials](./developers/tutorials/codealong/contract_tutorials/counter_contract.md) in order to write your first contract, deploy it, and interact with it using Aztec CLI and Aztec.js
 
 ## Chain Information
 
-**Version**: `0.85.0-alpha-testnet.3`
+**Version**: `0.85.0-alpha-testnet.5`
 
 **L1 Chain ID**: `11155111`
 
