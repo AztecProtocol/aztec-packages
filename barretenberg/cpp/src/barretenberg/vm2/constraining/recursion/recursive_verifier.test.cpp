@@ -77,6 +77,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
 
     auto [proof, verification_key, public_inputs_cols] = proof_result;
+    proof.insert(proof.begin(), 0);
 
     // Create the outer verifier, to verify the proof
     OuterBuilder outer_circuit;
@@ -162,6 +163,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
 
     auto [proof, verification_key, public_inputs_cols] = proof_result;
+    proof.insert(proof.begin(), 0);
 
     // Construct stdlib representations of the proof, public inputs and verification key
     OuterBuilder outer_circuit;
