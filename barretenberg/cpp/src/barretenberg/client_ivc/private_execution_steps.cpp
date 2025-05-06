@@ -36,7 +36,7 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
     std::ifstream fin;
     fin.open(filename, std::ios::ate | std::ios::binary);
     if (!fin.is_open()) {
-        THROW std::invalid_argument("file not found: " + std::filesystem::absolute(filename).string());
+        THROW std::invalid_argument("file not found");
     }
     if (fin.tellg() == -1) {
         THROW std::invalid_argument("something went wrong");

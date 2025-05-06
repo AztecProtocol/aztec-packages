@@ -1,9 +1,9 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
