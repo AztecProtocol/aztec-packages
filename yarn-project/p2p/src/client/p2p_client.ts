@@ -661,11 +661,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
     // NOTE: temporary fix for alphanet, deleting ALL txs that were in the epoch from the pool #13723
     // TODO: undo once fixed: #13770
-    const txsToDelete = new Set<TxHash>();
+    const txsToDelete = new Map<string, TxHash>();
     const minedTxs = await this.txPool.getMinedTxHashes();
     for (const [txHash, blockNumber] of minedTxs) {
       if (blockNumber > latestBlock) {
-        txsToDelete.add(txHash);
+        txsToDelete.set(txHash.toString(), txHash);
       }
     }
 
@@ -674,7 +674,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
         const txHash = await tx.getTxHash();
-        txsToDelete.add(txHash);
+        txsToDelete.set(txHash.toString(), txHash);
       }
     }
 
@@ -685,7 +685,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     );
 
     // delete invalid txs (both pending and mined)
-    await this.txPool.deleteTxs(Array.from(txsToDelete));
+    await this.txPool.deleteTxs(Array.from(txsToDelete.values()));
 
     // everything left in the mined set was built against a block on the proven chain so its still valid
     // move back to pending the txs that were reorged out of the chain

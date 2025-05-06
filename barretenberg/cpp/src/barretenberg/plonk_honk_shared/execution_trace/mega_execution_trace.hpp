@@ -84,14 +84,12 @@ struct TraceSettings {
     // context of VK computation
     uint32_t overflow_capacity = 0;
 
-    size_t size() const { return structure->size() + static_cast<size_t>(overflow_capacity); }
+    // This size is used as a hint to the BN254 Commitment Key needed in the CIVC.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319): This can be removed once the prover knows all
+    // the circuit sizes in advance.
+    size_t size() const { return (structure ? structure->size() : 0) + static_cast<size_t>(overflow_capacity); }
 
-    size_t dyadic_size() const
-    {
-        const size_t total_size = size();
-        const size_t lower_dyadic = 1 << numeric::get_msb(total_size);
-        return total_size > lower_dyadic ? lower_dyadic << 1 : lower_dyadic;
-    }
+    size_t dyadic_size() const { return numeric::round_up_power_2(size()); }
 };
 
 class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_SELECTORS_*/ 14> {
