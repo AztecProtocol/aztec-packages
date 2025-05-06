@@ -538,7 +538,6 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
         prover_polynomials, params, "TranslatorDecompositionRelation");
 }
 
-// This test just needs fixing the relation should be fine
 /**
  * @brief Test the correctness of TranslatorFlavor's  NonNativeField Relation
  *

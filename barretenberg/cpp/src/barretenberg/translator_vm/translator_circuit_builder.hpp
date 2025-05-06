@@ -5,15 +5,6 @@
 // =====================
 
 #pragma once
-/**
- * @file translator_builder.hpp
- * @author @Rumata888
- * @brief Circuit Logic generation for Goblin Plonk translator (checks equivalence of Queues/Transcripts for ECCVM and
- * Recursive Circuits)
- *
- * @copyright Copyright (c) 2023
- *
- */
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -247,6 +238,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
+    // Index at which the evaluation result is stored in the circuit
     static constexpr const size_t RESULT_ROW = 2;
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
