@@ -81,8 +81,9 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
-    offset = 1;
+    builder.assert_equal(builder.add_variable(1), proof_fields[0].witness_index);
+    builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[1].witness_index);
+    offset = 2;
 
     // Witness Commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
