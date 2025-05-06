@@ -124,7 +124,7 @@ export class ProvingJobController {
     const signal = this.abortController.signal;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        return await this.circuitProver.getAvmProof(inputs, signal, this.epochNumber);
+        return await this.circuitProver.getAvmProof(inputs, undefined, signal, this.epochNumber);
       }
 
       case ProvingRequestType.PRIVATE_BASE_ROLLUP: {
