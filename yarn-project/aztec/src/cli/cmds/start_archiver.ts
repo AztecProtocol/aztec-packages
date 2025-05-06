@@ -29,7 +29,7 @@ export async function startArchiver(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
 ): Promise<{ config: ArchiverConfig & DataStoreConfig }> {
-  const envConfig = { ...getArchiverConfigFromEnv(), ...getDataConfigFromEnv(), ...getBlobSinkConfigFromEnv() };
+  const envConfig = { ...getDataConfigFromEnv(), ...getBlobSinkConfigFromEnv(), ...getArchiverConfigFromEnv() };
   const cliOptions = extractRelevantOptions<ArchiverConfig & DataStoreConfig & BlobSinkConfig>(
     options,
     { ...archiverConfigMappings, ...dataConfigMappings, ...blobSinkConfigMapping },

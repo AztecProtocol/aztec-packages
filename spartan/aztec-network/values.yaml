@@ -332,6 +332,22 @@ proverBroker:
   dataDir: "/data"
   maxOldSpaceSize: "4608"
 
+archiver:
+  enabled: true
+  replicas: 1
+  service:
+    nodePort: 8080
+  logLevel: "debug; info: aztec:simulator, json-rpc"
+  maxOldSpaceSize: "4608"
+  startupProbe:
+    periodSeconds: 10
+    failureThreshold: 120
+  archiverPollingInterval: 1000
+  archiverViemPollingInterval: 1000
+  storageSize: "1Gi"
+  dataDir: "/data"
+  resources: {}
+
 jobs:
   deployL1Verifier:
     enable: false

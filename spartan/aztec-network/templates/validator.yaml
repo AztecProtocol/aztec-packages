@@ -61,7 +61,7 @@ spec:
               source /shared/config/service-addresses && \
               source /shared/config/otel-resource && \
               env && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --sequencer {{- if not .Values.archiver.enabled }} --archiver{{- end }}
           startupProbe:
             httpGet:
               path: /status
@@ -179,10 +179,12 @@ spec:
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
-            {{- if .Values.blobSink.enabled }}
-            - name: BLOB_SINK_URL
-              value: {{ include "aztec-network.blobSinkUrl" . }}
+            {{- if .Values.archiver.enabled }}
+            - name: ARCHIVER_URL
+              value: http://{{ include "aztec-network.fullname" . }}-archiver:{{ .Values.archiver.service.nodePort }}
             {{- end }}
+            - name: BLOB_SINK_URL
+              value: "http://alpha-testnet-aztec-network-blob-sink.alpha-testnet.svc.cluster.local:5052"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

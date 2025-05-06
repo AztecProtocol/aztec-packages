@@ -1,32 +1,33 @@
+{{- if .Values.archiver.enabled }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-full-node
+  name: {{ include "aztec-network.fullname" . }}-archiver
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  serviceName: {{ include "aztec-network.fullname" . }}-full-node
-  replicas: {{ .Values.fullNode.replicas }}
+  serviceName: {{ include "aztec-network.fullname" . }}-archiver
+  replicas: {{ .Values.archiver.replicas }}
   podManagementPolicy: Parallel
   selector:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
-      app: full-node
+      app: archiver
   {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
-        name: full-node-data
+        name: archiver-data
       spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: {{ .Values.fullNode.storageSize }}
+            storage: {{ .Values.archiver.storageSize }}
   {{- end }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
-        app: full-node
+        app: archiver
     spec:
       {{- if .Values.network.gke }}
       nodeSelector:
@@ -40,33 +41,35 @@ spec:
       {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
       {{- end }}
       initContainers:
-        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.combinedWaitAndConfigureContainer" . | nindent 8 }}
 
       containers:
-        - name: full-node
+        - name: archiver
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
             - |
+              echo "contracts.env:"
+              cat /shared/contracts/contracts.env
+              echo ""
               source /shared/contracts/contracts.env
-              source /shared/config/p2p-addresses
               source /shared/config/service-addresses
               env
 
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --pxe {{- if not .Values.archiver.enabled }} --archiver{{- end }}
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --archiver
           startupProbe:
             httpGet:
               path: /status
-              port: {{ .Values.fullNode.service.nodePort }}
-            periodSeconds: {{ .Values.fullNode.startupProbe.periodSeconds }}
-            failureThreshold: {{ .Values.fullNode.startupProbe.failureThreshold }}
+              port: {{ .Values.archiver.service.nodePort }}
+            periodSeconds: {{ .Values.archiver.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.archiver.startupProbe.failureThreshold }}
           livenessProbe:
             httpGet:
               path: /status
-              port: {{ .Values.fullNode.service.nodePort }}
+              port: {{ .Values.archiver.service.nodePort }}
             initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 30
@@ -74,8 +77,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
-            - name: full-node-data
-              mountPath: {{ .Values.fullNode.dataDir }}
+            - name: archiver-data
+              mountPath: {{ .Values.archiver.dataDir }}
             - name: contracts-env
               mountPath: /shared/contracts/contracts.env
               subPath: contracts.env
@@ -93,39 +96,23 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OTEL_SERVICE_NAME
-              value: full-node
+              value: archiver
             - name: K8S_NAMESPACE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: NODE_OPTIONS
-              value: "--max-old-space-size={{ .Values.fullNode.maxOldSpaceSize}}"
+              value: "--max-old-space-size={{ .Values.archiver.maxOldSpaceSize}}"
             - name: AZTEC_PORT
-              value: "{{ .Values.fullNode.service.nodePort }}"
-            - name: AZTEC_ADMIN_PORT
-              value: "{{ .Values.fullNode.service.adminPort }}"
+              value: "{{ .Values.archiver.service.nodePort }}"
             - name: LOG_LEVEL
-              value: "{{ .Values.fullNode.logLevel }}"
+              value: "{{ .Values.archiver.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: P2P_ENABLED
-              value: "{{ .Values.fullNode.p2p.enabled }}"
-            - name: P2P_MAX_TX_POOL_SIZE
-              value: "{{ .Values.network.mempoolLimitBytes }}"
-            - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
-              value: "{{ .Values.fullNode.p2p.floodPublish }}"
-            - name: COINBASE
-              value: "{{ .Values.fullNode.coinbaseAddress }}"
-            - name: VALIDATOR_DISABLED
-              value: "true"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.aztec.realProofs }}"
-            - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.aztec.realProofs }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -135,17 +122,11 @@ spec:
             - name: AZTEC_PROOF_SUBMISSION_WINDOW
               value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: ARCHIVER_POLLING_INTERVAL_MS
-              value: {{ .Values.fullNode.archiverPollingInterval | quote }}
+              value: {{ .Values.archiver.archiverPollingInterval | quote }}
             - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
-              value: {{ .Values.fullNode.archiverViemPollingInterval | quote }}
-            - name: L1_READER_VIEM_POLLING_INTERVAL_MS
-              value: {{ .Values.fullNode.archiverViemPollingInterval | quote }}
-            - name: SEQ_VIEM_POLLING_INTERVAL_MS
-              value: {{ .Values.fullNode.viemPollingInterval | quote }}
-            - name: PEER_ID_PRIVATE_KEY
-              value: "{{ .Values.fullNode.peerIdPrivateKey }}"
+              value: {{ .Values.archiver.archiverViemPollingInterval | quote }}
             - name: DATA_DIRECTORY
-              value: "{{ .Values.fullNode.dataDir }}"
+              value: "{{ .Values.archiver.dataDir }}"
             - name: DATA_STORE_MAP_SIZE_KB
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
@@ -154,42 +135,30 @@ spec:
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: OTEL_EXCLUDE_METRICS
               value: "{{ .Values.telemetry.excludeMetrics }}"
-            - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
-              value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
             - name: SPONSORED_FPC
               value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
-            - name: SENTINEL_ENABLED
-              value: "{{ .Values.fullNode.sentinelEnabled }}"
-            {{- if .Values.archiver.enabled }}
-            - name: ARCHIVER_URL
-              value: http://{{ include "aztec-network.fullname" . }}-archiver:{{ .Values.archiver.service.nodePort }}
-            {{- end }}
-            {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
-              value: {{ include "aztec-network.blobSinkUrl" . }}
-            {{- end }}
+              value: "http://alpha-testnet-aztec-network-blob-sink.alpha-testnet.svc.cluster.local:5052"
           ports:
-            - containerPort: {{ .Values.fullNode.service.nodePort }}
-            - containerPort: {{ .Values.fullNode.service.adminPort }}
-            - containerPort: {{ .Values.fullNode.service.p2pPort }}
-            - containerPort: {{ .Values.fullNode.service.p2pPort }}
-              protocol: UDP
+            - containerPort: {{ .Values.archiver.service.nodePort }}
           resources:
-            {{- toYaml .Values.fullNode.resources | nindent 12 }}
+            {{- toYaml .Values.archiver.resources | nindent 12 }}
       volumes:
         - name: config
           emptyDir: {}
+        - name: pxe-url
+          emptyDir: {}
       {{- if .Values.storage.localSsd }}
-        - name: full-node-data
+        - name: archiver-data
           emptyDir: {}
       {{ else }}
-        - name: full-node-data
+        - name: archiver-data
           persistentVolumeClaim:
-            claimName: full-node-data
+            claimName: archiver-data
       {{- end }}
         - name: scripts
           configMap:
@@ -199,20 +168,18 @@ spec:
           emptyDir: {}
         - name: contracts-env
           emptyDir: {}
-        - name: pxe-url
-          emptyDir: {}
 ---
-# Headless service for StatefulSet DNS entries
+# Service for the archiver node
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-full-node
+  name: {{ include "aztec-network.fullname" . }}-archiver
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
-    app: full-node
+    app: archiver
   annotations:
-    {{- if hasKey .Values.fullNode "fixedStaticIpName" }}
-    cloud.google.com/backend-config: '{"default": "{{ include "aztec-network.fullname" . }}-full-node-backend-config"}'
+    {{- if hasKey .Values.archiver "fixedStaticIpName" }}
+    cloud.google.com/backend-config: '{"default": "{{ include "aztec-network.fullname" . }}-archiver-backend-config"}'
     {{- end }}
 spec:
   # If this is a public network, we want to expose the fulls node as a LoadBalancer
@@ -224,43 +191,16 @@ spec:
   {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: full-node
+    app: archiver
   ports:
-    # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
-    {{- if not .Values.network.public }}
-    - port: {{ .Values.fullNode.service.p2pPort }}
-      name: p2p-tpc
-    - port: {{ .Values.fullNode.service.p2pPort }}
-      name: p2p-udp
-      protocol: UDP
-    {{- end }}
-    - port: {{ .Values.fullNode.service.nodePort }}
+    - port: {{ .Values.archiver.service.nodePort }}
       name: node
 ---
-# Internal service for accessing the admin port
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-full-node-admin
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-    app: full-node
-spec:
-  type: ClusterIP
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: full-node
-  # The admin port is restricted from public access thanks to terraform/gke-cluster/firewall.tf
-  ports:
-    - port: {{ .Values.fullNode.service.adminPort }}
-      targetPort: {{ .Values.fullNode.service.adminPort }}
-      name: admin
----
-{{- if hasKey .Values.fullNode "fixedStaticIpName" }}
+{{- if hasKey .Values.archiver "fixedStaticIpName" }}
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-full-node-backend-config
+  name: {{ include "aztec-network.fullname" . }}-archiver-backend-config
   namespace: {{ .Release.Namespace }}
 spec:
   healthCheck:
@@ -270,38 +210,39 @@ spec:
     unhealthyThreshold: 2
     type: HTTP
     requestPath: /status
-    port: 8080
+    port: {{ .Values.archiver.service.nodePort }}
 ---
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-full-node-cert
+  name: {{ include "aztec-network.fullname" . }}-archiver-cert
 spec:
   domains:
-  # Note: A record must be added in this domain to point at  {{ .Values.fullNode.fixedStaticIpName }}
-  - {{ .Values.fullNode.staticIpUrl }}
+  # Note: A record must be added in this domain to point at  {{ .Values.archiver.fixedStaticIpName }}
+  - {{ .Values.archiver.staticIpUrl }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-full-node-ingress
+  name: {{ include "aztec-network.fullname" . }}-archiver-ingress
   annotations:
     kubernetes.io/ingress.class: "gce"
-    networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-full-node-cert
-    kubernetes.io/ingress.global-static-ip-name: {{ .Values.fullNode.fixedStaticIpName }}
+    networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-archiver-cert
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.archiver.fixedStaticIpName }}
     kubernetes.io/ingress.allow-http: "false"
-    cloud.google.com/health-check-port: "8080"
+    cloud.google.com/health-check-port: "{{ .Values.archiver.service.nodePort }}"
     cloud.google.com/healthcheck-path: "/status"
 spec:
   rules:
-  - host: {{ .Values.fullNode.staticIpUrl }}
+  - host: {{ .Values.archiver.staticIpUrl }}
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: {{ include "aztec-network.fullname" . }}-full-node
+            name: {{ include "aztec-network.fullname" . }}-archiver
             port:
-              number: {{ .Values.fullNode.service.nodePort }}
+              number: {{ .Values.archiver.service.nodePort }}
+{{- end }}
 {{- end }}

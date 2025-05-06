@@ -63,6 +63,14 @@ proverBroker:
       memory: "512Mi"
       cpu: "500m"
 
+archiver:
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
 blobSink:
   resources:
     requests:

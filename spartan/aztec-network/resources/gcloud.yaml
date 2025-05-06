@@ -47,6 +47,11 @@ proverBroker:
 blobSink:
   resources:
 
+archiver:
+  resources:
+    requests:
+      memory: "5Gi"
+
 faucet:
   resources:
     requests:
