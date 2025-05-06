@@ -186,6 +186,7 @@ export async function proveAvm(
   avmCircuitInputs: AvmCircuitInputs,
   workingDirectory: string,
   logger: Logger,
+  skipPublicInputsValidation: boolean = false,
 ): Promise<{
   vk: Fr[];
   proof: Fr[];
@@ -213,7 +214,7 @@ export async function proveAvm(
   const avmProofBuffer = await fs.readFile(avmProofPath!);
   const reader = BufferReader.asReader(avmProofBuffer);
 
-  const proof: Fr[] = [];
+  const proof: Fr[] = skipPublicInputsValidation ? [new Fr(1)] : [new Fr(0)];
   while (!reader.isEmpty()) {
     proof.push(Fr.fromBuffer(reader));
   }
