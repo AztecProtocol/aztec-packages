@@ -150,9 +150,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
-        public_input_evaluation.assert_equal(claimed_evaluations[i], "public_input_evaluation failed");
-        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i],
-            "public_input_evaluation failed");
+        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
     }
 
     // Execute Shplemini rounds.
