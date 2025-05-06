@@ -16,6 +16,9 @@ export class FieldReader {
   constructor(private fields: Fr[], offset = 0) {
     this.index = offset;
     this.length = fields.length;
+    if (offset > this.length) {
+      throw new Error('Offset out of bounds.');
+    }
   }
 
   /**
