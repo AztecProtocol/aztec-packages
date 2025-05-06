@@ -13,7 +13,6 @@ import Tooltip from '@mui/material/Tooltip';
 import { ButtonGroup } from '@mui/material';
 
 const Root = styled('div')(({ theme }) => ({
-  height: '100%',
   ...theme.applyStyles('dark', {
     backgroundColor: theme.palette.background.default,
   }),
@@ -109,7 +108,7 @@ export function LogPanel() {
           <Tooltip title="Open logs">
             <IconButton
               sx={{
-                position: 'absolute',
+                position: 'fixed',
                 bottom: '0.5rem',
                 right: '0.5rem',
                 zIndex: 10000
