@@ -50,11 +50,11 @@ export class NativeWorldState implements NativeWorldStateInstance {
 
   /** Creates a new native WorldState instance */
   constructor(
-    dataDir: string,
-    dbMapSizeKb: number,
-    prefilledPublicData: PublicDataTreeLeaf[] = [],
-    private instrumentation: WorldStateInstrumentation,
-    private log: Logger = createLogger('world-state:database'),
+    private readonly dataDir: string,
+    private readonly dbMapSizeKb: number,
+    private readonly prefilledPublicData: PublicDataTreeLeaf[] = [],
+    private readonly instrumentation: WorldStateInstrumentation,
+    private readonly log: Logger = createLogger('world-state:database'),
   ) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
@@ -82,6 +82,20 @@ export class NativeWorldState implements NativeWorldStateInstance {
     this.instance = new MsgpackChannel(ws);
     // Manually create the queue for the canonical fork
     this.queues.set(0, new WorldStateOpsQueue());
+  }
+
+  public getDataDir() {
+    return this.dataDir;
+  }
+
+  public clone() {
+    return new NativeWorldState(
+      this.dataDir,
+      this.dbMapSizeKb,
+      this.prefilledPublicData,
+      this.instrumentation,
+      this.log,
+    );
   }
 
   /**
