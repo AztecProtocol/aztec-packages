@@ -312,11 +312,10 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
 
     PairingPoints::add_default_to_public_inputs(builder);
 
-    // Construct the last merge proof for the present circuit
-    MergeProof merge_proof = goblin.prove_merge();
-
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
+    // Construct the last merge proof for the present circuit
+    MergeProof merge_proof = goblin.prove_merge();
 
     return { decider_pk, merge_proof };
 }
