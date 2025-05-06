@@ -19,7 +19,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using IVCVerificationKey = ClientIVC::VerificationKey;
     using PairingAccumulator = PairingPoints<Builder>;
 
-    static constexpr TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
+    static constexpr TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     static void SetUpTestSuite()
     {

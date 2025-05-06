@@ -7,7 +7,6 @@
 #include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -150,8 +149,6 @@ template <typename Flavor>
 void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     const std::vector<Commitment>& translation_commitments)
 {
-    TranslationEvaluations_<FF> translation_evaluations;
-
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAVerifier<typename Flavor::Curve>;
 

@@ -43,7 +43,7 @@ test_hash=$(hash_str_orig "$test_cmd")
 
 # We can skip the test if it's already been successfully run.
 # We actually pre-filter tests in CI runs so this is rarely hit.
-if [ "$USE_TEST_CACHE" -eq 1 ]; then
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
     log_info=" (${yellow}$(ci_term_link $log_key)${reset})"
@@ -154,7 +154,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   # If the test succeeded and we're in CI, save the test log.
   # If the test failed, save the test log.
   if [ $code -eq 0 ]; then
-    if [ "$USE_TEST_CACHE" -eq 1 ]; then
+    if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
       redis_cli SETEX $key 604800 $log_key &>/dev/null
     fi
     if [ "$CI" -eq 1 ]; then

@@ -41,7 +41,7 @@ aztec-up alpha-testnet
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.5`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `alpha-testnet`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 

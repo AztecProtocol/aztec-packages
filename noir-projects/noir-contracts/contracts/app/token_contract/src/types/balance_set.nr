@@ -1,3 +1,4 @@
+// docs:start:balance_set
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{
@@ -132,6 +133,7 @@ pub fn preprocess_notes_min_sum(
     }
     selected
 }
+// docs:end:balance_set
 
 mod test {
     use crate::{test::utils, Token};

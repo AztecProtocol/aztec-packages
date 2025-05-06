@@ -87,7 +87,7 @@ size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input
     auto steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
     const PrivateExecutionStepRaw& last_step = steps.back();
     std::vector<uint8_t> bytecode_buf(last_step.bytecode.begin(), last_step.bytecode.end());
-    const AcirFormat constraints = circuit_buf_to_acir_format(bytecode_buf);
+    const AcirFormat constraints = circuit_buf_to_acir_format(std::move(bytecode_buf));
     return constraints.public_inputs.size();
 }
 
@@ -326,7 +326,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
