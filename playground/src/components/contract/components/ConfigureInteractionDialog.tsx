@@ -17,14 +17,14 @@ import { DialogContent } from '@mui/material';
 import { Box, DialogActions } from '@mui/material';
 import { INFO_TEXT } from '../../../constants';
 
-interface SendTxDialogProps {
+interface ConfigureInteractionDialogProps {
   name: string;
   interaction: ContractFunctionInteraction;
   open: boolean;
   onClose: (name?: string, tx?: ContractFunctionInteraction, opts?: SendMethodOptions) => void;
 }
 
-export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogProps) {
+export function ConfigureInteractionDialog({ name, interaction, open, onClose }: ConfigureInteractionDialogProps) {
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +57,7 @@ export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogP
 
   return (
     <Dialog onClose={handleClose} open={open}>
-      <DialogTitle>Send transaction</DialogTitle>
+      <DialogTitle>Configure transaction</DialogTitle>
 
       <DialogContent sx={dialogBody}>
         <FormControl css={form}>

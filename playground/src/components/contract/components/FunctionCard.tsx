@@ -25,7 +25,7 @@ import FormGroup from '@mui/material/FormGroup';
 import { FunctionParameter } from '../../common/FnParameter';
 import { useContext, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
-import { SendTxDialog } from './SendTxDialog';
+import { ConfigureInteractionDialog } from './ConfigureInteractionDialog';
 import { CreateAuthwitDialog } from './CreateAuthwitDialog';
 import TableHead from '@mui/material/TableHead';
 import Table from '@mui/material/Table';
@@ -81,8 +81,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const [profileResults, setProfileResults] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const [openSendTxDialog, setOpenSendTxDialog] = useState(false);
+  const [openConfigureInteractionDialog, setOpenConfigureInteractionDialog] = useState(false);
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
+  const [profile, setProfile] = useState(false);
 
   const { wallet } = useContext(AztecContext);
 
@@ -97,29 +98,6 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       setSimulationResults({ success: true, data: result });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
-    }
-
-    setIsWorking(false);
-  };
-
-  const profile = async (fnName: string) => {
-    trackButtonClick(`Profile ${fnName}`, 'Contract Interaction');
-    setIsWorking(true);
-
-    try {
-      const call = contract.methods[fnName](...parameters);
-
-      const profileResult = await call.profile({ profileMode: 'gates' });
-      setProfileResults({
-        ...profileResults,
-        ...{ [fnName]: { success: true, executionSteps: profileResult.executionSteps } },
-      });
-    } catch (e) {
-      console.error(e);
-      setProfileResults({
-        ...profileResults,
-        ...{ [fnName]: { success: false, error: e.message } },
-      });
     }
 
     setIsWorking(false);
@@ -142,14 +120,34 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     }
   };
 
-  const handleSendDialogClose = async (
+  const handleConfigureInteractionDialogClose = async (
     name?: string,
     interaction?: ContractFunctionInteraction,
     opts?: SendMethodOptions,
   ) => {
-    setOpenSendTxDialog(false);
+    setOpenConfigureInteractionDialog(false);
     if (name && interaction && opts) {
-      onSendTxRequested(`Execute ${name}`, interaction, contract.address, opts);
+      if (profile) {
+        setIsWorking(true);
+        try {
+          const call = contract.methods[name](...parameters);
+
+          const profileResult = await call.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
+          setProfileResults({
+            ...profileResults,
+            ...{ [name]: { success: true, ...profileResult } },
+          });
+        } catch (e) {
+          console.error(e);
+          setProfileResults({
+            ...profileResults,
+            ...{ [name]: { success: false, error: e.message } },
+          });
+        }
+        setIsWorking(false);
+      } else {
+        onSendTxRequested(`Execute ${name}`, interaction, contract.address, opts);
+      }
     }
   };
 
@@ -248,28 +246,38 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             {!isWorking && profileResults[fn.name] !== undefined && (
               <Box>
                 {profileResults[fn.name].success ? (
-                  <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                            Gate Count
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {profileResults[fn.name].executionSteps.map(row => (
-                          <TableRow key={row.functionName}>
-                            <TableCell component="th" scope="row">
-                              {row.functionName}
+                  <>
+                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
+                      Sync time: {profileResults[fn.name].syncTime?.toFixed(2)}ms
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
+                      Proving time: {profileResults[fn.name].provingTime?.toFixed(2)}ms
+                    </Typography>
+                    <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Simulation time
                             </TableCell>
-                            <TableCell align="right">{Number(row.gateCount).toLocaleString()}</TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                        </TableHead>
+                        <TableBody>
+                          {profileResults[fn.name].executionSteps.map(row => (
+                            <TableRow key={row.functionName}>
+                              <TableCell component="th" scope="row">
+                                {row.functionName}
+                              </TableCell>
+                              <TableCell>{Number(row.gateCount).toLocaleString()}</TableCell>
+                              <TableCell align="right">{Number(row.timings?.witgen).toLocaleString()}ms</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </>
                 ) : (
                   <Typography variant="body1" color="error">
                     {profileResults?.[fn.name]?.error}
@@ -290,10 +298,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               size="small"
-              onClick={() => {
-                trackButtonClick(`Simulate Transaction`, 'Contract Interaction');
-                simulate(fn.name);
-              }}
+              onClick={() => simulate(fn.name)}
               endIcon={<PsychologyIcon />}
               css={actionButton}
             >
@@ -308,8 +313,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               onClick={() => {
-                trackButtonClick(`Send Transaction`, 'Contract Interaction');
-                setOpenSendTxDialog(true);
+                setProfile(false);
+                setOpenConfigureInteractionDialog(true);
               }}
               endIcon={<SendIcon />}
               css={actionButton}
@@ -324,10 +329,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               size="small"
               color="primary"
               variant="contained"
-              onClick={() => {
-                trackButtonClick(`Create Authwit`, 'Contract Interaction');
-                setOpenCreateAuthwitDialog(true);
-              }}
+              onClick={() => setOpenCreateAuthwitDialog(true)}
               endIcon={<VpnKeyIcon />}
               css={actionButton}
             >
@@ -342,8 +344,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               variant="contained"
               size="small"
               onClick={() => {
-                trackButtonClick(`Profile Transaction`, 'Contract Interaction');
-                profile(fn.name);
+                setProfile(true);
+                setOpenConfigureInteractionDialog(true);
               }}
               endIcon={<TroubleshootIcon />}
               css={actionButton}
@@ -353,12 +355,12 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           </Tooltip>
         </CardActions>
       )}
-      {contract && openSendTxDialog && (
-        <SendTxDialog
+      {contract && openConfigureInteractionDialog && (
+        <ConfigureInteractionDialog
           name={fn.name}
           interaction={contract.methods[fn.name](...parameters)}
-          open={openSendTxDialog}
-          onClose={handleSendDialogClose}
+          open={openConfigureInteractionDialog}
+          onClose={handleConfigureInteractionDialogClose}
         />
       )}
       {contract && openCreateAuthwitDialog && (
