@@ -91,6 +91,8 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  * A Private eXecution Environment (PXE) implementation.
  */
 export class PXEService implements PXE {
+  #nodeInfo?: NodeInfo;
+
   private constructor(
     private node: AztecNode,
     private synchronizer: Synchronizer,
@@ -844,25 +846,31 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.node.getNodeVersion(),
-      this.node.getVersion(),
-      this.node.getChainId(),
-      this.node.getEncodedEnr(),
-      this.node.getL1ContractAddresses(),
-      this.node.getProtocolContractAddresses(),
-    ]);
+    // This assumes we're connected to a single node, so we cache the info to avoid repeated calls.
+    // Load balancers and a myriad other configurations can break this assumption, so review this!
+    // Temporary mesure to avoid hammering full nodes with requests on testnet.
+    if (!this.#nodeInfo) {
+      const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+        await Promise.all([
+          this.node.getNodeVersion(),
+          this.node.getVersion(),
+          this.node.getChainId(),
+          this.node.getEncodedEnr(),
+          this.node.getL1ContractAddresses(),
+          this.node.getProtocolContractAddresses(),
+        ]);
 
-    const nodeInfo: NodeInfo = {
-      nodeVersion,
-      l1ChainId: chainId,
-      rollupVersion,
-      enr,
-      l1ContractAddresses: contractAddresses,
-      protocolContractAddresses: protocolContractAddresses,
-    };
+      this.#nodeInfo = {
+        nodeVersion,
+        l1ChainId: chainId,
+        rollupVersion,
+        enr,
+        l1ContractAddresses: contractAddresses,
+        protocolContractAddresses: protocolContractAddresses,
+      };
+    }
 
-    return nodeInfo;
+    return this.#nodeInfo;
   }
 
   public getPXEInfo(): Promise<PXEInfo> {
