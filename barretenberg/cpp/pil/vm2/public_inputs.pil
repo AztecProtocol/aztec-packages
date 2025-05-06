@@ -3,3 +3,9 @@ namespace public_inputs;
 pol constant sel; // 1 for all rows up to AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH
 
 pol public cols[4];
+
+// TODO(dbanks12): Should be constrained to:
+// 1. Always be zero outside the ranges of AvmAccumulatedData arrays.
+// 2. Be 1 iff all 4 public input `cols` are zero for that row.
+// 3. Be 1 in contiguous ranges (no zero-holes in arrays).
+pol commit sel_nonzero_side_effect_out;

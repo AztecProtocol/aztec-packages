@@ -10,6 +10,7 @@ namespace bb::avm2::tracegen {
 class PublicInputsTraceBuilder final {
   public:
     void process_public_inputs(TraceContainer& trace, const PublicInputs& public_inputs);
+    void process_public_inputs_aux(TraceContainer& trace, const PublicInputs& public_inputs);
     void process_public_inputs_aux_precomputed(TraceContainer& trace);
 };
 
