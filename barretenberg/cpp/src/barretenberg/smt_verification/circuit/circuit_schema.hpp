@@ -47,7 +47,7 @@ struct CircuitSchema {
                    lookup_tables,
                    real_variable_tags,
                    range_tags,
-                   rom_records, 
+                   rom_records,
                    rom_states,
                    ram_records,
                    ram_states,
