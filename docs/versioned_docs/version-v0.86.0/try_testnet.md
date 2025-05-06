@@ -26,6 +26,8 @@ id: try_testnet
 
 **Version**: `0.85.0-alpha-testnet.5`
 
+**Node URL**: `https://aztec-alpha-testnet-fullnode.zkv.xyz`
+
 **L1 Chain ID**: `11155111`
 
 **Rollup Version**: `150103439`
@@ -36,22 +38,21 @@ id: try_testnet
 
 ### L1 Contract Addresses
 
-| Contract Name         | Address                                      |
-| --------------------- | -------------------------------------------- |
-| Rollup                | `0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0` |
-| Registry              | `0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e` |
-| L1 → L2 Inbox         | `0x812bdd3aa323fe28db926b55d7f0273b3efadf06` |
-| L2 → L1 Outbox        | `0x4345f34cc1a4be57156f1d0c669f9f5cbfb15d0a` |
-| Fee Juice             | `0x487ff89a8bdaefea2ad10d3e23727ccda8f845b9` |
-| Staking Asset         | `0x5c30c66847866a184ccb5197cbe31fce7a92eb26` |
-| Fee Juice Portal      | `0xcddb813623c83369250aec0a65cd02ab3e577865` |
-| Coin Issuer           | `0xf8d7d601759cbcfb78044ba7ca9b0c0d6301a54f` |
-| Reward Distributor    | `0x169aa723de66698d6cfa97ae576ab2546e8465a2` |
-| Governance Proposer   | `0xf4bf5df1c3b2dd67a0525fc600e98ca51143a67d` |
-| Governance            | `0xee63e102e35f24c34b9ea09b597acfb491c94e78` |
-| Slash Factory         | `0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be` |
-| Fee Asset Handler     | `0x80d848dc9f52df56789e2d62ce66f19555ff1019` |
-| Staking Asset Handler | `undefined`                                  |
+| Contract Name       | Address                                      |
+| ------------------- | -------------------------------------------- |
+| Rollup              | `0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0` |
+| Registry            | `0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e` |
+| L1 → L2 Inbox       | `0x812bdd3aa323fe28db926b55d7f0273b3efadf06` |
+| L2 → L1 Outbox      | `0x4345f34cc1a4be57156f1d0c669f9f5cbfb15d0a` |
+| Fee Juice           | `0x487ff89a8bdaefea2ad10d3e23727ccda8f845b9` |
+| Staking Asset       | `0x5c30c66847866a184ccb5197cbe31fce7a92eb26` |
+| Fee Juice Portal    | `0xcddb813623c83369250aec0a65cd02ab3e577865` |
+| Coin Issuer         | `0xf8d7d601759cbcfb78044ba7ca9b0c0d6301a54f` |
+| Reward Distributor  | `0x169aa723de66698d6cfa97ae576ab2546e8465a2` |
+| Governance Proposer | `0xf4bf5df1c3b2dd67a0525fc600e98ca51143a67d` |
+| Governance          | `0xee63e102e35f24c34b9ea09b597acfb491c94e78` |
+| Slash Factory       | `0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be` |
+| Fee Asset Handler   | `0x80d848dc9f52df56789e2d62ce66f19555ff1019` |
 
 ### L2 Contract Addresses
 

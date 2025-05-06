@@ -29,7 +29,7 @@ VERSION=0.85.0-alpha-testnet.5 aztec-up
 When you run `aztec-wallet` commands, make sure to include a `node-url` option. An example:
 
 ```sh
-export NODE_URL=http://34.107.66.170
+export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 

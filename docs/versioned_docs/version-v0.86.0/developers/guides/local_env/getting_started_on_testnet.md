@@ -58,7 +58,7 @@ Aztec uses account abstraction, which means:
 0. Set some variables that we need:
 
 ```bash
-export NODE_URL=http://34.107.66.170
+export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 ```
 
