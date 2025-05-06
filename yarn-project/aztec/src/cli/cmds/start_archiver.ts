@@ -15,6 +15,7 @@ import {
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
+import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
@@ -51,6 +52,8 @@ export async function startArchiver(
 
   archiverConfig.l1Contracts = addresses;
   archiverConfig = { ...archiverConfig, ...l1Config };
+
+  await trySnapshotSync(archiverConfig, undefined, ['archiver']);
 
   const storeLog = createLogger('archiver:lmdb');
   const store = await createStore('archiver', KVArchiverDataStore.SCHEMA_VERSION, archiverConfig, storeLog);

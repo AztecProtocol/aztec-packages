@@ -4,6 +4,7 @@ import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
@@ -14,6 +15,7 @@ import {
   downloadSnapshot,
   getLatestSnapshotMetadata,
   makeSnapshotPaths,
+  snapshotComponentMap,
 } from '@aztec/stdlib/snapshots';
 import { NATIVE_WORLD_STATE_DBS, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from '@aztec/world-state';
 
@@ -37,7 +39,11 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode' | 'snapshotsUrl'> &
  * Connects to a remote snapshot index and downloads the latest snapshot if the local archiver is behind.
  * Behaviour depends on syncing mode.
  */
-export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
+export async function trySnapshotSync(
+  config: SnapshotSyncConfig,
+  log: Logger = createLogger('snapshot-sync'),
+  componentsToSync: (keyof typeof snapshotComponentMap)[] = ['archiver', 'worldState'],
+) {
   const { syncMode, snapshotsUrl, dataDirectory, l1ChainId, rollupVersion, l1Contracts } = config;
   if (syncMode === 'full') {
     log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
@@ -62,38 +68,45 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     return false;
   }
 
-  // Create an archiver store to check the current state
-  log.verbose(`Creating temporary archiver data store`);
-  const archiverStore = await createArchiverStore(config);
+  // Only check archiver state if we're syncing the archiver
   let archiverL1BlockNumber: bigint | undefined;
   let archiverL2BlockNumber: number | undefined;
-  try {
-    [archiverL1BlockNumber, archiverL2BlockNumber] = await Promise.all([
-      archiverStore.getSynchPoint().then(s => s.blocksSynchedTo),
-      archiverStore.getSynchedL2BlockNumber(),
-    ] as const);
-  } finally {
-    log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });
-    await archiverStore.close();
-  }
-
   const minL1BlocksToTriggerReplace = config.minL1BlocksToTriggerReplace ?? MIN_L1_BLOCKS_TO_TRIGGER_REPLACE;
-  if (syncMode === 'snapshot' && archiverL2BlockNumber !== undefined && archiverL2BlockNumber >= INITIAL_L2_BLOCK_NUM) {
-    log.verbose(
-      `Skipping non-forced snapshot sync as archiver is already synced to L2 block ${archiverL2BlockNumber}.`,
-    );
-    return false;
-  }
+  if (componentsToSync.includes('archiver')) {
+    // Create an archiver store to check the current state
+    log.verbose(`Creating temporary archiver data store`);
+    const archiverStore = await createArchiverStore(config);
+    try {
+      [archiverL1BlockNumber, archiverL2BlockNumber] = await Promise.all([
+        archiverStore.getSynchPoint().then(s => s.blocksSynchedTo),
+        archiverStore.getSynchedL2BlockNumber(),
+      ] as const);
+    } finally {
+      log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });
+      await archiverStore.close();
+    }
 
-  const currentL1BlockNumber = await getPublicClient(config).getBlockNumber();
-  if (archiverL1BlockNumber && currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace) {
-    log.verbose(
-      `Skipping snapshot sync as archiver is less than ${
-        currentL1BlockNumber - archiverL1BlockNumber
-      } L1 blocks behind.`,
-      { archiverL1BlockNumber, currentL1BlockNumber, minL1BlocksToTriggerReplace },
-    );
-    return false;
+    if (
+      syncMode === 'snapshot' &&
+      archiverL2BlockNumber !== undefined &&
+      archiverL2BlockNumber >= INITIAL_L2_BLOCK_NUM
+    ) {
+      log.verbose(
+        `Skipping non-forced snapshot sync as archiver is already synced to L2 block ${archiverL2BlockNumber}.`,
+      );
+      return false;
+    }
+
+    const currentL1BlockNumber = await getPublicClient(config).getBlockNumber();
+    if (archiverL1BlockNumber && currentL1BlockNumber - archiverL1BlockNumber < minL1BlocksToTriggerReplace) {
+      log.verbose(
+        `Skipping snapshot sync as archiver is less than ${
+          currentL1BlockNumber - archiverL1BlockNumber
+        } L1 blocks behind.`,
+        { archiverL1BlockNumber, currentL1BlockNumber, minL1BlocksToTriggerReplace },
+      );
+      return false;
+    }
   }
 
   const indexMetadata: SnapshotsIndexMetadata = {
@@ -117,20 +130,25 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     return false;
   }
 
-  if (snapshot.schemaVersions.archiver !== ARCHIVER_DB_VERSION) {
-    log.warn(
-      `Skipping snapshot sync as last snapshot has schema version ${snapshot.schemaVersions.archiver} but expected ${ARCHIVER_DB_VERSION}.`,
-      snapshot,
-    );
-    return false;
+  // Only check schema versions for components we're syncing
+  if (componentsToSync.includes('archiver')) {
+    if (snapshot.schemaVersions.archiver !== ARCHIVER_DB_VERSION) {
+      log.warn(
+        `Skipping snapshot sync as last snapshot has schema version ${snapshot.schemaVersions.archiver} but expected ${ARCHIVER_DB_VERSION}.`,
+        snapshot,
+      );
+      return false;
+    }
   }
 
-  if (snapshot.schemaVersions.worldState !== WORLD_STATE_DB_VERSION) {
-    log.warn(
-      `Skipping snapshot sync as last snapshot has world state schema version ${snapshot.schemaVersions.worldState} but we expected ${WORLD_STATE_DB_VERSION}.`,
-      snapshot,
-    );
-    return false;
+  if (componentsToSync.includes('worldState')) {
+    if (snapshot.schemaVersions.worldState !== WORLD_STATE_DB_VERSION) {
+      log.warn(
+        `Skipping snapshot sync as last snapshot has world state schema version ${snapshot.schemaVersions.worldState} but we expected ${WORLD_STATE_DB_VERSION}.`,
+        snapshot,
+      );
+      return false;
+    }
   }
 
   if (archiverL1BlockNumber && snapshot.l1BlockNumber < archiverL1BlockNumber) {
@@ -153,13 +171,52 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
   const { l1BlockNumber, l2BlockNumber } = snapshot;
   log.info(`Syncing from snapshot at L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, { snapshot, snapshotsUrl });
-  await snapshotSync(snapshot, log, {
-    dataDirectory: config.dataDirectory!,
-    rollupAddress: config.l1Contracts.rollupAddress,
-    snapshotsUrl,
-  });
+  await snapshotSync(
+    snapshot,
+    log,
+    {
+      dataDirectory: config.dataDirectory!,
+      rollupAddress: config.l1Contracts.rollupAddress,
+      snapshotsUrl,
+    },
+    componentsToSync,
+  );
   log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, { snapshot });
   return true;
+}
+
+/**
+ * Downloads and sets up the archiver database from a snapshot.
+ */
+async function syncArchiverFromSnapshot(
+  config: { dataDirectory: string; rollupAddress: EthAddress; snapshotsUrl: string },
+  downloadPaths: ReturnType<typeof makeSnapshotPaths>,
+  log: Logger,
+) {
+  const { dataDirectory, rollupAddress } = config;
+  const archiverPath = join(dataDirectory, ARCHIVER_STORE_NAME);
+  await prepareTarget(archiverPath, ARCHIVER_DB_VERSION, rollupAddress);
+  await rename(downloadPaths.archiver, join(archiverPath, 'data.mdb'));
+  log.info(`Archiver database set up from snapshot`, { path: archiverPath });
+}
+
+/**
+ * Downloads and sets up the world state databases from a snapshot.
+ */
+async function syncWorldStateFromSnapshot(
+  config: { dataDirectory: string; rollupAddress: EthAddress; snapshotsUrl: string },
+  downloadPaths: ReturnType<typeof makeSnapshotPaths>,
+  log: Logger,
+) {
+  const { dataDirectory, rollupAddress } = config;
+  const worldStateBasePath = join(dataDirectory, WORLD_STATE_DIR);
+  await prepareTarget(worldStateBasePath, WORLD_STATE_DB_VERSION, rollupAddress);
+  for (const [name, dir] of NATIVE_WORLD_STATE_DBS) {
+    const path = join(worldStateBasePath, dir);
+    await mkdir(path, { recursive: true });
+    await rename(downloadPaths[name], join(path, 'data.mdb'));
+    log.info(`World state database ${name} set up from snapshot`, { path });
+  }
 }
 
 /**
@@ -169,38 +226,33 @@ export async function snapshotSync(
   snapshot: Pick<SnapshotMetadata, 'dataUrls'>,
   log: Logger,
   config: { dataDirectory: string; rollupAddress: EthAddress; snapshotsUrl: string },
+  componentsToSync: (keyof typeof snapshotComponentMap)[] = ['archiver', 'worldState'],
 ) {
-  const { dataDirectory, rollupAddress } = config;
+  const { dataDirectory } = config;
   if (!dataDirectory) {
     throw new Error(`No local data directory defined. Cannot sync snapshot.`);
   }
 
   const fileStore = await createReadOnlyFileStore(config.snapshotsUrl, log);
-
   let downloadDir: string | undefined;
 
   try {
     // Download the snapshot to a temp location.
     downloadDir = await mkdtemp(join(dataDirectory, 'download-'));
-    const downloadPaths = makeSnapshotPaths(downloadDir);
+
+    const dbPaths = componentsToSync.flatMap(component => snapshotComponentMap[component]);
+
+    const downloadPaths = makeSnapshotPaths(downloadDir, dbPaths);
     log.info(`Downloading snapshot to ${downloadDir}`, { snapshot, downloadPaths });
     await downloadSnapshot(snapshot, downloadPaths, fileStore);
     log.info(`Snapshot downloaded at ${downloadDir}`, { snapshot, downloadPaths });
 
-    // If download was successful, clear lock and version, and move download there
-    const archiverPath = join(dataDirectory, ARCHIVER_STORE_NAME);
-    await prepareTarget(archiverPath, ARCHIVER_DB_VERSION, rollupAddress);
-    await rename(downloadPaths.archiver, join(archiverPath, 'data.mdb'));
-    log.info(`Archiver database set up from snapshot`, { path: archiverPath });
-
-    // Same for the world state dbs, only that we do not close them, since we assume they are not yet in use
-    const worldStateBasePath = join(dataDirectory, WORLD_STATE_DIR);
-    await prepareTarget(worldStateBasePath, WORLD_STATE_DB_VERSION, rollupAddress);
-    for (const [name, dir] of NATIVE_WORLD_STATE_DBS) {
-      const path = join(worldStateBasePath, dir);
-      await mkdir(path, { recursive: true });
-      await rename(downloadPaths[name], join(path, 'data.mdb'));
-      log.info(`World state database ${name} set up from snapshot`, { path });
+    // Only sync components that were requested
+    if (componentsToSync.includes('archiver')) {
+      await syncArchiverFromSnapshot(config, downloadPaths, log);
+    }
+    if (componentsToSync.includes('worldState')) {
+      await syncWorldStateFromSnapshot(config, downloadPaths, log);
     }
   } finally {
     if (downloadDir) {

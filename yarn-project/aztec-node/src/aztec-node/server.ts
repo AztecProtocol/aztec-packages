@@ -257,7 +257,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     let slasherClient: SlasherClient | undefined;
     if (config.archiverUrl) {
-      log.info('Slasher client not started because archiver is remote');
+      log.info('Slasher client not started because it requires a local archiver');
     } else {
       slasherClient = createSlasherClient(
         config,
