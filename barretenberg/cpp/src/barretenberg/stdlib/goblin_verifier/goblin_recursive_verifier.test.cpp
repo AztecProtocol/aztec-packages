@@ -182,7 +182,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
@@ -200,7 +200,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -221,7 +221,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

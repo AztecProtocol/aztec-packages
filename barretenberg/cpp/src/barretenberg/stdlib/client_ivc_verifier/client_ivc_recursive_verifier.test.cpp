@@ -105,9 +105,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Generate the recursive verification circuit
     CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
-    // just using default.
-    PairingAccumulator::add_default_to_public_inputs(*tube_builder);
+    client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
     tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
@@ -136,8 +134,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto base_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, tube_vk);
     auto base_tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
-    UltraRecursiveVerifierOutput<Builder> output =
-        base_verifier.verify_proof(base_tube_proof, PairingAccumulator::construct_default(base_builder));
+    UltraRecursiveVerifierOutput<Builder> output = base_verifier.verify_proof(base_tube_proof);
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     output.points_accumulator.set_public();
     output.ipa_claim.set_public();
@@ -168,9 +165,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
 
         auto client_ivc_rec_verifier_output = verifier.verify(proof);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output
-        // instead of just using default.
-        PairingAccumulator::add_default_to_public_inputs(*tube_builder);
+        client_ivc_rec_verifier_output.points_accumulator.set_public();
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
         client_ivc_rec_verifier_output.opening_claim.set_public();
         tube_builder->ipa_proof =
