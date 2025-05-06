@@ -614,18 +614,18 @@ export class ReqResp {
       const handler = this.subProtocolHandlers[protocol];
       const transform = this.snappyTransform;
 
+      if (protocol === ReqRespSubProtocol.GOODBYE) {
+        // Don't respond
+        await stream.close();
+        return;
+      }
+
       await pipe(
         stream,
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
             const response = await handler(connection.remotePeer, msg);
-
-            if (protocol === ReqRespSubProtocol.GOODBYE) {
-              // Don't respond
-              await stream.close();
-              return;
-            }
 
             // Send success code first, then the response
             const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
