@@ -5,9 +5,11 @@
 #include <memory>
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -81,12 +83,17 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using stdlib::bool_t;
+
+    StdlibProof<Builder> stdlib_proof_no_pi_validation_switch = stdlib_proof;
+    bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof_no_pi_validation_switch.at(0));
+    stdlib_proof_no_pi_validation_switch.erase(stdlib_proof_no_pi_validation_switch.begin());
 
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
     }
 
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript = std::make_shared<Transcript>(stdlib_proof_no_pi_validation_switch);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
@@ -144,6 +151,8 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
         public_input_evaluation.assert_equal(claimed_evaluations[i], "public_input_evaluation failed");
+        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i],
+            "public_input_evaluation failed");
     }
 
     // Execute Shplemini rounds.
