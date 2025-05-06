@@ -192,9 +192,9 @@ spec:
             - name: L1_CONSENSUS_HOST_URLS
               value: {{ join "," .Values.node.l1ConsensusUrls | quote }}
             - name: L1_CONSENSUS_HOST_API_KEYS
-              value: {{ join "," .Values.node.l1ExecutionApiKeys | quote }}
+              value: {{ join "," .Values.node.l1ConsensusHostApiKeys | quote }}
             - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
-              value: {{ join "," .Values.node.l1ExecutionApiKeyHeaders | quote }}
+              value: {{ join "," .Values.node.l1ConsensusHostApiKeyHeaders | quote }}
             {{- end }}
             - name: DATA_DIRECTORY
               value: {{ .Values.node.storage.dataDirectory | quote }}
