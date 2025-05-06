@@ -17,7 +17,6 @@ class IPATest : public CommitmentTest<Curve> {
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
-    using PCS = IPA<curve::Grumpkin>;
 
     using ShplonkProver = ShplonkProver_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
@@ -30,16 +29,16 @@ class IPATest : public CommitmentTest<Curve> {
     static std::shared_ptr<CK> ck;
     static std::shared_ptr<VK> vk;
 
-    // Default polynomial size
-    static constexpr size_t n = 128;
-
     // For edge cases
     static constexpr size_t small_log_n = 3;
+
+    using PCS = IPA<curve::Grumpkin, small_log_n>;
+
     static constexpr size_t small_n = 1UL << small_log_n;
 
     static void SetUpTestSuite()
     {
-        ck = create_commitment_key<CK>(n);
+        ck = create_commitment_key<CK>(small_n);
         vk = create_verifier_commitment_key<VK>();
     }
 };
@@ -98,7 +97,7 @@ TEST_F(IPATest, OpenZeroPolynomial)
 TEST_F(IPATest, OpenAtZero)
 {
     // generate a random polynomial, degree needs to be a power of two
-    auto poly = Polynomial::random(n);
+    auto poly = Polynomial::random(small_n);
     const Fr x = Fr::zero();
     const Fr eval = poly.evaluate(x);
     const Commitment commitment = ck->commit(poly);
@@ -122,7 +121,7 @@ namespace bb {
 TEST_F(IPATest, ChallengesAreZero)
 {
     // generate a random polynomial, degree needs to be a power of two
-    auto poly = Polynomial::random(n);
+    auto poly = Polynomial::random(small_n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = ck->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
@@ -130,7 +129,7 @@ TEST_F(IPATest, ChallengesAreZero)
 
     // initialize an empty mock transcript
     auto transcript = std::make_shared<MockTranscript>();
-    const size_t num_challenges = numeric::get_msb(n) + 1;
+    const size_t num_challenges = numeric::get_msb(small_n) + 1;
     std::vector<uint256_t> random_vector(num_challenges);
 
     // Generate a random element vector with challenges
@@ -157,7 +156,7 @@ TEST_F(IPATest, ChallengesAreZero)
     for (size_t i = 0; i < num_challenges; i++) {
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
-        transcript->initialize(new_random_vector, lrs, { uint256_t(n) });
+        transcript->initialize(new_random_vector, lrs, { uint256_t(small_n) });
         EXPECT_ANY_THROW(PCS::reduce_verify_internal_native(vk, opening_claim, transcript));
     }
 }
@@ -167,7 +166,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 {
     // generate a random polynomial, degree needs to be a power of two
     constexpr size_t n = 4;
-    auto poly = Polynomial(n);
+    auto poly = Polynomial(small_n);
     for (size_t i = 0; i < n / 2; i++) {
         poly.at(i) = Fr::random_element();
         poly.at(i + (n / 2)) = poly[i];
@@ -180,7 +179,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     // initialize an empty mock transcript
     auto transcript = std::make_shared<MockTranscript>();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constant from IPA.
-    const size_t num_challenges = CONST_ECCVM_LOG_N + 1;
+    const size_t num_challenges = small_log_n + 1;
     std::vector<uint256_t> random_vector(num_challenges);
 
     // Generate a random element vector with challenges
@@ -207,14 +206,14 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 
 TEST_F(IPATest, Commit)
 {
-    auto poly = Polynomial::random(n);
+    auto poly = Polynomial::random(small_n);
     const GroupElement commitment = ck->commit(poly);
     auto srs_elements = ck->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
     // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 2; i < 2 * n; i += 2) {
+    for (size_t i = 2; i < 2 * small_n; i += 2) {
         expected += srs_elements[i] * poly[i >> 1];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
@@ -223,7 +222,7 @@ TEST_F(IPATest, Commit)
 TEST_F(IPATest, Open)
 {
     // generate a random polynomial, degree needs to be a power of two
-    auto poly = Polynomial::random(n);
+    auto poly = Polynomial::random(small_n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = ck->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
