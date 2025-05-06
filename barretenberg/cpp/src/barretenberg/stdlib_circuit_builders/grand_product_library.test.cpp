@@ -3,7 +3,6 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
 using namespace bb;
 

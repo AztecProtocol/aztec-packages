@@ -2,7 +2,6 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 

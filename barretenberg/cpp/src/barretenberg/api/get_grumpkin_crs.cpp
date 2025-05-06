@@ -1,4 +1,5 @@
 #include "get_grumpkin_crs.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 
 namespace {
 std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
@@ -23,7 +24,9 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 } // namespace
 
 namespace bb {
-std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path, size_t num_points)
+std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path,
+                                                                 size_t num_points,
+                                                                 bool allow_download)
 {
     // TODO: per Charlie this should just download and replace the flat file portion atomically so we have no race
     // condition
@@ -44,7 +47,9 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
             points.data(), (char*)data.data(), size_of_points_in_bytes);
         return points;
     }
-
+    if (!allow_download) {
+        throw_or_abort("grumpkin g1 data not found and download not allowed in this context");
+    }
     vinfo("downloading grumpkin crs...");
     auto data = download_grumpkin_g1_data(num_points);
     write_file(path / "grumpkin_g1.dat", data);

@@ -8,7 +8,6 @@
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
 
 namespace bb::plonk {

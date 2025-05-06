@@ -5,7 +5,6 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/plonk/proof_system/commitment_scheme/kate_commitment_scheme.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "prover.hpp"
 #include <gtest/gtest.h>
 

@@ -30,7 +30,9 @@ std::vector<uint8_t> download_bn254_g2_data()
 } // namespace
 
 namespace bb {
-std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
+std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
+                                                  size_t num_points,
+                                                  bool allow_download)
 {
     // TODO: per Charlie this should just download and replace the flat file portion atomically so we have no race
     // condition
@@ -49,6 +51,9 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
         return points;
     }
 
+    if (!allow_download) {
+        throw_or_abort("bn254 g1 data not found and download not allowed in this context");
+    }
     vinfo("downloading bn254 crs...");
     auto data = download_bn254_g1_data(num_points);
     write_file(g1_path, data);
@@ -60,7 +65,7 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     return points;
 }
 
-g2::affine_element get_bn254_g2_data(const std::filesystem::path& path)
+g2::affine_element get_bn254_g2_data(const std::filesystem::path& path, bool allow_download)
 {
     std::filesystem::create_directories(path);
 
@@ -71,7 +76,9 @@ g2::affine_element get_bn254_g2_data(const std::filesystem::path& path)
         auto data = read_file(g2_path);
         return from_buffer<g2::affine_element>(data.data());
     }
-
+    if (!allow_download) {
+        throw_or_abort("bn254 g2 data not found and download not allowed in this context");
+    }
     auto data = download_bn254_g2_data();
     write_file(g2_path, data);
     return from_buffer<g2::affine_element>(data.data());
