@@ -402,16 +402,20 @@ export class TxEffect {
         throw new Error('Invalid fields given to TxEffect.fromBlobFields(): Attempted to assign property twice.');
       }
     };
+
     const effect = this.empty();
-    if (!(fields instanceof FieldReader) && !fields.length) {
+    const reader = FieldReader.asReader(fields);
+    const totalFields = reader.remainingFields();
+    if (!totalFields) {
       return effect;
     }
-    const reader = FieldReader.asReader(fields);
+
     const firstField = reader.readField();
     if (!this.isFirstField(firstField)) {
       throw new Error('Invalid fields given to TxEffect.fromBlobFields(): First field invalid.');
     }
-    const { length: _, revertCode } = this.decodeFirstField(firstField);
+
+    const { length: fieldsToProcess, revertCode } = this.decodeFirstField(firstField);
     effect.revertCode = RevertCode.fromField(new Fr(revertCode));
 
     effect.txHash = new TxHash(reader.readField());
@@ -420,7 +424,9 @@ export class TxEffect {
     // NB: Fr.fromBuffer hangs here if you provide a buffer less than 32 in len
     // todo: try new Fr(prefixedFee.toBuffer().subarray(3))
     effect.transactionFee = Fr.fromBuffer(Buffer.concat([Buffer.alloc(3), prefixedFee.toBuffer().subarray(3)]));
-    while (!reader.isFinished()) {
+
+    let fieldsProcessed = totalFields - reader.remainingFields();
+    while (fieldsProcessed < fieldsToProcess) {
       const { type, length } = this.fromPrefix(reader.readField());
       switch (type) {
         case NOTES_PREFIX:
@@ -459,6 +465,7 @@ export class TxEffect {
         default:
           throw new Error(`Too many fields to decode given to TxEffect.fromBlobFields()`);
       }
+      fieldsProcessed = totalFields - reader.remainingFields();
     }
     return effect;
   }

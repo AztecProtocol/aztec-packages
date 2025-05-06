@@ -30,6 +30,13 @@ describe('Body', () => {
     expect(() => Body.fromBlobFields(fields)).toThrow('Invalid fields');
   });
 
+  it('fails with too many fields', async () => {
+    const body = await Body.random();
+    const fields = body.toBlobFields();
+    fields.push(new Fr(7));
+    expect(() => Body.fromBlobFields(fields)).toThrow('Invalid fields');
+  });
+
   it('convert to and from json', async () => {
     const body = await Body.random();
     const parsed = Body.schema.parse(JSON.parse(jsonStringify(body)));

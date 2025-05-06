@@ -4,8 +4,10 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { Gas } from '../gas/gas.js';
+import type { PrivateLog } from '../logs/index.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { RollupValidationRequests } from './hints/rollup_validation_requests.js';
+import type { ScopedLogHash } from './log_hash.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
 import { PrivateToPublicKernelCircuitPublicInputs } from './private_to_public_kernel_circuit_public_inputs.js';
 import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
@@ -254,23 +256,20 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   getEmittedContractClassLogsLength() {
-    return (
-      this.forPublic
-        ? this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes.concat(
-            this.forPublic.revertibleAccumulatedData.contractClassLogsHashes,
-          )
-        : this.forRollup!.end.contractClassLogsHashes
-    ).reduce((total, log) => total + log.logHash.length, 0);
+    const accumulateLengths = (logHashes: ScopedLogHash[]) =>
+      logHashes.reduce((acc, log) => acc + log.logHash.length, 0);
+    return this.forPublic
+      ? accumulateLengths(this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes) +
+          accumulateLengths(this.forPublic.revertibleAccumulatedData.contractClassLogsHashes)
+      : accumulateLengths(this.forRollup!.end.contractClassLogsHashes);
   }
 
   getEmittedPrivateLogsLength() {
-    return (
-      this.forPublic
-        ? this.forPublic.nonRevertibleAccumulatedData.privateLogs.concat(
-            this.forPublic.revertibleAccumulatedData.privateLogs,
-          )
-        : this.forRollup!.end.privateLogs
-    ).reduce((total, log) => total + log.emittedLength, 0);
+    const accumulateLengths = (logs: PrivateLog[]) => logs.reduce((acc, log) => acc + log.emittedLength, 0);
+    return this.forPublic
+      ? accumulateLengths(this.forPublic.nonRevertibleAccumulatedData.privateLogs) +
+          accumulateLengths(this.forPublic.revertibleAccumulatedData.privateLogs)
+      : accumulateLengths(this.forRollup!.end.privateLogs);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {

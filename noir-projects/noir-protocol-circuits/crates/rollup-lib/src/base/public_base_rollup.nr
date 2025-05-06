@@ -182,8 +182,9 @@ mod tests {
             CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX,
             MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
-            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, PUBLIC_LOGS_PREFIX,
-            REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
+            PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_siloed_contract_class_log_field, poseidon2_hash, silo_l2_to_l1_message},
@@ -575,6 +576,40 @@ mod tests {
         let mut expected_sponge = outputs.start_sponge_blob;
         expected_sponge.absorb(reconstructed_tx_effects, offset);
         assert(outputs.end_sponge_blob.eq(expected_sponge));
+    }
+
+    // TODO: Break up components.nr and test directly with `get_tx_effects_hash_input`.
+    #[test(should_fail_with = "Index out of bounds")]
+    unconstrained fn private_log_length_too_large_fails() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+
+        // Create a log whose length is larger than the max allowed.
+        builder.tube_data.append_private_logs_with_lengths([PRIVATE_LOG_SIZE_IN_FIELDS + 1]);
+
+        let _ = builder.execute();
+    }
+
+    #[test(should_fail_with = "Index out of bounds")]
+    unconstrained fn public_log_length_too_large_fails() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+
+        // Create a log whose length is larger than the max allowed.
+        builder.avm_data.append_public_logs_with_lengths([PUBLIC_LOG_SIZE_IN_FIELDS + 1]);
+
+        let _ = builder.execute();
+    }
+
+    #[test(should_fail_with = "Index out of bounds")]
+    unconstrained fn contract_class_log_length_too_large_fails() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+
+        builder.append_contract_class_log([11, 22, 33]);
+        let mut invalid_log_hash = builder.tube_data.contract_class_logs_hashes.pop();
+        // Tweak the length of the log hash to be larger than the max allowed.
+        invalid_log_hash.inner.inner.length = CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1;
+        builder.tube_data.contract_class_logs_hashes.push(invalid_log_hash);
+
+        let _ = builder.execute();
     }
 
     #[test]

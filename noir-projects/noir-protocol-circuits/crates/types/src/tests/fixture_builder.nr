@@ -271,8 +271,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn use_protocol_contract(&mut self) -> Self {
-        let contract_index = 1;
+    // contract_index should be the same as contract address.
+    pub fn use_protocol_contract(&mut self, contract_index: u32) -> Self {
         let (tree, protocol_contract_leaves) =
             fixtures::protocol_contract_tree::get_protocol_contract_tree();
         self.protocol_contract_tree_root = tree.get_root();

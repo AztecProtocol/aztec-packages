@@ -18,6 +18,11 @@ describe('field reader', () => {
     reader = new FieldReader(FIELDS);
   });
 
+  it('can create from empty array', () => {
+    const reader = new FieldReader([]);
+    expect(reader.remainingFields()).toBe(0);
+  });
+
   describe('readFr', () => {
     it('should read Fr', () => {
       FIELDS.forEach(fr => {
