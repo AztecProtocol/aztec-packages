@@ -90,15 +90,13 @@ export class PublicTxContext {
 
     const trace = new SideEffectTrace();
 
-    const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
-
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = PublicPersistableStateManager.create(
       treesDB,
       contractsDB,
       trace,
       doMerkleOperations,
-      firstNullifier,
+      /*firstNullifier=*/ nonRevertibleAccumulatedDataFromPrivate.nullifiers[0],
       globalVariables.blockNumber.toNumber(),
     );
 
@@ -317,7 +315,7 @@ export class PublicTxContext {
     const finalPublicDataWrites = (() => {
       const squashedPublicDataWrites: Map<bigint, Fr> = new Map();
       for (const publicDataWrite of avmPublicDataWrites) {
-        squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.newValue);
+        squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.value);
       }
       return Array.from(squashedPublicDataWrites.entries()).map(
         ([slot, value]) => new PublicDataWrite(new Fr(slot), value),
@@ -325,16 +323,8 @@ export class PublicTxContext {
     })();
 
     const accumulatedData = new AvmAccumulatedData(
-      /*noteHashes=*/ padArrayEnd(
-        avmNoteHashes.map(n => n.value),
-        Fr.zero(),
-        MAX_NOTE_HASHES_PER_TX,
-      ),
-      /*nullifiers=*/ padArrayEnd(
-        avmNullifiers.map(n => n.value),
-        Fr.zero(),
-        MAX_NULLIFIERS_PER_TX,
-      ),
+      /*noteHashes=*/ padArrayEnd(avmNoteHashes, Fr.zero(), MAX_NOTE_HASHES_PER_TX),
+      /*nullifiers=*/ padArrayEnd(avmNullifiers, Fr.zero(), MAX_NULLIFIERS_PER_TX),
       /*l2ToL1Msgs=*/ padArrayEnd(avmL2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       /*publicLogs=*/ padArrayEnd(finalPublicLogs, PublicLog.empty(), MAX_PUBLIC_LOGS_PER_TX),
       /*publicDataWrites=*/ padArrayEnd(

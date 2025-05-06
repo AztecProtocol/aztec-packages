@@ -4,7 +4,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
   merge(nestedTrace: PublicSideEffectTraceInterface, reverted?: boolean): void;
-  getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
   tracePublicStorageWrite(
     contractAddress: AztecAddress,
