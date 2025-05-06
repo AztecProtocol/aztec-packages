@@ -87,7 +87,7 @@ size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input
     auto steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
     const PrivateExecutionStepRaw& last_step = steps.back();
     std::vector<uint8_t> bytecode_buf(last_step.bytecode.begin(), last_step.bytecode.end());
-    const AcirFormat constraints = circuit_buf_to_acir_format(bytecode_buf);
+    const AcirFormat constraints = circuit_buf_to_acir_format(std::move(bytecode_buf));
     return constraints.public_inputs.size();
 }
 
