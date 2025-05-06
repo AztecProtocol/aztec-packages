@@ -86,7 +86,17 @@ aztec start --node --archiver --sequencer \
   --p2p.p2pIp $P2P_IP
 ```
 
-**Additional Parameters**: The comprehensive list of parameters can be seen via: `aztec help start`
+**Additional Parameters**: The comprehensive list of parameters can be seen via: `aztec help start`. For example:
+```
+--p2p.p2pPort <value>        (default: 40400)        ($P2P_PORT)
+      The port for the P2P service.
+```
+
+### Port forwarding
+
+For some restricted environments, may need to explicity forward the p2p port (default: 40400) to your local node ip address.
+
+This is often in a router's advanced network settings if required.
 
 ### Next steps
 
