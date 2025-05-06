@@ -33,7 +33,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
         ivc.accumulate(circuit);
-        EXPECT_TRUE(circuit.blocks.has_overflow); // trace oveflow mechanism should not be triggered
+        EXPECT_TRUE(circuit.blocks.has_overflow); // trace overflow mechanism should be triggered
     }
 
     EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 20);
