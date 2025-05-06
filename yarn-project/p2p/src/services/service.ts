@@ -64,8 +64,6 @@ export interface P2PService {
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 
-  registerTxIngressBlockProposalCallback(): void;
-
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];

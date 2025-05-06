@@ -109,7 +109,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param block - The block received from the peer.
    * @returns The attestation for the block, if any.
    */
-  private blockReceivedCallback: (block: BlockProposal, peerId: PeerId) => Promise<BlockAttestation | undefined>;
+  private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
 
@@ -152,7 +152,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
-    this.blockReceivedCallback = async (block: BlockProposal, _: PeerId): Promise<BlockAttestation | undefined> => {
+    this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.debug(
         `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber.toNumber()} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageIdentifier() },
@@ -456,11 +456,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.logger.verbose('Block received callback registered');
   }
 
-  public registerTxIngressBlockProposalCallback() {
-    this.blockReceivedCallback = this.extractTxsFromBlockProposal.bind(this);
-    this.logger.verbose('Tx extraction from block proposal callback registered');
-  }
-
   /**
    * Subscribes to a topic.
    * @param topic - The topic to subscribe to.
@@ -615,7 +610,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         block: block.blockNumber.toNumber(),
       },
     );
-    const attestation = await this.blockReceivedCallback(block, peerId);
+    await this.extractTxsFromBlockProposal(block, peerId);
+    const attestation = await this.blockReceivedCallback(block);
 
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
@@ -845,17 +841,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result;
   }
 
-  private async extractTxsFromBlockProposal(block: BlockProposal, peerId: PeerId): Promise<undefined> {
+  private async extractTxsFromBlockProposal(block: BlockProposal, peerId: PeerId): Promise<void> {
     const receivedTxs = block.txs ?? [];
     const receivedTxHashes = await Promise.all(receivedTxs.map(tx => tx.getTxHash()));
     if (receivedTxHashes.length === 0) {
-      return undefined;
+      return;
     }
     // Check if we already have the transactions in our pool
     const haveAlready = await this.mempools.txPool.hasTxs(receivedTxHashes);
     const newTxs = receivedTxs.filter((_, i) => !haveAlready[i]);
     if (newTxs.length === 0) {
-      return undefined;
+      return;
     }
     // Validate the transactions
     const blockNumber = (await this.archiver.getBlockNumber()) + 1;
@@ -865,11 +861,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     );
     const validTxs = newTxs.filter((_, i) => validationResults[i]);
     if (validTxs.length === 0) {
-      return undefined;
+      return;
     }
     this.logger.verbose(`Adding ${validTxs.length} new txs to the tx pool, extracted from a block proposal.`);
     await this.mempools.txPool.addTxs(validTxs);
-    return undefined;
   }
 
   /**

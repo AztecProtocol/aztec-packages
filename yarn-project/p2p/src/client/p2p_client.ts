@@ -427,10 +427,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
-  public registerTransactionExtractionForBlockProposals() {
-    this.p2pService.registerTxIngressBlockProposalCallback();
-  }
-
   /**
    * Uses the Request Response protocol to request a transaction from the network.
    *
