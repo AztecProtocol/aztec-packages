@@ -34,6 +34,7 @@ members = [
     "contracts/test/auth_wit_test_contract",
     "contracts/test/avm_gadgets_test_contract",
     "contracts/test/avm_initializer_test_contract",
+    "contracts/test/avm_minimal_test_contract",
     "contracts/test/avm_test_contract",
     "contracts/test/benchmarking_contract",
     "contracts/test/child_contract",
