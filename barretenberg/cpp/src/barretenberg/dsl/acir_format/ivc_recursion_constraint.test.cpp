@@ -511,5 +511,7 @@ TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
 
     // Still expect this to be true since we don't aggregate pairing point objects correctly.
     // If we fix aggregation, we should expect this test to fail.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1382): Must handle nested pairing pairing point
+    // aggregation in the native UH verifier to get this to correctly fail.
     EXPECT_TRUE(ivc->prove_and_verify());
 }
