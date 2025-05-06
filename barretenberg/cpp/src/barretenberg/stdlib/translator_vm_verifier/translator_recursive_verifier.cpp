@@ -145,45 +145,41 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return { pairing_points[0], pairing_points[1] };
 }
 
+/**
+ * @brief
+ *
+ * @tparam Flavor
+ * @param translation_evaluations
+ * @param translation_masking_term_eval
+ */
 template <typename Flavor>
-bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
-    const TranslationEvaluations_<
-        typename stdlib::bigfield<typename Flavor::CircuitBuilder, typename Flavor::Curve::BaseFieldNative::Params>,
-        typename Flavor::FF>& translation_evaluations,
-    const BF& translation_masking_term_eval)
+void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
+    const TranslationEvaluations_<BF>& translation_evaluations, const BF& translation_masking_term_eval)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         return BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
     };
 
-    const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
-                                                               auto& relation_parameters) {
-        const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-        const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
-        const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
-        const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
-        const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
-        const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
-        const BF& op = translation_evaluations.op;
-        const BF& Px = translation_evaluations.Px;
-        const BF& Py = translation_evaluations.Py;
-        const BF& z1 = translation_evaluations.z1;
-        const BF& z2 = translation_evaluations.z2;
+    const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
+    const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
+    const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
+    const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
+    const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
+    const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
+    const BF& op = translation_evaluations.op;
+    const BF& Px = translation_evaluations.Px;
+    const BF& Py = translation_evaluations.Py;
+    const BF& z1 = translation_evaluations.z1;
+    const BF& z2 = translation_evaluations.z2;
 
-        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
-        // multiply by x here to deal with shift
-        eccvm_opening.assert_equal(x * accumulated_result);
-        return (eccvm_opening.get_value() == (x * accumulated_result).get_value());
-    };
-
-    bool is_value_reconstructed =
-        reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
-    return is_value_reconstructed;
+    const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
+    // multiply by x here to deal with shift
+    eccvm_opening.assert_equal(x * accumulated_result);
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;

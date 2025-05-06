@@ -28,7 +28,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
-    using TranslationEvaluations = TranslationEvaluations_<BF, FF>;
+    using TranslationEvaluations = TranslationEvaluations_<BF>;
     using Transcript = typename Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;
 
@@ -49,7 +49,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
 
     PairingPoints verify_proof(const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v);
 
-    bool verify_translation(const TranslationEvaluations& translation_evaluations,
+    void verify_translation(const TranslationEvaluations& translation_evaluations,
                             const BF& translation_masking_term_eval);
 };
 } // namespace bb
