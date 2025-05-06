@@ -84,7 +84,10 @@ struct TraceSettings {
     // context of VK computation
     uint32_t overflow_capacity = 0;
 
-    size_t size() const { return structure->size() + static_cast<size_t>(overflow_capacity); }
+    // This size is used as a hint to the BN254 Commitment Key needed in the CIVC.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319): This can be removed once the prover knows all
+    // the circuit sizes in advance.
+    size_t size() const { return (structure ? structure->size() : 0) + static_cast<size_t>(overflow_capacity); }
 
     size_t dyadic_size() const { return numeric::round_up_power_2(size()); }
 };
@@ -274,7 +277,7 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
                                                       .busread = 1 << 14,
                                                       .lookup = 1 << 14,
                                                       .pub_inputs = 1 << 14,
-                                                      .arithmetic = 1 << 16,
+                                                      .arithmetic = 1 << 15,
                                                       .delta_range = 1 << 14,
                                                       .elliptic = 1 << 14,
                                                       .aux = 1 << 14,

@@ -58,7 +58,7 @@ class ClientIVCTests : public ::testing::Test {
  */
 TEST_F(ClientIVCTests, Basic)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -81,7 +81,7 @@ TEST_F(ClientIVCTests, Basic)
  */
 TEST_F(ClientIVCTests, WriteVK)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -103,7 +103,7 @@ TEST_F(ClientIVCTests, WriteVK)
  */
 TEST_F(ClientIVCTests, BasicFour)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < 4; ++idx) {
@@ -207,7 +207,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
  */
 TEST_F(ClientIVCTests, BasicLarge)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -251,13 +251,13 @@ TEST_F(ClientIVCTests, BasicStructured)
  */
 TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     size_t NUM_CIRCUITS = 4;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
-    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings);
+    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceSettings{});
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -543,7 +543,7 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
  */
 TEST_F(ClientIVCTests, MsgpackProofFromFile)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -571,7 +571,7 @@ TEST_F(ClientIVCTests, MsgpackProofFromFile)
  */
 TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -599,7 +599,7 @@ TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
  */
 TEST_F(ClientIVCTests, RandomProofBytes)
 {
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 

@@ -429,7 +429,7 @@ std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> ClientIVC::precompute_
 
     // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
     TraceSettings settings = trace_settings;
-    *this = ClientIVC(settings);
+    *this = ClientIVC();
     this->trace_settings = settings;
 
     return vkeys;

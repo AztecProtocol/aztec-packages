@@ -182,7 +182,7 @@ class ClientIVCMockCircuitProducer {
      * only necessary if the structured trace is not in use).
      *
      */
-    static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 15)
+    static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -190,7 +190,7 @@ class ClientIVCMockCircuitProducer {
     }
 
   public:
-    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 15, const size_t num_public_inputs = 0)
+    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, const size_t num_public_inputs = 0)
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
@@ -209,7 +209,7 @@ class ClientIVCMockCircuitProducer {
 
     auto precompute_verification_keys(const size_t num_circuits,
                                       TraceSettings trace_settings,
-                                      size_t log2_num_gates = 15)
+                                      size_t log2_num_gates = 16)
     {
         ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
