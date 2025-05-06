@@ -114,6 +114,7 @@ pub contract Counter {
         // docs:start:txe_test_read_notes
         // Read the stored value in the note
         env.impersonate(contract_address);
+        sync_notes();
         let counter_slot = Counter::storage_layout().counters.slot;
         let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
@@ -126,8 +127,11 @@ pub contract Counter {
         );
         // docs:end:txe_test_read_notes
         // Increment the counter
+        env.impersonate(owner);
         Counter::at(contract_address).increment(owner, sender).call(&mut env.private());
         // get_counter is an unconstrained function, so we call it directly (we're in the same module)
+        env.impersonate(contract_address);
+        sync_notes();
         let current_value_for_owner = get_counter(owner);
         let expected_current_value = initial_value + 1;
         assert(
@@ -142,23 +146,9 @@ pub contract Counter {
         let initial_value = 5;
         let (env, contract_address, owner, sender) = test::setup(initial_value);
 
-        // Checking from the note cache
-        env.impersonate(contract_address);
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        let initial_note_value = notes.get(0).value;
-        assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
-        );
-
         // Checking that the note was discovered from private logs
-        env.advance_block_by(1);
-        sync_notes();
         env.impersonate(contract_address);
+        sync_notes();
         let counter_slot = Counter::storage_layout().counters.slot;
         let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();

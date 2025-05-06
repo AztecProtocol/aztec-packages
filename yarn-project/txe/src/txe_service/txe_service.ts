@@ -10,7 +10,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -76,9 +76,10 @@ export class TXEService {
 
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     // Emit deployment nullifier
-    (this.typedOracle as TXE).addSiloedNullifiersFromPublic([
-      await siloNullifier(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS), instance.address.toField()),
-    ]);
+    await (this.typedOracle as TXE).noteCache.nullifierCreated(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      instance.address.toField(),
+    );
 
     if (!fromSingle(secret).equals(Fr.ZERO)) {
       await this.addAccount(artifact, instance, secret);
