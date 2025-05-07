@@ -318,7 +318,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // and part of the `empty_block_1.json` file. The block cannot be proven, but it
       // will be accepted as a proposal so very useful for testing a long range of blocks.
       if (rollup.getCurrentSlot() == nextSlot) {
-        TestPoint memory point = points[nextSlot.unwrap() - 1];
+        rollup.setupEpoch();
 
         Block memory b = getBlock();
         address proposer = rollup.getCurrentProposer();

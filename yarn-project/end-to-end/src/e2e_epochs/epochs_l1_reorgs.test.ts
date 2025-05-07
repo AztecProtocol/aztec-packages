@@ -1,11 +1,15 @@
 import { type AztecNode, type Logger, retryUntil } from '@aztec/aztec.js';
+import { Blob } from '@aztec/blob-lib';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { ChainMonitor, Delayer } from '@aztec/ethereum/test';
+import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
-import { keccak256 } from 'viem';
+import { keccak256, parseTransaction } from 'viem';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } from './epochs_test.js';
@@ -166,10 +170,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER - 1), 'node sync', 30, 0.1);
   });
 
-  // TODO(palla/reorg): The tx delayer needs to handle txs with blobs for this to work, and we need
-  // to capture the blob submitted to the blob sink somehow so the node can sync to it, otherwise
-  // this test will never work.
-  it.skip('sees new blocks added in an L1 reorg', async () => {
+  it('sees new blocks added in an L1 reorg', async () => {
     // Wait until the block *before* L2_BLOCK_NUMBER is mined and node synced
     const L2_BLOCK_NUMBER = 3;
     await test.waitUntilL2BlockNumber(L2_BLOCK_NUMBER - 1, 60);
@@ -186,10 +187,34 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     // Wait until a few more L1 blocks go by, and trigger a reorg including the target block
     await retryUntil(() => monitor.l1BlockNumber > l1BlockNumber + 2, 'l1 block number', L1_BLOCK_TIME_IN_S * 4, 0.1);
     expect(await node.getBlockNumber()).toEqual(L2_BLOCK_NUMBER - 1);
-    await context.cheatCodes.eth.reorgWithReplacement(monitor.l1BlockNumber - l1BlockNumber, [[l2BlockTx]]);
-    const proofTxReceipt = await test.l1Client.getTransactionReceipt({ hash: keccak256(l2BlockTx) });
-    expect(proofTxReceipt.status).toEqual('success');
+    logger.warn(`Triggering ${monitor.l1BlockNumber - l1BlockNumber}-block L1 reorg to include L2 block`);
+
+    // Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with blob txs,
+    // so we reorg, then replay the tx, and then mine. We also run a simulate before so we can extract any
+    // errors that would arise if the tx would revert, to assist with debugging.
+    await context.cheatCodes.eth.reorg(monitor.l1BlockNumber - l1BlockNumber);
+    await context.cheatCodes.eth.mine(2);
+    const l2BlockTxRequest = parseTransaction(l2BlockTx);
+    const sender = (context.sequencer as TestSequencerClient).sequencer.publisher.getSenderAddress();
+    const result = await test.l1Client.simulateCalls({ account: sender.toString(), calls: [l2BlockTxRequest as any] });
+    logger.warn(`Simulation result for L2 block tx`, result);
+    expect(result.results[0].error).toBeUndefined();
+    expect(result.results[0].status).toEqual('success');
+    logger.warn(`Sending L2 block tx to L1`);
+    const txHash = await test.l1Client.sendRawTransaction({ serializedTransaction: l2BlockTx });
+    await context.cheatCodes.eth.mine(1);
+
+    // Check that the tx was reorged in and succeeded
+    const txReceipt = await test.l1Client.getTransactionReceipt({ hash: txHash });
+    expect(txReceipt.status).toEqual('success');
+    expect(txReceipt.blobGasUsed).toBeGreaterThan(0n);
     expect(await monitor.run(true).then(m => m.l2BlockNumber)).toEqual(L2_BLOCK_NUMBER);
+
+    // We also need to send the blob to the sink, so the node can get it
+    logger.warn(`Sending blobs to blob sink`);
+    const blobs = await getBlobs(l2BlockTx);
+    const blobSinkClient = createBlobSinkClient(context.config);
+    await blobSinkClient.sendBlobsToBlobSink(txReceipt.blockHash, blobs);
 
     // And wait for the node to see the new block
     await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 5, 0.1);
@@ -199,3 +224,11 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   // messages, so even if it works fine when reorging blocks, it may still fail on messages.
   it.skip('updates cross-chain messages changed due to an L1 reorg', async () => {});
 });
+
+function getBlobs(serializedTx: `0x${string}`) {
+  const parsedTx = parseTransaction(serializedTx);
+  if (parsedTx.sidecars === false) {
+    throw new Error('No sidecars found in tx');
+  }
+  return Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromEncodedBlobBuffer(hexToBuffer(sidecar.blob))));
+}
