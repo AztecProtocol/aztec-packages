@@ -6,9 +6,9 @@
 
 namespace bb::srs::factories {
 // Common to both Grumpkin and Bn254, and generally curves regardless of pairing-friendliness
-template <typename Curve> class MemProverCrs : public ProverCrs<Curve> {
+template <typename Curve> class MemCrs : public Crs<Curve> {
   public:
-    MemProverCrs(std::vector<typename Curve::AffineElement> const& points)
+    MemCrs(std::vector<typename Curve::AffineElement> const& points)
         : num_points(points.size())
         , monomials_(scalar_multiplication::point_table_alloc<typename Curve::AffineElement>(points.size()))
     {

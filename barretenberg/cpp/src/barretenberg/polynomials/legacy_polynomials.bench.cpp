@@ -73,7 +73,7 @@ const auto init = []() {
     globals.scalars.resize(MAX_GATES * MAX_ROUNDS);
     globals.data.resize(8UL * 17 * MAX_GATES);
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    globals.monomials = srs::get_bn254_crs_factory()->get_prover_crs(MAX_GATES)->get_monomial_points();
+    globals.monomials = srs::get_bn254_crs_factory()->get_crs(MAX_GATES)->get_monomial_points();
     globals.g2_x = srs::get_bn254_crs_factory()->get_verifier_crs()->get_g2x();
     generate_pairing_points(globals.g1_pair_points.data(), globals.g2_pair_points.data());
     for (size_t i = 0; i < MAX_ROUNDS; ++i) {

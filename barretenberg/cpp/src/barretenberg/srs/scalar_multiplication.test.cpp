@@ -3,7 +3,7 @@
  * @brief Tests of our implementation of Pippenger's multi-scalar multiplication algorithm.
  *
  * @details This file is here with the SRS code, rather than being next to the Pippenger implementation, to avoid a
- * cyclic dependency between our srs and ecc modules. Namely, srs depends on ecc via the FileProverCrs constructor that
+ * cyclic dependency between our srs and ecc modules. Namely, srs depends on ecc via the FileCrs constructor that
  * constructs a Pippenger point table. It may make sense to create a function in the ecc module that initializes a CRS,
  * but for now a low-impact solution (to a newly-encountered linker error) is to move this test file, as it was the sole
  * reason for for ecc to depend on srs.
@@ -42,8 +42,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBucketsSimple)
     using Fq = typename Curve::BaseField;
 
     constexpr size_t num_points = 128;
-    std::span<AffineElement> monomials =
-        srs::get_crs_factory<Curve>()->get_prover_crs(num_points / 2)->get_monomial_points();
+    std::span<AffineElement> monomials = srs::get_crs_factory<Curve>()->get_crs(num_points / 2)->get_monomial_points();
 
     std::vector<uint64_t> point_schedule(bb::scalar_multiplication::point_table_size(num_points / 2));
     std::array<bool, num_points> bucket_empty_status;
@@ -247,7 +246,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBuckets)
     memset((void*)scratch_field, 0x00, num_points * sizeof(Fq));
 
     std::span<AffineElement> monomials =
-        srs::get_crs_factory<Curve>()->get_prover_crs(num_initial_points)->get_monomial_points();
+        srs::get_crs_factory<Curve>()->get_crs(num_initial_points)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * num_initial_points));
 
@@ -366,7 +365,7 @@ TYPED_TEST(ScalarMultiplicationTests, DISABLED_ReduceBucketsBasic)
     memset((void*)bucket_empty_status, 0x00, num_points * sizeof(bool));
 
     std::span<AffineElement> monomials =
-        srs::get_crs_factory<Curve>()->get_prover_crs(num_initial_points)->get_monomial_points();
+        srs::get_crs_factory<Curve>()->get_crs(num_initial_points)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * num_initial_points));
 
@@ -478,7 +477,7 @@ TYPED_TEST(ScalarMultiplicationTests, ConstructAdditionChains)
     }
     size_t num_points = num_initial_points * 2;
     std::span<AffineElement> monomials =
-        srs::get_crs_factory<Curve>()->get_prover_crs(num_initial_points)->get_monomial_points();
+        srs::get_crs_factory<Curve>()->get_crs(num_initial_points)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * num_initial_points));
 
@@ -639,8 +638,7 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     // for point ranges with more than 1 << 20 points, we split into chunks of smaller multi-exps.
     // Check that this is done correctly
     size_t target_degree = 1200000;
-    std::span<AffineElement> monomials =
-        srs::get_crs_factory<Curve>()->get_prover_crs(target_degree)->get_monomial_points();
+    std::span<AffineElement> monomials = srs::get_crs_factory<Curve>()->get_crs(target_degree)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * target_degree));
 

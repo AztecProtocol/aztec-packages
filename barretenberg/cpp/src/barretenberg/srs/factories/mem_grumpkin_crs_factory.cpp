@@ -13,9 +13,9 @@ using namespace bb::srs::factories;
 
 using Curve = curve::Grumpkin;
 
-class MemVerifierCrs : public VerifierCrs<Grumpkin> {
+class MemCrs : public Crs<Grumpkin> {
   public:
-    MemVerifierCrs(std::vector<Grumpkin::AffineElement> const& points)
+    MemCrs(std::vector<Grumpkin::AffineElement> const& points)
         : num_points(points.size())
         , monomials_(scalar_multiplication::point_table_alloc<Grumpkin::AffineElement>(points.size()))
     {
@@ -23,7 +23,7 @@ class MemVerifierCrs : public VerifierCrs<Grumpkin> {
         scalar_multiplication::generate_pippenger_point_table<Grumpkin>(monomials_.get(), monomials_.get(), num_points);
     }
 
-    virtual ~MemVerifierCrs() = default;
+    virtual ~MemCrs() = default;
     std::span<const Grumpkin::AffineElement> get_monomial_points() const override
     {
         return { monomials_.get(), num_points * 2 };
@@ -41,8 +41,8 @@ class MemVerifierCrs : public VerifierCrs<Grumpkin> {
 namespace bb::srs::factories {
 
 MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(const std::vector<Grumpkin::AffineElement>& points)
-    : prover_crs_(std::make_shared<MemProverCrs<Grumpkin>>(points))
-    , verifier_crs_(std::make_shared<MemVerifierCrs>(points))
+    : prover_crs_(std::make_shared<MemCrs<Grumpkin>>(points))
+    , verifier_crs_(std::make_shared<MemCrs>(points))
 {
     if (points.empty() || !points[0].on_curve()) {
         throw_or_abort("invalid vector passed to MemGrumpkinCrsFactory");
@@ -53,7 +53,7 @@ MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(const std::vector<Grumpkin::AffineE
           prover_crs_->get_monomial_size());
 }
 
-std::shared_ptr<bb::srs::factories::ProverCrs<Grumpkin>> MemGrumpkinCrsFactory::get_prover_crs(size_t degree)
+std::shared_ptr<bb::srs::factories::Crs<Grumpkin>> MemGrumpkinCrsFactory::get_crs(size_t degree)
 {
     if (prover_crs_->get_monomial_size() < degree) {
         throw_or_abort(format("prover trying to get too many points in MemGrumpkinCrsFactory - ",
@@ -64,7 +64,7 @@ std::shared_ptr<bb::srs::factories::ProverCrs<Grumpkin>> MemGrumpkinCrsFactory::
     return prover_crs_;
 }
 
-std::shared_ptr<bb::srs::factories::VerifierCrs<Grumpkin>> MemGrumpkinCrsFactory::get_verifier_crs(size_t degree)
+std::shared_ptr<bb::srs::factories::Crs<Grumpkin>> MemGrumpkinCrsFactory::get_crs(size_t degree)
 {
     if (prover_crs_->get_monomial_size() < degree) {
         throw_or_abort(format("verifier trying to get too many points in MemGrumpkinCrsFactory - ",

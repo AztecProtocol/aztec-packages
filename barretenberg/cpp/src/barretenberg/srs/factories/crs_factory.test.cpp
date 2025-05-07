@@ -36,8 +36,8 @@ void check_bn254_consistency(const fs::path& crs_download_path, size_t num_point
     MemBn254CrsFactory mem_crs(g1_points, g2_point);
 
     // prover CRS
-    auto f_prover = file_crs.get_prover_crs(num_points);
-    auto m_prover = mem_crs.get_prover_crs(num_points);
+    auto f_prover = file_crs.get_crs(num_points);
+    auto m_prover = mem_crs.get_crs(num_points);
     EXPECT_EQ(m_prover->get_monomial_size(), f_prover->get_monomial_size());
     for (size_t i = 0; i < num_points * 2; ++i) {
         EXPECT_EQ(std::make_pair(i, m_prover->get_monomial_points()[i]),
@@ -68,8 +68,8 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
     MemGrumpkinCrsFactory mem_crs(points);
 
     // prover CRS
-    auto f_prover = file_crs.get_prover_crs(num_points);
-    auto m_prover = mem_crs.get_prover_crs(num_points);
+    auto f_prover = file_crs.get_crs(num_points);
+    auto m_prover = mem_crs.get_crs(num_points);
     EXPECT_EQ(m_prover->get_monomial_size(), f_prover->get_monomial_size());
     for (size_t i = 0; i < num_points * 2; ++i) {
         EXPECT_EQ(std::make_pair(i, m_prover->get_monomial_points()[i]),

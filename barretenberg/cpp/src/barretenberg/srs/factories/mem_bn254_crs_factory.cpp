@@ -12,9 +12,9 @@ namespace {
 using namespace bb;
 using namespace bb::srs::factories;
 
-class MemVerifierCrs : public VerifierCrs<curve::BN254> {
+class MemCrs : public Crs<curve::BN254> {
   public:
-    MemVerifierCrs(g2::affine_element const& g2_point, g1::affine_element const& g1_identity)
+    MemCrs(g2::affine_element const& g2_point, g1::affine_element const& g1_identity)
         : g1_identityx(g1_identity)
         , g2_x(g2_point)
         , precomputed_g2_lines(
@@ -24,7 +24,7 @@ class MemVerifierCrs : public VerifierCrs<curve::BN254> {
         bb::pairing::precompute_miller_lines(g2_x, precomputed_g2_lines[1]);
     }
 
-    virtual ~MemVerifierCrs() { aligned_free(precomputed_g2_lines); }
+    virtual ~MemCrs() { aligned_free(precomputed_g2_lines); }
 
     g2::affine_element get_g2x() const { return g2_x; }
 
@@ -43,7 +43,7 @@ namespace bb::srs::factories {
 
 MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& points,
                                        g2::affine_element const& g2_point)
-    : prover_crs_(std::make_shared<MemProverCrs<curve::BN254>>(points))
+    : prover_crs_(std::make_shared<MemCrs<curve::BN254>>(points))
 {
     auto g1_identity = g1::affine_element();
     if (points.empty() || !points[0].on_curve()) {
@@ -51,7 +51,7 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
     }
     g1_identity = points[0];
 
-    verifier_crs_ = std::make_shared<MemVerifierCrs>(g2_point, g1_identity);
+    verifier_crs_ = std::make_shared<MemCrs>(g2_point, g1_identity);
 
     vinfo("Initialized ",
           curve::BN254::name,
@@ -59,7 +59,7 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
           prover_crs_->get_monomial_size());
 }
 
-std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> MemBn254CrsFactory::get_prover_crs(size_t degree)
+std::shared_ptr<bb::srs::factories::Crs<curve::BN254>> MemBn254CrsFactory::get_crs(size_t degree)
 {
     PROFILE_THIS();
 
@@ -72,7 +72,7 @@ std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> MemBn254CrsFactory:
     return prover_crs_;
 }
 
-std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> MemBn254CrsFactory::get_verifier_crs(size_t degree)
+std::shared_ptr<bb::srs::factories::Crs<curve::BN254>> MemBn254CrsFactory::get_crs(size_t degree)
 {
 
     if (prover_crs_->get_monomial_size() < degree) {

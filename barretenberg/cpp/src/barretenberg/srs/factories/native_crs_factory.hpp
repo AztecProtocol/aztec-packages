@@ -38,21 +38,13 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
         : path_(path)
         , allow_download_(allow_download)
     {}
-    std::shared_ptr<ProverCrs<curve::BN254>> get_prover_crs(size_t degree) override
+    std::shared_ptr<Crs<curve::BN254>> get_crs(size_t degree) override
     {
         if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_shared<MemBn254CrsFactory>(init_bn254_crs(path_, degree, allow_download_));
             last_degree_ = degree;
         }
-        return mem_crs_->get_prover_crs(degree);
-    }
-    std::shared_ptr<VerifierCrs<curve::BN254>> get_verifier_crs(size_t degree = 1) override
-    {
-        if (degree > last_degree_ || mem_crs_ == nullptr) {
-            mem_crs_ = std::make_shared<MemBn254CrsFactory>(init_bn254_crs(path_, degree, allow_download_));
-            last_degree_ = degree;
-        }
-        return mem_crs_->get_verifier_crs(degree);
+        return mem_crs_->get_crs(degree);
     }
 
   private:
@@ -68,22 +60,14 @@ class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
         : path_(path)
         , allow_download_(allow_download)
     {}
-    std::shared_ptr<ProverCrs<curve::Grumpkin>> get_prover_crs(size_t degree) override
-    {
-        if (degree > last_degree_ || mem_crs_ == nullptr) {
-            mem_crs_ = std::make_unique<MemGrumpkinCrsFactory>(init_grumpkin_crs(path_, degree, allow_download_));
-            last_degree_ = degree;
-        }
-        return mem_crs_->get_prover_crs(degree);
-    }
 
-    std::shared_ptr<VerifierCrs<curve::Grumpkin>> get_verifier_crs(size_t degree) override
+    std::shared_ptr<Crs<curve::Grumpkin>> get_crs(size_t degree) override
     {
         if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_unique<MemGrumpkinCrsFactory>(init_grumpkin_crs(path_, degree, allow_download_));
             last_degree_ = degree;
         }
-        return mem_crs_->get_verifier_crs(degree);
+        return mem_crs_->get_crs(degree);
     }
 
   private:
