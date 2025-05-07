@@ -803,7 +803,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerShortInputs)
 
     Fr* scalars = (Fr*)aligned_alloc(32, sizeof(Fr) * num_points);
 
-    auto points = scalar_multiplication::point_table_alloc<AffineElement>(num_points);
+    std::vector<AffineElement> points(scalar_multiplication::point_table_size(num_points));
 
     for (size_t i = 0; i < num_points; ++i) {
         points[i] = AffineElement(Element::random_element());
@@ -860,7 +860,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerUnsafe)
 
     Fr* scalars = (Fr*)aligned_alloc(32, sizeof(Fr) * num_points);
 
-    auto points = scalar_multiplication::point_table_alloc<AffineElement>(num_points);
+    std::vector<AffineElement> points(scalar_multiplication::point_table_size(num_points));
 
     for (size_t i = 0; i < num_points; ++i) {
         scalars[i] = Fr::random_element();

@@ -14,7 +14,7 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
     // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
     std::string command = "curl -s -H \"Range: bytes=0-" + std::to_string(g1_end) + "\" '" + url + "'";
 
-    auto data = exec_pipe(command);
+    auto data = bb::exec_pipe(command);
     if (data.size() < g1_end) {
         THROW std::runtime_error("Failed to download grumpkin g1 data.");
     }
