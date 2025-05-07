@@ -11,6 +11,7 @@ import {
   generateTubeProof,
   readClientIVCProofFromOutputDirectory,
   readProofAsFields,
+  verifyAvmProofV2,
   verifyProof,
 } from '@aztec/bb-prover';
 import {
@@ -235,6 +236,18 @@ export async function proveAvm(
     vk.push(new Fr(0));
   }
 
+  const verificationResult = await verifyAvmProofV2(
+    bbPath,
+    workingDirectory,
+    proofRes.proofPath!,
+    avmCircuitInputs.publicInputs,
+    proofRes.vkPath!,
+    logger,
+  );
+
+  if (verificationResult.status === BB_RESULT.FAILURE) {
+    throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
+  }
   return {
     proof,
     vk,

@@ -23,6 +23,9 @@
       "path": "../kv-store"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../noir-test-contracts.js"
     },
     {

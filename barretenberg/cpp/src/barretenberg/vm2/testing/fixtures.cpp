@@ -139,7 +139,30 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
     AvmTraceGenHelper trace_gen_helper;
 
-    const PublicInputs public_inputs = { .reverted = false };
+    const PublicInputs public_inputs = {
+        .globalVariables = {
+            .blockNumber = 42,
+        },
+        .startTreeSnapshots = {
+            .l1ToL2MessageTree = {
+                .root = 111,
+                .nextAvailableLeafIndex = 222,
+            },
+            .noteHashTree = {
+                .root = 333,
+                .nextAvailableLeafIndex = 444,
+            },
+            .nullifierTree = {
+                .root = 555,
+                .nextAvailableLeafIndex = 666,
+            },
+            .publicDataTree = {
+                .root = 777,
+                .nextAvailableLeafIndex = 888,
+            },
+        },
+        .reverted = false,
+    };
 
     auto trace = trace_gen_helper.generate_trace({
             .alu = { { .operation = simulation::AluOperation::ADD, .a = MemoryValue::from<uint16_t>(1), .b = MemoryValue::from<uint16_t>(2), .c = MemoryValue::from<uint16_t>(3) }, },
