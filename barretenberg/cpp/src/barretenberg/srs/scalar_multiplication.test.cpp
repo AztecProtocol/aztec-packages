@@ -34,16 +34,6 @@ using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
 
 TYPED_TEST_SUITE(ScalarMultiplicationTests, Curves);
 
-template <typename Curve> std::vector<typename Curve::AffineElement> get_monomial_point_table(size_t num_initial_points)
-{
-    std::span<typename Curve::AffineElement> monomials =
-        srs::get_crs_factory<Curve>()->get_prover_crs(num_initial_points)->get_monomial_points();
-    std::vector<typename Curve::AffineElement> monomial_point_table(num_initial_points * 2);
-    scalar_multiplication::generate_pippenger_point_table<Curve>(
-        monomials.data(), monomial_point_table.data(), num_initial_points);
-    return monomial_point_table;
-}
-
 TYPED_TEST(ScalarMultiplicationTests, ReduceBucketsSimple)
 {
     using Curve = TypeParam;
@@ -52,8 +42,8 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBucketsSimple)
     using Fq = typename Curve::BaseField;
 
     constexpr size_t num_points = 128;
-    auto crs = srs::get_crs_factory<Curve>()->get_prover_crs(num_points / 2);
-    std::vector<AffineElement> monomials = get_monomial_point_table<Curve>(num_points / 2);
+    std::span<AffineElement> monomials =
+        srs::get_crs_factory<Curve>()->get_prover_crs(num_points / 2)->get_monomial_points();
 
     std::vector<uint64_t> point_schedule(bb::scalar_multiplication::point_table_size(num_points / 2));
     std::array<bool, num_points> bucket_empty_status;
@@ -256,7 +246,8 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBuckets)
 
     memset((void*)scratch_field, 0x00, num_points * sizeof(Fq));
 
-    std::vector<AffineElement> monomials = get_monomial_point_table<Curve>(num_initial_points);
+    std::span<AffineElement> monomials =
+        srs::get_crs_factory<Curve>()->get_prover_crs(num_initial_points)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * num_initial_points));
 
@@ -374,7 +365,8 @@ TYPED_TEST(ScalarMultiplicationTests, DISABLED_ReduceBucketsBasic)
     memset((void*)scratch_field, 0x00, num_points * sizeof(Fq));
     memset((void*)bucket_empty_status, 0x00, num_points * sizeof(bool));
 
-    std::vector<AffineElement> monomials = get_monomial_point_table<Curve>(num_initial_points);
+    std::span<AffineElement> monomials =
+        srs::get_crs_factory<Curve>()->get_prover_crs(num_initial_points)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * num_initial_points));
 
@@ -479,9 +471,14 @@ TYPED_TEST(ScalarMultiplicationTests, ConstructAdditionChains)
     using AffineElement = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
 
-    constexpr size_t num_initial_points = 1 << 20;
-    constexpr size_t num_points = num_initial_points * 2;
-    std::vector<AffineElement> monomials = get_monomial_point_table<Curve>(num_points / 2);
+    size_t num_initial_points = 1 << 20;
+    if constexpr (std::is_same_v<Curve, curve::Grumpkin>) {
+        // Grumpkin has a smaller number of points
+        num_initial_points = 1 << 16;
+    }
+    size_t num_points = num_initial_points * 2;
+    std::span<AffineElement> monomials =
+        srs::get_crs_factory<Curve>()->get_prover_crs(num_initial_points)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * num_initial_points));
 
@@ -630,6 +627,10 @@ TYPED_TEST(ScalarMultiplicationTests, RadixSort)
 TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
 {
     using Curve = TypeParam;
+    if constexpr (std::is_same_v<Curve, curve::Grumpkin>) {
+        // Grumpkin has at most 1 << 18 points; the test is not valid for it.
+        GTEST_SKIP() << "Skipping test for grumpkin";
+    }
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
@@ -638,7 +639,8 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     // for point ranges with more than 1 << 20 points, we split into chunks of smaller multi-exps.
     // Check that this is done correctly
     size_t target_degree = 1200000;
-    std::vector<AffineElement> monomials = get_monomial_point_table<Curve>(target_degree);
+    std::span<AffineElement> monomials =
+        srs::get_crs_factory<Curve>()->get_prover_crs(target_degree)->get_monomial_points();
 
     Fr* scalars = (Fr*)(aligned_alloc(64, sizeof(Fr) * target_degree));
 
@@ -650,8 +652,8 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
     }
     scalar_multiplication::pippenger_runtime_state<Curve> state(target_degree);
 
-    Element first = scalar_multiplication::pippenger<Curve>(
-        { 0, { scalars, /*size*/ target_degree } }, { monomials.data(), /*size*/ 2 * target_degree }, state);
+    Element first =
+        scalar_multiplication::pippenger<Curve>({ 0, { scalars, /*size*/ target_degree } }, monomials, state);
     first = first.normalize();
 
     for (size_t i = 0; i < target_degree; ++i) {
@@ -661,7 +663,7 @@ TYPED_TEST(ScalarMultiplicationTests, OversizedInputs)
 
     Element second = scalar_multiplication::pippenger<Curve>(
         PolynomialSpan<const typename Curve::ScalarField>{ 0, { scalars, /*size*/ target_degree } },
-        { monomials.data(), /*size*/ 2 * target_degree },
+        monomials,
         state_2);
     second = second.normalize();
 

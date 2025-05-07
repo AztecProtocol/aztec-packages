@@ -91,7 +91,7 @@ TEST(CrsFactory, bn254)
 
 TEST(CrsFactory, grumpkin)
 {
-    // check_grumpkin_consistency(bb::srs::bb_crs_path(), 1024, /*allow_download=*/false);
+    check_grumpkin_consistency(bb::srs::bb_crs_path(), 1024, /*allow_download=*/false);
     const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs";
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
