@@ -14,7 +14,7 @@ use protocol_types::{
 };
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
-fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u32) {
+fn assert_note_exists(context: PrivateContext, note_hash_counter: u32) {
     // TODO(#8589): use typesystem to skip this check when not needed
     let note_exists =
         context.note_hashes.storage().any(|n: NoteHash| n.counter == note_hash_counter);

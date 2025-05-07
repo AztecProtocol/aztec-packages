@@ -62,7 +62,7 @@ describe('deploy_l1_contracts', () => {
     });
 
   const getRollup = (deployed: Awaited<ReturnType<typeof deploy>>) =>
-    new RollupContract(deployed.publicClient, deployed.l1ContractAddresses.rollupAddress);
+    new RollupContract(deployed.l1Client, deployed.l1ContractAddresses.rollupAddress);
 
   it('deploys without salt', async () => {
     await deploy();

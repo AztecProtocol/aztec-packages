@@ -8,6 +8,7 @@ export async function deployAccount(
   account: AccountManager,
   wait: boolean,
   registerClass: boolean,
+  publicDeploy: boolean,
   feeOpts: IFeeOpts,
   json: boolean,
   debugLogger: Logger,
@@ -43,7 +44,7 @@ export async function deployAccount(
 
   const deployOpts: DeployAccountOptions = {
     skipInitialization: false,
-    skipPublicDeployment: false,
+    skipPublicDeployment: !publicDeploy,
     skipClassRegistration: !registerClass,
     ...(await feeOpts.toDeployAccountOpts(wallet)),
   };

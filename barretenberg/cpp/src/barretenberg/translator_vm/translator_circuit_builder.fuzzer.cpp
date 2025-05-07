@@ -1,4 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/translator_vm/translator.fuzzer.hpp"
+
 /**
  * @brief A very primitive fuzzing harness, no interesting mutations, just parse and throw at the circuit builder
  *
@@ -34,15 +42,17 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     Fq x_pow = x.pow(eccvm_ops.size() - 1);
 
     // Multiply by an appropriate power of x to get rid of the inverses
-    Fq result = ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
-                      batching_challenge +
-                  p_x_accumulator) *
-                     batching_challenge +
-                 op_accumulator) *
-                x_pow;
+    [[maybe_unused]] Fq result =
+        ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
+              batching_challenge +
+          p_x_accumulator) *
+             batching_challenge +
+         op_accumulator) *
+        x_pow;
 
     // The data is malformed, so just call check_circuit, but ignore the output
-    circuit_builder.check_circuit();
-    (void)result;
+    if (!TranslatorCircuitChecker::check(circuit_builder)) {
+        return 1;
+    }
     return 0;
 }

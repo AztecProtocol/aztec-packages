@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
@@ -32,6 +32,9 @@ export class BlockProposal extends Gossipable {
   private sender: EthAddress | undefined;
 
   constructor(
+    /** The number of the block */
+    public readonly blockNumber: Fr,
+
     /** The payload of the message, and what the signature is over */
     public readonly payload: ConsensusPayload,
 
@@ -50,21 +53,18 @@ export class BlockProposal extends Gossipable {
   }
 
   get slotNumber(): Fr {
-    return this.payload.header.globalVariables.slotNumber;
-  }
-
-  get blockNumber(): Fr {
-    return this.payload.header.globalVariables.blockNumber;
+    return this.payload.header.slotNumber;
   }
 
   static async createProposalFromSigner(
+    blockNumber: Fr,
     payload: ConsensusPayload,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
     const hashed = getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
     const sig = await payloadSigner(hashed);
 
-    return new BlockProposal(payload, sig);
+    return new BlockProposal(blockNumber, payload, sig);
   }
 
   /**Get Sender
@@ -85,15 +85,15 @@ export class BlockProposal extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.payload, this.signature]);
+    return serializeToBuffer([this.blockNumber, this.payload, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockProposal {
     const reader = BufferReader.asReader(buf);
-    return new BlockProposal(reader.readObject(ConsensusPayload), reader.readObject(Signature));
+    return new BlockProposal(reader.readObject(Fr), reader.readObject(ConsensusPayload), reader.readObject(Signature));
   }
 
   getSize(): number {
-    return this.payload.getSize() + this.signature.getSize();
+    return this.blockNumber.size + this.payload.getSize() + this.signature.getSize();
   }
 }

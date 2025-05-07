@@ -273,8 +273,6 @@ export class PublicTxSimulator {
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
-    stateManager.traceEnqueuedCall(callRequest.request);
-
     const result = await this.simulateEnqueuedCallInternal(
       stateManager,
       callRequest,

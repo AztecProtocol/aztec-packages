@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./ultra_verifier.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -66,6 +72,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         }
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1382): Extract nested pairing points from the proof and
+    // aggregate them with those output from the decider.
+
     DeciderVerifier decider_verifier{ verification_key, transcript };
 
     return decider_verifier.verify();
@@ -74,9 +83,11 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 template class UltraVerifier_<UltraFlavor>;
 template class UltraVerifier_<UltraZKFlavor>;
 template class UltraVerifier_<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 template class UltraVerifier_<UltraStarknetFlavor>;
-template class UltraVerifier_<UltraKeccakZKFlavor>;
 template class UltraVerifier_<UltraStarknetZKFlavor>;
+#endif
+template class UltraVerifier_<UltraKeccakZKFlavor>;
 template class UltraVerifier_<UltraRollupFlavor>;
 template class UltraVerifier_<MegaFlavor>;
 template class UltraVerifier_<MegaZKFlavor>;

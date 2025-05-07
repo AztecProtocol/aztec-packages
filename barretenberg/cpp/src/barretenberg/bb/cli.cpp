@@ -292,14 +292,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: check
      ***************************************************************************************************************/
-    CLI::App* check =
-        app.add_subcommand("check",
-                           "A debugging tool to quickly check whether a witness satisfies a circuit The "
-                           "function constructs the execution trace and iterates through it row by row, applying the "
-                           "polynomial relations defining the gate types.");
+    CLI::App* check = app.add_subcommand(
+        "check",
+        "A debugging tool to quickly check whether a witness satisfies a circuit The "
+        "function constructs the execution trace and iterates through it row by row, applying the "
+        "polynomial relations defining the gate types. For client IVC, we check the VKs in the folding stack.");
 
+    add_scheme_option(check);
     add_bytecode_path_option(check);
     add_witness_path_option(check);
+    add_ivc_inputs_path_options(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -728,27 +730,37 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     try {
         // ULTRA PLONK
-        if (OLD_API_gates->parsed()) {
-            gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
-        } else if (OLD_API_prove->parsed()) {
-            prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
-        } else if (OLD_API_prove_output_all->parsed()) {
-            prove_output_all_ultra_plonk(
-                bytecode_path, witness_path, plonk_prove_output_all_output_path, flags.recursive);
-        } else if (OLD_API_verify->parsed()) {
-            return verify_ultra_plonk(proof_path, vk_path) ? 0 : 1;
-        } else if (OLD_API_prove_and_verify->parsed()) {
-            return prove_and_verify_ultra_plonk(bytecode_path, flags.recursive, witness_path) ? 0 : 1;
-        } else if (OLD_API_contract->parsed()) {
-            contract_ultra_plonk(plonk_contract_output_path, vk_path);
-        } else if (OLD_API_write_vk->parsed()) {
-            write_vk_ultra_plonk(bytecode_path, plonk_vk_output_path, flags.recursive);
-        } else if (OLD_API_write_pk->parsed()) {
-            write_pk_ultra_plonk(bytecode_path, plonk_pk_output_path, flags.recursive);
-        } else if (OLD_API_proof_as_fields->parsed()) {
-            proof_as_fields(proof_path, vk_path, plonk_proof_as_fields_output_path);
-        } else if (OLD_API_vk_as_fields->parsed()) {
-            vk_as_fields(vk_path, plonk_vk_as_fields_output_path);
+        auto deprecated_plonk_commands = std::vector<CLI::App*>{ OLD_API_gates,
+                                                                 OLD_API_prove,
+                                                                 OLD_API_prove_output_all,
+                                                                 OLD_API_verify,
+                                                                 OLD_API_prove_and_verify,
+                                                                 OLD_API_contract,
+                                                                 OLD_API_write_vk,
+                                                                 OLD_API_write_pk,
+                                                                 OLD_API_proof_as_fields,
+                                                                 OLD_API_vk_as_fields };
+
+        for (auto* cmd : deprecated_plonk_commands) {
+            if (cmd->parsed()) {
+                std::cerr << "Error: UltraPlonk is now deprecated (see "
+                             "https://github.com/AztecProtocol/barretenberg/issues/1377). Use UltraHonk!"
+                          << std::endl;
+                std::exit(1);
+            }
+        }
+        // TUBE
+        if (prove_tube_command->parsed()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
+            prove_tube(prove_tube_output_path, vk_path);
+        } else if (verify_tube_command->parsed()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
+            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
+            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
+            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
+            UltraHonkAPI api;
+            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
+                                                                                                                    : 1;
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
@@ -768,19 +780,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, vk_path) ? 0 : 1;
         }
 #endif
-        // TUBE
-        else if (prove_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-            prove_tube(prove_tube_output_path, vk_path);
-        } else if (verify_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
-            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
-            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
-            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
-            UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
-                                                                                                                    : 1;
-        }
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {
             gate_count_for_ivc(bytecode_path, true);
@@ -801,6 +800,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             }
         }
         // NEW STANDARD API
+        // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so
+        // different
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
@@ -818,6 +819,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 }
                 api.write_ivc_vk(ivc_inputs_path, output_path);
                 return 0;
+            }
+            if (check->parsed()) {
+                if (ivc_inputs_path.empty()) {
+                    throw_or_abort("The check command for --scheme client_ivc expects --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack>");
+                }
+                return api.check_precomputed_vks(ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {

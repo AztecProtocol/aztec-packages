@@ -42,7 +42,7 @@ When `cache_content_hash` sees new changes in these paths, it regenerates a new 
 
 ### Tools
 
-Tools are provieded for the following themes.
+Tools are provided for the following themes.
 
 1. **Caching**
    - **`cache_content_hash`**: Takes file patterns (or `.rebuild_patterns`) to compute a stable content hash.

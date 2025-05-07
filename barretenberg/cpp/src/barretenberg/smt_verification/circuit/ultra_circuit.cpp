@@ -140,16 +140,16 @@ size_t UltraCircuit::handle_arithmetic_relation(size_t cursor, size_t idx)
 
 void UltraCircuit::process_new_table(uint32_t table_idx)
 {
-    std::vector<std::vector<cvc5::Term>> new_table;
+    std::vector<STuple> new_table;
     bool is_xor = true;
     bool is_and = true;
 
     for (auto table_entry : this->lookup_tables[table_idx]) {
-        std::vector<cvc5::Term> tmp_entry = {
+        STuple tmp_entry({
             STerm(table_entry[0], this->solver, this->type),
             STerm(table_entry[1], this->solver, this->type),
             STerm(table_entry[2], this->solver, this->type),
-        };
+        });
         new_table.push_back(tmp_entry);
 
         is_xor &= (static_cast<uint256_t>(table_entry[0]) ^ static_cast<uint256_t>(table_entry[1])) ==
@@ -157,17 +157,21 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
         is_and &= (static_cast<uint256_t>(table_entry[0]) & static_cast<uint256_t>(table_entry[1])) ==
                   static_cast<uint256_t>(table_entry[2]);
     }
-    this->cached_symbolic_tables.insert({ table_idx, this->solver->create_lookup_table(new_table) });
+    info("Creating lookup table №", this->cached_symbolic_tables.size());
+    std::string table_name;
     if (is_xor) {
+        table_name = "XOR_TABLE_" + std::to_string(new_table.size());
         this->tables_types.insert({ table_idx, TableType::XOR });
-        info("Encountered a XOR table");
     } else if (is_and) {
+        table_name = "AND_TABLE_" + std::to_string(new_table.size());
         this->tables_types.insert({ table_idx, TableType::AND });
-        info("Encountered an AND table");
     } else {
+        table_name = "UNK_TABLE_" + std::to_string(new_table.size());
         this->tables_types.insert({ table_idx, TableType::UNKNOWN });
-        info("Encountered an UNKNOWN table");
     }
+    info(table_name);
+    SymSet<STuple> new_stable(new_table, this->tag + table_name);
+    this->cached_symbolic_tables.insert({ table_idx, new_stable });
 }
 
 /**
@@ -213,7 +217,6 @@ size_t UltraCircuit::handle_lookup_relation(size_t cursor, size_t idx)
     STerm first_entry = this->symbolic_vars[w_l_idx] + q_r * this->symbolic_vars[w_l_shift_idx];
     STerm second_entry = this->symbolic_vars[w_r_idx] + q_m * this->symbolic_vars[w_r_shift_idx];
     STerm third_entry = this->symbolic_vars[w_o_idx] + q_c * this->symbolic_vars[w_o_shift_idx];
-    std::vector<STerm> entries = { first_entry, second_entry, third_entry };
 
     if (this->type == TermType::BVTerm && this->enable_optimizations) {
         // Sort of an optimization.
@@ -237,7 +240,8 @@ size_t UltraCircuit::handle_lookup_relation(size_t cursor, size_t idx)
         }
     }
     info("Unknown Table");
-    STerm::in_table(entries, this->cached_symbolic_tables[table_idx]);
+    STuple entries({ first_entry, second_entry, third_entry });
+    this->cached_symbolic_tables[table_idx].contains(entries);
     return cursor + 1;
 }
 
@@ -380,14 +384,16 @@ void UltraCircuit::handle_range_constraints()
             uint64_t range = this->range_tags[tag];
             if (this->type == TermType::FFTerm || !this->enable_optimizations) {
                 if (!this->cached_range_tables.contains(range)) {
-                    std::vector<cvc5::Term> new_range_table;
+                    std::vector<STerm> new_range_table;
                     for (size_t entry = 0; entry < range; entry++) {
                         new_range_table.push_back(STerm(entry, this->solver, this->type));
                     }
-                    this->cached_range_tables.insert({ range, this->solver->create_table(new_range_table) });
+                    std::string table_name = this->tag + "RANGE_" + std::to_string(range);
+                    SymSet<STerm> new_range_stable(new_range_table, table_name);
+                    info("Initialized new range: ", table_name);
+                    this->cached_range_tables.insert({ range, new_range_stable });
                 }
-
-                this->symbolic_vars[i].in(this->cached_range_tables[range]);
+                this->cached_range_tables[range].contains(this->symbolic_vars[i]);
             } else {
                 this->symbolic_vars[i] <= range;
             }

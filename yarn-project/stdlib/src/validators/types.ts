@@ -18,12 +18,12 @@ export type ValidatorStats = {
   totalSlots: number;
   missedProposals: {
     currentStreak: number;
-    rate: number;
+    rate?: number;
     count: number;
   };
   missedAttestations: {
     currentStreak: number;
-    rate: number;
+    rate?: number;
     count: number;
   };
   history: ValidatorStatusHistory;

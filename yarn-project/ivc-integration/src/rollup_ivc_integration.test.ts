@@ -1,9 +1,9 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { PublicTxSimulationTester } from '@aztec/simulator/server';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
@@ -23,7 +23,6 @@ import {
   mapAvmVerificationKeyToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
-  simulateAvmBulkTesting,
   witnessGenMockPublicBaseCircuit,
   witnessGenMockRollupBasePrivateCircuit,
   witnessGenMockRollupMergeCircuit,
@@ -77,7 +76,24 @@ describe('Rollup IVC Integration', () => {
       /*deployer=*/ AztecAddress.fromNumber(420),
       AvmTestContractArtifact,
     );
-    const avmSimulationResult = await simulateAvmBulkTesting(simTester, avmTestContractInstance);
+    const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const args = [
+      argsField,
+      argsU8,
+      /*getInstanceForAddress=*/ avmTestContractInstance.address.toField(),
+      /*expectedDeployer=*/ avmTestContractInstance.deployer.toField(),
+      /*expectedClassId=*/ avmTestContractInstance.currentContractClassId.toField(),
+      /*expectedInitializationHash=*/ avmTestContractInstance.initializationHash.toField(),
+    ];
+
+    const avmSimulationResult = await simTester.simulateTx(
+      /*sender=*/ AztecAddress.fromNumber(42),
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'bulk_testing', args }],
+      /*teardownCall=*/ undefined,
+    );
+
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
 
     ({

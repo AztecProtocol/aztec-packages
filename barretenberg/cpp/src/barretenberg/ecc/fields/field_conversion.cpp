@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
 
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
@@ -23,8 +28,12 @@ static constexpr uint64_t TOTAL_BITS = 254;
 grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     // Combines the two elements into one uint256_t, and then convert that to a grumpkin::fr
-    ASSERT(uint256_t(fr_vec[0]) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));              // lower 136 bits
-    ASSERT(uint256_t(fr_vec[1]) < (uint256_t(1) << (TOTAL_BITS - NUM_LIMB_BITS * 2))); // upper 254-136=118 bits
+    BB_ASSERT_LT(uint256_t(fr_vec[0]),
+                 (uint256_t(1) << (NUM_LIMB_BITS * 2)),
+                 "Conversion error here usually implies some bad proof serde or parsing");
+    BB_ASSERT_LT(uint256_t(fr_vec[1]),
+                 (uint256_t(1) << (TOTAL_BITS - NUM_LIMB_BITS * 2)),
+                 "Conversion error here usually implies some bad proof serde or parsing");
     uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2));
     grumpkin::fr result(value);
     return result;
@@ -50,11 +59,11 @@ std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& val)
     constexpr uint64_t LOWER_BITS = 2 * NUM_LIMB_BITS;
     constexpr uint256_t LOWER_MASK = (uint256_t(1) << LOWER_BITS) - 1;
     auto value = uint256_t(val);
-    ASSERT(value < (uint256_t(1) << TOTAL_BITS));
+    BB_ASSERT_LT(value, (uint256_t(1) << TOTAL_BITS));
     std::vector<bb::fr> result(2);
     result[0] = static_cast<uint256_t>(value & LOWER_MASK);
     result[1] = static_cast<uint256_t>(value >> LOWER_BITS);
-    ASSERT(static_cast<uint256_t>(result[1]) < (uint256_t(1) << (TOTAL_BITS - LOWER_BITS)));
+    BB_ASSERT_LT(static_cast<uint256_t>(result[1]), (uint256_t(1) << (TOTAL_BITS - LOWER_BITS)));
     return result;
 }
 
@@ -67,7 +76,7 @@ grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f)
     const uint256_t value = f;
     const uint256_t low = static_cast<uint256_t>(value & LIMB_MASK);
     const uint256_t hi = static_cast<uint256_t>(value >> NUM_BITS_IN_TWO_LIMBS);
-    ASSERT(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_BITS_IN_TWO_LIMBS) == value);
+    BB_ASSERT_EQ(static_cast<uint256_t>(low) + (static_cast<uint256_t>(hi) << NUM_BITS_IN_TWO_LIMBS), value);
 
     std::vector<bb::fr> fr_vec{ low, hi };
     return convert_from_bn254_frs<grumpkin::fr>(fr_vec);

@@ -1,5 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/goblin/translation_evaluations.hpp"
 
 namespace bb {
 class ECCVMVerifier {
@@ -37,6 +44,8 @@ class ECCVMVerifier {
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
+
+    TranslationEvaluations_<FF> translation_evaluations;
 
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;

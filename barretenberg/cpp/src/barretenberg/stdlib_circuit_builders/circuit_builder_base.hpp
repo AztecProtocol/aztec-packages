@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -39,9 +45,12 @@ template <typename FF_> class CircuitBuilderBase {
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> tau;
 
-    // Public input indices which contain recursive proof information
+    // (PLONK ONLY) Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bool contains_pairing_point_accumulator = false;
+
+    // Index of the pairing inputs in the public inputs
+    PublicComponentKey pairing_inputs_public_input_key;
 
     // Index of the IPA opening claim in the public inputs
     PublicComponentKey ipa_claim_public_input_key;

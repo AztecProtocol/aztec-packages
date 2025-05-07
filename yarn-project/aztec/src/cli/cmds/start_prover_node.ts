@@ -108,9 +108,8 @@ export async function startProverNode(
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
-  const p2p = proverNode.getP2P();
-  if (p2p) {
-    services.p2p = [proverNode.getP2P(), P2PApiSchema];
+  if (proverNode.getP2P()) {
+    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
   }
 
   if (!proverConfig.proverBrokerUrl) {

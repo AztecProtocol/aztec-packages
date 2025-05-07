@@ -50,7 +50,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
-            goblin.prove_merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+            goblin.prove_merge();
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
@@ -79,7 +79,8 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+    output.points_accumulator.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates);
 
@@ -110,12 +111,12 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(proof);
+        GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+        output.points_accumulator.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates);
 
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
-
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         OuterProver prover(proving_key);
         auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
@@ -181,7 +182,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
@@ -199,7 +200,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -212,12 +213,15 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    // Tamper with one of the translation evaluations
-    proof.translation_evaluations.Px += 1;
+    // Tamper with the evaluation of `op` witness. The index is computed manually.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+    // Better recursion testing - create more flexible proof tampering tests.
+    const size_t op_limb_index = 593;
+    proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

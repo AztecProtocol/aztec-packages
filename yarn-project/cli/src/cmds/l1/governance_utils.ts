@@ -4,7 +4,7 @@ import {
   ProposalState,
   RegistryContract,
   createEthereumChain,
-  createL1Clients,
+  createExtendedL1Client,
 } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
@@ -33,19 +33,20 @@ export async function depositGovernanceTokens({
 }) {
   debugLogger.info(`Depositing ${amount} governance tokens to ${recipient}`);
   const chain = createEthereumChain(rpcUrls, chainId);
-  const { publicClient, walletClient } = createL1Clients(
+  const extendedClient = createExtendedL1Client(
     rpcUrls,
     privateKey ?? mnemonic,
     chain.chainInfo,
+    undefined,
     mnemonicIndex,
   );
 
-  const addresses = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
   const governanceAddress = addresses.governanceAddress.toString();
   const tokenAddress = addresses.stakingAssetAddress.toString();
 
-  const feeJuice = new FeeJuiceContract(tokenAddress, publicClient, walletClient);
-  const governance = new GovernanceContract(governanceAddress, publicClient, walletClient);
+  const feeJuice = new FeeJuiceContract(tokenAddress, extendedClient);
+  const governance = new GovernanceContract(governanceAddress, extendedClient);
   if (mint) {
     await feeJuice.mint(recipient, amount);
     debugLogger.info(`Minted ${amount} tokens to ${recipient}`);
@@ -83,16 +84,16 @@ export async function proposeWithLock({
 }) {
   debugLogger.info(`Proposing with lock from ${payloadAddress} to ${registryAddress}`);
   const chain = createEthereumChain(rpcUrls, chainId);
-  const clients = createL1Clients(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, mnemonicIndex);
+  const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
-  const addresses = await RegistryContract.collectAddresses(clients.publicClient, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical');
   const governanceAddress = addresses.governanceAddress.toString();
 
-  const governance = new GovernanceContract(governanceAddress, clients.publicClient, clients.walletClient);
+  const governance = new GovernanceContract(governanceAddress, client);
 
   const proposalId = await governance.proposeWithLock({
     payloadAddress,
-    withdrawAddress: clients.walletClient.account.address,
+    withdrawAddress: client.account.address,
   });
   if (json) {
     log(JSON.stringify({ proposalId: Number(proposalId) }, null, 2));
@@ -131,12 +132,12 @@ export async function voteOnGovernanceProposal({
     `Voting on proposal ${proposalId} with ${voteAmount ? voteAmount : 'all'} tokens in favor: ${inFavor}`,
   );
   const chain = createEthereumChain(rpcUrls, chainId);
-  const clients = createL1Clients(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, mnemonicIndex);
+  const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
-  const addresses = await RegistryContract.collectAddresses(clients.publicClient, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical');
   const governanceAddress = addresses.governanceAddress.toString();
 
-  const governance = new GovernanceContract(governanceAddress, clients.publicClient, clients.walletClient);
+  const governance = new GovernanceContract(governanceAddress, client);
   const state = await governance.getProposalState(proposalId);
   if (state !== ProposalState.Active && !waitTilActive) {
     debugLogger.warn(`Proposal is not active, but waitTilActive is false. Not voting.`);
@@ -170,12 +171,12 @@ export async function executeGovernanceProposal({
 }) {
   debugLogger.info(`Executing proposal ${proposalId}`);
   const chain = createEthereumChain(rpcUrls, chainId);
-  const clients = createL1Clients(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, mnemonicIndex);
+  const client = createExtendedL1Client(rpcUrls, privateKey ?? mnemonic, chain.chainInfo, undefined, mnemonicIndex);
 
-  const addresses = await RegistryContract.collectAddresses(clients.publicClient, registryAddress, 'canonical');
+  const addresses = await RegistryContract.collectAddresses(client, registryAddress, 'canonical');
   const governanceAddress = addresses.governanceAddress.toString();
 
-  const governance = new GovernanceContract(governanceAddress, clients.publicClient, clients.walletClient);
+  const governance = new GovernanceContract(governanceAddress, client);
   const state = await governance.getProposalState(proposalId);
   if (state !== ProposalState.Executable && !waitTilExecutable) {
     debugLogger.warn(`Proposal is not executable, but waitTilExecutable is false. Not executing.`);

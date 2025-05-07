@@ -1,8 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -21,8 +27,8 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
-    using TranslationEvaluations = TranslationEvaluations_<BF, FF>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using TranslationEvaluations = TranslationEvaluations_<BF>;
     using Transcript = typename Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;
 
@@ -41,11 +47,11 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
                                                      const BF& batching_challenge_v,
                                                      const BF& accumulated_result);
 
-    AggregationObject verify_proof(const HonkProof& proof,
-                                   const BF& evaluation_input_x,
-                                   const BF& batching_challenge_v);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const HonkProof& proof,
+                                                                                     const BF& evaluation_input_x,
+                                                                                     const BF& batching_challenge_v);
 
-    bool verify_translation(const TranslationEvaluations& translation_evaluations,
+    void verify_translation(const TranslationEvaluations& translation_evaluations,
                             const BF& translation_masking_term_eval);
 };
 } // namespace bb

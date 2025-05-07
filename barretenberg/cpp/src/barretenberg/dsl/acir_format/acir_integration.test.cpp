@@ -47,7 +47,8 @@ class AcirIntegrationTest : public ::testing::Test {
     static acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
     {
         auto program_stack = get_program_stack_data_from_test_file(test_program_name);
-        ASSERT(program_stack.size() == 1); // Otherwise this method will not return full stack data
+        BB_ASSERT_EQ(program_stack.size(),
+                     static_cast<size_t>(1)); // Otherwise this method will not return full stack data
 
         return program_stack.back();
     }
@@ -430,9 +431,9 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     const auto& secondary_calldata = builder.get_secondary_calldata();
     const auto& return_data = builder.get_return_data();
 
-    ASSERT(calldata.size() == 4);
-    ASSERT(secondary_calldata.size() == 3);
-    ASSERT(return_data.size() == 4);
+    BB_ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
+    BB_ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
+    BB_ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
 
     // Check that return data was computed from the two calldata inputs as expected
     ASSERT_EQ(builder.get_variable(calldata[0]) + builder.get_variable(secondary_calldata[0]),

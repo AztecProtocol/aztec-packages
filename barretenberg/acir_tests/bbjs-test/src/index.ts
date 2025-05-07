@@ -111,7 +111,7 @@ program
   .option("-w, --witness-path <path>", "witness path")
   .option("-o, --output-directory <path>", "output directory")
   .option("-h, --oracle-hash <hash>", "oracle hash")
-  .option("-multi-threaded", "multi-threaded")
+  .option("--multi-threaded", "multi-threaded")
   .action((args) => generateProof(args));
 
 program
