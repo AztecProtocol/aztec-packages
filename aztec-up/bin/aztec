@@ -5,7 +5,11 @@ NETWORK=${NETWORK:-}
 VERSION=${VERSION:-${NETWORK:-"latest"}}
 
 # Take copy of command-line arguments, so we can mutate to parse.
-args=("$@")
+if [ $# -eq 0 ]; then
+  args=("--help")
+else
+  args=("$@")
+fi
 while [ "$#" -gt 0 ]; do
   case $1 in
     -p | --port)
