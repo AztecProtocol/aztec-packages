@@ -614,21 +614,18 @@ export class ReqResp {
       const handler = this.subProtocolHandlers[protocol];
       const transform = this.snappyTransform;
 
-      // In the goodbye protocol, we are not expected to respond to the request, we call the handler seperately to ensure
-      // we invoke the handler correctly
-      if (protocol === ReqRespSubProtocol.GOODBYE) {
-        await handler(connection.remotePeer, Buffer.from([]));
-        // Dont respond
-        await stream.close();
-        return;
-      }
-
       await pipe(
         stream,
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
             const response = await handler(connection.remotePeer, msg);
+
+            if (protocol === ReqRespSubProtocol.GOODBYE) {
+              // Dont respond
+              await stream.close();
+              return;
+            }
 
             // Send success code first, then the response
             const successChunk = Buffer.from([ReqRespStatus.SUCCESS]);
