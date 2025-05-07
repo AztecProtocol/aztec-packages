@@ -1,6 +1,5 @@
 import request from 'supertest';
 
-import { jsonStringify } from '../convert.js';
 import { TestNote, TestState, type TestStateApi, TestStateSchema } from '../fixtures/test_state.js';
 import {
   type SafeJsonRpcServer,
