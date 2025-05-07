@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746651860155,
+  "lastUpdate": 1746655912884,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "199648fe3d9d5c303a53ad8016d7217f2dbefcde",
-          "message": "chore: comment civc trace size log parsing (#13975)\n\nGrego is relying on this format and we've changed it a few times lately,\na comment is prudent",
-          "timestamp": "2025-05-01T19:16:49Z",
-          "tree_id": "2f7eb4ca39583c4baed6fb428c2abb7910a80f88",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/199648fe3d9d5c303a53ad8016d7217f2dbefcde"
-        },
-        "date": 1746131795756,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17726.315055000214,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13805.668909 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2229378007,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 198883633,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20181.968433000293,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17307.210335 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56136.753844,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56136756000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4466.802900999937,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3851.4855519999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 12262.179157000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 12262183000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2263.88",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -8344,6 +8272,78 @@ window.BENCHMARK_DATA = {
             "value": 1829,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rodrigo.ferreira@aya.yale.edu",
+            "name": "Rodrigo Ferreira",
+            "username": "raugfer"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d593a64afc8b2e6524292c716c0226e3334b44e",
+          "message": "fix(starknet-bb): Clears extraneous MSB from r_inv_wasm_5/r_inv_wasm_7 (#13704)\n\nThis PR attempts to fix a bb.js/WASM bug for the UltraStarknetFlavor.\nUnfortunately, it was introduced by the original implementation\n(#11489).\n\nIn short, the STARK252 field constants `r_inv_wasm_5` and `r_inv_wasm_7`\nwere declared with 30-bits when 29-bits are expected.\n\nHopefully this simple change should fix bb.js's buggy behavior.\n\n@ludamad Please take a look, thanks in advance",
+          "timestamp": "2025-05-07T22:21:07+01:00",
+          "tree_id": "605d3d8c34f0a4f589262cacf2967601690c7094",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6d593a64afc8b2e6524292c716c0226e3334b44e"
+        },
+        "date": 1746655904191,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17941.482023999924,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14153.833629 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4721756257,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197644104,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25492.38255199998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19830.045751 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 69243.801628,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 69243802000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4189.918863000457,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3585.073039 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11401.065226,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11401068000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2285.19",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
