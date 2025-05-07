@@ -89,7 +89,10 @@ services:
       DATA_STORE_MAP_SIZE_KB: "134217728"
       ETHEREUM_HOSTS: # EL RPC endpoint
       L1_CONSENSUS_HOST_URLS: # CL RPC endpoint
+<<<<<<< HEAD
       P2P_IP: # YOUR IP ADDRESS
+=======
+>>>>>>> upstream/master
       LOG_LEVEL: info
       PROVER_BROKER_HOST: http://broker:8080
       PROVER_PUBLISHER_PRIVATE_KEY: # The node needs to publish proofs to L1. Replace with your private key
