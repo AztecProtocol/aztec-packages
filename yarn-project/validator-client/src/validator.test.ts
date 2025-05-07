@@ -8,6 +8,7 @@ import type { P2P } from '@aztec/p2p';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
@@ -53,7 +54,7 @@ describe('ValidatorClient', () => {
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, epochCache, p2pClient, dateProvider)).toThrow(
+    expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
       InvalidValidatorPrivateKeyError,
     );
   });
@@ -62,7 +63,7 @@ describe('ValidatorClient', () => {
     config.validatorReexecute = true;
     const fakeTx = await mockTx();
     p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(fakeTx));
-    const val = ValidatorClient.new(config, epochCache, p2pClient);
+    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
     await expect(
       val.reExecuteTransactions(await makeBlockProposal({ txs: [fakeTx], txHashes: [await fakeTx.getTxHash()] }), [
         fakeTx,
@@ -112,7 +113,7 @@ describe('ValidatorClient', () => {
     );
   });
 
-  it('Should not return an attestation if re-execution fails', async () => {
+  it('Should not return an attestation if re-execution fails', () => {
     const proposal = makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
@@ -126,7 +127,7 @@ describe('ValidatorClient', () => {
     });
     epochCache.isInCommittee.mockResolvedValue(true);
 
-    const val = ValidatorClient.new(config, epochCache, p2pClient);
+    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
     val.registerBlockBuilder(() => {
       throw new Error('Failed to build block');
     });
@@ -153,7 +154,7 @@ describe('ValidatorClient', () => {
     it('should create a valid block proposal', async () => {
       const header = makeHeader();
       const archive = Fr.random();
-      const txs = [1, 2, 3, 4, 5].map(() => TxHash.random());
+      const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
 
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
