@@ -219,9 +219,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // attempt snapshot sync if possible
     let archiver: ArchiverApi | (ArchiverApi & Service & L2BlockSourceEventEmitter);
     if (config.archiverUrl) {
+      await trySnapshotSync(config, log, ['worldState']);
       archiver = createRemoteArchiver(config) as ArchiverApi;
     } else {
-      trySnapshotSync(config, log);
+      await trySnapshotSync(config, log, ['archiver', 'worldState']);
       archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
     }
 
