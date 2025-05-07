@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746651870501,
+  "lastUpdate": 1746658399615,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "L1 Gas Benchmark": [
@@ -1267,6 +1267,110 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/commit/08184fbc13622a15f5bdea4f227dbe9d45685709"
         },
         "date": 1746651869293,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "forward (100_validators)",
+            "value": 639564,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (100_validators) per l2 tx",
+            "value": 1776.57,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators)",
+            "value": 310600,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators) per l2 tx",
+            "value": 862.78,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead)",
+            "value": 328964,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead) per l2 tx",
+            "value": 913.79,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators)",
+            "value": 1583400,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators) per l2 tx",
+            "value": 137.45,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators)",
+            "value": 67061,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators) per l2 tx",
+            "value": 5.82,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead)",
+            "value": 1516339,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead) per l2 tx",
+            "value": 131.63,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators)",
+            "value": 894670,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators) per l2 tx",
+            "value": 77.66,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators)",
+            "value": 911770,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators) per l2 tx",
+            "value": 79.15,
+            "unit": "gas"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03d6547218cee1eb175f287f81136c6adb149a79",
+          "message": "feat(release): intel mac version fix, starknet bb variant build (#14013)\n\nSo far just enabled for mac. Linux and WASM support TODO\n\nNoticed that intel mac had the wrong sed command while at it",
+          "timestamp": "2025-05-07T21:51:05Z",
+          "tree_id": "b9808b177b76dad3d833859d1cba99f47d30a652",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/03d6547218cee1eb175f287f81136c6adb149a79"
+        },
+        "date": 1746658398720,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
