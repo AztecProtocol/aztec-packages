@@ -219,4 +219,6 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/787)
+
 } // namespace bb::stdlib::recursion::honk
