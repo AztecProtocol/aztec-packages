@@ -14,14 +14,18 @@ namespace bb::stdlib::recursion::honk {
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
+    MergeVerifier merge_verifier{ builder, goblin_transcript };
+
+    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
+
+    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+
     // Run the ECCVM recursive verifier
-    ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key };
+    ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, goblin_transcript };
     auto [opening_claim, ipa_transcript] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
-    TranslatorVerifier translator_verifier{ builder,
-                                            verification_keys.translator_verification_key,
-                                            eccvm_verifier.transcript };
+    TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, goblin_transcript };
     PairingPoints<Builder> translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
@@ -29,9 +33,6 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
                                            eccvm_verifier.translation_masking_term_eval);
 
-    MergeVerifier merge_verifier{ builder };
-    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
     translator_pairing_points.aggregate(merge_pairing_points);
     return { translator_pairing_points, opening_claim, ipa_transcript };
 }

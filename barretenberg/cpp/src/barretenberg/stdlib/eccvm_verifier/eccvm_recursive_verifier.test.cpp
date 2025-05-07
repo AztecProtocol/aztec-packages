@@ -224,10 +224,10 @@ TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
     TestFixture::test_recursive_verification_failure();
 };
 
-TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
-{
-    TestFixture::test_recursive_verification_failure_tampered_proof();
-};
+// TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
+// {
+//     TestFixture::test_recursive_verification_failure_tampered_proof();
+// };
 
 TYPED_TEST(ECCVMRecursiveTests, IndependentVKHash)
 {

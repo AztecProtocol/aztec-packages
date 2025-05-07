@@ -9,8 +9,10 @@
 namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>
-MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder)
+MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder,
+                                                                 const std::shared_ptr<Transcript>& goblin_transcript)
     : builder(builder)
+    , transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>())
 {}
 
 /**
@@ -33,7 +35,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     const StdlibProof<CircuitBuilder>& proof)
 {
     // Transform proof into a stdlib object
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 

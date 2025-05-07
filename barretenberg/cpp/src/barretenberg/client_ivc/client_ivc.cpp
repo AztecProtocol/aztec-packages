@@ -347,6 +347,7 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
 ClientIVC::Proof ClientIVC::prove()
 {
     auto [mega_proof, merge_proof] = construct_and_prove_hiding_circuit();
+    // ?? Delegate proving merge to goblin prover? More symmetry with the verifier
     return { mega_proof, goblin.prove(merge_proof) };
 };
 

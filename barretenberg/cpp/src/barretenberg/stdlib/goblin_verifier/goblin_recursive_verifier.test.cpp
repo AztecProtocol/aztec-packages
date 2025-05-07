@@ -45,16 +45,24 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      */
     static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
-        Goblin goblin;
 
+        Goblin goblin;
         // Construct and accumulate multiple circuits
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < NUM_CIRCUITS - 1; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
             goblin.prove_merge();
         }
 
+        auto goblin_transcript = std::make_shared<Goblin::Transcript>();
+
+        Goblin goblin_last(goblin_transcript);
+        goblin_last.op_queue = goblin.op_queue;
+
+        auto circuit = construct_mock_circuit(goblin_last.op_queue);
+        auto merge_proof = goblin_last.prove_merge();
+
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
+        return { goblin_last.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
@@ -64,9 +72,13 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
+
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    EXPECT_TRUE(Goblin::verify(proof));
+    Goblin goblin;
+
+    EXPECT_TRUE(goblin.verify(proof));
+    goblin.goblin_transcript->print();
 }
 
 /**

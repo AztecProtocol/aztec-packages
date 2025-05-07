@@ -74,7 +74,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
     MegaVerifier ultra_verifier{ kernel_accum.verification_key };
     bool ultra_verified = ultra_verifier.verify_proof(kernel_accum.proof);
     // Verify the goblin proof (eccvm, translator, merge)
-    bool verified = Goblin::verify(proof);
+    bool verified = goblin.verify(proof);
     EXPECT_TRUE(ultra_verified && verified);
 }
 
