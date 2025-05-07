@@ -33,7 +33,7 @@ pub struct BlockRootRollupBlobData {
     pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
     // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating the challenge z
     pub blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
-    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity vs the blob_public_inputs below
+    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity vs the blob_public_inputs
     // NB: to fit it into a field, we truncate to 31 bytes
     pub blobs_hash: Field,
 }

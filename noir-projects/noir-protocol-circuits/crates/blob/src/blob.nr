@@ -13,7 +13,10 @@ use types::{
     utils::arrays::array_splice,
 };
 
-fn convert_blob_fields(blob_as_fields: [Field; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
+// TODO(MW): remove pub when fully moved to batching
+pub(crate) fn convert_blob_fields(
+    blob_as_fields: [Field; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB] {
     let mut blob: [F; FIELDS_PER_BLOB] = [F::zero(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         blob[i] = F::from(blob_as_fields[i]);
@@ -42,7 +45,11 @@ pub fn check_block_blob_sponge(
     sponge_hash
 }
 
-fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: BlobCommitment) -> Field {
+// TODO(MW): remove pub when fully moved to batching
+pub(crate) fn compute_challenge(
+    hashed_blobs_fields: Field,
+    kzg_commitment: BlobCommitment,
+) -> Field {
     let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
     let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
@@ -52,7 +59,8 @@ fn compute_challenge(hashed_blobs_fields: Field, kzg_commitment: BlobCommitment)
 // we don't actually need to operate on it so we've simply encoded it as fitting inside a
 // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
 // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
-fn evaluate_blob(
+// TODO(MW): remove pub when fully moved to batching
+pub(crate) fn evaluate_blob(
     blob_as_fields: [Field; FIELDS_PER_BLOB],
     kzg_commitment: BlobCommitment,
     hashed_blobs_fields: Field,
@@ -112,8 +120,9 @@ pub fn evaluate_blobs(
  * @param ys - the many y_i's of the blob.
  *
  * @return y = p(z)
+ * TODO(MW): remove pub when fully moved to batching
  */
-fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
+pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
     //    \     /    y_i    \
