@@ -169,8 +169,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
-    return this.#blockStore.addBlocks(blocks);
+  addBlocks(blocks: PublishedL2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
+    return this.#blockStore.addBlocks(blocks, opts);
   }
 
   /**
@@ -182,6 +182,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    */
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
+  }
+
+  getBlock(number: number): Promise<PublishedL2Block | undefined> {
+    return this.#blockStore.getBlock(number);
   }
 
   /**
