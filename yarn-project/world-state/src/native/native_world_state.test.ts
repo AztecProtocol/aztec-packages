@@ -240,7 +240,7 @@ describe('NativeWorldState', () => {
     });
 
     it('manually clears the database', async () => {
-      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
+      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
       const initialStatus = await ws.getStatusSummary();
       expect(initialStatus.unfinalisedBlockNumber).toBe(0n);
 

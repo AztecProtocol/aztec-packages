@@ -63,7 +63,7 @@ import {
   retrieveL1ToL2Messages,
   retrievedBlockToPublishedL2Block,
 } from './data_retrieval.js';
-import { NoBlobBodiesFoundError } from './errors.js';
+import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
 import type { PublishedL2Block } from './structs/published.js';
@@ -609,11 +609,32 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         });
       }
 
-      const [processDuration] = await elapsed(() => this.store.addBlocks(publishedBlocks));
-      this.instrumentation.processNewBlocks(
-        processDuration / publishedBlocks.length,
-        publishedBlocks.map(b => b.block),
-      );
+      try {
+        const [processDuration] = await elapsed(() => this.store.addBlocks(publishedBlocks));
+        this.instrumentation.processNewBlocks(
+          processDuration / publishedBlocks.length,
+          publishedBlocks.map(b => b.block),
+        );
+      } catch (err) {
+        if (err instanceof InitialBlockNumberNotSequentialError) {
+          const { previousBlockNumber, newBlockNumber } = err;
+          const previousBlock = previousBlockNumber
+            ? await this.store.getPublishedBlock(previousBlockNumber)
+            : undefined;
+          const updatedL1SyncPoint = previousBlock?.l1.blockNumber ?? this.l1constants.l1StartBlock;
+          await this.store.setBlockSynchedL1BlockNumber(updatedL1SyncPoint);
+          this.log.warn(
+            `Attempting to insert block ${newBlockNumber} with previous block ${previousBlockNumber}. Rolling back L1 sync point to ${updatedL1SyncPoint} to try and fetch the missing blocks.`,
+            {
+              previousBlockNumber,
+              previousBlockHash: await previousBlock?.block.hash(),
+              newBlockNumber,
+              updatedL1SyncPoint,
+            },
+          );
+        }
+        throw err;
+      }
 
       for (const block of publishedBlocks) {
         this.log.info(`Downloaded L2 block ${block.block.number}`, {
@@ -839,11 +860,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     if (number < 0) {
       number = await this.store.getSynchedL2BlockNumber();
     }
-    if (number == 0) {
+    if (number === 0) {
       return undefined;
     }
-    const blocks = await this.store.getPublishedBlocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0].block;
+    const publishedBlock = await this.store.getPublishedBlock(number);
+    return publishedBlock?.block;
   }
 
   public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
@@ -1027,7 +1048,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);
     }
     const blocksToUnwind = currentL2Block - targetL2BlockNumber;
-    const [targetL2Block] = await this.store.getBlocks(targetL2BlockNumber, 1);
+    const targetL2Block = await this.store.getPublishedBlock(targetL2BlockNumber);
     if (!targetL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
     }
@@ -1218,6 +1239,12 @@ export class ArchiverStoreHelper
   }
 
   async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
+    // TODO(palla/reorg): Run all these ops in a single write transaction
+
+    // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
+    // or if the previous block is not in the store.
+    await this.store.addBlocks(blocks);
+
     const opResults = await Promise.all([
       this.store.addLogs(blocks.map(block => block.block)),
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
@@ -1235,7 +1262,6 @@ export class ArchiverStoreHelper
           ])
         ).every(Boolean);
       }),
-      this.store.addBlocks(blocks),
     ]);
 
     return opResults.every(Boolean);
@@ -1244,7 +1270,10 @@ export class ArchiverStoreHelper
   public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
-      throw new Error(`Can only remove from the tip`);
+      throw new Error(`Cannot unwind blocks from block ${from} when the last block is ${last}`);
+    }
+    if (blocksToUnwind <= 0) {
+      throw new Error(`Cannot unwind ${blocksToUnwind} blocks`);
     }
 
     // from - blocksToUnwind = the new head, so + 1 for what we need to remove
@@ -1276,6 +1305,9 @@ export class ArchiverStoreHelper
 
   getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
     return this.store.getPublishedBlocks(from, limit);
+  }
+  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlock(number);
   }
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
