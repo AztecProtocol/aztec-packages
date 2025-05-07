@@ -104,7 +104,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 template class DeciderVerifier_<UltraFlavor>;
 template class DeciderVerifier_<UltraZKFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template class DeciderVerifier_<UltraStarknetFlavor>;
 template class DeciderVerifier_<UltraStarknetZKFlavor>;
 #endif

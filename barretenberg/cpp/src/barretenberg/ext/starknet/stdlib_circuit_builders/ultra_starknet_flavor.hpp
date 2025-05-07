@@ -1,5 +1,5 @@
 
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 #pragma once
 
 #include "barretenberg/ext/starknet/transcript/transcript.hpp"

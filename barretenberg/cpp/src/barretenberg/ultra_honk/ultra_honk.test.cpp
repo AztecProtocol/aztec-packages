@@ -77,7 +77,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     }
 };
 
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 using FlavorTypes = testing::Types<UltraFlavor,
                                    UltraZKFlavor,
                                    UltraKeccakFlavor,

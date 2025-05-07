@@ -448,7 +448,7 @@ template class SmallSubgroupIPAProver<TranslatorFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template class SmallSubgroupIPAProver<UltraStarknetZKFlavor>;
 #endif
 

@@ -144,7 +144,7 @@ void WitnessComputation<Flavor>::complete_proving_key_for_test(
 template class WitnessComputation<UltraFlavor>;
 template class WitnessComputation<UltraZKFlavor>;
 template class WitnessComputation<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template class WitnessComputation<UltraStarknetFlavor>;
 template class WitnessComputation<UltraStarknetZKFlavor>;
 #endif

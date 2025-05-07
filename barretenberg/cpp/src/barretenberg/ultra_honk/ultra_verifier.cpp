@@ -83,7 +83,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 template class UltraVerifier_<UltraFlavor>;
 template class UltraVerifier_<UltraZKFlavor>;
 template class UltraVerifier_<UltraKeccakFlavor>;
-#ifdef STARKNET_GARAGA_FLAVORS
+#if 1
 template class UltraVerifier_<UltraStarknetFlavor>;
 template class UltraVerifier_<UltraStarknetZKFlavor>;
 #endif
