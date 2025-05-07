@@ -23,7 +23,7 @@ class PairingPoints {
     using Point = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
-    using VerifierCommitmentKey = VerifierCommitmentKey<curve::BN254>;
+    using VerifierCK = VerifierCommitmentKey<curve::BN254>;
 
   public:
     Point P0 = Point::infinity();
@@ -79,7 +79,7 @@ class PairingPoints {
 
     bool check() const
     {
-        VerifierCommitmentKey pcs_vkey{};
+        VerifierCK pcs_vkey{};
         return pcs_vkey.pairing_check(P0, P1);
     }
 
