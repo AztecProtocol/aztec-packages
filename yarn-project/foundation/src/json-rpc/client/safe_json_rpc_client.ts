@@ -39,7 +39,7 @@ export function createSafeJsonRpcClient<T extends object>(
     const body = { jsonrpc: '2.0', id: id++, method, params };
 
     log.debug(format(`request`, method, params));
-    const { response, headers } = await fetch(host, method, body);
+    const { response, headers } = await fetch(host, body);
     log.debug(format(`result`, method, response));
 
     if (config.onResponse) {

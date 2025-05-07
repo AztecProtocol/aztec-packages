@@ -15,21 +15,26 @@ import { ATTR_JSONRPC_METHOD, ATTR_JSONRPC_REQUEST_ID } from '../vendor/attribut
  * @returns A fetch function.
  */
 export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, fetch = defaultFetch, log?: Logger) {
-  return (host: string, rpcMethod: string, body: any, extraHeaders: Record<string, string> = {}, noRetry?: boolean) => {
+  return (
+    host: string,
+    body: { method: string; id?: number },
+    extraHeaders: Record<string, string> = {},
+    noRetry?: boolean,
+  ) => {
     const telemetry = getTelemetryClient();
     return telemetry
       .getTracer('fetch')
-      .startActiveSpan(`JsonRpcClient.${rpcMethod}`, { kind: SpanKind.CLIENT }, async span => {
+      .startActiveSpan(`JsonRpcClient.${body.method}`, { kind: SpanKind.CLIENT }, async span => {
         try {
           if (body && typeof body.id === 'number') {
             span.setAttribute(ATTR_JSONRPC_REQUEST_ID, body.id);
           }
-          span.setAttribute(ATTR_JSONRPC_METHOD, rpcMethod);
+          span.setAttribute(ATTR_JSONRPC_METHOD, body.method);
           const headers = { ...extraHeaders };
           propagation.inject(context.active(), headers);
           return await retry(
-            () => fetch(host, rpcMethod, body, headers, noRetry ?? defaultNoRetry),
-            `JsonRpcClient request ${rpcMethod} to ${host}`,
+            () => fetch(host, body, headers, noRetry ?? defaultNoRetry),
+            `JsonRpcClient request ${body.method} to ${host}`,
             makeBackoff(retries),
             log,
             false,

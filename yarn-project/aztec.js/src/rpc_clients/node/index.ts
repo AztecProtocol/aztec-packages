@@ -16,18 +16,18 @@ import { createPXEClient } from '../pxe_client.js';
  * @param body - The body of the request.
  * @returns The response data.
  */
-async function axiosFetch(host: string, rpcMethod: string, body: any) {
+async function axiosFetch(host: string, body: { method: string }) {
   const request = new Axios({
     headers: { 'content-type': 'application/json' },
     transformRequest: [(data: any) => jsonStringify(data)],
     transformResponse: [(data: any) => JSON.parse(data)],
   });
-  const [url, content] = [host, { ...body, method: rpcMethod }];
+  const [url, content] = [host, body];
   const resp = await request.post(url, content).catch((error: AxiosError) => {
     if (error.response) {
       return error.response;
     }
-    const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${inspect(error)}`;
+    const errorMessage = `Error fetching from host ${host} with method ${body.method}: ${inspect(error)}`;
     throw new Error(errorMessage);
   });
 
@@ -39,7 +39,7 @@ async function axiosFetch(host: string, rpcMethod: string, body: any) {
     };
     return { response: resp.data, headers };
   } else {
-    const errorMessage = `Error ${resp.status} from json-rpc server ${host} on ${rpcMethod}: ${resp.data.error.message}`;
+    const errorMessage = `Error ${resp.status} from json-rpc server ${host} on ${body.method}: ${resp.data.error.message}`;
     if (resp.status >= 400 && resp.status < 500) {
       throw new NoRetryError(errorMessage);
     } else {
@@ -61,10 +61,10 @@ export function createCompatibleClient(
   versions: Partial<ComponentsVersions> = {},
 ): Promise<PXE> {
   // Use axios due to timeout issues with fetch when proving TXs.
-  const fetch = async (host: string, rpcMethod: string, body: any) => {
+  const fetch = async (host: string, body: { method: string }) => {
     return await retry(
-      () => axiosFetch(host, rpcMethod, body),
-      `JsonRpcClient request ${rpcMethod} to ${host}`,
+      () => axiosFetch(host, body),
+      `JsonRpcClient request ${body.method} to ${host}`,
       makeBackoff([1, 2, 3]),
       logger,
       false,
