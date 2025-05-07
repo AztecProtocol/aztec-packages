@@ -274,9 +274,7 @@ TEST(UltraCircuitSMT, LookupRelation2)
     ASSERT_EQ(c_solver_val, c_builder_val);
 }
 
-// Due to ranges being huge it takes forever to finish
-// But all the non native gates are true, when we turn off
-// range constraints in solver
+// Due to ranges being huge it takes 5 min 32 sec to finish
 // TEST(UltraCircuitSMT, AuxRelation)
 //{
 //    UltraCircuitBuilder builder;
@@ -294,7 +292,8 @@ TEST(UltraCircuitSMT, LookupRelation2)
 //    }
 //
 //    // slv.print_assertions();
-//    info(slv.check());
+//    bool res = smt_timer(&slv);
+//    ASSERT_TRUE(res);
 //}
 
 TEST(UltraCircuitSMT, ROMTables)
