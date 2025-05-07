@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746655918046,
+  "lastUpdate": 1746658387034,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "117ed54cd4bd947f03c15f65cbd2ce312b006ff4",
-          "message": "feat: brittle benchmark for UH RV in Ultra gate count (#14008)\n\nAugments UltraRecursiveVerifier test by adding a gate count pinning\ncheck, so we can keep track of the Ultra gate count of a\nMegaZKRecursiveVerifier.\n\nHelps in closing\nhttps://github.com/AztecProtocol/barretenberg/issues/1380 because I\nneeded a measurement of the impact of an optimization.",
-          "timestamp": "2025-05-01T21:14:25Z",
-          "tree_id": "4084158f6a4253e6b124c2c614b83a6af94ab64b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/117ed54cd4bd947f03c15f65cbd2ce312b006ff4"
-        },
-        "date": 1746138718883,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17589.455023000028,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14081.82486 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2269599736,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 201494984,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20278.548829999636,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17180.521401 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56085.539339999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56085541000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4434.021915000358,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3834.9913049999996 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 12091.564593000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 12091567000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2263.88",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -8344,6 +8272,78 @@ window.BENCHMARK_DATA = {
             "value": 1848,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03d6547218cee1eb175f287f81136c6adb149a79",
+          "message": "feat(release): intel mac version fix, starknet bb variant build (#14013)\n\nSo far just enabled for mac. Linux and WASM support TODO\n\nNoticed that intel mac had the wrong sed command while at it",
+          "timestamp": "2025-05-07T21:51:05Z",
+          "tree_id": "b9808b177b76dad3d833859d1cba99f47d30a652",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/03d6547218cee1eb175f287f81136c6adb149a79"
+        },
+        "date": 1746658378333,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18053.29738899991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14248.06927 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4783853174,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 197077872,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25343.851401999927,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 20235.673985 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 69672.149165,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 69672150000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4286.154785000235,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3672.132 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11376.459062999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11376460000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2285.19",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
