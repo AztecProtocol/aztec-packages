@@ -46,8 +46,8 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
     : prover_crs_(std::make_shared<MemProverCrs<curve::BN254>>(points))
 {
     auto g1_identity = g1::affine_element();
-    if (points.empty()) {
-        throw_or_abort("Empty points vector passed to MemBn254CrsFactory");
+    if (points.empty() || !points[0].on_curve()) {
+        throw_or_abort("invalid vector passed to MemBn254CrsFactory");
     }
     g1_identity = points[0];
 

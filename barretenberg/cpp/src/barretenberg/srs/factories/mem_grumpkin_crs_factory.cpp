@@ -44,6 +44,9 @@ MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(const std::vector<Grumpkin::AffineE
     : prover_crs_(std::make_shared<MemProverCrs<Grumpkin>>(points))
     , verifier_crs_(std::make_shared<MemVerifierCrs>(points))
 {
+    if (points.empty() || !points[0].on_curve()) {
+        throw_or_abort("invalid vector passed to MemGrumpkinCrsFactory");
+    }
     vinfo("Initialized ",
           curve::Grumpkin::name,
           " prover CRS from memory with num points = ",

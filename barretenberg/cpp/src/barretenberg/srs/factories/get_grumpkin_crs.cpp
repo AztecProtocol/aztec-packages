@@ -8,14 +8,13 @@
 namespace {
 std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 {
-    size_t g1_end = num_points * 64 - 1;
+    size_t g1_end = num_points * sizeof(bb::curve::Grumpkin::AffineElement) - 1;
     std::string url = "https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/grumpkin_g1.dat";
 
     // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
     std::string command = "curl -s -H \"Range: bytes=0-" + std::to_string(g1_end) + "\" '" + url + "'";
 
     auto data = exec_pipe(command);
-    // Header + num_points * sizeof point.
     if (data.size() < g1_end) {
         THROW std::runtime_error("Failed to download grumpkin g1 data.");
     }
@@ -33,10 +32,9 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
     // condition
     std::filesystem::create_directories(path);
     auto g1_path = path / "grumpkin_g1.dat";
-    size_t g1_file_size = get_file_size(g1_path);
-    size_t size = g1_file_size / sizeof(curve::Grumpkin::AffineElement);
-    if (size >= num_points && g1_file_size % sizeof(curve::Grumpkin::AffineElement) == 0) {
-        vinfo("using cached grumpkin crs of size ", size, " at: ", g1_path);
+    size_t g1_downloaded_points = get_file_size(g1_path) / sizeof(curve::Grumpkin::AffineElement);
+    if (g1_downloaded_points >= num_points) {
+        vinfo("using cached grumpkin crs with num points ", g1_downloaded_points, " at: ", g1_path);
         auto data = read_file(g1_path, num_points * sizeof(curve::Grumpkin::AffineElement));
         std::vector<curve::Grumpkin::AffineElement> points(num_points);
         for (uint32_t i = 0; i < num_points; ++i) {
