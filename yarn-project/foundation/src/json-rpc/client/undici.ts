@@ -14,7 +14,6 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
     host: string,
     rpcMethod: string,
     body: any,
-    useApiEndpoints: boolean,
     extraHeaders: Record<string, string> = {},
     noRetry = false,
   ) => {
@@ -24,7 +23,7 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
       resp = await client.request({
         method: 'POST',
         origin: new URL(host),
-        path: useApiEndpoints ? rpcMethod : '/',
+        path: '/',
         body: jsonStringify(body),
         headers: {
           ...extraHeaders,

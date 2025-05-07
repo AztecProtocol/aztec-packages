@@ -10,7 +10,6 @@ export type JsonRpcFetch = (
   host: string,
   rpcMethod: string,
   body: any,
-  useApiEndpoints: boolean,
   extraHeaders?: Record<string, string>,
   noRetry?: boolean,
 ) => Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }>;
@@ -29,26 +28,17 @@ export async function defaultFetch(
   host: string,
   rpcMethod: string,
   body: any,
-  useApiEndpoints: boolean,
   extraHeaders: Record<string, string> = {},
   noRetry = false,
 ): Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }> {
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   try {
-    if (useApiEndpoints) {
-      resp = await fetch(`${host}/${rpcMethod}`, {
-        method: 'POST',
-        body: jsonStringify(body),
-        headers: { 'content-type': 'application/json', ...extraHeaders },
-      });
-    } else {
-      resp = await fetch(host, {
-        method: 'POST',
-        body: jsonStringify({ ...body, method: rpcMethod }),
-        headers: { 'content-type': 'application/json', ...extraHeaders },
-      });
-    }
+    resp = await fetch(host, {
+      method: 'POST',
+      body: jsonStringify({ ...body, method: rpcMethod }),
+      headers: { 'content-type': 'application/json', ...extraHeaders },
+    });
   } catch (err) {
     const errorMessage = `Error fetching from host ${host} with method ${rpcMethod}: ${inspect(err)}`;
     throw new Error(errorMessage);
@@ -88,12 +78,11 @@ export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Logg
     host: string,
     rpcMethod: string,
     body: any,
-    useApiEndpoints: boolean,
     extraHeaders: Record<string, string> = {},
     noRetry?: boolean,
   ) => {
     return await retry(
-      () => defaultFetch(host, rpcMethod, body, useApiEndpoints, extraHeaders, noRetry ?? defaultNoRetry),
+      () => defaultFetch(host, rpcMethod, body, extraHeaders, noRetry ?? defaultNoRetry),
       `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff(retries),
       log,

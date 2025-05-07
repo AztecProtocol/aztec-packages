@@ -14,16 +14,15 @@ import { createPXEClient } from '../pxe_client.js';
  * @param host - The URL of the host.
  * @param rpcMethod - The RPC method to call.
  * @param body - The body of the request.
- * @param useApiEndpoints - Whether to use the API endpoints or inject the method in the body.
  * @returns The response data.
  */
-async function axiosFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
+async function axiosFetch(host: string, rpcMethod: string, body: any) {
   const request = new Axios({
     headers: { 'content-type': 'application/json' },
     transformRequest: [(data: any) => jsonStringify(data)],
     transformResponse: [(data: any) => JSON.parse(data)],
   });
-  const [url, content] = useApiEndpoints ? [`${host}/${rpcMethod}`, body] : [host, { ...body, method: rpcMethod }];
+  const [url, content] = [host, { ...body, method: rpcMethod }];
   const resp = await request.post(url, content).catch((error: AxiosError) => {
     if (error.response) {
       return error.response;
@@ -62,9 +61,9 @@ export function createCompatibleClient(
   versions: Partial<ComponentsVersions> = {},
 ): Promise<PXE> {
   // Use axios due to timeout issues with fetch when proving TXs.
-  const fetch = async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) => {
+  const fetch = async (host: string, rpcMethod: string, body: any) => {
     return await retry(
-      () => axiosFetch(host, rpcMethod, body, useApiEndpoints),
+      () => axiosFetch(host, rpcMethod, body),
       `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff([1, 2, 3]),
       logger,
