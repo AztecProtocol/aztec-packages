@@ -364,8 +364,7 @@ describe('ReqResp', () => {
     });
 
     it('Should handle gracefully if a stream is closed early', async () => {
-      nodes = await createNodes(peerScoring, 3);
-      const logger = createLogger('test:reqresp.test.ts');
+      nodes = await createNodes(peerScoring, 2);
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Req Goodbye Handler is defined in the reqresp.ts file
@@ -377,12 +376,11 @@ describe('ReqResp', () => {
 
       const [node1, node2] = nodes;
 
-      logger.info('Sending to node 2');
       const res = await node1.req.sendRequestToPeer(
         node2.p2p.peerId,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.SHUTDOWN]),
-        1,
+        1, // close after 1ms
       );
       await sleep(2000);
 

@@ -637,13 +637,16 @@ export class ReqResp {
         stream,
       );
     } catch (e: any) {
-      this.logger.warn('Reqresp Response error: ', e);
+      this.logger.debug(`Reqresp Response error: ${e.name} ${e.code}`);
       this.metrics.recordResponseError(protocol);
 
       // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown
       let errorStatus = ReqRespStatus.UNKNOWN;
       if (e instanceof ReqRespStatusError) {
         errorStatus = e.status;
+      } else if (e.name === 'CodeError') {
+        // If it is a code error in libp2p, the stream is already closed and we cannot sent the error chunk
+        return;
       }
 
       const sendErrorChunk = this.sendErrorChunk(errorStatus);
