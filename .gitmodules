@@ -17,3 +17,6 @@
 	path = bb-pilcom/powdr
 	url = https://github.com/AztecProtocol/powdr
 	branch = avm-minimal
+[submodule "l1-contracts/lib/splits-contracts-monorepo"]
+	path = l1-contracts/lib/splits-contracts-monorepo
+	url = https://github.com/0xSplits/splits-contracts-monorepo

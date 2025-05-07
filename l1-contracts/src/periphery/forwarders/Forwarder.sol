@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Address} from "@oz/utils/Address.sol";
-import {IForwarder} from "./interfaces/IForwarder.sol";
+import {IForwarder} from "../interfaces/IForwarder.sol";
 
 contract Forwarder is Ownable, IForwarder {
   using Address for address;
