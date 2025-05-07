@@ -32,6 +32,12 @@ impl TestEnvironment {
         Self {}
     }
 
+    pub unconstrained fn _new() -> Self {
+        cheatcodes::reset();
+        cheatcodes::disable_oracles();
+        Self {}
+    }
+
     /// Returns the block number of the block currently being built. Since sequencer is executing the public part
     /// of transactions when building blocks, this block number is also returned by public_context.block_number().
     pub unconstrained fn pending_block_number(_self: Self) -> u32 {
