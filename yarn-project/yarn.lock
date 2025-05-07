@@ -1472,6 +1472,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/validator-client@workspace:validator-client"
   dependencies:
+    "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"

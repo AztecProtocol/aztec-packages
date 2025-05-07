@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../constants"
+    },
+    {
       "path": "../epoch-cache"
     },
     {
