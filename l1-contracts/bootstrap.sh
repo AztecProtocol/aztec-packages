@@ -175,7 +175,7 @@ function validator_costs {
   report="gas_benchmark.new.md"       # will be overwritten each run
 
   # keep ONLY these functions, in this order
-  wanted_funcs="forward submitEpochRootProof"
+  wanted_funcs="forward setupEpoch submitEpochRootProof"
 
   # one label per numeric column (use | to separate)
   labels='Min|Avg|Median|Max|# Calls'
