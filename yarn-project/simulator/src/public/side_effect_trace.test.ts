@@ -11,15 +11,12 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message } from '@aztec/stdlib/messaging';
 import { makeContractClassPublic } from '@aztec/stdlib/testing';
-
-import { randomInt } from 'crypto';
 
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { SideEffectArrayLengths, SideEffectTrace } from './side_effect_trace.js';
@@ -31,47 +28,38 @@ describe('Public Side Effect Trace', () => {
   const recipient = Fr.random();
   const content = Fr.random();
   const log = [Fr.random(), Fr.random(), Fr.random()];
-
-  let startCounter: number;
-  let startCounterPlus1: number;
   let trace: SideEffectTrace;
   let address: AztecAddress;
 
   beforeEach(async () => {
     address = await AztecAddress.random();
-    startCounter = randomInt(/*max=*/ 1000000);
-    startCounterPlus1 = startCounter + 1;
-    trace = new SideEffectTrace(startCounter);
+    trace = new SideEffectTrace();
   });
 
   it('Should trace storage writes', async () => {
     await trace.tracePublicStorageWrite(address, slot, value, false);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const leafSlot = await computePublicDataTreeLeafSlot(address, slot);
-    const expected = [new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/)];
+    const expected = [new PublicDataWrite(leafSlot, value)];
     expect(trace.getSideEffects().publicDataWrites).toEqual(expected);
   });
 
   it('Should trace note hashes', () => {
     trace.traceNewNoteHash(utxo);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expected = [new NoteHash(utxo, startCounter)];
+    const expected = [utxo];
     expect(trace.getSideEffects().noteHashes).toEqual(expected);
   });
 
   it('Should trace nullifiers', () => {
     trace.traceNewNullifier(utxo);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expected = [new Nullifier(utxo, startCounter, Fr.ZERO)];
+    const expected = [utxo];
     expect(trace.getSideEffects().nullifiers).toEqual(expected);
   });
 
   it('Should trace new L2ToL1 messages', () => {
     trace.traceNewL2ToL1Message(address, recipient, content);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expected = [new L2ToL1Message(EthAddress.fromField(recipient), content, 0).scope(address)];
     expect(trace.getSideEffects().l2ToL1Msgs).toEqual(expected);
@@ -79,7 +67,6 @@ describe('Public Side Effect Trace', () => {
 
   it('Should trace new public logs', () => {
     trace.tracePublicLog(address, log);
-    expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const expectedLog = new PublicLog(address, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
 
@@ -181,7 +168,6 @@ describe('Public Side Effect Trace', () => {
 
     it('PreviousValidationRequestArrayLengths and PreviousAccumulatedDataArrayLengths contribute to limits', async () => {
       trace = new SideEffectTrace(
-        0,
         new SideEffectArrayLengths(
           MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
           PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -210,23 +196,14 @@ describe('Public Side Effect Trace', () => {
 
   describe.each([false, true])('Should merge forked traces', reverted => {
     it(`${reverted ? 'Reverted' : 'Successful'} forked trace should be merged properly`, async () => {
-      const nestedTrace = new SideEffectTrace(startCounter);
-      let testCounter = startCounter;
+      const nestedTrace = new SideEffectTrace();
       await nestedTrace.tracePublicStorageWrite(address, slot, value, false);
-      testCounter++;
       nestedTrace.traceNewNoteHash(utxo);
-      testCounter++;
       nestedTrace.traceNewNullifier(utxo);
-      testCounter++;
       nestedTrace.traceNewL2ToL1Message(address, recipient, content);
-      testCounter++;
       nestedTrace.tracePublicLog(address, log);
-      testCounter++;
 
       trace.merge(nestedTrace, reverted);
-
-      // parent trace adopts nested call's counter
-      expect(trace.getCounter()).toBe(testCounter);
 
       // parent absorbs child's side effects
       const parentSideEffects = trace.getSideEffects();

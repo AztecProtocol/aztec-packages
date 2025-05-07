@@ -12,10 +12,9 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 
@@ -31,9 +30,9 @@ import { UniqueClassIds } from './unique_class_ids.js';
  * This struct is helpful for testing and checking array lengths.
  **/
 export type SideEffects = {
-  publicDataWrites: PublicDataUpdateRequest[];
-  noteHashes: NoteHash[];
-  nullifiers: Nullifier[];
+  publicDataWrites: PublicDataWrite[];
+  noteHashes: Fr[];
+  nullifiers: Fr[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
   publicLogs: PublicLog[];
 };
@@ -59,14 +58,11 @@ export class SideEffectArrayLengths {
 export class SideEffectTrace implements PublicSideEffectTraceInterface {
   public log = createLogger('simulator:side_effect_trace');
 
-  /** The side effect counter increments with every call to the trace. */
-  private sideEffectCounter: number;
-
-  private publicDataWrites: PublicDataUpdateRequest[] = [];
+  private publicDataWrites: PublicDataWrite[] = [];
   private protocolPublicDataWritesLength: number = 0;
   private userPublicDataWritesLength: number = 0;
-  private noteHashes: NoteHash[] = [];
-  private nullifiers: Nullifier[] = [];
+  private noteHashes: Fr[] = [];
+  private nullifiers: Fr[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
   private publicLogs: PublicLog[] = [];
 
@@ -74,21 +70,14 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   private alreadyMergedIntoParent = false;
 
   constructor(
-    /** The counter of this trace's first side effect. */
-    public readonly startSideEffectCounter: number = 0,
-    /** Track parent's (or previous kernel's) lengths so the AVM can properly enforce TX-wide limits,
-     *  otherwise the public kernel can fail to prove because TX limits are breached.
-     */
+    /** Track parent's lengths so the AVM can properly enforce TX-wide limits. */
     private readonly previousSideEffectArrayLengths: SideEffectArrayLengths = SideEffectArrayLengths.empty(),
     /** We need to track the set of class IDs used, to enforce limits. */
     private uniqueClassIds: UniqueClassIds = new UniqueClassIds(),
-  ) {
-    this.sideEffectCounter = startSideEffectCounter;
-  }
+  ) {}
 
   public fork() {
     return new SideEffectTrace(
-      this.sideEffectCounter,
       new SideEffectArrayLengths(
         this.previousSideEffectArrayLengths.publicDataWrites + this.userPublicDataWritesLength,
         this.previousSideEffectArrayLengths.protocolPublicDataWrites + this.protocolPublicDataWritesLength,
@@ -109,7 +98,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     );
     forkedTrace.alreadyMergedIntoParent = true;
 
-    this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
 
     if (!reverted) {
@@ -119,14 +107,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       this.l2ToL1Messages.push(...forkedTrace.l2ToL1Messages);
       this.publicLogs.push(...forkedTrace.publicLogs);
     }
-  }
-
-  public getCounter() {
-    return this.sideEffectCounter;
-  }
-
-  private incrementSideEffectCounter() {
-    this.sideEffectCounter++;
   }
 
   public getNoteHashCount() {
@@ -164,12 +144,11 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
-    this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
+    this.publicDataWrites.push(new PublicDataWrite(leafSlot, value));
 
     this.log.trace(
-      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
+      `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (isProtocol:${protocolWrite})`,
     );
-    this.incrementSideEffectCounter();
   }
 
   public traceNewNoteHash(noteHash: Fr) {
@@ -177,9 +156,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
 
-    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
-    this.log.trace(`Tracing new note hash (counter=${this.sideEffectCounter})`);
-    this.incrementSideEffectCounter();
+    this.noteHashes.push(noteHash);
+    this.log.trace(`Tracing new note hash`);
   }
 
   public traceNewNullifier(siloedNullifier: Fr) {
@@ -187,10 +165,9 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       throw new SideEffectLimitReachedError('nullifier', MAX_NULLIFIERS_PER_TX);
     }
 
-    this.nullifiers.push(new Nullifier(siloedNullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
+    this.nullifiers.push(siloedNullifier);
 
-    this.log.trace(`Tracing new nullifier (counter=${this.sideEffectCounter})`);
-    this.incrementSideEffectCounter();
+    this.log.trace(`Tracing new nullifier`);
   }
 
   public traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
@@ -200,8 +177,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     const recipientAddress = EthAddress.fromField(recipient);
     this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content, 0).scope(contractAddress));
-    this.log.trace(`Tracing new l2 to l1 message (counter=${this.sideEffectCounter})`);
-    this.incrementSideEffectCounter();
+    this.log.trace(`Tracing new l2 to l1 message`);
   }
 
   public tracePublicLog(contractAddress: AztecAddress, log: Fr[]) {
@@ -214,8 +190,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
     const publicLog = new PublicLog(contractAddress, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
     this.publicLogs.push(publicLog);
-    this.log.trace(`Tracing new public log (counter=${this.sideEffectCounter})`);
-    this.incrementSideEffectCounter();
+    this.log.trace(`Tracing new public log`);
   }
 
   public traceGetContractClass(contractClassId: Fr, exists: boolean) {
@@ -228,9 +203,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
           MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
         );
       }
-      this.log.trace(`Adding contract class ID ${contractClassId} (counter=${this.sideEffectCounter})`);
+      this.log.trace(`Adding contract class ID ${contractClassId}`);
       this.uniqueClassIds.add(contractClassId.toString());
-      this.incrementSideEffectCounter();
     }
   }
 
