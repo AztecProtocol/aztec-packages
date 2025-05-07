@@ -152,3 +152,36 @@ certificate:
   # - example.com
   # - api.example.com
 
+rbac:
+  # -- Specifies whether RBAC resources are to be created
+  create: true
+  # -- Required ClusterRole rules
+  # @default -- See `values.yaml`
+  clusterRules:
+     # Required to obtain the nodes external IP
+    - apiGroups: [""]
+      resources:
+      - "nodes"
+      verbs:
+      - "get"
+      - "list"
+      - "watch"
+  # -- Required ClusterRole rules
+  # @default -- See `values.yaml`
+  rules:
+    # Required to get information about the services nodePort.
+    - apiGroups: [""]
+      resources:
+      - "services"
+      verbs:
+      - "get"
+      - "list"
+      - "watch"
+
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Name of the service account - if not set, the fullname will be used
+  name: ""
+  # -- Annotations for the service account
+  annotations: {}

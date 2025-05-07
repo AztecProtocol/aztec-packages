@@ -20,8 +20,8 @@ spec:
         {{- include "chart.selectorLabels" . | nindent 8 }}
         app: node
     spec:
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
       dnsPolicy: ClusterFirst
-      hostNetwork: true
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -37,20 +37,38 @@ spec:
       {{- if .Values.initContainers }}
         {{- tpl (toYaml .Values.initContainers | nindent 8) $ }}
       {{- end }}
-      {{- if .Values.nodePortEnabled }}
+      {{- if .Values.service.p2p.nodePortEnabled }}
         - name: init-nodeport
           image: bitnami/kubectl
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
           command:
             - sh
             - -c
             - >
-              export EXTERNAL_PORT=$(kubectl get services -l "pod in (${POD_NAME}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
+              export POD_INDEX=$(echo ${POD_NAME} | awk -F'-' '{print $NF}');
+
+              export EXTERNAL_PORT=$(kubectl get services -l "pod-index in (${POD_INDEX}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
               export EXTERNAL_IP=$(kubectl get nodes "${NODE_NAME}" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}');
+
               echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /env/init-nodeport;
               echo "export EXTERNAL_IP=$EXTERNAL_IP"     >> /env/init-nodeport;
               echo "export P2P_IP=$EXTERNAL_IP"         >> /env/init-nodeport;
               echo "export P2P_PORT=$EXTERNAL_PORT"     >> /env/init-nodeport;
               cat /env/init-nodeport;
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: init-nodeport
+              mountPath: /env
       {{- end }}
       containers:
         - name: node
@@ -60,7 +78,7 @@ spec:
             - /bin/bash
             - -c
             - |
-              {{- if .Values.nodePortEnabled }}
+              {{- if .Values.service.p2p.nodePortEnabled }}
               source /env/init-nodeport;
               {{- else }}
               export P2P_IP=$(hostname -i)
@@ -113,7 +131,7 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: {{ .Values.node.storage.dataDirectory }}
-            {{- if .Values.nodePortEnabled }}
+            {{- if .Values.service.p2p.nodePortEnabled }}
             - name: init-nodeport
               mountPath: /env
             {{- end }}
@@ -196,6 +214,8 @@ spec:
             - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
               value: {{ join "," .Values.node.l1ConsensusHostApiKeyHeaders | quote }}
             {{- end }}
+            - name: ARCHIVER_POLLING_INTERVAL_MS
+              value: "10000"
             - name: DATA_DIRECTORY
               value: {{ .Values.node.storage.dataDirectory | quote }}
             - name: DATA_STORE_MAP_SIZE_KB
@@ -238,7 +258,7 @@ spec:
         - name: l1-publisher
           secret:
             secretName: {{ include "chart.name" . }}-l1-publisher
-        {{- if .Values.nodePortEnabled }}
+        {{- if .Values.service.p2p.nodePortEnabled }}
         - name: init-nodeport
           emptyDir: {}
         {{- end }}
