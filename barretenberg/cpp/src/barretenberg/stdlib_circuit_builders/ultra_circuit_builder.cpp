@@ -2867,7 +2867,10 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
  * @brief Compute a hash of some of the main circuit components.
  * @note This hash can differ for circuits that will ultimately result in an identical verification key. For example,
  * when we construct circuits from acir programs with dummy witnesses, the hash will in general disagree with the hash
- * of the circuit constructed using a genuine witness.
+ * of the circuit constructed using a genuine witness. This is not because the hash includes geunines witness values
+ * (only indices) but rather because in the dummy witness context we use add_variable and assert_equal to set the values
+ * of dummy witnesses, which effects the content of real_variable_index, but in the end results in an identical
+ * VK/circuit.
  *
  */
 template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit() const
