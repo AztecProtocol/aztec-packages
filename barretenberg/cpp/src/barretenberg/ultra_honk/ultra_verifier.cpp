@@ -77,7 +77,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     auto decider_output = decider_verifier.verify();
 
     // Extract nested pairing points from the proof
-    // WORKTODO: issue for handling pairing points in keccak flavors
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.
     if constexpr (!std::is_same_v<Flavor, UltraKeccakFlavor> && !std::is_same_v<Flavor, UltraKeccakZKFlavor>) {
         std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{
             verification_key->public_inputs.data() +

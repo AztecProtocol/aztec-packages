@@ -358,6 +358,7 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
+    info("Verifying CIVC proof with vk hash: ", vk.mega->hash());
     // Verify the hiding circuit proof
     MegaZKVerifier verifer{ vk.mega };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
