@@ -10,7 +10,7 @@ export class PXEWrapper {
   private static pxe: PXE | undefined;
   private static node: AztecNode | undefined;
 
-  async getPXE(): Promise<PXE | undefined> {
+  async getPXE() {
     if (!PXEWrapper.pxe) {
       PXEWrapper.pxe = await createPXEService(PXEWrapper.node!, PXEWrapper.pxeConfig!);
     }

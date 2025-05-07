@@ -115,7 +115,7 @@ async function main() {
           bbWorkingDirectory: prover === 'native' ? bbWorkingDirectory : undefined,
         };
 
-        await pxeWrapper.prepare(nodeUrl, join(dataDir, 'pxe'), overridePXEConfig);
+        pxeWrapper.prepare(nodeUrl, join(dataDir, 'pxe'), overridePXEConfig);
       }
       await db.init(await openStoreAt(dataDir));
       let protocolContractsRegistered;
