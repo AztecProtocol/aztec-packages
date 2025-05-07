@@ -3,8 +3,11 @@
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -125,7 +128,11 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite()
+    {
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    }
 };
 
 class AcirIntegrationSingleTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {};
@@ -516,4 +523,76 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }
 
+/**
+ * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ *
+ */
+TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
+{
+    // NOTE: to populate the test inputs at this location, run the following commands:
+    //      export  AZTEC_CACHE_COMMIT=origin/master~3
+    //      export DOWNLOAD_ONLY=1
+    //      yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    ClientIVC::Proof proof = ivc->prove();
+
+    EXPECT_TRUE(ivc->verify(proof));
+}
+
+/**
+ * @brief Check that for a set of programs to be accumulated via CIVC, the verification keys computed with a dummy
+ * witness are identical to those computed with the genuine provided witness.
+ */
+TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
+{
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    uint256_t recomputed_vk_hash{ 0 };
+    uint256_t computed_vk_hash{ 0 };
+
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+
+    for (auto [program_in, precomputed_vk, function_name] :
+         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
+
+        // Compute the VK using the program constraints but no witness (i.e. mimic the "dummy witness" case)
+        {
+            auto program = program_in;
+            program.witness = {}; // erase the witness to mimmic the "dummy witness" case
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
+
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            recomputed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
+        }
+
+        // Compute the verification key using the genuine witness
+        {
+            auto program = program_in;
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
+
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            computed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
+        }
+
+        EXPECT_EQ(recomputed_vk_hash, computed_vk_hash);
+    }
+}
 #endif
