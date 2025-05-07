@@ -21,9 +21,4 @@ inline size_t point_table_size(size_t num_points)
     return 2 * num_points + prefetch_overflow;
 }
 
-template <typename T> inline SlabVector<T> point_table_alloc(size_t num_points)
-{
-    return SlabVector<T>(point_table_size(num_points));
-}
-
 } // namespace bb::scalar_multiplication

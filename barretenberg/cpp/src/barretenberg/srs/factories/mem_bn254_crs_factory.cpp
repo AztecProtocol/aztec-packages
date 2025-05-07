@@ -24,7 +24,7 @@ class MemBn254Crs : public Crs<curve::BN254> {
         : g2_x(g2_point)
         , precomputed_g2_lines(
               static_cast<pairing::miller_lines*>(aligned_alloc(64, sizeof(bb::pairing::miller_lines) * 2)))
-        , monomials_(scalar_multiplication::point_table_alloc<typename Curve::AffineElement>(points.size()))
+        , monomials_(bb::scalar_multiplication::point_table_size(points.size()))
     {
         if (points.empty() || !points[0].on_curve()) {
             throw_or_abort("invalid g1_identity passed to MemBn254CrsFactory");
@@ -50,7 +50,7 @@ class MemBn254Crs : public Crs<curve::BN254> {
   private:
     g2::affine_element g2_x;
     pairing::miller_lines* precomputed_g2_lines;
-    SlabVector<Curve::AffineElement> monomials_;
+    std::vector<Curve::AffineElement> monomials_;
 };
 
 } // namespace

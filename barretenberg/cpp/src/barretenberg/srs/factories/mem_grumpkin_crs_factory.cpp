@@ -18,7 +18,7 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
     MemGrumpkinCrs& operator=(MemGrumpkinCrs&&) = delete;
 
     MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> const& points)
-        : monomials_(scalar_multiplication::point_table_alloc<Grumpkin::AffineElement>(points.size()))
+        : monomials_(bb::scalar_multiplication::point_table_size(points.size()))
     {
         std::copy(points.begin(), points.end(), monomials_.begin());
         scalar_multiplication::generate_pippenger_point_table<Grumpkin>(
@@ -31,7 +31,7 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
     Grumpkin::AffineElement get_g1_identity() const override { return monomials_[0]; };
 
   private:
-    SlabVector<Grumpkin::AffineElement> monomials_;
+    std::vector<Grumpkin::AffineElement> monomials_;
 };
 
 } // namespace

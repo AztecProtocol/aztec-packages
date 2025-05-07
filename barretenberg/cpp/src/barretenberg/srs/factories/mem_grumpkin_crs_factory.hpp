@@ -19,7 +19,6 @@ class MemGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
 
   private:
     std::shared_ptr<Crs<curve::Grumpkin>> crs_;
-    std::shared_ptr<Crs<curve::Grumpkin>> verifier_crs_;
 };
 
 } // namespace bb::srs::factories
