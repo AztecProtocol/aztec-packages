@@ -190,8 +190,6 @@ This creates and returns a transaction request, which includes proof of correct 
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users should be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
-
 #### `send`
 
 This is the same as [`prove`](#prove) except it also broadcasts the transaction and returns a receipt. This is how transactions are sent, getting them to be included in blocks and spending gas. It is similar to [`eth_sendTransaction`](#eth_sendtransaction), except it also performs some work on the user's device, namely the production of the proof for the private part of the transaction.

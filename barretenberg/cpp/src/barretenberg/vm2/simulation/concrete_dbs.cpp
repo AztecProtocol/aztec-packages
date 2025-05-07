@@ -44,9 +44,31 @@ FF MerkleDB::storage_read(const FF& leaf_slot) const
 
     FF value = present ? preimage.leaf.value : 0;
 
-    public_data_tree_check.assert_read(leaf_slot, value, preimage, index, path, get_tree_roots().publicDataTree.root);
+    public_data_tree_check.assert_read(leaf_slot, value, preimage, index, path, get_tree_roots().publicDataTree);
 
     return value;
+}
+
+void MerkleDB::storage_write(const FF& leaf_slot, const FF& value)
+{
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().publicDataTree;
+
+    auto hint = raw_merkle_db.insert_indexed_leaves_public_data_tree(PublicDataLeafValue(leaf_slot, value));
+
+    auto& low_leaf_hint = hint.low_leaf_witness_data.at(0);
+    auto& insertion_hint = hint.insertion_witness_data.at(0);
+
+    AppendOnlyTreeSnapshot snapshot_after = public_data_tree_check.write(leaf_slot,
+                                                                         value,
+                                                                         low_leaf_hint.leaf,
+                                                                         low_leaf_hint.index,
+                                                                         low_leaf_hint.path,
+                                                                         snapshot_before,
+                                                                         insertion_hint.path);
+
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().publicDataTree);
 }
 
 bool MerkleDB::nullifier_exists(const FF& nullifier) const

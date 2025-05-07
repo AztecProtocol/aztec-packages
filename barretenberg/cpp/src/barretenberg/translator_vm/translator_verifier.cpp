@@ -146,7 +146,6 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
-
     return verified && consistency_checked;
 }
 

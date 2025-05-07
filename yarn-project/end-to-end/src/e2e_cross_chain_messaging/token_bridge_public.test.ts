@@ -130,7 +130,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, claim.claimSecret, messageLeafIndex)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2

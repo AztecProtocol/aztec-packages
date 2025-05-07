@@ -74,6 +74,9 @@ class TranslatorFlavor {
     // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
 
+    // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
+    // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
+    // responsible for checking it against the evaluations received from ECCVM.
     static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
 
     // The bitness of the range constraint

@@ -254,6 +254,7 @@ case "$cmd" in
     npc_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
     # Simulator benchmarks are published on each commit
     sim_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+    l1_hash=$(l1-contracts/bootstrap.sh hash)
     yp_hash=$(yarn-project/bootstrap.sh hash)
 
     if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
@@ -277,6 +278,8 @@ case "$cmd" in
     cache_download noir-protocol-circuits-bench-results-$npc_hash.tar.gz
     # aztec simulator benchmarks.
     cache_download simulator-bench-results-$sim_hash.tar.gz
+    # L1 gas benchmark
+    cache_download l1-gas-bench-results-$l1_hash.tar.gz
 
     # yarn-project benchmarks.
     if [ "$yp_hash" == "$prev_yp_hash" ]; then

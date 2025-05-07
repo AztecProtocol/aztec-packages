@@ -1,6 +1,15 @@
 import React from "react";
 
 export const General = {
+  VersionLatestTestnet: () => <code>alpha-testnet</code>,
+  VersionLatestSandbox: () => <code>0.86.0</code>,
+  ViewTransactions: () => (
+    <p>
+      Transactions and balances can be viewed in block explorers like{" "}
+      <a href="https://aztecexplorer.xyz">AztecExplorer</a> and{" "}
+      <a href="https://aztecscan.xyz">AztecScan</a>.
+    </p>
+  ),
   InstallationInstructions: () => (
     <p>
       To use Aztec's suite of tools you'll need to:
@@ -47,6 +56,12 @@ export const General = {
       <b>Aztec Sandbox</b> - runs a set of Aztec tools for convenient local
       development, it includes: an Ethereum node, an Aztec node, and PXE.
     </p>
+  ),
+
+  AztecTestnetVersion: () => (
+    <span>
+      alpha-testnet
+    </span>
   ),
 
   AztecWalletCLI: () => (

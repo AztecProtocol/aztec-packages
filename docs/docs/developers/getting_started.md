@@ -90,7 +90,7 @@ import { CLI_Add_Test_Accounts } from '@site/src/components/Snippets/general_sni
 
 <CLI_Add_Test_Accounts />
 
-To add the test accounts, run this in another terminal:
+To add the test accounts in the PXE, run this in another terminal:
 
 ```bash
 aztec-wallet import-test-accounts

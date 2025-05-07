@@ -82,8 +82,8 @@ class GoblinMockCircuits {
         PROFILE_THIS();
 
         if (large) { // Results in circuit size 2^19
-            stdlib::generate_sha256_test_circuit(builder, 11);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 10);
+            stdlib::generate_sha256_test_circuit(builder, 9);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, 9);
             stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
             stdlib::generate_sha256_test_circuit(builder, 8);
@@ -199,17 +199,19 @@ class GoblinMockCircuits {
         // Execute recursive aggregation of function proof
         auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
         auto proof = bb::convert_native_proof_to_stdlib(&builder, function_accum.proof);
-        RecursiveVerifier verifier1{ &builder, verification_key };
-        verifier1.verify_proof(proof, PairingPoints::construct_default(builder));
-
+        RecursiveVerifier verifier_1{ &builder, verification_key };
+        RecursiveVerifier::Output output_1 = verifier_1.verify_proof(proof);
+        PairingPoints points_accumulator = output_1.points_accumulator;
         // Execute recursive aggregation of previous kernel proof if one exists
         if (!prev_kernel_accum.proof.empty()) {
             auto verification_key =
                 std::make_shared<RecursiveVerificationKey>(&builder, prev_kernel_accum.verification_key);
             auto proof = bb::convert_native_proof_to_stdlib(&builder, prev_kernel_accum.proof);
-            RecursiveVerifier verifier2{ &builder, verification_key };
-            verifier2.verify_proof(proof, PairingPoints::construct_default(builder));
+            RecursiveVerifier verifier_2{ &builder, verification_key };
+            RecursiveVerifier::Output output_2 = verifier_2.verify_proof(proof);
+            points_accumulator = output_2.points_accumulator;
         }
+        points_accumulator.set_public();
     }
 };
 } // namespace bb

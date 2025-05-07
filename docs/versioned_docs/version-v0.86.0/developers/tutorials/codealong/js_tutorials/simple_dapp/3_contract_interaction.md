@@ -8,7 +8,7 @@ In this section, we'll write the logic in our app that will interact with the co
 
 Let's start by showing our user's private balance for the token across their accounts. To do this, we can leverage the `balance_of_private` utility function of the token contract:
 
-```rust title="balance_of_private" showLineNumbers 
+```rust title="balance_of_private" showLineNumbers
 #[utility]
 pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     storage.balances.at(owner).balance_of()
@@ -50,7 +50,7 @@ import { getToken } from './contracts.mjs';
 
 and query the private balance for each of the user accounts. To query a function, without sending a transaction, use the `simulate` function of the method:
 
-```javascript title="showPrivateBalances" showLineNumbers 
+```javascript title="showPrivateBalances" showLineNumbers
 async function showPrivateBalances(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
@@ -79,7 +79,7 @@ Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 
 Before we can transfer tokens, we need to mint some tokens to our user accounts. Add the following function to `src/index.mjs`:
 
-```javascript title="mintPrivateFunds" showLineNumbers 
+```javascript title="mintPrivateFunds" showLineNumbers
 async function mintPrivateFunds(pxe) {
   const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(ownerWallet);
@@ -109,7 +109,7 @@ Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 
 Now that we can see the balance for each user, let's transfer tokens from one account to another. To do this, we will first need access to a `Wallet` object. This wraps access to an PXE and also provides an interface to craft and sign transactions on behalf of one of the user accounts.
 
-For ease of use, `@aztec/accounts` also ships with a helper `getInitialTestAccountsWallets` method that returns a wallet for each of the pre-initialized accounts in the Sandbox, so you can send transactions as any of them.
+For ease of use, `@aztec/accounts` also ships with a helper `getInitialTestAccountsWallets` method that returns a wallet for each of the pre-initialized accounts in the Sandbox, so you can send transactions as any of them. Import it in `index.mjs`.
 
 ```js
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
@@ -117,7 +117,7 @@ import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
 We'll use one of these wallets to initialize the `TokenContract` instance that represents our private token contract, so every transaction sent through it will be sent through that wallet.
 
-```javascript title="transferPrivateFunds" showLineNumbers 
+```javascript title="transferPrivateFunds" showLineNumbers
 async function transferPrivateFunds(pxe) {
   const [owner, recipient] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
@@ -162,7 +162,7 @@ At the time of this writing, there are no events emitted when new private notes 
 
 While [private and public state](../../../../../aztec/concepts/storage/index.md) are fundamentally different, the API for working with private and public functions and state from `aztec.js` is equivalent. To query the balance in public tokens for our user accounts, we can just call the `balance_of_public` view function in the contract:
 
-```javascript title="showPublicBalances" showLineNumbers 
+```javascript title="showPublicBalances" showLineNumbers
 async function showPublicBalances(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
@@ -186,7 +186,7 @@ Since this we are working with public balances, we can now query the balance for
 Here, since the token contract does not mint any initial funds upon deployment, the balances for all of our user's accounts will be zero.
 But we can send a transaction to mint tokens, using very similar code to the one for sending private funds:
 
-```javascript title="mintPublicFunds" showLineNumbers 
+```javascript title="mintPublicFunds" showLineNumbers
 async function mintPublicFunds(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);

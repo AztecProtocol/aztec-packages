@@ -51,13 +51,12 @@ void ExecutionTraceBuilder::process(
 
         std::array<TaggedValue, operand_columns> registers = {};
         size_t input_counter = 0;
-        size_t output_counter = 0;
         auto register_info = REGISTER_INFO_MAP.at(ex_event.opcode);
         for (uint8_t i = 0; i < operand_columns; ++i) {
             if (register_info.is_active(i)) {
                 if (register_info.is_write(i)) {
                     // If this is a write operation, we need to get the value from the output.
-                    registers[i] = ex_event.output[output_counter++];
+                    registers[i] = ex_event.output;
                 } else {
                     // If this is a read operation, we need to get the value from the input.
                     registers[i] = ex_event.inputs[input_counter++];

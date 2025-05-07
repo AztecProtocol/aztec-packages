@@ -50,8 +50,9 @@ By default the sandbox runs everything including a PXE locally. For most paths i
 
 Start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sandbox`
 
-:::Note Sandbox + aztec.js?
-If you are specifically wanting to test aztec.js with the sandbox, then you will need to use the default command - `aztec start --sandbox` - which includes the PXE.
+:::note Sandbox + aztec.js?
+If you are specifically wanting to test aztec.js with the sandbox, then you will need to use the default command which includes the PXE:
+- `aztec start --sandbox`
 :::
 
 ### Specifying the network URL for your PXE
@@ -384,6 +385,11 @@ Options for claim+pay with bridged funds that can be used in multiple commands:
 CLI: `--from <sender address> --payment method=fee_juice,claim`
 
 .js: `{ fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(newWallet, claim) }}`
+
+:::
+
+:::tip Use a block explorer
+<General.ViewTransactions />
 
 :::
 

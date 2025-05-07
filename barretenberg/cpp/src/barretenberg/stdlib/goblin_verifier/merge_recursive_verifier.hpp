@@ -31,7 +31,8 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder);
 
-    PairingPoints verify_proof(const StdlibProof<CircuitBuilder>& proof);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
+        const StdlibProof<CircuitBuilder>& proof);
 };
 
 } // namespace bb::stdlib::recursion::goblin

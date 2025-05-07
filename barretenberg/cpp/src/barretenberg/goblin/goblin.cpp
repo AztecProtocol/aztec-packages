@@ -35,7 +35,6 @@ void Goblin::prove_eccvm()
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
     evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
     transcript = eccvm_prover.transcript;
-    goblin_proof.translation_evaluations = eccvm_prover.translation_evaluations;
 }
 
 void Goblin::prove_translator()
@@ -82,7 +81,7 @@ bool Goblin::verify(const GoblinProof& proof)
     bool accumulator_construction_verified = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
-    bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations,
+    bool translation_verified = translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
                                                                        eccvm_verifier.translation_masking_term_eval);
 
     bool op_queue_consistency_verified =

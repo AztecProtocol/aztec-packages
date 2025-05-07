@@ -84,6 +84,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         }
         return mini_accumulator;
     };
+<<<<<<< HEAD
     /**
      * @brief Go through each gate
      *
@@ -98,6 +99,23 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         Fr p_x_2 = circuit.get_variable(p_x_2_p_x_3_wire[i]);
         Fr p_x_3 = circuit.get_variable(p_x_2_p_x_3_wire[i + 1]);
         const std::vector p_x_binary_limbs = { p_x_0, p_x_1, p_x_2, p_x_3 };
+=======
+
+    // TODO(https: // github.com/AztecProtocol/barretenberg/issues/1367): Report all failures more explicitly and
+    // consider making use of relations.
+
+    for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
+        {
+            // Get the values of P.x
+            Fr op_code = circuit.get_variable(op_wire[i]);
+            Fr p_x_lo = circuit.get_variable(x_lo_y_hi_wire[i]);
+            Fr p_x_hi = circuit.get_variable(x_hi_z_1_wire[i]);
+            Fr p_x_0 = circuit.get_variable(p_x_0_p_x_1_wire[i]);
+            Fr p_x_1 = circuit.get_variable(p_x_0_p_x_1_wire[i + 1]);
+            Fr p_x_2 = circuit.get_variable(p_x_2_p_x_3_wire[i]);
+            Fr p_x_3 = circuit.get_variable(p_x_2_p_x_3_wire[i + 1]);
+            const std::vector p_x_binary_limbs = { p_x_0, p_x_1, p_x_2, p_x_3 };
+>>>>>>> origin/master
 
         // P.y
         Fr p_y_lo = circuit.get_variable(y_lo_z_2_wire[i]);
@@ -232,6 +250,22 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
                         return false;
                     }
                 }
+<<<<<<< HEAD
+=======
+                    return true;
+                };
+                // Check that everything has been decomposed correctly
+                // P.xₗₒ = P.xₗₒ_0 + SHIFT_1 * P.xₗₒ_1
+                // P.xₕᵢ  = P.xₕᵢ_0 + SHIFT_1 * P.xₕᵢ_1
+                // z_1 = z_1ₗₒ + SHIFT_1 * z_1ₕᵢ
+                // z_2 = z_2ₗₒ + SHIFT_2 * z_1ₕᵢ
+                if (!(check_wide_limb_into_binary_limb_relation({ p_x_lo, p_x_hi }, p_x_binary_limbs) &&
+                      check_wide_limb_into_binary_limb_relation({ p_y_lo, p_y_hi }, p_y_binary_limbs) &&
+                      check_wide_limb_into_binary_limb_relation({ z_1 }, z_1_binary_limbs) &&
+                      check_wide_limb_into_binary_limb_relation({ z_2 }, z_2_binary_limbs))) {
+
+                    return report_fail("wide limb decomposition failied at row = ", i);
+>>>>>>> origin/master
             }
             // For low limbs the last microlimb is used with the shift, so we skip it when reconstructing
             // the limb
@@ -415,6 +449,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             (previous_accumulator_binary_limbs[0] + previous_accumulator_binary_limbs[1] * SHIFT_1 +
              previous_accumulator_binary_limbs[2] * SHIFT_2 + previous_accumulator_binary_limbs[3] * SHIFT_3);
 
+<<<<<<< HEAD
         auto reconstructed_z1 = (z_1_lo + z_1_hi * SHIFT_1);
         auto reconstructed_z2 = (z_2_lo + z_2_hi * SHIFT_1);
         auto reconstructed_quotient = (quotient_binary_limbs[0] + quotient_binary_limbs[1] * SHIFT_1 +
@@ -431,6 +466,19 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             return false;
         };
 
+=======
+            // Check the relation
+            if (!(reconstructed_previous_accumulator * reconstructed_evaluation_input_x + op_code +
+                  reconstructed_p_x * reconstructed_batching_evaluation_v +
+                  reconstructed_p_y * reconstructed_batching_evaluation_v2 +
+                  reconstructed_z1 * reconstructed_batching_evaluation_v3 +
+                  reconstructed_z2 * reconstructed_batching_evaluation_v4 +
+                  reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator)
+                     .is_zero()) {
+                return false;
+            };
+        }
+>>>>>>> origin/master
         {
             size_t odd_gate_index = i + 1;
             // Check the accumulator is copied correctly
@@ -451,14 +499,22 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
 
                 for (size_t j = 0; j < current_accumulator_binary_limbs.size(); j++) {
                     if (current_accumulator_binary_limbs_copy[j] != current_accumulator_binary_limbs[j]) {
+<<<<<<< HEAD
                         return report_fail("accumulator copy failed at row = ", i);
+=======
+                        return report_fail("accumulator copy failed at row = ", odd_gate_index);
+>>>>>>> origin/master
                     }
                 }
             } else {
                 // Check accumulator starts at zero
                 for (const auto& limb : current_accumulator_binary_limbs_copy) {
                     if (limb != Fr(0)) {
+<<<<<<< HEAD
                         return report_fail("accumulator doesn't start with 0 = ", i);
+=======
+                        return report_fail("accumulator doesn't start with 0 = ", odd_gate_index);
+>>>>>>> origin/master
                     }
                 }
             }

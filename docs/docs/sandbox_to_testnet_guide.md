@@ -3,6 +3,8 @@ title: Migrating from Sandbox to Testnet
 tags: [sandbox, testnet]
 ---
 
+import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
+
 This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/getting_started.md).
 
 ## Main differences
@@ -14,7 +16,7 @@ This guide assumes you have an Aztec app on sandbox and you wish to deploy it on
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.3`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `alpha-testnet`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -23,13 +25,13 @@ The testnet is version dependent. It is currently running version `0.85.0-alpha-
 To connect a local PXE to testnet, install the testnet version of the sandbox.
 
 ```sh
-VERSION=0.85.0-alpha-testnet.3 aztec-up
+VERSION=alpha-testnet aztec-up
 ```
 
 When you run `aztec-wallet` commands, make sure to include a `node-url` option. An example:
 
 ```sh
-export NODE_URL=http://34.107.66.170
+export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 

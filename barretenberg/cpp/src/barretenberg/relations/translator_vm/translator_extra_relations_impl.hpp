@@ -10,8 +10,8 @@
 namespace bb {
 
 /**
- * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
- * @details This relation enforces the opcode to be one of described values. Since we don't care about odd
+ * @brief Expression for enforcing the value of the Opcode to be {0,3,4,8} (nop, eq and reset, mul or add)
+ * @details This relation enforces the opcode to be one of described values. Since we don't care about even
  * values in the opcode wire and usually just set them to zero, we don't use a lagrange polynomial to specify
  * the relation to be enforced just at odd indices, which brings the degree down by 1.
  *

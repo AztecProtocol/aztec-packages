@@ -252,16 +252,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     opcode: AvmOpcode::CALLDATACOPY,
                     indirect: Some(
                         AddressingModeBuilder::default()
-                            .direct_operand(offset_address)
                             .direct_operand(size_address)
+                            .direct_operand(offset_address)
                             .direct_operand(destination_address)
                             .build(),
                     ),
                     operands: vec![
+                        AvmOperand::U16 { value: size_address.to_usize() as u16 }, // sizeOffset
                         AvmOperand::U16 {
                             value: offset_address.to_usize() as u16, // cdOffset (calldata offset)
                         },
-                        AvmOperand::U16 { value: size_address.to_usize() as u16 }, // sizeOffset
                         AvmOperand::U16 {
                             value: destination_address.to_usize() as u16, // dstOffset
                         },
@@ -631,16 +631,16 @@ fn handle_external_call(
                 .direct_operand(l2_gas_offset)
                 .direct_operand(da_gas_offset)
                 .direct_operand(address_offset)
-                .indirect_operand(args_offset_ptr)
                 .direct_operand(args_size_offset)
+                .indirect_operand(args_offset_ptr)
                 .build(),
         ),
         operands: vec![
             AvmOperand::U16 { value: l2_gas_offset.to_usize() as u16 },
             AvmOperand::U16 { value: da_gas_offset.to_usize() as u16 },
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: args_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: args_offset_ptr.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1402,14 +1402,14 @@ fn handle_calldata_copy(
         opcode: AvmOpcode::CALLDATACOPY,
         indirect: Some(
             AddressingModeBuilder::default()
-                .direct_operand(&cd_offset)
                 .direct_operand(&copy_size_offset)
+                .direct_operand(&cd_offset)
                 .indirect_operand(&dest_offset)
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U16 { value: cd_offset.to_usize() as u16 },
             AvmOperand::U16 { value: copy_size_offset.to_usize() as u16 },
+            AvmOperand::U16 { value: cd_offset.to_usize() as u16 },
             AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
         ],
         ..Default::default()
@@ -1471,14 +1471,14 @@ fn handle_returndata_copy(
             opcode: AvmOpcode::RETURNDATACOPY,
             indirect: Some(
                 AddressingModeBuilder::default()
-                    .direct_operand(&cd_offset)
                     .direct_operand(&copy_size_offset)
+                    .direct_operand(&cd_offset)
                     .indirect_operand(&dest_offset)
                     .build(),
             ),
             operands: vec![
-                AvmOperand::U16 { value: cd_offset.to_usize() as u16 },
                 AvmOperand::U16 { value: copy_size_offset.to_usize() as u16 },
+                AvmOperand::U16 { value: cd_offset.to_usize() as u16 },
                 AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
             ],
             ..Default::default()
@@ -1588,7 +1588,7 @@ fn handle_get_contract_instance(
     }
 
     assert!(inputs.len() == 1);
-    assert!(destinations.len() == 2);
+    assert!(destinations.len() == 1);
 
     let member_idx = match function {
         "avmOpcodeGetContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
@@ -1604,30 +1604,27 @@ fn handle_get_contract_instance(
     };
 
     let dest_offset_maybe = destinations[0];
-    let dest_offset = match dest_offset_maybe {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("GETCONTRACTINSTANCE dst destination should be a single value"),
+    let (dest_offset, dest_size) = match dest_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size),
+        _ => panic!("GETCONTRACTINSTANCE dst destination should be a HeapArray"),
     };
 
-    let exists_offset_maybe = destinations[1];
-    let exists_offset = match exists_offset_maybe {
-        ValueOrArray::MemoryAddress(offset) => offset,
-        _ => panic!("GETCONTRACTINSTANCE exists destination should be a single value"),
-    };
+    assert!(
+        dest_size == 2,
+        "GETCONTRACTINSTANCE destination should have length two: (exists: bool, member: Field)"
+    );
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETCONTRACTINSTANCE,
         indirect: Some(
             AddressingModeBuilder::default()
                 .direct_operand(&address_offset)
-                .direct_operand(&dest_offset)
-                .direct_operand(&exists_offset)
+                .indirect_operand(&dest_offset)
                 .build(),
         ),
         operands: vec![
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: exists_offset.to_usize() as u16 },
         ],
         immediates: vec![AvmOperand::U8 { value: member_idx as u8 }],
         ..Default::default()

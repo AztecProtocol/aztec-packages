@@ -114,13 +114,14 @@ impl TestEnvironment {
     pub unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
         let test_account = cheatcodes::add_account(secret);
         let address = test_account.address;
-        cheatcodes::advance_blocks_by(1);
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
         let mut context = self.private_at(get_block_number());
         let args = [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y];
         let _ = context.call_private_function(address, selector, args);
+
+        cheatcodes::advance_blocks_by(1);
 
         address
     }

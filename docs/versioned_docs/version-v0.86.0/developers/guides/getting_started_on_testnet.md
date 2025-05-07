@@ -4,6 +4,8 @@ sidebar_position: 0
 tags: [testnet]
 ---
 
+import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
+
 This guide will walk you through setting up and using the Aztec testnet. By the end, you'll have created an account, deployed a contract, and performed some basic operations.
 
 If you already have an app on sandbox, you might want to check out the [sandbox to testnet guide](../../sandbox_to_testnet_guide.md).
@@ -35,12 +37,12 @@ bash -i <(curl -s https://install.aztec.network)
 Then install the version of the network running the testnet:
 
 ```bash
-aztec-up 0.85.0-alpha-testnet.3
+aztec-up alpha-testnet
 ```
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.3`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.5`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -56,7 +58,7 @@ Aztec uses account abstraction, which means:
 0. Set some variables that we need:
 
 ```bash
-export NODE_URL=http://34.107.66.170
+export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 ```
 
@@ -174,6 +176,6 @@ You should see `2n`.
 
 Congratulations! You've now learned the fundamentals of working with the Aztec testnet. Here are some resources to continue your journey:
 
-* [Aztec Playground](https://play.aztec.network/)
-* [Tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
-* [Guide to run a node](../../the_aztec_network/index.md)
+- [Aztec Playground](https://play.aztec.network/)
+- [Tutorials](../tutorials/codealong/contract_tutorials/counter_contract.md)
+- [Guide to run a node](../../the_aztec_network/index.md)
