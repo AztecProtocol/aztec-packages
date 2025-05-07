@@ -1,224 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746611966149,
+  "lastUpdate": 1746611971282,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "spypsy@users.noreply.github.com",
-            "name": "spypsy",
-            "username": "spypsy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7018daa67b6c16de2393990457d0c47f31778a82",
-          "message": "chore: use separate KV store for lip2p peers + logging missing txs (#13967)",
-          "timestamp": "2025-05-01T12:41:15Z",
-          "tree_id": "4b8cb2072d68cf0fce3e1a254cc6bd79932ed03d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7018daa67b6c16de2393990457d0c47f31778a82"
-        },
-        "date": 1746105835950,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-deploy_ecdsar1+sponsored_fpc-ivc-proof",
-            "value": 17789,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-deploy_ecdsar1+sponsored_fpc-ivc-proof-memory",
-            "value": 992,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmdeploy_ecdsar1+sponsored_fpc-ivc-proof-wasm",
-            "value": 52143,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmdeploy_ecdsar1+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 1855,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-deploy_schnorr+sponsored_fpc-ivc-proof",
-            "value": 16807,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-deploy_schnorr+sponsored_fpc-ivc-proof-memory",
-            "value": 991,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmdeploy_schnorr+sponsored_fpc-ivc-proof-wasm",
-            "value": 49091,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmdeploy_schnorr+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 1774,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof",
-            "value": 29762,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-memory",
-            "value": 1373,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm",
-            "value": 80570,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 2160,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof",
-            "value": 16153,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-memory",
-            "value": 979,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm",
-            "value": 48468,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 1774,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof",
-            "value": 21029,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-memory",
-            "value": 1044,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm",
-            "value": 59035,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm-memory",
-            "value": 1730,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof",
-            "value": 13236,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-memory",
-            "value": 963,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm",
-            "value": 42127,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 1769,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof",
-            "value": 23953,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-memory",
-            "value": 1322,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm",
-            "value": 67401,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm-memory",
-            "value": 2066,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof",
-            "value": 15885,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-memory",
-            "value": 977,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm",
-            "value": 47567,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 1735,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -8344,6 +8128,222 @@ window.BENCHMARK_DATA = {
             "value": "2269.19",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e6e429e631c745770337192947fd37646d985475",
+          "message": "chore: start translator logic at an even index (#13985)\n\nWe want to be able to add random data in the ultra op queue (at the\nbeginning and end) to make the merge protocol zk without affecting the\nlogic of translator or the version of the op queue used by eccvm. All\nwires in translator circuit builder start with a 0 to enable shifting.\nBut having the builder add data in all wires, including the ones\ncontaining op queue data, breaks the ability of the Goblin verifier to\ncompare the full table commitments in the last merge against the\ncorresponding translator witness polynomials commitments.\n\nTo solve this we want to add the 0 row (plus random rows eventually) via\nthe ultra op queue logic, but each ultra op populates two positions in\nthe translator wires. Prior to this work, the translator relations were\nimplemented to expect the main logic to start at an odd index (i.e. the\nfirst ultra op resides at index 1 and 2). Preserving this would have\nmeant we need to implement a special branch of logic in the ultra op\nqueue that only populates 1 row with data rather than 2 in the ultra\ntables. This PR swaps what happens at even and odd indexes to facilitate\nadding 0 and random rows via the existing op queue logic by making\ntranslator logic start at an even index (so currently at index 2).",
+          "timestamp": "2025-05-07T08:58:25Z",
+          "tree_id": "9e8217b3cf90bf9c1ef436700a12a59fda5dfcf5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e6e429e631c745770337192947fd37646d985475"
+        },
+        "date": 1746611970414,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 24322,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1892,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 77831,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 2359,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof",
+            "value": 21039,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-memory",
+            "value": 2288,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm",
+            "value": 68760,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 3080,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof",
+            "value": 14729,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-memory",
+            "value": 1189,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm",
+            "value": 48435,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1846,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof",
+            "value": 18157,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-memory",
+            "value": 1414,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm",
+            "value": 58286,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 1959,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof",
+            "value": 12374,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1138,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 40917,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1757,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof",
+            "value": 21971,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-memory",
+            "value": 1760,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm",
+            "value": 72475,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 2226,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 14244,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1192,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 47950,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1823,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof",
+            "value": 13612,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-memory",
+            "value": 1175,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmschnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm",
+            "value": 44717,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmschnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1867,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
         ]
       }
