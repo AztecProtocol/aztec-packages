@@ -8,56 +8,62 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { format } from 'util';
 
-function printProfileResult(result: TxProfileResult, log: LogFn) {
-  log(format('\nSync time:', result.timings.sync, 'ms'));
-  log(format('\nPer circuit breakdown:'));
-  let acc = 0;
-  let maxGateCount: PrivateExecutionStep = result.executionSteps[0];
+import type { IFeeOpts } from '../utils/options/fees.js';
 
-  const gateCountComputationTime = result.executionSteps.reduce(
-    (acc, { timings: { gateCount } }) => acc + (gateCount ?? 0),
-    0,
+function printProfileResult(result: TxProfileResult, log: LogFn) {
+  log(format('\nPer circuit breakdown:\n'));
+  log(
+    format(
+      '  ',
+      'Function name'.padEnd(50),
+      'Time'.padStart(13).padEnd(15),
+      'Gates'.padStart(13).padEnd(15),
+      'Subtotal'.padStart(13).padEnd(15),
+    ),
   );
+  log(format(''.padEnd(50 + 15 + 15 + 15 + 15, '-')));
+  let acc = 0;
+  let biggest: PrivateExecutionStep = result.executionSteps[0] ?? 0;
 
   result.executionSteps.forEach(r => {
-    if (r.gateCount! > (maxGateCount.gateCount ?? 0)) {
-      maxGateCount = r;
+    if (r.gateCount! > biggest.gateCount!) {
+      biggest = r;
     }
     acc += r.gateCount!;
     log(
       format(
         '  ',
         r.functionName.padEnd(50),
-        'Time:',
-        `${r.timings.witgen.toFixed(2).padEnd(10)}ms`,
-        'Gates:',
-        r.gateCount!.toLocaleString(),
-        '\tSubtotal:',
-        acc.toLocaleString(),
+        `${r.timings.witgen.toFixed(2)}ms`.padStart(13).padEnd(15),
+        r.gateCount!.toLocaleString().padStart(13).padEnd(15),
+        acc.toLocaleString().padStart(15),
       ),
     );
   });
-  log(format('\nMaximum gate count:', maxGateCount?.toLocaleString()));
-  log(format('\nTotal gates:', acc.toLocaleString()));
+  log(
+    format(
+      '\nTotal gates:',
+      acc.toLocaleString(),
+      `(Biggest circuit: ${biggest.functionName} -> ${biggest.gateCount!.toLocaleString()})`,
+    ),
+  );
 
+  log(format('\nSync time:'.padEnd(25), `${result.timings.sync?.toFixed(2)}ms`.padStart(16)));
   log(
     format(
-      '\nTotal simulation time:',
-      result.timings.perFunction.reduce((acc, { time }) => acc + time, 0).toFixed(2),
-      'ms',
+      'Total simulation time:'.padEnd(25),
+      `${result.timings.perFunction.reduce((acc, { time }) => acc + time, 0).toFixed(2)}ms`.padStart(15),
     ),
   );
-  log(format('\nProving time:', result.timings.proving?.toFixed(2), 'ms'));
+  log(format('Proving time:'.padEnd(25), `${result.timings.proving?.toFixed(2)}ms`.padStart(15)));
   log(
     format(
-      '\nTotal time:',
-      result.timings.total.toFixed(2),
-      'ms',
-      '(',
-      result.timings.unaccounted.toFixed(2),
-      'ms) unaccounted',
+      'Total time:'.padEnd(25),
+      `${result.timings.total.toFixed(2)}ms`.padStart(15),
+      `(${result.timings.unaccounted.toFixed(2)}ms unaccounted)`,
     ),
   );
+  log('\n');
 }
 
 export async function profile(
@@ -67,16 +73,21 @@ export async function profile(
   contractArtifactPath: string,
   contractAddress: AztecAddress,
   debugOutputPath: string | undefined,
+  feeOpts: IFeeOpts,
   authWitnesses: AuthWitness[],
   log: LogFn,
 ) {
-  const profileMode = debugOutputPath ? ('full' as const) : ('gates' as const);
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
 
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
 
-  const result = await call.profile({ profileMode, authWitnesses, skipProofGeneration: false });
+  const result = await call.profile({
+    ...(await feeOpts.toSendOpts(wallet)),
+    profileMode: 'full',
+    authWitnesses,
+    skipProofGeneration: false,
+  });
   printProfileResult(result, log);
   if (debugOutputPath) {
     const ivcInputsPath = path.join(debugOutputPath, 'ivc-inputs.msgpack');

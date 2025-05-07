@@ -355,7 +355,7 @@ export function injectCommands(
       await simulate(wallet, functionName, args, artifactPath, contractAddress, authWitnesses, log);
     });
 
-  program
+  const profileCommand = program
     .command('profile')
     .description('Profiles a private function by counting the unconditional operations in its execution steps')
     .argument('<functionName>', 'Name of function to simulate')
@@ -368,37 +368,39 @@ export function injectCommands(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAuthwitnessOption('Authorization witness to use for the simulation', !db, db))
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .action(async (functionName, _options, command) => {
-      const { profile } = await import('./profile.js');
-      const options = command.optsWithGlobals();
-      const {
-        args,
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        from: parsedFromAddress,
-        rpcUrl,
-        secretKey,
-        debugExecutionStepsDir,
-        authWitness,
-      } = options;
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db));
 
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await account.getWallet();
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      const authWitnesses = cleanupAuthWitnesses(authWitness);
-      await profile(
-        wallet,
-        functionName,
-        args,
-        artifactPath,
-        contractAddress,
-        debugExecutionStepsDir,
-        authWitnesses,
-        log,
-      );
-    });
+  addOptions(profileCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
+    const { profile } = await import('./profile.js');
+    const options = command.optsWithGlobals();
+    const {
+      args,
+      contractArtifact: artifactPathPromise,
+      contractAddress,
+      from: parsedFromAddress,
+      rpcUrl,
+      secretKey,
+      debugExecutionStepsDir,
+      authWitness,
+    } = options;
+
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
+    const wallet = await account.getWallet();
+    const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+    const authWitnesses = cleanupAuthWitnesses(authWitness);
+    await profile(
+      wallet,
+      functionName,
+      args,
+      artifactPath,
+      contractAddress,
+      debugExecutionStepsDir,
+      await FeeOptsWithFeePayer.fromCli(options, client, log, db),
+      authWitnesses,
+      log,
+    );
+  });
 
   program
     .command('bridge-fee-juice')
