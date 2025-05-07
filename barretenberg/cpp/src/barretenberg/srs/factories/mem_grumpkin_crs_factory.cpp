@@ -3,7 +3,6 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/srs/factories/mem_prover_crs.hpp"
 
 namespace {
 
@@ -11,29 +10,28 @@ using namespace bb::curve;
 using namespace bb;
 using namespace bb::srs::factories;
 
-using Curve = curve::Grumpkin;
-
-class MemCrs : public Crs<Grumpkin> {
+class MemGrumpkinCrs : public Crs<Grumpkin> {
   public:
-    MemCrs(std::vector<Grumpkin::AffineElement> const& points)
-        : num_points(points.size())
-        , monomials_(scalar_multiplication::point_table_alloc<Grumpkin::AffineElement>(points.size()))
+    MemGrumpkinCrs(const MemGrumpkinCrs&) = delete;
+    MemGrumpkinCrs(MemGrumpkinCrs&&) noexcept = default;
+    MemGrumpkinCrs& operator=(const MemGrumpkinCrs&) = delete;
+    MemGrumpkinCrs& operator=(MemGrumpkinCrs&&) = delete;
+
+    MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> const& points)
+        : monomials_(scalar_multiplication::point_table_alloc<Grumpkin::AffineElement>(points.size()))
     {
-        std::copy(points.begin(), points.end(), monomials_.get());
-        scalar_multiplication::generate_pippenger_point_table<Grumpkin>(monomials_.get(), monomials_.get(), num_points);
+        std::copy(points.begin(), points.end(), monomials_.begin());
+        scalar_multiplication::generate_pippenger_point_table<Grumpkin>(
+            monomials_.data(), monomials_.data(), points.size());
     }
 
-    virtual ~MemCrs() = default;
-    std::span<const Grumpkin::AffineElement> get_monomial_points() const override
-    {
-        return { monomials_.get(), num_points * 2 };
-    }
-    size_t get_monomial_size() const override { return num_points; }
+    ~MemGrumpkinCrs() override = default;
+    std::span<Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
+    size_t get_monomial_size() const override { return monomials_.size() / 2; }
     Grumpkin::AffineElement get_g1_identity() const override { return monomials_[0]; };
 
   private:
-    size_t num_points;
-    std::shared_ptr<Grumpkin::AffineElement[]> monomials_; // NOLINT
+    SlabVector<Grumpkin::AffineElement> monomials_;
 };
 
 } // namespace
@@ -41,38 +39,24 @@ class MemCrs : public Crs<Grumpkin> {
 namespace bb::srs::factories {
 
 MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(const std::vector<Grumpkin::AffineElement>& points)
-    : prover_crs_(std::make_shared<MemCrs<Grumpkin>>(points))
-    , verifier_crs_(std::make_shared<MemCrs>(points))
+    : crs_(std::make_shared<MemGrumpkinCrs>(points))
 {
     if (points.empty() || !points[0].on_curve()) {
         throw_or_abort("invalid vector passed to MemGrumpkinCrsFactory");
     }
-    vinfo("Initialized ",
-          curve::Grumpkin::name,
-          " prover CRS from memory with num points = ",
-          prover_crs_->get_monomial_size());
+    vinfo(
+        "Initialized ", curve::Grumpkin::name, " prover CRS from memory with num points = ", crs_->get_monomial_size());
 }
 
 std::shared_ptr<bb::srs::factories::Crs<Grumpkin>> MemGrumpkinCrsFactory::get_crs(size_t degree)
 {
-    if (prover_crs_->get_monomial_size() < degree) {
+    if (crs_->get_monomial_size() < degree) {
         throw_or_abort(format("prover trying to get too many points in MemGrumpkinCrsFactory - ",
                               degree,
                               " is more than ",
-                              prover_crs_->get_monomial_size()));
+                              crs_->get_monomial_size()));
     }
-    return prover_crs_;
-}
-
-std::shared_ptr<bb::srs::factories::Crs<Grumpkin>> MemGrumpkinCrsFactory::get_crs(size_t degree)
-{
-    if (prover_crs_->get_monomial_size() < degree) {
-        throw_or_abort(format("verifier trying to get too many points in MemGrumpkinCrsFactory - ",
-                              degree,
-                              " is more than ",
-                              prover_crs_->get_monomial_size()));
-    }
-    return verifier_crs_;
+    return crs_;
 }
 
 } // namespace bb::srs::factories

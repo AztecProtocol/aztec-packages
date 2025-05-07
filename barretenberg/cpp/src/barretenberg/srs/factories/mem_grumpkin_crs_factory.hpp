@@ -18,7 +18,7 @@ class MemGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
     std::shared_ptr<Crs<curve::Grumpkin>> get_crs(size_t degree) override;
 
   private:
-    std::shared_ptr<Crs<curve::Grumpkin>> prover_crs_;
+    std::shared_ptr<Crs<curve::Grumpkin>> crs_;
     std::shared_ptr<Crs<curve::Grumpkin>> verifier_crs_;
 };
 

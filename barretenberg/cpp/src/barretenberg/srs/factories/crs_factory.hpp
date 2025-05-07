@@ -23,8 +23,9 @@ template <> class Crs<curve::BN254> {
 
   public:
     // base class best practices
+    Crs() = default;
     Crs(const Crs&) = delete;
-    Crs(Crs&&) = delete;
+    Crs(Crs&&) noexcept = default;
     Crs& operator=(const Crs&) = delete;
     Crs& operator=(Crs&&) = delete;
     virtual ~Crs() = default;
@@ -55,8 +56,9 @@ template <> class Crs<curve::Grumpkin> {
 
   public:
     // base class best practices
+    Crs() = default;
     Crs(const Crs&) = delete;
-    Crs(Crs&&) = delete;
+    Crs(Crs&&) = default;
     Crs& operator=(const Crs&) = delete;
     Crs& operator=(Crs&&) = delete;
     virtual ~Crs() = default;
@@ -81,13 +83,14 @@ template <> class Crs<curve::Grumpkin> {
 template <typename Curve> class CrsFactory {
   public:
     // base class best practices
+    CrsFactory() = default;
     CrsFactory(const CrsFactory&) = delete;
-    CrsFactory(CrsFactory&&) = default;
+    CrsFactory(CrsFactory&&) noexcept = default;
     CrsFactory& operator=(const CrsFactory&) = delete;
-    CrsFactory& operator=(CrsFactory&&) = default;
+    CrsFactory& operator=(CrsFactory&&) noexcept = default;
     virtual ~CrsFactory() = default;
     virtual std::shared_ptr<bb::srs::factories::Crs<Curve>> get_crs(size_t) = 0;
-    std::shared_ptr<bb::srs::factories::Crs<Curve>> get_verifier_crs() { return get_crs(0); };
+    std::shared_ptr<bb::srs::factories::Crs<Curve>> get_verifier_crs() { return get_crs(1); };
 };
 
 } // namespace bb::srs::factories
