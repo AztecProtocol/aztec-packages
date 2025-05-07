@@ -1,8 +1,8 @@
 #include "api_ultra_honk.hpp"
 
 #include "barretenberg/api/acir_format_getters.hpp"
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/gate_count.hpp"
-#include "barretenberg/api/get_bn254_crs.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"

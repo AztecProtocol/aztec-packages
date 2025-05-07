@@ -1,5 +1,8 @@
 #include "get_grumpkin_crs.hpp"
+#include "barretenberg/api/exec_pipe.hpp"
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace {

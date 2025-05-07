@@ -1,4 +1,5 @@
 #include "get_bn254_crs.hpp"
+#include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/api/file_io.hpp"
 
 namespace {

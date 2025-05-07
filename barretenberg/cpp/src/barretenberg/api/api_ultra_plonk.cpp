@@ -1,6 +1,7 @@
 #include "api_ultra_plonk.hpp"
 #include "barretenberg/api/acir_format_getters.hpp"
-#include "barretenberg/api/get_bn254_crs.hpp"
+#include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/log.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/timer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
