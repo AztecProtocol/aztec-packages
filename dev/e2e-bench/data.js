@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746655920682,
+  "lastUpdate": 1746658394760,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3b1e34ebfc7cb0af03779bd67128e42aa4654a40",
-          "message": "chore!: remove all access to plonk via bberg interfaces (#13902)\n\nEffectively remove plonk from all bberg interfaces in preparation to\nremove it from the codebase entirely.",
-          "timestamp": "2025-04-30T16:34:37Z",
-          "tree_id": "9134d90eaf18477f57742edb9dd6e5337fb26ad3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3b1e34ebfc7cb0af03779bd67128e42aa4654a40"
-        },
-        "date": 1746035175113,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9159,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2622230007331755,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 155135,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1939,6 +1900,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 125511,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "03d6547218cee1eb175f287f81136c6adb149a79",
+          "message": "feat(release): intel mac version fix, starknet bb variant build (#14013)\n\nSo far just enabled for mac. Linux and WASM support TODO\n\nNoticed that intel mac had the wrong sed command while at it",
+          "timestamp": "2025-05-07T21:51:05Z",
+          "tree_id": "b9808b177b76dad3d833859d1cba99f47d30a652",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/03d6547218cee1eb175f287f81136c6adb149a79"
+        },
+        "date": 1746658393964,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8201,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23479447500424977,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 135144,
             "unit": "us"
           }
         ]
