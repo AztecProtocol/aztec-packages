@@ -1,1172 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746645678046,
+  "lastUpdate": 1746651867196,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "Public Simulation Benchmarks": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "117ed54cd4bd947f03c15f65cbd2ce312b006ff4",
-          "message": "feat: brittle benchmark for UH RV in Ultra gate count (#14008)\n\nAugments UltraRecursiveVerifier test by adding a gate count pinning\ncheck, so we can keep track of the Ultra gate count of a\nMegaZKRecursiveVerifier.\n\nHelps in closing\nhttps://github.com/AztecProtocol/barretenberg/issues/1380 because I\nneeded a measurement of the impact of an optimization.",
-          "timestamp": "2025-05-01T21:14:25Z",
-          "tree_id": "4084158f6a4253e6b124c2c614b83a6af94ab64b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/117ed54cd4bd947f03c15f65cbd2ce312b006ff4"
-        },
-        "date": 1746138736678,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Token contract tests/Token/constructor/0/totalInstructionsExecuted",
-            "value": 17006,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/constructor/0/totalDurationMs",
-            "value": 272.3894839999266,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/constructor/0/manaUsed",
-            "value": 381780,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/constructor/0/txHashMs",
-            "value": 24.50161699997261,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
-            "value": 8410.281000193208,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
-            "value": 3295.9509999491274,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/mint_to_public/1/totalInstructionsExecuted",
-            "value": 1461,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/mint_to_public/1/totalDurationMs",
-            "value": 82.08523700013757,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/mint_to_public/1/manaUsed",
-            "value": 42698,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/mint_to_public/1/txHashMs",
-            "value": 23.9846789999865,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/mint_to_public/1/nonRevertiblePrivateInsertionsUs",
-            "value": 3884.786000009626,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/mint_to_public/1/revertiblePrivateInsertionsUs",
-            "value": 1486.833999864757,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/2/totalInstructionsExecuted",
-            "value": 612,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/2/totalDurationMs",
-            "value": 68.93738499982283,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/2/manaUsed",
-            "value": 12384,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/2/txHashMs",
-            "value": 24.13768000015989,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/2/nonRevertiblePrivateInsertionsUs",
-            "value": 4272.9949997738,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/2/revertiblePrivateInsertionsUs",
-            "value": 1559.6090001054108,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/transfer_in_public/3/totalInstructionsExecuted",
-            "value": 1907,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/transfer_in_public/3/totalDurationMs",
-            "value": 73.25121299969032,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/transfer_in_public/3/manaUsed",
-            "value": 48632,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/transfer_in_public/3/txHashMs",
-            "value": 21.89844899997115,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/transfer_in_public/3/nonRevertiblePrivateInsertionsUs",
-            "value": 4537.756000179797,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/transfer_in_public/3/revertiblePrivateInsertionsUs",
-            "value": 966.7440000921488,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/4/totalInstructionsExecuted",
-            "value": 612,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/4/totalDurationMs",
-            "value": 62.14978800015524,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/4/manaUsed",
-            "value": 12384,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/4/txHashMs",
-            "value": 22.024599000345916,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/4/nonRevertiblePrivateInsertionsUs",
-            "value": 4415.53599992767,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/4/revertiblePrivateInsertionsUs",
-            "value": 1113.5950000025332,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/5/totalInstructionsExecuted",
-            "value": 612,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/5/totalDurationMs",
-            "value": 62.80026700021699,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/5/manaUsed",
-            "value": 12384,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/5/txHashMs",
-            "value": 22.601813999935985,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/5/nonRevertiblePrivateInsertionsUs",
-            "value": 3875.3050002269447,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/5/revertiblePrivateInsertionsUs",
-            "value": 965.2140000835061,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/6/totalInstructionsExecuted",
-            "value": 612,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/6/totalDurationMs",
-            "value": 63.963545999955386,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/6/manaUsed",
-            "value": 12384,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/6/txHashMs",
-            "value": 21.855456000193954,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/6/nonRevertiblePrivateInsertionsUs",
-            "value": 4824.017000384629,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/6/revertiblePrivateInsertionsUs",
-            "value": 1026.0180002078414,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/burn_public/7/totalInstructionsExecuted",
-            "value": 1133,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/burn_public/7/totalDurationMs",
-            "value": 71.6070179999806,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/burn_public/7/manaUsed",
-            "value": 35852,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/burn_public/7/txHashMs",
-            "value": 22.334313000086695,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/burn_public/7/nonRevertiblePrivateInsertionsUs",
-            "value": 5035.912999883294,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/burn_public/7/revertiblePrivateInsertionsUs",
-            "value": 1165.6590001657605,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/8/totalInstructionsExecuted",
-            "value": 612,
-            "unit": "#instructions"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/8/totalDurationMs",
-            "value": 60.734079000074416,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/8/manaUsed",
-            "value": 12384,
-            "unit": "mana"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/8/txHashMs",
-            "value": 21.932720999699086,
-            "unit": "ms"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/8/nonRevertiblePrivateInsertionsUs",
-            "value": 4237.511999905109,
-            "unit": "us"
-          },
-          {
-            "name": "Token contract tests/Token/balance_of_public/8/revertiblePrivateInsertionsUs",
-            "value": 1097.734000068158,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/0/totalInstructionsExecuted",
-            "value": 17006,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/0/totalDurationMs",
-            "value": 195.29548800038174,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/0/manaUsed",
-            "value": 381780,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/0/txHashMs",
-            "value": 21.903840000275522,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
-            "value": 3529.67800013721,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
-            "value": 1054.0000000037253,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/1/totalInstructionsExecuted",
-            "value": 17006,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/1/totalDurationMs",
-            "value": 188.92198200011626,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/1/manaUsed",
-            "value": 381780,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/1/txHashMs",
-            "value": 22.003117999993265,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/1/nonRevertiblePrivateInsertionsUs",
-            "value": 3367.2770000994205,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/1/revertiblePrivateInsertionsUs",
-            "value": 1006.6370000131428,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/2/totalInstructionsExecuted",
-            "value": 17006,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/2/totalDurationMs",
-            "value": 183.80554200010374,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/2/manaUsed",
-            "value": 381780,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/2/txHashMs",
-            "value": 21.87727800011635,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/2/nonRevertiblePrivateInsertionsUs",
-            "value": 3434.06100012362,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/Token/constructor/2/revertiblePrivateInsertionsUs",
-            "value": 1002.8860000893474,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/constructor/3/totalInstructionsExecuted",
-            "value": 1730,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/AMM/constructor/3/totalDurationMs",
-            "value": 113.88517200015485,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/constructor/3/manaUsed",
-            "value": 72756,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/AMM/constructor/3/txHashMs",
-            "value": 21.97501499997452,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/constructor/3/nonRevertiblePrivateInsertionsUs",
-            "value": 3823.972000274807,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/constructor/3/revertiblePrivateInsertionsUs",
-            "value": 952.8129999525845,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/set_minter/4/totalInstructionsExecuted",
-            "value": 635,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/AMM/set_minter/4/totalDurationMs",
-            "value": 58.75471800006926,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/set_minter/4/manaUsed",
-            "value": 19579,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/AMM/set_minter/4/txHashMs",
-            "value": 21.745106999762356,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/set_minter/4/nonRevertiblePrivateInsertionsUs",
-            "value": 3418.4710001572967,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/set_minter/4/revertiblePrivateInsertionsUs",
-            "value": 902.9290000908077,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/add_liquidity/5/totalInstructionsExecuted",
-            "value": 8882,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/AMM/add_liquidity/5/totalDurationMs",
-            "value": 226.42855100007728,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/add_liquidity/5/manaUsed",
-            "value": 245973,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/AMM/add_liquidity/5/txHashMs",
-            "value": 21.840734999626875,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/add_liquidity/5/nonRevertiblePrivateInsertionsUs",
-            "value": 4762.052999809384,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/add_liquidity/5/revertiblePrivateInsertionsUs",
-            "value": 1464.0720002353191,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructionsExecuted",
-            "value": 5365,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalDurationMs",
-            "value": 142.1149729997851,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/manaUsed",
-            "value": 135369,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/txHashMs",
-            "value": 21.662501000333577,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/nonRevertiblePrivateInsertionsUs",
-            "value": 3316.1529996432364,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/revertiblePrivateInsertionsUs",
-            "value": 848.693999927491,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/totalInstructionsExecuted",
-            "value": 9286,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/totalDurationMs",
-            "value": 219.61784100020304,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/manaUsed",
-            "value": 251537,
-            "unit": "mana"
-          },
-          {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/txHashMs",
-            "value": 22.271507000084966,
-            "unit": "ms"
-          },
-          {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/nonRevertiblePrivateInsertionsUs",
-            "value": 3341.6650001890957,
-            "unit": "us"
-          },
-          {
-            "name": "AMM contract tests/AMM/remove_liquidity/7/revertiblePrivateInsertionsUs",
-            "value": 1014.7649999707937,
-            "unit": "us"
-          },
-          {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructionsExecuted",
-            "value": 27130,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalDurationMs",
-            "value": 306.91542700026184,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/manaUsed",
-            "value": 560425,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/txHashMs",
-            "value": 22.44508699979633,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/nonRevertiblePrivateInsertionsUs",
-            "value": 3522.6199999451637,
-            "unit": "us"
-          },
-          {
-            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/revertiblePrivateInsertionsUs",
-            "value": 964.7419997490942,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructionsExecuted",
-            "value": 5192,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalDurationMs",
-            "value": 120.29370599985123,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/manaUsed",
-            "value": 90657,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/txHashMs",
-            "value": 21.80655899969861,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/nonRevertiblePrivateInsertionsUs",
-            "value": 3867.2750000841916,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/revertiblePrivateInsertionsUs",
-            "value": 1123.2519997283816,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalInstructionsExecuted",
-            "value": 6315,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalDurationMs",
-            "value": 75.79223300004378,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/manaUsed",
-            "value": 111099,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/txHashMs",
-            "value": 21.567962000146508,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/nonRevertiblePrivateInsertionsUs",
-            "value": 4078.0809996649623,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/revertiblePrivateInsertionsUs",
-            "value": 906.2470002099872,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalInstructionsExecuted",
-            "value": 7666,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalDurationMs",
-            "value": 74.0176320001483,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/manaUsed",
-            "value": 135021,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/txHashMs",
-            "value": 21.8833849998191,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/nonRevertiblePrivateInsertionsUs",
-            "value": 3734.195000026375,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/revertiblePrivateInsertionsUs",
-            "value": 889.0259996987879,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalInstructionsExecuted",
-            "value": 8871,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalDurationMs",
-            "value": 80.70514499954879,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/manaUsed",
-            "value": 156372,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/txHashMs",
-            "value": 21.915746999904513,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/nonRevertiblePrivateInsertionsUs",
-            "value": 3558.352999854833,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/revertiblePrivateInsertionsUs",
-            "value": 925.7179996930063,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalInstructionsExecuted",
-            "value": 10223,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalDurationMs",
-            "value": 82.58524399995804,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/manaUsed",
-            "value": 180303,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/txHashMs",
-            "value": 21.65329800033942,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/nonRevertiblePrivateInsertionsUs",
-            "value": 3476.886000018567,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/revertiblePrivateInsertionsUs",
-            "value": 911.9680002331734,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalInstructionsExecuted",
-            "value": 11741,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalDurationMs",
-            "value": 90.00286100013182,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/manaUsed",
-            "value": 206850,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/txHashMs",
-            "value": 21.90270600002259,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/nonRevertiblePrivateInsertionsUs",
-            "value": 4234.391999896616,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/revertiblePrivateInsertionsUs",
-            "value": 952.7610000222921,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalInstructionsExecuted",
-            "value": 13554,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalDurationMs",
-            "value": 94.38802499976009,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/manaUsed",
-            "value": 239862,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/txHashMs",
-            "value": 21.994783000089228,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/nonRevertiblePrivateInsertionsUs",
-            "value": 4271.405000239611,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/revertiblePrivateInsertionsUs",
-            "value": 921.3580000214279,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalInstructionsExecuted",
-            "value": 14784,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalDurationMs",
-            "value": 99.84670799970627,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/manaUsed",
-            "value": 261789,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/txHashMs",
-            "value": 21.900005999952555,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/nonRevertiblePrivateInsertionsUs",
-            "value": 4182.107999920845,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/revertiblePrivateInsertionsUs",
-            "value": 890.9249999560416,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalInstructionsExecuted",
-            "value": 16167,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalDurationMs",
-            "value": 99.58856900036335,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/manaUsed",
-            "value": 286428,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/txHashMs",
-            "value": 21.57978200027719,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/nonRevertiblePrivateInsertionsUs",
-            "value": 3567.5529995933175,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/revertiblePrivateInsertionsUs",
-            "value": 903.2970000989735,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalInstructionsExecuted",
-            "value": 17397,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalDurationMs",
-            "value": 104.44032699987292,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/manaUsed",
-            "value": 308355,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/txHashMs",
-            "value": 21.681911000050604,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/nonRevertiblePrivateInsertionsUs",
-            "value": 3212.4270000495017,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/revertiblePrivateInsertionsUs",
-            "value": 891.5959997102618,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalInstructionsExecuted",
-            "value": 39043,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalDurationMs",
-            "value": 169.57108299992979,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/manaUsed",
-            "value": 693045,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/txHashMs",
-            "value": 21.925716999918222,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/nonRevertiblePrivateInsertionsUs",
-            "value": 4172.466999851167,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/revertiblePrivateInsertionsUs",
-            "value": 905.1470002159476,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalInstructionsExecuted",
-            "value": 39201,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalDurationMs",
-            "value": 167.28273400012404,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/manaUsed",
-            "value": 696645,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/txHashMs",
-            "value": 21.803578999824822,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/nonRevertiblePrivateInsertionsUs",
-            "value": 3293.9130002632737,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/revertiblePrivateInsertionsUs",
-            "value": 867.8739997558296,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalInstructionsExecuted",
-            "value": 74638,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalDurationMs",
-            "value": 274.1161870001815,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/manaUsed",
-            "value": 1326030,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/txHashMs",
-            "value": 21.845082000363618,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/nonRevertiblePrivateInsertionsUs",
-            "value": 3795.708999969065,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/revertiblePrivateInsertionsUs",
-            "value": 912.0769998989999,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalInstructionsExecuted",
-            "value": 74697,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalDurationMs",
-            "value": 272.7281559999101,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/manaUsed",
-            "value": 1328517,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/txHashMs",
-            "value": 21.77699699997902,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/nonRevertiblePrivateInsertionsUs",
-            "value": 3290.96300015226,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/revertiblePrivateInsertionsUs",
-            "value": 919.7379997931421,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalInstructionsExecuted",
-            "value": 287677,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalDurationMs",
-            "value": 915.7113220002502,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/manaUsed",
-            "value": 5120301,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/txHashMs",
-            "value": 22.101631000172347,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/nonRevertiblePrivateInsertionsUs",
-            "value": 3827.0120001398027,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/revertiblePrivateInsertionsUs",
-            "value": 1250.171999912709,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalInstructionsExecuted",
-            "value": 9533,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalDurationMs",
-            "value": 81.96858799969777,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/manaUsed",
-            "value": 175263,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/txHashMs",
-            "value": 22.066759000066668,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/nonRevertiblePrivateInsertionsUs",
-            "value": 4606.780000030994,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/revertiblePrivateInsertionsUs",
-            "value": 987.622999586165,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalInstructionsExecuted",
-            "value": 3054,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalDurationMs",
-            "value": 61.111079999711365,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/manaUsed",
-            "value": 53874,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/txHashMs",
-            "value": 21.958069999702275,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/nonRevertiblePrivateInsertionsUs",
-            "value": 3365.7880001701415,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/revertiblePrivateInsertionsUs",
-            "value": 853.8430002517998,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalInstructionsExecuted",
-            "value": 2092,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalDurationMs",
-            "value": 57.46583000011742,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/manaUsed",
-            "value": 35940,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/txHashMs",
-            "value": 21.53680899972096,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/nonRevertiblePrivateInsertionsUs",
-            "value": 3482.346000149846,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/revertiblePrivateInsertionsUs",
-            "value": 900.7669999264181,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalInstructionsExecuted",
-            "value": 22804,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalDurationMs",
-            "value": 472.36394699988887,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/manaUsed",
-            "value": 601251,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/txHashMs",
-            "value": 21.83508099988103,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/nonRevertiblePrivateInsertionsUs",
-            "value": 3888.9770000241697,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/revertiblePrivateInsertionsUs",
-            "value": 962.0209997519851,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalInstructionsExecuted",
-            "value": 22817,
-            "unit": "#instructions"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalDurationMs",
-            "value": 438.05508399987593,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/manaUsed",
-            "value": 602484,
-            "unit": "mana"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/txHashMs",
-            "value": 21.694110999815166,
-            "unit": "ms"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/nonRevertiblePrivateInsertionsUs",
-            "value": 4411.905999761075,
-            "unit": "us"
-          },
-          {
-            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/revertiblePrivateInsertionsUs",
-            "value": 936.5389999002218,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -58191,6 +57027,1170 @@ window.BENCHMARK_DATA = {
           {
             "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/revertiblePrivateInsertionsUs",
             "value": 1020.3709999914281,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08184fbc13622a15f5bdea4f227dbe9d45685709",
+          "message": "chore: civc debugging utils (#13900)\n\nAdds some debugging functionality that's been useful to me on a number\nof occasions including\n1. Two tests in AcirIntegrationTest for debugging CIVC from msgpack\ninputs (disabled like all of the others)\n2. A `compute_vk_hash` utility for debugging discrepancies between\ncircuits that are expected to be equivalent\n3. Adds `Debug CIVC transaction` config to launch.json to allow quick\ndebugging of CIVC w/ msgpack inputs",
+          "timestamp": "2025-05-07T20:22:59Z",
+          "tree_id": "dc90d3579375f61f24a0b8ca514e9f9ee6fa4611",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/08184fbc13622a15f5bdea4f227dbe9d45685709"
+        },
+        "date": 1746651865804,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Token contract tests/Token/constructor/0/totalInstructionsExecuted",
+            "value": 17006,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/constructor/0/totalDurationMs",
+            "value": 270.8608659999445,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/constructor/0/manaUsed",
+            "value": 381780,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/constructor/0/txHashMs",
+            "value": 23.926638999953866,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
+            "value": 8028.097999980673,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
+            "value": 3964.7200000472367,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/mint_to_public/1/totalInstructionsExecuted",
+            "value": 1461,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/mint_to_public/1/totalDurationMs",
+            "value": 82.72414100007154,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/mint_to_public/1/manaUsed",
+            "value": 42698,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/mint_to_public/1/txHashMs",
+            "value": 22.755456999875605,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/mint_to_public/1/nonRevertiblePrivateInsertionsUs",
+            "value": 5369.79000014253,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/mint_to_public/1/revertiblePrivateInsertionsUs",
+            "value": 1591.8740001507103,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/2/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/2/totalDurationMs",
+            "value": 65.68796000001021,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/2/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/2/txHashMs",
+            "value": 23.14478800003417,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/2/nonRevertiblePrivateInsertionsUs",
+            "value": 4391.082999994978,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/2/revertiblePrivateInsertionsUs",
+            "value": 1587.044000159949,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/transfer_in_public/3/totalInstructionsExecuted",
+            "value": 1907,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/transfer_in_public/3/totalDurationMs",
+            "value": 73.79461300000548,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/transfer_in_public/3/manaUsed",
+            "value": 48632,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/transfer_in_public/3/txHashMs",
+            "value": 21.79548199987039,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/transfer_in_public/3/nonRevertiblePrivateInsertionsUs",
+            "value": 4917.294000042602,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/transfer_in_public/3/revertiblePrivateInsertionsUs",
+            "value": 1065.4030002187937,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/4/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/4/totalDurationMs",
+            "value": 66.4659910001792,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/4/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/4/txHashMs",
+            "value": 22.038471000036225,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/4/nonRevertiblePrivateInsertionsUs",
+            "value": 4157.034999923781,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/4/revertiblePrivateInsertionsUs",
+            "value": 2096.4240001048893,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/5/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/5/totalDurationMs",
+            "value": 64.54608100000769,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/5/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/5/txHashMs",
+            "value": 22.03446100000292,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/5/nonRevertiblePrivateInsertionsUs",
+            "value": 4466.6780000552535,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/5/revertiblePrivateInsertionsUs",
+            "value": 1065.4629999771714,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/6/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/6/totalDurationMs",
+            "value": 62.614490000065416,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/6/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/6/txHashMs",
+            "value": 21.826205000048503,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/6/nonRevertiblePrivateInsertionsUs",
+            "value": 5354.638000018895,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/6/revertiblePrivateInsertionsUs",
+            "value": 1050.4419999197125,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/burn_public/7/totalInstructionsExecuted",
+            "value": 1133,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/burn_public/7/totalDurationMs",
+            "value": 73.2702430000063,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/burn_public/7/manaUsed",
+            "value": 35852,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/burn_public/7/txHashMs",
+            "value": 21.766210000030696,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/burn_public/7/nonRevertiblePrivateInsertionsUs",
+            "value": 4653.66300009191,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/burn_public/7/revertiblePrivateInsertionsUs",
+            "value": 1113.3580000605434,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/8/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/8/totalDurationMs",
+            "value": 66.68800800014287,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/8/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/8/txHashMs",
+            "value": 21.702463999856263,
+            "unit": "ms"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/8/nonRevertiblePrivateInsertionsUs",
+            "value": 5218.628000002354,
+            "unit": "us"
+          },
+          {
+            "name": "Token contract tests/Token/balance_of_public/8/revertiblePrivateInsertionsUs",
+            "value": 1817.272000014782,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/0/totalInstructionsExecuted",
+            "value": 17006,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/0/totalDurationMs",
+            "value": 189.97830899991095,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/0/manaUsed",
+            "value": 381780,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/0/txHashMs",
+            "value": 21.780212000012398,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
+            "value": 4321.368000004441,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
+            "value": 1118.3080000337213,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/1/totalInstructionsExecuted",
+            "value": 17006,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/1/totalDurationMs",
+            "value": 184.6095300000161,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/1/manaUsed",
+            "value": 381780,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/1/txHashMs",
+            "value": 21.486918000038713,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/1/nonRevertiblePrivateInsertionsUs",
+            "value": 4158.594999928027,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/1/revertiblePrivateInsertionsUs",
+            "value": 1075.3840000834316,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/2/totalInstructionsExecuted",
+            "value": 17006,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/2/totalDurationMs",
+            "value": 190.47080700006336,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/2/manaUsed",
+            "value": 381780,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/2/txHashMs",
+            "value": 21.625589000061154,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/2/nonRevertiblePrivateInsertionsUs",
+            "value": 4436.136999865994,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/Token/constructor/2/revertiblePrivateInsertionsUs",
+            "value": 1022.059999871999,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/constructor/3/totalInstructionsExecuted",
+            "value": 1730,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/AMM/constructor/3/totalDurationMs",
+            "value": 117.03029099991545,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/constructor/3/manaUsed",
+            "value": 72756,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/AMM/constructor/3/txHashMs",
+            "value": 21.790671999799088,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/constructor/3/nonRevertiblePrivateInsertionsUs",
+            "value": 4162.145999958739,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/constructor/3/revertiblePrivateInsertionsUs",
+            "value": 1090.8250000793487,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/set_minter/4/totalInstructionsExecuted",
+            "value": 635,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/AMM/set_minter/4/totalDurationMs",
+            "value": 61.90384600008838,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/set_minter/4/manaUsed",
+            "value": 19579,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/AMM/set_minter/4/txHashMs",
+            "value": 21.663611999945715,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/set_minter/4/nonRevertiblePrivateInsertionsUs",
+            "value": 3912.195000099018,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/set_minter/4/revertiblePrivateInsertionsUs",
+            "value": 1017.3689997754991,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/add_liquidity/5/totalInstructionsExecuted",
+            "value": 8882,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/AMM/add_liquidity/5/totalDurationMs",
+            "value": 253.23646799987182,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/add_liquidity/5/manaUsed",
+            "value": 245973,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/AMM/add_liquidity/5/txHashMs",
+            "value": 21.76915999990888,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/add_liquidity/5/nonRevertiblePrivateInsertionsUs",
+            "value": 3396.1250002030283,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/add_liquidity/5/revertiblePrivateInsertionsUs",
+            "value": 1128.2979999668896,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructionsExecuted",
+            "value": 5365,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalDurationMs",
+            "value": 150.24870500015095,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/manaUsed",
+            "value": 135369,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/txHashMs",
+            "value": 21.6040670000948,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/nonRevertiblePrivateInsertionsUs",
+            "value": 3522.4649999290705,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/revertiblePrivateInsertionsUs",
+            "value": 981.8869999144226,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/remove_liquidity/7/totalInstructionsExecuted",
+            "value": 9286,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AMM contract tests/AMM/remove_liquidity/7/totalDurationMs",
+            "value": 228.14883999992162,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/remove_liquidity/7/manaUsed",
+            "value": 251537,
+            "unit": "mana"
+          },
+          {
+            "name": "AMM contract tests/AMM/remove_liquidity/7/txHashMs",
+            "value": 21.77974099991843,
+            "unit": "ms"
+          },
+          {
+            "name": "AMM contract tests/AMM/remove_liquidity/7/nonRevertiblePrivateInsertionsUs",
+            "value": 3536.2960000056773,
+            "unit": "us"
+          },
+          {
+            "name": "AMM contract tests/AMM/remove_liquidity/7/revertiblePrivateInsertionsUs",
+            "value": 979.8769999761134,
+            "unit": "us"
+          },
+          {
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructionsExecuted",
+            "value": 27130,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/totalDurationMs",
+            "value": 298.23683399986476,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/manaUsed",
+            "value": 560425,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/txHashMs",
+            "value": 21.6872849999927,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/nonRevertiblePrivateInsertionsUs",
+            "value": 4527.644000016153,
+            "unit": "us"
+          },
+          {
+            "name": "AvmTest contract tests/AvmTest/bulk_testing/0/revertiblePrivateInsertionsUs",
+            "value": 1462.4840000178665,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructionsExecuted",
+            "value": 5192,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalDurationMs",
+            "value": 121.6323609999381,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/manaUsed",
+            "value": 90657,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/txHashMs",
+            "value": 21.704655000008643,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/nonRevertiblePrivateInsertionsUs",
+            "value": 3767.903999891132,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/revertiblePrivateInsertionsUs",
+            "value": 1641.6389998048544,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalInstructionsExecuted",
+            "value": 6315,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalDurationMs",
+            "value": 92.94582000002265,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/manaUsed",
+            "value": 111099,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/txHashMs",
+            "value": 28.033779999939725,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/nonRevertiblePrivateInsertionsUs",
+            "value": 5094.0079998690635,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/revertiblePrivateInsertionsUs",
+            "value": 1360.3359998669475,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalInstructionsExecuted",
+            "value": 7666,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalDurationMs",
+            "value": 79.61891800002195,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/manaUsed",
+            "value": 135021,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/txHashMs",
+            "value": 21.989978000056,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/nonRevertiblePrivateInsertionsUs",
+            "value": 3818.2789999991655,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/revertiblePrivateInsertionsUs",
+            "value": 1588.0940000060946,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalInstructionsExecuted",
+            "value": 8871,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalDurationMs",
+            "value": 83.66610500006936,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/manaUsed",
+            "value": 156372,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/txHashMs",
+            "value": 21.65666100010276,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/nonRevertiblePrivateInsertionsUs",
+            "value": 3669.196000089869,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/revertiblePrivateInsertionsUs",
+            "value": 991.8369997758418,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalInstructionsExecuted",
+            "value": 10223,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalDurationMs",
+            "value": 87.53955699992366,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/manaUsed",
+            "value": 180303,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/txHashMs",
+            "value": 21.5792360000778,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/nonRevertiblePrivateInsertionsUs",
+            "value": 4580.367999849841,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/revertiblePrivateInsertionsUs",
+            "value": 1372.7680000010878,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalInstructionsExecuted",
+            "value": 11741,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalDurationMs",
+            "value": 89.66629399987869,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/manaUsed",
+            "value": 206850,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/txHashMs",
+            "value": 21.750719000119716,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/nonRevertiblePrivateInsertionsUs",
+            "value": 3381.933999946341,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/revertiblePrivateInsertionsUs",
+            "value": 879.858999978751,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalInstructionsExecuted",
+            "value": 13554,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalDurationMs",
+            "value": 96.47336499998346,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/manaUsed",
+            "value": 239862,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/txHashMs",
+            "value": 21.423982999986038,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/nonRevertiblePrivateInsertionsUs",
+            "value": 4306.896999944001,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/revertiblePrivateInsertionsUs",
+            "value": 994.8579999618232,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalInstructionsExecuted",
+            "value": 14784,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalDurationMs",
+            "value": 100.94798500020988,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/manaUsed",
+            "value": 261789,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/txHashMs",
+            "value": 21.692663999972865,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/nonRevertiblePrivateInsertionsUs",
+            "value": 4228.069999953732,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/revertiblePrivateInsertionsUs",
+            "value": 1495.2969998121262,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalInstructionsExecuted",
+            "value": 16167,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalDurationMs",
+            "value": 109.87032200000249,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/manaUsed",
+            "value": 286428,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/txHashMs",
+            "value": 21.620549000101164,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/nonRevertiblePrivateInsertionsUs",
+            "value": 4091.840000124648,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/revertiblePrivateInsertionsUs",
+            "value": 1346.3449999690056,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalInstructionsExecuted",
+            "value": 17397,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalDurationMs",
+            "value": 107.01943899993785,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/manaUsed",
+            "value": 308355,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/txHashMs",
+            "value": 21.580135999945924,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/nonRevertiblePrivateInsertionsUs",
+            "value": 4763.332000002265,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/revertiblePrivateInsertionsUs",
+            "value": 1571.7130000703037,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalInstructionsExecuted",
+            "value": 39043,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalDurationMs",
+            "value": 169.3006039999891,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/manaUsed",
+            "value": 693045,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/txHashMs",
+            "value": 21.655431000050157,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/nonRevertiblePrivateInsertionsUs",
+            "value": 4152.74400007911,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/revertiblePrivateInsertionsUs",
+            "value": 967.4349999986589,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalInstructionsExecuted",
+            "value": 39201,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalDurationMs",
+            "value": 170.45125299994834,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/manaUsed",
+            "value": 696645,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/txHashMs",
+            "value": 21.498278999933973,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/nonRevertiblePrivateInsertionsUs",
+            "value": 4164.714999962598,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/revertiblePrivateInsertionsUs",
+            "value": 901.750999968499,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalInstructionsExecuted",
+            "value": 74638,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalDurationMs",
+            "value": 276.2803589999676,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/manaUsed",
+            "value": 1326030,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/txHashMs",
+            "value": 21.940443000057712,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/nonRevertiblePrivateInsertionsUs",
+            "value": 4191.346999956295,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/revertiblePrivateInsertionsUs",
+            "value": 1033.6899999529123,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalInstructionsExecuted",
+            "value": 74697,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalDurationMs",
+            "value": 276.2637579999864,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/manaUsed",
+            "value": 1328517,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/txHashMs",
+            "value": 21.906191000016406,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/nonRevertiblePrivateInsertionsUs",
+            "value": 4206.108000129461,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/revertiblePrivateInsertionsUs",
+            "value": 1436.9830000214279,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalInstructionsExecuted",
+            "value": 287677,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalDurationMs",
+            "value": 916.0271660001017,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/manaUsed",
+            "value": 5120301,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/txHashMs",
+            "value": 21.346097000176087,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/nonRevertiblePrivateInsertionsUs",
+            "value": 4650.273000122979,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/revertiblePrivateInsertionsUs",
+            "value": 1512.927999952808,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalInstructionsExecuted",
+            "value": 9533,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalDurationMs",
+            "value": 83.30871700006537,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/manaUsed",
+            "value": 175263,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/txHashMs",
+            "value": 21.842926000012085,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/nonRevertiblePrivateInsertionsUs",
+            "value": 4181.116000050679,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/revertiblePrivateInsertionsUs",
+            "value": 1559.8609999287874,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalInstructionsExecuted",
+            "value": 3054,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalDurationMs",
+            "value": 63.094737000064924,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/manaUsed",
+            "value": 53874,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/txHashMs",
+            "value": 21.65761199989356,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/nonRevertiblePrivateInsertionsUs",
+            "value": 4291.465000016615,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/revertiblePrivateInsertionsUs",
+            "value": 976.8860000185668,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalInstructionsExecuted",
+            "value": 2092,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalDurationMs",
+            "value": 63.5497439999599,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/manaUsed",
+            "value": 35940,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/txHashMs",
+            "value": 21.81532400008291,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/nonRevertiblePrivateInsertionsUs",
+            "value": 4909.183999989182,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/revertiblePrivateInsertionsUs",
+            "value": 940.4729998204857,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalInstructionsExecuted",
+            "value": 22834,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalDurationMs",
+            "value": 479.9570969999768,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/manaUsed",
+            "value": 602757,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/txHashMs",
+            "value": 21.749658999964595,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/nonRevertiblePrivateInsertionsUs",
+            "value": 4339.178999885917,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/revertiblePrivateInsertionsUs",
+            "value": 953.9449999574572,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalInstructionsExecuted",
+            "value": 22770,
+            "unit": "#instructions"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalDurationMs",
+            "value": 429.0471999999136,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/manaUsed",
+            "value": 599664,
+            "unit": "mana"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/txHashMs",
+            "value": 21.750469000078738,
+            "unit": "ms"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/nonRevertiblePrivateInsertionsUs",
+            "value": 4150.893999962136,
+            "unit": "us"
+          },
+          {
+            "name": "AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/revertiblePrivateInsertionsUs",
+            "value": 1489.0759999398142,
             "unit": "us"
           }
         ]
