@@ -62,12 +62,11 @@ Join the [Discord](https://discord.gg/aztec) to connect with the community and g
 
 With the alpha-testnet version of the aztec tools, you now need to define required variables for your node.
 
-The following variable names are specific to the aztec start command:
+The following variable names are specific to the `aztec start` command, set them as variables in the terminal or inline before the command.
 - `ETHEREUM_HOSTS=<url>`: One or more comma-separated public rpc provider url(s). NB - don't share your access token
-  - Signup to a service for more requests, Or use one like https://aztec-alpha-testnet-fullnode.zkv.xyz/
 - `L1_CONSENSUS_HOST_URLS=<url>`: One or more comma-separated public rpc provider url(s) that supports consensus client requests
-- `VALIDATOR_PRIVATE_KEY="Ox<hex value>`: Private key of testnet L1 EOA that holds Sepolia ETH (0.01 Sepolia ETH can get you started)
-- `COINBASE="0x<eth address>`: Recipient of block rewards (for node security on mainnet, this should be a different address to the validator eoa)
+- `VALIDATOR_PRIVATE_KEY="Ox<hex value>"`: Private key of testnet L1 EOA that holds Sepolia ETH (0.01 Sepolia ETH can get you started)
+- `COINBASE="0x<eth address>"`: Recipient of block rewards (for node security on mainnet, this should be a different address to the validator eoa)
 - `P2P_IP="x.x.x.x"`: IP address of computer running the node (you can get this by running, `curl api.ipify.org`, on your node)
 
 Now in a terminal start your node as a sequencer and archiver:
@@ -94,7 +93,7 @@ aztec start --node --archiver --sequencer \
 
 ### Port forwarding
 
-For some restricted environments, may need to explicity forward the p2p port (default: 40400) to your local node ip address.
+For some restricted environments, you may need to explicity forward the p2p port (default: 40400) to your local node ip address.
 
 This is often in a router's advanced network settings if required.
 
