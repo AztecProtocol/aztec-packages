@@ -174,11 +174,6 @@ contract SlashTest is StakingBase {
     assertEq(info.stake, balance - slashingAmount);
     assertTrue(info.status == Status.LIVING);
 
-    // The active attester count should not change until we reach the next epoch
-    assertEq(staking.getActiveAttesterCount(), activeAttesterCount);
-
-    // Move to next epoch for changes to take effect
-    staking.cheat__progressEpoch();
     assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);
   }
 }

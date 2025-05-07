@@ -2,7 +2,7 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {TimeStorage, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {TimeStorage, TimeLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract TimeCheater {
@@ -14,7 +14,7 @@ contract TimeCheater {
   uint256 public slotDuration;
   uint256 public epochDuration;
 
-  uint256 public currentEpoch;
+  uint256 public currentSlot;
 
   constructor(
     address _target,
@@ -36,6 +36,10 @@ contract TimeCheater {
     );
   }
 
+  function getCurrentEpoch() public view returns (Epoch) {
+    return Epoch.wrap(currentSlot / epochDuration);
+  }
+
   function cheat__setTimeStorage(TimeStorage memory _timeStorage) public {
     vm.store(
       target,
@@ -53,17 +57,32 @@ contract TimeCheater {
   }
 
   function cheat__setEpochNow(uint256 _epoch) public {
-    vm.warp(genesisTime + _epoch * slotDuration * epochDuration);
-    currentEpoch = _epoch;
+    currentSlot = _epoch * epochDuration;
+    cheat__jumpToSlot(currentSlot);
   }
 
   function cheat__progressEpoch() public {
-    currentEpoch++;
-    vm.warp(genesisTime + currentEpoch * slotDuration * epochDuration);
+    currentSlot += epochDuration;
+    cheat__jumpToSlot(currentSlot);
   }
 
-  function cheat_jumpForwardEpochs(uint256 _epochs) public {
-    currentEpoch += _epochs;
-    vm.warp(genesisTime + currentEpoch * slotDuration * epochDuration);
+  function cheat__jumpForwardEpochs(uint256 _epochs) public {
+    currentSlot += (_epochs * epochDuration);
+    cheat__jumpToSlot(currentSlot);
+  }
+
+  function cheat__jumpForwardSlots(uint256 _slots) public {
+    currentSlot += _slots;
+    cheat__jumpToSlot(currentSlot);
+  }
+
+  function cheat__progressSlot() public {
+    currentSlot++;
+    cheat__jumpToSlot(currentSlot);
+  }
+
+  function cheat__jumpToSlot(uint256 _slot) public {
+    currentSlot = _slot;
+    vm.warp(genesisTime + currentSlot * slotDuration);
   }
 }
