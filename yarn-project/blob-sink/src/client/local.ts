@@ -11,6 +11,10 @@ export class LocalBlobSinkClient implements BlobSinkClientInterface {
     this.blobStore = blobStore;
   }
 
+  public testSources(): Promise<void> {
+    return Promise.resolve();
+  }
+
   public async sendBlobsToBlobSink(blockId: string, blobs: Blob[]): Promise<boolean> {
     await this.blobStore.addBlobSidecars(
       blockId,

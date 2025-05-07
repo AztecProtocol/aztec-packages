@@ -32,6 +32,65 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     };
   }
 
+  public async testSources() {
+    const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
+    const archiveUrl = this.archiveClient?.getBaseUrl();
+    this.log.info(`Testing configured blob sources`, { blobSinkUrl, l1ConsensusHostUrls, archiveUrl });
+
+    if (blobSinkUrl) {
+      try {
+        const res = await this.fetch(`${this.config.blobSinkUrl}/status`, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          this.log.info(`Blob sink is reachable`, { blobSinkUrl });
+        } else {
+          this.log.error(`Failure reaching blob sink: ${res.statusText} (${res.status})`, { blobSinkUrl });
+        }
+      } catch (err) {
+        this.log.error(`Error reaching blob sink`, err, { blobSinkUrl });
+      }
+    } else {
+      this.log.warn('No blob sink url is configured');
+    }
+
+    if (l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
+      for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
+        const l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
+        try {
+          const { url, ...options } = getBeaconNodeFetchOptions(
+            `${l1ConsensusHostUrl}/eth/v1/beacon/headers`,
+            this.config,
+            l1ConsensusHostIndex,
+          );
+          const res = await this.fetch(url, options);
+          if (res.ok) {
+            this.log.info(`L1 consensus host is reachable`, { l1ConsensusHostUrl });
+          } else {
+            this.log.error(`Failure reaching L1 consensus host: ${res.statusText} (${res.status})`, {
+              l1ConsensusHostUrl,
+            });
+          }
+        } catch (err) {
+          this.log.error(`Error reaching L1 consensus host`, err, { l1ConsensusHostUrl });
+        }
+      }
+    } else {
+      this.log.warn('No L1 consensus host urls configured');
+    }
+
+    if (this.archiveClient) {
+      try {
+        const latest = await this.archiveClient.getLatestBlock();
+        this.log.info(`Archive client is reachable and synced to L1 block ${latest.number}`, { latest, archiveUrl });
+      } catch (err) {
+        this.log.error(`Error reaching archive client`, err, { archiveUrl });
+      }
+    } else {
+      this.log.warn('No archive client configured');
+    }
+  }
+
   public async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
     // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
     // When in reality they will not, but for testing purposes this is fine
@@ -45,9 +104,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     try {
       const res = await this.fetch(`${this.config.blobSinkUrl}/blob_sidecar`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           // eslint-disable-next-line camelcase
           block_id: blockHash,

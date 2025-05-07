@@ -32,7 +32,12 @@ export const ARCHIVER_POLL_INTERVAL = 50;
 export type EpochsTestOpts = Partial<
   Pick<
     SetupOptions,
-    'startProverNode' | 'aztecProofSubmissionWindow' | 'aztecEpochDuration' | 'proverTestDelayMs' | 'proverNodeConfig'
+    | 'startProverNode'
+    | 'aztecProofSubmissionWindow'
+    | 'aztecEpochDuration'
+    | 'proverTestDelayMs'
+    | 'proverNodeConfig'
+    | 'txPropagationMaxQueryAttempts'
   >
 >;
 
@@ -86,7 +91,7 @@ export class EpochsTestContext {
       proverId: Fr.fromString('1'),
       // This must be enough so that the tx from the prover is delayed properly,
       // but not so much to hang the sequencer and timeout the teardown
-      txPropagationMaxQueryAttempts: 12,
+      txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       ...opts,
     });

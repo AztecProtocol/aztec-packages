@@ -190,6 +190,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
 
   /** Identifies a p2p client. */
   isP2PClient(): true;
+
+  /** Clears the p2p db. */
+  clear(): Promise<void>;
 };
 
 /**
@@ -234,7 +237,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   constructor(
     _clientType: T,
-    store: AztecAsyncKVStore,
+    private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
@@ -265,6 +268,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     this.txPool = mempools.txPool;
     this.attestationPool = mempools.attestationPool!;
+  }
+
+  public clear(): Promise<void> {
+    return this.store.clear();
   }
 
   public isP2PClient(): true {
