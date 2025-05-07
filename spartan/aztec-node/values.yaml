@@ -28,6 +28,9 @@ customNetwork:
 # Which rollup contract we want to follow from the registry
 rollupVersion: "canonical"
 
+# -- Use host network - this will disable nodePort service and use host networking instead
+hostNetwork: false
+
 # -- Aztec node configuration
 node:
   # -- Number of replicas

@@ -21,7 +21,8 @@ spec:
         app: node
     spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
-      dnsPolicy: ClusterFirst
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: {{ .Values.hostNetwork }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -37,7 +38,7 @@ spec:
       {{- if .Values.initContainers }}
         {{- tpl (toYaml .Values.initContainers | nindent 8) $ }}
       {{- end }}
-      {{- if .Values.service.p2p.nodePortEnabled }}
+      {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
         - name: init-nodeport
           image: bitnami/kubectl
           securityContext:
@@ -49,13 +50,18 @@ spec:
             - >
               export POD_INDEX=$(echo ${POD_NAME} | awk -F'-' '{print $NF}');
 
+              # If running host network, we don't need to get the node port from the service
+              {{- if not .Values.hostNetwork }}
               export EXTERNAL_PORT=$(kubectl get services -l "pod-index in (${POD_INDEX}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
+              echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /env/init-nodeport;
+              echo "export P2P_PORT=$EXTERNAL_PORT"     >> /env/init-nodeport;
+              {{- end }}
+
+              # Get the external IP of the node
               export EXTERNAL_IP=$(kubectl get nodes "${NODE_NAME}" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}');
 
-              echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /env/init-nodeport;
               echo "export EXTERNAL_IP=$EXTERNAL_IP"     >> /env/init-nodeport;
               echo "export P2P_IP=$EXTERNAL_IP"         >> /env/init-nodeport;
-              echo "export P2P_PORT=$EXTERNAL_PORT"     >> /env/init-nodeport;
               cat /env/init-nodeport;
           env:
             - name: POD_NAME
@@ -78,11 +84,21 @@ spec:
             - /bin/bash
             - -c
             - |
-              {{- if .Values.service.p2p.nodePortEnabled }}
+              {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
               source /env/init-nodeport;
               {{- else }}
               export P2P_IP=$(hostname -i)
               {{- end }}
+
+              curl -L --create-dirs --output /data/world_state/L1ToL2MessageTree/data.mdb https://storage.googleapis.com/aztec-testnet/snapshots/aztec-11155111-150103439-0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0/l1-to-l2-message-tree-20250507090033-0x0dcf1daf5f8553941ccb2ff71f0e8d351cb9fffbeb4638789d71a5a6076e47ce.db
+              curl -L --create-dirs --output /data/world_state/ArchiveTree/data.mdb https://storage.googleapis.com/aztec-testnet/snapshots/aztec-11155111-150103439-0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0/archive-tree-20250507090033-0x0dcf1daf5f8553941ccb2ff71f0e8d351cb9fffbeb4638789d71a5a6076e47ce.db
+              curl -L --create-dirs --output /data/world_state/PublicDataTree/data.mdb https://storage.googleapis.com/aztec-testnet/snapshots/aztec-11155111-150103439-0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0/public-data-tree-20250507090033-0x0dcf1daf5f8553941ccb2ff71f0e8d351cb9fffbeb4638789d71a5a6076e47ce.db
+              curl -L --create-dirs --output /data/world_state/NoteHashTree/data.mdb https://storage.googleapis.com/aztec-testnet/snapshots/aztec-11155111-150103439-0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0/note-hash-tree-20250507090033-0x0dcf1daf5f8553941ccb2ff71f0e8d351cb9fffbeb4638789d71a5a6076e47ce.db
+              curl -L --create-dirs --output /data/world_state/NullifierTree/data.mdb https://storage.googleapis.com/aztec-testnet/snapshots/aztec-11155111-150103439-0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0/nullifier-tree-20250507090033-0x0dcf1daf5f8553941ccb2ff71f0e8d351cb9fffbeb4638789d71a5a6076e47ce.db
+              curl -L --create-dirs --output /data/archiver/data.mdb https://storage.googleapis.com/aztec-testnet/snapshots/aztec-11155111-150103439-0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0/archiver-20250507090033-0x0dcf1daf5f8553941ccb2ff71f0e8d351cb9fffbeb4638789d71a5a6076e47ce.db
+
+              echo '{"schemaVersion":1,"rollupAddress":"0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0"}' > /data/archiver/db_version
+              echo '{"schemaVersion":1,"rollupAddress":"0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0"}' > /data/world_state/db_version
 
               start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start")
               pod_index=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
@@ -131,7 +147,7 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: {{ .Values.node.storage.dataDirectory }}
-            {{- if .Values.service.p2p.nodePortEnabled }}
+            {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
             - name: init-nodeport
               mountPath: /env
             {{- end }}
@@ -258,7 +274,7 @@ spec:
         - name: l1-publisher
           secret:
             secretName: {{ include "chart.name" . }}-l1-publisher
-        {{- if .Values.service.p2p.nodePortEnabled }}
+        {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
         - name: init-nodeport
           emptyDir: {}
         {{- end }}
