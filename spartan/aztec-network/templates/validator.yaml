@@ -181,7 +181,7 @@ spec:
               value: "{{ .Values.snapshots.syncUrl }}"
             {{- if .Values.archiver.enabled }}
             - name: ARCHIVER_URL
-              value: http://{{ include "aztec-network.fullname" . }}-archiver:{{ .Values.archiver.service.nodePort }}
+              value: http://{{ include "aztec-network.fullname" . }}-archiver.{{ .Release.Namespace }}:{{ .Values.archiver.service.nodePort }}
             {{- end }}
             - name: BLOB_SINK_URL
               value: "http://alpha-testnet-aztec-network-blob-sink.alpha-testnet.svc.cluster.local:5052"

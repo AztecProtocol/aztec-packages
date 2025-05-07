@@ -52,9 +52,6 @@ spec:
             - /bin/bash
             - -c
             - |
-              echo "contracts.env:"
-              cat /shared/contracts/contracts.env
-              echo ""
               source /shared/contracts/contracts.env
               source /shared/config/service-addresses
               env

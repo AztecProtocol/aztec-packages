@@ -275,6 +275,15 @@ Combined wait-for-services and configure-env container for full nodes
         fi
       fi
 
+      # Wait for archiver if enabled and not running inside archiver
+      if [ "{{ .Values.archiver.enabled }}" = "true" ] && [ "${POD_LABEL_APP}" != "archiver" ]; then
+        until curl --silent --head --fail "${ARCHIVER_HOST}/status" > /dev/null; do
+          echo "Waiting for archiver..."
+          sleep 5
+        done
+        echo "Archiver is ready!"
+      fi
+
       # Configure environment
       source /shared/config/service-addresses
       /scripts/configure-full-node-env.sh "$(cat /shared/pxe/pxe_url)"
@@ -298,6 +307,10 @@ Combined wait-for-services and configure-env container for full nodes
       value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
     - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
       value: "{{ .Values.aztec.contracts.feeAssetHandlerContractAddress }}"
+    - name: POD_LABEL_APP
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.labels['app']
 {{- end -}}
 
 {{/*
