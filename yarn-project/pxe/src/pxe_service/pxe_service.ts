@@ -690,6 +690,10 @@ export class PXEService implements PXE {
             totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
+        this.log.info(`Proving completed in ${totalTime}ms`, {
+          timings,
+        });
+
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, timings);
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
@@ -842,18 +846,6 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        this.log.info(`Simulation completed for ${txHash.toString()} in ${totalTime}ms`, {
-          txHash,
-          ...txInfo,
-          ...(publicOutput
-            ? {
-                gasUsed: publicOutput.gasUsed,
-                revertCode: publicOutput.txEffect.revertCode.getCode(),
-                revertReason: publicOutput.revertReason,
-              }
-            : {}),
-        });
-
         const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
           functionName,
           time: witgen,
@@ -872,6 +864,19 @@ export class PXEService implements PXE {
               (validationTime ?? 0) +
               perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
+
+        this.log.info(`Simulation completed for ${txHash.toString()} in ${totalTime}ms`, {
+          txHash,
+          ...txInfo,
+          ...(publicOutput
+            ? {
+                gasUsed: publicOutput.gasUsed,
+                revertCode: publicOutput.txEffect.revertCode.getCode(),
+                revertReason: publicOutput.revertReason,
+              }
+            : {}),
+          timings,
+        });
 
         return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
           privateSimulationResult,

@@ -3,7 +3,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type PrivateExecutionStep, PrivateExecutionStepSchema } from '../kernel/private_kernel_prover_output.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { PrivateExecutionResult, collectSortedContractClassLogs } from './private_execution_result.js';
