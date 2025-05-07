@@ -10,7 +10,7 @@ import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
-import type { BlockHeader, ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ValidatorClientConfig } from './config.js';
@@ -54,7 +54,7 @@ export interface Validator {
   // Block validation responsibilities
   createBlockProposal(
     blockNumber: Fr,
-    header: BlockHeader,
+    header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
