@@ -15,7 +15,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
-import type { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
@@ -458,10 +457,6 @@ export class PublicPersistableStateManager {
     );
 
     return contractClass.packedBytecode;
-  }
-
-  public traceEnqueuedCall(publicCallRequest: PublicCallRequest) {
-    this.trace.traceEnqueuedCall(publicCallRequest);
   }
 
   public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {

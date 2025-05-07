@@ -78,7 +78,7 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
-              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST:-}
+              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST:-""} ${FULL_NODE_HOST:-""}
               source /scripts/get-private-key.sh
               source /shared/config/keys.env
               source /shared/contracts/contracts.env
@@ -144,14 +144,12 @@ spec:
               value: "{{ .Values.proverNode.proverBroker.jobTimeoutMs }}"
             - name: PROVER_BROKER_JOB_MAX_RETRIES
               value: "{{ .Values.proverNode.proverBroker.jobMaxRetries }}"
-            - name: PROVER_NODE_TX_GATHERING_TIMEOUT_MS
-              value: "{{ .Values.proverNode.txGathering.timeoutMs }}"
-            - name: PROVER_NODE_TX_GATHERING_INTERVAL_MS
-              value: "{{ .Values.proverNode.txGathering.intervalMs }}"
-            - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS
+            - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE
               value: "{{ .Values.proverNode.txGathering.maxParallelRequests }}"
             - name: PROVER_FAILED_PROOF_STORE
               value: "{{ .Values.proverNode.failedProofStore }}"
+            - name: PROVER_NODE_FAILED_EPOCH_STORE
+              value: "{{ .Values.proverNode.failedEpochStore }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
             - name: L1_FIXED_PRIORITY_FEE_PER_GAS

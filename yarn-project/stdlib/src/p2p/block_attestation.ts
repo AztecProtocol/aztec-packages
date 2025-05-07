@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -31,6 +31,9 @@ export class BlockAttestation extends Gossipable {
   private sender: EthAddress | undefined;
 
   constructor(
+    /** The block number of the attestation. */
+    public readonly blockNumber: Fr,
+
     /** The payload of the message, and what the signature is over */
     public readonly payload: ConsensusPayload,
 
@@ -43,10 +46,11 @@ export class BlockAttestation extends Gossipable {
   static get schema(): ZodFor<BlockAttestation> {
     return z
       .object({
+        blockNumber: Fr.schema,
         payload: ConsensusPayload.schema,
         signature: Signature.schema,
       })
-      .transform(obj => new BlockAttestation(obj.payload, obj.signature));
+      .transform(obj => new BlockAttestation(obj.blockNumber, obj.payload, obj.signature));
   }
 
   override p2pMessageIdentifier(): Promise<Buffer32> {
@@ -58,11 +62,7 @@ export class BlockAttestation extends Gossipable {
   }
 
   get slotNumber(): Fr {
-    return this.payload.header.globalVariables.slotNumber;
-  }
-
-  get blockNumber(): Fr {
-    return this.payload.header.globalVariables.blockNumber;
+    return this.payload.header.slotNumber;
   }
 
   /**Get sender
@@ -86,19 +86,23 @@ export class BlockAttestation extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.payload, this.signature]);
+    return serializeToBuffer([this.blockNumber, this.payload, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(ConsensusPayload), reader.readObject(Signature));
+    return new BlockAttestation(
+      reader.readObject(Fr),
+      reader.readObject(ConsensusPayload),
+      reader.readObject(Signature),
+    );
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(ConsensusPayload.empty(), Signature.empty());
+    return new BlockAttestation(Fr.ZERO, ConsensusPayload.empty(), Signature.empty());
   }
 
   getSize(): number {
-    return this.payload.getSize() + this.signature.getSize();
+    return this.blockNumber.size + this.payload.getSize() + this.signature.getSize();
   }
 }

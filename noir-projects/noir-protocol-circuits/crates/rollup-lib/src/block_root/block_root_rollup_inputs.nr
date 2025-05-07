@@ -49,7 +49,7 @@ pub(crate) mod tests {
         block_root::block_root_rollup_inputs::BlockRootRollupInputs,
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
-    use std::hash::poseidon2::Poseidon2;
+    use poseidon::poseidon2::Poseidon2;
     use types::{
         hash::accumulate_sha256, tests::utils::assert_array_eq, utils::arrays::array_concat,
     };

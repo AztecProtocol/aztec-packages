@@ -1,8 +1,11 @@
 {
   "extends": ".",
   "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
     "outDir": "dest/browser",
-    "tsBuildInfoFile": ".tsbuildinfo.browser"
   },
-  "include": ["!src/main.ts", "src", "src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts"]
+  "include": ["!src/main.ts", "src", "src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts", "src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.ts"]
 }

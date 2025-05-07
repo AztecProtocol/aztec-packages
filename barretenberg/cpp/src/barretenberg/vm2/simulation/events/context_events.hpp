@@ -8,10 +8,11 @@ namespace bb::avm2::simulation {
 
 struct ContextEvent {
     uint32_t id;
-    // uint32_t parent_id;
+    uint32_t parent_id;
 
     // State
     uint32_t pc;
+    uint32_t next_pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
     bool is_static;
@@ -38,7 +39,7 @@ struct ContextEvent {
 
 struct ContextStackEvent {
     uint32_t id;
-    // uint32_t parent_id;
+    uint32_t parent_id;
 
     // State
     uint32_t next_pc;

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -35,7 +41,9 @@ template <typename Flavor> class UltraVerifier_ {
 using UltraVerifier = UltraVerifier_<UltraFlavor>;
 using UltraRollupVerifier = UltraVerifier_<UltraRollupFlavor>;
 using UltraKeccakVerifier = UltraVerifier_<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 using UltraStarknetVerifier = UltraVerifier_<UltraStarknetFlavor>;
+#endif
 using MegaVerifier = UltraVerifier_<MegaFlavor>;
 using MegaZKVerifier = UltraVerifier_<MegaZKFlavor>;
 

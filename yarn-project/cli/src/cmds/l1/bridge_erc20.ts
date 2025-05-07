@@ -1,5 +1,5 @@
 import { type AztecAddress, type EthAddress, type Fr, L1ToL2TokenPortalManager } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { prettyPrintJSON } from '../../utils/commands.js';
@@ -22,17 +22,10 @@ export async function bridgeERC20(
 ) {
   // Prepare L1 client
   const chain = createEthereumChain(l1RpcUrls, chainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
+  const l1Client = createExtendedL1Client(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
 
   // Setup portal manager
-  const manager = new L1ToL2TokenPortalManager(
-    portalAddress,
-    tokenAddress,
-    handlerAddress,
-    publicClient,
-    walletClient,
-    debugLogger,
-  );
+  const manager = new L1ToL2TokenPortalManager(portalAddress, tokenAddress, handlerAddress, l1Client, debugLogger);
   let claimSecret: Fr;
   let messageHash: `0x${string}`;
   if (privateTransfer) {

@@ -739,7 +739,7 @@ TEST_F(TranslatorRelationConsistency, OpcodeConstraintRelation)
         const auto parameters = RelationParameters<FF>::get_random();
 
         // (Contribution 1)
-        auto contribution_1 = op * (op - FF(1)) * (op - FF(2)) * (op - FF(3)) * (op - FF(4)) * (op - FF(8));
+        auto contribution_1 = op * (op - FF(3)) * (op - FF(4)) * (op - FF(8));
         expected_values[0] = contribution_1;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);

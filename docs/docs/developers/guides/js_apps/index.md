@@ -17,7 +17,7 @@ npm install @aztec/aztec.js
 
 At the top of your JavaScript file, you can import what you need, eg:
 
-#include_code import_aztecjs yarn-project/end-to-end/src/e2e_simple.test.ts typescript
+#include_code import_aztecjs yarn-project/end-to-end/src/e2e_2_pxes.test.ts typescript
 
 ## Flow
 

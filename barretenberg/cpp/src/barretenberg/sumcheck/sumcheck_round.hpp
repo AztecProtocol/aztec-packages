@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -582,6 +588,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         Utils::zero_elements(relation_evaluations);
     };
+
     /**
      * @brief Check that the round target sum is correct
      * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
@@ -590,15 +597,17 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
-    bool check_sum(SumcheckRoundUnivariate& univariate)
+    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
     {
-        FF total_sum = univariate.value_at(0) + univariate.value_at(1);
-        // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
-        // with a simulated builder.
+        FF total_sum =
+            (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
         bool sumcheck_round_failed(false);
-        // This method is used by TranslatorRecursiveFlavor where dummy_round flags are not needed.
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            sumcheck_round_failed = target_total_sum.get_value() != total_sum.get_value();
+            // This bool is only needed for debugging
+            if (indicator.get_value() == FF{ 1 }.get_value()) {
+                sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
+            }
+
             target_total_sum.assert_equal(total_sum);
         } else {
             sumcheck_round_failed = (target_total_sum != total_sum);
@@ -609,46 +618,6 @@ template <typename Flavor> class SumcheckVerifierRound {
     };
 
     /**
-     * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
-     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
-     * \f$
-     * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
-     *
-     */
-    template <typename Builder>
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, stdlib::bool_t<Builder> dummy_round)
-    {
-        FF total_sum =
-            FF::conditional_assign(dummy_round, target_total_sum, univariate.value_at(0) + univariate.value_at(1));
-        // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
-        // with a simulated builder.
-        bool sumcheck_round_failed(false);
-        // This bool is only needed for debugging
-        if (!dummy_round.get_value()) {
-            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-        }
-
-        target_total_sum.assert_equal(total_sum);
-
-        round_failed = round_failed || sumcheck_round_failed;
-        return !sumcheck_round_failed;
-    };
-
-    /**
-     * @brief After checking that the univariate is good for this round, compute the next target sum given by the
-     * evaluation \f$\tilde{S}^i(u_i)\f$.
-     *
-     * @param univariate \f$ \tilde{S}^i(X) \f$, given by its evaluations over \f$ \{0,1,2,\ldots, D\}\f$.
-     * @param round_challenge \f$ u_i\f$
-     */
-    void compute_next_target_sum(SumcheckRoundUnivariate& univariate, FF& round_challenge)
-    {
-        // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
-        target_total_sum = univariate.evaluate(round_challenge);
-    }
-
-    /**
      * @brief After checking that the univariate is good for this round, compute the next target sum given by the
      * evaluation \f$ \tilde{S}^i(u_i) \f$.
      *
@@ -656,13 +625,12 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param round_challenge \f$ u_i\f$
      *
      */
-    template <typename Builder>
     void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
                                  FF& round_challenge,
-                                 stdlib::bool_t<Builder> dummy_round)
+                                 const FF& indicator)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
-        target_total_sum = FF::conditional_assign(dummy_round, target_total_sum, univariate.evaluate(round_challenge));
+        target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
     }
 
     /**

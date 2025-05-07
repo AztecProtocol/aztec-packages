@@ -1,8 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "ivc_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
@@ -99,7 +105,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     size_t dyadic_size = blocks.get_structured_dyadic_size();
     size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
     // All circuits have pairing point public inputs; kernels have additional public inputs for two databus commitments
-    size_t num_public_inputs = bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    size_t num_public_inputs = bb::PAIRING_POINTS_SIZE;
     if (is_kernel) {
         num_public_inputs += bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
     }
@@ -139,8 +145,9 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs
     std::vector<FF> proof;
 
     // Populate mock public inputs
+    FF MAGIC_PUBLIC_INPUT = 2; // arbitrary small non-zero value to avoid errors
     for (size_t i = 0; i < num_public_inputs; ++i) {
-        proof.emplace_back(0);
+        proof.emplace_back(MAGIC_PUBLIC_INPUT);
     }
 
     // Populate mock witness polynomial commitments
@@ -193,7 +200,7 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
     honk_verification_key->circuit_size = dyadic_size;
     honk_verification_key->num_public_inputs = num_public_inputs;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
-    honk_verification_key->contains_pairing_point_accumulator = true;
+    honk_verification_key->pairing_inputs_public_input_key.start_idx = 0;
 
     for (auto& commitment : honk_verification_key->get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
@@ -261,7 +268,7 @@ ClientIVC::MergeProof create_dummy_merge_proof()
         proof.emplace_back(val);
     }
 
-    ASSERT(proof.size() == MERGE_PROOF_SIZE);
+    BB_ASSERT_EQ(proof.size(), MERGE_PROOF_SIZE);
 
     return proof;
 }
@@ -281,11 +288,11 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
 
     // Convert the VerificationKey to fields
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
-    ASSERT(mock_vk_fields.size() == key_witness_indices.size());
+    BB_ASSERT_EQ(mock_vk_fields.size(), key_witness_indices.size());
 
     // Add the fields to the witness and set the key witness indices accordingly
     for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
-        witness_idx = builder.add_variable(value);
+        builder.assert_equal(builder.add_variable(value), witness_idx);
     }
 }
 

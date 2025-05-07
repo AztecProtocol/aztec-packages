@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #ifndef DISABLE_AZTEC_VM
 
 #include "avm2_recursion_constraint.hpp"
@@ -5,7 +11,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
@@ -21,7 +27,7 @@ namespace acir_format {
 using namespace bb;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
+using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
 namespace {
 /**
@@ -140,19 +146,18 @@ void create_dummy_vkey_and_proof(Builder& builder,
  *
  * @param builder
  * @param input
- * @param input_aggregation_object_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
+ * @param input_points_accumulator_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  */
-aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
-                                                       const RecursionConstraint& input,
-                                                       const aggregation_state_ct& input_aggregation_object,
-                                                       bool has_valid_witness_assignments)
+PairingPoints create_avm2_recursion_constraints(Builder& builder,
+                                                const RecursionConstraint& input,
+                                                bool has_valid_witness_assignments)
 {
     using Flavor = avm2::AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = avm2::AvmRecursiveVerifier_<Flavor>;
 
-    ASSERT(input.proof_type == AVM);
+    BB_ASSERT_EQ(input.proof_type, AVM);
 
     auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
         std::vector<field_ct> result;
@@ -177,10 +182,10 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(builder, vkey);
 
-    aggregation_state_ct output_agg_object = verifier.verify_proof(
-        proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_aggregation_object);
+    PairingPoints output_points_accumulator =
+        verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
-    return output_agg_object;
+    return output_points_accumulator;
 }
 
 /**
@@ -188,19 +193,17 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
  *
  * @param builder
  * @param input
- * @param input_aggregation_object_indices
+ * @param input_points_accumulator_indices
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
-    Builder& builder,
-    const RecursionConstraint& input,
-    const aggregation_state_ct& input_aggregation_object,
-    bool has_valid_witness_assignments)
+HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(Builder& builder,
+                                                                                const RecursionConstraint& input,
+                                                                                bool has_valid_witness_assignments)
 {
     using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
 
-    ASSERT(input.proof_type == AVM);
+    BB_ASSERT_EQ(input.proof_type, AVM);
 
     auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
         std::vector<field_ct> result;
@@ -224,8 +227,8 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     // Execute the Goblin AVM2 recursive verifier
     RecursiveVerifier verifier(builder, key_fields);
 
-    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output = verifier.verify_proof(
-        proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_aggregation_object);
+    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
+        verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
     return output;
 }

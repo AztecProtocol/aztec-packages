@@ -153,12 +153,13 @@ export function injectCommands(
     .option(
       '--register-class',
       'Register the contract class (useful for when the contract class has not been deployed yet).',
-    );
+    )
+    .option('--public-deploy', 'Publicly deploy this account contract (only useful if it contains public functions');
 
   addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
-    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass } = options;
+    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass, publicDeploy } = options;
 
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db);
@@ -167,6 +168,7 @@ export function injectCommands(
       account,
       wait,
       registerClass,
+      publicDeploy,
       await FeeOptsWithFeePayer.fromCli(options, client, log, db),
       json,
       debugLogger,

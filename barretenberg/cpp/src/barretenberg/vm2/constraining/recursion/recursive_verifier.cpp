@@ -9,6 +9,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 
@@ -47,8 +48,8 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
 }
 
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
 {
     StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
@@ -64,22 +65,20 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         public_inputs_ct.push_back(vec_ct);
     }
 
-    return verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
+    return verify_proof(stdlib_proof, public_inputs_ct);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof,
-    const std::vector<std::vector<FF>>& public_inputs,
-    AggregationObject agg_obj)
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof<Builder>& stdlib_proof, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
     using Transcript = typename Flavor::Transcript;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
@@ -109,7 +108,9 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     // unconstrained
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    const auto padding_indicator_array =
+        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -120,8 +121,8 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
-
+    SumcheckOutput<Flavor> output =
+        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
 
     // Public columns evaluation checks
@@ -140,17 +141,14 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        log_circuit_size, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
+        padding_indicator_array, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
-    typename Curve::ScalarField recursion_separator =
-        Curve::ScalarField::from_witness_index(&builder, builder.add_variable(42));
-    agg_obj.aggregate(pairing_points, recursion_separator);
-    return agg_obj;
+    return pairing_points;
 }
 
 // TODO: Once Goblinized version is mature, we can remove this one and we only to template

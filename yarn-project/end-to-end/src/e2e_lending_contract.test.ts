@@ -66,7 +66,7 @@ describe('e2e_lending_contract', () => {
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
 
     const rollup = new RollupContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     );
 
@@ -385,7 +385,7 @@ describe('e2e_lending_contract', () => {
         // Withdraw more than possible to test the revert.
         logger.info('Withdraw: trying to withdraw more than possible');
         await expect(
-          lendingContract.methods.withdraw_public(lendingAccount.address, 10n ** 9n).prove(),
+          lendingContract.methods.withdraw_public(lendingAccount.address, 10n ** 9n).simulate(),
         ).rejects.toThrow();
       });
     });

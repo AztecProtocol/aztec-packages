@@ -22,6 +22,7 @@ pub mod type_packing;
 pub mod shared_mutable;
 pub mod content_commitment;
 pub mod block_header;
+pub mod proposed_block_header;
 
 pub(crate) mod tests;
 

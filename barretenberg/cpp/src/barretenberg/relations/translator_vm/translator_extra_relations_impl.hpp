@@ -1,10 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
 
 namespace bb {
 
 /**
- * @brief Expression for enforcing the value of the Opcode to be {0,1,2,3,4,8}
+ * @brief Expression for enforcing the value of the Opcode to be {0,3,4,8} (nop, eq and reset, mul or add)
  * @details This relation enforces the opcode to be one of described values. Since we don't care about even
  * values in the opcode wire and usually just set them to zero, we don't use a lagrange polynomial to specify
  * the relation to be enforced just at odd indices, which brings the degree down by 1.
@@ -26,16 +32,12 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     using View = typename Accumulator::View;
 
     auto op = View(in.op);
-    static const FF minus_one = FF(-1);
-    static const FF minus_two = FF(-2);
     static const FF minus_three = FF(-3);
     static const FF minus_four = FF(-4);
     static const FF minus_eight = FF(-8);
 
-    // Contribution (1) (op(op-1)(op-2)(op-3)(op-4)(op-8))
-    auto tmp_1 = op * (op + minus_one);
-    tmp_1 *= (op + minus_two);
-    tmp_1 *= (op + minus_three);
+    // Contribution (1) op(op-3)(op-4)(op-8))
+    auto tmp_1 = op * (op + minus_three);
     tmp_1 *= (op + minus_four);
     tmp_1 *= (op + minus_eight);
     tmp_1 *= scaling_factor;

@@ -1,5 +1,5 @@
 import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';

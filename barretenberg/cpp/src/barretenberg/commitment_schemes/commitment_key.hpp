@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 /**
@@ -90,7 +96,7 @@ template <class Curve> class CommitmentKey {
         PROFILE_THIS_NAME("commit");
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
-        ASSERT(dyadic_poly_size <= dyadic_size && "Polynomial size exceeds commitment key size.");
+        BB_ASSERT_LTE(dyadic_poly_size, dyadic_size, "Polynomial size exceeds commitment key size.");
         // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
         // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that
         // the window of points is a power of 2 and still contains the scalars. The best we can do is pick a start index
@@ -138,7 +144,9 @@ template <class Curve> class CommitmentKey {
     {
         PROFILE_THIS_NAME("commit_sparse");
         const size_t poly_size = polynomial.size();
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+        BB_ASSERT_LTE(polynomial.end_index(),
+                      srs->get_monomial_size(),
+                      "Attempting to commit to a polynomial that needs more points than the SRS size.");
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
@@ -163,7 +171,7 @@ template <class Curve> class CommitmentKey {
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);
                     // Save both the raw srs point and the precomputed endomorphism point from the point table
-                    ASSERT(idx * 2 + 1 < point_table.size());
+                    BB_ASSERT_LT(idx * 2 + 1, point_table.size());
                     const G1& point = point_table[idx * 2];
                     const G1& endo_point = point_table[idx * 2 + 1];
                     thread_points[thread_idx].emplace_back(point);
@@ -211,8 +219,8 @@ template <class Curve> class CommitmentKey {
                                  size_t final_active_wire_idx = 0)
     {
         PROFILE_THIS_NAME("commit_structured");
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
-        ASSERT(polynomial.end_index() <= dyadic_size && "Polynomial size exceeds commitment key size.");
+        BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
+        BB_ASSERT_LTE(polynomial.end_index(), dyadic_size, "Polynomial size exceeds commitment key size.");
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
         constexpr size_t NONZERO_THRESHOLD = 75;
@@ -272,7 +280,7 @@ template <class Curve> class CommitmentKey {
                                                          size_t final_active_wire_idx = 0)
     {
         PROFILE_THIS_NAME("commit_structured_with_nonzero_complement");
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+        BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
 
         using BatchedAddition = BatchedAffineAddition<Curve>;
 

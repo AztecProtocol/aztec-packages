@@ -409,7 +409,7 @@ mod tests {
             start_public_data_tree: NonEmptyMerkleTree<AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST, AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST>,
         ) -> PublicDataHint {
             let leaf_index = self.fee_payer_balance_leaf_index as Field;
-            let leaf_preimage = self.pre_existing_public_data[leaf_index];
+            let leaf_preimage = self.pre_existing_public_data[leaf_index as u32];
             let membership_witness = MembershipWitness {
                 leaf_index,
                 sibling_path: start_public_data_tree.get_sibling_path(

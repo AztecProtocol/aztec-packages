@@ -16,7 +16,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "test": "yarn test:node && yarn test:browser && true"
+    "test": "yarn test:node"
   },
   "inherits": [
     "../package.common.json",

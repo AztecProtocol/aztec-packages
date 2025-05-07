@@ -43,7 +43,7 @@ class GoblinRecursionTests : public ::testing::Test {
 TEST_F(GoblinRecursionTests, Vanilla)
 {
     using Builder = MegaCircuitBuilder;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     Goblin goblin;
 
     GoblinAccumulationOutput kernel_accum;
@@ -56,8 +56,8 @@ TEST_F(GoblinRecursionTests, Vanilla)
         Builder function_circuit{ goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(function_circuit, /*target_log2_dyadic_size=*/8);
         MockCircuits::construct_goblin_ecc_op_circuit(function_circuit);
-        goblin.prove_merge(function_circuit);
-        AggregationObject::add_default_pairing_points_to_public_inputs(function_circuit);
+        goblin.prove_merge();
+        PairingPoints::add_default_to_public_inputs(function_circuit);
         auto function_accum = construct_accumulator(function_circuit);
 
         // Construct and accumulate the mock kernel circuit (no kernel accum in first round)
@@ -65,8 +65,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
         GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit,
                                                         { function_accum.proof, function_accum.verification_key },
                                                         { kernel_accum.proof, kernel_accum.verification_key });
-        goblin.prove_merge(kernel_circuit);
-        AggregationObject::add_default_pairing_points_to_public_inputs(kernel_circuit);
+        goblin.prove_merge();
         kernel_accum = construct_accumulator(kernel_circuit);
     }
 

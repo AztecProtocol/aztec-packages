@@ -1,6 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
@@ -36,7 +43,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 {
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -45,14 +52,21 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
     const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
-    SumcheckVerifier<Flavor> sumcheck(log_circuit_size, transcript, accumulator->target_sum);
+
+    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+
+    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+    }
+
+    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-    SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
+    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
+        accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
@@ -71,7 +85,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(log_circuit_size,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),
@@ -90,9 +104,11 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 template class DeciderVerifier_<UltraFlavor>;
 template class DeciderVerifier_<UltraZKFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
+#ifdef STARTKNET_GARAGA_FLAVORS
 template class DeciderVerifier_<UltraStarknetFlavor>;
-template class DeciderVerifier_<UltraKeccakZKFlavor>;
 template class DeciderVerifier_<UltraStarknetZKFlavor>;
+#endif
+template class DeciderVerifier_<UltraKeccakZKFlavor>;
 template class DeciderVerifier_<UltraRollupFlavor>;
 template class DeciderVerifier_<MegaFlavor>;
 template class DeciderVerifier_<MegaZKFlavor>;

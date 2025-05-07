@@ -763,7 +763,8 @@ export class TXEService {
   }
 
   async avmOpcodeCall(
-    _gas: ForeignCallArray,
+    _l2Gas: ForeignCallSingle,
+    _daGas: ForeignCallSingle,
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,
@@ -792,7 +793,8 @@ export class TXEService {
   }
 
   async avmOpcodeStaticCall(
-    _gas: ForeignCallArray,
+    _l2Gas: ForeignCallSingle,
+    _daGas: ForeignCallSingle,
     address: ForeignCallSingle,
     _length: ForeignCallSingle,
     args: ForeignCallArray,

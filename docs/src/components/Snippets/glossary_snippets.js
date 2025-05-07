@@ -73,15 +73,16 @@ export const Glossary = {
 
   AztecNode: () => (
     <p>
-      A prover/sequencer that is part of a decentralised Aztec network. The
-      Aztec testnet rolls up to Ethereum Sepolia.
+      A machine running aztec software as part of an Aztec network. The Aztec
+      testnet rolls up to Ethereum Sepolia.
     </p>
   ),
 
   AztecSandbox: () => (
     <p>
       The Aztec Sandbox runs a set of Aztec tools for convenient local
-      development, it includes: an Ethereum node, an Aztec node, and PXE.
+      development, it includes: an Ethereum node (anvil), an Aztec node, and
+      PXE.
     </p>
   ),
 

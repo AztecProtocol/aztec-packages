@@ -11,8 +11,6 @@ using Curve = curve::Grumpkin;
 
 class IPATest : public CommitmentTest<Curve> {
   public:
-    static constexpr bool USE_PADDING = false;
-
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using CK = CommitmentKey<Curve>;
@@ -25,7 +23,7 @@ class IPATest : public CommitmentTest<Curve> {
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
@@ -305,8 +303,14 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        small_log_n, mock_claims.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
+    std::array<Fr, small_log_n> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                                    mock_claims.claim_batcher,
+                                                                                    mle_opening_point,
+                                                                                    vk->get_g1_identity(),
+                                                                                    verifier_transcript);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     // auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
@@ -357,7 +361,10 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // vectors corresponding to the "shifted" commitment
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(small_log_n,
+    std::array<Fr, small_log_n> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk->get_g1_identity(),

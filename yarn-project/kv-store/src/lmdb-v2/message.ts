@@ -129,6 +129,7 @@ interface StatsResponse {
     totalUsedSize: bigint | number;
   }>;
   dbMapSizeBytes: bigint | number;
+  dbPhysicalFileSizeBytes: bigint | number;
 }
 
 export type LMDBResponseBody = {

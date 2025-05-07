@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 // goblin.hpp
 #pragma once
 
@@ -53,7 +59,7 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge(MegaBuilder& circuit_builder);
+    MergeProof prove_merge();
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations

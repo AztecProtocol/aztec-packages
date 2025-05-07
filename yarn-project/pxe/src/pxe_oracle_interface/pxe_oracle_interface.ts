@@ -725,10 +725,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     // Public logs always take up all available fields by padding with zeroes, and the length of the originally emitted
-    // log is lost. Until this is improved, we simply remove all of the zero elements (which are expected to be at the
-    // end).
+    // log is lost. Until this is improved, we simply remove all of the zero elements we find at the end.
     // TODO(#11636): use the actual log length.
-    const trimmedLog = scopedLog.log.toFields().filter(x => !x.isZero());
+    const trimmedLog = trimTrailingZeros(scopedLog.log.toFields());
 
     return new LogWithTxData(trimmedLog, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
@@ -833,4 +832,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       blockNumber,
     );
   }
+}
+
+// TODO(#11636): remove once we have the actual log length and we don't need to trim it anymore
+export function trimTrailingZeros(array: Fr[]): Fr[] {
+  // Make a copy to avoid modifying the original one
+  const toReturn = [...array];
+
+  while (toReturn.length > 0 && toReturn[toReturn.length - 1].isZero()) {
+    toReturn.pop();
+  }
+
+  return toReturn;
 }
