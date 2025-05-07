@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746606097298,
+  "lastUpdate": 1746610003030,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d9085f2fcecd82374af846b7497ac3067921494",
-          "message": "chore: update proving cost changes (#13833)\n\nFixes #13600. \n\n\nAccompanying update tohe engineering design in\nhttps://github.com/AztecProtocol/engineering-designs/pull/59\n\nThe diff looks very large, but is mostly because we generated a new\nfixture structure.",
-          "timestamp": "2025-04-30T12:13:04Z",
-          "tree_id": "56fbb3ec7ae5a6368ddf0b3b8efc47912893596d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0d9085f2fcecd82374af846b7497ac3067921494"
-        },
-        "date": 1746017999945,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8257,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2363961687745719,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 147593,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1939,6 +1900,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 124460,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "47926c91bdbfc6ae0dafb4b7b2c18681fabe3ec9",
+          "message": "feat: initial gas bench gh (#13986)\n\nAdding benchmark reporting for some l1 gas numbers (see\nhttps://aztecprotocol.github.io/aztec-packages/dev/l1-gas-bench/).\n\nCurrently have removed the if, to see it being run on this pr and get it\ngoing.",
+          "timestamp": "2025-05-07T08:53:19Z",
+          "tree_id": "9d76ddf7975d251b43fb7addf206f9c8ec3d6986",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/47926c91bdbfc6ae0dafb4b7b2c18681fabe3ec9"
+        },
+        "date": 1746610002067,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8358,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23926948156045813,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 141489,
             "unit": "us"
           }
         ]
