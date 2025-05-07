@@ -6,10 +6,14 @@ import { type AztecNode, type PXE, createAztecNodeClient } from '@aztec/stdlib/i
  * closures when providing PXE service to injected commander.js commands
  */
 export class PXEWrapper {
+  private static pxeConfig: PXEServiceConfig | undefined;
   private static pxe: PXE | undefined;
   private static node: AztecNode | undefined;
 
-  getPXE(): PXE | undefined {
+  async getPXE(): Promise<PXE | undefined> {
+    if (!PXEWrapper.pxe) {
+      PXEWrapper.pxe = await createPXEService(PXEWrapper.node!, PXEWrapper.pxeConfig!);
+    }
     return PXEWrapper.pxe;
   }
 
@@ -17,10 +21,10 @@ export class PXEWrapper {
     return PXEWrapper.node;
   }
 
-  async init(nodeUrl: string, dataDir: string, overridePXEServiceConfig?: Partial<PXEServiceConfig>) {
+  async prepare(nodeUrl: string, dataDir: string, overridePXEServiceConfig?: Partial<PXEServiceConfig>) {
     PXEWrapper.node = createAztecNodeClient(nodeUrl);
     const pxeConfig = Object.assign(getPXEServiceConfig(), overridePXEServiceConfig);
     pxeConfig.dataDirectory = dataDir;
-    PXEWrapper.pxe = await createPXEService(PXEWrapper.node, pxeConfig);
+    PXEWrapper.pxeConfig = pxeConfig;
   }
 }

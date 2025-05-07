@@ -47,7 +47,7 @@ export async function capturePrivateExecutionStepsIfEnvSet(
       path.join(resultsDirectory, 'profile.json'),
       JSON.stringify(
         {
-          syncTime: result.syncTime,
+          timings: result.timings,
           steps: result.executionSteps.map(step => ({
             fnName: step.functionName,
             gateCount: step.gateCount,

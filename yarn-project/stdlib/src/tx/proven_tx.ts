@@ -1,10 +1,13 @@
+import { optional } from '@aztec/foundation/schemas';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { type PrivateExecutionStep, PrivateExecutionStepSchema } from '../kernel/private_kernel_prover_output.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { PrivateExecutionResult, collectSortedContractClassLogs } from './private_execution_result.js';
+import { type ProvingTimings, SimulationTimingsSchema } from './profiling.js';
 import { Tx } from './tx.js';
 
 export class TxProvingResult {
@@ -12,6 +15,7 @@ export class TxProvingResult {
     public privateExecutionResult: PrivateExecutionResult,
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
     public clientIvcProof: ClientIvcProof,
+    public timings?: ProvingTimings,
   ) {}
 
   toTx(): Tx {
@@ -32,6 +36,7 @@ export class TxProvingResult {
         privateExecutionResult: PrivateExecutionResult.schema,
         publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
         clientIvcProof: ClientIvcProof.schema,
+        timings: optional(SimulationTimingsSchema),
       })
       .transform(TxProvingResult.from);
   }

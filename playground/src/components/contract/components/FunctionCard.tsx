@@ -133,6 +133,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           const call = contract.methods[name](...parameters);
 
           const profileResult = await call.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
+
           setProfileResults({
             ...profileResults,
             ...{ [name]: { success: true, ...profileResult } },
@@ -248,10 +249,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                 {profileResults[fn.name].success ? (
                   <>
                     <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
-                      Sync time: {profileResults[fn.name].syncTime?.toFixed(2)}ms
-                    </Typography>
-                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
-                      Proving time: {profileResults[fn.name].provingTime?.toFixed(2)}ms
+                      Sync time: {profileResults[fn.name].timings.sync?.toFixed(2)}ms
                     </Typography>
                     <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
                       <Table>
@@ -265,8 +263,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {profileResults[fn.name].executionSteps.map(row => (
-                            <TableRow key={row.functionName}>
+                          {profileResults[fn.name].executionSteps.map((row, i) => (
+                            <TableRow key={i}>
                               <TableCell component="th" scope="row">
                                 {row.functionName}
                               </TableCell>
@@ -277,6 +275,26 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                         </TableBody>
                       </Table>
                     </TableContainer>
+                    <Typography sx={{ margin: '0.5rem' }} variant="subtitle1">
+                      Total simulation time:{' '}
+                      {profileResults[fn.name].timings.perFunction.reduce((acc, { time }) => acc + time, 0).toFixed(2)}
+                      ms
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
+                      Proving time: {profileResults[fn.name].timings.proving?.toFixed(2)}ms
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
+                      Total time: {profileResults[fn.name].timings.total.toFixed(2)}ms (
+                      {profileResults[fn.name].timings.unaccounted.toFixed(2)}ms unaccounted)
+                    </Typography>
+                    <Typography sx={{ margin: '0.5rem', fontSize: '0.8rem' }} color="warning" variant="subtitle2">
+                      Timing information does not account for gate # computation time, since the operation is not
+                      performed when doing real proving. For completeness, this profile operation spent{' '}
+                      {profileResults[fn.name].executionSteps
+                        .reduce((acc, { timings: { gateCount } }) => acc + gateCount, 0)
+                        .toFixed(2)}
+                      ms computing gate counts
+                    </Typography>
                   </>
                 ) : (
                   <Typography variant="body1" color="error">
