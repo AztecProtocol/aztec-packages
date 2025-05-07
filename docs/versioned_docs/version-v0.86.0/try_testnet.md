@@ -26,6 +26,8 @@ id: try_testnet
 
 **Version**: `0.85.0-alpha-testnet.5`
 
+**Node URL**: `https://aztec-alpha-testnet-fullnode.zkv.xyz`
+
 **L1 Chain ID**: `11155111`
 
 **Rollup Version**: `150103439`
@@ -51,7 +53,7 @@ id: try_testnet
 | Governance            | `0xee63e102e35f24c34b9ea09b597acfb491c94e78` |
 | Slash Factory         | `0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be` |
 | Fee Asset Handler     | `0x80d848dc9f52df56789e2d62ce66f19555ff1019` |
-| Staking Asset Handler | `undefined`                                  |
+| Staking Asset Handler | `0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2` |
 
 ### L2 Contract Addresses
 
