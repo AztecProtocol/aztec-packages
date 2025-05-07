@@ -12,7 +12,7 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { SHA256 } from '@aztec/merkle-tree';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -37,11 +37,11 @@ describe('E2E Outbox Tests', () => {
     outbox = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
-      client: deployL1ContractsValues.walletClient,
+      client: deployL1ContractsValues.l1Client,
     });
 
     const rollup = new RollupContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
     );
     version = Number(await rollup.getVersion());
@@ -56,7 +56,7 @@ describe('E2E Outbox Tests', () => {
     // recipient2 = msg.sender, so we can consume it later
     const [[recipient1, content1], [recipient2, content2]] = [
       [EthAddress.random(), Fr.random()],
-      [EthAddress.fromString(deployL1ContractsValues.walletClient.account.address), Fr.random()],
+      [EthAddress.fromString(deployL1ContractsValues.l1Client.account.address), Fr.random()],
     ];
 
     const call = new BatchCall(wallets[0], [
@@ -118,7 +118,7 @@ describe('E2E Outbox Tests', () => {
       sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
       recipient: {
         actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(deployL1ContractsValues.publicClient.chain.id),
+        chainId: BigInt(deployL1ContractsValues.l1Client.chain.id),
       },
       content: content2.toString() as `0x${string}`,
     };
@@ -132,7 +132,7 @@ describe('E2E Outbox Tests', () => {
       ],
       {} as any,
     );
-    const l1Receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+    const l1Receipt = await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
       hash: txHash,
     });
     // Consume call goes through
@@ -174,7 +174,7 @@ describe('E2E Outbox Tests', () => {
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
     const [[recipient1, content1], [recipient2, content2], [recipient3, content3], [recipient4, content4]] = [
       [EthAddress.random(), Fr.random()],
-      [EthAddress.fromString(deployL1ContractsValues.walletClient.account.address), Fr.random()],
+      [EthAddress.fromString(deployL1ContractsValues.l1Client.account.address), Fr.random()],
       [EthAddress.random(), Fr.random()],
       [EthAddress.random(), Fr.random()],
     ];
@@ -237,7 +237,7 @@ describe('E2E Outbox Tests', () => {
       sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
       recipient: {
         actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(deployL1ContractsValues.publicClient.chain.id),
+        chainId: BigInt(deployL1ContractsValues.l1Client.chain.id),
       },
       content: content2.toString() as `0x${string}`,
     };
@@ -251,7 +251,7 @@ describe('E2E Outbox Tests', () => {
       ],
       {} as any,
     );
-    const l1Receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+    const l1Receipt = await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
       hash: txHash,
     });
     // Consume call goes through
@@ -294,7 +294,7 @@ describe('E2E Outbox Tests', () => {
     // recipient2 = msg.sender, so we can consume it later
     const [[recipient1, content1], [recipient2, content2]] = [
       [EthAddress.random(), Fr.random()],
-      [EthAddress.fromString(deployL1ContractsValues.walletClient.account.address), Fr.random()],
+      [EthAddress.fromString(deployL1ContractsValues.l1Client.account.address), Fr.random()],
     ];
 
     const call0 = contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content1, recipient1);
@@ -354,7 +354,7 @@ describe('E2E Outbox Tests', () => {
       sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
       recipient: {
         actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(deployL1ContractsValues.publicClient.chain.id),
+        chainId: BigInt(deployL1ContractsValues.l1Client.chain.id),
       },
       content: content2.toString() as `0x${string}`,
     };
@@ -370,7 +370,7 @@ describe('E2E Outbox Tests', () => {
       ],
       {} as any,
     );
-    const l1Receipt = await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+    const l1Receipt = await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
       hash: txHash,
     });
     // Consume call goes through
@@ -435,7 +435,7 @@ describe('E2E Outbox Tests', () => {
       contract.address,
       new Fr(version),
       recipient.toBuffer32(),
-      new Fr(deployL1ContractsValues.publicClient.chain.id), // chain id
+      new Fr(deployL1ContractsValues.l1Client.chain.id), // chain id
       content,
     ]);
 

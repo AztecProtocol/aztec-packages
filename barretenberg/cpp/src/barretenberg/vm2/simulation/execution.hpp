@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
@@ -63,8 +64,20 @@ class Execution : public ExecutionInterface {
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
-    void call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size);
+    void call(ContextInterface& context,
+              MemoryAddress l2_gas_offset,
+              MemoryAddress da_gas_offset,
+              MemoryAddress addr,
+              MemoryAddress cd_offset,
+              MemoryAddress cd_size);
     void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
+
+    // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
+    // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
+    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
+    void set_output(TaggedValue output) { this->output = std::move(output); }
+    const std::vector<TaggedValue>& get_inputs() const { return inputs; }
+    const TaggedValue& get_output() const { return output; }
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
@@ -89,6 +102,9 @@ class Execution : public ExecutionInterface {
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 
     ExecutionResult exec_result;
+
+    std::vector<TaggedValue> inputs;
+    TaggedValue output;
 };
 
 } // namespace bb::avm2::simulation

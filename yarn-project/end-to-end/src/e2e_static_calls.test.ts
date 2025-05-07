@@ -1,6 +1,6 @@
 import type { AztecAddress, Wallet } from '@aztec/aztec.js';
-import { StaticChildContract } from '@aztec/noir-contracts.js/StaticChild';
-import { StaticParentContract } from '@aztec/noir-contracts.js/StaticParent';
+import { StaticChildContract } from '@aztec/noir-test-contracts.js/StaticChild';
+import { StaticParentContract } from '@aztec/noir-test-contracts.js/StaticParent';
 
 import { STATIC_CALL_STATE_MODIFICATION_ERROR, STATIC_CONTEXT_ASSERTION_ERROR } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
@@ -41,7 +41,7 @@ describe('e2e_static_calls', () => {
     });
 
     it('fails when performing non-static calls to poorly written static public functions', async () => {
-      await expect(childContract.methods.pub_illegal_inc_value(42n).send().wait()).rejects.toThrow(
+      await expect(childContract.methods.pub_illegal_inc_value(42n).simulate()).rejects.toThrow(
         STATIC_CALL_STATE_MODIFICATION_ERROR,
       );
     });
@@ -158,8 +158,7 @@ describe('e2e_static_calls', () => {
       await expect(
         parentContract.methods
           .public_static_call(childContract.address, await childContract.methods.pub_set_value.selector(), [42n])
-          .send()
-          .wait(),
+          .simulate(),
       ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
@@ -167,8 +166,7 @@ describe('e2e_static_calls', () => {
       await expect(
         parentContract.methods
           .public_nested_static_call(childContract.address, await childContract.methods.pub_set_value.selector(), [42n])
-          .send()
-          .wait(),
+          .simulate(),
       ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
@@ -180,8 +178,7 @@ describe('e2e_static_calls', () => {
             await childContract.methods.pub_set_value.selector(),
             [42n],
           )
-          .send()
-          .wait(),
+          .simulate(),
       ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
@@ -193,8 +190,7 @@ describe('e2e_static_calls', () => {
             await childContract.methods.pub_set_value.selector(),
             [42n],
           )
-          .send()
-          .wait(),
+          .simulate(),
       ).rejects.toThrow(STATIC_CALL_STATE_MODIFICATION_ERROR);
     });
 
@@ -205,8 +201,7 @@ describe('e2e_static_calls', () => {
             42n,
             owner,
           ])
-          .send()
-          .wait(),
+          .simulate(),
       ).rejects.toThrow(STATIC_CONTEXT_ASSERTION_ERROR);
     });
   });

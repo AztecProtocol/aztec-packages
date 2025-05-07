@@ -3,28 +3,20 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
-import {
-  type Hex,
-  createPublicClient,
-  createWalletClient,
-  encodeFunctionData,
-  fallback,
-  getContract,
-  http,
-} from 'viem';
+import { type Hex, encodeFunctionData, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { createExtendedL1Client } from './client.js';
 import { deployL1Contract } from './deploy_l1_contracts.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
 import { startAnvil } from './test/start_anvil.js';
-import type { SimpleViemWalletClient, ViemPublicClient } from './types.js';
+import type { ExtendedViemWalletClient } from './types.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 
 describe('EthCheatCodes', () => {
-  let walletClient: SimpleViemWalletClient;
-  let publicClient: ViemPublicClient;
+  let l1Client: ExtendedViemWalletClient;
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
   let logger: Logger;
@@ -41,8 +33,7 @@ describe('EthCheatCodes', () => {
     const privKey = Buffer.from(privKeyRaw).toString('hex');
     const account = privateKeyToAccount(`0x${privKey}`);
 
-    publicClient = createPublicClient({ transport: fallback([http(rpcUrl)]), chain: foundry });
-    walletClient = createWalletClient({ transport: fallback([http(rpcUrl)]), chain: foundry, account });
+    l1Client = createExtendedL1Client([rpcUrl], account, foundry);
     sender = account.address;
   });
 
@@ -53,23 +44,23 @@ describe('EthCheatCodes', () => {
 
   describe('reorgs', () => {
     const deployToken = async () => {
-      const { address, txHash } = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
+      const { address, txHash } = await deployL1Contract(l1Client, TestERC20Abi, TestERC20Bytecode, [
         'Test Token',
         'TEST',
         sender,
       ]);
-      await publicClient.waitForTransactionReceipt({ hash: txHash! });
-      return getContract({ address: address.toString(), abi: TestERC20Abi, client: walletClient });
+      await l1Client.waitForTransactionReceipt({ hash: txHash! });
+      return getContract({ address: address.toString(), abi: TestERC20Abi, client: l1Client });
     };
 
     const mint = async (token: Awaited<ReturnType<typeof deployToken>>, amount: bigint) => {
       const hash = await token.write.mint([sender, amount]);
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      const receipt = await l1Client.waitForTransactionReceipt({ hash });
       expect(receipt.status).toEqual('success');
     };
 
     const getEvents = (token: Awaited<ReturnType<typeof deployToken>>) =>
-      publicClient.getContractEvents({
+      l1Client.getContractEvents({
         address: token.address,
         abi: TestERC20Abi,
         eventName: 'Transfer',
@@ -77,7 +68,7 @@ describe('EthCheatCodes', () => {
         toBlock: 'latest',
       });
 
-    const getBlockNumber = () => publicClient.getBlockNumber({ cacheTime: 0 });
+    const getBlockNumber = () => l1Client.getBlockNumber({ cacheTime: 0 });
 
     it('reorgs back to before deployment', async () => {
       const token = await deployToken();
@@ -144,9 +135,7 @@ describe('EthCheatCodes', () => {
       await expect(
         Promise.all(
           times(3, i =>
-            publicClient
-              .getBlock({ blockNumber: blockNumber - 2n + BigInt(i) })
-              .then(block => block.transactions.length),
+            l1Client.getBlock({ blockNumber: blockNumber - 2n + BigInt(i) }).then(block => block.transactions.length),
           ),
         ),
       ).resolves.toEqual([3, 0, 1]);

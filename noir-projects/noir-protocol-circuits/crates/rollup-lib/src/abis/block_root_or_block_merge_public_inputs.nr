@@ -48,6 +48,7 @@ pub struct BlockRootOrBlockMergePublicInputs {
     pub start_global_variables: GlobalVariables, // Global variables for the first block in the range
     pub end_global_variables: GlobalVariables, // Global variables for the last block in the range
     pub out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
+    pub proposed_block_header_hashes: [Field; AZTEC_MAX_EPOCH_DURATION], // Hashes of proposed block headers for the block range
     pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
     pub vk_tree_root: Field, // Root of allowed vk tree
     pub protocol_contract_tree_root: Field, // Root of protocol contract tree
@@ -69,6 +70,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             start_global_variables: GlobalVariables::empty(),
             end_global_variables: GlobalVariables::empty(),
             out_hash: 0,
+            proposed_block_header_hashes: [0; AZTEC_MAX_EPOCH_DURATION],
             fees: [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
@@ -85,6 +87,7 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
             & (self.start_global_variables.eq(other.start_global_variables))
             & (self.end_global_variables.eq(other.end_global_variables))
             & (self.out_hash == other.out_hash)
+            & (self.proposed_block_header_hashes.eq(other.proposed_block_header_hashes))
             & (self.fees.eq(other.fees))
             & (self.vk_tree_root == other.vk_tree_root)
             & (self.protocol_contract_tree_root == other.protocol_contract_tree_root)
@@ -103,6 +106,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         fields.extend_from_array(self.start_global_variables.serialize());
         fields.extend_from_array(self.end_global_variables.serialize());
         fields.push(self.out_hash as Field);
+        fields.extend_from_array(self.proposed_block_header_hashes);
         for i in 0..AZTEC_MAX_EPOCH_DURATION {
             fields.extend_from_array(self.fees[i].serialize());
         }
@@ -127,6 +131,7 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             start_global_variables: reader.read_struct(GlobalVariables::deserialize),
             end_global_variables: reader.read_struct(GlobalVariables::deserialize),
             out_hash: reader.read(),
+            proposed_block_header_hashes: reader.read_array(),
             fees: reader.read_struct_array(
                 FeeRecipient::deserialize,
                 [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],

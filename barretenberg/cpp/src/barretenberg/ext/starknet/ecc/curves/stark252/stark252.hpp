@@ -1,3 +1,4 @@
+#ifdef STARKNET_GARAGA_FLAVORS
 #pragma once
 
 #include "barretenberg/ecc/fields/field.hpp"
@@ -51,3 +52,4 @@ struct FqParams {
 using fq = field<FqParams>;
 
 } // namespace bb::starknet::stark252
+#endif

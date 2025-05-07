@@ -6,10 +6,7 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
-import type { PublicTxSimulationTester } from '@aztec/simulator/server';
 import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
@@ -347,27 +344,4 @@ export function mapAvmPublicInputsToNoir(
     throw new Error('Invalid number of AVM public inputs');
   }
   return serialized.map(x => x.toString()) as FixedLengthArray<string, typeof AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE>;
-}
-
-export async function simulateAvmBulkTesting(
-  simTester: PublicTxSimulationTester,
-  contractInstance: ContractInstanceWithAddress,
-) {
-  const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const args = [
-    argsField,
-    argsU8,
-    /*getInstanceForAddress=*/ contractInstance.address.toField(),
-    /*expectedDeployer=*/ contractInstance.deployer.toField(),
-    /*expectedClassId=*/ contractInstance.currentContractClassId.toField(),
-    /*expectedInitializationHash=*/ contractInstance.initializationHash.toField(),
-  ];
-
-  return await simTester.simulateTx(
-    /*sender=*/ AztecAddress.fromNumber(42),
-    /*setupCalls=*/ [],
-    /*appCalls=*/ [{ address: contractInstance.address, fnName: 'bulk_testing', args }],
-    /*teardownCall=*/ undefined,
-  );
 }

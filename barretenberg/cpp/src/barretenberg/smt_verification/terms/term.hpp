@@ -12,7 +12,7 @@ using namespace smt_solver;
  * BVTerm - Symbolic Variables acting like bitvectors modulo prime
  *
  */
-enum class TermType { FFTerm, FFITerm, BVTerm, ITerm };
+enum class TermType { FFTerm, FFITerm, BVTerm, ITerm, SBool, STuple, SymArray, SymSet };
 std::ostream& operator<<(std::ostream& os, TermType type);
 
 enum class OpType : int32_t {
@@ -35,7 +35,8 @@ enum class OpType : int32_t {
     ROTL,
     NOT,
     EXTRACT,
-    BITVEC_PAD
+    BITVEC_PAD,
+    BIT_SUM
 };
 
 /**
@@ -188,8 +189,6 @@ class STerm {
      */
     STerm extract_bit(const uint32_t& bit_index);
 
-    void in(const cvc5::Term& table) const;
-
     operator std::string() const { return this->solver->stringify_term(term); };
     operator cvc5::Term() const { return term; };
 
@@ -202,7 +201,9 @@ class STerm {
 
     static STerm batch_add(const std::vector<STerm>& children)
     {
-        ASSERT(children.size() > 0);
+        if (children.size() == 0) {
+            throw std::invalid_argument("Can't use batch_add on empty vector");
+        }
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::ADD), terms);
@@ -211,29 +212,13 @@ class STerm {
 
     static STerm batch_mul(const std::vector<STerm>& children)
     {
-        ASSERT(children.size() > 0);
+        if (children.size() == 0) {
+            throw std::invalid_argument("Can't use batch_mul on empty vector");
+        }
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::MUL), terms);
         return { res, slv, children[0].type };
-    }
-
-    /**
-     * @brief Create an inclusion constraint
-     *
-     * @param entry the tuple entry to be checked
-     * @param table lookup table that consists of tuples of lenght 3
-     */
-    static void in_table(std::vector<STerm>& entry, cvc5::Term& table)
-    {
-        STerm entry0 = entry[0].normalize();
-        STerm entry1 = entry[1].normalize();
-        STerm entry2 = entry[2].normalize();
-
-        Solver* slv = entry[0].solver;
-        cvc5::Term sym_entry = slv->term_manager.mkTuple({ entry0.term, entry1.term, entry2.term });
-        cvc5::Term inc = slv->term_manager.mkTerm(cvc5::Kind::SET_MEMBER, { sym_entry, table });
-        slv->assertFormula(inc);
     }
 
     // arithmetic compatibility with Fr
@@ -272,6 +257,8 @@ class STerm {
 
     STerm rotr(const uint32_t& n) const;
     STerm rotl(const uint32_t& n) const;
+
+    friend class Bool;
 };
 
 STerm operator+(const bb::fr& lhs, const STerm& rhs);

@@ -1,9 +1,4 @@
-import {
-  type L1ContractAddresses,
-  RollupContract,
-  type ViemPublicClient,
-  type ViemWalletClient,
-} from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, type L1ContractAddresses, RollupContract } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { InboxAbi } from '@aztec/l1-artifacts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -14,23 +9,19 @@ import { decodeEventLog, getContract } from 'viem';
 export async function sendL1ToL2Message(
   message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
   ctx: {
-    walletClient: ViemWalletClient;
-    publicClient: ViemPublicClient;
+    l1Client: ExtendedViemWalletClient;
     l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress' | 'rollupAddress'>;
   },
 ) {
   const inbox = getContract({
     address: ctx.l1ContractAddresses.inboxAddress.toString(),
     abi: InboxAbi,
-    client: ctx.walletClient,
+    client: ctx.l1Client,
   });
 
   const { recipient, content, secretHash } = message;
 
-  const version = await new RollupContract(
-    ctx.publicClient,
-    ctx.l1ContractAddresses.rollupAddress.toString(),
-  ).getVersion();
+  const version = await new RollupContract(ctx.l1Client, ctx.l1ContractAddresses.rollupAddress.toString()).getVersion();
 
   // We inject the message to Inbox
   const txHash = await inbox.write.sendL2Message([
@@ -40,7 +31,7 @@ export async function sendL1ToL2Message(
   ]);
 
   // We check that the message was correctly injected by checking the emitted event
-  const txReceipt = await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
+  const txReceipt = await ctx.l1Client.waitForTransactionReceipt({ hash: txHash });
 
   // Exactly 1 event should be emitted in the transaction
   expect(txReceipt.logs.length).toBe(1);

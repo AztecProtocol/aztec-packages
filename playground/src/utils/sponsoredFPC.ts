@@ -1,32 +1,47 @@
 import {
-  type ContractInstanceWithAddress,
   type PXE,
   getContractInstanceFromDeployParams,
   SponsoredFeePaymentMethod,
   AztecAddress,
   Fr,
+  loadContractArtifact,
+  type ContractArtifact,
 } from '@aztec/aztec.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 
-export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
-  return await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
-    salt: new Fr(SPONSORED_FPC_SALT),
-  });
+export async function getSponsoredFPCArtifact(version?: string): Promise<ContractArtifact> {
+  if (version) {
+    const artifact = (await import(`../assets/artifacts/${version}/sponsored_fpc_contract-SponsoredFPC.json`)).default;
+    return loadContractArtifact(artifact);
+  } else {
+    const contract = (await import('@aztec/noir-contracts.js/SponsoredFPC')).SponsoredFPCContract;
+    return contract.artifact;
+  }
 }
 
-export async function getSponsoredFPCAddress(): Promise<AztecAddress> {
-  return (await getSponsoredFPCInstance()).address;
-}
-
-export async function prepareForFeePayment(pxe: PXE): Promise<SponsoredFeePaymentMethod> {
+export async function prepareForFeePayment(
+  pxe: PXE,
+  sponsoredFPCAddress?: AztecAddress,
+  sponsoredFPCVersion?: string,
+): Promise<SponsoredFeePaymentMethod> {
   try {
-    const sponsoredFPC = await getSponsoredFPCInstance();
-    await pxe.registerContract({
-      instance: sponsoredFPC,
-      artifact: SponsoredFPCContract.artifact,
+    const contractArtifact = await getSponsoredFPCArtifact(sponsoredFPCVersion);
+
+    const instance = await getContractInstanceFromDeployParams(contractArtifact, {
+      salt: new Fr(SPONSORED_FPC_SALT),
     });
-    return new SponsoredFeePaymentMethod(sponsoredFPC.address);
+
+    if (sponsoredFPCAddress && !sponsoredFPCAddress.equals(instance.address)) {
+      throw new Error(
+        `SponsoredFPC at version ${sponsoredFPCVersion} does not match the expected address. Computed ${instance.address} but received ${sponsoredFPCAddress}`,
+      );
+    }
+
+    await pxe.registerContract({
+      instance: instance,
+      artifact: contractArtifact,
+    });
+    return new SponsoredFeePaymentMethod(instance.address);
   } catch (error) {
     console.error('Error preparing SponsoredFeePaymentMethod:', error);
     throw error;

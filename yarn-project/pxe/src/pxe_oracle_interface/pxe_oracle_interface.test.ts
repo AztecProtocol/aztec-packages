@@ -27,7 +27,7 @@ import { NoteDataProvider } from '../storage/note_data_provider/note_data_provid
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { PXEOracleInterface } from './pxe_oracle_interface.js';
+import { PXEOracleInterface, trimTrailingZeros } from './pxe_oracle_interface.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
 
 jest.setTimeout(30_000);
@@ -830,4 +830,34 @@ describe('PXEOracleInterface', () => {
       }),
     );
   };
+
+  describe('trimTrailingZeros', () => {
+    function toFr(arr: number[]): Fr[] {
+      return arr.map(x => new Fr(x));
+    }
+
+    it('does not modify arrays with no zeros', () => {
+      expect(trimTrailingZeros(toFr([1, 2, 3]))).toEqual(toFr([1, 2, 3]));
+    });
+
+    it('removes zeros at the end', () => {
+      expect(trimTrailingZeros(toFr([1, 2, 3, 0, 0]))).toEqual(toFr([1, 2, 3]));
+    });
+
+    it('does not remove zeros not at the end', () => {
+      expect(trimTrailingZeros(toFr([1, 0, 2, 3, 0, 0]))).toEqual(toFr([1, 0, 2, 3]));
+    });
+
+    it('does not modify the original array', () => {
+      const original = toFr([1, 0, 2, 3, 0, 0]);
+      const result = trimTrailingZeros(original);
+
+      expect(result.length != original.length);
+      expect(original).toEqual(toFr([1, 0, 2, 3, 0, 0]));
+    });
+
+    it('works on an empty array', () => {
+      expect(trimTrailingZeros(toFr([]))).toEqual(toFr([]));
+    });
+  });
 });

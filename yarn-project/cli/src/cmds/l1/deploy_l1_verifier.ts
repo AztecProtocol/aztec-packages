@@ -1,5 +1,5 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode } from '@aztec/l1-artifacts';
 
@@ -16,7 +16,7 @@ export async function deployUltraHonkVerifier(
   log: LogFn,
   debugLogger: Logger,
 ) {
-  const { publicClient, walletClient } = createL1Clients(
+  const extendedClient = createExtendedL1Client(
     ethRpcUrls,
     privateKey ?? mnemonic,
     createEthereumChain(ethRpcUrls, l1ChainId).chainInfo,
@@ -37,15 +37,10 @@ export async function deployUltraHonkVerifier(
   const rollup = getContract({
     abi: RollupAbi,
     address: rollupAddress,
-    client: walletClient,
+    client: extendedClient,
   });
 
-  const { address: verifierAddress } = await deployL1Contract(
-    walletClient,
-    publicClient,
-    HonkVerifierAbi,
-    HonkVerifierBytecode,
-  );
+  const { address: verifierAddress } = await deployL1Contract(extendedClient, HonkVerifierAbi, HonkVerifierBytecode);
   log(`Deployed honk verifier at ${verifierAddress}`);
 
   await rollup.write.setEpochVerifier([verifierAddress.toString()]);
@@ -63,7 +58,7 @@ export async function deployMockVerifier(
   log: LogFn,
   debugLogger: Logger,
 ) {
-  const { publicClient, walletClient } = createL1Clients(
+  const extendedClient = createExtendedL1Client(
     ethRpcUrls,
     privateKey ?? mnemonic,
     createEthereumChain(ethRpcUrls, l1ChainId).chainInfo,
@@ -71,8 +66,7 @@ export async function deployMockVerifier(
   const { MockVerifierAbi, MockVerifierBytecode, RollupAbi } = await import('@aztec/l1-artifacts');
 
   const { address: mockVerifierAddress } = await deployL1Contract(
-    walletClient,
-    publicClient,
+    extendedClient,
     MockVerifierAbi,
     MockVerifierBytecode,
   );
@@ -91,7 +85,7 @@ export async function deployMockVerifier(
   const rollup = getContract({
     abi: RollupAbi,
     address: rollupAddress,
-    client: walletClient,
+    client: extendedClient,
   });
 
   await rollup.write.setEpochVerifier([mockVerifierAddress.toString()]);

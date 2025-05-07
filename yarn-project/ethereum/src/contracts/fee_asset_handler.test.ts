@@ -9,11 +9,12 @@ import { type GetContractReturnType, getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
-import { createL1Clients, deployL1Contracts } from '../deploy_l1_contracts.js';
+import { deployL1Contracts } from '../deploy_l1_contracts.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import type { L1Clients } from '../types.js';
+import type { ExtendedViemWalletClient } from '../types.js';
 import { FeeAssetHandlerContract } from './fee_asset_handler.js';
 
 const originalVersionSalt = 42;
@@ -25,7 +26,7 @@ describe('FeeAssetHandler', () => {
   let logger: Logger;
 
   let feeAssetHandler: FeeAssetHandlerContract;
-  let feeAsset: GetContractReturnType<typeof FeeAssetAbi, L1Clients['publicClient']>;
+  let feeAsset: GetContractReturnType<typeof FeeAssetAbi, ExtendedViemWalletClient>;
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:fee_asset_handler');
@@ -36,7 +37,7 @@ describe('FeeAssetHandler', () => {
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    const { publicClient, walletClient } = createL1Clients([rpcUrl], privateKey);
+    const l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
@@ -47,17 +48,17 @@ describe('FeeAssetHandler', () => {
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');
-    const txUtils = new L1TxUtils(publicClient, walletClient, logger);
+    const txUtils = new L1TxUtils(l1Client, logger);
     feeAssetHandler = new FeeAssetHandlerContract(deployedAddresses.feeAssetHandlerAddress!.toString(), txUtils);
     feeAsset = getContract({
       address: deployedAddresses.feeJuiceAddress!.toString(),
       abi: FeeAssetAbi,
-      client: publicClient,
+      client: l1Client,
     });
   });
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(logger.error);
   });
 
   it('should mint fee asset', async () => {

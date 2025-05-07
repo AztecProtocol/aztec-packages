@@ -585,3 +585,49 @@ TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_in
         EXPECT_EQ(readBack, 5);
     }
 }
+
+TEST_F(LMDBTreeStoreTest, reports_physical_file_size)
+{
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
+    std::string dataDbPath = (std::filesystem::path(_directory) / "data.mdb").string();
+    size_t previousFileSize = 0;
+
+    for (size_t i = 0; i < 3; i++) {
+        {
+            BlockPayload blockData;
+            blockData.blockNumber = i;
+            blockData.root = VALUES[i];
+            blockData.size = 45 + (i * 97);
+
+            TreeMeta metaData;
+            metaData.committedSize = blockData.size;
+            metaData.size = blockData.size;
+            metaData.root = blockData.root;
+            metaData.depth = 32;
+            metaData.unfinalisedBlockHeight = i;
+            metaData.name = "NullifierTree";
+
+            // Write metadata and block data with different values each iteration
+            LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
+            store.write_meta_data(metaData, *transaction);
+            store.write_block_data(i, blockData, *transaction);
+            transaction->commit();
+        }
+
+        {
+            LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
+            TreeDBStats stats;
+            store.get_stats(stats, *transaction);
+
+            EXPECT_TRUE(std::filesystem::exists(dataDbPath));
+
+            // Verify reported size matches actual file size
+            EXPECT_EQ(stats.physicalFileSize, std::filesystem::file_size(dataDbPath));
+
+            // Verify size is increasing due to the new DB writes
+            EXPECT_GT(stats.physicalFileSize, previousFileSize);
+
+            previousFileSize = stats.physicalFileSize;
+        }
+    }
+}

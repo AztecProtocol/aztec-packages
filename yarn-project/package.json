@@ -50,6 +50,7 @@
     "noir-bb-bench",
     "noir-contracts.js",
     "noir-protocol-circuits-types",
+    "noir-test-contracts.js",
     "p2p",
     "p2p-bootstrap",
     "protocol-contracts",

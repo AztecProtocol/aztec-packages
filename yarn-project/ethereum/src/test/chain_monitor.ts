@@ -2,11 +2,12 @@ import type { RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
 
 import { EventEmitter } from 'events';
-import type { PublicClient } from 'viem';
+
+import type { ViemClient } from '../types.js';
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
 export class ChainMonitor extends EventEmitter {
-  private readonly l1Client: PublicClient;
+  private readonly l1Client: ViemClient;
   private handle: NodeJS.Timeout | undefined;
 
   /** Current L1 block number */
@@ -51,10 +52,10 @@ export class ChainMonitor extends EventEmitter {
     });
   }
 
-  async run() {
+  async run(force = false) {
     const newL1BlockNumber = Number(await this.l1Client.getBlockNumber({ cacheTime: 0 }));
-    if (this.l1BlockNumber === newL1BlockNumber) {
-      return;
+    if (!force && this.l1BlockNumber === newL1BlockNumber) {
+      return this;
     }
     this.l1BlockNumber = newL1BlockNumber;
 
@@ -94,5 +95,7 @@ export class ChainMonitor extends EventEmitter {
       l2BlockNumber: this.l2BlockNumber,
       l2ProvenBlockNumber: this.l2ProvenBlockNumber,
     });
+
+    return this;
   }
 }

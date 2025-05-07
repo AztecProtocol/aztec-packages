@@ -8,3 +8,4 @@ compiler_version = ">=0.30.0"
 bigint = { tag = "v0.6.1", git = "https://github.com/noir-lang/noir-bignum" }
 bigcurve = { tag = "mw/bump", git = "https://github.com/noir-lang/noir_bigcurve" }
 types = { path = "../types" }
+poseidon = { tag = "v0.1.0", git = "https://github.com/noir-lang/poseidon" }

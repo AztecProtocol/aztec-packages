@@ -300,6 +300,7 @@ ENV PATH=/home/aztec-dev/.npm-global/bin:$PATH
 RUN mkdir .vscode-server .npm-global .ssh && chown aztec-dev:aztec-dev .*
 
 # Install docker using docker-in-docker dev-container feature install script.
+COPY docker_daemon.json /etc/docker/daemon.json
 RUN curl -fsSL https://raw.githubusercontent.com/devcontainers/features/refs/heads/main/src/docker-in-docker/install.sh | bash
 
 # Use as entrypoint when running in an environment that requires uid/gid alignment (e.g. vanilla linux docker).
@@ -368,6 +369,7 @@ ENTRYPOINT [ "/sbin/init", "--log-level=err" ]
 ###################### END OF STOCK NESTYBOX SYSTEMD CONTAINER ###############################
 
 # Install docker.
+COPY docker_daemon.json /etc/docker/daemon.json
 RUN curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh \
     # Add user "ubuntu" to the Docker group
     && usermod -a -G docker ubuntu

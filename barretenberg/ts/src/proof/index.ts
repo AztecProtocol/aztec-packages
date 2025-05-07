@@ -11,7 +11,7 @@ export type ProofData = {
   proof: Uint8Array;
 };
 
-export const AGGREGATION_OBJECT_LENGTH = 16;
+export const PAIRING_POINTS_SIZE = 16;
 
 // Fields are 32 bytes
 const fieldByteSize = 32;
