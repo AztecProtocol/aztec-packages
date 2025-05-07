@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -8,7 +9,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, type Timer } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
@@ -88,6 +89,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
     private p2pClient: P2P,
+    private blockSource: L2BlockSource,
     private config: ValidatorClientConfig,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
@@ -129,6 +131,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     config: ValidatorClientConfig,
     epochCache: EpochCache,
     p2pClient: P2P,
+    blockSource: L2BlockSource,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -139,7 +142,15 @@ export class ValidatorClient extends WithTracer implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, dateProvider, telemetry);
+    const validator = new ValidatorClient(
+      localKeyStore,
+      epochCache,
+      p2pClient,
+      blockSource,
+      config,
+      dateProvider,
+      telemetry,
+    );
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -185,9 +196,10 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     const slotNumber = proposal.slotNumber.toNumber();
+    const blockNumber = proposal.blockNumber.toNumber();
     const proposalInfo = {
       slotNumber,
-      blockNumber: proposal.blockNumber.toNumber(),
+      blockNumber,
       archive: proposal.payload.archive.toString(),
       txCount: proposal.payload.txHashes.length,
       txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
@@ -208,6 +220,29 @@ export class ValidatorClient extends WithTracer implements Validator {
       return undefined;
     }
 
+    // Check that the parent proposal is a block we know, otherwise reexecution would fail.
+    // Q: Should we move this to the block proposal validator? If there, then p2p would check it
+    // before re-broadcasting it. This means that proposals built on top of an L1-reorgd-out block
+    // would not be rebroadcasted. But it also means that nodes that have not fully synced would
+    // not rebroadcast the proposal.
+    if (blockNumber > INITIAL_L2_BLOCK_NUM) {
+      const parentBlock = await this.blockSource.getBlock(blockNumber - 1);
+      if (parentBlock === undefined) {
+        this.log.verbose(`Parent block for ${blockNumber} not found, skipping attestation`);
+        this.metrics.incFailedAttestations('parent_block_not_found');
+        return undefined;
+      }
+      if (!proposal.payload.header.lastArchiveRoot.equals(parentBlock.archive.root)) {
+        this.log.verbose(`Parent block archive root for proposal does not match, skipping attestation`, {
+          proposalLastArchiveRoot: proposal.payload.header.lastArchiveRoot.toString(),
+          parentBlockArchiveRoot: parentBlock.archive.root.toString(),
+          ...proposalInfo,
+        });
+        this.metrics.incFailedAttestations('parent_block_does_not_match');
+        return undefined;
+      }
+    }
+
     // Check that all of the transactions in the proposal are available in the tx pool before attesting
     this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
     try {
@@ -218,11 +253,7 @@ export class ValidatorClient extends WithTracer implements Validator {
         await this.reExecuteTransactions(proposal, txs);
       }
     } catch (error: any) {
-      if (error instanceof Error) {
-        this.metrics.incFailedAttestations(error.name);
-      } else {
-        this.metrics.incFailedAttestations('unknown');
-      }
+      this.metrics.incFailedAttestations(error instanceof Error ? error.name : 'unknown');
 
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
