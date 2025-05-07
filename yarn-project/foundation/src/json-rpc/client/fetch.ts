@@ -8,8 +8,7 @@ const log = createLogger('json-rpc:json_rpc_client');
 
 export type JsonRpcFetch = (
   host: string,
-  rpcMethod: string,
-  body: any,
+  body: { method: string },
   extraHeaders?: Record<string, string>,
   noRetry?: boolean,
 ) => Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }>;
@@ -26,17 +25,17 @@ export type JsonRpcFetch = (
  */
 export async function defaultFetch(
   host: string,
-  rpcMethod: string,
-  body: any,
+  body: { method: string },
   extraHeaders: Record<string, string> = {},
   noRetry = false,
 ): Promise<{ response: any; headers: { get: (header: string) => string | null | undefined } }> {
+  const rpcMethod = body.method;
   log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   try {
     resp = await fetch(host, {
       method: 'POST',
-      body: jsonStringify({ ...body, method: rpcMethod }),
+      body: jsonStringify(body),
       headers: { 'content-type': 'application/json', ...extraHeaders },
     });
   } catch (err) {
@@ -76,14 +75,13 @@ export async function defaultFetch(
 export function makeFetch(retries: number[], defaultNoRetry: boolean, log?: Logger): typeof defaultFetch {
   return async (
     host: string,
-    rpcMethod: string,
-    body: any,
+    body: { method: string },
     extraHeaders: Record<string, string> = {},
     noRetry?: boolean,
   ) => {
     return await retry(
-      () => defaultFetch(host, rpcMethod, body, extraHeaders, noRetry ?? defaultNoRetry),
-      `JsonRpcClient request ${rpcMethod} to ${host}`,
+      () => defaultFetch(host, body, extraHeaders, noRetry ?? defaultNoRetry),
+      `JsonRpcClient request ${body.method} to ${host}`,
       makeBackoff(retries),
       log,
       false,

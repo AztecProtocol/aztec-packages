@@ -10,13 +10,8 @@ const log = createLogger('json-rpc:json_rpc_client:undici');
 export { Agent };
 
 export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
-  return async (
-    host: string,
-    rpcMethod: string,
-    body: any,
-    extraHeaders: Record<string, string> = {},
-    noRetry = false,
-  ) => {
+  return async (host: string, body: { method: string }, extraHeaders: Record<string, string> = {}, noRetry = false) => {
+    const rpcMethod = body.method;
     log.trace(`JsonRpcClient.fetch: ${host} ${rpcMethod}`, { host, rpcMethod, body });
     let resp: Dispatcher.ResponseData;
     try {
