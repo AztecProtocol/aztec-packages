@@ -2,8 +2,8 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -25,14 +25,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 
-    static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
-    {
-        MegaCircuitBuilder circuit{ op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
-
     struct ProverOutput {
         GoblinProof proof;
         Goblin::VerificationKey verfier_input;
@@ -49,7 +41,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = construct_mock_circuit(goblin.op_queue);
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
             goblin.prove_merge();
         }
 

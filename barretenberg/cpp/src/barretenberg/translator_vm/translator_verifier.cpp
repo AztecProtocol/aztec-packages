@@ -189,9 +189,9 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
  * @brief Checks that translator and merge protocol operate on the same EccOpQueue data.
  *
  * @details The final merge verifier receives commitments to 4 polynomials whose coefficients are the values of the full
- * op queue (or ultra op table). These have to match the EccOpQueue commitments received by the translator verifier,
- * representing 4 wires in its circuit, to ensure the two components of Goblin, both operating on the UltraOp version of
- * the op queue, operate on the same data.
+ * op queue (referred to as the ultra ops table in the merge protocol). These have to match the EccOpQueue commitments
+ * received by the translator verifier, representing 4 wires in its circuit, to ensure the two Goblin components,
+ * both operating on the UltraOp version of the op queue, actually use the same data.
  */
 bool TranslatorVerifier::verify_consistency_with_final_merge(const std::array<Commitment, 4> merge_commitments)
 {

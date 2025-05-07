@@ -135,6 +135,11 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq()
     return op_tuple;
 }
 
+/**
+ * @brief Logic for a no-op operation.
+ *
+ * @return ecc_op_tuple with all its fields set to zero
+ */
 template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
 {
     // Add the operation to the op queue

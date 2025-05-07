@@ -276,7 +276,9 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
 
     ClientCircuit builder{ goblin.op_queue };
 
-    // We do an "append only ultra ops" here
+    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
+    // circuit are well formed to allow correctly representing shiftable polynomials (which are
+    // expected to start with 0).
     builder.queue_ecc_no_op();
 
     hide_op_queue_accumulation_result(builder);

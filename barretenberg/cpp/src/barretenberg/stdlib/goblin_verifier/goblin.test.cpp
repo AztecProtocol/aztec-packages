@@ -22,8 +22,8 @@ class GoblinTests : public ::testing::Test {
     static Builder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
     {
         Builder circuit{ op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
+        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
         return circuit;
     }
 };
@@ -40,7 +40,9 @@ TEST_F(GoblinTests, MultipleCircuits)
     // Construct and accumulate multiple circuits
     size_t NUM_CIRCUITS = 3;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = construct_mock_circuit(goblin.op_queue);
+        Builder builder{ goblin.op_queue };
+        GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
+
         goblin.prove_merge();
     }
 

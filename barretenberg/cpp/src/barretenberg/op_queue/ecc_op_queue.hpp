@@ -193,10 +193,11 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Writes a no op (i.e. two zero rows) to the ultra ops table but no eccvm operations.
+     * @brief Writes a no op (i.e. two zero rows) to the ultra ops table but adds no eccvm operations.
      *
-     * @return We want to be able to add  data (eventually, randomness) to the ultra ops table to hide commitments sent
-     * to the rollup as part of the merge protocol without affecting the operations in the ECCVM.
+     * @details We want to be able to add zero rows (and, eventually, random rows
+     * https://github.com/AztecProtocol/barretenberg/issues/1360) to the ultra ops table without affecting the
+     * operations in the ECCVM.
      */
     UltraOp no_op_ultra_only()
     {

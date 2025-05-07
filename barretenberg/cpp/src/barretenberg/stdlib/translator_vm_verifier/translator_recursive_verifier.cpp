@@ -91,6 +91,7 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
+    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -180,6 +181,17 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
     // multiply by x here to deal with shift
     eccvm_opening.assert_equal(x * accumulated_result);
+}
+
+template <typename Flavor>
+void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments)
+{
+    // Check the consistency with final merge
+    for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
+        merge_commitment.x.assert_equal(translator_commitment.x);
+        merge_commitment.y.assert_equal(translator_commitment.y);
+    }
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;

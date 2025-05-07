@@ -57,6 +57,9 @@ class TranslatorFlavor {
     static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
 
     // None of this parameters can be changed
+    // Number of wires represing the op queue that whose commitments are going to be checked against those from the
+    // final round of merge
+    static constexpr size_t NUM_OP_QUEUE_WIRES = 4;
 
     // How many mini_circuit_size polynomials are interleaved in one interleaved_*
     static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
@@ -620,7 +623,6 @@ class TranslatorFlavor {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1318)
         ProverPolynomials(size_t actual_mini_circuit_size)
         {
-            info("actual number of rows: ", actual_mini_circuit_size);
             const size_t mini_circuit_size = MINI_CIRCUIT_SIZE;
             const size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
 

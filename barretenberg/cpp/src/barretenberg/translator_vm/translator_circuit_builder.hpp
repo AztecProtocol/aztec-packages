@@ -238,10 +238,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
-<<<<<<< HEAD
-=======
     // Index at which the evaluation result is stored in the circuit
->>>>>>> origin/master
     static constexpr const size_t RESULT_ROW = 2;
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
@@ -327,10 +324,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_)
-    {
-        add_variable(Fr::zero());
-    };
+        , evaluation_input_x(evaluation_input_x_){};
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside
@@ -346,7 +340,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
     {
         PROFILE_THIS_NAME("TranslatorCircuitBuilder::constructor");
-        feed_ecc_op_queue_into_circuit(op_queue);
+        feed_ecc_op_queue_into_circuit(std::move(op_queue));
     }
 
     TranslatorCircuitBuilder() = default;

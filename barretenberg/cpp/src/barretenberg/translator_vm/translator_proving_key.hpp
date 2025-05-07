@@ -51,24 +51,19 @@ class TranslatorProvingKey {
             dyadic_circuit_size, std::move(commitment_key), /*actual_mini_ circuit_size=*/circuit.num_gates);
 
         // Populate the wire polynomials from the wire vectors in the circuit
-        [[maybe_unused]] size_t wire_idx = 0;
         for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
-            // WORKTODO: I think we should share memory here in the same way we do in the `DeciderProvingKey` class.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);
                     } else {
-
-                        ASSERT(circuit.get_variable(wire[i]) == 0,
-                               "Wire " + std::to_string(wire_idx) + " value at index " + std::to_string(i) +
-                                   " is expected to be 0 but found " + std::to_string(wire[i]));
+                        ASSERT(circuit.get_variable(wire[i]) == 0);
                     }
                 }
             });
-            wire_idx++;
         }
 
         // First and last lagrange polynomials (in the full circuit size)

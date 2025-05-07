@@ -84,6 +84,8 @@ bool Goblin::verify(const GoblinProof& proof)
     bool translation_verified = translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
                                                                        eccvm_verifier.translation_masking_term_eval);
 
+    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
+    // and final merge verifier
     bool op_queue_consistency_verified =
         translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
 

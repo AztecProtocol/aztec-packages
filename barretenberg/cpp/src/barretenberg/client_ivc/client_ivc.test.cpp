@@ -98,7 +98,7 @@ TEST_F(ClientIVCTests, WriteVK)
 
 /**
  * @brief A simple test demonstrating IVC for four mock circuits, which is slightly more than minimal.
- * @details When accumulating only four circuits, we execute all the functionality of a full CliemntIVC run.
+ * @details When accumulating only four circuits, we execute all the functionality of a full ClientIVC run.
  *
  */
 TEST_F(ClientIVCTests, BasicFour)
