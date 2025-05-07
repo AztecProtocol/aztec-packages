@@ -1,7 +1,8 @@
-import { type AztecNode, type Logger, retryUntil } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { ChainMonitor, Delayer } from '@aztec/ethereum/test';
+import { timesAsync } from '@aztec/foundation/collection';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
@@ -11,6 +12,7 @@ import { jest } from '@jest/globals';
 import 'jest-extended';
 import { keccak256, parseTransaction } from 'viem';
 
+import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
@@ -223,9 +225,38 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 5, 0.1);
   });
 
-  // TODO(palla/reorg): Archiver keeps a different tracker for the L1 block number for cross chain
-  // messages, so even if it works fine when reorging blocks, it may still fail on messages.
-  it.skip('updates cross-chain messages changed due to an L1 reorg', async () => {});
+  it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
+    const sendMessage = async () =>
+      sendL1ToL2Message(
+        { recipient: await AztecAddress.random(), content: Fr.random(), secretHash: Fr.random() },
+        context.deployL1ContractsValues,
+      );
+
+    // Send 3 messages and wait for archiver sync
+    logger.warn(`Sending 3 cross chain messages`);
+    const msgs = await timesAsync(3, sendMessage);
+    logger.warn(`Sent messages on L1 blocks ${msgs.map(m => m.txReceipt.blockNumber)}`);
+
+    await retryUntil(
+      () => node.isL1ToL2MessageSynced(msgs.at(-1)!.msgHash),
+      'message sync',
+      msgs.length * L1_BLOCK_TIME_IN_S * 2,
+      1,
+    );
+
+    // Reorg the last message out
+    logger.warn(`Triggering reorg to remove last message`);
+    const l1BlockNumber = await monitor.run(true).then(m => m.l1BlockNumber);
+    const l1BlocksToReorg = l1BlockNumber - Number(msgs.at(-1)!.txReceipt.blockNumber) + 1;
+    await context.cheatCodes.eth.reorg(l1BlocksToReorg);
+    const newMsg = await sendMessage();
+    logger.warn(`Sent new message on L1 block ${newMsg.txReceipt.blockNumber}`);
+
+    // New msg gets synced, and old one is out
+    await retryUntil(() => node.isL1ToL2MessageSynced(newMsg.msgHash), 'new message sync', L1_BLOCK_TIME_IN_S * 6, 1);
+    expect(await node.isL1ToL2MessageSynced(msgs[0].msgHash)).toBe(true);
+    expect(await node.isL1ToL2MessageSynced(msgs.at(-1)!.msgHash)).toBe(false);
+  });
 });
 
 function getBlobs(serializedTx: `0x${string}`) {
