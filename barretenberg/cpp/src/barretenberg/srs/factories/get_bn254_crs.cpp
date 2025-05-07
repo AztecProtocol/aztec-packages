@@ -15,7 +15,7 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 
     auto data = exec_pipe(command);
     if (data.size() < g1_end) {
-        THROW std::runtime_error("Failed to download g1 data.");
+        throw_or_abort("Failed to download g1 data.");
     }
 
     return data;
@@ -52,8 +52,14 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
         return points;
     }
 
-    if (!allow_download) {
+    if (!allow_download && g1_downloaded_points == 0) {
         throw_or_abort("bn254 g1 data not found and download not allowed in this context");
+    } else if (!allow_download) {
+        throw_or_abort(format("bn254 g1 data had ",
+                              g1_downloaded_points,
+                              " points and ",
+                              num_points,
+                              " were requested but download not allowed in this context"));
     }
     vinfo("downloading bn254 crs...");
     auto data = download_bn254_g1_data(num_points);

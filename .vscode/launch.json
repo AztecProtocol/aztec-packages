@@ -24,7 +24,7 @@
       "name": "Debug Current CMake Target",
       "type": "lldb",
       "request": "launch",
-      "program": "/mnt/user-data/adam/aztec-packages/barretenberg/cpp/build-debug/bin/srs_tests",
+      "program": "${command:cmake.launchTargetPath}",
       "args": [],
       "cwd": "${workspaceFolder}/barretenberg/cpp/build",
       "initCommands": [

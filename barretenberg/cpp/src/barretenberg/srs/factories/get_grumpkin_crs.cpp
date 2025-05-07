@@ -42,8 +42,14 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
         }
         return points;
     }
-    if (!allow_download) {
+    if (!allow_download && g1_downloaded_points == 0) {
         throw_or_abort("grumpkin g1 data not found and download not allowed in this context");
+    } else if (!allow_download) {
+        throw_or_abort(format("grumpkin g1 data had ",
+                              g1_downloaded_points,
+                              " points and ",
+                              num_points,
+                              " were requested but download not allowed in this context"));
     }
     vinfo("downloading grumpkin crs...");
     auto data = download_grumpkin_g1_data(num_points);
