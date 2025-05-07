@@ -34,11 +34,27 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
 
   const [manualInput, setManualInput] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleParameterChange = (value: string, type: AbiType) => {
     switch (type.kind) {
-      case 'field': {
-        onParameterChange(BigInt(value).toString(16));
+      case 'field':
+      case 'integer': {
+        try {
+          let bigintValue;
+          if (value.startsWith('0x')) {
+            bigintValue = BigInt(value);
+          }
+          else {
+            bigintValue = BigInt(value);
+          }
+          setError('');
+          onParameterChange('0x' + bigintValue.toString(16));
+        } catch (err) {
+          console.log(err);
+          setError(`Invalid input ${value}. Use numeric or hex values.`);
+          onParameterChange(undefined);
+        }
         break;
       }
       case 'struct': {
@@ -67,25 +83,12 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
     }
   };
 
-  function getParameterType(type: AbiType) {
-    switch (type.kind) {
-      case 'field':
-        return 'number';
-      case 'integer':
-        return 'number';
-      case 'string':
-        return 'text';
-      default:
-        return 'text';
-    }
-  }
-
   function getParameterLabel(type: AbiType) {
     switch (type.kind) {
       case 'field':
-        return 'number';
+        return 'field/hex';
       case 'integer':
-        return 'int';
+        return 'number/hex';
       case 'string':
         return 'string';
       case 'boolean':
@@ -146,9 +149,13 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
           size='small'
           disabled={['array', 'struct', 'tuple'].includes(parameter.type.kind) && !isAddressStruct(parameter.type)}
           key={parameter.name}
-          type={getParameterType(parameter.type)}
+          type="text"
           label={`${capitalize(parameter.name)}  (${getParameterLabel(parameter.type)})`}
-          onChange={e => handleParameterChange(e.target.value, parameter.type)}
+          helperText={error}
+          error={!!error}
+          onChange={e => {
+            handleParameterChange(e.target.value, parameter.type);
+          }}
         />
       )}
       {isAddressStruct(parameter.type) && (
