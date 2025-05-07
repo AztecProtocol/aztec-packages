@@ -72,6 +72,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         }
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1382): Extract nested pairing points from the proof and
+    // aggregate them with those output from the decider.
+
     DeciderVerifier decider_verifier{ verification_key, transcript };
 
     return decider_verifier.verify();

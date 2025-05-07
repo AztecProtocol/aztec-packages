@@ -153,8 +153,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-            typename RecursiveVerifier::Output verifier_output =
-                verifier.verify_proof(inner_proof, PairingObject::construct_default(outer_circuit));
+            typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(inner_proof);
             verifier_output.points_accumulator.set_public();
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 verifier_output.ipa_claim.set_public();
@@ -194,9 +193,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        auto points_accumulator = PairingObject::construct_default(outer_circuit);
-        VerifierOutput output = verifier.verify_proof(inner_proof, points_accumulator);
-        PairingObject pairing_points = output.points_accumulator;
+        VerifierOutput output = verifier.verify_proof(inner_proof);
         output.points_accumulator.set_public();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();
@@ -218,9 +215,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             native_result = native_verifier.verify_proof(inner_proof);
         }
         NativeVerifierCommitmentKey pcs_vkey{};
-        bool result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+        bool result =
+            pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
         info("input pairing points result: ", result);
-        auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+        auto recursive_result =
+            pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);
 
         // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
@@ -250,7 +249,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            uint32_t NUM_GATES_EXPECTED = 937885;
+            uint32_t NUM_GATES_EXPECTED = 871733;
             BB_ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()),
                          NUM_GATES_EXPECTED,
                          "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "
@@ -284,7 +283,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
-            VerifierOutput output = verifier.verify_proof(inner_proof, PairingObject::construct_default(outer_circuit));
+            VerifierOutput output = verifier.verify_proof(inner_proof);
 
             // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
             // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
@@ -295,8 +294,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             } else {
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
                 NativeVerifierCommitmentKey pcs_vkey{};
-                PairingPoints pairing_points = output.points_accumulator;
-                bool result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(),
+                                                     output.points_accumulator.P1.get_value());
                 EXPECT_FALSE(result);
             }
         }

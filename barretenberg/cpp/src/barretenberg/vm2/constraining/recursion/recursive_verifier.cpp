@@ -49,7 +49,7 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, PairingPoints points_accumulator)
+    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
 {
     StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
@@ -65,15 +65,13 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         public_inputs_ct.push_back(vec_ct);
     }
 
-    return verify_proof(stdlib_proof, public_inputs_ct, points_accumulator);
+    return verify_proof(stdlib_proof, public_inputs_ct);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof,
-    const std::vector<std::vector<FF>>& public_inputs,
-    PairingPoints points_accumulator)
+    const StdlibProof<Builder>& stdlib_proof, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
@@ -147,10 +145,10 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
-    points_accumulator.aggregate(pairing_points);
-    return points_accumulator;
+    return pairing_points;
 }
 
 // TODO: Once Goblinized version is mature, we can remove this one and we only to template

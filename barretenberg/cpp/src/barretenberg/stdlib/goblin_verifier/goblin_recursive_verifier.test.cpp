@@ -179,7 +179,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
@@ -197,7 +197,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -210,12 +210,15 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    // Tamper with one of the translation evaluations
-    proof.translation_evaluations.Px += 1;
+    // Tamper with the evaluation of `op` witness. The index is computed manually.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+    // Better recursion testing - create more flexible proof tampering tests.
+    const size_t op_limb_index = 593;
+    proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

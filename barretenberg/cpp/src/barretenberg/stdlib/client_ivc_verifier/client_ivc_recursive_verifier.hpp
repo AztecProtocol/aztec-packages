@@ -38,7 +38,7 @@ class ClientIVCRecursiveVerifier {
         : builder(builder)
         , ivc_verification_key(ivc_verification_key){};
 
-    Output verify(const ClientIVC::Proof&);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const ClientIVC::Proof&);
 
   private:
     std::shared_ptr<Builder> builder;

@@ -247,7 +247,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const slasherClient = createSlasherClient(config, archiver, telemetry);
     slasherClient.start();
 
-    const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
+    const validatorClient = createValidatorClient(config, {
+      p2pClient,
+      telemetry,
+      dateProvider,
+      epochCache,
+      blockSource: archiver,
+    });
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
     await validatorsSentinel?.start();

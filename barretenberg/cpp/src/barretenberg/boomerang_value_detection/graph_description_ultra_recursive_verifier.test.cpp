@@ -110,8 +110,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        auto points_accumulator = PairingObject::construct_default(outer_circuit);
-        VerifierOutput output = verifier.verify_proof(inner_proof, points_accumulator);
+        VerifierOutput output = verifier.verify_proof(inner_proof);
         PairingObject pairing_points = output.points_accumulator;
         pairing_points.P0.x.fix_witness();
         pairing_points.P0.y.fix_witness();
