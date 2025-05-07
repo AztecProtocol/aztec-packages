@@ -65,9 +65,7 @@ describe('ValidatorClient', () => {
     p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(fakeTx));
     const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
     await expect(
-      val.reExecuteTransactions(await makeBlockProposal({ txs: [fakeTx], txHashes: [await fakeTx.getTxHash()] }), [
-        fakeTx,
-      ]),
+      val.reExecuteTransactions(makeBlockProposal({ txs: [fakeTx], txHashes: [await fakeTx.getTxHash()] }), [fakeTx]),
     ).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 

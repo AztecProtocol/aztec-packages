@@ -23,14 +23,14 @@ describe('ValidationService', () => {
     const {
       blockNumber,
       payload: { header, archive, stateReference },
-    } = await makeBlockProposal({ txs });
+    } = makeBlockProposal({ txs });
     const proposal = await service.createBlockProposal(blockNumber, header, archive, stateReference, txs);
     await expect(proposal.getSender()).resolves.toEqual(store.getAddress());
   });
 
   it('attests to proposal', async () => {
     const txs = await Promise.all([Tx.random(), Tx.random()]);
-    const proposal = await makeBlockProposal({ txs });
+    const proposal = makeBlockProposal({ txs });
     const attestation = await service.attestToProposal(proposal);
     expect(attestation.getSender()).toEqual(store.getAddress());
   });
