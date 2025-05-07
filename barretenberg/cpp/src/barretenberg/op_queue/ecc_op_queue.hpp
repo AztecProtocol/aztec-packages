@@ -193,24 +193,14 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Write no op (i.e. empty row)
+     * @brief Writes a no op (i.e. two zero rows) to the ultra ops table but no eccvm operations.
      *
+     * @return We want to be able to add  data (eventually, randomness) to the ultra ops table to hide commitments sent
+     * to the rollup as part of the merge protocol without affecting the operations in the ECCVM.
      */
-    UltraOp no_op()
-    {
-        EccOpCode op_code{};
-        // Store eccvm operation
-        append_eccvm_op(ECCVMOperation{ .op_code = op_code });
-
-        // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(op_code, accumulator);
-    }
-
     UltraOp no_op_ultra_only()
     {
         EccOpCode op_code{};
-        // Store eccvm operation
-        // append_eccvm_op(ECCVMOperation{ .op_code = op_code });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(op_code, accumulator);

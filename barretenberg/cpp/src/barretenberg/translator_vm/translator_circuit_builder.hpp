@@ -335,7 +335,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         , evaluation_input_x(evaluation_input_x_)
     {
         add_variable(Fr::zero());
-        info("what is the index of zero?", zero_idx);
     };
 
     /**

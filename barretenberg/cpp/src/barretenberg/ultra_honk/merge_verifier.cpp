@@ -40,12 +40,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
         t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
         T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
         T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
-        info("verifier received commitment at ", idx, " ", T_commitments[idx]);
     }
-
-    // for (size_t i = 0; i < 4; i++) {
-    //     info("merge commitment at ", i, " ", T_commitments[i]);
-    // }
 
     FF kappa = transcript->template get_challenge<FF>("kappa");
 

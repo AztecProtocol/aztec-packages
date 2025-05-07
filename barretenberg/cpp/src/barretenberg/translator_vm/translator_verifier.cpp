@@ -85,6 +85,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
+    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -120,10 +121,6 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-    info("op: ", commitments.op);
-    info("x_lo_y_hi: ", commitments.x_lo_y_hi);
-    info("x_hi_z_1: ", commitments.x_hi_z_1);
-    info("y_lo_z_2: ", commitments.y_lo_z_2);
 
     // Execute Shplemini
     bool consistency_checked = false;
@@ -149,6 +146,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
+
     return verified && consistency_checked;
 }
 
@@ -188,4 +186,36 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
     return is_value_reconstructed;
 }
 
+/**
+ * @brief Checks that translator and merge protocol operate on the same EccOpQueue data.
+ *
+ * @details The final merge verifier receives commitments to 4 polynomials whose coefficients are the values of the full
+ * op queue (or ultra op table). These have to match the EccOpQueue commitments received by the translator verifier,
+ * representing 4 wires in its circuit, to ensure the two components of Goblin, both operating on the UltraOp version of
+ * the op queue, operate on the same data.
+ */
+bool TranslatorVerifier::verify_consistency_with_final_merge(const std::array<Commitment, 4> merge_commitments)
+{
+    if (op_queue_commitments[0] != merge_commitments[0]) {
+        info("Consistency check failed: op commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[1] != merge_commitments[1]) {
+        info("Consistency check failed: x_lo_y_hi commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[2] != merge_commitments[2]) {
+        info("Consistency check failed: x_hi_z_1 commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[3] != merge_commitments[3]) {
+        info("Consistency check failed: y_lo_z_2 commitment mismatch");
+        return false;
+    }
+
+    return true;
+}
 } // namespace bb

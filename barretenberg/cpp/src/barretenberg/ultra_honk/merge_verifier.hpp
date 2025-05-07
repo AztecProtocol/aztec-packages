@@ -28,17 +28,16 @@ class MergeVerifier {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = NativeTranscript;
 
+    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
+    // MegaCircuitBuilder
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+
   public:
     std::shared_ptr<Transcript> transcript;
-    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     std::array<Commitment, NUM_WIRES> T_commitments;
 
     explicit MergeVerifier();
     bool verify_proof(const HonkProof& proof);
-
-    // private:
-    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
-    // MegaCircuitBuilder
 };
 
 } // namespace bb

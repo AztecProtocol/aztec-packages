@@ -53,7 +53,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
         // Compute commitments
         Commitment t_commitment = pcs_commitment_key->commit(t_current[idx]);
         Commitment T_prev_commitment = pcs_commitment_key->commit(T_prev[idx]);
-        Commitment T_commitment = pcs_commitment_key->commit_special(T_current[idx]);
+        Commitment T_commitment = pcs_commitment_key->commit(T_current[idx]);
         info("merge prover sent commitment at ", idx, " ", T_commitment);
 
         std::string suffix = std::to_string(idx);

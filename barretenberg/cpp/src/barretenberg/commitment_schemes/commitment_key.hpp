@@ -124,47 +124,6 @@ template <class Curve> class CommitmentKey {
 
         std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index * 2);
         DEBUG_LOG_ALL(polynomial.span);
-        // info("commiting to polynomial with size ", polynomial.span.size());
-        Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state);
-        DEBUG_LOG(point);
-        return point;
-    };
-
-    Commitment commit_special(PolynomialSpan<const Fr> polynomial)
-    {
-        PROFILE_THIS_NAME("commit");
-        // We must have a power-of-2 SRS points *after* subtracting by start_index.
-        size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
-        BB_ASSERT_LTE(dyadic_poly_size, dyadic_size, "Polynomial size exceeds commitment key size.");
-        // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
-        // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that
-        // the window of points is a power of 2 and still contains the scalars. The best we can do is pick a start index
-        // that ends at the end of the polynomial, which would be polynomial.end_index() - dyadic_poly_size. However,
-        // our polynomial might defined too close to 0, so we set the start_index to 0 in that case.
-        size_t actual_start_index =
-            polynomial.end_index() > dyadic_poly_size ? polynomial.end_index() - dyadic_poly_size : 0;
-        // The relative start index is the offset of the scalars from the start of the points window, i.e.
-        // [actual_start_index, actual_start_index + dyadic_poly_size), so we subtract actual_start_index from the start
-        // index.
-        size_t relative_start_index = polynomial.start_index - actual_start_index;
-        const size_t consumed_srs = actual_start_index + dyadic_poly_size;
-        auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
-        // We only need the
-        if (consumed_srs > srs->get_monomial_size()) {
-            throw_or_abort(format("Attempting to commit to a polynomial that needs ",
-                                  consumed_srs,
-                                  " points with an SRS of size ",
-                                  srs->get_monomial_size()));
-        }
-
-        // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
-        // with our polynomial span.
-
-        std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index * 2);
-        DEBUG_LOG_ALL(polynomial.span);
-        info("commiting to polynomial with size ", polynomial.span.size());
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
             { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);

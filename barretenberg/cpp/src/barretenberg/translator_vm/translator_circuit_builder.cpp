@@ -521,8 +521,13 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
-    auto first_ultra_op = ultra_ops[0];
-    populate_wires_from_ultra_op(first_ultra_op);
+    // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
+    // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
+    // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
+    // add two zeros for consistency.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
+    // data in the merge protocol (added for zero knowledge)/
+    populate_wires_from_ultra_op(ultra_ops[0]);
     for (auto& wire : wires) {
         if (wire.empty()) {
             wire.push_back(zero_idx);
@@ -549,6 +554,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
 
+    // Generate witness values from all the UltraOps
     for (size_t i = 1; i < ultra_ops.size(); i++) {
         const auto& ultra_op = ultra_ops[i];
         Fq previous_accumulator = 0;
@@ -564,6 +570,5 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }
-    info(wires[WireIds::OP].size(), "Accumulator circuit size");
 }
 } // namespace bb

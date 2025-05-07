@@ -269,6 +269,7 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     fold_output.accumulator = nullptr;
 
     ClientCircuit builder{ goblin.op_queue };
+
     // We do an "append only ultra ops" here
     builder.queue_ecc_no_op();
 
