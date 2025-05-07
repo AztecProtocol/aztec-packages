@@ -166,7 +166,6 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       }}
       sx={{
         backgroundColor: 'white',
-        margin: '0.5rem',
         border: 'none',
         marginBottom: '1rem',
         overflow: 'hidden',
