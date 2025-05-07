@@ -21,7 +21,7 @@ export class PXEWrapper {
     return PXEWrapper.node;
   }
 
-  async prepare(nodeUrl: string, dataDir: string, overridePXEServiceConfig?: Partial<PXEServiceConfig>) {
+  prepare(nodeUrl: string, dataDir: string, overridePXEServiceConfig?: Partial<PXEServiceConfig>) {
     PXEWrapper.node = createAztecNodeClient(nodeUrl);
     const pxeConfig = Object.assign(getPXEServiceConfig(), overridePXEServiceConfig);
     pxeConfig.dataDirectory = dataDir;

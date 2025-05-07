@@ -1,4 +1,4 @@
-import { Fr, ProtocolContractAddress, computeSecretHash, createCompatibleClient, fileURLToPath } from '@aztec/aztec.js';
+import { Fr, ProtocolContractAddress, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
@@ -95,7 +95,7 @@ async function main() {
         .default(`http://${LOCALHOST}:8080`),
     )
     .hook('preSubcommand', async command => {
-      const { dataDir, remotePxe, nodeUrl, prover, rpcUrl } = command.optsWithGlobals();
+      const { dataDir, remotePxe, nodeUrl, prover } = command.optsWithGlobals();
 
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');

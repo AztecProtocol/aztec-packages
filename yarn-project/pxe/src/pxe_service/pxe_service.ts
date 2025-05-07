@@ -57,7 +57,9 @@ import {
   type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
+  type ProvingTimings,
   PublicSimulationOutput,
+  type SimulationTimings,
   Tx,
   TxExecutionRequest,
   type TxHash,
@@ -69,7 +71,6 @@ import {
 
 import { inspect } from 'util';
 
-import type { ProvingTimings, SimulationTimings } from '../../../stdlib/src/tx/profiling.js';
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import {
