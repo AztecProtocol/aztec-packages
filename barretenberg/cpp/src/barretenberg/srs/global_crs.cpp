@@ -19,7 +19,7 @@ std::filesystem::path bb_crs_path()
     return base / ".bb-crs";
 }
 
-void init_bn254_crs_mem_factory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point)
+void init_bn254_mem_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point)
 {
     bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(points, g2_point);
 }
