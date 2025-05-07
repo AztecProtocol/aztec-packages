@@ -5,7 +5,6 @@ import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schema
 import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
 export type SafeJsonRpcClientOptions = {
-  useApiEndpoints?: boolean;
   namespaceMethods?: string | false;
   fetch?: JsonRpcFetch;
   log?: Logger;
@@ -20,8 +19,6 @@ export type SafeJsonRpcClientOptions = {
  * The server is expected to be a JsonRpcServer.
  * @param host - The host URL.
  * @param schema - The api schema to validate returned data against.
- * @param useApiEndpoints - Whether to use the API endpoints or the default RPC endpoint.
- * @param namespaceMethods - String value (or false/empty) to namespace all methods sent to the server. e.g. 'getInfo' -\> 'pxe_getInfo'
  * @param fetch - The fetch implementation to use.
  */
 export function createSafeJsonRpcClient<T extends object>(
@@ -31,7 +28,7 @@ export function createSafeJsonRpcClient<T extends object>(
 ): T {
   const fetch = config.fetch ?? defaultFetch;
   const log = config.log ?? createLogger('json-rpc:client');
-  const { useApiEndpoints = false, namespaceMethods = false } = config;
+  const { namespaceMethods = false } = config;
 
   let id = 0;
   const request = async (methodName: string, params: any[]): Promise<any> => {
@@ -42,7 +39,7 @@ export function createSafeJsonRpcClient<T extends object>(
     const body = { jsonrpc: '2.0', id: id++, method, params };
 
     log.debug(format(`request`, method, params));
-    const { response, headers } = await fetch(host, method, body, useApiEndpoints);
+    const { response, headers } = await fetch(host, method, body);
     log.debug(format(`result`, method, response));
 
     if (config.onResponse) {
