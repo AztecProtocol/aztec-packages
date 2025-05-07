@@ -311,6 +311,10 @@ Combined wait-for-services and configure-env container for full nodes
       valueFrom:
         fieldRef:
           fieldPath: metadata.labels['app']
+    {{- if .Values.archiver.enabled }}
+    - name: ARCHIVER_URL
+      value: http://{{ include "aztec-network.fullname" . }}-archiver.{{ .Release.Namespace }}:{{ .Values.archiver.service.nodePort }}
+    {{- end }}
 {{- end -}}
 
 {{/*
