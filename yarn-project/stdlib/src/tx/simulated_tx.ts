@@ -70,7 +70,12 @@ export class TxSimulationResult {
   }
 
   static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed'>) {
-    return new TxSimulationResult(fields.privateExecutionResult, fields.publicInputs, fields.publicOutput);
+    return new TxSimulationResult(
+      fields.privateExecutionResult,
+      fields.publicInputs,
+      fields.publicOutput,
+      fields.timings,
+    );
   }
 
   static fromPrivateSimulationResultAndPublicOutput(
