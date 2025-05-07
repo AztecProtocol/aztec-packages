@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746614988745,
+  "lastUpdate": 1746625382431,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8a77df7cf1f2b25fc2cb06a1d71aacc0e93c5ba2",
-          "message": "fix(cmake): clientivc uses libdeflate (#13973)",
-          "timestamp": "2025-05-01T14:26:05Z",
-          "tree_id": "14e8e0c6c34691c03cc29e6d7c9ed5a2f5743ef8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8a77df7cf1f2b25fc2cb06a1d71aacc0e93c5ba2"
-        },
-        "date": 1746112341700,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 17502.062147999823,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13962.562567 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2191890123,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 197604879,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 20139.54649499988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17232.590505 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56113.033034,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56113037000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4444.920320000165,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3808.3842119999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 12017.309726,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 12017310000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2344.06",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -8344,6 +8272,78 @@ window.BENCHMARK_DATA = {
             "value": 1823,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "51711291+natebeauregard@users.noreply.github.com",
+            "name": "Nate Beauregard",
+            "username": "natebeauregard"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8d81136d3ddf396fc061fa8074c9ba5f9fb2ab40",
+          "message": "chore: more specific world state tree map size config (#13905)\n\nCloses https://github.com/AztecProtocol/aztec-packages/issues/13386\n\nAdds tree map size configurations for each specific world state tree\n(archive, nullifier tree, note hash tree, public data tree, L1 to L2\nmessage tree).\n\nAdditionally, adds a blob sink map size configuration.",
+          "timestamp": "2025-05-07T12:29:35Z",
+          "tree_id": "60f6a8bc2bbb4c005a9b71f2462259e4987b2646",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8d81136d3ddf396fc061fa8074c9ba5f9fb2ab40"
+        },
+        "date": 1746625373287,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17711.103483999977,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13982.018813 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4839968613,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 201878710,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25106.351195000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19603.453154 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 69520.943085,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 69520945000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4221.580207999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3661.6986719999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11397.780598000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11397783000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2269.19",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
