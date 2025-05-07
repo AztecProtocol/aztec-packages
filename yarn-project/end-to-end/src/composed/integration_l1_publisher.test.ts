@@ -251,11 +251,10 @@ describe('L1Publisher integration', () => {
       seed,
     });
 
-  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> => {
-    return sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
-      ([messageHash, _]) => messageHash,
+  const sendToL2 = (content: Fr, recipient: AztecAddress): Promise<Fr> =>
+    sendL1ToL2Message({ content, secretHash: Fr.ZERO, recipient }, { l1Client, l1ContractAddresses }).then(
+      ({ msgHash }) => msgHash,
     );
-  };
 
   /**
    * Creates a json object that can be used to test the solidity contract.

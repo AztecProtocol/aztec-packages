@@ -1,4 +1,4 @@
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
 
 import { EventEmitter } from 'events';
@@ -8,6 +8,7 @@ import type { ViemClient } from '../types.js';
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
 export class ChainMonitor extends EventEmitter {
   private readonly l1Client: ViemClient;
+  private inbox: InboxContract | undefined;
   private handle: NodeJS.Timeout | undefined;
 
   /** Current L1 block number */
@@ -20,6 +21,8 @@ export class ChainMonitor extends EventEmitter {
   public l2BlockTimestamp!: bigint;
   /** L1 timestamp for the proven L2 block */
   public l2ProvenBlockTimestamp!: bigint;
+  /** Total number of L2 messages pushed into the Inbox */
+  public totalL2Messages: number = 0;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -44,6 +47,14 @@ export class ChainMonitor extends EventEmitter {
       clearInterval(this.handle!);
       this.handle = undefined;
     }
+  }
+
+  private async getInbox() {
+    if (!this.inbox) {
+      const { inboxAddress } = await this.rollup.getRollupAddresses();
+      this.inbox = new InboxContract(this.l1Client, inboxAddress);
+    }
+    return this.inbox;
   }
 
   private safeRun() {
@@ -88,12 +99,21 @@ export class ChainMonitor extends EventEmitter {
       });
     }
 
+    const inbox = await this.getInbox();
+    const newTotalL2Messages = await inbox.getState().then(s => Number(s.totalMessagesInserted));
+    if (this.totalL2Messages !== newTotalL2Messages) {
+      msg += ` with ${newTotalL2Messages - this.totalL2Messages} new L2 messages (total ${newTotalL2Messages})`;
+      this.totalL2Messages = newTotalL2Messages;
+      this.emit('l2-messages', { totalL2Messages: newTotalL2Messages, l1BlockNumber: newL1BlockNumber });
+    }
+
     this.logger.info(msg, {
       l1Timestamp: timestamp,
       l1BlockNumber: this.l1BlockNumber,
       l2SlotNumber: await this.rollup.getSlotNumber(),
       l2BlockNumber: this.l2BlockNumber,
       l2ProvenBlockNumber: this.l2ProvenBlockNumber,
+      totalL2Messages: this.totalL2Messages,
     });
 
     return this;

@@ -124,5 +124,22 @@ export function describeAztecMap(
       expect(await keys({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
       expect(await keys({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
     });
+
+    it('supports uint8 arrays as keys', async () => {
+      const key1 = new Uint8Array([1, 2, 3]);
+      const key2 = new Uint8Array([4, 5, 6]);
+      const key3 = new Uint8Array([7, 8, 9]);
+
+      await map.set(key1, 'value1');
+      await map.set(key2, 'value2');
+      await map.set(key3, 'value3');
+
+      expect(await get(key1)).to.equal('value1');
+      expect(await get(key2)).to.equal('value2');
+      expect(await get(key3)).to.equal('value3');
+
+      expect(await keys()).to.deep.equal([key1, key2, key3]);
+      expect(await keys({ start: new Uint8Array([4, 5, 6]) })).to.deep.equal([key2, key3]);
+    });
   });
 }
