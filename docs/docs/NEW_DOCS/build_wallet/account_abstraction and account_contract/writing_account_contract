@@ -1,0 +1,14 @@
+things to cover
+authwit support
+multicalls
+nonce abstraction (why useful with an example) and replay protection
+cancelling pending tx
+Set tx.max_block_number (hyperlink to shared mutables section)
+upgrade account contract (why needed for interop across wallets - hyperlink to protocol_comcepts/upgradeable contracts sectiom)
+understanding app and fee payload
+is_valid fn
+
+
+https://github.com/AztecProtocol/aztec-packages/blob/55564aaca2a8fba46e0704c560a1aef18adef10d/docs/docs/tutorials/codealong/contract_tutorials/write_accounts_contract.md#L1
+
+hyperlink to building a contract (build_aztec_app folder)
