@@ -20,7 +20,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
     {
@@ -148,7 +148,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof);
 
-    srs::init_file_crs_factory(bb::srs::default_crs_path());
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto crs_factory = srs::get_grumpkin_crs_factory();
     auto grumpkin_verifier_commitment_key =
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);

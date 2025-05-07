@@ -28,7 +28,7 @@ class AvmRecursiveTests : public ::testing::Test {
     using InnerVerifier = AvmVerifier;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Helper function to create and verify native proof
     struct NativeProofResult {

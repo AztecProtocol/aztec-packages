@@ -101,7 +101,7 @@ int coset_fft_regular()
 
 int main()
 {
-    bb::srs::init_file_crs_factory(bb::srs::default_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     std::cout << "initializing" << std::endl;
     init();
     std::cout << "executing normal fft" << std::endl;

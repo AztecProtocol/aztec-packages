@@ -26,7 +26,7 @@ template <>
 inline std::shared_ptr<CommitmentKey<curve::BN254>> create_commitment_key<CommitmentKey<curve::BN254>>(
     const size_t num_points)
 {
-    bb::srs::init_file_crs_factory(bb::srs::default_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     if (num_points != 0) {
         return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
     };
@@ -37,7 +37,7 @@ template <>
 inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> create_commitment_key<CommitmentKey<curve::Grumpkin>>(
     const size_t num_points)
 {
-    srs::init_file_crs_factory(bb::srs::default_crs_path());
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     if (num_points != 0) {
         return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
     }
@@ -63,7 +63,7 @@ template <>
 inline std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> create_verifier_commitment_key<
     VerifierCommitmentKey<curve::Grumpkin>>()
 {
-    srs::init_file_crs_factory(bb::srs::default_crs_path());
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     return std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS,
                                                                     srs::get_grumpkin_crs_factory());
 }

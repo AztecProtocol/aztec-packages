@@ -89,7 +89,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     };
 
   public:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Construct a recursive verification circuit for the proof of an inner circuit then  check the number of

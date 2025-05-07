@@ -15,7 +15,7 @@ using Composer = plonk::UltraComposer;
 
 class Sha256Tests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 TEST_F(Sha256Tests, TestSha256Compression)

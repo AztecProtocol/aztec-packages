@@ -433,7 +433,7 @@ void uint_extended_multiplication(State& state)
  */
 static void DoPippengerSetup(const benchmark::State&)
 {
-    bb::srs::init_file_crs_factory(bb::srs::default_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 }
 
 /**

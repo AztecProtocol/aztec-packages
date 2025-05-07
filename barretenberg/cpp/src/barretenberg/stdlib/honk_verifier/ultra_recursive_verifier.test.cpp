@@ -85,7 +85,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     }
 
   public:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Create inner circuit and call check_circuit on it

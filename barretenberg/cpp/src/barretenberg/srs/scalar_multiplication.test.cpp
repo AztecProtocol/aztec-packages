@@ -27,7 +27,7 @@ auto& engine = numeric::get_debug_randomness();
 
 template <typename Curve> class ScalarMultiplicationTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
@@ -240,7 +240,7 @@ TYPED_TEST(ScalarMultiplicationTests, ReduceBuckets)
 
     constexpr size_t num_initial_points = 1 << 12;
     constexpr size_t num_points = num_initial_points * 2;
-    srs::init_file_crs_factory(bb::srs::default_crs_path());
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     AffineElement* scratch_points = (AffineElement*)(aligned_alloc(64, sizeof(AffineElement) * (num_points * 2)));
     AffineElement* point_pairs = (AffineElement*)(aligned_alloc(64, sizeof(AffineElement) * (num_points * 2)));

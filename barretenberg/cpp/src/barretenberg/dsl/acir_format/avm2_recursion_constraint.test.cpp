@@ -44,7 +44,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static InnerCircuitData create_inner_circuit_data()
     {

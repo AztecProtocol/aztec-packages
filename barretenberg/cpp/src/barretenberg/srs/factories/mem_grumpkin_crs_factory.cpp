@@ -40,7 +40,7 @@ class MemVerifierCrs : public VerifierCrs<Grumpkin> {
 
 namespace bb::srs::factories {
 
-MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(std::vector<Grumpkin::AffineElement>&& points)
+MemGrumpkinCrsFactory::MemGrumpkinCrsFactory(const std::vector<Grumpkin::AffineElement>& points)
     : prover_crs_(std::make_shared<MemProverCrs<Grumpkin>>(points))
     , verifier_crs_(std::make_shared<MemVerifierCrs>(points))
 {

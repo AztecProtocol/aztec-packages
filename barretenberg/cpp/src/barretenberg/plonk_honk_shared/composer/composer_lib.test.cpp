@@ -14,7 +14,7 @@ class ComposerLibTests : public ::testing::Test {
     using FF = typename Flavor::FF;
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**

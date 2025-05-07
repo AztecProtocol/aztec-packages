@@ -17,7 +17,7 @@ using namespace bb;
 
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;

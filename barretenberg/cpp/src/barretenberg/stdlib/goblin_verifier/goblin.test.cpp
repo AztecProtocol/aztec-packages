@@ -9,7 +9,7 @@ using namespace bb;
 
 class GoblinTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Builder = MegaCircuitBuilder;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;

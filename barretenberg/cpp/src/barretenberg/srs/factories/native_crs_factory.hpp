@@ -40,15 +40,15 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
     {}
     std::shared_ptr<ProverCrs<curve::BN254>> get_prover_crs(size_t degree) override
     {
-        if (degree > last_degree_) {
+        if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_shared<MemBn254CrsFactory>(init_bn254_crs(path_, degree, allow_download_));
             last_degree_ = degree;
         }
         return mem_crs_->get_prover_crs(degree);
     }
-    std::shared_ptr<VerifierCrs<curve::BN254>> get_verifier_crs(size_t degree = 0) override
+    std::shared_ptr<VerifierCrs<curve::BN254>> get_verifier_crs(size_t degree = 1) override
     {
-        if (degree > last_degree_) {
+        if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_shared<MemBn254CrsFactory>(init_bn254_crs(path_, degree, allow_download_));
             last_degree_ = degree;
         }
@@ -70,7 +70,7 @@ class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
     {}
     std::shared_ptr<ProverCrs<curve::Grumpkin>> get_prover_crs(size_t degree) override
     {
-        if (degree > last_degree_) {
+        if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_unique<MemGrumpkinCrsFactory>(init_grumpkin_crs(path_, degree, allow_download_));
             last_degree_ = degree;
         }
@@ -79,7 +79,7 @@ class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
 
     std::shared_ptr<VerifierCrs<curve::Grumpkin>> get_verifier_crs(size_t degree) override
     {
-        if (degree > last_degree_) {
+        if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_unique<MemGrumpkinCrsFactory>(init_grumpkin_crs(path_, degree, allow_download_));
             last_degree_ = degree;
         }

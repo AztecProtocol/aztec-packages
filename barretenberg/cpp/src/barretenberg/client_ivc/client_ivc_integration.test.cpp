@@ -15,7 +15,7 @@ using namespace bb;
  */
 class ClientIVCIntegrationTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;

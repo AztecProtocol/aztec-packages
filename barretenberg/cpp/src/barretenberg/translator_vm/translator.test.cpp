@@ -22,7 +22,7 @@ class TranslatorTests : public ::testing::Test {
     using Fq = fq;
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Construct a test circuit based on some random operations
     static CircuitBuilder generate_test_circuit(const Fq& batching_challenge_v,

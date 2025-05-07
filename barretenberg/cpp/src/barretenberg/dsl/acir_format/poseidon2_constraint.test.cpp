@@ -18,7 +18,7 @@ using Composer = plonk::UltraComposer;
 
 class Poseidon2Tests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 using fr = field<Bn254FrParams>;
 

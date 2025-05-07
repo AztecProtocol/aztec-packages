@@ -21,7 +21,7 @@ class ClientIVCRecursionTests : public testing::Test {
 
     static constexpr TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
 
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ClientIVCProverOutput {
         Proof proof;

@@ -128,7 +128,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
     flags.output_format = "bytes";
-    flags.crs_path = srs::default_crs_path();
+    flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
         return subcommand->add_option("--output_path, -o",

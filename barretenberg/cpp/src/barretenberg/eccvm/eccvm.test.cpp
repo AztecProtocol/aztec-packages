@@ -19,7 +19,7 @@ using FF = ECCVMFlavor::FF;
 using PK = ECCVMFlavor::ProvingKey;
 class ECCVMTests : public ::testing::Test {
   protected:
-    void SetUp() override { srs::init_file_crs_factory(bb::srs::default_crs_path()); };
+    void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();

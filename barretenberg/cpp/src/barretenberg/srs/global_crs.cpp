@@ -11,7 +11,7 @@ std::shared_ptr<bb::srs::factories::CrsFactory<bb::curve::Grumpkin>> grumpkin_cr
 
 namespace bb::srs {
 
-std::filesystem::path default_crs_path()
+std::filesystem::path bb_crs_path()
 {
     // Detect home directory for default CRS path
     char* home = std::getenv("HOME");
@@ -19,14 +19,14 @@ std::filesystem::path default_crs_path()
     return base / ".bb-crs";
 }
 
-void init_bn254_crs_mem_factory(std::vector<g1::affine_element>&& points, g2::affine_element const& g2_point)
+void init_bn254_crs_mem_factory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point)
 {
-    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(std::move(points), g2_point);
+    bn254_crs_factory = std::make_shared<factories::MemBn254CrsFactory>(points, g2_point);
 }
 
-void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement>&& points)
+void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement> const& points)
 {
-    grumpkin_crs_factory = std::make_shared<factories::MemGrumpkinCrsFactory>(std::move(points));
+    grumpkin_crs_factory = std::make_shared<factories::MemGrumpkinCrsFactory>(points);
 }
 
 // Initializes the crs using the memory buffers

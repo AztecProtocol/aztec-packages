@@ -12,7 +12,7 @@ using namespace bb;
 
 class ECCVMTranscriptTests : public ::testing::Test {
   public:
-    void SetUp() override { srs::init_file_crs_factory(srs::default_crs_path()); };
+    void SetUp() override { srs::init_file_crs_factory(srs::bb_crs_path()); };
     using FF = grumpkin::fr;
     using Flavor = ECCVMFlavor;
 

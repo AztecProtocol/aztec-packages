@@ -10,7 +10,7 @@
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
-    bb::srs::init_file_crs_factory(bb::srs::default_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 }
 /**
  * @brief A very primitive fuzzer for the composer

@@ -14,7 +14,7 @@ using namespace bb;
 class MegaMockCircuitsPinning : public ::testing::Test {
   protected:
     using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 TEST_F(MegaMockCircuitsPinning, FunctionSizes)

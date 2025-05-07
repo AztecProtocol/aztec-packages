@@ -5,7 +5,8 @@
 #include <filesystem>
 
 namespace bb::srs {
-std::filesystem::path default_crs_path();
+// Path to ~/.bb-crs where we store the downloaded crs files
+std::filesystem::path bb_crs_path();
 
 // Initializes the crs using files
 void init_bn254_file_crs_factory(const std::filesystem::path& path);
@@ -17,8 +18,9 @@ inline void init_file_crs_factory(const std::filesystem::path& path)
 }
 
 // Initializes the crs using memory buffers
-void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement>&& points);
-void init_bn254_mem_crs_factory(std::vector<bb::g1::affine_element>&& points, bb::g2::affine_element const& g2_point);
+void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement> const& points);
+void init_bn254_mem_crs_factory(std::vector<bb::g1::affine_element> const& points,
+                                bb::g2::affine_element const& g2_point);
 
 // Initializes the crs using files if available, otherwise using the network
 void init_grumpkin_net_crs_factory(const std::filesystem::path& path);

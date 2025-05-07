@@ -23,7 +23,7 @@ WASM_EXPORT void srs_init_srs(uint8_t const* points_buf, uint32_t const* num_poi
         g1_points[i] = from_buffer<bb::g1::affine_element>(points_buf, i * 64);
     }
     auto g2_point = from_buffer<g2::affine_element>(g2_point_buf);
-    bb::srs::init_bn254_mem_crs_factory(std::move(g1_points), g2_point);
+    bb::srs::init_bn254_mem_crs_factory(g1_points, g2_point);
 }
 
 /**
@@ -36,5 +36,5 @@ WASM_EXPORT void srs_init_grumpkin_srs(uint8_t const* points_buf, uint32_t const
     for (uint32_t i = 0; i < points.size(); ++i) {
         points[i] = from_buffer<curve::Grumpkin::AffineElement>(points_buf, i * sizeof(curve::Grumpkin::AffineElement));
     }
-    bb::srs::init_grumpkin_mem_crs_factory(std::move(points));
+    bb::srs::init_grumpkin_mem_crs_factory(points);
 }

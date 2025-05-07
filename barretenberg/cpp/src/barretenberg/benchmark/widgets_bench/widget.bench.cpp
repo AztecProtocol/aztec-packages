@@ -36,7 +36,7 @@ struct BasicPlonkKeyAndTranscript {
 
 BasicPlonkKeyAndTranscript get_plonk_key_and_transcript()
 {
-    bb::srs::init_file_crs_factory(bb::srs::default_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto inner_composer = plonk::UltraComposer();
     auto builder = typename plonk::UltraComposer::CircuitBuilder();
     bb::mock_circuits::generate_basic_arithmetic_circuit(builder, 16);

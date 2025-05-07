@@ -41,7 +41,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
     using Transcript = InnerFlavor::Transcript;
 
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static std::shared_ptr<bb::ECCOpQueue> create_op_queue(const size_t num_ops)
     {

@@ -196,7 +196,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
   protected:
-    void SetUp() override { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    void SetUp() override { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**

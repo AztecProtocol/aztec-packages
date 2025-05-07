@@ -35,7 +35,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::default_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Adds operations in BN254 to the op_queue and then constructs and ECCVM circuit from the op_queue.
