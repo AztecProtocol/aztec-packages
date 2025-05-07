@@ -57,7 +57,9 @@ import {
   type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
+  type ProvingTimings,
   PublicSimulationOutput,
+  type SimulationTimings,
   Tx,
   TxExecutionRequest,
   type TxHash,
@@ -653,22 +655,47 @@ export class PXEService implements PXE {
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
     return this.#putInJobQueue(async () => {
+      const totalTimer = new Timer();
       try {
+        let syncTime: number | undefined;
         if (!privateExecutionResult) {
+          const syncTimer = new Timer();
           await this.synchronizer.sync();
+          syncTime = syncTimer.ms();
           privateExecutionResult = await this.#executePrivate(txRequest);
         }
-        const { publicInputs, clientIvcProof } = await this.#prove(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-          {
-            simulate: false,
-            skipFeeEnforcement: false,
-            profileMode: 'none',
-          },
-        );
-        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
+        const {
+          publicInputs,
+          clientIvcProof,
+          executionSteps,
+          timings: { proving } = {},
+        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+          simulate: false,
+          skipFeeEnforcement: false,
+          profileMode: 'none',
+        });
+
+        const totalTime = totalTimer.ms();
+
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+          functionName,
+          time: witgen,
+        }));
+
+        const timings: ProvingTimings = {
+          total: totalTime,
+          sync: syncTime,
+          proving,
+          perFunction,
+          unaccounted:
+            totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
+        };
+
+        this.log.info(`Proving completed in ${totalTime}ms`, {
+          timings,
+        });
+
+        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, timings);
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       }
@@ -683,6 +710,7 @@ export class PXEService implements PXE {
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async () => {
+      const totalTimer = new Timer();
       try {
         const txInfo = {
           origin: txRequest.origin,
@@ -703,13 +731,42 @@ export class PXEService implements PXE {
 
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
 
-        const { executionSteps, timings } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-          simulate: skipProofGeneration,
-          skipFeeEnforcement: false,
-          profileMode,
-        });
+        const { executionSteps, timings: { proving } = {} } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+          {
+            simulate: skipProofGeneration,
+            skipFeeEnforcement: false,
+            profileMode,
+          },
+        );
 
-        return new TxProfileResult(executionSteps, syncTime, timings?.proving);
+        const totalTime = totalTimer.ms();
+
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+          functionName,
+          time: witgen,
+        }));
+
+        // Gate computation is time is not relevant for profiling, so we subtract it from the total time.
+        const gateCountComputationTime =
+          executionSteps.reduce((acc, { timings }) => acc + (timings.gateCount ?? 0), 0) ?? 0;
+
+        const timings: ProvingTimings = {
+          total: totalTime - gateCountComputationTime,
+          sync: syncTime,
+          proving,
+          perFunction,
+          unaccounted:
+            totalTime -
+            ((syncTime ?? 0) +
+              (proving ?? 0) +
+              perFunction.reduce((acc, { time }) => acc + time, 0) +
+              gateCountComputationTime),
+        };
+
+        return new TxProfileResult(executionSteps, timings);
       } catch (err: any) {
         throw this.#contextualizeError(
           err,
@@ -735,6 +792,7 @@ export class PXEService implements PXE {
     // delete the same read value, or reading values that another simulation is currently modifying).
     return this.#putInJobQueue(async () => {
       try {
+        const totalTimer = new Timer();
         const txInfo = {
           origin: txRequest.origin,
           functionSelector: txRequest.functionSelector,
@@ -748,32 +806,67 @@ export class PXEService implements PXE {
           `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
           txInfo,
         );
-        const timer = new Timer();
+        const syncTimer = new Timer();
         await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
+
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-        const { publicInputs } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-          simulate: true,
-          skipFeeEnforcement,
-          profileMode: 'none',
-        });
+        const { publicInputs, executionSteps } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+          {
+            simulate: true,
+            skipFeeEnforcement,
+            profileMode: 'none',
+          },
+        );
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
         const simulatedTx = privateSimulationResult.toSimulatedTx();
+        let publicSimulationTime: number | undefined;
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
+          const publicSimulationTimer = new Timer();
           publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
+          publicSimulationTime = publicSimulationTimer.ms();
         }
 
+        let validationTime: number | undefined;
         if (!skipTxValidation) {
+          const validationTimer = new Timer();
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+          validationTime = validationTimer.ms();
           if (validationResult.result === 'invalid') {
             throw new Error('The simulated transaction is unable to be added to state and is invalid.');
           }
         }
 
         const txHash = await simulatedTx.getTxHash();
-        this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
+
+        const totalTime = totalTimer.ms();
+
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+          functionName,
+          time: witgen,
+        }));
+
+        const timings: SimulationTimings = {
+          total: totalTime,
+          sync: syncTime,
+          publicSimulation: publicSimulationTime,
+          validation: validationTime,
+          perFunction,
+          unaccounted:
+            totalTime -
+            (syncTime +
+              (publicSimulationTime ?? 0) +
+              (validationTime ?? 0) +
+              perFunction.reduce((acc, { time }) => acc + time, 0)),
+        };
+
+        this.log.info(`Simulation completed for ${txHash.toString()} in ${totalTime}ms`, {
           txHash,
           ...txInfo,
           ...(publicOutput
@@ -783,9 +876,14 @@ export class PXEService implements PXE {
                 revertReason: publicOutput.revertReason,
               }
             : {}),
+          timings,
         });
 
-        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
+        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+          privateSimulationResult,
+          publicOutput,
+          timings,
+        );
       } catch (err: any) {
         throw this.#contextualizeError(
           err,

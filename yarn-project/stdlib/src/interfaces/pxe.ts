@@ -38,7 +38,7 @@ import {
   TxSimulationResult,
   indexedTxSchema,
 } from '../tx/index.js';
-import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProfileResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import {
   type GetContractClassLogsResponse,
