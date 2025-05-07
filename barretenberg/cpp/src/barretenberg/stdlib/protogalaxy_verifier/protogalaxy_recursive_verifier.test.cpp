@@ -338,7 +338,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // Perform native verification then perform the pairing on the outputs of the recursive decider verifier and
         // check that the result agrees.
         InnerDeciderVerifier native_decider_verifier(verifier_accumulator);
-        auto native_result = native_decider_verifier.verify_proof(decider_proof);
+        auto native_decider_output = native_decider_verifier.verify_proof(decider_proof);
+        auto native_result = native_decider_output.check();
         NativeVerifierCommitmentKey pcs_vkey{};
         auto recursive_result = pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(native_result, recursive_result);

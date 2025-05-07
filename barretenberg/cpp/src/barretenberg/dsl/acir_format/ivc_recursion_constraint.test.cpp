@@ -509,9 +509,6 @@ TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
     EXPECT_TRUE(CircuitChecker::check(kernel));
     ivc->accumulate(kernel);
 
-    // Still expect this to be true since we don't aggregate pairing point objects correctly.
-    // If we fix aggregation, we should expect this test to fail.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1382): Must handle nested pairing pairing point
-    // aggregation in the native UH verifier to get this to correctly fail.
-    EXPECT_TRUE(ivc->prove_and_verify());
+    // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
+    EXPECT_FALSE(ivc->prove_and_verify());
 }

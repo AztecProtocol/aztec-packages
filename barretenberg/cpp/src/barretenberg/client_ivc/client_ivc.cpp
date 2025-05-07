@@ -128,7 +128,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
 
-    PairingPoints nested_pairing_points = stdlib::PublicInputComponent<PairingPoints>::reconstruct(
+    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
         decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
 
     pairing_points.aggregate(nested_pairing_points);
@@ -307,6 +307,12 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
+
+    // Extract and aggregate the pairing points from the pub inputs of the final accumulated circuit
+    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
+        recursive_verifier_accumulator->public_inputs,
+        recursive_verifier_accumulator->verification_key->pairing_inputs_public_input_key);
+    points_accumulator.aggregate(nested_pairing_points);
 
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
