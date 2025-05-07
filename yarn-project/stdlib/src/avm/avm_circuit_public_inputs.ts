@@ -186,6 +186,28 @@ export class AvmCircuitPublicInputs {
     );
   }
 
+  toFields() {
+    return [
+      ...this.globalVariables.toFields(),
+      ...this.startTreeSnapshots.toFields(),
+      ...this.startGasUsed.toFields(),
+      ...this.gasSettings.toFields(),
+      this.feePayer,
+      ...this.publicSetupCallRequests.map(request => request.toFields()),
+      ...this.publicAppLogicCallRequests.map(request => request.toFields()),
+      ...this.publicTeardownCallRequest.toFields(),
+      ...this.previousNonRevertibleAccumulatedDataArrayLengths.toFields(),
+      ...this.previousRevertibleAccumulatedDataArrayLengths.toFields(),
+      ...this.previousNonRevertibleAccumulatedData.toFields(),
+      ...this.previousRevertibleAccumulatedData.toFields(),
+      ...this.endTreeSnapshots.toFields(),
+      ...this.endGasUsed.toFields(),
+      ...this.accumulatedData.toFields(),
+      this.transactionFee,
+      this.reverted,
+    ];
+  }
+
   static empty() {
     return new AvmCircuitPublicInputs(
       GlobalVariables.empty(),
