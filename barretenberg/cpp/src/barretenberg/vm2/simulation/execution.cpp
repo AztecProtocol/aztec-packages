@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 
+#include "barretenberg/vm2/common/environment_variables.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
@@ -89,6 +90,63 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryA
 {
     set_execution_result({ .rd_offset = ret_offset, .rd_size = ret_size_offset, .success = true });
     context.halt();
+}
+
+// TODO: could var_enum just be the enum?
+void Execution::getenvvar(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
+{
+    auto& memory = context.get_memory();
+    TaggedValue v;
+
+    // Cast to EnvironmentVariable enum
+    auto env_var = static_cast<EnvironmentVariable>(var_enum);
+
+    switch (env_var) {
+    case EnvironmentVariable::ADDRESS:
+        v = TaggedValue::from<FF>(context.get_address();
+        break;
+    case EnvironmentVariable::SENDER:
+        v = TaggedValue::from<FF>(context.get_msg_sender());
+        break;
+    case EnvironmentVariable::TRANSACTIONFEE:
+        v = TaggedValue::from<FF>(context.get_transaction_fee());
+        break;
+    case EnvironmentVariable::CHAINID:
+        v = TaggedValue::from<FF>(context.get_chain_id());
+        break;
+    case EnvironmentVariable::VERSION:
+        v = TaggedValue::from<FF>(context.get_version());
+        break;
+    case EnvironmentVariable::BLOCKNUMBER:
+        v = TaggedValue::from<FF>(context.get_block_number());
+        break;
+    case EnvironmentVariable::TIMESTAMP:
+        v = TaggedValue::from<uint64_t>(context.get_timestamp());
+        break;
+    case EnvironmentVariable::FEEPERL2GAS:
+        v = TaggedValue::from<FF>(context.get_fee_per_l2_gas());
+        break;
+    case EnvironmentVariable::FEEPERDAGAS:
+        v = TaggedValue::from<FF>(context.get_fee_per_da_gas());
+        break;
+    case EnvironmentVariable::ISSTATICCALL:
+        v = TaggedValue::from<uint1_t>(context.get_is_static());
+        break;
+    case EnvironmentVariable::L2GASLEFT:
+        v = TaggedValue::from<FF>(context.get_l2_gas_left());
+        break;
+    case EnvironmentVariable::DAGASLEFT:
+        v = TaggedValue::from<FF>(context.get_da_gas_left());
+        break;
+    default:
+        // TODO: how do we handle errors?
+        throw std::runtime_error("Unsupported environment variable");
+    }
+
+    memory.set(dst_addr, v);
+    // TODO: do we need to set inputs here?
+    // set_inputs({});
+    set_output(v);
 }
 
 void Execution::jump(ContextInterface& context, uint32_t loc)
@@ -201,6 +259,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::JUMPI:
         call_with_operands(&Execution::jumpi, context, resolved_operands);
+        break;
+    case ExecutionOpCode::GETENVVAR:
+        call_with_operands(&Execution::getenvvar, context, resolved_operands);
         break;
     default:
         // TODO: should be caught by parsing.

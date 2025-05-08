@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/environment_variables.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -59,6 +60,7 @@ class Execution : public ExecutionInterface {
     ExecutionComponentsProviderInterface& get_provider() override { return execution_components; };
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
+    // TODO: order here should match implementation orders and opcode enum orders.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
@@ -71,6 +73,7 @@ class Execution : public ExecutionInterface {
               MemoryAddress cd_offset,
               MemoryAddress cd_size);
     void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
+    void getenvvar(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
