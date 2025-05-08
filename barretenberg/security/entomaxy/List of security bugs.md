@@ -28,7 +28,7 @@ This list is a collection of bugs. Its goal is to help developers, auditors and 
 | BarVD-S-009 | Join-split circuit | public key nullifier uses only the x coordinate of the public key | Spending other person's funds | Manual code review | No | Yes | @arielgabizon | | | [Description](https://hackmd.io/@aztec-network/HJDt63w69?type=view) |
 | BarVD-S-010 | claim-proof circuit | incorrect implementation of integer arithemtic in field | Draining rollup funds | Manual code review | No | No | [@lucash-dev](https://github.com/lucash-dev) | | | [Description](https://hackmd.io/@aztec-network/claim-proof-bug) |
 | BarVD-S-011 | stdlib/logic | 3bit overflow in AND/XOR | Malform AND/XOR/OR operations | acir_formal_proofs | Yes | Yes | @defkit & @Sarkoxed | | https://github.com/AztecProtocol/aztec-packages/pull/11651 |  |
-| BarVD-S-012 | StandardCircuitBuilder/logic gate | Passing arbitrary values as XOR/AND results x2 | Getting arbitrary result of any computation that involves AND/XOR | smt_verification | Yes | Yes | @Sarkoxed | | [fix](https://github.com/AztecProtocol/aztec-packages/pull/4530) | |
+| BarVD-S-012 | StandardCircuitBuilder/logic gate | Passing arbitrary values as XOR/AND results x2 | Getting arbitrary result of any computation that involves AND/XOR | smt_verification | Yes | Yes | @Sarkoxed | | https://github.com/AztecProtocol/aztec-packages/pull/4530 | |
 
 
 ### Completeness Bugs
