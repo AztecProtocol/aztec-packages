@@ -92,7 +92,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     setIsWorking(true);
     let result;
     try {
-      const call = contract.methods[fnName](...parameters.flat());
+      console.log('parameters', parameters);
+      const call = contract.methods[fnName](...parameters);
       result = await call.simulate({ skipFeeEnforcement: true });
       const stringResult = JSON.stringify(result, (key, value) => {
         if (typeof value === 'bigint') {
@@ -114,7 +115,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     setIsWorking(true);
 
     try {
-      const call = contract.methods[fnName](...parameters.flat());
+      const call = contract.methods[fnName](...parameters);
 
       const profileResult = await call.profile({ profileMode: 'gates' });
       setProfileResults({
@@ -136,6 +137,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const handleParameterChange = (index: number, value: any) => {
     parameters[index] = value;
     setParameters([...parameters]);
+    console.log('parameters', parameters);
   };
 
   const handleAuthwitCreation = async (
@@ -160,7 +162,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     }
   };
 
-  const parametersValid = parameters.flat().every(param => param !== undefined);
+  const parametersValid = parameters.every(param => param !== undefined);
 
   return (
     <Card
@@ -366,7 +368,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       {contract && openSendTxDialog && (
         <SendTxDialog
           name={fn.name}
-          interaction={contract.methods[fn.name](...parameters.flat())}
+          interaction={contract.methods[fn.name](...parameters)}
           open={openSendTxDialog}
           onClose={handleSendDialogClose}
         />
@@ -375,7 +377,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         <CreateAuthwitDialog
           fnName={fn.name}
           contract={contract}
-          args={parameters.flat()}
+          args={parameters}
           isPrivate={fn.functionType === FunctionType.PRIVATE}
           open={openCreateAuthwitDialog}
           onClose={handleAuthwitCreation}

@@ -33,11 +33,12 @@ interface FunctionParameterProps {
 export function FunctionParameter({ parameter, required, onParameterChange, defaultValue }: FunctionParameterProps) {
   const { walletDB } = useContext(AztecContext);
 
-  const [value, setValue] = useState(defaultValue);
   const [manualInput, setManualInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [aliasedAddresses, setAliasedAddresses] = useState([]);
+  // Controlled input value only for structs
+  const [value, setValue] = useState(defaultValue);
 
   const handleParameterChange = (newValue: string, type: AbiType) => {
     switch (type.kind) {
@@ -184,15 +185,14 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
         </Typography>
 
         <div style={{ marginLeft: '1rem', width: 'calc(100% - 1rem)' }}>
-          {parameter.type.fields.map((field, index) => (
+          {parameter.type.fields.map((field) => (
             <FunctionParameter
               key={field.name}
               parameter={{ ...field, visibility: parameter.visibility }}
               required={required}
               onParameterChange={(nv) => {
-                // @ts-expect-error this is a struct type
-                const newValues = value ? [...value] : Array(parameter.type.fields.length).fill(undefined);
-                newValues[index] = nv;
+                const newValues = Object.assign({}, value);
+                newValues[field.name] = nv;
                 setValue(newValues);
                 onParameterChange(newValues);
               }}
