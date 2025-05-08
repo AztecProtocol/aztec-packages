@@ -332,6 +332,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       this.log.verbose(`Received block proposal with no transactions, skipping transaction availability check`);
       return [];
     }
+    this.p2pClient.markTxsAsNonEvictable(proposal.payload.txHashes);
     // Is this a new style proposal?
     if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length === proposal.payload.txHashes.length) {
       // Yes, any txs that we already have we should use
@@ -378,6 +379,7 @@ export class ValidatorClient extends WithTracer implements Validator {
         );
 
         await this.p2pClient.validate(txsToUse as Tx[]);
+        this.p2pClient.markTxsAsEvictable(hashesFromPayload);
         return txsToUse as Tx[];
       }
     }
@@ -387,7 +389,6 @@ export class ValidatorClient extends WithTracer implements Validator {
     // Old style proposal, we will perform a request by hash from pool
     // This will request from network any txs that are missing
     const txHashes: TxHash[] = proposal.payload.txHashes;
-    this.p2pClient.markTxsAsNonEvictable(txHashes);
 
     // This part is just for logging that we are requesting from the network
     const availability = await this.p2pClient.hasTxsInPool(txHashes);
