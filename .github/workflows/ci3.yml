@@ -1,5 +1,7 @@
 # CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
 # Only for internal devs. For external devs, see ci3-external.yml.
+#
+# CAREFUL! We use "exec" a lot to ensure signal propagation to the child process, to allow proper ec2 cleanup.
 name: CI3
 
 on:
@@ -23,12 +25,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  merge-queue-pr-link:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'merge_group'
-    steps:
-      - run: echo "This job exists only to link merge queue to the PR run."
-
   ci:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: never run on forks
@@ -106,7 +102,7 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
-        run: exec ./ci.sh ec2
+        run: exec ./ci.sh ga
 
       - name: Download benchmarks
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
@@ -209,65 +205,11 @@ jobs:
       #     alert-comment-cc-users: "@Maddiaa0"
       #     max-items-in-chart: 50
 
-  ci-grind:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'merge_group'
-    strategy:
-      matrix:
-        number: [1, 2]
-      fail-fast: true
-    steps:
-      #############
-      # Prepare Env
-      #############
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Setup
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
-      #############
-      # Run
-      #############
-      - name: Run
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          ARCH: amd64
-          RUN_ID: ${{ github.run_id }}
-          JOB_ID: g${{ matrix.number }}
-          INSTANCE_POSTFIX: ${{ matrix.number }}
-          DRY_RUN: 1
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI: 1
-          CI_FULL: 1
-        run: exec ./ci.sh ec2-test
-
-  # Necessary as github actions won't allow checks on matrix builds.
-  merge-check:
-    runs-on: ubuntu-latest
-    if: always()
-    needs:
-      - ci
-      - ci-grind
-    steps:
-      - name: Failing deploy
-        if: ${{ contains(needs.*.result, 'failure') }}
-        run: exit 1
-
   notify:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && failure()
     needs:
       - ci
-      - ci-grind
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
