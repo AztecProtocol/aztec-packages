@@ -51,8 +51,7 @@ extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
     srs::init_file_crs_factory(srs::bb_crs_path());
     ck = std::make_shared<CommitmentKey<Curve>>(COMMITMENT_TEST_NUM_POINTS);
-    vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS,
-                                                                  srs::get_bn254_crs_factory());
+    vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS);
 }
 
 // This define is needed to make ProxyClass a friend of IPA
