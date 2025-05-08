@@ -15,15 +15,16 @@ void DataCopy::cd_copy(ContextInterface& context,
     auto& memory = context.get_memory();
     auto padded_calldata = context.get_calldata(cd_offset, cd_copy_size);
 
+    // todo(ilyas): check out of bounds error
     for (uint32_t i = 0; i < cd_copy_size; i++) {
         memory.set(dst_addr + i, MemoryValue::from(padded_calldata[i]));
     }
 
     events.emit(DataCopyEvent{ .operation = DataCopyOperation::CD_COPY,
                                .calldata = padded_calldata,
-                               .enqueued_call_id = 0, // todo: comes from tx trace
                                .context_id = context.get_context_id(),
-                               .other_context_id = context.get_parent_id(),
+                               .write_context_id = context.get_context_id(),
+                               .read_context_id = context.get_parent_id(),
                                .data_copy_size = cd_copy_size, // This should be the size of the calldata
                                .data_offset = cd_offset,
                                .data_addr = context.get_parent_cd_addr(),
@@ -31,6 +32,7 @@ void DataCopy::cd_copy(ContextInterface& context,
                                .is_nested = context.has_parent(),
                                .dst_addr = dst_addr });
 }
+
 void DataCopy::rd_copy(ContextInterface& context,
                        const uint32_t rd_copy_size,
                        const uint32_t rd_offset,
@@ -39,15 +41,16 @@ void DataCopy::rd_copy(ContextInterface& context,
     auto& memory = context.get_memory();
     auto padded_returndata = context.get_returndata(rd_offset, rd_copy_size);
 
+    // todo(ilyas): check out of bounds error
     for (uint32_t i = 0; i < rd_copy_size; i++) {
         memory.set(dst_addr + i, MemoryValue::from(padded_returndata[i]));
     }
 
     events.emit(DataCopyEvent{ .operation = DataCopyOperation::RD_COPY,
                                .calldata = padded_returndata,
-                               .enqueued_call_id = 0, // todo: comes from tx trace
                                .context_id = context.get_context_id(),
-                               .other_context_id = context.get_child_context().get_context_id(),
+                               .write_context_id = context.get_context_id(),
+                               .read_context_id = context.get_child_context().get_context_id(),
                                .data_copy_size = rd_copy_size,
                                .data_offset = rd_offset,
                                .data_addr = context.get_last_rd_addr(),

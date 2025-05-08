@@ -11,6 +11,7 @@
 #include "relations/bitwise.hpp"
 #include "relations/call_opcode.hpp"
 #include "relations/calldata.hpp"
+#include "relations/calldata_hashing.hpp"
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
 #include "relations/context_stack.hpp"
@@ -43,6 +44,7 @@
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_call_opcode.hpp"
+#include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_data_copy.hpp"
@@ -64,23 +66,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2395;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 163;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2444;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 175;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2652;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2638;
-=======
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2327;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 170;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2584;
->>>>>>> 7dfbf9b2b1 (feat(avm): cd_copy)
->>>>>>> c063228abb (feat(avm): cd_copy)
+    static constexpr size_t NUM_ALL_ENTITIES = 2713;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -95,6 +85,7 @@ struct AvmFlavorVariables {
         avm2::bitwise<FF_>,
         avm2::call_opcode<FF_>,
         avm2::calldata<FF_>,
+        avm2::calldata_hashing<FF_>,
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
         avm2::context_stack<FF_>,
@@ -164,6 +155,8 @@ struct AvmFlavorVariables {
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_call_opcode_call_allocated_left_da_range_relation<FF_>,
         lookup_call_opcode_call_allocated_left_l2_range_relation<FF_>,
+        lookup_calldata_hashing_cd_hash_relation<FF_>,
+        lookup_calldata_hashing_cd_hash_end_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_call_relation<FF_>,
