@@ -29,6 +29,7 @@ class MockContext : public ContextInterface {
 
     MOCK_METHOD(uint32_t, get_context_id, (), (const, override));
     MOCK_METHOD(uint32_t, get_parent_id, (), (const, override));
+    MOCK_METHOD(bool, has_parent, (), (const, override));
 
     // Environment.
     MOCK_METHOD(const AztecAddress&, get_address, (), (const, override));
@@ -36,15 +37,20 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(bool, get_is_static, (), (const, override));
 
     // Input / Output.
+    MOCK_METHOD(EnqueuedCallId, get_enqueued_call_id, (), (const, override));
+    MOCK_METHOD(void, set_enqueued_call_id, (EnqueuedCallId id), (override));
     MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
     MOCK_METHOD(std::vector<FF>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));
     MOCK_METHOD(ContextInterface&, get_child_context, (), (override));
     MOCK_METHOD(void, set_child_context, (std::unique_ptr<ContextInterface> child_ctx), (override));
 
-    MOCK_METHOD(MemoryAddress, get_last_rd_offset, (), (const, override));
-    MOCK_METHOD(void, set_last_rd_offset, (MemoryAddress rd_offset), (override));
+    MOCK_METHOD(MemoryAddress, get_parent_cd_addr, (), (const, override));
+    MOCK_METHOD(uint32_t, get_parent_cd_size, (), (const, override));
 
-    MOCK_METHOD(MemoryAddress, get_last_rd_size, (), (const, override));
+    MOCK_METHOD(MemoryAddress, get_last_rd_addr, (), (const, override));
+    MOCK_METHOD(void, set_last_rd_addr, (MemoryAddress rd_offset), (override));
+
+    MOCK_METHOD(uint32_t, get_last_rd_size, (), (const, override));
     MOCK_METHOD(void, set_last_rd_size, (MemoryAddress rd_size), (override));
 
     MOCK_METHOD(bool, get_last_success, (), (const, override));

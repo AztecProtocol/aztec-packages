@@ -28,8 +28,8 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::execution_msg_sender,
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_is_static,
-        ColumnAndShifts::execution_parent_calldata_offset_addr,
-        ColumnAndShifts::execution_parent_calldata_size_addr
+        ColumnAndShifts::execution_parent_calldata_addr,
+        ColumnAndShifts::execution_parent_calldata_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_context_id,
@@ -38,8 +38,8 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
-        ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr
+        ColumnAndShifts::context_stack_parent_calldata_addr,
+        ColumnAndShifts::context_stack_parent_calldata_size
     };
 };
 
@@ -64,8 +64,8 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::execution_msg_sender_shift,
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
-        ColumnAndShifts::execution_parent_calldata_offset_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_addr_shift
+        ColumnAndShifts::execution_parent_calldata_addr_shift,
+        ColumnAndShifts::execution_parent_calldata_size_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_context_id,
@@ -74,8 +74,8 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
-        ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr
+        ColumnAndShifts::context_stack_parent_calldata_addr,
+        ColumnAndShifts::context_stack_parent_calldata_size
     };
 };
 
@@ -101,8 +101,8 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::execution_msg_sender_shift,
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
-        ColumnAndShifts::execution_parent_calldata_offset_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_addr_shift
+        ColumnAndShifts::execution_parent_calldata_addr_shift,
+        ColumnAndShifts::execution_parent_calldata_size_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_context_id,
@@ -111,8 +111,8 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
-        ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr
+        ColumnAndShifts::context_stack_parent_calldata_addr,
+        ColumnAndShifts::context_stack_parent_calldata_size
     };
 };
 

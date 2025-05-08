@@ -26,7 +26,7 @@ class ExecutionComponentsProviderInterface {
                                                                   AztecAddress msg_sender,
                                                                   ContextInterface& parent_context,
                                                                   MemoryAddress cd_offset_addr,
-                                                                  MemoryAddress cd_size_addr,
+                                                                  uint32_t cd_size,
                                                                   bool is_static) = 0;
 
     virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
