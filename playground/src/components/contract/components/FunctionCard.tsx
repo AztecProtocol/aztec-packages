@@ -48,6 +48,7 @@ const simulationContainer = css({
   flexDirection: 'row',
   alignItems: 'center',
   textOverflow: 'ellipsis',
+  marginTop: '1rem',
 });
 
 const functionName = css({
@@ -91,10 +92,16 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     setIsWorking(true);
     let result;
     try {
-      const call = contract.methods[fnName](...parameters);
-
+      const call = contract.methods[fnName](...parameters.flat());
       result = await call.simulate({ skipFeeEnforcement: true });
-      setSimulationResults({ success: true, data: result });
+      const stringResult = JSON.stringify(result, (key, value) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      });
+
+      setSimulationResults({ success: true, data: stringResult });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
     }
@@ -107,7 +114,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     setIsWorking(true);
 
     try {
-      const call = contract.methods[fnName](...parameters);
+      const call = contract.methods[fnName](...parameters.flat());
 
       const profileResult = await call.profile({ profileMode: 'gates' });
       setProfileResults({
@@ -153,7 +160,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     }
   };
 
-  const parametersValid = parameters.every(param => param !== undefined);
+  const parametersValid = parameters.flat().every(param => param !== undefined);
 
   return (
     <Card
@@ -167,8 +174,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       sx={{
         backgroundColor: 'white',
         border: 'none',
+        overflow: 'visible',
         marginBottom: '1rem',
-        overflow: 'hidden',
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
@@ -210,7 +217,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                   sx={{
                     color: 'text.secondary',
                     fontSize: 14,
-                    marginTop: '1rem',
+                    margin: '1rem 0',
                   }}
                 >
                   Parameters
@@ -237,7 +244,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                 <div css={{ backgroundColor: 'var(--mui-palette-grey-A100)', padding: '0.5rem', borderRadius: '6px' }}>
                   {simulationResults?.success ? (
                     <Typography variant="body1">
-                      {simulationResults?.data.length === 0 ? 'No return value' : JSON.stringify(simulationResults?.data)}
+                      {simulationResults?.data ?? 'No return value'}
                     </Typography>
                   ) : (
                     <Typography variant="body1" color="error">
@@ -359,7 +366,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       {contract && openSendTxDialog && (
         <SendTxDialog
           name={fn.name}
-          interaction={contract.methods[fn.name](...parameters)}
+          interaction={contract.methods[fn.name](...parameters.flat())}
           open={openSendTxDialog}
           onClose={handleSendDialogClose}
         />
@@ -368,7 +375,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         <CreateAuthwitDialog
           fnName={fn.name}
           contract={contract}
-          args={parameters}
+          args={parameters.flat()}
           isPrivate={fn.functionType === FunctionType.PRIVATE}
           open={openCreateAuthwitDialog}
           onClose={handleAuthwitCreation}
