@@ -15,30 +15,21 @@ image:
 # -- Pod management policy
 podManagementPolicy: Parallel
 
-# -- Network configuration
+# -- Network name - this is a predefined network - alpha-testnet, devnet
 network:
-  # -- Network name - this is a predefined network - alpha-testnet, devnet
-  name: alpha-testnet
-  # -- L1 chain id - defaulted to sepolia
-  l1ChainId: 11155111
-  # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
-  customNetwork:
-    enabled: false
-    rollupContractAddress:
-    registryContractAddress:
-    inboxContractAddress:
-    outboxContractAddress:
-    feeJuiceContractAddress:
-    stakingContractAddress:
-    epochDuration:
-    targetCommitteeSize:
-    proofSubmissionWindow:
-    slashingQuorum:
-    slashingRoundSize:
-    governanceProposerQuorum:
-    governanceProposerRoundSize:
-    manaTarget:
-    provingCostPerMana:
+
+# -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
+customNetwork:
+  l1ChainId:
+  registryContractAddress:
+  slashFactoryAddress:
+  feeAssetHandlerContractAddress:
+
+# Which rollup contract we want to follow from the registry
+rollupVersion: "canonical"
+
+# -- Use host network - this will disable nodePort service and use host networking instead
+hostNetwork: false
 
 # -- Aztec node configuration
 node:
@@ -46,33 +37,40 @@ node:
   replicas: 1
   # -- Log level - info, verbose, debug, trace
   logLevel: "info"
-  # -- Extra arguments to pass to the node, see aztec --help for all available options
-  extraArgs: []
-  # -- Validator configuration - enables validator mode - TODO(md): not currently supported
-  validator:
-    enabled: false
-    # Indexed by replica
-    privateKey: []
-    coinbase: []
+
+  l1Publisher:
+    privateKeys: []
+    mnemonic:
+    mnemonicStartIndex:
+
+  # -- Ethereum configuration
+  # -- Ethereum hosts - comma separated list of hosts (geth, reth are currently supported)
+  l1ExecutionUrls: []
+  # -- L1 consensus host urls - comma separated list of urls
+  l1ConsensusUrls: []
+  ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
+  ## Example: "1234abcd"
+  l1ConsensusHostApiKeys: []
+  ## Example: "X-API-KEY"
+  l1ConsensusHostApiKeyHeaders: []
+
+  startCmd:
+    - --node
+    - --archiver
+
+  remoteUrl:
+    archiver:
+    proverBroker:
+    proverCoordinationNodes: []
+    blobSink:
+
+  # the address that will receive block or proof rewards
+  coinbase:
 
   # -- Sentinel configuration - gathers slashing information
   sentinel:
     enabled: false
-  # -- Blob sink configuration - sends and retrieves blob data from a remote server
-  blobSink:
-    enabled: false
-    url: ""
-  # -- Ethereum configuration
-  ethereum:
-    # -- Ethereum hosts - comma separated list of hosts (geth, reth are currently supported)
-    ethereumHosts: ""
-    # -- L1 consensus host urls - comma separated list of urls
-    l1ConsensusHostUrls: ""
-    ## Only when api key is required via header, otherwise just provide in l1ConsensusHostUrls
-    ## Example: "1234abcd"
-    l1ConsensusHostApiKeys: ""
-    ## Example: "X-API-KEY"
-    l1ConsensusHostApiKeyHeaders: ""
+
   # -- Metrics configuration
   metrics:
     # -- Exclude metrics - comma separated list of metrics to exclude
@@ -81,6 +79,7 @@ node:
     otelCollectorEndpoint: ""
     # -- Use GCP logging
     useGcloudLogging: false
+
   storage:
     # -- Data directory
     dataDirectory: /data
@@ -92,17 +91,17 @@ node:
     p2pStorageMapSize:
     # -- Archive storage map size (kB)
     archiveStorageMapSize:
-  nodeJs:
-    # -- Maximum old space size
-    maxOldSpaceSize: "4608"
+
+  nodeJsOptions:
+      - --no-warnings
+      - --max-old-space-size=4096
+
   startupProbe:
     # -- Period seconds
     periodSeconds: 30
     # -- Failure threshold
     failureThreshold: 3
-
-
-resources: {}
+  resources: {}
 
 persistence:
   # -- Uses an emptyDir when not enabled
@@ -156,3 +155,36 @@ certificate:
   # - example.com
   # - api.example.com
 
+rbac:
+  # -- Specifies whether RBAC resources are to be created
+  create: true
+  # -- Required ClusterRole rules
+  # @default -- See `values.yaml`
+  clusterRules:
+     # Required to obtain the nodes external IP
+    - apiGroups: [""]
+      resources:
+      - "nodes"
+      verbs:
+      - "get"
+      - "list"
+      - "watch"
+  # -- Required ClusterRole rules
+  # @default -- See `values.yaml`
+  rules:
+    # Required to get information about the services nodePort.
+    - apiGroups: [""]
+      resources:
+      - "services"
+      verbs:
+      - "get"
+      - "list"
+      - "watch"
+
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Name of the service account - if not set, the fullname will be used
+  name: ""
+  # -- Annotations for the service account
+  annotations: {}
