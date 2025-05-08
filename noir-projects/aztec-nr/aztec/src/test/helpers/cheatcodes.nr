@@ -3,7 +3,7 @@ use crate::test::helpers::utils::TestAccount;
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
-    public_keys::PublicKeys, traits::Deserialize,
+    public_keys::PublicKeys, traits::Deserialize, utils::reader::Reader,
 };
 
 pub unconstrained fn reset() {
@@ -87,6 +87,31 @@ pub unconstrained fn assert_private_call_fails(
     )
 }
 
+pub unconstrained fn private_call_new_flow(
+    from: AztecAddress,
+    contract_address: AztecAddress,
+    function_selector: FunctionSelector,
+    args: [Field],
+    args_hash: Field,
+    is_static_call: bool,
+) -> (u32, Field, Field) {
+    let fields = oracle_private_call_new_flow(
+        from,
+        contract_address,
+        function_selector,
+        args,
+        args_hash,
+        is_static_call,
+    );
+
+    let mut reader = Reader::new(fields);
+    let end_side_effect_counter = reader.read_u32();
+    let returns_hash = reader.read();
+    let tx_hash = reader.read();
+
+    (end_side_effect_counter, returns_hash, tx_hash)
+}
+
 #[oracle(reset)]
 unconstrained fn oracle_reset() {}
 
@@ -147,3 +172,13 @@ unconstrained fn oracle_assert_private_call_fails(
     sideEffectsCounter: Field,
     isStaticCall: bool,
 ) {}
+
+#[oracle(privateCallNewFlow)]
+unconstrained fn oracle_private_call_new_flow(
+    _from: AztecAddress,
+    _contract_address: AztecAddress,
+    _function_selector: FunctionSelector,
+    _args: [Field],
+    _args_hash: Field,
+    _is_static_call: bool,
+) -> [Field; 3] {}
