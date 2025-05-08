@@ -76,6 +76,9 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
 
   /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
   getCommitted(): MerkleTreeReadOperations;
+
+  /** Deletes the db */
+  clear(): Promise<void>;
 }
 
 export const WorldStateSyncStatusSchema = z.object({

@@ -93,8 +93,8 @@ describe('e2e_deploy_contract deploy method', () => {
     const opts = { skipClassRegistration: true, skipPublicDeployment: true };
     const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    await contract.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
-    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(11n);
+    await contract.methods.increment_twice(wallet.getAddress(), wallet.getAddress()).send().wait();
+    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(12n);
   });
 
   it('publicly deploys a contract with no constructor', async () => {

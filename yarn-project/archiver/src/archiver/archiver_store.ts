@@ -37,9 +37,11 @@ export interface ArchiverDataStore {
   /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
+   * @param opts - Options for the operation.
+   * @param opts.force - If true, the blocks will be added even if they have gaps.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[]): Promise<boolean>;
+  addBlocks(blocks: PublishedL2Block[], opts?: { force?: boolean }): Promise<boolean>;
 
   /**
    * Unwinds blocks from the database
@@ -49,6 +51,12 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful
    */
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
+
+  /**
+   * Returns the block for the given number, or undefined if not exists.
+   * @param number - The block number to return.
+   */
+  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined>;
 
   /**
    * Gets up to `limit` amount of published L2 blocks starting from `from`.
@@ -250,4 +258,10 @@ export interface ArchiverDataStore {
 
   /** Closes the underlying data store. */
   close(): Promise<void>;
+
+  /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
+  rollbackL1ToL2MessagesToL2Block(
+    targetBlockNumber: number | bigint,
+    currentBlockNumber: number | bigint,
+  ): Promise<void>;
 }
