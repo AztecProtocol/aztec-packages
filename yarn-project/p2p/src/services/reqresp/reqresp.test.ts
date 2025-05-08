@@ -362,6 +362,30 @@ describe('ReqResp', () => {
       // Expect no response to be sent - we categorize as unknown
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
     });
+
+    it('Should handle gracefully if a stream is closed early', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      // Req Goodbye Handler is defined in the reqresp.ts file
+      protocolHandlers[ReqRespSubProtocol.GOODBYE] = reqGoodbyeHandler(peerManager);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+
+      const [node1, node2] = nodes;
+
+      const res = await node1.req.sendRequestToPeer(
+        node2.p2p.peerId,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.SHUTDOWN]),
+        1, // close after 1ms
+      );
+      await sleep(2000);
+
+      expect(res?.status).toEqual(ReqRespStatus.FAILURE);
+    });
   });
 
   describe('Block protocol', () => {
