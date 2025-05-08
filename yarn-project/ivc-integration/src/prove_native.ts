@@ -38,13 +38,14 @@ export async function proveClientIVC(
   bbWorkingDirectory: string,
   witnessStack: Uint8Array[],
   bytecodes: string[],
+  vks: string[],
   logger: Logger,
 ): Promise<ClientIvcProof> {
   const stepToStruct = (bytecode: string, index: number) => {
     return {
       bytecode: Buffer.from(bytecode, 'base64'),
       witness: witnessStack[index],
-      vk: Buffer.from([]),
+      vk: Buffer.from(vks[index], 'base64'),
       functionName: `unknown_${index}`,
     };
   };
