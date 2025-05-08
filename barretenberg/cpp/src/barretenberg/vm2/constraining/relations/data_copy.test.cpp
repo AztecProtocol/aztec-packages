@@ -43,7 +43,6 @@ TestTraceContainer calldata_rows(std::vector<FF> calldata)
             // TODO
             { C::data_copy_clk, 0 },
 
-            { C::data_copy_enqueued_call_id, 0 },
             { C::data_copy_src_context_id, 2 },
             { C::data_copy_dst_context_id, 1 },
             { C::data_copy_data_copy_size, calldata.size() - i },
@@ -81,9 +80,58 @@ TEST(DataCopyConstrainingTest, EmptyRow)
     check_relation<data_copy>(testing::empty_trace());
 }
 
-TEST(DataCopyConstrainingTest, CdCopy)
+TEST(DataCopyConstrainingTest, EnqueuedCallCdCopy)
 {
+    std::vector<FF> calldata = { 1, 2, 3, 4, 5, 6, 7, 8 };
 
+    TestTraceContainer trace({
+        // Row 0
+        {
+            { C::precomputed_clk, 0 },
+            { C::precomputed_first_row, 1 },
+            { C::calldata_sel, 1 },
+            { C::calldata_index, 1 },
+            { C::calldata_value, calldata[0] },
+
+        },
+
+        // Row 1
+        { { C::data_copy_sel_cd_copy, 1 },
+          { C::data_copy_sel_rd_copy, 0 },
+          { C::data_copy_operation_id, 1 },
+          { C::data_copy_clk, 0 },
+          { C::data_copy_src_context_id, 2 },
+          { C::data_copy_dst_context_id, 1 },
+          { C::data_copy_data_copy_size, static_cast<uint32_t>(calldata.size()) },
+          { C::data_copy_data_offset, 0 },
+          { C::data_copy_data_addr, 0 },
+          { C::data_copy_data_size, static_cast<uint32_t>(calldata.size()) },
+          { C::data_copy_write_addr, 0 },
+
+          { C::data_copy_sel_start, 1 },
+          { C::data_copy_sel_end, 0 },
+          { C::data_copy_next_write_count_inv, FF(calldata.size() - 1).invert() },
+          { C::data_copy_one, 1 },
+
+          { C::data_copy_sel_mem_write, 1 },
+
+          { C::data_copy_is_top_level, 0 },
+          { C::data_copy_parent_id_inv, FF(2).invert() },
+
+          { C::data_copy_sel_mem_read, 1 },
+          { C::data_copy_read_addr, 0 },
+          { C::data_copy_read_count, static_cast<uint32_t>(calldata.size()) },
+          { C::data_copy_read_count_inv, FF(calldata.size()).invert() },
+          { C::data_copy_padding, 0 },
+          { C::data_copy_value, calldata[0] },
+
+          { C::data_copy_cd_copy_col_read, 0 },
+          { C::data_copy_cd_index, 0 } },
+    });
+}
+
+TEST(DataCopyConstrainingTest, NestedCdCopy)
+{
     auto rows = calldata_rows({ 1, 2, 3, 4, 5, 6, 7, 8 });
 
     auto trace = TestTraceContainer(rows);
