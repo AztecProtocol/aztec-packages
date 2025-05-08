@@ -80,7 +80,7 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
             THROW std::runtime_error("Failed to open data file for writing: " + filename + " (" + strerror(errno) +
                                      ")");
         }
-        file.write(data.data(), static_cast<std::streamsize>(data.size()));
+        file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
         file.close();
     }
 }
