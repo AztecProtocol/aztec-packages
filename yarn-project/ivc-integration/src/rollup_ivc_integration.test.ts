@@ -95,14 +95,6 @@ describe('Rollup IVC Integration', () => {
     );
 
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
-    // TODO(dbanks12): stop overriding the public inputs once C++ supports them all
-    const minimalPublicInputs = AvmCircuitPublicInputs.empty();
-    minimalPublicInputs.globalVariables.blockNumber = avmCircuitInputs.publicInputs.globalVariables.blockNumber;
-    minimalPublicInputs.startTreeSnapshots = avmCircuitInputs.publicInputs.startTreeSnapshots;
-    minimalPublicInputs.reverted = avmCircuitInputs.publicInputs.reverted;
-    // override
-    avmCircuitInputs.publicInputs = minimalPublicInputs;
-
     ({
       vk: avmVK,
       proof: avmProof,
