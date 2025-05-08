@@ -3,12 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {
-  Status,
-  ValidatorInfo,
-  Exit,
-  Timestamp,
-  StakingStorage,
-  IStakingCore
+  Status, ValidatorInfo, Exit, Timestamp, IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
@@ -17,8 +12,20 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
+struct StakingStorage {
+  IERC20 stakingAsset;
+  address slasher;
+  uint256 minimumStake;
+  Timestamp exitDelay;
+  SnapshottedAddressSet attesters;
+  mapping(address attester => ValidatorInfo) info;
+  mapping(address attester => Exit) exits;
+}
 
 library StakingLib {
+  using SafeCast for uint256;
   using SafeERC20 for IERC20;
   using AddressSnapshotLib for SnapshottedAddressSet;
 
@@ -142,6 +149,48 @@ library StakingLib {
     emit IStakingCore.WithdrawInitiated(_attester, _recipient, validator.stake);
 
     return true;
+  }
+
+  function getAttesterCountAtTimestamp(Timestamp _timestamp) internal view returns (uint256) {
+    StakingStorage storage store = getStorage();
+    return store.attesters.lengthAtTimestamp(Timestamp.unwrap(_timestamp).toUint32());
+  }
+
+  function getAttestersAtTimestamp(Timestamp _timestamp) internal view returns (address[] memory) {
+    StakingStorage storage store = getStorage();
+    return store.attesters.valuesAtTimestamp(Timestamp.unwrap(_timestamp).toUint32());
+  }
+
+  function getAttesterAtIndex(uint256 _index) internal view returns (address) {
+    StakingStorage storage store = getStorage();
+    return store.attesters.at(_index);
+  }
+
+  function getProposerForAttester(address _attester) internal view returns (address) {
+    StakingStorage storage store = getStorage();
+    return store.info[_attester].proposer;
+  }
+
+  function getAttestersFromIndicesAtTimestamp(Timestamp _timestamp, uint256[] memory _indices)
+    internal
+    view
+    returns (address[] memory)
+  {
+    StakingStorage storage store = getStorage();
+
+    uint32 timestamp = Timestamp.unwrap(_timestamp).toUint32();
+
+    address[] memory attesters = new address[](_indices.length);
+    for (uint256 i = 0; i < _indices.length; i++) {
+      attesters[i] = store.attesters.getAddressFromIndexAtTimestamp(_indices[i], timestamp);
+    }
+
+    return attesters;
+  }
+
+  function getInfo(address _attester) internal view returns (ValidatorInfo memory) {
+    StakingStorage storage store = getStorage();
+    return store.info[_attester];
   }
 
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {

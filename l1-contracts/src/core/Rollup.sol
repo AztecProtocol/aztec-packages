@@ -176,7 +176,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     Signature[] memory sigs = new Signature[](0);
 
     ValidatorSelectionLib.verify(
-      StakingLib.getStorage(),
       slot,
       slot.epochFromSlot(),
       sigs,
@@ -220,7 +219,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
-    return StakingLib.getStorage().attesters.length();
+    return StakingLib.getAttesterCountAtTimestamp(Timestamp.wrap(block.timestamp));
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
@@ -339,21 +338,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().blobPublicInputsHashes[_blockNumber];
   }
 
-  function getProposerForAttester(address _attester)
-    external
-    view
-    override(IStaking)
-    returns (address)
-  {
-    return StakingLib.getStorage().info[_attester].proposer;
-  }
-
-  function getAttesterAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return StakingLib.getStorage().attesters.at(_index);
-  }
-
   function getProposerAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return StakingLib.getStorage().info[StakingLib.getStorage().attesters.at(_index)].proposer;
+    return getProposerForAttester(getAttesterAtIndex(_index));
   }
 
   function getInfo(address _attester)
@@ -362,7 +348,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IStaking)
     returns (ValidatorInfo memory)
   {
-    return StakingLib.getStorage().info[_attester];
+    return StakingLib.getInfo(_attester);
   }
 
   function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
@@ -375,9 +361,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IStaking)
     returns (OperatorInfo memory)
   {
-    address attester = StakingLib.getStorage().attesters.at(_index);
-    return
-      OperatorInfo({proposer: StakingLib.getStorage().info[attester].proposer, attester: attester});
+    address attester = getAttesterAtIndex(_index);
+    return OperatorInfo({proposer: getProposerForAttester(attester), attester: attester});
   }
 
   /**
@@ -413,7 +398,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The validator set
    */
   function getAttesters() external view override(IValidatorSelection) returns (address[] memory) {
-    return StakingLib.getStorage().attesters.values();
+    return StakingLib.getAttestersAtTimestamp(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -625,7 +610,34 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
     Slot slot = _ts.slotFromTimestamp();
     Epoch epochNumber = slot.epochFromSlot();
-    return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot, epochNumber);
+    return ValidatorSelectionLib.getProposerAt(slot, epochNumber);
+  }
+
+  /**
+   * @notice  Get the proposer for an attester
+   *
+   * @param _attester - The attester to get the proposer for
+   *
+   * @return The proposer for the attester
+   */
+  function getProposerForAttester(address _attester)
+    public
+    view
+    override(IStaking)
+    returns (address)
+  {
+    return StakingLib.getProposerForAttester(_attester);
+  }
+
+  /**
+   * @notice  Get the attester at an index
+   *
+   * @param _index - The index to get the attester for
+   *
+   * @return The attester at the index
+   */
+  function getAttesterAtIndex(uint256 _index) public view override(IStaking) returns (address) {
+    return StakingLib.getAttesterAtIndex(_index);
   }
 
   /**
