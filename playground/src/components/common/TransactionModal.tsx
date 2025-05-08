@@ -338,9 +338,9 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             <br />
             We check the status of your transaction frequently. You can also check the transaction status on a block explorer.
           </Typography>
-        </div>
 
-        {renderTxHash()}
+          {renderTxHash()}
+        </div>
 
         {renderNewsletterSignup()}
       </>
