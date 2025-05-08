@@ -25,7 +25,7 @@ describe('ValidationService', () => {
       payload: { header, archive, stateReference },
     } = makeBlockProposal({ txs });
     const proposal = await service.createBlockProposal(blockNumber, header, archive, stateReference, txs);
-    await expect(proposal.getSender()).resolves.toEqual(store.getAddress());
+    expect(proposal.getSender()).toEqual(store.getAddress());
   });
 
   it('attests to proposal', async () => {

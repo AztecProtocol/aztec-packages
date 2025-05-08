@@ -142,9 +142,12 @@ describe('ValidatorClient', () => {
     it('should throw an error if re-execution is enabled but no block builder is provided', async () => {
       config.validatorReexecute = true;
       const tx = await mockTx();
+      const txHashes = await Promise.all([tx.getTxHash()]);
       p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(tx));
       const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource);
-      await expect(val.reExecuteTransactions(makeBlockProposal(), [tx])).rejects.toThrow(BlockBuilderNotProvidedError);
+      await expect(val.reExecuteTransactions(makeBlockProposal({ txs: [tx], txHashes }), [tx])).rejects.toThrow(
+        BlockBuilderNotProvidedError,
+      );
     });
   });
 
@@ -224,6 +227,13 @@ describe('ValidatorClient', () => {
       p2pClient.getTxByHash.mockImplementation((txHash: TxHash) =>
         Promise.resolve({ getTxHash: () => Promise.resolve(txHash) } as Tx),
       );
+      p2pClient.getTxsByHash.mockImplementation((txHashes: TxHash[]) =>
+        Promise.resolve(
+          txHashes.map(txHash => {
+            return { getTxHash: () => Promise.resolve(txHash) } as Tx;
+          }),
+        ),
+      );
 
       epochCache.isInCommittee.mockResolvedValue(true);
       epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
@@ -265,6 +275,7 @@ describe('ValidatorClient', () => {
     it('should throw an error if the transactions are not available', async () => {
       // Mock the p2pClient.getTxStatus to return undefined for all transactions
       p2pClient.getTxStatus.mockResolvedValue(undefined);
+      p2pClient.getTxsByHash.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => undefined)));
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
       // Mock the p2pClient.requestTxs to return undefined for all transactions
       p2pClient.requestTxsByHash.mockImplementation(() => Promise.resolve([undefined]));
