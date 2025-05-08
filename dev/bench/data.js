@@ -1,224 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1746744505888,
+  "lastUpdate": 1746747986393,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6a77748ac3d1779f16d5695447f434ea27d10d8",
-          "message": "feat!: improving perf insights + avoid simulating on proving (#13928)\n\nIntroduces new timing info in`profileTx`, but in the process got\ndistracted by a few things, so I'm branching this off before adding more\nbenchmarks:\n\n- Adds a contract deployment benchmark to our key flows\n- Avoids resimulating kernels (in brillig) before proving. We're going\nto do witgen anyways! This should improve our performance across the\nboard. Simulation is still recommended, but that's left as a wallet\nresponsibility\n- Allows playground to profile txs taking into account fee payments\nand/or authwits\n\n---------\n\nCo-authored-by: Nicolás Venturo <nicolas.venturo@gmail.com>",
-          "timestamp": "2025-05-05T06:56:12Z",
-          "tree_id": "1d7996c4d2a2d73f3cf2a8d35dedd2a092be208f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f6a77748ac3d1779f16d5695447f434ea27d10d8"
-        },
-        "date": 1746430202771,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof",
-            "value": 24414,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-memory",
-            "value": 3309,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm",
-            "value": 77656,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 4569,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof",
-            "value": 21510,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-memory",
-            "value": 2307,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm",
-            "value": 67429,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 3148,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof",
-            "value": 14910,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-memory",
-            "value": 1199,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm",
-            "value": 49690,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 2308,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof",
-            "value": 18290,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-memory",
-            "value": 1417,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm",
-            "value": 58778,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm-memory",
-            "value": 3308,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof",
-            "value": 12737,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-memory",
-            "value": 1127,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm",
-            "value": 41467,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 1917,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof",
-            "value": 21714,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-memory",
-            "value": 1751,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm",
-            "value": 70149,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm-memory",
-            "value": 3564,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof",
-            "value": 14762,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-memory",
-            "value": 1217,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm",
-            "value": 47983,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 2213,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "ivc-schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof",
-            "value": 13930,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-memory",
-            "value": 1167,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          },
-          {
-            "name": "wasmschnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm",
-            "value": 45846,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "wasmschnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm-memory",
-            "value": 2149,
-            "unit": "MB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -8634,6 +8418,78 @@ window.BENCHMARK_DATA = {
             "value": 1825,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b2ead29cd6e82013019a6d288cadae6123a1700",
+          "message": "refactor: flat grumpkin CRS, use CDN, remove old srs_db  (#14097)\n\nA bunch of bn254/grumpkin CRS cleanup. The main motivation was to get\nrid of the extra srs_db download in CI, but it was tangled enough that\nit was best the code was refactored first.\n\nMain changes:\n- Rework the old file crs factory class to be a 'NativeCrsFactory',\nreflecting its use in native code (WASM still uses MemCrsFactory). This\nacts like a file-backed CRS that reads from ~/.bb-crs if allow_download\n= false, otherwise it reads from the network if not enough CRS points\nare found. Tested in crs_factory.test.cpp.\n- Remove the srs_db folder that redundantly downloads CRS. Rework all\nreferences to it to instead use the downloaded-on-demand version in\n~/.bb-crs\n- 'Flatten' grumpkin i.e. removing the header. This is for now called\ngrumpkin_g1.flat.dat but we can shortly move it to the original\ngrumpkin_g1.dat name. Remove the hacky grumpkin_size file as it is now\neasy to tell from the .dat file size itself.\n- Move to the new CDN-delivered CRS URL\n\nOther changes:\n- Remove the hacky up-front CRS initialization (except in WASM/bb.js,\nwhere it is still needed), fully embracing the originally intended\non-demand CRS loading.\n- no redundant verifier and prover CRS's, just make one CRS that does\nboth. We basically always want the verifier CRS around, and it's easy\nenough to represent a verifier as a 'prover' CRS with one point for\nbn254. For grumpkin, they were already identical.\n- Allow for short syntax `bb prove -s client_ivc` if\n`ivc-inputs.msgpack` is in the current working directory. The proof will\ngo in an 'out' folder that is created if it does not exist.\n- Refactor old tests that used very low level ways of reading CRS. This\nuncovered fundamental flaws in them, such as trying to read `2**20`\npoints from grumpkin (which has `2**18` max)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1163\nCloses https://github.com/AztecProtocol/barretenberg/issues/1180\n\n---------\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
+          "timestamp": "2025-05-08T22:41:16Z",
+          "tree_id": "0a5d30ae1ade27d9bed2dd10a5a65cb35cddd2c8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5b2ead29cd6e82013019a6d288cadae6123a1700"
+        },
+        "date": 1746747976896,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18018.11098600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14411.926288 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4791873579,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202958939,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 25678.747052999825,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 20113.046798000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 69731.82248799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 69731824000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4336.500346000321,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3695.7263909999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11609.475924,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11609478000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2205.19",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
