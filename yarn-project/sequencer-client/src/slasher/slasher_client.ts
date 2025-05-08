@@ -12,6 +12,8 @@ import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/tel
 
 import { type GetContractReturnType, encodeFunctionData, getAddress, getContract } from 'viem';
 
+import type { SlasherConfig } from './config.js';
+
 /**
  * Enum defining the possible states of the Slasher client.
  */
@@ -40,23 +42,6 @@ export enum Offense {
   Unknown,
   EpochPruned,
   Inactivity,
-}
-
-export interface SlasherConfig {
-  blockCheckIntervalMS: number;
-  blockRequestBatchSize: number;
-  slashingRoundSize: number;
-
-  // New configurations based on design doc
-  slashOverridePayload?: EthAddress;
-  slashPayloadTtlSlots: number; // TTL for payloads, in L1 slots/blocks
-  slashPruneCreate: boolean;
-  slashPrunePenalty: bigint;
-  slashPruneSignal: boolean;
-  slashInactivityCreateTargetPercentage: number; // 0-100
-  slashInactivityCreatePenalty: bigint;
-  slashInactivitySignalTargetPercentage: number; // 0-100
-  // Consider adding: slashInactivityCreateEnabled: boolean;
 }
 
 // Renamed from SlashEvent and updated for new event structure

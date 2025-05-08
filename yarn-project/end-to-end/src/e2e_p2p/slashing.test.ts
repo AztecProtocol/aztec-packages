@@ -274,15 +274,6 @@ describe('e2e_p2p_slashing', () => {
 
     await debugRollup();
 
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: slashFactory.address,
-      data: encodeFunctionData({
-        abi: SlashFactoryAbi,
-        functionName: 'createSlashPayload',
-        args: [targetEpoch, slashingAmount],
-      }),
-    });
-
     await debugRollup();
 
     t.logger.info(`Slash payload for ${targetEpoch}, ${slashingAmount} deployed at ${targetAddress}`);

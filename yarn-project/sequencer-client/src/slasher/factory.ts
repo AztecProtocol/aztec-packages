@@ -2,7 +2,7 @@ import type { L1ContractsConfig, L1ReaderConfig, L1TxUtils } from '@aztec/ethere
 import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import type { SlasherConfig } from './slasher_client.js';
+import type { SlasherConfig } from './config.js';
 import { SlasherClient } from './slasher_client.js';
 
 export const createSlasherClient = (
