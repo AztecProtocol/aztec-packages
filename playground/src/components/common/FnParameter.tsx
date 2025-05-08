@@ -54,8 +54,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
           }
           setError('');
           onParameterChange('0x' + bigintValue.toString(16));
-        } catch (err) {
-          console.log(err);
+        } catch {
           setError(`Invalid input ${newValue}. Use numeric or hex values.`);
           onParameterChange(undefined);
         }

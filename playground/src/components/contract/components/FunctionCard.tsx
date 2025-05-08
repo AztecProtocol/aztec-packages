@@ -92,7 +92,6 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     setIsWorking(true);
     let result;
     try {
-      console.log('parameters', parameters);
       const call = contract.methods[fnName](...parameters);
       result = await call.simulate({ skipFeeEnforcement: true });
       const stringResult = JSON.stringify(result, (key, value) => {
@@ -137,7 +136,6 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const handleParameterChange = (index: number, value: any) => {
     parameters[index] = value;
     setParameters([...parameters]);
-    console.log('parameters', parameters);
   };
 
   const handleAuthwitCreation = async (
