@@ -141,7 +141,7 @@ export function CreateContractDialog({
     try {
       const contract = await node.getContract(AztecAddress.fromString(address));
       if (!contract) {
-        throw new Error('Contract with this was address not found in node');
+        throw new Error('Contract with this address was not found in node');
       }
       await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
       onClose(contract);

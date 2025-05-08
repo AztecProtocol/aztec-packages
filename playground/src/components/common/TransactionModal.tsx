@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MinimizeIcon from '@mui/icons-material/Minimize';
 import TwitterIcon from '@mui/icons-material/Twitter';
-import { BLOCK_EXPLORER_TX_URL, DISCORD_URL, PLAYGROUND_URL } from '../../constants';
+import { DISCORD_URL, PLAYGROUND_URL } from '../../constants';
 import Button from '@mui/material/Button';
 import { Dialog, DialogContent, DialogTitle } from '@mui/material';
 import { TxStatus } from '@aztec/aztec.js';
@@ -189,6 +189,35 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
     )
   }
 
+
+  function renderTxHash() {
+    return (
+      <code>
+        Tx Hash:
+        <br />
+        {transaction?.txHash?.toString()}
+        <br />
+        <a
+          href={`https://aztecscan.xyz/tx-effects/${transaction?.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackButtonClick('View on Aztec Scan', 'Transaction Modal')}
+        >
+          View on Aztec Scan
+        </a>
+        <a
+          href={`https://aztecexplorer.xyz/tx/${transaction?.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackButtonClick('View on Aztec Explorer', 'Transaction Modal')}
+          style={{ marginLeft: '1rem' }}
+        >
+          View on Aztec Explorer
+        </a>
+      </code>
+    )
+  }
+
   function renderSendingState() {
     return (
       <>
@@ -207,18 +236,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             We are waiting for confirmation that your transaction has been included in a block.
           </Typography>
 
-          <div css={buttonContainer}>
-            <Button
-              variant="contained"
-              color="primary"
-              href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => trackButtonClick('View on Explorer', 'Transaction Modal')}
-            >
-              View on Explorer
-            </Button>
-          </div>
+          {renderTxHash()}
 
           {renderNewsletterSignup()}
         </div>
@@ -245,20 +263,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             </ul>
           </div>
 
-          <code>
-            Tx Hash:
-            <br />
-            {transaction?.txHash?.toString()}
-            <br />
-            <a
-              href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => trackButtonClick('View on Explorer', 'Transaction Modal')}
-            >
-              View on Explorer
-            </a>
-          </code>
+          {renderTxHash()}
         </div>
 
         <span style={{ backgroundColor: 'var(--mui-palette-grey-300)', textAlign: 'center', padding: '0.75rem', borderRadius: '6px', marginTop: '2rem' }}>
@@ -331,18 +336,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           </Typography>
         </div>
 
-        <div css={buttonContainer}>
-          <Button
-            variant="contained"
-            color="primary"
-            href={`${BLOCK_EXPLORER_TX_URL}/${transaction?.txHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackButtonClick('View on Explorer', 'Transaction Modal')}
-          >
-            View on Explorer
-          </Button>
-        </div>
+        {renderTxHash()}
 
         {renderNewsletterSignup()}
       </>

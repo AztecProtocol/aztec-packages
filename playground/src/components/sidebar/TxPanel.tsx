@@ -4,7 +4,7 @@ import { useContext, useEffect, useState } from 'react';
 import ErrorIcon from '@mui/icons-material/Error';
 import SuccessIcon from '@mui/icons-material/CheckCircle';
 import Typography from '@mui/material/Typography';
-import { Badge, Box, Button, Card, Divider, Popover } from '@mui/material';
+import { Box, Button, Card, Divider, Popover } from '@mui/material';
 import { loader } from '../../styles/common';
 import { FUN_FACTS, TX_TIMEOUT } from '../../constants';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
