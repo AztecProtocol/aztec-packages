@@ -248,6 +248,8 @@ export function ContractComponent() {
       if (txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);
       }
+    } else if (contract) {
+      setCurrentContractAddress(contract.address);
     }
   };
 
