@@ -9,6 +9,7 @@ import {
   DeployMethod,
   type DeployOptions,
   TxStatus,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -202,7 +203,6 @@ export function ContractComponent() {
           await wallet.registerContract({ instance: contractInstance, artifact: currentContractArtifact });
           const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
           setCurrentContract(contract);
-          setCurrentContractClassId(contractInstance.currentContractClassId.toString());
         }
       }
       setIsLoadingArtifact(false);
@@ -212,6 +212,17 @@ export function ContractComponent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentContractArtifact, currentContractAddress, wallet]);
+
+  useEffect(() => {
+    const updateContractClassId = async () => {
+      const contractClass = await getContractClassFromArtifact(currentContractArtifact);
+      setCurrentContractClassId(contractClass.id.toString());
+    };
+
+    if (currentContractArtifact) {
+      updateContractClassId();
+    }
+  }, [currentContractArtifact]);
 
   useEffect(() => {
     if (!currentContractAddress) {
