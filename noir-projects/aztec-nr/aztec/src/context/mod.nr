@@ -12,7 +12,7 @@ pub mod gas;
 pub use call_interfaces::{
     PrivateCallInterface, PrivateStaticCallInterface, PrivateStaticVoidCallInterface,
     PrivateVoidCallInterface, PublicCallInterface, PublicStaticCallInterface,
-    PublicStaticVoidCallInterface, PublicVoidCallInterface,
+    PublicStaticVoidCallInterface, PublicVoidCallInterface, UtilityCallInterface,
 };
 pub use private_context::PrivateContext;
 pub use public_context::PublicContext;
