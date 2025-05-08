@@ -133,9 +133,21 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           const call = contract.methods[name](...parameters);
 
           const profileResult = await call.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
+
+          let biggest = profileResult.executionSteps[0];
+          let acc = 0;
+
+          const executionSteps = profileResult.executionSteps.map(step => {
+            if (step.gateCount! > biggest.gateCount!) {
+              biggest = step;
+            }
+            acc += step.gateCount!;
+            return { ...step, subtotal: acc };
+          });
+
           setProfileResults({
             ...profileResults,
-            ...{ [name]: { success: true, ...profileResult } },
+            ...{ [name]: { success: true, ...profileResult, executionSteps, biggest } },
           });
         } catch (e) {
           console.error(e);
@@ -247,36 +259,77 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               <Box>
                 {profileResults[fn.name].success ? (
                   <>
-                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
-                      Sync time: {profileResults[fn.name].syncTime?.toFixed(2)}ms
-                    </Typography>
-                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
-                      Proving time: {profileResults[fn.name].provingTime?.toFixed(2)}ms
-                    </Typography>
-                    <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
-                      <Table>
+                    <TableContainer
+                      component={Paper}
+                      sx={{ marginRight: '0.5rem', backgroundColor: 'var(--mui-palette-grey-A100)' }}
+                    >
+                      <Table size="small">
                         <TableHead>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                               Simulation time
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Gate Count
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Subtotal
                             </TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {profileResults[fn.name].executionSteps.map(row => (
-                            <TableRow key={row.functionName}>
+                          {profileResults[fn.name].executionSteps.map((row, i) => (
+                            <TableRow key={i}>
                               <TableCell component="th" scope="row">
                                 {row.functionName}
                               </TableCell>
-                              <TableCell>{Number(row.gateCount).toLocaleString()}</TableCell>
                               <TableCell align="right">{Number(row.timings?.witgen).toLocaleString()}ms</TableCell>
+                              <TableCell align="right">{Number(row.gateCount).toLocaleString()}</TableCell>
+                              <TableCell align="right">{row.subtotal}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
                     </TableContainer>
+                    <Box sx={{ margin: '0.5rem', display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="caption">
+                        Total gates: {profileResults[fn.name].executionSteps.slice(-1)[0].subtotal}
+                        <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.6rem', marginLeft: '0.5rem' }}>
+                          (Biggest circuit: {profileResults[fn.name].biggest.functionName} -{' '}
+                          {profileResults[fn.name].biggest.gateCount})
+                        </Typography>
+                      </Typography>
+                      <Typography variant="caption">
+                        Sync time: {profileResults[fn.name].timings.sync?.toFixed(2)}ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Total simulation time:{' '}
+                        {profileResults[fn.name].timings.perFunction
+                          .reduce((acc, { time }) => acc + time, 0)
+                          .toFixed(2)}
+                        ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Proving time: {profileResults[fn.name].timings.proving?.toFixed(2)}ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Total time: {profileResults[fn.name].timings.total.toFixed(2)}ms
+                        <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.6rem', marginLeft: '0.5rem' }}>
+                          ({profileResults[fn.name].timings.unaccounted.toFixed(2)}ms unaccounted)
+                        </Typography>
+                      </Typography>
+                    </Box>
+                    <Box sx={{ margin: '0.5rem', fontSize: '0.8rem' }}>
+                      <Typography color="warning" variant="caption">
+                        Timing information does not account for gate # computation time, since the operation is not
+                        performed when doing real proving. For completeness, this profile operation spent{' '}
+                        {profileResults[fn.name].executionSteps
+                          .reduce((acc, { timings: { gateCount } }) => acc + gateCount, 0)
+                          .toFixed(2)}
+                        ms computing gate counts
+                      </Typography>
+                    </Box>
                   </>
                 ) : (
                   <Typography variant="body1" color="error">
