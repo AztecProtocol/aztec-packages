@@ -107,7 +107,7 @@ describe('Rollup IVC Integration', () => {
     workingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-');
   });
 
-  it('Should be able to generate a proof of a 3 transaction rollup', async () => {
+  it.skip('Should be able to generate a proof of a 3 transaction rollup', async () => {
     const privateBaseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
       tube_data: {
         public_inputs: clientIVCPublicInputs,

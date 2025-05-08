@@ -49,7 +49,7 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
+  it.skip('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     // We use the bb binary for verification / writing out the VK

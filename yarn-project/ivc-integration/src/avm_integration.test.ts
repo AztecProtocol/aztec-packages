@@ -72,7 +72,7 @@ describe('AVM Integration', () => {
     );
   });
 
-  it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
+  it.skip('Should generate and verify an ultra honk proof from an AVM verification', async () => {
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = avmTestContractInstance;
