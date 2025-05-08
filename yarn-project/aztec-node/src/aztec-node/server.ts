@@ -379,7 +379,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns The current base fees.
    */
   public async getCurrentBaseFees(): Promise<GasFees> {
-    return await this.globalVariableBuilder.getCurrentBaseFees();
+    let result: GasFees;
+    try {
+      result = await this.globalVariableBuilder.getCurrentBaseFees();
+    } catch (error) {
+      // Hide any API keys that may be in the error message
+      if (error instanceof Error) {
+        this.config.l1ConsensusHostApiKeys?.forEach(apiKey => {
+          error.message = error.message.replace(apiKey, '********');
+        });
+        this.config.l1RpcUrls.forEach(url => {
+          // only show the host part of the url
+          const urlObj = new URL(url);
+          error.message = error.message.replace(url, urlObj.host);
+        });
+      }
+      throw error;
+    }
+    return result;
   }
 
   /**
