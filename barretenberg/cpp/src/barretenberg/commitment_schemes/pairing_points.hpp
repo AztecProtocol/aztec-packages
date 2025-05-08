@@ -15,6 +15,10 @@
 namespace bb {
 
 /**
+ * @brief An object storing two bn254 points that represent the inputs to a pairing check.
+ * @details The points may represent the output of a single partial verification or the linear combination of multiple
+ * sets of pairing points, i.e. a pairing point "accumulator".
+ * @note This class is the native analog to the stdlib::PairingPoints class.
  *
  */
 class PairingPoints {
@@ -36,8 +40,7 @@ class PairingPoints {
     {}
 
     /**
-     * @brief Reconstruct an opening claim from limbs stored on the public inputs.
-     * @note Implemented only for an opening claim over Grumpkin for use with IPA.
+     * @brief Reconstruct the pairing points from limbs stored on the public inputs.
      *
      */
     static PairingPoints reconstruct_from_public(const std::span<const Fr, PAIRING_POINTS_SIZE>& limbs_in)
@@ -70,6 +73,9 @@ class PairingPoints {
         return PairingPoints{ P0, P1 };
     }
 
+    /**
+     * @brief Aggregate the current pairing points with another set of pairing points using a random scalar
+     */
     void aggregate(const PairingPoints& other)
     {
         Fr aggregation_separator = Fr::random_element();
@@ -77,16 +83,14 @@ class PairingPoints {
         P1 = P1 + other.P1 * aggregation_separator;
     }
 
+    /**
+     * @brief Perform the pairing check
+     */
     bool check() const
     {
         VerifierCK pcs_vkey{};
         return pcs_vkey.pairing_check(P0, P1);
     }
-
-    /**
-     *
-     */
-    bool verify() const { return false; };
 
     bool operator==(const PairingPoints& other) const = default;
 };

@@ -143,12 +143,8 @@ void ClientIVCAPI::prove(const Flags& flags,
     // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     // The files are still written in case they are needed to investigate this failure.
-    vinfo("ClientIVCAPI::prove: automatic verfication with vk hash: ", ivc->get_vk().mega->hash());
     if (!ivc->verify(proof)) {
-        vinfo("CIVC PROOF VERIFICATION FAILED!");
         THROW std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
-    } else {
-        vinfo("CIVC PROOF VERIFICATION PASSED!");
     }
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
@@ -185,7 +181,6 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
 
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
-    vinfo("ClientIVCAPI::verify: with vk hash: ", vk.mega->hash());
 
     const bool verified = ClientIVC::verify(proof, vk);
     return verified;

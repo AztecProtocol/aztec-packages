@@ -53,9 +53,9 @@ describe('Rollup IVC Integration', () => {
 
     // Create a client IVC proof
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
-    const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger);
+    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
@@ -107,7 +107,7 @@ describe('Rollup IVC Integration', () => {
     workingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-');
   });
 
-  it.skip('Should be able to generate a proof of a 3 transaction rollup', async () => {
+  it('Should be able to generate a proof of a 3 transaction rollup', async () => {
     const privateBaseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
       tube_data: {
         public_inputs: clientIVCPublicInputs,

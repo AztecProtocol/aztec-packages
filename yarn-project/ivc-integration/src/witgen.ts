@@ -206,7 +206,9 @@ export async function witnessGenMockRollupRootCircuit(
   };
 }
 
-export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uint8Array[], KernelPublicInputs]> {
+export async function generate3FunctionTestingIVCStack(): Promise<
+  [string[], Uint8Array[], KernelPublicInputs, string[]]
+> {
   const tx = {
     number_of_calls: '0x1',
   };
@@ -224,7 +226,7 @@ export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uin
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
+    kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
   });
   logger('generated mock private kernel tail witness');
 
@@ -236,10 +238,18 @@ export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uin
   ];
   const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
 
-  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs];
+  const precomputedVks = [
+    MockAppCreatorVk.keyAsBytes,
+    MockPrivateKernelInitVk.keyAsBytes,
+    MockPrivateKernelTailVk.keyAsBytes,
+  ];
+
+  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs, precomputedVks];
 }
 
-export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uint8Array[], KernelPublicInputs]> {
+export async function generate6FunctionTestingIVCStack(): Promise<
+  [string[], Uint8Array[], KernelPublicInputs, string[]]
+> {
   const tx = {
     number_of_calls: '0x2',
   };
@@ -293,7 +303,16 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
     tailWitnessGenResult.witness,
   ];
 
-  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs];
+  const precomputedVks = [
+    MockAppCreatorVk.keyAsBytes,
+    MockPrivateKernelInitVk.keyAsBytes,
+    MockAppReaderVk.keyAsBytes,
+    MockPrivateKernelInnerVk.keyAsBytes,
+    MockPrivateKernelResetVk.keyAsBytes,
+    MockPrivateKernelTailVk.keyAsBytes,
+  ];
+
+  return [bytecodes, witnessStack, tailWitnessGenResult.publicInputs, precomputedVks];
 }
 
 export function mapRecursiveProofToNoir<N extends number>(proof: RecursiveProof<N>): FixedLengthArray<string, N> {

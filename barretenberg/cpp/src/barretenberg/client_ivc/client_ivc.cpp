@@ -358,16 +358,13 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
-    info("Verifying CIVC proof with vk hash: ", vk.mega->hash());
     // Verify the hiding circuit proof
     MegaZKVerifier verifer{ vk.mega };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
-    info("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(proof.goblin_proof);
     vinfo("Goblin verified: ", goblin_verified);
-    info("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
 }
 
