@@ -151,7 +151,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
  */
 PairingPoints create_avm2_recursion_constraints(Builder& builder,
                                                 const RecursionConstraint& input,
-                                                const PairingPoints& input_points_accumulator,
                                                 bool has_valid_witness_assignments)
 {
     using Flavor = avm2::AvmRecursiveFlavor_<Builder>;
@@ -183,8 +182,8 @@ PairingPoints create_avm2_recursion_constraints(Builder& builder,
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(builder, vkey);
 
-    PairingPoints output_points_accumulator = verifier.verify_proof(
-        proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_points_accumulator);
+    PairingPoints output_points_accumulator =
+        verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
     return output_points_accumulator;
 }
@@ -198,11 +197,9 @@ PairingPoints create_avm2_recursion_constraints(Builder& builder,
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
-    Builder& builder,
-    const RecursionConstraint& input,
-    const PairingPoints& input_points_accumulator,
-    bool has_valid_witness_assignments)
+HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(Builder& builder,
+                                                                                const RecursionConstraint& input,
+                                                                                bool has_valid_witness_assignments)
 {
     using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
 
@@ -230,8 +227,8 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     // Execute the Goblin AVM2 recursive verifier
     RecursiveVerifier verifier(builder, key_fields);
 
-    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output = verifier.verify_proof(
-        proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_points_accumulator);
+    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
+        verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
 
     return output;
 }

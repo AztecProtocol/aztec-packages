@@ -155,7 +155,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
         manaTarget: MANA_TARGET,
-        provingCostPerMana: TestConstants.AZTEC_PROVING_COST_PER_MANA
+        provingCostPerMana: provingCost
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -306,10 +306,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Slot nextSlot = Slot.wrap(EPOCH_DURATION + 1);
     Epoch nextEpoch = Epoch.wrap(2);
 
-    rollup.setProvingCostPerMana(
-      EthValue.wrap(points[0].outputs.mana_base_fee_components_in_wei.proving_cost)
-    );
-
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       if (rollup.getPendingBlockNumber() >= 100) {
@@ -322,10 +318,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // and part of the `empty_block_1.json` file. The block cannot be proven, but it
       // will be accepted as a proposal so very useful for testing a long range of blocks.
       if (rollup.getCurrentSlot() == nextSlot) {
-        TestPoint memory point = points[nextSlot.unwrap() - 1];
-        rollup.setProvingCostPerMana(
-          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
-        );
+        rollup.setupEpoch();
 
         Block memory b = getBlock();
         address proposer = rollup.getCurrentProposer();

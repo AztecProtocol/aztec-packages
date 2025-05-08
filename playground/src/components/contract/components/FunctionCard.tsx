@@ -25,7 +25,7 @@ import FormGroup from '@mui/material/FormGroup';
 import { FunctionParameter } from '../../common/FnParameter';
 import { useContext, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
-import { SendTxDialog } from './SendTxDialog';
+import { ConfigureInteractionDialog } from './ConfigureInteractionDialog';
 import { CreateAuthwitDialog } from './CreateAuthwitDialog';
 import TableHead from '@mui/material/TableHead';
 import Table from '@mui/material/Table';
@@ -35,6 +35,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import { Badge, Box, Paper, Tooltip } from '@mui/material';
 import { ContractMethodDescriptions } from '../../../utils/constants';
+import { trackButtonClick } from '../../../utils/matomo';
 
 type SimulationResult = {
   success: boolean;
@@ -50,6 +51,7 @@ const simulationContainer = css({
 });
 
 const functionName = css({
+  marginBottom: '0.5rem',
   '@media (max-width: 1200px)': {
     fontSize: '1.2rem',
   },
@@ -79,12 +81,14 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   const [profileResults, setProfileResults] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const [openSendTxDialog, setOpenSendTxDialog] = useState(false);
+  const [openConfigureInteractionDialog, setOpenConfigureInteractionDialog] = useState(false);
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
+  const [profile, setProfile] = useState(false);
 
   const { wallet } = useContext(AztecContext);
 
   const simulate = async (fnName: string) => {
+    trackButtonClick(`Simulate ${fnName}`, 'Contract Interaction');
     setIsWorking(true);
     let result;
     try {
@@ -94,28 +98,6 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       setSimulationResults({ success: true, data: result });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
-    }
-
-    setIsWorking(false);
-  };
-
-  const profile = async (fnName: string) => {
-    setIsWorking(true);
-
-    try {
-      const call = contract.methods[fnName](...parameters);
-
-      const profileResult = await call.profile({ profileMode: 'gates' });
-      setProfileResults({
-        ...profileResults,
-        ...{ [fnName]: { success: true, executionSteps: profileResult.executionSteps } },
-      });
-    } catch (e) {
-      console.error(e);
-      setProfileResults({
-        ...profileResults,
-        ...{ [fnName]: { success: false, error: e.message } },
-      });
     }
 
     setIsWorking(false);
@@ -134,18 +116,50 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
   ) => {
     setOpenCreateAuthwitDialog(false);
     if (isPublic && interaction && opts) {
-      onSendTxRequested(`${fn.name} public authwit`, interaction, contract?.address, opts);
+      onSendTxRequested(`Authwit ${fn.name}`, interaction, contract?.address, opts);
     }
   };
 
-  const handleSendDialogClose = async (
+  const handleConfigureInteractionDialogClose = async (
     name?: string,
     interaction?: ContractFunctionInteraction,
     opts?: SendMethodOptions,
   ) => {
-    setOpenSendTxDialog(false);
+    setOpenConfigureInteractionDialog(false);
     if (name && interaction && opts) {
-      onSendTxRequested(name, interaction, contract.address, opts);
+      if (profile) {
+        setIsWorking(true);
+        try {
+          const call = contract.methods[name](...parameters);
+
+          const profileResult = await call.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
+
+          let biggest = profileResult.executionSteps[0];
+          let acc = 0;
+
+          const executionSteps = profileResult.executionSteps.map(step => {
+            if (step.gateCount! > biggest.gateCount!) {
+              biggest = step;
+            }
+            acc += step.gateCount!;
+            return { ...step, subtotal: acc };
+          });
+
+          setProfileResults({
+            ...profileResults,
+            ...{ [name]: { success: true, ...profileResult, executionSteps, biggest } },
+          });
+        } catch (e) {
+          console.error(e);
+          setProfileResults({
+            ...profileResults,
+            ...{ [name]: { success: false, error: e.message } },
+          });
+        }
+        setIsWorking(false);
+      } else {
+        onSendTxRequested(`Execute ${name}`, interaction, contract.address, opts);
+      }
     }
   };
 
@@ -161,21 +175,28 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       sx={{
         backgroundColor: 'white',
         margin: '0.5rem',
+        border: 'none',
+        marginBottom: '1rem',
         overflow: 'hidden',
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
+        '&:last-child': {
+          marginBottom: '0',
+        },
+        '@media (max-width: 900px)': {
+          margin: '0.5rem 0px',
+        },
       }}
     >
-      <CardContent sx={{ textAlign: 'left', position: 'relative' }}>
+      <CardContent sx={{ textAlign: 'left', position: 'relative', padding: '12px 16px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h5" css={functionName}>
             {fn.name}
-            <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}>
-            </Badge>
+            <Badge badgeContent={fn.functionType} color="info" sx={{ marginLeft: '2rem' }}></Badge>
           </Typography>
           <IconButton
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
@@ -185,7 +206,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           </IconButton>
         </Box>
 
-        <Typography variant="caption" sx={{ marginBottom: '1rem' }}>
+        <Typography variant="caption" sx={{ lineHeight: '1rem', display: 'block' }}>
           {ContractMethodDescriptions[contractArtifact.name]?.[fn.name]}
         </Typography>
 
@@ -237,32 +258,84 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             {!isWorking && profileResults[fn.name] !== undefined && (
               <Box>
                 {profileResults[fn.name].success ? (
-                  <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
-                    <Table>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {profileResults[fn.name].executionSteps.map((row) => (
-                          <TableRow key={row.functionName}>
-                            <TableCell component="th" scope="row">
-                              {row.functionName}
+                  <>
+                    <TableContainer
+                      component={Paper}
+                      sx={{ marginRight: '0.5rem', backgroundColor: 'var(--mui-palette-grey-A100)' }}
+                    >
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Simulation time
                             </TableCell>
-                            <TableCell align="right">{Number(row.gateCount).toLocaleString()}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Gate Count
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Subtotal
+                            </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )
-                  : (
-                    <Typography variant="body1" color="error">
-                      {profileResults?.[fn.name]?.error}
-                    </Typography>
-                  )}
+                        </TableHead>
+                        <TableBody>
+                          {profileResults[fn.name].executionSteps.map((row, i) => (
+                            <TableRow key={i}>
+                              <TableCell component="th" scope="row">
+                                {row.functionName}
+                              </TableCell>
+                              <TableCell align="right">{Number(row.timings?.witgen).toLocaleString()}ms</TableCell>
+                              <TableCell align="right">{Number(row.gateCount).toLocaleString()}</TableCell>
+                              <TableCell align="right">{row.subtotal}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                    <Box sx={{ margin: '0.5rem', display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="caption">
+                        Total gates: {profileResults[fn.name].executionSteps.slice(-1)[0].subtotal}
+                        <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.6rem', marginLeft: '0.5rem' }}>
+                          (Biggest circuit: {profileResults[fn.name].biggest.functionName} -{' '}
+                          {profileResults[fn.name].biggest.gateCount})
+                        </Typography>
+                      </Typography>
+                      <Typography variant="caption">
+                        Sync time: {profileResults[fn.name].timings.sync?.toFixed(2)}ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Total simulation time:{' '}
+                        {profileResults[fn.name].timings.perFunction
+                          .reduce((acc, { time }) => acc + time, 0)
+                          .toFixed(2)}
+                        ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Proving time: {profileResults[fn.name].timings.proving?.toFixed(2)}ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Total time: {profileResults[fn.name].timings.total.toFixed(2)}ms
+                        <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.6rem', marginLeft: '0.5rem' }}>
+                          ({profileResults[fn.name].timings.unaccounted.toFixed(2)}ms unaccounted)
+                        </Typography>
+                      </Typography>
+                    </Box>
+                    <Box sx={{ margin: '0.5rem', fontSize: '0.8rem' }}>
+                      <Typography color="warning" variant="caption">
+                        Timing information does not account for gate # computation time, since the operation is not
+                        performed when doing real proving. For completeness, this profile operation spent{' '}
+                        {profileResults[fn.name].executionSteps
+                          .reduce((acc, { timings: { gateCount } }) => acc + gateCount, 0)
+                          .toFixed(2)}
+                        ms computing gate counts
+                      </Typography>
+                    </Box>
+                  </>
+                ) : (
+                  <Typography variant="body1" color="error">
+                    {profileResults?.[fn.name]?.error}
+                  </Typography>
+                )}
               </Box>
             )}
 
@@ -292,7 +365,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               size="small"
               color="primary"
               variant="contained"
-              onClick={() => setOpenSendTxDialog(true)}
+              onClick={() => {
+                setProfile(false);
+                setOpenConfigureInteractionDialog(true);
+              }}
               endIcon={<SendIcon />}
               css={actionButton}
             >
@@ -320,7 +396,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               color="primary"
               variant="contained"
               size="small"
-              onClick={() => profile(fn.name)}
+              onClick={() => {
+                setProfile(true);
+                setOpenConfigureInteractionDialog(true);
+              }}
               endIcon={<TroubleshootIcon />}
               css={actionButton}
             >
@@ -329,12 +408,12 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           </Tooltip>
         </CardActions>
       )}
-      {contract && openSendTxDialog && (
-        <SendTxDialog
+      {contract && openConfigureInteractionDialog && (
+        <ConfigureInteractionDialog
           name={fn.name}
           interaction={contract.methods[fn.name](...parameters)}
-          open={openSendTxDialog}
-          onClose={handleSendDialogClose}
+          open={openConfigureInteractionDialog}
+          onClose={handleConfigureInteractionDialogClose}
         />
       )}
       {contract && openCreateAuthwitDialog && (

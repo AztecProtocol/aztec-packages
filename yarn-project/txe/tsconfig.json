@@ -10,7 +10,16 @@
       "path": "../accounts"
     },
     {
+      "path": "../archiver"
+    },
+    {
       "path": "../aztec.js"
+    },
+    {
+      "path": "../aztec-node"
+    },
+    {
+      "path": "../bb-prover"
     },
     {
       "path": "../constants"

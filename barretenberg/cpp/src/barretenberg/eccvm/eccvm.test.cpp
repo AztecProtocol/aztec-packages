@@ -189,6 +189,14 @@ TEST_F(ECCVMTests, FixedVK)
     fixed_vk.pcs_verification_key = nullptr;
     verifier.key->pcs_verification_key = nullptr;
 
+    auto labels = verifier.key->get_labels();
+    size_t index = 0;
+    for (auto [vk_commitment, fixed_commitment] : zip_view(verifier.key->get_all(), fixed_vk.get_all())) {
+        EXPECT_EQ(vk_commitment, fixed_commitment)
+            << "Mismatch between vk_commitment and fixed_commitment at label: " << labels[index];
+        ++index;
+    }
+
     // Check that the fixed VK is equal to the generated VK
     EXPECT_EQ(fixed_vk, *verifier.key.get());
 }

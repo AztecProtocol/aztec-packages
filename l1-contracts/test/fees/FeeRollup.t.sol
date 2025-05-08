@@ -42,6 +42,7 @@ import {
   L1FeeData,
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 import {
   FeeModelTestPoints,
@@ -118,7 +119,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
         manaTarget: MANA_TARGET,
-        provingCostPerMana: TestConstants.AZTEC_PROVING_COST_PER_MANA
+        provingCostPerMana: provingCost
       })
     );
 
@@ -162,9 +163,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
     uint256 manaBaseFee = (
-      point.outputs.mana_base_fee_components_in_fee_asset.data_cost
-        + point.outputs.mana_base_fee_components_in_fee_asset.gas_cost
-        + point.outputs.mana_base_fee_components_in_fee_asset.proving_cost
+      point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
+        + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
         + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost
     );
 
@@ -207,9 +207,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
-        rollup.setProvingCostPerMana(
-          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
-        );
         Block memory b = getBlock();
         skipBlobCheck(address(rollup));
         rollup.propose(
@@ -282,10 +279,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     Slot nextSlot = Slot.wrap(1);
     Epoch nextEpoch = Epoch.wrap(1);
 
-    rollup.setProvingCostPerMana(
-      EthValue.wrap(points[0].outputs.mana_base_fee_components_in_wei.proving_cost)
-    );
-
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       // Predict what the fee will be before we jump in time!
@@ -299,9 +292,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       // will be accepted as a proposal so very useful for testing a long range of blocks.
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
-        rollup.setProvingCostPerMana(
-          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
-        );
 
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
         uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
@@ -385,26 +375,21 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
           // We assume that everyone PERFECTLY pays their fees with 0 priority fees and no
           // overpaying on teardown.
-          uint256 baseFee = point.outputs.mana_base_fee_components_in_fee_asset.data_cost
-            + point.outputs.mana_base_fee_components_in_fee_asset.gas_cost
-            + point.outputs.mana_base_fee_components_in_fee_asset.proving_cost
+          uint256 baseFee = point.outputs.mana_base_fee_components_in_fee_asset.sequencer_cost
+            + point.outputs.mana_base_fee_components_in_fee_asset.prover_cost
             + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
 
           uint256 manaUsed = rollup.getFeeHeader(start + feeIndex).manaUsed;
           uint256 fee = manaUsed * baseFee;
+          uint256 burn =
+            manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
+          burnSum += burn;
 
-          proverFees +=
-            (manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.proving_cost);
-
-          sequencerFees += (
-            manaUsed
-              * (
-                point.outputs.mana_base_fee_components_in_fee_asset.data_cost
-                  + point.outputs.mana_base_fee_components_in_fee_asset.gas_cost
-              )
+          uint256 proverFee = Math.min(
+            manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.prover_cost, fee - burn
           );
-
-          burnSum += manaUsed * point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost;
+          proverFees += proverFee;
+          sequencerFees += (fee - burn - proverFee);
 
           fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
           fees[feeIndex * 2 + 1] = bytes32(fee);
@@ -482,9 +467,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     ManaBaseFeeComponentsModel memory bModel = ManaBaseFeeComponentsModel({
       congestion_cost: b.congestionCost,
       congestion_multiplier: b.congestionMultiplier,
-      data_cost: b.dataCost,
-      gas_cost: b.gasCost,
-      proving_cost: b.provingCost
+      prover_cost: b.proverCost,
+      sequencer_cost: b.sequencerCost
     });
     assertEq(a, bModel, _message);
   }

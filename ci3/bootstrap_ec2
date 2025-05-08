@@ -28,7 +28,7 @@ cores=${CPUS:-$cores}
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
   set +e
-  if [ -n "$iid" ]; then
+  if [ -n "${iid:-}" ]; then
     if [ "$NO_TERMINATE" -eq 0 ]; then
       aws_terminate_instance $iid $sir
     else

@@ -35,7 +35,6 @@ class TranslatorTests : public ::testing::Test {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        op_queue->append_nonzero_ops();
 
         for (size_t i = 0; i < circuit_size_parameter; i++) {
             op_queue->add_accumulate(P1);
@@ -105,6 +104,13 @@ TEST_F(TranslatorTests, FixedVK)
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
         TranslatorFlavor::VerificationKey computed_vk(proving_key->proving_key);
+        auto labels = TranslatorFlavor::VerificationKey::get_labels();
+        size_t index = 0;
+        for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {
+            EXPECT_EQ(vk_commitment, fixed_commitment)
+                << "Mismatch between computed vk_commitment and fixed_commitment at label: " << labels[index];
+            ++index;
+        }
 
         EXPECT_EQ(computed_vk, fixed_vk);
     };

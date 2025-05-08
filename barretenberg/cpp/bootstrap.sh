@@ -168,18 +168,26 @@ function build {
 
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
-# We append the hash as a comment. This ensures the test harness and cache and skip future runs.
+# We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
   cd build
   for bin in ./bin/*_tests; do
-    bin_name=$(basename $bin)
+    local bin_name=$(basename $bin)
+
     $bin --gtest_list_tests | \
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
       grep -v 'DISABLED_' | \
       while read -r test; do
-        echo -e "$hash barretenberg/cpp/scripts/run_test.sh $bin_name $test"
+        local prefix=$hash
+        # A little extra resource for these tests.
+        # IPARecursiveTests and AcirHonkRecursionConstraint fail with 2 threads.
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ClientIVCKernelCapacity|AvmRecursiveTests|IPARecursiveTests|AcirHonkRecursionConstraint) ]]; then
+          prefix="$prefix:CPUS=4:MEM=8g"
+        fi
+        echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
+  echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.

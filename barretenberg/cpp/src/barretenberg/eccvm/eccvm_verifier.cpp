@@ -141,8 +141,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 void ECCVMVerifier::compute_translation_opening_claims(
     const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
-    TranslationEvaluations_<FF> translation_evaluations;
-
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAVerifier<ECCVMFlavor::Curve>;
 

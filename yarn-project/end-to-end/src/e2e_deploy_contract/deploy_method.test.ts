@@ -93,8 +93,8 @@ describe('e2e_deploy_contract deploy method', () => {
     const opts = { skipClassRegistration: true, skipPublicDeployment: true };
     const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    await contract.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
-    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(11n);
+    await contract.methods.increment_twice(wallet.getAddress(), wallet.getAddress()).send().wait();
+    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(12n);
   });
 
   it('publicly deploys a contract with no constructor', async () => {
@@ -145,12 +145,10 @@ describe('e2e_deploy_contract deploy method', () => {
     // First send the deploy transaction
     // Pay priority fee to ensure the deployment transaction gets processed first.
     const maxPriorityFeesPerGas = new GasFees(1n, 0n);
-    const deployTxPromise = deployTx
-      .send({ skipPublicSimulation: true, fee: { gasSettings: { maxPriorityFeesPerGas } } })
-      .wait({ timeout: 600 });
+    const deployTxPromise = deployTx.send({ fee: { gasSettings: { maxPriorityFeesPerGas } } }).wait({ timeout: 600 });
 
     // Then send the public call transaction
-    const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+    const publicCallTxPromise = publicCall.send().wait({ timeout: 600 });
 
     logger.debug('Deploying a contract and calling a public function in the same block');
     const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);

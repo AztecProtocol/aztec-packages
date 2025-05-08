@@ -7,6 +7,10 @@ This tutorial goes over how to create the contracts necessary to create a portal
 
 In this tutorial, we will go over the components of a token bridge and how to deploy them, as well as show how to bridge tokens publicly from L1 to L2 and back, using aztec.js.
 
+:::note
+The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
+:::
+
 The first half of this page reviews the process and contracts for bridging token from Ethereum (L1) to Aztec (L2). The second half the page (starting with [Running with Aztec.js](#running-with-aztecjs)) goes over writing your own Typescript script for:
 
 - deploying and initializing contracts to L1 and L2
@@ -15,6 +19,8 @@ The first half of this page reviews the process and contracts for bridging token
 - minting tokens on L2
 - sending tokens from L2 back to L1
 - withdrawing tokens from the L1 portal
+
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up #include_aztec_version`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Components
 
@@ -139,6 +145,8 @@ We call this pattern _designed caller_ which enables a new paradigm **where we c
 
 Let's run through the entire process of depositing, minting and withdrawing tokens in Typescript, so you can see how it works in practice.
 
+Make sure you are using version #include_aztec_version of the sandbox. Install with `aztec-up #include_version_without_prefix`.
+
 ### Prerequisites
 
 Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
@@ -152,7 +160,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix @aztec/l1-artifacts@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/ethereum@#include_version_without_prefix @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```
@@ -200,13 +208,13 @@ You can run the script we will build in `index.ts` at any point with `yarn start
 
 Add the following imports to your `index.ts`:
 
-#include_code imports /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code imports /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 ### Utility functions
 
 Add the following utility functions to your `index.ts` below the imports:
 
-#include_code utils /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code utils /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 ### Sandbox Setup
 
@@ -220,7 +228,7 @@ And add the following code to your `index.ts`:
 
 ```ts
 async function main() {
-    #include_code setup /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts raw
+    #include_code setup /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts raw
 }
 
 main();
@@ -234,19 +242,19 @@ Run the script with `yarn start` and you should see the L1 contract addresses pr
 
 Add the following code to `index.ts` to deploy the L2 token contract:
 
-#include_code deploy-l2-token /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code deploy-l2-token /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Add the following code to `index.ts` to deploy the L1 token contract and set up the `L1TokenManager` (a utility class to interact with the L1 token contract):
 
-#include_code deploy-l1-token /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code deploy-l1-token /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Add the following code to `index.ts` to deploy the L1 portal contract:
 
-#include_code deploy-portal /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code deploy-portal /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Add the following code to `index.ts` to deploy the L2 bridge contract:
 
-#include_code deploy-l2-bridge /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code deploy-l2-bridge /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Run `yarn start` to confirm that all of the contracts are deployed.
 
@@ -254,17 +262,17 @@ Run `yarn start` to confirm that all of the contracts are deployed.
 
 Add the following code to `index.ts` to authorize the L2 bridge contract to mint tokens on the L2 token contract:
 
-#include_code authorize-l2-bridge /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code authorize-l2-bridge /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Add the following code to `index.ts` to set up the L1 portal contract and `L1TokenPortalManager` (a utility class to interact with the L1 portal contract):
 
-#include_code setup-portal /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code setup-portal /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 ### Bridge tokens
 
 Add the following code to `index.ts` to bridge tokens from L1 to L2:
 
-#include_code l1-bridge-public /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code l1-bridge-public /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 We have to send two additional transactions because the network must process 2 blocks for the message to be processed by the archiver. We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when the subtree containing the message is included in the block. Then when it's included it becomes available for consumption in the next block.
 
@@ -272,7 +280,7 @@ We have to send two additional transactions because the network must process 2 b
 
 Add the following code to `index.ts` to claim the tokens publicly on Aztec:
 
-#include_code claim /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code claim /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Run `yarn start` to confirm that tokens are claimed on Aztec.
 
@@ -280,16 +288,16 @@ Run `yarn start` to confirm that tokens are claimed on Aztec.
 
 Add the following code to `index.ts` to start the withdraw the tokens to L1:
 
-#include_code setup-withdrawal /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code setup-withdrawal /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 We have to send a public authwit to allow the bridge contract to burn tokens on behalf of the user.
 
 Add the following code to `index.ts` to start the withdraw process on Aztec:
 
-#include_code l2-withdraw /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code l2-withdraw /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Add the following code to `index.ts` to complete the withdraw process on L1:
 
-#include_code l1-withdraw /yarn-project/end-to-end/src/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code l1-withdraw /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
 
 Run `yarn start` to run the script and see the entire process in action.

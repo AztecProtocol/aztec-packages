@@ -625,7 +625,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .prove(),
+          .simulate(),
       ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 

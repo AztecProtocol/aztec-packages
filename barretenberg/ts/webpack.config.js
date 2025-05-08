@@ -54,6 +54,7 @@ export default {
     library: {
       type: 'module',
     },
+    asyncChunks: false,
   },
   optimization: {
     minimizer: [
@@ -68,10 +69,6 @@ export default {
         },
       }),
     ],
-    splitChunks: {
-      chunks: 'async',
-    },
-    runtimeChunk: false
   },
   experiments: {
     outputModule: true,

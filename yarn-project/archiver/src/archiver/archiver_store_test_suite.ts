@@ -92,12 +92,12 @@ export function describeArchiverDataStore(
         await store.addBlocks(blocks);
         const blockNumber = await store.getSynchedL2BlockNumber();
 
-        expectBlocksEqual(await store.getBlocks(blockNumber, 1), [blocks[blocks.length - 1]]);
+        expectBlocksEqual(await store.getPublishedBlocks(blockNumber, 1), [blocks[blocks.length - 1]]);
 
         await store.unwindBlocks(blockNumber, 1);
 
         expect(await store.getSynchedL2BlockNumber()).toBe(blockNumber - 1);
-        expect(await store.getBlocks(blockNumber, 1)).toEqual([]);
+        expect(await store.getPublishedBlocks(blockNumber, 1)).toEqual([]);
       });
 
       it('can unwind multiple empty blocks', async () => {
@@ -107,7 +107,7 @@ export function describeArchiverDataStore(
 
         await store.unwindBlocks(10, 3);
         expect(await store.getSynchedL2BlockNumber()).toBe(7);
-        expect((await store.getBlocks(1, 10)).map(b => b.block.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+        expect((await store.getPublishedBlocks(1, 10)).map(b => b.block.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
       });
 
       it('refuses to unwind blocks if the tip is not the last block', async () => {
@@ -122,19 +122,19 @@ export function describeArchiverDataStore(
       });
 
       it.each(blockTests)('retrieves previously stored blocks', async (start, limit, getExpectedBlocks) => {
-        expectBlocksEqual(await store.getBlocks(start, limit), getExpectedBlocks());
+        expectBlocksEqual(await store.getPublishedBlocks(start, limit), getExpectedBlocks());
       });
 
       it('returns an empty array if no blocks are found', async () => {
-        await expect(store.getBlocks(12, 1)).resolves.toEqual([]);
+        await expect(store.getPublishedBlocks(12, 1)).resolves.toEqual([]);
       });
 
       it('throws an error if limit is invalid', async () => {
-        await expect(store.getBlocks(1, 0)).rejects.toThrow('Invalid limit: 0');
+        await expect(store.getPublishedBlocks(1, 0)).rejects.toThrow('Invalid limit: 0');
       });
 
       it('throws an error if `from` it is out of range', async () => {
-        await expect(store.getBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).rejects.toThrow('Invalid start: -99');
+        await expect(store.getPublishedBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).rejects.toThrow('Invalid start: -99');
       });
     });
 

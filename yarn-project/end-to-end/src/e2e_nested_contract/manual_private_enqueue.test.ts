@@ -42,7 +42,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
           await (childContract.methods as any).pub_inc_value_internal.selector(),
           42n,
         )
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(/Assertion failed: Function pub_inc_value_internal can only be called internally/);
   });
 

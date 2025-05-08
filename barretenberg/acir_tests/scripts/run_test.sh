@@ -26,7 +26,7 @@ if [ "$COMPILE" -ne 0 ]; then
   export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4}
   rm -rf target
   set +e
-  compile_output=$($nargo compile --pedantic-solving --silence-warnings 2>&1 && $nargo execute --pedantic-solving 2>&1)
+  compile_output=$($nargo compile --silence-warnings 2>&1 && $nargo execute 2>&1)
   result=$?
   set -e
   if [ "$result" -ne 0 ]; then
