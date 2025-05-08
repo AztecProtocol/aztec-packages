@@ -60,6 +60,7 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
+    private clientInitiatedSimulation: boolean = false,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
@@ -331,6 +332,7 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
+      this.clientInitiatedSimulation,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();

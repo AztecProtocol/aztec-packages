@@ -854,7 +854,6 @@ pub global AVM_CALL_DYN_L2_GAS: u32 = 4;
 pub global AVM_STATICCALL_DYN_L2_GAS: u32 = 4;
 pub global AVM_RETURN_DYN_L2_GAS: u32 = 3;
 pub global AVM_REVERT_DYN_L2_GAS: u32 = 3;
-pub global AVM_DEBUGLOG_DYN_L2_GAS: u32 = 6;
 pub global AVM_MSM_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
 

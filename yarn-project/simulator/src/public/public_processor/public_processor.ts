@@ -58,6 +58,7 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
+    clientInitiatedSimulation: boolean = false,
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
@@ -66,6 +67,7 @@ export class PublicProcessorFactory {
       globalVariables,
       /*doMerkleOperations=*/ true,
       skipFeeEnforcement,
+      clientInitiatedSimulation,
     );
 
     return new PublicProcessor(
@@ -84,6 +86,7 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
+    clientInitiatedSimulation: boolean,
   ): PublicTxSimulator {
     return new TelemetryPublicTxSimulator(
       merkleTree,
@@ -91,6 +94,7 @@ export class PublicProcessorFactory {
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,
+      clientInitiatedSimulation,
       this.telemetryClient,
     );
   }

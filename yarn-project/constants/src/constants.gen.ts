@@ -355,7 +355,6 @@ export const AVM_CALL_DYN_L2_GAS = 4;
 export const AVM_STATICCALL_DYN_L2_GAS = 4;
 export const AVM_RETURN_DYN_L2_GAS = 3;
 export const AVM_REVERT_DYN_L2_GAS = 3;
-export const AVM_DEBUGLOG_DYN_L2_GAS = 6;
 export const AVM_MSM_DYN_L2_GAS = 6;
 export const AVM_TORADIXBE_DYN_L2_GAS = 3;
 export const AVM_SSTORE_BASE_DA_GAS = 512;
