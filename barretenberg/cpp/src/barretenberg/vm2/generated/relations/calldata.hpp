@@ -13,7 +13,7 @@ template <typename FF_> class calldataImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 3, 5 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 6 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,14 +38,16 @@ template <typename FF_> class calldataImpl {
         }
         { // TRACE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::calldata_sel)) * in.get(C::calldata_sel_shift);
+            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::calldata_sel)) *
+                       in.get(C::calldata_sel_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // BC_ID_CONTINUITY
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::calldata_sel) * (FF(1) - in.get(C::calldata_latch)) *
-                       (FF(1) - in.get(C::calldata_enqueued_call_id)) * in.get(C::calldata_enqueued_call_id_shift);
+            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * in.get(C::calldata_sel) *
+                       (FF(1) - in.get(C::calldata_latch)) * (FF(1) - in.get(C::calldata_enqueued_call_id)) *
+                       in.get(C::calldata_enqueued_call_id_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }

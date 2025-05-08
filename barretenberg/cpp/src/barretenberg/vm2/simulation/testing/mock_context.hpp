@@ -37,6 +37,8 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(bool, get_is_static, (), (const, override));
 
     // Input / Output.
+    MOCK_METHOD(EnqueuedCallId, get_enqueued_call_id, (), (const, override));
+    MOCK_METHOD(void, set_enqueued_call_id, (EnqueuedCallId id), (override));
     MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
     MOCK_METHOD(std::vector<FF>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));
     MOCK_METHOD(ContextInterface&, get_child_context, (), (override));

@@ -55,7 +55,16 @@ std::unique_ptr<ContextInterface> TxExecution::make_enqueued_context(AztecAddres
                                                                      bool is_static)
 {
     auto& execution_provider = call_execution.get_provider();
-    return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static);
+    auto ctx = execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static);
+    ctx->set_enqueued_call_id(next_enqueued_call_id);
+
+    cd_events.emit(
+        { .calldata = std::vector<FF>(calldata.begin(), calldata.end()), .enqueued_call_id = next_enqueued_call_id });
+
+    cd_hasher.compute_calldata_hash(next_enqueued_call_id, std::vector<FF>(calldata.begin(), calldata.end()));
+
+    next_enqueued_call_id++;
+    return ctx;
 }
 
 void TxExecution::insert_non_revertibles(const Tx& tx)

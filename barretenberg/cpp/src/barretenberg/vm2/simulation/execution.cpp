@@ -69,6 +69,10 @@ void Execution::call(ContextInterface& context,
                                                                    /*cd_size=*/cd_size.as<uint32_t>(),
                                                                    /*is_static=*/false);
 
+    // Set the enqueued call id for the nested context from the parent context, could be moved to the above param list
+    // Finalise tx trace first!
+    nested_context->set_enqueued_call_id(context.get_enqueued_call_id());
+
     // We recurse. When we return, we'll continue with the current loop and emit the execution event.
     // That event will be out of order, but it will have the right order id. It should be sorted in tracegen.
     auto result = execute_internal(*nested_context);
@@ -250,6 +254,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::JUMPI:
         call_with_operands(&Execution::jumpi, context, resolved_operands);
+        break;
+    case ExecutionOpCode::CALLDATACOPY:
+        call_with_operands(&Execution::cd_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::RETURNDATACOPY:
+        call_with_operands(&Execution::rd_copy, context, resolved_operands);
         break;
     default:
         // TODO: should be caught by parsing.

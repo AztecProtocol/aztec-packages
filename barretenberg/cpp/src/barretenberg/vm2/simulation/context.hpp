@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
@@ -40,6 +41,8 @@ class ContextInterface {
     virtual bool get_is_static() const = 0;
 
     // Input / Output
+    virtual EnqueuedCallId get_enqueued_call_id() const = 0;
+    virtual void set_enqueued_call_id(EnqueuedCallId id) = 0;
     virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
     virtual std::vector<FF> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
     virtual ContextInterface& get_child_context() = 0;
@@ -115,6 +118,8 @@ class BaseContext : public ContextInterface {
     void set_last_success(bool success) override { last_child_success = success; }
 
     // Input / Output
+    void set_enqueued_call_id(EnqueuedCallId id) override { enqueued_call_id = id; }
+    EnqueuedCallId get_enqueued_call_id() const override { return enqueued_call_id; }
     std::vector<FF> get_returndata(uint32_t rd_offset_addr, uint32_t rd_copy_size) override
     {
         MemoryInterface& child_memory = get_child_context().get_memory();
@@ -139,6 +144,7 @@ class BaseContext : public ContextInterface {
     bool is_static;
 
     uint32_t context_id;
+    EnqueuedCallId enqueued_call_id = 0;
 
     // Machine state.
     uint32_t pc = 0;
@@ -206,7 +212,7 @@ class EnqueuedCallContext : public BaseContext {
     };
 
     MemoryAddress get_parent_cd_addr() const override { return 0; }
-    uint32_t get_parent_cd_size() const override { return 0; }
+    uint32_t get_parent_cd_size() const override { return static_cast<uint32_t>(calldata.size()); }
 
   private:
     std::vector<FF> calldata;

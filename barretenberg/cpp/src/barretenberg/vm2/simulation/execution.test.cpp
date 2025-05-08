@@ -91,6 +91,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
         .WillOnce(Return(std::move(nested_context)));
+    EXPECT_CALL(context, get_enqueued_call_id());
 
     // Back in parent context
     EXPECT_CALL(context, set_child_context(_));
