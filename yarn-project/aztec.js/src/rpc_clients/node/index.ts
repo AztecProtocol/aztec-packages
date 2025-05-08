@@ -16,7 +16,7 @@ import { createPXEClient } from '../pxe_client.js';
  * @param body - The body of the request.
  * @returns The response data.
  */
-async function axiosFetch(host: string, body: { method: string }) {
+async function axiosFetch(host: string, body: unknown) {
   const request = new Axios({
     headers: { 'content-type': 'application/json' },
     transformRequest: [(data: any) => jsonStringify(data)],
@@ -27,7 +27,7 @@ async function axiosFetch(host: string, body: { method: string }) {
     if (error.response) {
       return error.response;
     }
-    const errorMessage = `Error fetching from host ${host} with method ${body.method}: ${inspect(error)}`;
+    const errorMessage = `Error fetching from host ${host}: ${inspect(error)}`;
     throw new Error(errorMessage);
   });
 
@@ -39,7 +39,7 @@ async function axiosFetch(host: string, body: { method: string }) {
     };
     return { response: resp.data, headers };
   } else {
-    const errorMessage = `Error ${resp.status} from json-rpc server ${host} on ${body.method}: ${resp.data.error.message}`;
+    const errorMessage = `Error ${resp.status} from json-rpc server ${host}: ${resp.data}`;
     if (resp.status >= 400 && resp.status < 500) {
       throw new NoRetryError(errorMessage);
     } else {
@@ -61,10 +61,10 @@ export function createCompatibleClient(
   versions: Partial<ComponentsVersions> = {},
 ): Promise<PXE> {
   // Use axios due to timeout issues with fetch when proving TXs.
-  const fetch = async (host: string, body: { method: string }) => {
+  const fetch = async (host: string, body: unknown) => {
     return await retry(
       () => axiosFetch(host, body),
-      `JsonRpcClient request ${body.method} to ${host}`,
+      `JsonRpcClient request to ${host}`,
       makeBackoff([1, 2, 3]),
       logger,
       false,
