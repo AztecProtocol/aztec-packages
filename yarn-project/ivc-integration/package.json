@@ -64,6 +64,7 @@
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen",
     "@aztec/noir-noir_js": "file:../../noir/packages/noir_js",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/noir-types": "portal:../../noir/packages/types",
     "@aztec/stdlib": "workspace:^",
     "chalk": "^5.3.0",

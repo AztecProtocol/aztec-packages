@@ -12,6 +12,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -63,15 +64,36 @@ struct PublicInputs {
     bool reverted;
 
     static PublicInputs from(const std::vector<uint8_t>& data);
-    // TODO: implement three following methods.
-    std::vector<std::vector<FF>> to_columns() const { return { { static_cast<uint8_t>(reverted) } }; }
-    // Flatten public input columns as a single vector.
-    static std::vector<FF> columns_to_flat(std::vector<std::vector<FF>> columns) { return columns[0]; }
 
-    // Reverse direction as the above but needs to templated as recursive verifier needs it with a circuit type.
+    // A vector per public inputs column
+    std::vector<std::vector<FF>> to_columns() const;
+
+    // Flatten public input columns as a single vector
+    static std::vector<FF> columns_to_flat(std::vector<std::vector<FF>> const& columns);
+
+    // From flattened public inputs columns to vector per-column
+    // Reverse direction as the above but needs to be templated as
+    // recursive verifier needs it with a circuit type.
     template <typename FF_> static std::vector<std::vector<FF_>> flat_to_columns(const std::vector<FF_>& input)
     {
-        return { input };
+        if (input.size() != AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH) {
+            throw std::invalid_argument(
+                "Flattened public inputs vector size does not match the expected combined length.");
+        }
+
+        std::vector<std::vector<FF_>> cols(AVM_NUM_PUBLIC_INPUT_COLUMNS);
+
+        for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
+            typename std::vector<FF_>::const_iterator start =
+                input.begin() +
+                static_cast<typename std::vector<FF_>::difference_type>(i * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            typename std::vector<FF_>::const_iterator end =
+                input.begin() +
+                static_cast<typename std::vector<FF_>::difference_type>((i + 1) * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+            cols[i] = std::vector<FF_>(start, end);
+        }
+
+        return cols;
     }
 
     bool operator==(const PublicInputs& other) const = default;
