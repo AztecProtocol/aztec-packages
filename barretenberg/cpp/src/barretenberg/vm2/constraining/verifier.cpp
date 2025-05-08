@@ -105,10 +105,23 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     std::vector<FF> mle_challenge(output.challenge.begin(),
                                   output.challenge.begin() + static_cast<int>(log_circuit_size));
 
-    FF execution_input_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    if (execution_input_evaluation != output.claimed_evaluations.execution_input) {
-        vinfo("execution_input_evaluation failed");
+    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        vinfo("Public inputs size mismatch");
         return false;
+    }
+
+    std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
+        output.claimed_evaluations.public_inputs_cols_0_,
+        output.claimed_evaluations.public_inputs_cols_1_,
+        output.claimed_evaluations.public_inputs_cols_2_,
+        output.claimed_evaluations.public_inputs_cols_3_,
+    };
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        if (public_input_evaluation != claimed_evaluations[i]) {
+            vinfo("public_input_evaluation failed, public inputs col ", i);
+            return false;
+        }
     }
 
     ClaimBatcher claim_batcher{
