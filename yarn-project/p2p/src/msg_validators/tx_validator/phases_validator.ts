@@ -37,7 +37,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
       for (const setupFn of setupFns) {
         if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
-          this.#log.warn(
+          this.#log.verbose(
             `Rejecting tx ${await Tx.getHash(tx)} because it calls setup function not on allow list: ${
               setupFn.request.contractAddress
             }:${setupFn.functionSelector}`,

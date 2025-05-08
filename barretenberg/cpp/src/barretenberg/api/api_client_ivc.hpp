@@ -34,6 +34,7 @@ class ClientIVCAPI : public API {
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override;
 
+    bool check_precomputed_vks(const std::filesystem::path& input_path);
     bool check(const Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path) override;

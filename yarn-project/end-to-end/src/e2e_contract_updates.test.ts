@@ -2,8 +2,8 @@ import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
-import { UpdatableContract } from '@aztec/noir-contracts.js/Updatable';
-import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-contracts.js/Updated';
+import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
+import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
@@ -130,12 +130,9 @@ describe('e2e_contract_updates', () => {
   });
 
   it('should not allow to change the delay to a value lower than the minimum', async () => {
-    await expect(
-      contract.methods
-        .set_update_delay(MINIMUM_UPDATE_DELAY - 1)
-        .send()
-        .wait(),
-    ).rejects.toThrow('New update delay is too low');
+    await expect(contract.methods.set_update_delay(MINIMUM_UPDATE_DELAY - 1).simulate()).rejects.toThrow(
+      'New update delay is too low',
+    );
   });
 
   it('should not allow to instantiate a contract with an updated class before the update happens', async () => {

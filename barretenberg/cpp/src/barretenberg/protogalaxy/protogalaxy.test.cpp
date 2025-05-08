@@ -53,6 +53,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         if constexpr (IsMegaFlavor<Flavor>) {
             GoblinMockCircuits::add_some_ecc_op_gates(builder);
         }
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
     }
 
     // Construct decider keys for a provided circuit and add to tuple
@@ -246,11 +247,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_compute_extended_relation_parameters()
     {
         Builder builder1;
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder1);
         auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
         pk_1->relation_parameters.eta = 1;
 
         Builder builder2;
         builder2.add_variable(3);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder2);
         auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
         pk_2->relation_parameters.eta = 3;
 
@@ -276,11 +279,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_compute_and_extend_alphas()
     {
         Builder builder1;
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder1);
         auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
         pk_1->alphas.fill(2);
 
         Builder builder2;
         builder2.add_variable(3);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder2);
         auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
         pk_2->alphas.fill(4);
 
@@ -333,11 +338,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             // Construct two equivalent circuits
             Builder builder1;
             Builder builder2;
-            construct_circuit(builder1);
-            construct_circuit(builder2);
 
             // Add some arithmetic gates with public inputs to the first circuit
             bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder1, /*num_gates=*/4);
+
+            construct_circuit(builder1);
+            construct_circuit(builder2);
 
             check_fold_and_decide(builder1, builder2);
         }
@@ -456,6 +462,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             MegaCircuitBuilder builder;
 
             MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates[i]);
+            stdlib::recursion::PairingPoints<MegaCircuitBuilder>::add_default_to_public_inputs(builder);
 
             auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
             trace_usage_tracker.update(builder);

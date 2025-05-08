@@ -10,7 +10,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
@@ -76,9 +76,10 @@ export class TXEService {
 
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
     // Emit deployment nullifier
-    (this.typedOracle as TXE).addSiloedNullifiersFromPublic([
-      await siloNullifier(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS), instance.address.toField()),
-    ]);
+    await (this.typedOracle as TXE).noteCache.nullifierCreated(
+      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      instance.address.toField(),
+    );
 
     if (!fromSingle(secret).equals(Fr.ZERO)) {
       await this.addAccount(artifact, instance, secret);
@@ -825,5 +826,26 @@ export class TXEService {
   avmOpcodeSuccessCopy() {
     const success = (this.typedOracle as TXE).avmOpcodeSuccessCopy();
     return toForeignCallResult([toSingle(new Fr(success))]);
+  }
+
+  async privateCallNewFlow(
+    from: ForeignCallSingle,
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    _argsLength: ForeignCallSingle,
+    args: ForeignCallArray,
+    argsHash: ForeignCallSingle,
+    isStaticCall: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).privateCallNewFlow(
+      addressFromSingle(from),
+      addressFromSingle(targetContractAddress),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromArray(args),
+      fromSingle(argsHash),
+      fromSingle(isStaticCall).toBool(),
+    );
+
+    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash])]);
   }
 }

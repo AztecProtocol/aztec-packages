@@ -68,6 +68,16 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     }
 }
 
+pub fn accumulate_proposed_block_header_hashes(
+    left: BlockRootOrBlockMergePublicInputs,
+    right: BlockRootOrBlockMergePublicInputs,
+) -> [Field; AZTEC_MAX_EPOCH_DURATION] {
+    array_merge(
+        left.proposed_block_header_hashes,
+        right.proposed_block_header_hashes,
+    )
+}
+
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,

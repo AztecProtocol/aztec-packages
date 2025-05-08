@@ -109,6 +109,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         fq_ct big_b(fr_ct(witness_ct(&builder, bigfield_data_b.to_montgomery_form())), fr_ct(witness_ct(&builder, 0)));
 
         big_a* big_b;
+
+        stdlib::recursion::PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
     };
 
     static std::tuple<std::shared_ptr<InnerDeciderProvingKey>, std::shared_ptr<InnerDeciderVerificationKey>>
@@ -245,8 +247,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         }
 
         // Check for a failure flag in the recursive verifier circuit
-
         {
+            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(folding_circuit);
             // inefficiently check finalized size
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
@@ -312,7 +314,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
-        // manifestsproduced by each agree.
+        // manifests produced by each agree.
         auto recursive_folding_manifest = verifier.transcript->get_manifest();
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
@@ -328,6 +330,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
         auto pairing_points = decider_verifier.verify_proof(decider_proof);
+        pairing_points.set_public();
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
@@ -367,7 +370,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // Create a decider verifier circuit for recursively verifying the decider proof
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, verifier_accumulator };
-        decider_verifier.verify_proof(decider_proof);
+        [[maybe_unused]] auto output = decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
 
         // We expect the decider circuit check to fail due to the bad proof

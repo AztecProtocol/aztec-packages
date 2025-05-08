@@ -18,7 +18,7 @@ import { submitComplexTxsTo } from './shared.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
-const BASE_BOOT_NODE_UDP_PORT = 40000;
+const BASE_BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
 
 describe('e2e_p2p_reex', () => {
@@ -130,6 +130,7 @@ describe('e2e_p2p_reex', () => {
         // Abusing javascript to access the nodes signing key
         const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
         const newProposal = new BlockProposal(
+          proposal.blockNumber,
           proposal.payload,
           await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
         );

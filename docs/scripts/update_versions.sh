@@ -6,11 +6,11 @@
 # 2. For each version type (regular and alpha), keeps the newer version between:
 #    - The latest version from versioned_docs
 #    - The version from versions.json
-# 3. Creates a new array containing these versions
+# 3. Creates a new array with alpha-testnet version first, followed by regular version
 # 4. Writes the filtered array back to versions.json
 # The resulting versions.json will always contain exactly two versions:
-# - The latest regular version (e.g. "v0.85.0")
 # - The latest alpha-testnet version (e.g. "v0.84.0-alpha-testnet.2")
+# - The latest regular version (e.g. "v0.85.0")
 
 # Get the directory where the script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,8 +34,8 @@ JSON_ALPHA=$(echo "$JSON_VERSIONS" | jq -r '.[] | select(contains("alpha-testnet
 REGULAR_VERSION=$(printf "%s\n%s" "$DOCS_REGULAR" "$JSON_REGULAR" | sort -V | tail -n1)
 ALPHA_VERSION=$(printf "%s\n%s" "$DOCS_ALPHA" "$JSON_ALPHA" | sort -V | tail -n1)
 
-# Create json to only keep the latest regular and alpha versions
-NEW_VERSIONS=$(jq --null-input --arg regular "$REGULAR_VERSION" --arg alpha "$ALPHA_VERSION" '[ $regular, $alpha ]')
+# Create json with alpha version first
+NEW_VERSIONS=$(jq --null-input --arg alpha "$ALPHA_VERSION" --arg regular "$REGULAR_VERSION" '[ $alpha, $regular ]')
 
 # Write back to file
 echo $NEW_VERSIONS | jq '.' >$VERSIONS_FILE

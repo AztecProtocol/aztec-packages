@@ -150,11 +150,17 @@
       "name": "tracy-memory",
       "displayName": "Release build with tracy with memory tracking",
       "description": "Release build with tracy with memory tracking",
-      "inherits": "clang16",
+      "inherits": "clang16-assert",
       "binaryDir": "build-tracy-memory",
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
-        "TRACY_PROFILE_MEMORY": "ON"
+        "TRACY_PROFILE_MEMORY": "ON",
+        "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
+      },
+      "environment": {
+        "CFLAGS": "-g -fno-omit-frame-pointer",
+        "CXXFLAGS": "-g -fno-omit-frame-pointer",
+        "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
       }
     },
     {
@@ -162,7 +168,7 @@
       "displayName": "Build for tracy time profiling via instrumentation",
       "description": "Build for tracy time profiling via instrumentation",
       "binaryDir": "build-tracy-time-instrumented",
-      "inherits": "clang16",
+      "inherits": "clang16-assert",
       "cacheVariables": {
         "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
       }
@@ -172,7 +178,7 @@
       "displayName": "Build for tracy time profiling via sampling",
       "description": "Build for tracy time profiling via sampling",
       "binaryDir": "build-tracy-time-sampled",
-      "inherits": "default",
+      "inherits": "clang16-assert",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CFLAGS": "-g -fno-omit-frame-pointer",

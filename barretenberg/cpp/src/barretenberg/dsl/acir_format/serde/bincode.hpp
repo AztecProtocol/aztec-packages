@@ -16,7 +16,7 @@
 #include "serde.hpp"
 
 // Maximum length supported in practice (e.g. Java).
-constexpr size_t BINCODE_MAX_LENGTH = (1ull << 31) - 1;
+constexpr size_t BINCODE_MAX_LENGTH = (1ULL << 31) - 1;
 
 namespace serde {
 

@@ -48,8 +48,8 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
 }
 
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
 {
     StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
@@ -65,15 +65,13 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         public_inputs_ct.push_back(vec_ct);
     }
 
-    return verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
+    return verify_proof(stdlib_proof, public_inputs_ct);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof,
-    const std::vector<std::vector<FF>>& public_inputs,
-    AggregationObject agg_obj)
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof<Builder>& stdlib_proof, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
@@ -147,13 +145,10 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
-    typename Curve::ScalarField recursion_separator =
-        Curve::ScalarField::from_witness_index(&builder, builder.add_variable(42));
-    agg_obj.aggregate(pairing_points, recursion_separator);
-    return agg_obj;
+    return pairing_points;
 }
 
 // TODO: Once Goblinized version is mature, we can remove this one and we only to template

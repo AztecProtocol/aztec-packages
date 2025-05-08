@@ -11,6 +11,7 @@
 
 names:
   - adam: &adam "U04BM8H25NJ"
+  - akosh: &akosh "U07PQ3Y4GHJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
   - grego: &grego "U0689QRCE9L"
@@ -45,6 +46,10 @@ tests:
     error_regex: "Failed to fetch"
     owners:
       - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "RuntimeError: Out of bounds memory access"
+    owners:
+      - *adam
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
@@ -70,6 +75,9 @@ tests:
     skip: true
     owners:
       - *charlie
+  - regex: "arb_program_can_be_executed"
+    owners:
+      - *akosh
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
@@ -81,68 +89,78 @@ tests:
       - *tom
 
   # e2e tests
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/reex"
+  - regex: "src/e2e_p2p/reex"
     error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/reex"
+  - regex: "src/e2e_p2p/reex"
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
     owners:
       - *sean
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p/gossip_network"
+  - regex: "src/e2e_p2p/gossip_network"
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
-  - regex: "simple e2e_fees/private_payments"
+  - regex: "e2e_p2p/validators_sentinel"
+    # Too noisey, skipping.
+    skip: true
+    error_regex: "Expected: >= 2"
+    owners:
+      - *palla
+  - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
   # http://ci.aztec-labs.com/7a5104e136578d64
   # The "loop that wastes 5m" thing.
-  - regex: "simple e2e_fees/failures"
+  - regex: "src/e2e_fees/failures"
     error_regex: "Exceeded timeout"
     owners:
       - *palla
-  - regex: "simple e2e_lending_contract"
+  - regex: "src/e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
       - *lasse
-  - regex: "simple e2e_lending_contract"
+  - regex: "src/e2e_lending_contract"
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_private"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-  - regex: "simple e2e_block_building"
-    error_regex: "Cannot read properties of undefined"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Publicly deposit funds"
     owners:
-      - *jan
-  - regex: "simple e2e_block_building"
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_failure_cases"
+    error_regex: "✕ Can't claim funds"
+    owners:
+      - *lasse
+  - regex: "src/e2e_block_building"
     error_regex: "Could not retrieve body for block"
     owners:
       - *palla
-  - regex: "composed/integration_l1_publisher"
+  - regex: "src/composed/integration_l1_publisher"
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "simple e2e_sequencer_config"
+  - regex: "src/e2e_sequencer_config"
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
@@ -188,16 +206,26 @@ tests:
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
       - *alex
+  - regex: "ethereum/src/test/tx_delayer.test.ts"
+    error_regex: "delays a transaction until a given L1 timestamp"
+    owners:
+      - *esau
 
   # boxes
-  - regex: "boxes/scripts/run_test.sh"
-    error_regex: "Test timeout of 90000ms exceeded."
+  - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"
+    error_regex: "WARN: sequencer Too far into slot for INITIALIZING_PROPOSAL"
     owners:
       - *grego
+
+  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
+    error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *esau
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
     # Will skip all kind tests for now. Too unstable, blocking merge queue.
+    skip: true
     error_regex: "timeout: sending signal TERM to command"
     owners:
       - *alex

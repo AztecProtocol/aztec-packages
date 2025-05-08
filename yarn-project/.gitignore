@@ -50,6 +50,9 @@ scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/
 noir-contracts.js/codegenCache.json
+noir-test-contracts.js/src
+noir-test-contracts.js/artifacts/
+noir-test-contracts.js/codegenCache.json
 types/fixtures/*.json
 cli-wallet/test/data
 

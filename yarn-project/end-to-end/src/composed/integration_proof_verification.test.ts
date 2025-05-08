@@ -1,5 +1,6 @@
 import { fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
+import { PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { type ExtendedViemWalletClient, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
@@ -87,7 +88,10 @@ describe('proof_verification', () => {
 
   describe('bb', () => {
     it('verifies proof', async () => {
-      await expect(circuitVerifier.verifyProofForCircuit('RootRollupArtifact', proof)).resolves.toBeUndefined();
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
+      const modifiedProof = Proof.fromString(proof.toString());
+      modifiedProof.numPublicInputs -= PAIRING_POINTS_SIZE;
+      await expect(circuitVerifier.verifyProofForCircuit('RootRollupArtifact', modifiedProof)).resolves.toBeUndefined();
     });
   });
 

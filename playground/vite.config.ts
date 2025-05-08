@@ -2,10 +2,9 @@ import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
 import bundlesize from 'vite-plugin-bundlesize';
-import path from 'path';
 
 // Only required for alternative bb wasm file, left as reference
-// import { viteStaticCopy } from "vite-plugin-static-copy";
+//import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
 // Suspected to be because of the yarn workspace setup, but not sure
@@ -54,14 +53,15 @@ export default defineConfig(({ mode }) => {
       // viteStaticCopy({
       //   targets: [
       //     {
-      //       src: "../barretenberg/ts/dest/node/barretenberg_wasm/*.gz",
-      //       dest: "assets/",
+      //       src: '../barretenberg/cpp/build-wasm-threads/bin/*.wasm',
+      //       dest: 'assets/',
       //     },
       //   ],
       // }),
       bundlesize({
         // Bump log:
-        limits: [{ name: 'assets/index-*', limit: '1600kB' }],
+        // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
+        limits: [{ name: 'assets/index-*', limit: '1700kB' }],
       }),
     ],
     define: {

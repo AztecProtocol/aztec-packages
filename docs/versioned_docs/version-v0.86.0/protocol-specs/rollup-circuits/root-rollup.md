@@ -230,9 +230,9 @@ def RootRollupCircuit(
     )
 
     return RootRollupPublicInputs(
-        aggregation_object =
-            left.public_inputs.aggregation_object +
-            right.public_inputs.aggregation_object,
+        points_accumulator =
+            left.public_inputs.points_accumulator +
+            right.public_inputs.points_accumulator,
         archive = archive,
         header: Header,
     )

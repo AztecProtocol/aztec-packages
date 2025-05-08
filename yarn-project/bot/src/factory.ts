@@ -173,7 +173,6 @@ export class BotFactory {
       deployOpts.skipPublicDeployment = true;
       deployOpts.skipClassRegistration = true;
       deployOpts.skipInitialization = false;
-      deployOpts.skipPublicSimulation = true;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }

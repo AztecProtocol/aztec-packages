@@ -9,6 +9,8 @@ import { AZTEC_ENR_KEY } from '../types/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { setAztecEnrKey } from '../versioning.js';
 
+export { ENR };
+
 export async function createBootnodeENRandPeerId(
   privateKey: string,
   p2pIp: string,

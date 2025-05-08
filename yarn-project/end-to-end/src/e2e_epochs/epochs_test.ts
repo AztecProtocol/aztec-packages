@@ -10,7 +10,7 @@ import type { TestProverNode } from '@aztec/prover-node/test';
 import type { SequencerPublisher } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 
 import { join } from 'path';
 import type { Hex } from 'viem';
@@ -26,6 +26,8 @@ import {
 // This can be lowered to as much as 2s in non-CI
 export const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 export const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
+export const L2_SLOT_DURATION_IN_S = L2_SLOT_DURATION_IN_L1_SLOTS * L1_BLOCK_TIME_IN_S;
+
 export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
@@ -33,7 +35,13 @@ export const ARCHIVER_POLL_INTERVAL = 50;
 export type EpochsTestOpts = Partial<
   Pick<
     SetupOptions,
-    'startProverNode' | 'aztecProofSubmissionWindow' | 'aztecEpochDuration' | 'proverTestDelayMs' | 'proverNodeConfig'
+    | 'startProverNode'
+    | 'aztecProofSubmissionWindow'
+    | 'aztecEpochDuration'
+    | 'proverTestDelayMs'
+    | 'l1PublishRetryIntervalMS'
+    | 'txPropagationMaxQueryAttempts'
+    | 'proverNodeConfig'
   >
 >;
 
@@ -87,7 +95,7 @@ export class EpochsTestContext {
       proverId: Fr.fromString('1'),
       // This must be enough so that the tx from the prover is delayed properly,
       // but not so much to hang the sequencer and timeout the teardown
-      txPropagationMaxQueryAttempts: 12,
+      txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       ...opts,
     });
@@ -184,7 +192,7 @@ export class EpochsTestContext {
   /** Waits until the given L2 block number is mined. */
   public async waitUntilL2BlockNumber(target: number, timeout = 60) {
     await retryUntil(
-      () => Promise.resolve(target === this.monitor.l2BlockNumber),
+      () => Promise.resolve(target <= this.monitor.l2BlockNumber),
       `Wait until L2 block ${target}`,
       timeout,
       0.1,
@@ -194,11 +202,20 @@ export class EpochsTestContext {
   /** Waits until the given L2 block number is marked as proven. */
   public async waitUntilProvenL2BlockNumber(t: number, timeout = 60) {
     await retryUntil(
-      () => Promise.resolve(t === this.monitor.l2ProvenBlockNumber),
+      () => Promise.resolve(t <= this.monitor.l2ProvenBlockNumber),
       `Wait proven L2 block ${t}`,
       timeout,
       0.1,
     );
+    return this.monitor.l2ProvenBlockNumber;
+  }
+
+  /** Waits until the end of the proof submission window for a given epoch. */
+  public async waitUntilEndOfProofSubmissionWindow(epochNumber: number | bigint) {
+    const deadline = getProofSubmissionDeadlineTimestamp(BigInt(epochNumber), this.constants);
+    const date = new Date(Number(deadline) * 1000);
+    this.logger.info(`Waiting until end of submission window for epoch ${epochNumber} at ${date}`, { deadline });
+    await waitUntilL1Timestamp(this.l1Client, deadline);
   }
 
   /** Waits for the aztec node to sync to the target block number. */

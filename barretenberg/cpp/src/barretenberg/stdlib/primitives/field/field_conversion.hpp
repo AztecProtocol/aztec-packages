@@ -203,7 +203,7 @@ template <typename TargetType, typename Builder>
 TargetType deserialize_from_frs(Builder& builder, std::span<fr<Builder>> elements, size_t& num_frs_read)
 {
     size_t num_frs = calc_num_bn254_frs<Builder, TargetType>();
-    ASSERT(elements.size() >= num_frs_read + num_frs);
+    BB_ASSERT_GTE(elements.size(), num_frs_read + num_frs);
     TargetType result = convert_from_bn254_frs<Builder, TargetType>(builder, elements.subspan(num_frs_read, num_frs));
     num_frs_read += num_frs;
     return result;

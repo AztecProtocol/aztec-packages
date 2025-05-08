@@ -65,7 +65,7 @@ export function injectCommands(
       const { importTestAccounts } = await import('./import_test_accounts.js');
       const { rpcUrl, json } = options;
 
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
       await importTestAccounts(client, db, json, log);
     });
 
@@ -119,7 +119,7 @@ export function injectCommands(
       ]);
       publicKey = answers.identity.split(' ')[1];
     }
-    const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const accountCreationResult = await createAccount(
       client,
       type,
@@ -153,20 +153,22 @@ export function injectCommands(
     .option(
       '--register-class',
       'Register the contract class (useful for when the contract class has not been deployed yet).',
-    );
+    )
+    .option('--public-deploy', 'Publicly deploy this account contract (only useful if it contains public functions');
 
   addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
-    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass } = options;
+    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass, publicDeploy } = options;
 
-    const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db);
 
     await deployAccount(
       account,
       wait,
       registerClass,
+      publicDeploy,
       await FeeOptsWithFeePayer.fromCli(options, client, log, db),
       json,
       debugLogger,
@@ -223,7 +225,7 @@ export function injectCommands(
       from: parsedFromAddress,
       alias,
     } = options;
-    const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
     const wallet = await account.getWallet();
     const artifactPath = await artifactPathPromise;
@@ -293,7 +295,7 @@ export function injectCommands(
       cancel,
       authWitness: authWitnessArray,
     } = options;
-    const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
     const wallet = await account.getWallet();
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
@@ -345,7 +347,7 @@ export function injectCommands(
         authWitness,
       } = options;
 
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
@@ -353,7 +355,7 @@ export function injectCommands(
       await simulate(wallet, functionName, args, artifactPath, contractAddress, authWitnesses, log);
     });
 
-  program
+  const profileCommand = program
     .command('profile')
     .description('Profiles a private function by counting the unconditional operations in its execution steps')
     .argument('<functionName>', 'Name of function to simulate')
@@ -366,37 +368,39 @@ export function injectCommands(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAuthwitnessOption('Authorization witness to use for the simulation', !db, db))
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .action(async (functionName, _options, command) => {
-      const { profile } = await import('./profile.js');
-      const options = command.optsWithGlobals();
-      const {
-        args,
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        from: parsedFromAddress,
-        rpcUrl,
-        secretKey,
-        debugExecutionStepsDir,
-        authWitness,
-      } = options;
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db));
 
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await account.getWallet();
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      const authWitnesses = cleanupAuthWitnesses(authWitness);
-      await profile(
-        wallet,
-        functionName,
-        args,
-        artifactPath,
-        contractAddress,
-        debugExecutionStepsDir,
-        authWitnesses,
-        log,
-      );
-    });
+  addOptions(profileCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
+    const { profile } = await import('./profile.js');
+    const options = command.optsWithGlobals();
+    const {
+      args,
+      contractArtifact: artifactPathPromise,
+      contractAddress,
+      from: parsedFromAddress,
+      rpcUrl,
+      secretKey,
+      debugExecutionStepsDir,
+      authWitness,
+    } = options;
+
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
+    const wallet = await account.getWallet();
+    const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+    const authWitnesses = cleanupAuthWitnesses(authWitness);
+    await profile(
+      wallet,
+      functionName,
+      args,
+      artifactPath,
+      contractAddress,
+      debugExecutionStepsDir,
+      await FeeOptsWithFeePayer.fromCli(options, client, log, db),
+      authWitnesses,
+      log,
+    );
+  });
 
   program
     .command('bridge-fee-juice')
@@ -432,7 +436,7 @@ export function injectCommands(
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
@@ -487,7 +491,7 @@ export function injectCommands(
         alias,
       } = options;
 
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
@@ -527,7 +531,7 @@ export function injectCommands(
         secretKey,
       } = options;
 
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
@@ -550,7 +554,7 @@ export function injectCommands(
       const { checkTx } = await import('./check_tx.js');
       const { rpcUrl, pageSize } = options;
       let { page } = options;
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
 
       if (txHash) {
         await checkTx(client, txHash, false, log);
@@ -602,7 +606,7 @@ export function injectCommands(
     .action(async (txHash, options) => {
       const { cancelTx } = await import('./cancel_tx.js');
       const { from: parsedFromAddress, rpcUrl, secretKey, payment, increasedFees, maxFeesPerGas } = options;
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();
 
@@ -630,7 +634,7 @@ export function injectCommands(
     .action(async (address, options) => {
       const { registerSender } = await import('./register_sender.js');
       const { from: parsedFromAddress, rpcUrl, secretKey, alias } = options;
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();
 
@@ -680,7 +684,7 @@ export function injectCommands(
         deployer,
         args,
       } = command.optsWithGlobals();
-      const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const node = pxeWrapper?.getNode() ?? createAztecNodeClient(nodeUrl);
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await account.getWallet();

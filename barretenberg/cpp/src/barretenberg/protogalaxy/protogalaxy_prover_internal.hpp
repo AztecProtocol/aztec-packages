@@ -261,7 +261,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         auto full_honk_evaluations = compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
-        ASSERT(betas.size() == deltas.size());
+        BB_ASSERT_EQ(betas.size(), deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
 
         // Compute the perturbator using only the first log_circuit_size-many betas/deltas

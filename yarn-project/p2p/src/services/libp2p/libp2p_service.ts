@@ -4,7 +4,8 @@ import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -50,6 +51,8 @@ import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
 import {
+  ArchiveCache,
+  BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
   GasTxValidator,
@@ -270,6 +273,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           heartbeatInterval: config.gossipsubInterval,
           mcacheLength: config.gossipsubMcacheLength,
           mcacheGossip: config.gossipsubMcacheGossip,
+          seenTTL: config.gossipsubSeenTTL,
           msgIdFn: getMsgIdFn,
           msgIdToStrFn: msgIdToStrFn,
           fastMsgIdFn: fastMsgIdFn,
@@ -568,7 +572,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       const attestation = BlockAttestation.fromBuffer(Buffer.from(msg.data));
       const result = await this.validateAttestation(source, attestation);
       this.logger.trace(`validatePropagatedAttestation: ${result}`, {
-        [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toString(),
+        [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
         [Attributes.P2P_ID]: source.toString(),
       });
       return { result, obj: attestation };
@@ -599,7 +603,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       const block = BlockProposal.fromBuffer(Buffer.from(msg.data));
       const result = await this.validateBlockProposal(source, block);
       this.logger.trace(`validatePropagatedBlock: ${result}`, {
-        [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
+        [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
         [Attributes.P2P_ID]: source.toString(),
       });
       return { result, obj: block };
@@ -652,8 +656,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param attestation - The attestation to broadcast.
    */
   @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
-    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
   }))
@@ -720,21 +724,25 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const blockNumber = (await this.archiver.getBlockNumber()) + 1;
     const messageValidators = await this.createMessageValidators(blockNumber);
-    const outcome = await this.runValidations(tx, messageValidators);
 
-    if (outcome.allPassed) {
-      return true;
+    for (const validator of messageValidators) {
+      const outcome = await this.runValidations(tx, validator);
+
+      if (outcome.allPassed) {
+        continue;
+      }
+      const { name } = outcome.failure;
+      let { severity } = outcome.failure;
+
+      // Double spend validator has a special case handler
+      if (name === 'doubleSpendValidator') {
+        severity = await this.handleDoubleSpendFailure(tx, blockNumber);
+      }
+
+      this.peerManager.penalizePeer(peerId, severity);
+      return false;
     }
-    const { name } = outcome.failure;
-    let { severity } = outcome.failure;
-
-    // Double spend validator has a special case handler
-    if (name === 'doubleSpendValidator') {
-      severity = await this.handleDoubleSpendFailure(tx, blockNumber);
-    }
-
-    this.peerManager.penalizePeer(peerId, severity);
-    return false;
+    return true;
   }
 
   private async getGasFees(blockNumber: number): Promise<GasFees> {
@@ -748,6 +756,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return gasFees;
   }
 
+  public async validate(txs: Tx[]): Promise<void> {
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
+    const messageValidators = await this.createMessageValidators(blockNumber);
+
+    await Promise.all(
+      txs.map(async tx => {
+        for (const validator of messageValidators) {
+          const outcome = await this.runValidations(tx, validator);
+          if (!outcome.allPassed) {
+            throw new Error('Invalid tx detected', { cause: { outcome } });
+          }
+        }
+      }),
+    );
+  }
+
   /**
    * Create message validators for the given block number.
    *
@@ -757,51 +781,59 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param blockNumber - The block number to create validators for.
    * @returns The message validators.
    */
-  private async createMessageValidators(blockNumber: number): Promise<Record<string, MessageValidator>> {
+  private async createMessageValidators(blockNumber: number): Promise<Record<string, MessageValidator>[]> {
     const merkleTree = this.worldStateSynchronizer.getCommitted();
     const gasFees = await this.getGasFees(blockNumber - 1);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
-    return {
-      dataValidator: {
-        validator: new DataTxValidator(),
-        severity: PeerErrorSeverity.HighToleranceError,
+    return [
+      {
+        dataValidator: {
+          validator: new DataTxValidator(),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        metadataValidator: {
+          validator: new MetadataTxValidator({
+            l1ChainId: new Fr(this.config.l1ChainId),
+            rollupVersion: new Fr(this.config.rollupVersion),
+            blockNumber: new Fr(blockNumber),
+            protocolContractTreeRoot,
+            vkTreeRoot: getVKTreeRoot(),
+          }),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        doubleSpendValidator: {
+          validator: new DoubleSpendTxValidator({
+            nullifiersExist: async (nullifiers: Buffer[]) => {
+              const merkleTree = this.worldStateSynchronizer.getCommitted();
+              const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+              return indices.map(index => index !== undefined);
+            },
+          }),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        gasValidator: {
+          validator: new GasTxValidator(
+            new DatabasePublicStateSource(merkleTree),
+            ProtocolContractAddress.FeeJuice,
+            gasFees,
+          ),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        phasesValidator: {
+          validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
+          severity: PeerErrorSeverity.MidToleranceError,
+        },
+        blockHeaderValidator: {
+          validator: new BlockHeaderTxValidator(new ArchiveCache(this.worldStateSynchronizer.getCommitted())),
+          severity: PeerErrorSeverity.HighToleranceError,
+        },
+        proofValidator: {
+          validator: new TxProofValidator(this.proofVerifier),
+          severity: PeerErrorSeverity.MidToleranceError,
+        },
       },
-      metadataValidator: {
-        validator: new MetadataTxValidator(
-          new Fr(this.config.l1ChainId),
-          new Fr(this.config.rollupVersion),
-          new Fr(blockNumber),
-        ),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      proofValidator: {
-        validator: new TxProofValidator(this.proofVerifier),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-      doubleSpendValidator: {
-        validator: new DoubleSpendTxValidator({
-          nullifiersExist: async (nullifiers: Buffer[]) => {
-            const merkleTree = this.worldStateSynchronizer.getCommitted();
-            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-            return indices.map(index => index !== undefined);
-          },
-        }),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      gasValidator: {
-        validator: new GasTxValidator(
-          new DatabasePublicStateSource(merkleTree),
-          ProtocolContractAddress.FeeJuice,
-          gasFees,
-        ),
-        severity: PeerErrorSeverity.HighToleranceError,
-      },
-      phasesValidator: {
-        validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
-        severity: PeerErrorSeverity.MidToleranceError,
-      },
-    };
+    ];
   }
 
   /**
@@ -820,24 +852,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     });
 
     // A promise that resolves when all validations have been run
-    const allValidations = Promise.all(validationPromises);
-
-    // A promise that resolves when the first validation fails
-    const firstFailure = Promise.race(
-      validationPromises.map(async promise => {
-        const result = await promise;
-        return result.isValid ? new Promise(() => {}) : result;
-      }),
-    );
-
-    // Wait for the first validation to fail or all validations to pass
-    const result = await Promise.race([
-      allValidations.then(() => ({ allPassed: true as const })),
-      firstFailure.then(failure => ({ allPassed: false as const, failure: failure as ValidationResult })),
-    ]);
-
-    // If all validations pass, allPassed will be true, if failed, then the failure will be the first validation to fail
-    return result;
+    const allValidations = await Promise.all(validationPromises);
+    const failed = allValidations.find(x => !x.isValid);
+    if (failed) {
+      return {
+        allPassed: false,
+        failure: {
+          isValid: { result: 'invalid' as const, reason: ['Failed validation'] },
+          name: failed.name,
+          severity: failed.severity,
+        },
+      };
+    } else {
+      return {
+        allPassed: true,
+      };
+    }
   }
 
   /**
@@ -881,8 +911,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the attestation is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
-    [Attributes.BLOCK_NUMBER]: attestation.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
   }))
@@ -903,7 +933,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the block proposal is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateBlockProposal', (_peerId, block) => ({
-    [Attributes.SLOT_NUMBER]: block.payload.header.globalVariables.slotNumber.toString(),
+    [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
   }))
   public async validateBlockProposal(peerId: PeerId, block: BlockProposal): Promise<boolean> {
     const severity = await this.blockProposalValidator.validate(block);

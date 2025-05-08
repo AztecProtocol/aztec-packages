@@ -59,12 +59,13 @@ export async function createProverCoordination(
   }
 
   let nodes: AztecNode[] = [];
-  if (config.proverCoordinationNodeUrls.length > 0) {
+  if (config.proverCoordinationNodeUrls && config.proverCoordinationNodeUrls.length > 0) {
     log.info('Using prover coordination via node urls');
     const versions = getComponentsVersionsFromConfig(config, protocolContractTreeRoot, getVKTreeRoot());
-    nodes = config.proverCoordinationNodeUrls.map(url =>
-      createAztecNodeClient(url, versions, makeTracedFetch([1, 2, 3], false)),
-    );
+    nodes = config.proverCoordinationNodeUrls.map(url => {
+      log.info(`Creating aztec node client for prover coordination with url: ${url}`);
+      return createAztecNodeClient(url, versions, makeTracedFetch([1, 2, 3], false));
+    });
   }
 
   const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();

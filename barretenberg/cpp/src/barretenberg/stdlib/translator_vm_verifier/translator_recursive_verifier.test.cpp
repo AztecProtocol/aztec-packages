@@ -51,7 +51,6 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        op_queue->append_nonzero_ops();
 
         for (size_t i = 0; i < num_ops; i++) {
             op_queue->add_accumulate(P1);
@@ -89,7 +88,9 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-        auto pairing_points = verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+        typename RecursiveVerifier::PairingPoints pairing_points =
+            verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+        pairing_points.set_public();
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
 
         // Check for a failure flag in the recursive verifier circuit
@@ -167,9 +168,11 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
             transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
-            verifier.verify_proof(inner_proof,
-                                  TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x),
-                                  TranslatorBF::from_witness(&outer_circuit, batching_challenge_v));
+            typename RecursiveVerifier::PairingPoints pairing_points =
+                verifier.verify_proof(inner_proof,
+                                      TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x),
+                                      TranslatorBF::from_witness(&outer_circuit, batching_challenge_v));
+            pairing_points.set_public();
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =

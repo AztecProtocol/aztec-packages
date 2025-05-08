@@ -18,19 +18,10 @@ Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitm
     : commitment_key(bn254_commitment_key)
 {}
 
-Goblin::MergeProof Goblin::prove_merge(MegaBuilder& circuit_builder)
+Goblin::MergeProof Goblin::prove_merge()
 {
     PROFILE_THIS_NAME("Goblin::merge");
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
-    // to accumulate) may not have any goblin ecc ops prior to the call to merge(), so the commitment to the new
-    // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added
-    // in 'add_gates_to_ensure...' but not until proving_key construction which comes later). See issue for ideas
-    // about how to resolve.
-    if (circuit_builder.blocks.ecc_op.size() == 0) {
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit_builder);
-    }
-
-    MergeProver merge_prover{ circuit_builder.op_queue, commitment_key };
+    MergeProver merge_prover{ op_queue, commitment_key };
     merge_proof = merge_prover.construct_proof();
     return merge_proof;
 }
@@ -44,7 +35,6 @@ void Goblin::prove_eccvm()
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
     evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
     transcript = eccvm_prover.transcript;
-    goblin_proof.translation_evaluations = eccvm_prover.translation_evaluations;
 }
 
 void Goblin::prove_translator()
@@ -91,7 +81,7 @@ bool Goblin::verify(const GoblinProof& proof)
     bool accumulator_construction_verified = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
-    bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations,
+    bool translation_verified = translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
                                                                        eccvm_verifier.translation_masking_term_eval);
 
     vinfo("merge verified?: ", merge_verified);

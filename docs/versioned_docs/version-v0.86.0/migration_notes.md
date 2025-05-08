@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.86.0
 
 ### [PXE] Removed PXE_L2_STARTING_BLOCK environment variable
 
@@ -2378,7 +2378,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-```rust title="prelude" showLineNumbers 
+```rust title="prelude" showLineNumbers
 pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
@@ -2400,8 +2400,8 @@ pub use dep::protocol_types::{
     traits::{Deserialize, Serialize},
 };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22</a></sub></sup>
 
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/prelude.nr#L1-L22</a></sub></sup>
 
 ### `internal` is now a macro
 

@@ -5,7 +5,11 @@ NETWORK=${NETWORK:-}
 VERSION=${VERSION:-${NETWORK:-"latest"}}
 
 # Take copy of command-line arguments, so we can mutate to parse.
-args=("$@")
+if [ $# -eq 0 ]; then
+  args=("--help")
+else
+  args=("$@")
+fi
 while [ "$#" -gt 0 ]; do
   case $1 in
     -p | --port)
@@ -56,12 +60,16 @@ case ${1:-} in
     shift
     # Should this just be aztec-test? It's like, a new command that doesn't exist on aztec cli.
     # Or just make this a first class command on aztec cli?
+
+    # Properly escape all arguments
+    args_str=$(printf '%q ' "$@")
+
     # TODO: Need to force ipv4 here with 127.0.0.1 for some reason. TXE's not on ipv6?
     exec $(dirname $0)/.aztec-run "" bash -c "
       node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --txe --port 8081 &
       while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
       export NARGO_FOREIGN_CALL_TIMEOUT=300000
-      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 $@
+      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --pedantic-solving --oracle-resolver http://127.0.0.1:8081 $args_str
     "
     ;;
   start)

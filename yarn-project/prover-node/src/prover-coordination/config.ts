@@ -9,6 +9,7 @@ export const proverCoordinationConfigMappings: ConfigMappingsType<ProverCoordina
     env: 'PROVER_COORDINATION_NODE_URLS',
     description: 'The URLs of the tx provider nodes',
     parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
+    defaultValue: [],
   },
 };
 

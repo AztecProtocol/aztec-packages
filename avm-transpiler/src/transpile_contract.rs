@@ -182,8 +182,8 @@ fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
             opcode: AvmOpcode::REVERT_8,
             indirect: Some(AvmOperand::U8 { value: 0 }), // All direct
             operands: vec![
-                AvmOperand::U8 { value: 1 }, // Revert data start address
                 AvmOperand::U8 { value: 0 }, // Revert data size address
+                AvmOperand::U8 { value: 1 }, // Revert data start address
             ],
             ..Default::default()
         },

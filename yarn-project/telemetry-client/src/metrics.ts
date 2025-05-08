@@ -36,6 +36,7 @@ export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 export const DB_NUM_ITEMS = 'aztec.db.num_items';
 export const DB_MAP_SIZE = 'aztec.db.map_size';
+export const DB_PHYSICAL_FILE_SIZE = 'aztec.db.physical_file_size';
 export const DB_USED_SIZE = 'aztec.db.used_size';
 
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
