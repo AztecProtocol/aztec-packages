@@ -45,7 +45,7 @@ export async function proveClientIVC(
     return {
       bytecode: Buffer.from(bytecode, 'base64'),
       witness: witnessStack[index],
-      vk: Buffer.from(vks[index], 'base64'),
+      vk: Buffer.from(vks[index], 'hex'),
       functionName: `unknown_${index}`,
     };
   };
