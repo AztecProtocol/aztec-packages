@@ -26,6 +26,10 @@ const minimizeButton = css({
   position: 'absolute',
   top: '10px',
   right: '10px',
+  svg: {
+    paddingBottom: '7px',
+    fontWeight: 600,
+  }
 });
 
 const container = css({
