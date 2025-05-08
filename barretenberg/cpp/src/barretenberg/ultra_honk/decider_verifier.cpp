@@ -103,7 +103,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
 template class DeciderVerifier_<UltraFlavor>;
 template class DeciderVerifier_<UltraZKFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
-#ifdef STARTKNET_GARAGA_FLAVORS
+#ifdef STARKNET_GARAGA_FLAVORS
 template class DeciderVerifier_<UltraStarknetFlavor>;
 template class DeciderVerifier_<UltraStarknetZKFlavor>;
 #endif
