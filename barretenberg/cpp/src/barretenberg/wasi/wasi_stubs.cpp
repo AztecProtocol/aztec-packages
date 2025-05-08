@@ -100,6 +100,13 @@ int32_t __imported_wasi_snapshot_preview1_fd_fdstat_set_flags(int32_t, int32_t)
     return 0;
 }
 
+int32_t __imported_wasi_snapshot_preview1_fd_filestat_get(int32_t, int32_t)
+{
+    info("fd_filestat_get not implemented.");
+    abort();
+    return 0;
+}
+
 int32_t __imported_wasi_snapshot_preview1_fd_read(int32_t, int32_t, int32_t, int32_t)
 {
     info("fd_read not implemented.");
