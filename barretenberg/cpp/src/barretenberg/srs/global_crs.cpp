@@ -50,7 +50,7 @@ void init_bn254_file_crs_factory(const std::filesystem::path& path)
 // Initializes the crs using the memory buffers
 void init_grumpkin_net_crs_factory(const std::filesystem::path& path)
 {
-    if (bn254_crs_factory != nullptr) {
+    if (grumpkin_crs_factory != nullptr) {
         return;
     }
     grumpkin_crs_factory = std::make_shared<factories::NativeGrumpkinCrsFactory>(path);
