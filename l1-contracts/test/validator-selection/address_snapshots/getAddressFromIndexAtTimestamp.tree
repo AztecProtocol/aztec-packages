@@ -1,4 +1,4 @@
-GetAddressFromIndexAtEpochTest
+GetAddressFromIndexAtTimestampTest
 ├── when no validators are registered
 │   └── it throws out of bounds
 ├── when validators exist

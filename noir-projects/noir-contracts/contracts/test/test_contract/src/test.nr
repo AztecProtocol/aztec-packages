@@ -104,8 +104,7 @@ unconstrained fn test_storage_slot_allocation() {
 
 global CONTRACT_DEPLOYED_AT: u32 = 3;
 
-// In env.deploy_self("Test").with_private_initializer(initializer); it first deploys the contract, then advances a block, then calls the initializer.
-global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
+global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT;
 
 pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -123,8 +122,6 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     let initializer = Test::interface().initialize();
     let test_contract = env.deploy_self("Test").with_private_initializer(initializer);
     let contract_address = test_contract.to_address();
-
-    env.advance_block_by(1);
 
     (&mut env, contract_address, owner)
 }
@@ -171,7 +168,7 @@ unconstrained fn proving_contract_deployment_fails() {
 
 // In this test, we fail to prove contract initialization at the block before it was deployed. This checks for inclusion
 // of the initialization nullifier in state.
-#[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
 unconstrained fn proving_contract_initialization_fails() {
     let (env, contract_address) = setup();
 

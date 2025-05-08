@@ -420,12 +420,13 @@ export class ReqResp {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
+    dialTimeout?: number,
   ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
 
-      stream = await this.connectionSampler.dialProtocol(peerId, subProtocol);
+      stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
 
       // Open the stream with a timeout
       const result = await executeTimeout<ReqRespResponse>(
