@@ -10,6 +10,8 @@ namespace bb::srs::factories {
  * @brief Initialize a memory crs factory for bn254 based on a known dyadic circuit size
  *
  * @param dyadic_circuit_size power-of-2 circuit size
+ * @param allow_download whether to download the crs files if they are not found. Useful for making sure benches and
+ * tests do not rely on the network.
  */
 MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path, size_t dyadic_circuit_size, bool allow_download)
 {
@@ -23,6 +25,8 @@ MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path, size_t dyad
  * @details Grumpkin crs is required only for the ECCVM
  *
  * @param dyadic_circuit_size power-of-2 circuit size
+ * @param allow_download whether to download the crs files if they are not found. Useful for making sure benches and
+ * tests do not rely on the network.
  */
 MemGrumpkinCrsFactory init_grumpkin_crs(const std::filesystem::path& path,
                                         size_t eccvm_dyadic_circuit_size,
