@@ -42,8 +42,8 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::context_stack_msg_sender, 0 },
                                    { C::context_stack_contract_address, 0 },
                                    { C::context_stack_is_static, 0 },
-                                   { C::context_stack_parent_calldata_offset_addr, 0 },
-                                   { C::context_stack_parent_calldata_size_addr, 0 },
+                                   { C::context_stack_parent_calldata_addr, 0 },
+                                   { C::context_stack_parent_calldata_size, 0 },
                                    { C::context_stack_parent_l2_gas_limit, 2000 },
                                    { C::context_stack_parent_da_gas_limit, 4000 },
                                    { C::context_stack_parent_l2_gas_used, 500 },
@@ -91,8 +91,8 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_is_parent_id_inv, 1 },
                                    { C::execution_has_parent_ctx, 1 },
                                    { C::execution_contract_address, 0xdeadbeef },
-                                   { C::execution_parent_calldata_offset_addr, 10 },
-                                   { C::execution_parent_calldata_size_addr, 1 },
+                                   { C::execution_parent_calldata_addr, 10 },
+                                   { C::execution_parent_calldata_size, 1 },
                                },
                                // Return Row
                                {
@@ -112,8 +112,8 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_is_parent_id_inv, 1 },
                                    { C::execution_has_parent_ctx, 1 },
                                    { C::execution_contract_address, 0xdeadbeef },
-                                   { C::execution_parent_calldata_offset_addr, 10 },
-                                   { C::execution_parent_calldata_size_addr, 1 },
+                                   { C::execution_parent_calldata_addr, 10 },
+                                   { C::execution_parent_calldata_size, 1 },
                                },
                                {
                                    { C::execution_sel, 1 },
@@ -124,10 +124,10 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
                                    { C::execution_msg_sender, 0 },
                                    { C::execution_contract_address, 0 },
                                    { C::execution_is_static, 0 },
-                                   { C::execution_parent_calldata_offset_addr, 0 },
-                                   { C::execution_parent_calldata_size_addr, 0 },
-                                   { C::execution_last_child_returndata_size, 200 },        // Return data size
-                                   { C::execution_last_child_returndata_offset_addr, 600 }, // Return data offset
+                                   { C::execution_parent_calldata_addr, 0 },
+                                   { C::execution_parent_calldata_size, 0 },
+                                   { C::execution_last_child_returndata_size, 200 }, // Return data size
+                                   { C::execution_last_child_returndata_addr, 600 }, // Return data offset
                                    { C::execution_parent_l2_gas_limit, 2000 },
                                    { C::execution_parent_da_gas_limit, 4000 },
                                    { C::execution_parent_l2_gas_used, 500 },

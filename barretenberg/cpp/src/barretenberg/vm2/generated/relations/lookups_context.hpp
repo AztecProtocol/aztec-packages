@@ -29,17 +29,12 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::execution_msg_sender,
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_is_static,
-<<<<<<< HEAD
-        ColumnAndShifts::execution_parent_calldata_offset_addr,
-        ColumnAndShifts::execution_parent_calldata_size_addr,
+        ColumnAndShifts::execution_parent_calldata_addr,
+        ColumnAndShifts::execution_parent_calldata_size,
         ColumnAndShifts::execution_parent_l2_gas_limit,
         ColumnAndShifts::execution_parent_da_gas_limit,
         ColumnAndShifts::execution_parent_l2_gas_used,
         ColumnAndShifts::execution_parent_da_gas_used
-=======
-        ColumnAndShifts::execution_parent_calldata_addr,
-        ColumnAndShifts::execution_parent_calldata_size
->>>>>>> a423283097 (feat(avm): cd_copy)
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_entered_context_id,
@@ -49,17 +44,12 @@ struct lookup_context_ctx_stack_call_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
-<<<<<<< HEAD
-        ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr,
+        ColumnAndShifts::context_stack_parent_calldata_addr,
+        ColumnAndShifts::context_stack_parent_calldata_size,
         ColumnAndShifts::context_stack_parent_l2_gas_limit,
         ColumnAndShifts::context_stack_parent_da_gas_limit,
         ColumnAndShifts::context_stack_parent_l2_gas_used,
         ColumnAndShifts::context_stack_parent_da_gas_used
-=======
-        ColumnAndShifts::context_stack_parent_calldata_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size
->>>>>>> a423283097 (feat(avm): cd_copy)
     };
 };
 
@@ -85,17 +75,12 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::execution_msg_sender_shift,
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
-<<<<<<< HEAD
-        ColumnAndShifts::execution_parent_calldata_offset_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_addr_shift,
+        ColumnAndShifts::execution_parent_calldata_addr_shift,
+        ColumnAndShifts::execution_parent_calldata_size_shift,
         ColumnAndShifts::execution_parent_l2_gas_limit_shift,
         ColumnAndShifts::execution_parent_da_gas_limit_shift,
         ColumnAndShifts::execution_parent_l2_gas_used_shift,
         ColumnAndShifts::execution_parent_da_gas_used_shift
-=======
-        ColumnAndShifts::execution_parent_calldata_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_shift
->>>>>>> a423283097 (feat(avm): cd_copy)
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_entered_context_id,
@@ -105,17 +90,12 @@ struct lookup_context_ctx_stack_rollback_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
-<<<<<<< HEAD
-        ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr,
+        ColumnAndShifts::context_stack_parent_calldata_addr,
+        ColumnAndShifts::context_stack_parent_calldata_size,
         ColumnAndShifts::context_stack_parent_l2_gas_limit,
         ColumnAndShifts::context_stack_parent_da_gas_limit,
         ColumnAndShifts::context_stack_parent_l2_gas_used,
         ColumnAndShifts::context_stack_parent_da_gas_used
-=======
-        ColumnAndShifts::context_stack_parent_calldata_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size
->>>>>>> a423283097 (feat(avm): cd_copy)
     };
 };
 
@@ -141,17 +121,12 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::execution_msg_sender_shift,
         ColumnAndShifts::execution_contract_address_shift,
         ColumnAndShifts::execution_is_static_shift,
-<<<<<<< HEAD
-        ColumnAndShifts::execution_parent_calldata_offset_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_addr_shift,
+        ColumnAndShifts::execution_parent_calldata_addr_shift,
+        ColumnAndShifts::execution_parent_calldata_size_shift,
         ColumnAndShifts::execution_parent_l2_gas_limit_shift,
         ColumnAndShifts::execution_parent_da_gas_limit_shift,
         ColumnAndShifts::execution_parent_l2_gas_used_shift,
         ColumnAndShifts::execution_parent_da_gas_used_shift
-=======
-        ColumnAndShifts::execution_parent_calldata_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_shift
->>>>>>> a423283097 (feat(avm): cd_copy)
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::context_stack_context_id,
@@ -160,17 +135,12 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::context_stack_msg_sender,
         ColumnAndShifts::context_stack_contract_address,
         ColumnAndShifts::context_stack_is_static,
-<<<<<<< HEAD
-        ColumnAndShifts::context_stack_parent_calldata_offset_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size_addr,
+        ColumnAndShifts::context_stack_parent_calldata_addr,
+        ColumnAndShifts::context_stack_parent_calldata_size,
         ColumnAndShifts::context_stack_parent_l2_gas_limit,
         ColumnAndShifts::context_stack_parent_da_gas_limit,
         ColumnAndShifts::context_stack_parent_l2_gas_used,
         ColumnAndShifts::context_stack_parent_da_gas_used
-=======
-        ColumnAndShifts::context_stack_parent_calldata_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size
->>>>>>> a423283097 (feat(avm): cd_copy)
     };
 };
 

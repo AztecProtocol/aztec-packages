@@ -9,13 +9,10 @@
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 
-using ::testing::_;
-using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
-using ::testing::SizeIs;
 
 namespace bb::avm2::simulation {
 namespace {

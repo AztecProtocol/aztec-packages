@@ -8,11 +8,9 @@
 #include "relations/bc_hashing.hpp"
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
-<<<<<<< HEAD
 #include "relations/call_opcode.hpp"
-=======
 #include "relations/calldata.hpp"
->>>>>>> a423283097 (feat(avm): cd_copy)
+#include "relations/calldata_hashing.hpp"
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
 #include "relations/context_stack.hpp"
@@ -43,13 +41,11 @@
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
 #include "relations/lookups_call_opcode.hpp"
+#include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
-<<<<<<< HEAD
-#include "relations/lookups_execution.hpp"
-=======
 #include "relations/lookups_data_copy.hpp"
->>>>>>> a423283097 (feat(avm): cd_copy)
+#include "relations/lookups_execution.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
@@ -67,52 +63,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2284;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 159;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2335;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 171;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2530;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2523;
-=======
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2120;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2337;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2315;
-=======
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 70;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2116;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2312;
->>>>>>> 26ad1f749a (feat: context stack lookups)
->>>>>>> a9649efad5 (feat: context stack lookups)
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2332;
-<<<<<<< HEAD
->>>>>>> 89312f23b5 (feat: rd_size no longer offset)
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2157;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 157;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2384;
->>>>>>> 32729bc2c5 (feat(avm): cd_copy)
->>>>>>> dd93f5fe02 (feat(avm): cd_copy)
->>>>>>> cb9799feca (feat(avm): cd_copy)
->>>>>>> a423283097 (feat(avm): cd_copy)
->>>>>>> aab01214cd (feat(avm): cd_copy)
+    static constexpr size_t NUM_ALL_ENTITIES = 2593;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -124,11 +79,9 @@ struct AvmFlavorVariables {
         avm2::bc_hashing<FF_>,
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
-<<<<<<< HEAD
         avm2::call_opcode<FF_>,
-=======
         avm2::calldata<FF_>,
->>>>>>> a423283097 (feat(avm): cd_copy)
+        avm2::calldata_hashing<FF_>,
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
         avm2::context_stack<FF_>,
@@ -182,23 +135,18 @@ struct AvmFlavorVariables {
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_call_opcode_call_allocated_left_da_range_relation<FF_>,
         lookup_call_opcode_call_allocated_left_l2_range_relation<FF_>,
+        lookup_calldata_hashing_cd_hash_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_call_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
-<<<<<<< HEAD
-        lookup_execution_exec_spec_read_relation<FF_>,
-<<<<<<< HEAD
-        lookup_execution_instruction_fetching_body_relation<FF_>,
-        lookup_execution_instruction_fetching_result_relation<FF_>,
-=======
-=======
         lookup_data_copy_col_read_relation<FF_>,
         lookup_data_copy_mem_read_relation<FF_>,
         lookup_data_copy_mem_write_relation<FF_>,
->>>>>>> a423283097 (feat(avm): cd_copy)
->>>>>>> aab01214cd (feat(avm): cd_copy)
+        lookup_execution_exec_spec_read_relation<FF_>,
+        lookup_execution_instruction_fetching_body_relation<FF_>,
+        lookup_execution_instruction_fetching_result_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
