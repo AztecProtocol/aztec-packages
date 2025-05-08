@@ -66,6 +66,7 @@ import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encod
 import { gossipScoreThresholds } from '../gossipsub/scoring.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
+import { AggressiveReqResp } from '../reqresp/agg_reqresp.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
@@ -103,10 +104,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
 
   // Request and response sub service
-  public reqresp: ReqResp;
-
-  // Trusted peers ids
-  private trustedPeersIds: PeerId[] = [];
+  public reqresp: ReqResp | AggressiveReqResp;
 
   private feesCache: { blockNumber: number; gasFees: GasFees } | undefined;
 
@@ -146,7 +144,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     );
 
     const peerScoring = new PeerScoring(config);
-    this.reqresp = new ReqResp(config, node, peerScoring);
+    this.reqresp = config.aggressiveMode
+      ? new AggressiveReqResp(config, node, peerScoring)
+      : new ReqResp(config, node, peerScoring);
 
     this.peerManager = new PeerManager(
       node,

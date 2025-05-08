@@ -37,7 +37,7 @@ import {
 import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqRespStatus } from './status.js';
 
 /**
- * The Aggressive Request Response Service
+ * Aggressive Request Response Service
  *
  * It allows nodes to request specific information from their peers, its use case covers recovering
  * information that was missed during a syncronisation or a gossip event.
@@ -50,7 +50,6 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  *
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
-// TODO: add conditional check for using AggressiveReqResp instead of ReqResp
 export class AggressiveReqResp {
   protected readonly logger: Logger;
 
@@ -285,7 +284,7 @@ export class AggressiveReqResp {
         const pendingRequestIndices = new Set(Array.from({ length: currentBatchSize }, (_, i) => batchStart + i));
 
         // Create batch sampler for the current batch
-        const batchSampler = new AggressiveBatchConnectionSampler(this.connectionSampler, currentBatchSize, maxPeers);
+        const batchSampler = new AggressiveBatchConnectionSampler(this.connectionSampler, maxPeers);
 
         if (batchSampler.activePeerCount() === 0) {
           this.logger.debug('No active peers to send requests to');

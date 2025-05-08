@@ -17,24 +17,17 @@ import type { ConnectionSampler } from './connection_sampler.js';
 export class AggressiveBatchConnectionSampler {
   private readonly logger = createLogger('p2p:aggressive-reqresp:batch-connection-sampler');
   private readonly peers: PeerId[] = [];
-  private readonly batchSize: number;
 
-  constructor(private readonly connectionSampler: ConnectionSampler, batchSize: number, maxPeers: number) {
+  constructor(private readonly connectionSampler: ConnectionSampler, maxPeers: number) {
     if (maxPeers <= 0) {
       throw new Error('Max peers cannot be 0');
     }
-    if (batchSize <= 0) {
-      throw new Error('Batch size cannot be 0');
-    }
-
-    this.batchSize = batchSize;
 
     // Sample initial peers up to maxPeers
     this.peers = this.connectionSampler.samplePeersBatch(maxPeers);
 
     this.logger.debug('Initialized batch connection sampler', {
       peerCount: this.peers.length,
-      batchSize,
       maxPeers,
     });
   }
