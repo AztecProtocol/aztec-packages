@@ -144,30 +144,24 @@ pub contract Counter {
         let contract_address = counter_contract.to_address();
         // docs:start:txe_test_read_notes
         // Read the stored value in the note
-        env.impersonate(contract_address);
-        sync_notes();
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        let initial_note_value = notes.get(0).value;
+        let initial_counter =
+            env.simulate_utility(Counter::at(contract_address).get_counter(owner));
         assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
+            initial_counter == initial_value,
+            f"Expected {initial_value} but got {initial_counter}",
         );
         // docs:end:txe_test_read_notes
+
         // Increment the counter
-        env.impersonate(owner);
-        Counter::at(contract_address).increment(owner, sender).call(&mut env.private());
-        // get_counter is an unconstrained function, so we call it directly (we're in the same module)
-        env.impersonate(contract_address);
-        sync_notes();
-        let current_value_for_owner = get_counter(owner);
+        let _ =
+            env.call_private_void(owner, Counter::at(contract_address).increment(owner, sender));
+
+        let incremented_counter =
+            env.simulate_utility(Counter::at(contract_address).get_counter(owner));
         let expected_current_value = initial_value + 1;
         assert(
-            expected_current_value == current_value_for_owner,
-            f"Expected {expected_current_value} but got {current_value_for_owner}",
+            expected_current_value == incremented_counter,
+            f"Expected {expected_current_value} but got {incremented_counter}",
         );
     }
     // docs:end:txe_test_increment
