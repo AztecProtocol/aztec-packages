@@ -92,7 +92,6 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
      */
     void test_fixed_ipa_recursive_verifier()
     {
-
         bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
         Builder builder_1(build_ipa_recursive_verifier_circuit(1 << 10));

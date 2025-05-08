@@ -8,7 +8,7 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 {
     size_t g1_end = num_points * sizeof(bb::g1::affine_element) - 1;
 
-    std::string url = "https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat";
+    std::string url = "https://crs.aztec.network/g1.dat";
 
     // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
     std::string command = "curl -H \"Range: bytes=0-" + std::to_string(g1_end) + "\" '" + url + "'";
@@ -24,7 +24,7 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 
 std::vector<uint8_t> download_bn254_g2_data()
 {
-    std::string url = "https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat";
+    std::string url = "https://crs.aztec.network/g2.dat";
     // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
     std::string command = "curl '" + url + "'";
     return bb::exec_pipe(command);

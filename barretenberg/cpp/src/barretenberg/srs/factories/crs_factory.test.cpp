@@ -60,7 +60,8 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
 
     // read G1
     std::vector<Grumpkin::AffineElement> points(num_points);
-    auto data = read_file(bb::srs::bb_crs_path() / "grumpkin_g1.dat", num_points * sizeof(Grumpkin::AffineElement));
+    auto data =
+        read_file(bb::srs::bb_crs_path() / "grumpkin_g1.flat.dat", num_points * sizeof(Grumpkin::AffineElement));
 
     for (size_t i = 0; i < num_points; ++i) {
         points[i] = from_buffer<Grumpkin::AffineElement>(data, i * sizeof(g1::affine_element));
