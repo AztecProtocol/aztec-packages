@@ -15,7 +15,7 @@ class BackwardsCompatibleBlockProposal extends BlockProposal {
   }
 
   oldToBuffer(): Buffer {
-    return serializeToBuffer([this.payload, this.signature]);
+    return serializeToBuffer([this.blockNumber, this.payload, this.signature]);
   }
 
   static oldFromBuffer(buf: Buffer | BufferReader): BlockProposal {
