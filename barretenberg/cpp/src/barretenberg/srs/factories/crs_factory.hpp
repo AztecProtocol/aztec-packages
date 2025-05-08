@@ -33,7 +33,7 @@ template <> class Crs<curve::BN254> {
     /**
      *  @brief Returns the monomial points in a form to be consumed by scalar_multiplication pippenger algorithm.
      */
-    virtual std::span<typename Curve::AffineElement> get_monomial_points() = 0;
+    virtual std::span<Curve::AffineElement> get_monomial_points() = 0;
     virtual size_t get_monomial_size() const = 0;
 
     /**
@@ -66,7 +66,7 @@ template <> class Crs<curve::Grumpkin> {
     /**
      *  @brief Returns the monomial points in a form to be consumed by scalar_multiplication pippenger algorithm.
      */
-    virtual std::span<typename Curve::AffineElement> get_monomial_points() = 0;
+    virtual std::span<Curve::AffineElement> get_monomial_points() = 0;
     virtual size_t get_monomial_size() const = 0;
 
     /**

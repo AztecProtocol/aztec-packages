@@ -86,7 +86,7 @@ TEST(CrsFactory, bn254)
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
     // Tiny download check to test the 'net CRS' path
-    ASSERT_ANY_THROW(check_grumpkin_consistency(temp_crs_path, 1, /*allow_download=*/false));
+    ASSERT_ANY_THROW(check_bn254_consistency(temp_crs_path, 1, /*allow_download=*/false));
     check_bn254_consistency(temp_crs_path, 1, /*allow_download=*/true);
 }
 

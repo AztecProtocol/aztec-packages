@@ -20,7 +20,7 @@ class MemBn254Crs : public Crs<curve::BN254> {
     MemBn254Crs& operator=(const MemBn254Crs&) = delete;
     MemBn254Crs& operator=(MemBn254Crs&&) = delete;
 
-    MemBn254Crs(std::vector<typename Curve::AffineElement> const& points, g2::affine_element const& g2_point)
+    MemBn254Crs(std::vector<Curve::AffineElement> const& points, g2::affine_element const& g2_point)
         : g2_x(g2_point)
         , precomputed_g2_lines(
               static_cast<pairing::miller_lines*>(aligned_alloc(64, sizeof(bb::pairing::miller_lines) * 2)))
@@ -38,7 +38,7 @@ class MemBn254Crs : public Crs<curve::BN254> {
 
     ~MemBn254Crs() override { aligned_free(precomputed_g2_lines); }
 
-    std::span<typename Curve::AffineElement> get_monomial_points() override { return monomials_; }
+    std::span<Curve::AffineElement> get_monomial_points() override { return monomials_; }
 
     size_t get_monomial_size() const override { return monomials_.size() / 2; }
 
