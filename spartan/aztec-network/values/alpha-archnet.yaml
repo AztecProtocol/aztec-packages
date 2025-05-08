@@ -38,13 +38,16 @@ validator:
     requests:
       cpu: "3"
       memory: "10Gi"
+  startupProbe:
+    periodSeconds: 60
+    failureThreshold: 60
 
 archiver:
   enabled: true
   resources:
-  requests:
-    cpu: "3"
-    memory: "10Gi"
+    requests:
+      cpu: "3"
+      memory: "10Gi"
   startupProbe:
     periodSeconds: 60
     failureThreshold: 60
