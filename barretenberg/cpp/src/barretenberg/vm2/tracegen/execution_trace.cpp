@@ -245,31 +245,30 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Context
-        trace.set(
-            row,
-            { {
-                { C::execution_context_id, ex_event.after_context_event.id },
-                { C::execution_parent_id, ex_event.after_context_event.parent_id },
-                { C::execution_pc, ex_event.before_context_event.pc },
-                { C::execution_next_pc, ex_event.after_context_event.pc },
-                { C::execution_is_static, ex_event.after_context_event.is_static },
-                { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
-                { C::execution_contract_address, ex_event.after_context_event.contract_addr },
-                { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
-                { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
-                { C::execution_last_child_returndata_offset_addr, ex_event.after_context_event.last_child_rd_addr },
-                { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
-                { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
-                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
-                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
-                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
-                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
-                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
-                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
-                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
-                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
-                { C::execution_next_context_id, ex_event.next_context_id },
-            } });
+        trace.set(row,
+                  { {
+                      { C::execution_context_id, ex_event.after_context_event.id },
+                      { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                      { C::execution_pc, ex_event.before_context_event.pc },
+                      { C::execution_next_pc, ex_event.after_context_event.pc },
+                      { C::execution_is_static, ex_event.after_context_event.is_static },
+                      { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                      { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
+                      { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
+                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                      { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
+                      { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
+                      { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
+                      { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
+                      { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
+                      { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
+                      { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
+                      { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
+                      { C::execution_next_context_id, ex_event.next_context_id },
+                  } });
 
         /**************************************************************************************************
          *  Temporality group 1: Instruction fetching.

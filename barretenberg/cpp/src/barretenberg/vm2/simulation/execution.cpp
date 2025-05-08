@@ -55,15 +55,14 @@ void Execution::call(ContextInterface& context,
 
     // TODO(ilyas): Consider temporality groups.
     // NOTE: these reads cannot fail due to addressing guarantees.
-    const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
-    const auto& allocated_da_gas_read = memory.get(da_gas_offset);
-    const auto& contract_address = memory.get(addr);
-    // Cd offset loads are deferred to (possible) calldatacopy
-    const auto& cd_size = memory.get(cd_size_offset);
+    const auto& allocated_l2_gas_read = memory.get(l2_gas_offset); // Tag check u32
+    const auto& allocated_da_gas_read = memory.get(da_gas_offset); // Tag check u32
+    const auto& contract_address = memory.get(addr);               // Tag check FF
+    // Cd offset loads are deferred to calldatacopy
+    const auto& cd_size = memory.get(cd_size_offset); // Tag check u32
 
     set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
 
-    // TODO(ilyas): How will we tag check these? We are just throwing right now on the first tag mismatch.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
@@ -85,8 +84,8 @@ void Execution::cd_copy(ContextInterface& context,
                         MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
-    auto cd_copy_size = memory.get(cd_size_offset);
-    auto cd_offset_read = memory.get(cd_offset);
+    auto cd_copy_size = memory.get(cd_size_offset); // Tag check u32
+    auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
     set_inputs({ cd_copy_size, cd_offset_read });
 
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
@@ -100,8 +99,8 @@ void Execution::rd_copy(ContextInterface& context,
                         MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
-    auto rd_copy_size = memory.get(rd_size_offset);
-    auto rd_offset_read = memory.get(rd_offset);
+    auto rd_copy_size = memory.get(rd_size_offset); // Tag check u32
+    auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
     set_inputs({ rd_copy_size, rd_offset_read });
 
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
@@ -112,12 +111,13 @@ void Execution::rd_copy(ContextInterface& context,
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
     auto& memory = context.get_memory();
-    auto get_ret_size = memory.get(ret_size_offset);
-    set_inputs({ get_ret_size });
-    // TODO(ilyas): check this is a U32
-    auto rd_size = get_ret_size.as<uint32_t>();
-    set_execution_result(
-        { .rd_offset = ret_offset, .rd_size = rd_size, .gas_used = context.get_gas_used(), .success = true });
+    auto rd_size = memory.get(ret_size_offset); // Tag check u32
+    set_inputs({ rd_size });
+
+    set_execution_result({ .rd_offset = ret_offset,
+                           .rd_size = rd_size.as<uint32_t>(),
+                           .gas_used = context.get_gas_used(),
+                           .success = true });
 
     context.halt();
 }
@@ -125,12 +125,12 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
 void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset)
 {
     auto& memory = context.get_memory();
-    auto get_rev_size = memory.get(rev_size_offset);
-    set_inputs({ get_rev_size });
-    // TODO(ilyas): check this is a U32
-    auto rd_size = get_rev_size.as<uint32_t>();
-    set_execution_result(
-        { .rd_offset = rev_offset, .rd_size = rd_size, .gas_used = context.get_gas_used(), .success = false });
+    auto rev_size = memory.get(rev_size_offset); // Tag check u32
+    set_inputs({ rev_size });
+    set_execution_result({ .rd_offset = rev_offset,
+                           .rd_size = rev_size.as<uint32_t>(),
+                           .gas_used = context.get_gas_used(),
+                           .success = false });
 
     context.halt();
 }
@@ -266,7 +266,7 @@ void Execution::handle_exit_call()
     if (!external_call_stack.empty()) {
         auto& parent_context = *external_call_stack.top();
         // was not top level, communicate with parent
-        parent_context.set_last_rd_offset(result.rd_offset);
+        parent_context.set_last_rd_addr(result.rd_offset);
         parent_context.set_last_rd_size(result.rd_size);
         parent_context.set_last_success(result.success);
         parent_context.set_child_context(std::move(child_context));
@@ -308,7 +308,10 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         call_with_operands(&Execution::jumpi, context, resolved_operands);
         break;
     case ExecutionOpCode::CALLDATACOPY:
-        call_with_operands(&Execution::calldata_copy, context, resolved_operands);
+        call_with_operands(&Execution::cd_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::RETURNDATACOPY:
+        call_with_operands(&Execution::rd_copy, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

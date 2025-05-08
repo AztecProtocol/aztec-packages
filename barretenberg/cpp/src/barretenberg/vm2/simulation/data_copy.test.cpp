@@ -9,13 +9,10 @@
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 
-using ::testing::_;
-using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
-using ::testing::SizeIs;
 
 namespace bb::avm2::simulation {
 namespace {
@@ -54,7 +51,7 @@ TEST(AvmSimulationDataCopyTest, CdCopyAll)
     uint32_t dst_addr = 0;
     data_copy.cd_copy(context, cd_copy_size, cd_offset, dst_addr);
 
-    // // This should write the values 1 to 8 to the memory starting at dst_addr = 0
+    // This should write the values 1 to 8 to the memory starting at dst_addr = 0
     std::vector<FF> calldata_in_memory;
     for (uint32_t i = 0; i < 8; ++i) {
         auto c = mem.get(dst_addr + i);

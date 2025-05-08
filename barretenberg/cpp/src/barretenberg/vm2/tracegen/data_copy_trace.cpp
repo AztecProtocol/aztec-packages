@@ -15,14 +15,12 @@
 
 namespace bb::avm2::tracegen {
 
-namespace {} // namespace
-
 void DataCopyTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::DataCopyEvent>::Container& events, TraceContainer& trace)
 {
     using C = Column;
 
-    uint32_t row = 0;
+    uint32_t row = 1;
     for (const auto& event : events) {
 
         [[maybe_unused]] uint32_t read_size = std::min(event.data_offset + event.data_copy_size, event.data_size);
@@ -41,13 +39,13 @@ void DataCopyTraceBuilder::process(
             uint32_t read_count = read_size - i;
             bool is_padding_row = read_count == 0;
             // Read from memory if this is not a padding row and we are either RD_COPY-ing or a nested CD_COPY
-            bool sel_mem_read = !is_padding_row && (is_rd_copy || event.other_context_id != 0);
+            bool sel_mem_read = !is_padding_row && (is_rd_copy || event.read_context_id != 0);
             FF value = is_padding_row ? 0 : event.calldata[i];
             FF read_count_inv = is_padding_row ? 0 : FF(read_count).invert();
 
             // TODO: Can optimise this as we only need the inverse if CD_COPY as well
-            bool is_top_level = event.other_context_id == 0;
-            FF parent_id_inv = is_top_level ? 0 : FF(event.other_context_id).invert();
+            bool is_top_level = event.read_context_id == 0;
+            FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id).invert();
 
             trace.set(row,
                       { {
@@ -57,9 +55,8 @@ void DataCopyTraceBuilder::process(
                           // TODO
                           { C::data_copy_clk, 0 },
 
-                          { C::data_copy_enqueued_call_id, 0 },
-                          { C::data_copy_src_context_id, event.context_id },
-                          { C::data_copy_dst_context_id, event.other_context_id },
+                          { C::data_copy_src_context_id, event.read_context_id },
+                          { C::data_copy_dst_context_id, event.write_context_id },
                           { C::data_copy_data_copy_size, copy_size },
                           { C::data_copy_data_offset, event.data_offset },
                           { C::data_copy_data_addr, event.data_addr },
@@ -83,10 +80,11 @@ void DataCopyTraceBuilder::process(
                           { C::data_copy_padding, is_padding_row ? 1 : 0 },
                           { C::data_copy_value, value },
 
-                          { C::data_copy_cd_copy_col_read, is_cd_copy && is_top_level ? 1 : 0 },
-                          { C::data_copy_cd_index, i },
+                          { C::data_copy_cd_copy_col_read, (is_cd_copy && is_top_level && !is_padding_row) ? 1 : 0 },
+                          { C::data_copy_cd_index, (i + 1) },
                       } });
         }
+        row++;
     }
 }
 

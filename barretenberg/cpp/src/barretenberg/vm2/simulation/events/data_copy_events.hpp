@@ -15,9 +15,9 @@ enum class DataCopyOperation {
 struct DataCopyEvent {
     DataCopyOperation operation;
     std::vector<FF> calldata;
-    uint32_t enqueued_call_id;     // Needed to reference the top level call request if the calldata is at the top level
-    uint32_t context_id = 0;       // For mem aware subtraces, they need the context id when referencing memory
-    uint32_t other_context_id = 0; // Unhelpful name - but refers to the parent/child context id
+    uint32_t context_id;           // Needed to reference the top level call request if the calldata is at the top level
+    uint32_t write_context_id = 0; // For mem aware subtraces, they need the context id when referencing memory
+    uint32_t read_context_id = 0;  // Refers to the parent/child context id
     // Loaded from X_data_copy opcode
     uint32_t data_copy_size;
     uint32_t data_offset;

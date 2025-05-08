@@ -4,9 +4,9 @@ include "precomputed.pil";
 
 // This trace handles CALLDATACOPY and RETURNDATACOPY
 // It is memory aware and so is expected to call the memory subtrace directly
-// Example Lookup to execution trace
+// Example: Lookup to execution trace
 //  execution.sel_data_copy { 
-//      clk, enqueued_call_id,
+//      clk, context_id,
 //      context_id, parent_id
 //      reg1, reg2, rop3
 //      parent_calldata_size, parent_calldata_offset,
@@ -14,12 +14,38 @@ include "precomputed.pil";
 //  }
 //  in
 //  sel_data_copy {
-//      clk, enqueued_call_id,
+//      clk, context_id,
 //      src_context_id, dst_context_id,
 //      data_copy_size, data_offset, write_address
 //      data_size, data_addr,
 //      operation_id
 //  }
+
+// Reading from calldata column 
+// Calldata Trace
+// +-----+-------+-------+------------+
+// | sel | value | index | context_id |
+// +-----+-------+-------+------------+
+// |   1 |   100 |     1 |          1 |
+// |   1 |   200 |     2 |          1 |
+// |   1 |   300 |     3 |          1 |
+// +-----+-------+-------+------------+
+// Execution Trace                          (cd_size)  (cd_offset)
+// +-----+-----+------------+-----------+------------+------------+
+// | clk | sel | context_id | parent_id | register_1 | register_2 |
+// +-----+-----+------------+-----------+------------+------------+
+// |   1 |   1 |          1 |         0 |          3 |          0 |
+// +-----+-----+------------+-----------+------------+------------+
+// DataCopy Trace
+// +-------------+------------+------------+-----------+------------------+----------+-------+------------+
+// | sel_cd_copy | src_ctx_id | dst_ctx_id | copy_size | cd_copy_col_read | cd_index | value | write_addr |
+// +-------------+------------+------------+-----------+------------------+----------+-------+------------+
+// |           1 |          0 |          1 |         3 |                1 |        1 |   100 |          5 |
+// |           1 |          0 |          1 |         2 |                1 |        2 |   200 |          6 |
+// |           1 |          0 |          1 |         1 |                1 |        3 |   300 |          7 |
+// +-------------+------------+------------+-----------+------------------+----------+-------+------------+
+
+
 namespace data_copy;
 
     #[skippable_if]
@@ -43,7 +69,6 @@ namespace data_copy;
     pol commit clk;
 
     // Constrained as inputs from execution trace
-    pol commit enqueued_call_id; // Needed if we are going to read calldata from a column
     pol commit src_context_id; // The context that is read from
     pol commit dst_context_id; // The context that is written to
 
@@ -133,6 +158,8 @@ namespace data_copy;
 
     // ===== Reading for top level call =====
     // Reading from column
+    // TODO: data size for top level column reads need to be constrained
+    // After calldata hashing
     pol commit cd_copy_col_read;
     pol commit cd_index;
     #[CD_COPY_COLUMN]
@@ -142,7 +169,7 @@ namespace data_copy;
     SEL * (1 - sel_end) * cd_copy_col_read * (cd_index' - cd_index - 1) = 0; // Increment CD Index
 
     #[COL_READ]
-    cd_copy_col_read { value, enqueued_call_id, cd_index }
+    cd_copy_col_read { value, dst_context_id, cd_index }
     in
-    calldata.sel { calldata.value, calldata.enqueued_call_id, calldata.index };
+    calldata.sel { calldata.value, calldata.context_id, calldata.index };
 
