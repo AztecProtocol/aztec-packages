@@ -128,10 +128,11 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
 
+    // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
     PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
         decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
-
     pairing_points.aggregate(nested_pairing_points);
+
     return pairing_points;
 }
 
