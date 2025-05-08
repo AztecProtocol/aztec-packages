@@ -1,4 +1,5 @@
 #include "barretenberg/vm2/constraining/verifier.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -12,7 +13,7 @@ class AvmVerifierTests : public ::testing::Test {
     using Prover = AvmProvingHelper;
     using Verifier = AvmVerifier;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Helper function to create and verify native proof
     struct NativeProofResult {
