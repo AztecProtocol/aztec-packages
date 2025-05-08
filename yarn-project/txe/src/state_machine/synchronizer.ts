@@ -80,4 +80,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   public resumeSync(): void {
     throw new Error('TXE Synchronizer does not implement "resumeSync"');
   }
+
+  public clear(): Promise<void> {
+    throw new Error('TXE Synchronizer does not implement "clear"');
+  }
 }

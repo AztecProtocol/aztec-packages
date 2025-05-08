@@ -6,7 +6,9 @@ import { DefaultL1ContractsConfig, RollupContract, type ViemPublicClient } from 
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block } from '@aztec/stdlib/block';
@@ -574,6 +576,86 @@ describe('Archiver', () => {
   it('starts new loop if latest L1 block has advanced beyond what a non-archive L1 node tracks', async () => {
     publicClient.getBlockNumber.mockResolvedValueOnce(2000n).mockResolvedValueOnce(2400n);
     await expect((archiver as any).sync(true)).rejects.toThrow(/more than 128 blocks behind/i);
+  });
+
+  // Regression for https://github.com/AztecProtocol/aztec-packages/issues/13604
+  it('handles a block gap due to a spurious L2 prune', async () => {
+    expect(await archiver.getBlockNumber()).toEqual(0);
+
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
+
+    // Return the corresponding archive roots for the current blocks
+    let currentBlocks = blocks.slice(0, 2);
+    mockRollup.read.archiveAt.mockImplementation((args: readonly [bigint]) => {
+      const block = currentBlocks[Number(args[0] - 1n)];
+      return Promise.resolve(block ? block.archive.root.toString() : Fr.ZERO.toString());
+    });
+
+    // And the corresponding rollup txs
+    publicClient.getTransaction.mockImplementation((args: { hash?: `0x${string}` }) => {
+      const index = parseInt(withoutHexPrefix(args.hash!));
+      if (index > blocks.length) {
+        throw new Error(`Transaction not found: ${args.hash}`);
+      }
+      return Promise.resolve(rollupTxs[index - 1]);
+    });
+
+    // And blobs
+    blobSinkClient.getBlobSidecar.mockImplementation((_blockId: string, requestedBlobHashes?: Buffer[]) => {
+      const blobs = [];
+      for (const requestedBlobHash of requestedBlobHashes!) {
+        for (let i = 0; i < blobHashes.flat().length; i++) {
+          const blobHash = blobHashes.flat()[i];
+          if (blobHash === bufferToHex(requestedBlobHash)) {
+            blobs.push(blobsFromBlocks.flat()[i]);
+          }
+        }
+      }
+      return Promise.resolve(blobs);
+    });
+
+    // Start at L1 block 90, we'll advance this every time we want the archiver to do something
+    publicClient.getBlockNumber.mockResolvedValue(90n);
+
+    // Status first returns the two blocks, only so that it then "forgets" the initial block to add it back later
+    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 2n, blocks[1].archive.root.toString(), GENESIS_ROOT]);
+
+    // No messages for this test
+    mockInbox.read.totalMessagesInserted.mockResolvedValue(0n);
+
+    makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString(), blobHashes[0]);
+    makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString(), blobHashes[1]);
+
+    // Wait until the archiver gets to the target block
+    await archiver.start(false);
+    await retryUntil(async () => (await archiver.getBlockNumber()) === 2, 'sync', 10, 0.1);
+
+    // And now the rollup contract suddenly forgets about the last block, so the archiver rolls back
+    // This is the spurious prune that the archiver needs to recover from on the next iteration
+    // We presume this happens because of L1 reorgs or more likely faulty L1 RPC providers
+    const ZERO = Fr.ZERO.toString();
+    publicClient.getBlockNumber.mockResolvedValue(95n);
+    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 1n, blocks[0].archive.root.toString(), ZERO]);
+    currentBlocks = blocks.slice(0, 1);
+    await retryUntil(async () => (await archiver.getBlockNumber()) === 1, 'prune', 10, 0.1);
+
+    // But it was just a fluke, and the rollup keeps advancing. We even get block 3, which triggers
+    // the archiver's "Rolling back L1 sync point..." handler when trying to insert it with block 2 missing.
+    currentBlocks = blocks.slice(0, 3);
+    publicClient.getBlockNumber.mockResolvedValue(105n);
+    makeL2BlockProposedEvent(100n, 3n, blocks[2].archive.root.toString(), blobHashes[2]);
+    mockRollup.read.status.mockResolvedValue([
+      0n,
+      GENESIS_ROOT,
+      3n,
+      blocks[2].archive.root.toString(),
+      blocks[0].archive.root.toString(),
+    ]);
+
+    // Then the archiver must reprocess the old block to get to the new one
+    await retryUntil(async () => (await archiver.getBlockNumber()) === 3, 'resync', 10, 0.1);
   });
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
