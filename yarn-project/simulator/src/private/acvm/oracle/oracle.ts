@@ -1,7 +1,7 @@
 import { Fr, Point } from '@aztec/foundation/fields';
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
+import { ContractClassLog, ContractClassLogFields, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -288,10 +288,11 @@ export class Oracle {
   notifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
     message: ACVMField[],
+    [length]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const logPayload = message.map(Fr.fromString);
-    const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logPayload);
+    const logFields = new ContractClassLogFields(message.map(Fr.fromString));
+    const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logFields, +length);
 
     this.typedOracle.notifyCreatedContractClassLog(log, +counter);
     return Promise.resolve([]);

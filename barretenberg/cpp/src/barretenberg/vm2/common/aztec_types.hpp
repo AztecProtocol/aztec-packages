@@ -77,11 +77,12 @@ struct ScopedL2ToL1Message {
 
 struct PublicLog {
     AztecAddress contractAddress;
-    std::array<FF, PUBLIC_LOG_DATA_SIZE_IN_FIELDS> log;
+    std::array<FF, PUBLIC_LOG_SIZE_IN_FIELDS> fields;
+    uint32_t emittedLength;
 
     bool operator==(const PublicLog& other) const = default;
 
-    MSGPACK_FIELDS(contractAddress, log);
+    MSGPACK_FIELDS(contractAddress, fields, emittedLength);
 };
 
 struct PublicDataWrite {

@@ -24,7 +24,7 @@ import {
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
-import { LogHash } from '../kernel/log_hash.js';
+import { CountedLogHash } from '../kernel/log_hash.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
 import { L2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -113,7 +113,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Hash of the contract class logs emitted in this function call.
      */
-    public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    public contractClassLogsHashes: Tuple<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -169,7 +169,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -196,7 +196,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -226,7 +226,7 @@ export class PrivateCircuitPublicInputs {
       PublicCallRequest.empty(),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash.empty),
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),

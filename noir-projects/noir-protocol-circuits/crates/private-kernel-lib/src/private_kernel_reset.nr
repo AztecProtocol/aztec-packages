@@ -293,12 +293,14 @@ mod tests {
             _self: Self,
             private_logs: [Scoped<PrivateLogData>; N],
         ) -> [Scoped<PrivateLogData>; N] {
-            let mut output = private_logs;
-            for i in 0..N {
-                output[i].inner.log = silo_private_log(output[i]);
-                output[i].contract_address = AztecAddress::zero();
-            }
-            output
+            private_logs.map(|l: Scoped<PrivateLogData>| {
+                PrivateLogData {
+                    log: silo_private_log(l),
+                    note_hash_counter: l.inner.note_hash_counter,
+                    counter: l.inner.counter,
+                }
+                    .scope(AztecAddress::zero())
+            })
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
