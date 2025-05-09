@@ -18,10 +18,6 @@ template <typename C, class Fq, class Fr, class G>
 template <typename, typename>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2)
 {
-    if constexpr (!HasPlookup<C>) {
-        C* ctx = pubkey.get_context();
-        return batch_mul({ element::one(ctx), pubkey }, { u1, u2 });
-    }
     /**
      * Compute `out = u1.[1] + u2.[pubkey]
      *
