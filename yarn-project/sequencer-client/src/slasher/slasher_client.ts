@@ -188,21 +188,24 @@ export class SlasherClient extends WithTracer {
     }
   }
 
-  private addMonitoredPayload(payload: MonitoredSlashPayload) {
-    this.monitoredPayloads.push(payload);
-  }
-
   private sortMonitoredPayloads() {
     // sort by total amount in descending order
     this.monitoredPayloads.sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount));
   }
 
-  private filterPayloads(currentL1Block: bigint, payloadTtlSlots: bigint) {
+  private addMonitoredPayload(payload: MonitoredSlashPayload) {
+    if (this.doIAgreeWithPayload(payload)) {
+      this.monitoredPayloads.push(payload);
+    }
+  }
+
+  private filterExpiredPayloads(currentL1Block: bigint, payloadTtlSlots: bigint) {
     // filter out payloads that have expired
     // or we disagree with
 
+    // TODO: check on race condition with sortMonitoredPayloads here
     this.monitoredPayloads = this.monitoredPayloads.filter(payload => {
-      return payload.observedAtL1BlockNumber + payloadTtlSlots > currentL1Block && this.doIAgreeWithPayload(payload);
+      return payload.observedAtL1BlockNumber + payloadTtlSlots > currentL1Block;
     });
   }
 
@@ -263,17 +266,13 @@ export class SlasherClient extends WithTracer {
   }
 
   public async getSlashPayload(_slotNumber: bigint): Promise<EthAddress | undefined> {
-    // This function will be entirely rewritten based on the new selection logic.
-    // The monitoredPayloads array will be filtered and sorted here.
-
-    // 1. Override check (this.config.slashOverridePayload)
     if (this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
       this.log.info(`Overriding slash payload to: ${this.config.slashOverridePayload.toString()}`);
       return Promise.resolve(this.config.slashOverridePayload);
     }
 
     const currentL1Block = await this.l1TxUtils.client.getBlockNumber();
-    this.filterPayloads(currentL1Block, BigInt(this.config.slashPayloadTtlSlots));
+    this.filterExpiredPayloads(currentL1Block, BigInt(this.config.slashPayloadTtlSlots));
 
     if (this.monitoredPayloads.length === 0) {
       this.log.debug('No monitored payloads, returning undefined');
@@ -285,7 +284,6 @@ export class SlasherClient extends WithTracer {
       `getSlashPayload: Placeholder logic. Oldest monitored payload: ${selectedPayload.payloadAddress.toString()}. Full selection logic pending.`,
     );
 
-    this.log.debug('getSlashPayload: Placeholder, returning undefined pending full implementation.');
-    return Promise.resolve(undefined);
+    return Promise.resolve(selectedPayload.payloadAddress);
   }
 }

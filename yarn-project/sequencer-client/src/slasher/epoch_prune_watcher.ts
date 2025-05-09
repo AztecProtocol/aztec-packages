@@ -12,6 +12,11 @@ import { Offence, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type WatcherEmitter
 export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter) {
   private log: Logger = createLogger('epoch-prune-watcher');
 
+  // Keep track of pruned epochs we've seen: we have no way to "remember" previously pruned epochs
+  private prunedEpochs: Map<bigint, `0x${string}`[]> = new Map();
+  // Only keep track of the last N pruned epochs
+  private maxPrunedEpochs = 100;
+
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1constants: L1RollupConstants,
@@ -37,14 +42,22 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     this.getValidatorsForEpoch(epochNumber)
       .then(validators => {
         const args = this.validatorsToSlashingArgs(validators);
+
         if (args) {
-          // Type-safe emit
+          this.addToPrunedEpochs(epochNumber, validators);
           this.emit(WANT_TO_SLASH_EVENT, args);
         }
       })
       .catch(error => {
         this.log.error('Error getting validators for epoch', error);
       });
+  }
+
+  private addToPrunedEpochs(epochNumber: bigint, validators: `0x${string}`[]) {
+    this.prunedEpochs.set(epochNumber, validators);
+    if (this.prunedEpochs.size > this.maxPrunedEpochs) {
+      this.prunedEpochs.delete(this.prunedEpochs.keys().next().value!);
+    }
   }
 
   private async getValidatorsForEpoch(epochNumber: bigint): Promise<`0x${string}`[]> {
@@ -63,8 +76,16 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     return { validators, amounts, offenses };
   }
 
-  public wantToSlash(_validator: EthAddress, _amount: bigint): boolean {
-    // TODO: make sure the epoch was pruned
-    return true;
+  private wantToSlashForEpoch(validator: EthAddress, amount: bigint, epochNumber: bigint): boolean {
+    return this.prunedEpochs.get(epochNumber)?.includes(validator.toString()) ?? false;
+  }
+
+  public wantToSlash(validator: EthAddress, amount: bigint): boolean {
+    for (const epoch of this.prunedEpochs.keys()) {
+      if (this.wantToSlashForEpoch(validator, amount, epoch)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
