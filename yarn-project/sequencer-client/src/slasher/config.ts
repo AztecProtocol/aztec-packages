@@ -10,6 +10,31 @@ export enum Offence {
 
 export const WANT_TO_SLASH_EVENT = 'wantToSlash' as const;
 
+export interface WantToSlashArgs {
+  validators: `0x${string}`[];
+  amounts: bigint[];
+  offenses: Offence[];
+}
+
+// Event map for specific, known events of a watcher
+export interface WatcherEventMap {
+  [WANT_TO_SLASH_EVENT]: (args: WantToSlashArgs) => void;
+}
+
+// More flexible TypedEventEmitter definition
+// It expects an object where keys are event names (string or symbol)
+// and values are listener functions.
+// See EpochPruneWatcher for an example of how to use this.
+export interface TypedEventEmitter<TEventMap extends { [key in keyof TEventMap]: (...args: any[]) => void }> {
+  on<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  off<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  emit<K extends keyof TEventMap>(event: K, ...args: Parameters<TEventMap[K]>): boolean;
+  removeListener<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  // Can add other EventEmitter methods if needed, like once(), listenerCount(), etc.
+}
+
+export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;
+
 export interface SlasherConfig {
   // New configurations based on design doc
   slashOverridePayload?: EthAddress;

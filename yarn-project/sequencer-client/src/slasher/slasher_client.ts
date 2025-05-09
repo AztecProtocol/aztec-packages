@@ -7,9 +7,15 @@ import type { L2BlockId, L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type GetContractReturnType, getAddress, getContract } from 'viem';
+import {
+  type GetContractEventsReturnType,
+  type GetContractReturnType,
+  encodeFunctionData,
+  getAddress,
+  getContract,
+} from 'viem';
 
-import { type Offence, type SlasherConfig, WANT_TO_SLASH_EVENT } from './config.js';
+import { Offence, type SlasherConfig, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from './config.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 /**
@@ -49,6 +55,7 @@ type MonitoredSlashPayload = {
   // might still be relevant for deciding *when* to vote within a round,
   // distinct from the overall TTL of the payload.
   // For now, focusing on the new fields. The old lifetime was related to which slot it should be active for.
+  totalAmount: bigint;
 };
 
 /**
@@ -137,37 +144,66 @@ export class SlasherClient extends WithTracer {
     this.epochPruneWatcher.start();
   }
 
-  private handleWantsToSlash(args: { validators: `0x${string}`[]; amounts: bigint[]; offenses: Offence[] }) {
+  private handleWantsToSlash(args: WantToSlashArgs) {
     this.log.info('Wants to slash', args);
+    if (!this.slashFactoryContract) {
+      this.log.error('No slash factory contract found, skipping slash');
+      return;
+    }
+    this.l1TxUtils
+      .sendAndMonitorTransaction({
+        to: this.slashFactoryContract.address,
+        data: encodeFunctionData({
+          abi: SlashFactoryAbi,
+          functionName: 'createSlashPayload',
+          args: [args.validators, args.amounts, args.offenses],
+        }),
+      })
+      // note, we don't need to monitor the logs here,
+      // it is handled by watchSlashFactoryEvents
+      .catch(e => {
+        this.log.error('Error slashing', e);
+      });
   }
 
-  public getSlashPayload(_slotNumber: bigint): Promise<EthAddress | undefined> {
-    // This function will be entirely rewritten based on the new selection logic.
-    // The monitoredPayloads array will be filtered and sorted here.
-
-    // 1. Override check (this.config.slashOverridePayload)
-    if (this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
-      this.log.info(`Overriding slash payload to: ${this.config.slashOverridePayload.toString()}`);
-      return Promise.resolve(this.config.slashOverridePayload);
+  private *factoryEventsToMonitoredPayloads(
+    args: GetContractEventsReturnType<typeof SlashFactoryAbi, 'SlashPayloadCreated'>,
+  ): IterableIterator<MonitoredSlashPayload> {
+    for (const event of args) {
+      if (!event.args) {
+        continue;
+      }
+      const args = event.args;
+      if (!args.payloadAddress || !args.validators || !args.amounts || !args.offences) {
+        continue;
+      }
+      yield {
+        payloadAddress: EthAddress.fromString(args.payloadAddress),
+        validators: args.validators.map(EthAddress.fromString),
+        amounts: args.amounts,
+        offenses: args.offences,
+        observedAtL1BlockNumber: event.blockNumber,
+        totalAmount: args.amounts.reduce((acc, amount) => acc + amount, BigInt(0)),
+      };
     }
+  }
 
-    // --- TODO: Implement new payload selection logic based on design document ---
-    // 2. TTL filter this.monitoredPayloads based on _slotNumber (or current L1 block)
-    // 3. Calculate total slash amount for each
-    // 4. Sort by total amount
-    // 5. Agree and pick (checking offenses, validator activity etc.)
+  private addMonitoredPayload(payload: MonitoredSlashPayload) {
+    this.monitoredPayloads.push(payload);
+  }
 
-    // Placeholder: if monitored payloads exist, log about one, but still return undefined.
-    if (this.monitoredPayloads.length > 0) {
-      const selectedPayload = this.monitoredPayloads[0];
-      this.log.debug(
-        `getSlashPayload: Placeholder logic. Oldest monitored payload: ${selectedPayload.payloadAddress.toString()}. Full selection logic pending.`,
-      );
-    }
-    // --- End TODO ---
+  private sortMonitoredPayloads() {
+    // sort by total amount in descending order
+    this.monitoredPayloads.sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount));
+  }
 
-    this.log.debug('getSlashPayload: Placeholder, returning undefined pending full implementation.');
-    return Promise.resolve(undefined);
+  private filterPayloads(currentL1Block: bigint, payloadTtlSlots: bigint) {
+    // filter out payloads that have expired
+    // or we disagree with
+
+    this.monitoredPayloads = this.monitoredPayloads.filter(payload => {
+      return payload.observedAtL1BlockNumber + payloadTtlSlots > currentL1Block && this.doIAgreeWithPayload(payload);
+    });
   }
 
   /**
@@ -176,7 +212,6 @@ export class SlasherClient extends WithTracer {
    */
   public stop() {
     this.log.debug('Stopping Slasher client...');
-    // TODO: Properly stop watching SlashFactory events (viem returns an unwatch function)
     if (this.unwatchSlashFactoryEvents) {
       this.unwatchSlashFactoryEvents();
     }
@@ -191,45 +226,66 @@ export class SlasherClient extends WithTracer {
       return;
     }
 
-    this.log.info('Watching for SlashPayloadCreated events...');
-    // Ensure SlashFactoryAbi has the event defined correctly:
-    // event SlashPayloadCreated(address payloadAddress, address[] validators, uint256[] amounts, Offense[] offences);
     this.unwatchSlashFactoryEvents = this.slashFactoryContract.watchEvent.SlashPayloadCreated({
       onLogs: logs => {
-        logs.forEach(log => {
-          // Type assertion for log.args based on the event signature
-          // The `unknown` type is a safe default if ABI isn't perfectly matched by viem for complex types initially.
-
-          if (!log.args || !log.args.payloadAddress) {
-            this.log.warn('Received SlashPayloadCreated event with missing args', log);
-            return;
-          }
-
-          const newPayload: MonitoredSlashPayload = {
-            payloadAddress: EthAddress.fromString(log.args.payloadAddress),
-            validators: log.args.validators?.map(EthAddress.fromString) ?? [],
-            amounts: log.args.amounts ?? [],
-            // Ensure mapping from number to Offense enum. Solidity enums are uint8.
-            offenses: log.args.offences?.map(o => o as Offence) ?? [],
-            observedAtL1BlockNumber: log.blockNumber, // Correctly capture L1 block number
-          };
-
-          this.log.info(
-            `New SlashPayloadCreated event received: Payload ${newPayload.payloadAddress.toString()}, Validators: ${
-              newPayload.validators.length
-            }, L1Block: ${newPayload.observedAtL1BlockNumber}`,
-          );
-          this.monitoredPayloads.push(newPayload);
-          // TODO: Optionally sort monitoredPayloads here if beneficial, e.g., by block number or total amount for quicker access in getSlashPayload
-        });
+        for (const payload of this.factoryEventsToMonitoredPayloads(logs)) {
+          this.addMonitoredPayload(payload);
+        }
+        this.sortMonitoredPayloads();
       },
     });
   }
 
-  // TODO: Implement _maybeCreateSlashFactoryPayload(validators, amounts, offenses)
-  // This would call: await this.slashFactoryContract.write.createSlashPayload([...]);
-  // And would require a connected wallet/signer to the Viem client for 'write' operations.
+  private doIAgreeWithPayload(payload: MonitoredSlashPayload) {
+    // zip offenses and validators together
+    const offensesAndValidators = payload.offenses.map((offense, index) => ({
+      offense,
+      validator: payload.validators[index],
+      amount: payload.amounts[index],
+    }));
 
-  // TODO: Implement method to get validators for an epoch (likely via ValidatorSelection contract)
-  // private async getValidatorsForEpoch(epochNumber: bigint): Promise<EthAddress[]> { ... }
+    // check each offense
+    for (const offenseAndValidator of offensesAndValidators) {
+      switch (offenseAndValidator.offense) {
+        case Offence.UNKNOWN:
+          continue;
+        case Offence.EPOCH_PRUNE:
+          if (!this.epochPruneWatcher.wantToSlash(offenseAndValidator.validator, offenseAndValidator.amount)) {
+            return false;
+          }
+          break;
+        case Offence.INACTIVITY:
+          // TODO: Implement inactivity slashing
+          continue;
+      }
+    }
+    return true;
+  }
+
+  public async getSlashPayload(_slotNumber: bigint): Promise<EthAddress | undefined> {
+    // This function will be entirely rewritten based on the new selection logic.
+    // The monitoredPayloads array will be filtered and sorted here.
+
+    // 1. Override check (this.config.slashOverridePayload)
+    if (this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
+      this.log.info(`Overriding slash payload to: ${this.config.slashOverridePayload.toString()}`);
+      return Promise.resolve(this.config.slashOverridePayload);
+    }
+
+    const currentL1Block = await this.l1TxUtils.client.getBlockNumber();
+    this.filterPayloads(currentL1Block, BigInt(this.config.slashPayloadTtlSlots));
+
+    if (this.monitoredPayloads.length === 0) {
+      this.log.debug('No monitored payloads, returning undefined');
+      return Promise.resolve(undefined);
+    }
+
+    const selectedPayload = this.monitoredPayloads[0];
+    this.log.debug(
+      `getSlashPayload: Placeholder logic. Oldest monitored payload: ${selectedPayload.payloadAddress.toString()}. Full selection logic pending.`,
+    );
+
+    this.log.debug('getSlashPayload: Placeholder, returning undefined pending full implementation.');
+    return Promise.resolve(undefined);
+  }
 }

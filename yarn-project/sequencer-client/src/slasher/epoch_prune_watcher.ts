@@ -1,14 +1,16 @@
+import type { EthAddress } from '@aztec/aztec.js';
 import { EpochCache } from '@aztec/epoch-cache';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type L2BlockSourceEvent, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import EventEmitter from 'node:events';
 
-import { Offence, WANT_TO_SLASH_EVENT } from './config.js';
+import { Offence, WANT_TO_SLASH_EVENT, type WantToSlashArgs, type WatcherEmitter } from './config.js';
 
-export class EpochPruneWatcher extends EventEmitter {
-  private log = createLogger('epoch-prune-watcher');
+// Cast EventEmitter to our TypedEventEmitter using the specific event map
+export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter) {
+  private log: Logger = createLogger('epoch-prune-watcher');
 
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
@@ -29,14 +31,14 @@ export class EpochPruneWatcher extends EventEmitter {
   }
 
   private handlePruneL2Blocks(event: L2BlockSourceEvent): void {
-    const { /*_slotNumber,*/ epochNumber } = event; // L2 slotNumber might be used for timing
+    const { epochNumber } = event;
     this.log.info(`Detected chain prune. Attempting to create slash for epoch ${epochNumber}`, event);
 
-    // get the validators for the epoch
     this.getValidatorsForEpoch(epochNumber)
       .then(validators => {
         const args = this.validatorsToSlashingArgs(validators);
         if (args) {
+          // Type-safe emit
           this.emit(WANT_TO_SLASH_EVENT, args);
         }
       })
@@ -51,20 +53,18 @@ export class EpochPruneWatcher extends EventEmitter {
     return committee.map(v => v.toString());
   }
 
-  private validatorsToSlashingArgs(validators: `0x${string}`[]):
-    | {
-        validators: `0x${string}`[];
-        amounts: bigint[];
-        offenses: Offence[];
-      }
-    | undefined {
+  private validatorsToSlashingArgs(validators: `0x${string}`[]): WantToSlashArgs | undefined {
     if (validators.length === 0) {
       this.log.debug('No validators found for epoch, skipping slash creation.');
       return undefined;
     }
-
     const amounts = Array(validators.length).fill(this.penalty);
     const offenses = Array(validators.length).fill(Offence.EPOCH_PRUNE);
     return { validators, amounts, offenses };
+  }
+
+  public wantToSlash(_validator: EthAddress, _amount: bigint): boolean {
+    // TODO: make sure the epoch was pruned
+    return true;
   }
 }
