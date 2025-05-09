@@ -17,7 +17,7 @@ spec:
       paths:
       - backend:
           service:
-            name: full-node-aztec-node-node-svc
+            name: alpha-new-node-svc
             port:
               number: 8080
         path: /
