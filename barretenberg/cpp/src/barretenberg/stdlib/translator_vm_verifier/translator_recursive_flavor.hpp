@@ -67,7 +67,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
 
-    // Number of wires represing the op queue that whose commitments are going to be checked against those from the
+    // Number of wires representing the op queue whose commitments are going to be checked against those from the
     // final round of merge
     static constexpr size_t NUM_OP_QUEUE_WIRES = NativeFlavor::NUM_OP_QUEUE_WIRES;
 

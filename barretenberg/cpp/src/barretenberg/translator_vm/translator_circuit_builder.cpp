@@ -538,8 +538,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 0; i < ultra_ops.size() - 1; i++) {
-        const auto& ultra_op = ultra_ops[ultra_ops.size() - 1 - i];
+    for (size_t i = 1; i < ultra_ops.size(); i++) {
+        const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         current_accumulator *= evaluation_input_x;
         const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
         current_accumulator +=

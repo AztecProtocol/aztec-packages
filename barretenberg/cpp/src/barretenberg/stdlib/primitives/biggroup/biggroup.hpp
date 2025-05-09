@@ -324,6 +324,13 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return nullptr;
     }
 
+    void assert_equal(const element& other) const
+    {
+        x.assert_equal(other.x);
+        y.assert_equal(other.y);
+        _is_infinity.assert_equal(other._is_infinity);
+    }
+
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
     element get_standard_form() const;

@@ -219,6 +219,26 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/787)
+/**
+ * @brief Ensure failure of the goblin recursive verification circuit for bad translation evaluations
+ *
+ */
+TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
+{
 
+    {
+        auto [proof, verifier_input] = create_goblin_prover_output();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+        // Better recursion testing - create more flexible proof tampering tests.
+        proof.translator_proof[0] += 1; // tamper with part of the limb of op commitment
+
+        Builder builder;
+        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/787)
+}
 } // namespace bb::stdlib::recursion::honk

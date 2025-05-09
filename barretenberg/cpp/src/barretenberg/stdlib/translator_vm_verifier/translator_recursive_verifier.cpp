@@ -189,8 +189,7 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
-        merge_commitment.x.assert_equal(translator_commitment.x);
-        merge_commitment.y.assert_equal(translator_commitment.y);
+        merge_commitment.assert_equal(translator_commitment);
     }
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;

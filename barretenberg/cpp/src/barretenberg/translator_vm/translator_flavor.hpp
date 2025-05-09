@@ -57,7 +57,7 @@ class TranslatorFlavor {
     static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
 
     // None of this parameters can be changed
-    // Number of wires represing the op queue that whose commitments are going to be checked against those from the
+    // Number of wires representing the op queue whose commitments are going to be checked against those from the
     // final round of merge
     static constexpr size_t NUM_OP_QUEUE_WIRES = 4;
 
