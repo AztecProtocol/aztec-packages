@@ -1,5 +1,4 @@
 import {
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   REGISTERER_CONTRACT_ADDRESS,
@@ -20,8 +19,8 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { ScopedLogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
-import { ContractClassLog } from '@aztec/stdlib/logs';
+import { LogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { fr, makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -191,19 +190,16 @@ describe('public_tx_simulator', () => {
         Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
       ),
     ];
-    const contractClassLog = ContractClassLog.fromFields([
-      new Fr(REGISTERER_CONTRACT_ADDRESS),
-      ...contractClassLogFields.concat(
-        new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - contractClassLogFields.length).fill(Fr.ZERO),
-      ),
-    ]);
-    tx.contractClassLogs.push(contractClassLog);
-    const contractClassLogHash = ScopedLogHash.fromFields([
-      await contractClassLog.hash(),
-      new Fr(7),
-      new Fr(contractClassLog.getEmittedLength()),
-      new Fr(REGISTERER_CONTRACT_ADDRESS),
-    ]);
+    const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
+    const emittedLength = contractClassLogFields.length;
+    const log = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+
+    tx.contractClassLogs.push(log);
+
+    const contractClassLogHash = LogHash.from({
+      value: await log.hash(),
+      length: emittedLength,
+    }).scope(contractAddress);
     if (revertible) {
       tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
     } else {
