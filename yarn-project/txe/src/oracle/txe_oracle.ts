@@ -837,12 +837,7 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async simulateUtilityFunction(
-    targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
-    _isStaticCall: boolean,
-  ) {
+  async simulateUtilityFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, argsHash: Fr) {
     const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
       throw new Error(`Cannot call ${functionSelector} as there is artifact found at ${targetContractAddress}.`);

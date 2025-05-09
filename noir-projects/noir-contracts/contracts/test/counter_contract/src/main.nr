@@ -145,7 +145,7 @@ pub contract Counter {
         // docs:start:txe_test_read_notes
         // Read the stored value in the note
         let initial_counter =
-            env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
         assert(
             initial_counter == initial_value,
             f"Expected {initial_value} but got {initial_counter}",
@@ -157,7 +157,7 @@ pub contract Counter {
             env.call_private_void(owner, Counter::at(contract_address).increment(owner, sender));
 
         let incremented_counter =
-            env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
         let expected_current_value = initial_value + 1;
         assert(
             expected_current_value == incremented_counter,

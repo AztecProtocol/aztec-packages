@@ -693,7 +693,6 @@ pub struct UtilityCallInterface<let N: u32, T> {
     args_hash: Field,
     args: [Field],
     return_type: T,
-    is_static: bool,
 }
 
 impl<let N: u32, T> UtilityCallInterface<N, T> {
@@ -702,40 +701,25 @@ impl<let N: u32, T> UtilityCallInterface<N, T> {
         selector: FunctionSelector,
         name: str<N>,
         args: [Field],
-        is_static: bool,
     ) -> Self {
         let args_hash = hash_args(args);
-        Self {
-            target_contract,
-            selector,
-            name,
-            args_hash,
-            args,
-            return_type: std::mem::zeroed(),
-            is_static,
-        }
+        Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
     }
-}
 
-impl<let N: u32, T> CallInterface<N> for UtilityCallInterface<N, T> {
-    fn get_args(self) -> [Field] {
+    pub fn get_args(self) -> [Field] {
         self.args
     }
 
-    fn get_selector(self) -> FunctionSelector {
+    pub fn get_selector(self) -> FunctionSelector {
         self.selector
     }
 
-    fn get_name(self) -> str<N> {
+    pub fn get_name(self) -> str<N> {
         self.name
     }
 
-    fn get_contract_address(self) -> AztecAddress {
+    pub fn get_contract_address(self) -> AztecAddress {
         self.target_contract
-    }
-
-    fn get_is_static(self) -> bool {
-        self.is_static
     }
 }
 
@@ -748,7 +732,6 @@ pub struct UtilityVoidCallInterface<let N: u32> {
     args_hash: Field,
     args: [Field],
     return_type: (),
-    is_static: bool,
 }
 
 impl<let N: u32> UtilityVoidCallInterface<N> {
@@ -757,31 +740,24 @@ impl<let N: u32> UtilityVoidCallInterface<N> {
         selector: FunctionSelector,
         name: str<N>,
         args: [Field],
-        is_static: bool,
     ) -> Self {
         let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type: (), is_static }
+        Self { target_contract, selector, name, args_hash, args, return_type: () }
     }
-}
 
-impl<let N: u32> CallInterface<N> for UtilityVoidCallInterface<N> {
-    fn get_args(self) -> [Field] {
+    pub fn get_args(self) -> [Field] {
         self.args
     }
 
-    fn get_selector(self) -> FunctionSelector {
+    pub fn get_selector(self) -> FunctionSelector {
         self.selector
     }
 
-    fn get_name(self) -> str<N> {
+    pub fn get_name(self) -> str<N> {
         self.name
     }
 
-    fn get_contract_address(self) -> AztecAddress {
+    pub fn get_contract_address(self) -> AztecAddress {
         self.target_contract
-    }
-
-    fn get_is_static(self) -> bool {
-        self.is_static
     }
 }
