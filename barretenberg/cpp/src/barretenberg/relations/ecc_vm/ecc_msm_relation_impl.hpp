@@ -217,9 +217,9 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
                          auto& relation,
                          auto& collision_relation) {
         // N.B. this is brittle - should be curve agnostic but we don't propagate the curve parameter into relations!
-        constexpr auto offset_generator = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
-        constexpr uint256_t oxu = offset_generator.x;
-        constexpr uint256_t oyu = offset_generator.y;
+        const auto offset_generator = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        const uint256_t oxu = offset_generator.x;
+        const uint256_t oyu = offset_generator.y;
         const Accumulator xo(oxu);
         const Accumulator yo(oyu);
 

@@ -26,13 +26,13 @@ class table : public FixedBaseParams {
     using fixed_base_scalar_mul_tables = std::vector<single_lookup_table>;
     using all_multi_tables = std::array<fixed_base_scalar_mul_tables, NUM_FIXED_BASE_MULTI_TABLES>;
 
-    static constexpr affine_element LHS_GENERATOR_POINT =
+    inline static const affine_element LHS_GENERATOR_POINT =
         crypto::generator_data<curve::Grumpkin>::precomputed_generators[0];
 
-    static constexpr affine_element RHS_GENERATOR_POINT =
+    inline static const affine_element RHS_GENERATOR_POINT =
         crypto::generator_data<curve::Grumpkin>::precomputed_generators[1];
 
-    static inline single_lookup_table generate_single_lookup_table(const affine_element& base_point,
+    inline static single_lookup_table generate_single_lookup_table(const affine_element& base_point,
                                                                    const affine_element& offset_generator);
     template <size_t num_bits> static fixed_base_scalar_mul_tables generate_tables(const affine_element& input);
 
