@@ -651,14 +651,13 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
-    const size_t mini_circuit_size = 2048;
-    const size_t full_circuit_size = mini_circuit_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_circuit_size = Flavor::MINI_CIRCUIT_SIZE * Flavor::INTERLEAVING_GROUP_SIZE;
     auto& engine = numeric::get_debug_randomness();
-    const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
-    TranslatorProvingKey key{ mini_circuit_size };
+    TranslatorProvingKey key{ Flavor::MINI_CIRCUIT_SIZE };
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-    const size_t real_circuit_size = full_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
+    const size_t real_circuit_size = full_circuit_size - full_masking_offset;
 
     // Fill required relation parameters
     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
@@ -731,8 +730,8 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     TranslatorProvingKey key{ mini_circuit_size };
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
-    const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
-    const size_t real_circuit_size = key.dyadic_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
+    const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t real_circuit_size = key.dyadic_circuit_size - full_masking_offset;
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
     prover_polynomials.lagrange_first.at(0) = 0;
