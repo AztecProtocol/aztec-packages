@@ -1429,7 +1429,7 @@ export class TXE implements TypedOracle {
       contractClassLogsHashes.push(
         ...execution.publicInputs.contractClassLogsHashes
           .filter(contractClassLogsHash => !contractClassLogsHash.isEmpty())
-          .map(message => message.scope(contractAddress)),
+          .map(message => message.logHash.scope(contractAddress)),
       );
       publicCallRequests.push(
         ...execution.publicInputs.publicCallRequests
