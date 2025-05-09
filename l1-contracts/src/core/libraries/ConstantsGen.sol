@@ -156,6 +156,11 @@ library Constants {
   uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH = 2;
   uint256 internal constant APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES = 36;
   uint256 internal constant SPONGE_BLOB_LENGTH = 11;
+  uint256 internal constant BLS12_FR_LIMBS = 3;
+  uint256 internal constant BLS12_FQ_LIMBS = 4;
+  uint256 internal constant BLS12_POINT = 8;
+  uint256 internal constant BLOB_ACCUMULATOR_PUBLIC_INPUTS = 17;
+  uint256 internal constant BLOCK_BLOB_PUBLIC_INPUTS = 38;
   uint256 internal constant BLOB_PUBLIC_INPUTS = 6;
   uint256 internal constant BLOB_PUBLIC_INPUTS_BYTES = 112;
   uint256 internal constant L1_TO_L2_MESSAGE_LENGTH = 6;
@@ -216,8 +221,8 @@ library Constants {
   uint256 internal constant PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 782;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;
-  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 1032;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 1020;
+  uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 206;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 169;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

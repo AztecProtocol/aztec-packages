@@ -1,3 +1,4 @@
+import { BatchedBlob, BatchedBlobAccumulator, Blob } from '@aztec/blob-lib';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
@@ -110,8 +111,21 @@ export class EpochProvingJob implements Traceable {
     const { promise, resolve } = promiseWithResolvers<void>();
     this.runPromise = promise;
 
+    // try {
+    //   const allBlobs = (await Promise.all(this.blocks.map(async block => await Blob.getBlobs(block.body.toBlobFields())))).flat();
+    //   const startBlobAccumulator = await BatchedBlob.initializeAccumulator(allBlobs);
+    // } catch (err: any) {
+    //   console.error("Blob batching failed");
+    //   throw new Error(err);
+    // }
+
     try {
-      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
+      const allBlobs = (
+        await Promise.all(this.blocks.map(async block => await Blob.getBlobs(block.body.toBlobFields())))
+      ).flat();
+
+      const startBlobAccumulator = await BatchedBlob.newAccumulator(allBlobs);
+      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, startBlobAccumulator);
       await this.prover.startTubeCircuits(this.txs);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {

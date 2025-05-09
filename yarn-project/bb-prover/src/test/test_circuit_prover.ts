@@ -229,6 +229,8 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<
     PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   > {
+    console.log('test prover input');
+    console.log(input.data.startBlobAccumulator);
     return await this.applyDelay(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP, () =>
       this.simulate(
         input,

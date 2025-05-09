@@ -1,3 +1,4 @@
+import type { FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type { Fr } from '@aztec/foundation/fields';
 
 import type { L2Block } from '../block/l2_block.js';
@@ -15,7 +16,12 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
    * @param firstBlockNumber - The block number of the first block in the epoch.
    * @param totalNumBlocks - The total number of blocks expected in the epoch (must be at least one).
    **/
-  startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void;
+  startNewEpoch(
+    epochNumber: number,
+    firstBlockNumber: number,
+    totalNumBlocks: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ): void;
 
   /**
    * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.

@@ -255,7 +255,12 @@ impl BlobAccumulatorPublicInputs {
             gamma == bigint::bignum::to_field(injected.gamma),
             "Final blob challenge gamma mismatch.",
         );
-        FinalBlobAccumulatorPublicInputs { v: self.v, z: self.z, y: self.y, c: self.c }
+        FinalBlobAccumulatorPublicInputs {
+            v: self.v,
+            z: self.z,
+            y: self.y,
+            c: [self.c.x, self.c.y],
+        }
     }
 }
 
@@ -312,7 +317,7 @@ impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs
             gamma: reader.read(),
             gamma_pow: F { limbs: reader.read_array().map(|e| e as u128) },
         };
-        if (item.c.x.eq(Q::zero())) & (item.c.y.eq(Q::zero())) {
+        if (item.c.x.is_zero()) & (item.c.y.is_zero()) {
             item.c.is_infinity = true;
         }
         item
@@ -383,7 +388,7 @@ pub struct FinalBlobAccumulatorPublicInputs {
     pub v: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
     pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub y: F, // Batched blob's evaluation y (BLS12Fr)
-    pub c: BLSPoint, // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
+    pub c: [Q; 2], // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
 }
 
 /**

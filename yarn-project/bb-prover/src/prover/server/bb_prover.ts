@@ -371,6 +371,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getRootRollupProof(
     input: RootRollupInputs,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
+    console.log(input.previousRollupData[0].blockRootOrBlockMergePublicInputs);
+    console.log(input.previousRollupData[1].blockRootOrBlockMergePublicInputs);
     const { circuitOutput, proof } = await this.createProof(
       input,
       'RootRollupArtifact',
@@ -418,6 +420,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const witnessResult = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
     const output = convertOutput(witnessResult.witness);
 
+    console.log(output);
+
     const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
     this.instrumentation.recordDuration('witGenDuration', circuitName, witnessResult.duration);
     this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
@@ -446,6 +450,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
+      console.log(provingResult);
       logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }

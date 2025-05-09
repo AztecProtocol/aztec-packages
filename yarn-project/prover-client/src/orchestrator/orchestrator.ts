@@ -1,3 +1,4 @@
+import { BatchedBlob, type BatchedBlobAccumulator, Blob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -8,6 +9,7 @@ import {
   type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -50,6 +52,7 @@ import {
 import { inspect } from 'util';
 
 import {
+  accumulateBlobs,
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
   getLastSiblingPath,
@@ -110,14 +113,26 @@ export class ProvingOrchestrator implements EpochProver {
     return Promise.resolve();
   }
 
-  public startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number) {
+  public startNewEpoch(
+    epochNumber: number,
+    firstBlockNumber: number,
+    totalNumBlocks: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ) {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));
     if (totalNumBlocks <= 0 || !Number.isInteger(totalNumBlocks)) {
       throw new Error(`Invalid number of blocks for epoch (got ${totalNumBlocks})`);
     }
     logger.info(`Starting epoch ${epochNumber} with ${totalNumBlocks} blocks`);
-    this.provingState = new EpochProvingState(epochNumber, firstBlockNumber, totalNumBlocks, resolve, reject);
+    this.provingState = new EpochProvingState(
+      epochNumber,
+      firstBlockNumber,
+      totalNumBlocks,
+      finalBlobBatchingChallenges,
+      resolve,
+      reject,
+    );
     this.provingPromise = promise;
   }
 
@@ -193,6 +208,8 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Block proving state for ${blockNumber} not found`);
     }
 
+    console.log(provingState);
+
     if (provingState.totalNumTxs) {
       throw new Error(`Block ${blockNumber} has been initialized with transactions.`);
     }
@@ -256,6 +273,7 @@ export class ProvingOrchestrator implements EpochProver {
     [Attributes.BLOCK_NUMBER]: blockNumber,
   }))
   public async setBlockCompleted(blockNumber: number, expectedHeader?: BlockHeader): Promise<L2Block> {
+    console.log('**************BLOCK SET COMPLETED**********************', blockNumber);
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -653,6 +671,10 @@ export class ProvingOrchestrator implements EpochProver {
       `Enqueuing ${rollupType} for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs.`,
     );
 
+    console.log('BR', provingState.blockNumber, 'start:');
+    console.log(inputs.data.startBlobAccumulator);
+    console.log(inputs.data.finalBlobChallenges);
+
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -690,8 +712,24 @@ export class ProvingOrchestrator implements EpochProver {
           provingState.reject(`New archive root mismatch.`);
         }
 
+        const endBlobAccumulator = provingState.endBlobAccumulator!;
+        const circuitEndBlobAccumulatorState = result.inputs.blobPublicInputs.endBlobAccumulator;
+        if (!circuitEndBlobAccumulatorState.equals(endBlobAccumulator.toBlobAccumulatorPublicInputs())) {
+          logger.error(
+            `Blob accumulator state mismatch.\nCircuit: ${inspect(circuitEndBlobAccumulatorState)}\nComputed: ${inspect(
+              endBlobAccumulator.toBlobAccumulatorPublicInputs(),
+            )}`,
+          );
+          provingState.reject(`Blob accumulator state mismatch.`);
+        }
+
         logger.debug(`Completed ${rollupType} proof for block ${provingState.block!.number}`);
         // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
+
+        // const possFinalGamma = await poseidon2Hash([endBlobAccumulator.gammaAcc, endBlobAccumulator.zAcc]);
+        // console.log("POSSIBLE GAMMA")
+        // console.log(possFinalGamma)
+        // console.log(endBlobAccumulator)
 
         const epochProvingState = this.provingState!;
         const leafLocation = epochProvingState.setBlockRootRollupProof(provingState.index, result);
@@ -773,7 +811,11 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     const inputs = provingState.getBlockMergeRollupInputs(location);
-
+    console.log('BLOCK MERGE');
+    console.log('-----------------------------------------------------------');
+    console.log(inputs.previousRollupData[0].blockRootOrBlockMergePublicInputs.blobPublicInputs);
+    console.log(inputs.previousRollupData[1].blockRootOrBlockMergePublicInputs.blobPublicInputs);
+    console.log('-----------------------------------------------------------');
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -800,6 +842,10 @@ export class ProvingOrchestrator implements EpochProver {
     logger.debug('Padding epoch proof with an empty block root proof.');
 
     const inputs = await provingState.getPaddingBlockRootInputs(this.proverId);
+
+    console.log('empty block');
+    console.log(inputs.data.startBlobAccumulator);
+    console.log(inputs.data.finalBlobChallenges);
 
     this.deferredProving(
       provingState,
@@ -829,6 +875,11 @@ export class ProvingOrchestrator implements EpochProver {
     logger.debug(`Preparing root rollup`);
 
     const inputs = provingState.getRootRollupInputs(this.proverId);
+    console.log('root');
+    console.log(inputs.previousRollupData[0].blockRootOrBlockMergePublicInputs.blobPublicInputs);
+    console.log(inputs.previousRollupData[1].blockRootOrBlockMergePublicInputs.blobPublicInputs);
+    // console.log(provingState.blobAccumulatorState)
+    // console.log(provingState.blobAccumulatorState.toFinalBlobAccumulatorPublicInputs())
 
     this.deferredProving(
       provingState,
@@ -863,7 +914,7 @@ export class ProvingOrchestrator implements EpochProver {
 
   private async checkAndEnqueueBlockRootRollup(provingState: BlockProvingState) {
     if (!provingState.isReadyForBlockRootRollup()) {
-      logger.debug('Not ready for root rollup');
+      logger.debug('Not ready for block root rollup');
       return;
     }
     if (provingState.blockRootRollupStarted) {
@@ -882,6 +933,41 @@ export class ProvingOrchestrator implements EpochProver {
       ?.close()
       .then(() => this.dbs.delete(blockNumber))
       .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
+
+    logger.debug(`Accumulating blobs for ${blockNumber}`);
+    // Blocks and their txs may be added here out of order, so we cannot collect and accumulate blobs until the
+    // block's txs are finalised. Like how the base rollup needs the partial start and end states from previous
+    // base iterations, the block root needs the end accumulation state of the previous block:
+    // TODO(MW): Make the below part of isReadyForBlockRootRollup?
+    if (!provingState.startBlobAccumulator) {
+      let previousAccumulator;
+      // Accumulate any blobs required from previous blocks
+      for (let index = this.provingState!.firstBlockNumber; index < blockNumber; index++) {
+        const state = this.provingState?.getBlockProvingStateByBlockNumber(index)!;
+        if (!state.startBlobAccumulator) {
+          // startBlobAccumulator always exists for firstBlockNumber, so the below should never assign an undefined:
+          state.startBlobAccumulator = previousAccumulator;
+        }
+        if (state.startBlobAccumulator && !state.endBlobAccumulator) {
+          state.endBlobAccumulator = await accumulateBlobs(
+            state.allTxs.map(t => t.processedTx),
+            state.startBlobAccumulator,
+          );
+        }
+        previousAccumulator = state.endBlobAccumulator;
+      }
+      if (!previousAccumulator) {
+        console.log(this.provingState?.getBlockProvingStateByBlockNumber(blockNumber - 1)?.startBlobAccumulator);
+        console.log(this.provingState?.getBlockProvingStateByBlockNumber(blockNumber - 1)?.endBlobAccumulator);
+        throw new Error(`No blob accumulator found for block ${blockNumber - 1}`);
+      }
+      provingState.startBlobAccumulator = previousAccumulator;
+    }
+    // Accumulate this block's blobs
+    provingState.endBlobAccumulator = await accumulateBlobs(
+      provingState.allTxs.map(t => t.processedTx),
+      provingState.startBlobAccumulator,
+    );
 
     await this.enqueueBlockRootRollup(provingState);
   }

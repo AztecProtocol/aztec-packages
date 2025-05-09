@@ -1,3 +1,4 @@
+import type { FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type { Fr } from '@aztec/foundation/fields';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
@@ -12,8 +13,13 @@ import type { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_
 export class ServerEpochProver implements EpochProver {
   constructor(private facade: BrokerCircuitProverFacade, private orchestrator: ProvingOrchestrator) {}
 
-  startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void {
-    this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks);
+  startNewEpoch(
+    epochNumber: number,
+    firstBlockNumber: number,
+    totalNumBlocks: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ): void {
+    this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks, finalBlobBatchingChallenges);
     this.facade.start();
   }
   startTubeCircuits(txs: Tx[]): Promise<void> {

@@ -1,12 +1,14 @@
 /* eslint-disable camelcase */
 import { bls12_381 } from '@noble/curves/bls12-381';
 import { inspect } from 'util';
+import { bigint } from 'zod';
 
-import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
+import { fromHex, toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
+import { truncate } from '../string/index.js';
 import { Fr } from './fields.js';
 
 /**
@@ -38,6 +40,7 @@ export abstract class BLS12Field {
       }
       this.asBuffer =
         value.length === this.size() ? value : Buffer.concat([Buffer.alloc(this.size() - value.length), value]);
+      this.toBigInt();
     } else if (typeof value === 'bigint' || typeof value === 'number') {
       this.asBigInt = BigInt(value);
       if (this.asBigInt >= this.modulus()) {
@@ -137,16 +140,33 @@ function random<T extends BLS12Field>(f: BLS12DerivedField<T>): T {
 /**
  * Constructs a field from a 0x prefixed hex string.
  */
-function fromHexString<T extends BLS12Field>(buf: string, f: BLS12DerivedField<T>) {
-  const withoutPrefix = buf.replace(/^0x/i, '');
+function fromHexString<T extends BLS12Field>(str: string, f: BLS12DerivedField<T>) {
+  return new f(bufferFromHexString(str));
+}
+
+/**
+ * Constructs a field from noir BigNum type.
+ */
+function fromNoirBigNum<T extends BLS12Field>(bignum: { limbs: string[] }, f: BLS12DerivedField<T>) {
+  // We have 120 bit (=15 byte) limbs
+  let bigint = 0n;
+  for (let i = 0; i < bignum.limbs.length; i++) {
+    bigint += BigInt(bignum.limbs[i]) << BigInt(120 * i);
+  }
+  return new f(bigint);
+}
+
+/**
+ * Constructs a buffer from a hex string.
+ * Differs from bigint-buffer's fromHex() by allowing odd number of characters.
+ */
+function bufferFromHexString(str: string) {
+  const withoutPrefix = str.replace(/^0x/i, '');
   const checked = withoutPrefix.match(/^[0-9A-F]+$/i)?.[0];
   if (checked === undefined) {
-    throw new Error(`Invalid hex-encoded string: "${buf}"`);
+    throw new Error(`Invalid hex-encoded string: "${str}"`);
   }
-
-  const buffer = Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
-
-  return new f(buffer);
+  return Buffer.from(checked.length % 2 === 1 ? '0' + checked : checked, 'hex');
 }
 
 /**
@@ -218,6 +238,13 @@ export class BLS12Fr extends BLS12Field {
    */
   static fromHexString(buf: string) {
     return fromHexString(buf, BLS12Fr);
+  }
+
+  /**
+   * Constructs a field from noir BigNum type.
+   */
+  static fromNoirBigNum(bignum: { limbs: string[] }) {
+    return fromNoirBigNum(bignum, BLS12Fr);
   }
 
   /**
@@ -372,6 +399,13 @@ export class BLS12Fq extends BLS12Field {
    */
   static fromHexString(buf: string) {
     return fromHexString(buf, BLS12Fq);
+  }
+
+  /**
+   * Constructs a field from noir BigNum type.
+   */
+  static fromNoirBigNum(bignum: { limbs: string[] }) {
+    return fromNoirBigNum(bignum, BLS12Fq);
   }
 
   /** Arithmetic - wrapper around noble curves */

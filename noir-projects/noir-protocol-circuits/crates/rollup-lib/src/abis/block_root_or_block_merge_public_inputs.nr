@@ -114,6 +114,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         fields.push(self.protocol_contract_tree_root);
         fields.push(self.prover_id as Field);
         fields.extend_from_array(self.blob_public_inputs.serialize());
+        // HERE
         assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()

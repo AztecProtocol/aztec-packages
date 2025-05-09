@@ -171,7 +171,7 @@ mod tests {
         assert_eq(final_acc.v, expected_v);
 
         // Since i = 1, C = gamma^0 * C_0 = C_0
-        assert_eq(final_acc.c, kzg_commitments_in[0]);
+        assert_eq(final_acc.c, [kzg_commitments_in[0].x, kzg_commitments_in[0].y]);
     }
 
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
@@ -293,7 +293,7 @@ mod tests {
         let expected_v = 0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
 
         assert_eq(final_acc.y, expected_y);
-        assert_eq(final_acc.c, expected_c);
+        assert_eq(final_acc.c, [expected_c.x, expected_c.y]);
         assert_eq(final_acc.v, expected_v);
     }
 }

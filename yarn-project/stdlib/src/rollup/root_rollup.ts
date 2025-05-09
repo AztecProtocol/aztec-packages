@@ -1,4 +1,4 @@
-import { BlockBlobPublicInputs } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, BlockBlobPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
@@ -114,7 +114,7 @@ export class RootRollupPublicInputs {
     public vkTreeRoot: Fr,
     public protocolContractTreeRoot: Fr,
     public proverId: Fr,
-    public blobPublicInputs: Tuple<BlockBlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public blobPublicInputs: FinalBlobAccumulatorPublicInputs,
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
@@ -167,7 +167,7 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs),
+      reader.readObject(FinalBlobAccumulatorPublicInputs),
     );
   }
 
@@ -189,22 +189,19 @@ export class RootRollupPublicInputs {
     return bufferSchemaFor(RootRollupPublicInputs);
   }
 
-  /** Creates a random instance. */
-  static random() {
-    return new RootRollupPublicInputs(
-      AppendOnlyTreeSnapshot.random(),
-      AppendOnlyTreeSnapshot.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      makeTuple(AZTEC_MAX_EPOCH_DURATION, Fr.random),
-      makeTuple(AZTEC_MAX_EPOCH_DURATION, FeeRecipient.random),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      makeTuple(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs.empty),
-    );
-  }
+  // /** Creates a random instance. */
+  // static random() {
+  //   return new RootRollupPublicInputs(
+  //     AppendOnlyTreeSnapshot.random(),
+  //     AppendOnlyTreeSnapshot.random(),
+  //     Fr.random(),
+  //     Fr.random(),
+  //     Fr.random(),
+  //     makeTuple(AZTEC_MAX_EPOCH_DURATION, FeeRecipient.random),
+  //     Fr.random(),
+  //     Fr.random(),
+  //     Fr.random(),
+  //     makeTuple(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs.empty),
+  //   );
+  // }
 }

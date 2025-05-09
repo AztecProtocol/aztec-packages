@@ -19,6 +19,16 @@ function testFn(Field: any, name: string) {
       expect(deserialized.equals(original)).toBeTruthy();
     });
 
+    // Test case for Field.fromNoirBigNum
+    it('fromNoirBigNum should serialize and deserialize correctly', () => {
+      const original = Field.random();
+      const bignum = original.toNoirBigNum();
+      const deserialized = Field.fromNoirBigNum(bignum);
+
+      // Check if the deserialized instance is equal to the original**
+      expect(deserialized.equals(original)).toBeTruthy();
+    });
+
     // Test case for Field.fromString
     it('fromString should serialize and deserialize correctly', () => {
       const original = Field.random();

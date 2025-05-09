@@ -270,6 +270,8 @@ export async function generateProof(
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
+    console.log('vk path');
+    console.log(`${outputPath}`);
     return {
       status: BB_RESULT.FAILURE,
       reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,

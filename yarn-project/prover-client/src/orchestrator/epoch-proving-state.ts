@@ -1,3 +1,4 @@
+import { BatchedBlobAccumulator, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -54,15 +55,18 @@ export class EpochProvingState {
   public readonly cachedTubeProofs = new Map<string, Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>>();
 
   public blocks: (BlockProvingState | undefined)[] = [];
+  // public blobAccumulatorState: BatchedBlobAccumulator;
 
   constructor(
     public readonly epochNumber: number,
     public readonly firstBlockNumber: number,
     public readonly totalNumBlocks: number,
+    public readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {
     this.blockRootOrMergeProvingOutputs = new UnbalancedTreeStore(totalNumBlocks);
+    // this.blobAccumulatorState = BatchedBlobAccumulator.newWithChallenges(finalBlobBatchingChallenges);
   }
 
   // Adds a block to the proving state, returns its index
@@ -78,6 +82,10 @@ export class EpochProvingState {
     previousBlockHeader: BlockHeader,
   ): BlockProvingState {
     const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
+    // TODO MON: the below should be updated by this point => don't update for block root proof, update before? for add txs?
+    // console.log("NEW BLOCK PROVING STATE")
+    // console.log("block", globalVariables.blockNumber)
+    // console.log(this.blobAccumulatorState)
     const block = new BlockProvingState(
       index,
       globalVariables,

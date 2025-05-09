@@ -64,6 +64,7 @@ library BlobLib {
       );
     }
     // Return the hash of all z, y, and Cs, so we can use them in proof verification later
+    // TODO(MW): remove below (no longer needed), replace with iterative v calculation
     blobPublicInputsHash = sha256(blobPublicInputs);
     // Hash the EVM blob hashes for the block header
     blobsHashesCommitment = Hash.sha256ToField(abi.encodePacked(blobHashes));

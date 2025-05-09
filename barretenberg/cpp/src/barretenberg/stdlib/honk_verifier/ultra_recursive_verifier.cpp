@@ -56,6 +56,10 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using PublicPairingPoints = PublicInputComponent<PairingPoints<Builder>>;
 
     const size_t num_public_inputs = static_cast<uint32_t>(key->num_public_inputs.get_value());
+    // TODO below fails on this branch. Public input numbers:
+    // 236 - below
+    // 169 - const (ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH)
+    // 185 - verifier (= ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH + 16 (pairing points))
     BB_ASSERT_EQ(proof.size(), Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs);
 
     Output output;

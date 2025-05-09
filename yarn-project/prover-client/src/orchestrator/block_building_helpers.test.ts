@@ -16,9 +16,9 @@ describe('buildBlobHints', () => {
     expect(blobFields).toEqual([]);
 
     expect(blobCommitments.length).toBe(1);
-    const blobCommitmentStr = fieldArrToStr(blobCommitments[0]);
+    const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toMatchInlineSnapshot(
-      `"[0x00c0000000000000000000000000000000000000000000000000000000000000, 0]"`,
+      `"0x00c0000000000000000000000000000000000000000000000000000000000000"`,
     );
 
     const blobsHashStr = blobsHash.toString();
@@ -62,7 +62,7 @@ describe('buildBlobHints', () => {
     expect(blobFields.length).toBe(5 + 7);
 
     expect(blobCommitments.length).toBe(1);
-    const blobCommitmentStr = fieldArrToStr(blobCommitments[0]);
+    const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toMatchInlineSnapshot(
       `"[0x008c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb98, 0x0000000000000000000000000000006aaa0680f21270e7d8de4e19da5164f95c]"`,
     );

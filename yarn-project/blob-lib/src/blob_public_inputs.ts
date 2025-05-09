@@ -96,7 +96,7 @@ export class BlobPublicInputs {
 
 // NB: it is much cleaner throughout the protocol circuits to define this struct rather than use a nested array.
 // Once we accumulate blob inputs, it should be removed, and we just use BlobPublicInputs::accumulate everywhere.
-export class BlockBlobPublicInputs {
+class BlockBlobPublicInputs {
   constructor(public inner: Tuple<BlobPublicInputs, typeof BLOBS_PER_BLOCK>) {}
 
   static empty(): BlockBlobPublicInputs {
