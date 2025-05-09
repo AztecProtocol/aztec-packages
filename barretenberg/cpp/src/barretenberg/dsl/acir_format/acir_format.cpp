@@ -540,11 +540,17 @@ process_honk_recursion_constraints(Builder& builder,
 
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,
-                                       const std::shared_ptr<ClientIVC>& ivc,
+                                       std::shared_ptr<ClientIVC> ivc,
                                        bool has_valid_witness_assignments,
                                        GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
+
+    // If an ivc instance is not provided, we create an ivc with mocked state based on the ivc recursion constraints
+    // present in the program
+    if (ivc == nullptr) {
+        ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
+    }
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
     BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),
