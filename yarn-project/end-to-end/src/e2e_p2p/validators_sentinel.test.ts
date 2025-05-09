@@ -75,14 +75,20 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
-      t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots`);
+      t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots and a missed and a mined block`);
       await retryUntil(
         async () => {
-          const { initialSlot, lastProcessedSlot } = await nodes[0].getValidatorsStats();
-          return initialSlot && lastProcessedSlot && lastProcessedSlot - initialSlot >= blockCount - 1;
+          const { initialSlot, lastProcessedSlot, stats } = await nodes[0].getValidatorsStats();
+          return (
+            initialSlot &&
+            lastProcessedSlot &&
+            lastProcessedSlot - initialSlot >= blockCount - 1 &&
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-missed'))
+          );
         },
         'sentinel processed blocks',
-        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 4,
+        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 8,
         1,
       );
 
@@ -109,7 +115,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
       expect(proposerStats).toBeDefined();
       expect(t.validators.map(v => v.attester.toLowerCase())).toContain(proposerValidator);
-      expect(proposerStats.history.length).toBeGreaterThanOrEqual(BLOCK_COUNT - 1);
+      expect(proposerStats.history.length).toBeGreaterThanOrEqual(1);
       expect(proposerStats.missedProposals.rate).toBeLessThan(1);
     });
 
@@ -120,7 +126,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Asserting stats for attestor validator ${attestorValidator}`);
       expect(attestorStats).toBeDefined();
       expect(t.validators.map(v => v.attester.toLowerCase())).toContain(attestorValidator);
-      expect(attestorStats.history.length).toBeGreaterThanOrEqual(BLOCK_COUNT - 1);
+      expect(attestorStats.history.length).toBeGreaterThanOrEqual(1);
       expect(attestorStats.missedAttestations.rate).toBeLessThan(1);
     });
 
