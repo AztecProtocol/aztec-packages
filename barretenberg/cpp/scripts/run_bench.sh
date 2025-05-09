@@ -13,8 +13,6 @@ filter=$4
 
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
-export IGNITION_CRS_PATH=./srs_db/ignition
-export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
 mkdir -p bench-out
 

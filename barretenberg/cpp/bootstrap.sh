@@ -191,7 +191,7 @@ function build_bench {
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
     # bb_cli_bench is later used in yarn-project.
-    parallel --line-buffered --tag -v denoise ::: \
+    parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
       "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \

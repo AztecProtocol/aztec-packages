@@ -131,6 +131,10 @@ function gas_report {
   mv gas_report.new.json gas_report.json
 }
 
+function bench_cmds {
+  echo "$hash l1-contracts/bootstrap.sh bench"
+}
+
 function bench {
   rm -rf bench-out && mkdir -p bench-out
   if cache_download l1-gas-bench-results-$hash.tar.gz; then
@@ -210,7 +214,6 @@ function bench {
 
 function gas_benchmark {
   check=${1:-"no"}
-  echo_header "Benchmarking gas"
 
   validator_costs
 
@@ -225,7 +228,6 @@ function gas_benchmark {
 }
 
 function validator_costs {
-  echo_header "Comparing gas costs with and without validators"
   forge --version
 
   # Run test without validators
@@ -440,14 +442,11 @@ case "$cmd" in
     shift
     gas_benchmark "$@"
     ;;
-  test|test_cmds|inspect|release)
+  test|test_cmds|bench|bench_cmds|inspect|release)
     $cmd
     ;;
   "hash")
     echo $hash
-    ;;
-  "bench")
-    bench
     ;;
   *)
     echo "Unknown command: $cmd"
