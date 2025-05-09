@@ -118,6 +118,32 @@ describe('EpochCache', () => {
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
   });
 
+  it('should compute the correct timestamp for a given slot', async () => {
+    const { l1GenesisTime, slotDuration, epochDuration } = (epochCache as any).l1constants as L1RollupConstants;
+
+    // generate a random slot greater than `epochDuration`
+    const targetSlot = BigInt(epochDuration) + BigInt(Math.floor(Math.random() * 1000));
+    const targetEpoch = targetSlot / BigInt(epochDuration);
+    const epochStartSlot = targetEpoch * BigInt(epochDuration);
+    const epochStartTimestamp = l1GenesisTime + epochStartSlot * BigInt(slotDuration);
+
+    const expectedCommittee = [EthAddress.fromString('0x000000000000000000000000000000000000BEEF')];
+    const expectedSeed = 999n;
+    rollupContract.getCommitteeAt.mockResolvedValue(expectedCommittee.map(v => v.toString()));
+    rollupContract.getSampleSeedAt.mockResolvedValue(expectedSeed);
+
+    // Call getCommittee with the targetSlot. This should trigger computeCommittee for epoch 1 (or equivalent).
+    // computeCommittee will be called with epoch = correctEpochForTargetSlot, and ts = timestampGeneratedByBug
+    await epochCache.getCommittee(targetSlot);
+
+    // Assert that the rollup contract methods were called with the incorrectly calculated timestamp.
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
+
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(epochStartTimestamp);
+  });
+
   it('should cache multiple epochs', async () => {
     // Initial call to get validators
     const { committee: initialCommittee } = await epochCache.getCommittee();
