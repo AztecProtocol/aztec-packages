@@ -196,7 +196,7 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-function build_benchmarks {
+function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
@@ -226,10 +226,10 @@ function bench_cmds {
   done
 }
 
+
 # Runs benchmarks sharded over machine cores.
 function bench {
   echo_header "bb bench"
-  # build_benchmarks
 
   rm -rf bench-out && mkdir -p bench-out
 
@@ -287,7 +287,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_benchmarks|release|build_native|build_nodejs_module|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
     $cmd "$@"
     ;;
   *)

@@ -241,9 +241,9 @@ function build {
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- barretenberg/cpp barretenberg/acir_tests noir-projects/noir-protocol-circuits
+    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/acir_tests noir-projects/noir-protocol-circuits
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
 }
 
 function bench {
@@ -251,12 +251,10 @@ function bench {
   if [ $(arch) == arm64 ]; then
     return
   fi
+  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
+    barretenberg/cpp \
+    yarn-project/end-to-end
   bench_cmds | STRICT_SCHEDULING=1 parallelise
-
-  # denoise "yarn-project/simulator/bootstrap.sh bench"
-  # denoise "yarn-project/end-to-end/bootstrap.sh bench"
-
-  # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
 function release_github {
@@ -359,25 +357,35 @@ case "$cmd" in
     install_hooks
     build $cmd
   ;;
-  "ci")
+  "ci-pr")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=0
     build
+    test
+    ;;
+  "ci-full")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-nightly")
+    export CI=1
+    export CI_NIGHTLY=1
+    build
+    test
+    docs/bootstrap.sh release-docs
+    ;;
+  "ci-release")
+    export CI=1
     if ! semver check $REF_NAME; then
-      test
-      bench
-      echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
-    else
-      release
-      if [ "$CI_NIGHTLY" -eq 1 ]; then
-        echo_stderr -e "${yellow}Not benching $REF_NAME because it is a nightly release.${reset}"
-        test
-      else
-        echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
-      fi
+      exit 1
     fi
-
-    if [ "$REF_NAME" = "master" ]; then
-      docs/bootstrap.sh release-docs
-    fi
+    build
+    release
     ;;
   test|test_cmds|bench|bench_cmds|release|release_dryrun)
     $cmd "$@"

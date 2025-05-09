@@ -7,8 +7,6 @@ name: CI3
 on:
   workflow_dispatch:
   push:
-    branches:
-      - master
     tags:
       - "v*"
   pull_request:
@@ -16,12 +14,9 @@ on:
   merge_group: {}
 
 concurrency:
-  # If we are pushing a tag, we are doing a release - we should only ever have 1 of those at a time, globally!
   # On PR's the group id is the ref_name so only 1 can run at a time per PR.
   group: |
-    ci3-${{ startsWith(github.ref, 'refs/tags/v') && 'release'
-                                                  || (github.event_name == 'pull_request' && github.ref_name
-                                                                                          || github.run_id) }}
+    ci3-${{ github.event_name == 'pull_request' && github.ref_name || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -29,18 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: never run on forks
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
-    if: github.event.pull_request.head.repo.fork != true
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
-    strategy:
-      fail-fast: true
-      matrix:
-        # Only run arm64 build with arm64-ci label or on master or on tagged releases.
-        # The way to do conditions here is to parse full strings as JSON.
-        settings: >-
-          ${{ fromJson(
-            (contains(github.event.pull_request.labels.*.name, 'arm64-ci') || github.event_name == 'push' || github.event_name == 'merge_group' || startsWith(github.ref, 'refs/tags/v')) &&
-            '[{"arch":"amd64"},{"arch":"arm64"}]' ||
-            '[{"arch":"amd64"}]') }}
     steps:
       #############
       # Prepare Env
@@ -50,12 +35,6 @@ jobs:
         with:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          # Include previous commit for master history comparisons.
-          fetch-depth: 2
-
-      - name: Fail If Draft
-        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
-        run: echo "CI is not run on drafts." && exit 1
 
       - name: CI Full Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
@@ -66,10 +45,6 @@ jobs:
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
-
-      - name: CI Nightly Check
-        if: contains(github.ref, '-nightly.')
-        run: echo "CI_NIGHTLY=1" >> $GITHUB_ENV
 
       - name: Setup
         run: |
@@ -86,31 +61,36 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          ARCH: ${{ matrix.settings.arch }}
           RUN_ID: ${{ github.run_id }}
-          JOB_ID: ${{ matrix.settings.arch }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           CI: 1
-          # Enable full CI until we have a merge queue to prevent easy regressions.
-          CI_FULL: 1
           # Nightly test env vars.
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
-        run: exec ./ci.sh ga
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ]; then
+            exec ./ci.sh merge-queue
+          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
+            exec ./ci.sh nightly
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+            exec ./ci.sh release
+          else
+            exec ./ci.sh pr
+          fi
 
       - name: Download benchmarks
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        if: github.event_name == 'merge_group'
         run: |
           ./ci.sh gh-bench
 
       - name: Store barretenberg benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_BB_BENCH != 'true'
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -125,7 +105,7 @@ jobs:
           max-items-in-chart: 50
 
       - name: Store protocol circuit benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Protocol Circuit Gate Counts
@@ -140,7 +120,7 @@ jobs:
           max-items-in-chart: 50
 
       - name: Store Example App IVC benchmark results
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -155,7 +135,7 @@ jobs:
           max-items-in-chart: 50
 
       - name: Store yarn project benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master' && env.SKIP_YP_BENCH != 'true'
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: "End-to-end Benchmark"
@@ -171,10 +151,11 @@ jobs:
           max-items-in-chart: 50
 
       - name: Store public simulator benchmark result
-        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: "Public Simulation Benchmarks"
+          # TODO: Separate master and next benchmarks.
           benchmark-data-dir-path: "dev/sim-bench"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/sim-bench.json
@@ -189,7 +170,7 @@ jobs:
           max-items-in-chart: 50
 
       # - name: Store p2p benchmark result
-      #   if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+      #   if: github.event_name == 'merge_group'
       #   continue-on-error: true
       #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
       #   with:

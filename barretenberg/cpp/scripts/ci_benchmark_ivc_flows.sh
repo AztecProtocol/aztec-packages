@@ -13,14 +13,11 @@ benchmark_output="$2"
 
 echo_header "bb ivc flow bench"
 
-export HARDWARE_CONCURRENCY=16
+export HARDWARE_CONCURRENCY=${CPUS:-16}
 export IGNITION_CRS_PATH=./srs_db/ignition
 export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 export native_preset=${NATIVE_PRESET:-clang16-assert}
 export native_build_dir=$(scripts/cmake/preset-build-dir $native_preset)
-
-mkdir -p bench-out
-rm -rf bench-out/ivc-*
 
 function verify_ivc_flow {
   local flow="$1"
@@ -74,8 +71,8 @@ function run_bb_cli_bench {
 function client_ivc_flow {
   set -eu
   local runtime="$1"
-  local flow="$2"
-  local flow_folder="$input_folder/$flow"
+  local flow_folder="$2"
+  local flow="$(basename $flow_folder)"
   local start=$(date +%s%N)
 
   local output="bench-out/ivc-$flow-$runtime"
@@ -102,50 +99,25 @@ function client_ivc_flow {
   [[ "$runtime" == "wasm" ]] && runtime_suffix="-wasm"
 
   cat > "$output/benchmarks.json" <<EOF
+[
   {
-    "benchmarks": [
-    {
-      "name": "$flow-ivc-proof$runtime_suffix",
-      "time_unit": "ms",
-      "real_time": ${elapsed_ms}
-    },
-    {
-      "name": "$flow-ivc-proof$runtime_suffix-memory",
-      "time_unit": "MB",
-      "real_time": ${memory_taken_mb}
-    }
-    ]
+    "name": "bb/$flow-ivc-proof$runtime_suffix",
+    "unit": "ms",
+    "value": ${elapsed_ms}
+  },
+  {
+    "name": "bb/$flow-ivc-proof$runtime_suffix-memory",
+    "unit": "MB",
+    "value": ${memory_taken_mb}
   }
+]
 EOF
 }
 
-function run_benchmark {
-  set -eu
-  local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
-  local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
-  echo taskset -c $start_core-$end_core bash -c "$2"
-  taskset -c $start_core-$end_core bash -c "$2"
-}
+export -f verify_ivc_flow run_bb_cli_bench
 
-export -f verify_ivc_flow client_ivc_flow run_bb_cli_bench run_benchmark
+client_ivc_flow $1 $2
 
-# TODO this does not work with smaller core counts - we will soon have a benchmark-wide mechanism for this.
-num_cpus=$(get_num_cpus)
-jobs=$((num_cpus / HARDWARE_CONCURRENCY))
-
-# Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
-if [ -n "${IVC_BENCH:-}" ]; then
-  # If IVC_BENCH is set, run only that benchmark.
-  run_benchmark 1 "client_ivc_flow native $IVC_BENCH"
-  run_benchmark 1 "client_ivc_flow wasm $IVC_BENCH"
-else
-  for runtime in native wasm; do
-    parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow '$runtime' {}"' ::: $(ls "$input_folder")
-  done
-fi
-
-mkdir -p "$benchmark_output"
-
-../scripts/combine_benchmarks.py \
-  ./bench-out/*/benchmarks.json \
-  > $benchmark_output/ivc-bench.json
+# ../scripts/combine_benchmarks.py \
+#   ./bench-out/*/benchmarks.json \
+#   > $benchmark_output/ivc-bench.json

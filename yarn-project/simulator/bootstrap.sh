@@ -3,7 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-function bench {
+function bench_cmds {
 	local hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
 
 	rm -rf bench-out && mkdir -p bench-out
