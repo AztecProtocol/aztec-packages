@@ -70,7 +70,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   constructor(
     _clientType: T,
-    store: AztecAsyncKVStore,
+    private store: AztecAsyncKVStore,
     private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
@@ -89,6 +89,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
+  }
+
+  public clear(): Promise<void> {
+    return this.store.clear();
   }
 
   public isP2PClient(): true {
@@ -336,7 +340,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.txPool.addTxs(filteredTxs);
     }
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
-    this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
+    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}}) from peers`);
 
     // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
     return txs;
@@ -421,9 +425,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Returns transactions in the transaction pool by hash.
    * If a transaction is not in the pool, it will be requested from the network.
    * @param txHashes - Hashes of the transactions to look for.
-   * @returns The txs found, not necessarily on the same order as the hashes.
+   * @returns The txs found, or undefined if not found in the order requested.
    */
-  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
     const missingTxHashes = txs
       .map((tx, index) => [tx, index] as const)
@@ -436,7 +440,29 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes);
     const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
-    return txs.filter((tx): tx is Tx => !!tx).concat(fetchedMissingTxs);
+
+    // TODO: optimize
+    // Merge the found txs in order
+    const mergingTxsPromises = txHashes.map(async txHash => {
+      // Is it in the txs list from the mempool?
+      for (const tx of txs) {
+        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+          return tx;
+        }
+      }
+
+      // Is it in the fetched missing txs?
+      for (const tx of fetchedMissingTxs) {
+        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+          return tx;
+        }
+      }
+
+      // Otherwise return undefined
+      return undefined;
+    });
+
+    return await Promise.all(mergingTxsPromises);
   }
 
   /**
@@ -661,11 +687,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private async handlePruneL2Blocks(latestBlock: number): Promise<void> {
     // NOTE: temporary fix for alphanet, deleting ALL txs that were in the epoch from the pool #13723
     // TODO: undo once fixed: #13770
-    const txsToDelete = new Set<TxHash>();
+    const txsToDelete = new Map<string, TxHash>();
     const minedTxs = await this.txPool.getMinedTxHashes();
     for (const [txHash, blockNumber] of minedTxs) {
       if (blockNumber > latestBlock) {
-        txsToDelete.add(txHash);
+        txsToDelete.set(txHash.toString(), txHash);
       }
     }
 
@@ -674,7 +700,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
         const txHash = await tx.getTxHash();
-        txsToDelete.add(txHash);
+        txsToDelete.set(txHash.toString(), txHash);
       }
     }
 
@@ -685,7 +711,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     );
 
     // delete invalid txs (both pending and mined)
-    await this.txPool.deleteTxs(Array.from(txsToDelete));
+    await this.txPool.deleteTxs(Array.from(txsToDelete.values()));
 
     // everything left in the mined set was built against a block on the proven chain so its still valid
     // move back to pending the txs that were reorged out of the chain
@@ -736,5 +762,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const oldState = this.currentState;
     this.currentState = newState;
     this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
+  }
+  public validate(txs: Tx[]): Promise<void> {
+    return this.p2pService.validate(txs);
   }
 }

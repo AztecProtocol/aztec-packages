@@ -103,7 +103,7 @@ wait $job_pid
 status=$?
 
 time="${SECONDS}s"
-[ -n "$publish_pid" ] && kill $publish_pid &>/dev/null || true
+[ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
 publish_log
 
 # Handle non-zero exit status

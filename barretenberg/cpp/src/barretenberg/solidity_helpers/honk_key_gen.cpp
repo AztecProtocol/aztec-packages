@@ -62,7 +62,7 @@ int main(int argc, char** argv)
     const std::string output_path = args[2];
     const std::string srs_path = args[3];
 
-    bb::srs::init_crs_factory(srs_path);
+    bb::srs::init_file_crs_factory(srs_path);
 
     info("Generating keys for ", circuit_flavor, " circuit");
 

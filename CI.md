@@ -37,7 +37,7 @@ CI3 aims to be clutter free. These are the main scripts to be aware of:
 - `/ci.sh` - For all CI related workflow such as triggering CI runs, tailing logs, getting historical logs, running on remote machines with different architectures, etc.
 - `/bootstrap.sh` - Root bootstrap script. Can build, test and deploy the entire repository.
 - `/**/bootstrap.sh` - Project specific bootstrap scripts. Follow common patterns such as allowing fetching of test commands. Where possible _everything needed to **bootstrap, test, and release** the project should be in this one script_. There maybe some exceptions but we want "locality of behaviour".
-- `/**/scripts/run_test.sh` - Each project has such a script that can, given arguments, run a _single_ test. The test commands returned by `./bootstrap test_cmds` will usually be calling this script in each project.
+- `/**/scripts/run_test.sh` - Each project has such a script that, given arguments, can run a _single_ test. The test commands returned by `./bootstrap test_cmds` will usually be calling this script in each project.
 
 As a general philosophy, do not be creating random little scripts to aid in your workflow. I'd be happy to hear what workflow problems you're having, and we can look at updating the existing bootstrap scripts to better support it.
 
@@ -82,7 +82,7 @@ If you want to build everything from scratch and not use the cache:
 ./bootstrap.sh full
 ```
 
-After running any of the above, you should have a fully runnable repository, including being able to run all the tests. If something doesn't run without further intervention, somethings wrong and you should let me know.
+After running any of the above, you should have a fully runnable repository, including being able to run all the tests. If something doesn't run without further intervention, something's wrong and you should let me know.
 
 ### Cleaning the repo.
 
@@ -122,7 +122,7 @@ To see the test commands that are run for a given project, run:
 
 The test commands are filtered to not include matching patterns in the root `.test_skip_patterns` file.
 
-You can run this in the root to see all test commands, or provide project folders as arguments, or run it directly in a project folder. You might want to make sure this reflects what you expect when you add tests. Generally you shouldn't have to worry about it, the scripts are automated enough to find the tests if you're following the usual patterns. You'll something like:
+You can run this in the root to see all test commands, or provide project folders as arguments, or run it directly in a project folder. You might want to make sure this reflects what you expect when you add tests. Generally you shouldn't have to worry about it, the scripts are automated enough to find the tests if you're following the usual patterns. You'll get something like:
 
 ```
 699e81f5e2f9e8a3 barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests boomerang_ultra_circuit_constructor.test_graph_for_arithmetic_gates

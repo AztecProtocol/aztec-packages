@@ -20,7 +20,7 @@ contract ScreamAndShoutTest is Test {
 
     assertEq(
       codeHash,
-      0xc5594d87bc16a899c69da562e03152d6ce1250ceb174eca00ff76617e5fbffc2,
+      0x1c94a3ea879b87e354831c2c42495661e6dab14b7f741370f25882704e7a26c2,
       "You have changed the rollup!"
     );
   }
@@ -42,7 +42,7 @@ contract ScreamAndShoutTest is Test {
 
     assertEq(
       codeHash,
-      0x45bb8de1be4c8238209f5882f7a5e1089fb7aad5ae97162f789ba15cd56aacff,
+      0x2d5383ffd216a8b1c945b9db534b7363b9cd0b9757b59125a77159a6abc637db,
       "You have changed the registry!"
     );
   }

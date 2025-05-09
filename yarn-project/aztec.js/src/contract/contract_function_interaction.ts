@@ -138,14 +138,16 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(options: ProfileMethodOptions = { profileMode: 'gates' }): Promise<TxProfileResult> {
+  public async profile(
+    options: ProfileMethodOptions = { profileMode: 'gates', skipProofGeneration: true },
+  ): Promise<TxProfileResult> {
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       throw new Error("Can't profile a utility function.");
     }
     const { authWitnesses, capsules, fee } = options;
 
     const txRequest = await this.create({ fee, authWitnesses, capsules });
-    return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
+    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
   }
 
   /**

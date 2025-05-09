@@ -21,6 +21,12 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
 {
 
     auto wires = circuit.wires;
+
+    auto report_fail = [&](const char* message, size_t row_idx) {
+        info(message, row_idx);
+        return false;
+    };
+
     // Compute the limbs of evaluation_input_x and powers of batching_challenge_v (these go into the relation)
     RelationInputs relation_inputs =
         compute_relation_inputs_limbs(circuit.batching_challenge_v, circuit.evaluation_input_x);
@@ -78,14 +84,12 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         }
         return mini_accumulator;
     };
-    /**
-     * @brief Go through each gate
-     *
-     */
-    for (size_t i = 1; i < circuit.num_gates - 1; i++) {
-        bool gate_is_odd = i & 1;
-        // The main relation is computed between odd and the next even indices. For example, 1 and 2
-        if (gate_is_odd) {
+
+    // TODO(https: // github.com/AztecProtocol/barretenberg/issues/1367): Report all failures more explicitly and
+    // consider making use of relations.
+
+    for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
+        {
             // Get the values of P.x
             Fr op_code = circuit.get_variable(op_wire[i]);
             Fr p_x_lo = circuit.get_variable(x_lo_y_hi_wire[i]);
@@ -203,7 +207,8 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
                   check_wide_limb_into_binary_limb_relation({ p_y_lo, p_y_hi }, p_y_binary_limbs) &&
                   check_wide_limb_into_binary_limb_relation({ z_1 }, z_1_binary_limbs) &&
                   check_wide_limb_into_binary_limb_relation({ z_2 }, z_2_binary_limbs))) {
-                return false;
+
+                return report_fail("wide limb decomposition failied at row = ", i);
             }
 
             enum LimbSeriesType { STANDARD_COORDINATE, Z_SCALAR, QUOTIENT };
@@ -429,25 +434,36 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
                      .is_zero()) {
                 return false;
             };
-
-        } else {
+        }
+        {
+            size_t odd_gate_index = i + 1;
             // Check the accumulator is copied correctly
             const std::vector current_accumulator_binary_limbs_copy = {
-                circuit.get_variable(accumulators_binary_limbs_0_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_1_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_2_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_3_wire[i]),
+                circuit.get_variable(accumulators_binary_limbs_0_wire[odd_gate_index]),
+                circuit.get_variable(accumulators_binary_limbs_1_wire[odd_gate_index]),
+                circuit.get_variable(accumulators_binary_limbs_2_wire[odd_gate_index]),
+                circuit.get_variable(accumulators_binary_limbs_3_wire[odd_gate_index]),
             };
-            const std::vector current_accumulator_binary_limbs = {
-                circuit.get_variable(accumulators_binary_limbs_0_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_1_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_2_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_3_wire[i + 1]),
-            };
+            if (odd_gate_index < circuit.num_gates - 1) {
+                size_t next_even_gate_index = i + 2;
+                const std::vector current_accumulator_binary_limbs = {
+                    circuit.get_variable(accumulators_binary_limbs_0_wire[next_even_gate_index]),
+                    circuit.get_variable(accumulators_binary_limbs_1_wire[next_even_gate_index]),
+                    circuit.get_variable(accumulators_binary_limbs_2_wire[next_even_gate_index]),
+                    circuit.get_variable(accumulators_binary_limbs_3_wire[next_even_gate_index]),
+                };
 
-            for (size_t j = 0; j < current_accumulator_binary_limbs.size(); j++) {
-                if (current_accumulator_binary_limbs_copy[j] != current_accumulator_binary_limbs[j]) {
-                    return false;
+                for (size_t j = 0; j < current_accumulator_binary_limbs.size(); j++) {
+                    if (current_accumulator_binary_limbs_copy[j] != current_accumulator_binary_limbs[j]) {
+                        return report_fail("accumulator copy failed at row = ", odd_gate_index);
+                    }
+                }
+            } else {
+                // Check accumulator starts at zero
+                for (const auto& limb : current_accumulator_binary_limbs_copy) {
+                    if (limb != Fr(0)) {
+                        return report_fail("accumulator doesn't start with 0 = ", odd_gate_index);
+                    }
                 }
             }
         }

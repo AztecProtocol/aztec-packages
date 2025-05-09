@@ -11,11 +11,7 @@ using namespace bb;
 
 class GoblinRecursionTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
@@ -65,7 +61,6 @@ TEST_F(GoblinRecursionTests, Vanilla)
         GoblinMockCircuits::construct_mock_kernel_small(kernel_circuit,
                                                         { function_accum.proof, function_accum.verification_key },
                                                         { kernel_accum.proof, kernel_accum.verification_key });
-        PairingPoints::add_default_to_public_inputs(kernel_circuit);
         goblin.prove_merge();
         kernel_accum = construct_accumulator(kernel_circuit);
     }

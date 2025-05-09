@@ -44,7 +44,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using ClaimBatch = ClaimBatcher::Batch;
     using MockClaimGen = MockClaimGenerator<NativeCurve>;
 
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
         using diff_t = std::vector<NativeFr>::difference_type;
 

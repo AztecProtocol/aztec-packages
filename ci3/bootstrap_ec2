@@ -231,7 +231,7 @@ function run {
       -v bootstrap_ci_local_docker:/var/lib/docker \
       -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
       -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
+      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
       -v /tmp:/tmp \
       -v /dev/kmsg:/dev/kmsg \
       -e RUN_ID=${RUN_ID:-} \
