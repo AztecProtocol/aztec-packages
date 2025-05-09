@@ -15,38 +15,31 @@ import { ATTR_JSONRPC_METHOD, ATTR_JSONRPC_REQUEST_ID } from '../vendor/attribut
  * @returns A fetch function.
  */
 export function makeTracedFetch(retries: number[], defaultNoRetry: boolean, fetch = defaultFetch, log?: Logger) {
-  return (
-    host: string,
-    rpcMethod: string,
-    body: any,
-    useApiEndpoints: boolean,
-    extraHeaders: Record<string, string> = {},
-    noRetry?: boolean,
-  ) => {
+  return (host: string, body: unknown, extraHeaders: Record<string, string> = {}, noRetry?: boolean) => {
     const telemetry = getTelemetryClient();
-    return telemetry
-      .getTracer('fetch')
-      .startActiveSpan(`JsonRpcClient.${rpcMethod}`, { kind: SpanKind.CLIENT }, async span => {
-        try {
-          if (body && typeof body.id === 'number') {
-            span.setAttribute(ATTR_JSONRPC_REQUEST_ID, body.id);
-          }
-          span.setAttribute(ATTR_JSONRPC_METHOD, rpcMethod);
-          const headers = { ...extraHeaders };
-          propagation.inject(context.active(), headers);
-          return await retry(
-            () => fetch(host, rpcMethod, body, useApiEndpoints, headers, noRetry ?? defaultNoRetry),
-            `JsonRpcClient request ${rpcMethod} to ${host}`,
-            makeBackoff(retries),
-            log,
-            false,
-          );
-        } catch (err: any) {
-          span.setStatus({ code: SpanStatusCode.ERROR, message: err?.message ?? String(err) });
-          throw err;
-        } finally {
-          span.end();
+    return telemetry.getTracer('fetch').startActiveSpan(`JsonRpcClient`, { kind: SpanKind.CLIENT }, async span => {
+      try {
+        if (body && typeof body === 'object' && 'id' in body && typeof body.id === 'number') {
+          span.setAttribute(ATTR_JSONRPC_REQUEST_ID, body.id);
         }
-      });
+        if (body && typeof body === 'object' && 'method' in body && typeof body.method === 'string') {
+          span.setAttribute(ATTR_JSONRPC_METHOD, body.method);
+        }
+        const headers = { ...extraHeaders };
+        propagation.inject(context.active(), headers);
+        return await retry(
+          () => fetch(host, body, headers, noRetry ?? defaultNoRetry),
+          `JsonRpcClient request to ${host}`,
+          makeBackoff(retries),
+          log,
+          false,
+        );
+      } catch (err: any) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: err?.message ?? String(err) });
+        throw err;
+      } finally {
+        span.end();
+      }
+    });
   };
 }
