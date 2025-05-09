@@ -143,7 +143,10 @@ export function ContractSelector() {
           renderValue={selected => {
             const contract = contracts.find(contract => contract.value === selected);
             if (contract) {
-              return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`
+              return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`;
+            }
+            if (selected === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
+              return 'Upload Your Own';
             }
             return selected ?? 'Select Contract';
           }}

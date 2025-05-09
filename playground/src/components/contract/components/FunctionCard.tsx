@@ -48,6 +48,7 @@ const simulationContainer = css({
   flexDirection: 'row',
   alignItems: 'center',
   textOverflow: 'ellipsis',
+  marginTop: '1rem',
 });
 
 const functionName = css({
@@ -92,9 +93,15 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     let result;
     try {
       const call = contract.methods[fnName](...parameters);
-
       result = await call.simulate({ skipFeeEnforcement: true });
-      setSimulationResults({ success: true, data: result });
+      const stringResult = JSON.stringify(result, (key, value) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      });
+
+      setSimulationResults({ success: true, data: stringResult });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
     }
@@ -153,6 +160,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     }
   };
 
+  const parametersValid = parameters.every(param => param !== undefined);
+
   return (
     <Card
       key={fn.name}
@@ -164,10 +173,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       }}
       sx={{
         backgroundColor: 'white',
-        margin: '0.5rem',
         border: 'none',
+        overflow: 'visible',
         marginBottom: '1rem',
-        overflow: 'hidden',
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
@@ -209,7 +217,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                   sx={{
                     color: 'text.secondary',
                     fontSize: 14,
-                    marginTop: '1rem',
+                    margin: '1rem 0',
                   }}
                 >
                   Parameters
@@ -230,18 +238,20 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
             {!isWorking && simulationResults !== undefined && (
               <div css={simulationContainer}>
-                <Typography variant="body1" sx={{ fontWeight: 200 }}>
-                  Simulation results:&nbsp;
+                <Typography variant="body1" sx={{ fontWeight: 200, marginRight: '0.5rem' }}>
+                  Simulation results:
                 </Typography>
-                {simulationResults?.success ? (
-                  <Typography variant="body1">
-                    {simulationResults?.data.length === 0 ? '-' : simulationResults?.data.toString()}
-                  </Typography>
-                ) : (
-                  <Typography variant="body1" color="error">
-                    {simulationResults?.error}
-                  </Typography>
-                )}{' '}
+                <div css={{ backgroundColor: 'var(--mui-palette-grey-A100)', padding: '0.5rem', borderRadius: '6px' }}>
+                  {simulationResults?.success ? (
+                    <Typography variant="body1">
+                      {simulationResults?.data ?? 'No return value'}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body1" color="error">
+                      {simulationResults?.error}
+                    </Typography>
+                  )}
+                </div>
               </div>
             )}
 
@@ -286,7 +296,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         <CardActions sx={{ flexWrap: 'wrap', gap: '0.5rem', padding: '12px' }}>
           <Tooltip title="Run a local simulation of function execution.">
             <Button
-              disabled={!wallet || !contract || isWorking}
+              disabled={!wallet || !contract || isWorking || !parametersValid}
               color="primary"
               variant="contained"
               size="small"
@@ -303,7 +313,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Simulate and send the transaction to the Aztec network by creating a client side proof.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
               size="small"
               color="primary"
               variant="contained"
@@ -320,7 +330,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Authorization witnesses (AuthWits) work similarly to permit/approval on Ethereum. They allow execution of functions on behalf of other contracts or addresses.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
               size="small"
               color="primary"
               variant="contained"
@@ -337,7 +347,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Profile this method and get the number of gates used per step. Requires valid function arguments to be set as this runs a simulation internally.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType !== 'private'}
+              disabled={!wallet || !contract || isWorking || fn.functionType !== 'private' || !parametersValid}
               color="primary"
               variant="contained"
               size="small"

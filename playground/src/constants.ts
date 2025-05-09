@@ -1,4 +1,3 @@
-export const BLOCK_EXPLORER_TX_URL = 'https://aztecscan.xyz/tx-effects/';
 export const PLAYGROUND_URL = 'https://play.aztec.network/'; // TODO: this should be based on the network
 export const DISCORD_URL = 'https://discord.gg/aztec';
 
