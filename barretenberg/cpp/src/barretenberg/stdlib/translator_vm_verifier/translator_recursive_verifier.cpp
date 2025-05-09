@@ -151,13 +151,6 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     return { pairing_points[0], pairing_points[1] };
 }
 
-/**
- * @brief
- *
- * @tparam Flavor
- * @param translation_evaluations
- * @param translation_masking_term_eval
- */
 template <typename Flavor>
 void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     const TranslationEvaluations_<BF>& translation_evaluations, const BF& translation_masking_term_eval)
@@ -189,7 +182,12 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
-        merge_commitment.assert_equal(translator_commitment);
+        // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
+        // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
+        // constants within biggroup logic.
+        merge_commitment.x.assert_equal(translator_commitment.x);
+        merge_commitment.y.assert_equal(translator_commitment.y);
+        merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
     }
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
