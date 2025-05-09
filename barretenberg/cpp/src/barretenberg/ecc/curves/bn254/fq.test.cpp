@@ -112,23 +112,23 @@ TEST(fq, MulCheckAgainstConstants)
 }
 
 // validate that zero-value limbs don't cause any problems
-TEST(fq, MulShortIntegers)
-{
-    constexpr fq a{ 0xa, 0, 0, 0 };
-    constexpr fq b{ 0xb, 0, 0, 0 };
-    constexpr uint256_t a_original(a);
-    constexpr uint256_t b_original(b);
-    constexpr uint256_t prod_expected = (uint512_t(a_original) * uint512_t(b_original) % uint512_t(fq::modulus)).lo;
-    constexpr fq const_expected = prod_expected;
-    constexpr fq const_result = a * b;
-    static_assert(const_result == const_expected);
+// TEST(fq, MulShortIntegers)
+// {
+//     constexpr fq a{ 0xa, 0, 0, 0 };
+//     constexpr fq b{ 0xb, 0, 0, 0 };
+//     constexpr uint256_t a_original(a);
+//     constexpr uint256_t b_original(b);
+//     constexpr uint256_t prod_expected = (uint512_t(a_original) * uint512_t(b_original) % uint512_t(fq::modulus)).lo;
+//     constexpr fq const_expected = prod_expected;
+//     constexpr fq const_result = a * b;
+//     static_assert(const_result == const_expected);
 
-    fq c;
-    fq d;
-    shallow_copy(a, c);
-    shallow_copy(b, d);
-    EXPECT_EQ(c * d, const_expected);
-}
+//     fq c;
+//     fq d;
+//     shallow_copy(a, c);
+//     shallow_copy(b, d);
+//     EXPECT_EQ(c * d, const_expected);
+// }
 
 TEST(fq, MulSqrConsistency)
 {

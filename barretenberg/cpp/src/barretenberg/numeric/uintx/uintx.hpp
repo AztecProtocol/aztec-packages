@@ -52,128 +52,128 @@ template <class base_uint> class uintx {
     constexpr uintx(const uintx& other) = default;
     constexpr uintx(uintx&& other) noexcept = default;
 
-    static constexpr size_t length() { return 2 * base_uint::length(); }
-    constexpr uintx& operator=(const uintx& other) = default;
-    constexpr uintx& operator=(uintx&& other) noexcept = default;
+    static size_t length() { return 2 * base_uint::length(); }
+    uintx& operator=(const uintx& other) = default;
+    uintx& operator=(uintx&& other) noexcept = default;
 
-    constexpr ~uintx() = default;
-    explicit constexpr operator bool() const { return static_cast<bool>(lo); };
-    explicit constexpr operator uint8_t() const { return static_cast<uint8_t>(lo); };
-    explicit constexpr operator uint16_t() const { return static_cast<uint16_t>(lo); };
-    explicit constexpr operator uint32_t() const { return static_cast<uint32_t>(lo); };
-    explicit constexpr operator uint64_t() const { return static_cast<uint64_t>(lo); };
+    ~uintx() = default;
+    explicit operator bool() const { return static_cast<bool>(lo); };
+    explicit operator uint8_t() const { return static_cast<uint8_t>(lo); };
+    explicit operator uint16_t() const { return static_cast<uint16_t>(lo); };
+    explicit operator uint32_t() const { return static_cast<uint32_t>(lo); };
+    explicit operator uint64_t() const { return static_cast<uint64_t>(lo); };
 
-    explicit constexpr operator base_uint() const { return lo; }
+    explicit operator base_uint() const { return lo; }
 
-    [[nodiscard]] constexpr bool get_bit(uint64_t bit_index) const;
-    [[nodiscard]] constexpr uint64_t get_msb() const;
-    constexpr uintx slice(uint64_t start, uint64_t end) const;
+    [[nodiscard]] bool get_bit(uint64_t bit_index) const;
+    [[nodiscard]] uint64_t get_msb() const;
+    uintx slice(uint64_t start, uint64_t end) const;
 
-    constexpr uintx operator+(const uintx& other) const;
-    constexpr uintx operator-(const uintx& other) const;
-    constexpr uintx operator-() const;
+    uintx operator+(const uintx& other) const;
+    uintx operator-(const uintx& other) const;
+    uintx operator-() const;
 
-    constexpr uintx operator*(const uintx& other) const;
-    constexpr uintx operator/(const uintx& other) const;
-    constexpr uintx operator%(const uintx& other) const;
+    uintx operator*(const uintx& other) const;
+    uintx operator/(const uintx& other) const;
+    uintx operator%(const uintx& other) const;
 
-    constexpr std::pair<uintx, uintx> mul_extended(const uintx& other) const;
+    std::pair<uintx, uintx> mul_extended(const uintx& other) const;
 
-    constexpr uintx operator>>(uint64_t other) const;
-    constexpr uintx operator<<(uint64_t other) const;
+    uintx operator>>(uint64_t other) const;
+    uintx operator<<(uint64_t other) const;
 
-    constexpr uintx operator&(const uintx& other) const;
-    constexpr uintx operator^(const uintx& other) const;
-    constexpr uintx operator|(const uintx& other) const;
-    constexpr uintx operator~() const;
+    uintx operator&(const uintx& other) const;
+    uintx operator^(const uintx& other) const;
+    uintx operator|(const uintx& other) const;
+    uintx operator~() const;
 
-    constexpr bool operator==(const uintx& other) const;
-    constexpr bool operator!=(const uintx& other) const;
-    constexpr bool operator!() const;
+    bool operator==(const uintx& other) const;
+    bool operator!=(const uintx& other) const;
+    bool operator!() const;
 
-    constexpr bool operator>(const uintx& other) const;
-    constexpr bool operator<(const uintx& other) const;
-    constexpr bool operator>=(const uintx& other) const;
-    constexpr bool operator<=(const uintx& other) const;
+    bool operator>(const uintx& other) const;
+    bool operator<(const uintx& other) const;
+    bool operator>=(const uintx& other) const;
+    bool operator<=(const uintx& other) const;
 
-    constexpr uintx& operator+=(const uintx& other)
+    uintx& operator+=(const uintx& other)
     {
         *this = *this + other;
         return *this;
     };
-    constexpr uintx& operator-=(const uintx& other)
+    uintx& operator-=(const uintx& other)
     {
         *this = *this - other;
         return *this;
     };
-    constexpr uintx& operator*=(const uintx& other)
+    uintx& operator*=(const uintx& other)
     {
         *this = *this * other;
         return *this;
     };
-    constexpr uintx& operator/=(const uintx& other)
+    uintx& operator/=(const uintx& other)
 
     {
         *this = *this / other;
         return *this;
     };
-    constexpr uintx& operator%=(const uintx& other)
+    uintx& operator%=(const uintx& other)
 
     {
         *this = *this % other;
         return *this;
     };
 
-    constexpr uintx& operator++()
+    uintx& operator++()
     {
         *this += uintx(1);
         return *this;
     };
-    constexpr uintx& operator--()
+    uintx& operator--()
     {
         *this -= uintx(1);
         return *this;
     };
 
-    constexpr uintx& operator&=(const uintx& other)
+    uintx& operator&=(const uintx& other)
     {
         *this = *this & other;
         return *this;
     };
-    constexpr uintx& operator^=(const uintx& other)
+    uintx& operator^=(const uintx& other)
     {
         *this = *this ^ other;
         return *this;
     };
-    constexpr uintx& operator|=(const uintx& other)
+    uintx& operator|=(const uintx& other)
     {
         *this = *this | other;
         return *this;
     };
 
-    constexpr uintx& operator>>=(const uint64_t other)
+    uintx& operator>>=(const uint64_t other)
     {
         *this = *this >> other;
         return *this;
     };
-    constexpr uintx& operator<<=(const uint64_t other)
+    uintx& operator<<=(const uint64_t other)
     {
         *this = *this << other;
         return *this;
     };
 
-    constexpr uintx invmod(const uintx& modulus) const;
-    constexpr uintx unsafe_invmod(const uintx& modulus) const;
+    uintx invmod(const uintx& modulus) const;
+    uintx unsafe_invmod(const uintx& modulus) const;
 
     base_uint lo;
     base_uint hi;
 
-    template <base_uint modulus> constexpr std::pair<uintx, uintx> barrett_reduction() const;
+    template <base_uint modulus> std::pair<uintx, uintx> barrett_reduction() const;
 
     // This only works (and is only used) for uint256_t
-    constexpr std::pair<uintx, uintx> divmod(const uintx& b) const;
+    std::pair<uintx, uintx> divmod(const uintx& b) const;
     // This only works (and is only used) for uint256_t
-    constexpr std::pair<uintx, uintx> divmod_base(const uintx& b) const;
+    std::pair<uintx, uintx> divmod_base(const uintx& b) const;
 };
 
 template <typename B, typename Params> inline void read(B& it, uintx<Params>& value)
@@ -205,8 +205,6 @@ extern template class uintx<uint512_t>;
 using uint1024_t = uintx<uint512_t>;
 
 } // namespace bb::numeric
-
-#include "./uintx_impl.hpp"
 
 using bb::numeric::uint1024_t; // NOLINT
 using bb::numeric::uint512_t;  // NOLINT

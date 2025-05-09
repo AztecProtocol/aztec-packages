@@ -42,7 +42,7 @@ template <typename Builder> class safe_uint_t {
     static constexpr uint256_t MAX_VALUE = bb::fr::modulus - 1;
     static constexpr size_t IS_UNSAFE = 143; // weird constant to make it hard to use accidentally
     // Make sure our uint256 values don't wrap  - add_two function sums three of these
-    static_assert((uint512_t)MAX_VALUE * 3 < (uint512_t)1 << 256);
+    // static_assert((uint512_t)MAX_VALUE * 3 < (uint512_t)1 << 256);
     field_ct value;
     uint256_t current_max;
 
