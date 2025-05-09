@@ -133,9 +133,9 @@ TEST(AvmInputsTest, ValuesInColumns)
 
     // Set public logs (spans multiple rows per log)
     pi.accumulatedData.publicLogs[0].contractAddress = 11223;
-    pi.accumulatedData.publicLogs[0].length = PUBLIC_LOG_SIZE_IN_FIELDS;
+    pi.accumulatedData.publicLogs[0].emittedLength = PUBLIC_LOG_SIZE_IN_FIELDS;
     for (size_t j = 0; j < PUBLIC_LOG_SIZE_IN_FIELDS; ++j) {
-        pi.accumulatedData.publicLogs[0].log[j] = 10000 + j;
+        pi.accumulatedData.publicLogs[0].fields[j] = 10000 + j;
     }
 
     // Set public data writes
@@ -310,8 +310,8 @@ TEST(AvmInputsTest, ValuesInColumns)
     size_t first_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
     for (size_t j = 0; j < 3; ++j) {
         EXPECT_EQ(flat[col0_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].contractAddress);
-        EXPECT_EQ(flat[col1_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].length);
-        EXPECT_EQ(flat[col2_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].log[j]);
+        EXPECT_EQ(flat[col1_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].emittedLength);
+        EXPECT_EQ(flat[col2_offset + first_log_row + j], pi.accumulatedData.publicLogs[0].fields[j]);
     }
 
     // Public data writes (uses 2 columns)
