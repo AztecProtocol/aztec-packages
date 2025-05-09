@@ -9,7 +9,6 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
@@ -18,11 +17,11 @@ import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../../staking/TimeCheater.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 contract SlashingScenario is TestBase {
   TestERC20 internal testERC20;
@@ -74,9 +73,9 @@ contract SlashingScenario is TestBase {
       TestConstants.AZTEC_EPOCH_DURATION
     );
 
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);
-    rollup.cheat__InitialiseValidatorSet(initialValidators);
+    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+    testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);
+    multiAdder.addValidators(initialValidators);
 
     // Cast a bunch of votes
     timeCheater.cheat__jumpForwardEpochs(1);

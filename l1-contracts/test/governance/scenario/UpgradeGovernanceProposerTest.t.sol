@@ -17,8 +17,9 @@ import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {NewGovernanceProposerPayload} from "./NewGovernanceProposerPayload.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {IRollup, CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -77,9 +78,9 @@ contract UpgradeGovernanceProposerTest is TestBase {
       TestConstants.getRollupConfigInput()
     );
 
-    token.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
-    token.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
-    rollup.cheat__InitialiseValidatorSet(initialValidators);
+    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+    token.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    multiAdder.addValidators(initialValidators);
 
     registry.addRollup(IRollup(address(rollup)));
     registry.updateGovernance(address(governance));
