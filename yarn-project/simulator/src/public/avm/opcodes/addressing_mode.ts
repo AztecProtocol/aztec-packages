@@ -3,8 +3,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 
-import { strict as assert } from 'assert';
-
 import { TaggedMemory, type TaggedMemoryInterface } from '../avm_memory_types.js';
 import { RelativeAddressOutOfRangeError } from '../errors.js';
 
@@ -18,19 +16,18 @@ export enum AddressingMode {
 /** A class to represent the addressing mode of an instruction. */
 export class Addressing {
   public constructor(
-    /** The addressing mode for each operand. The length of this array is the number of operands of the instruction. */
+    /** The addressing mode for each possible operand. */
     private readonly modePerOperand: Tuple<AddressingMode, typeof AVM_MAX_OPERANDS>,
-    private readonly numOperands: number,
   ) {}
 
   public static fromModes(modes: AddressingMode[]): Addressing {
     if (modes.length > AVM_MAX_OPERANDS) {
       throw new Error('Too many operands for addressing mode');
     }
-    return new Addressing(padArrayEnd(modes, AddressingMode.DIRECT, AVM_MAX_OPERANDS), modes.length);
+    return new Addressing(padArrayEnd(modes, AddressingMode.DIRECT, AVM_MAX_OPERANDS));
   }
 
-  public static fromWire(wireModes: number, numOperands: number = AVM_MAX_OPERANDS): Addressing {
+  public static fromWire(wireModes: number): Addressing {
     // The modes are stored in the wire format as one or two bytes, with each two bits representing the modes for an operand.
     // Even bits are indirect, odd bits are relative.
     const modes = makeTuple<AddressingMode, typeof AVM_MAX_OPERANDS>(AVM_MAX_OPERANDS, () => AddressingMode.DIRECT);
@@ -39,7 +36,7 @@ export class Addressing {
         (((wireModes >> (i * 2)) & 1) * AddressingMode.INDIRECT) |
         (((wireModes >> (i * 2 + 1)) & 1) * AddressingMode.RELATIVE);
     }
-    return new Addressing(modes, numOperands);
+    return new Addressing(modes);
   }
 
   public toWire(): number {
@@ -57,11 +54,6 @@ export class Addressing {
     return wire;
   }
 
-  /** Returns how many operands use the given addressing mode. */
-  public count(mode: AddressingMode): number {
-    return this.modePerOperand.filter(m => (m & mode) !== 0).length;
-  }
-
   /**
    * Resolves the offsets using the addressing mode.
    * @param offsets The offsets to resolve.
@@ -69,7 +61,6 @@ export class Addressing {
    * @returns The resolved offsets. The length of the returned array is the same as the length of the input array.
    */
   public resolve(offsets: number[], mem: TaggedMemoryInterface): number[] {
-    assert(offsets.length <= this.numOperands);
     const resolved = new Array(offsets.length);
 
     let didRelativeOnce = false;
