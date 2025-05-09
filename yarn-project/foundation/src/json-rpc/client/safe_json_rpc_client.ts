@@ -5,7 +5,10 @@ import { type PromiseWithResolvers, promiseWithResolvers } from '../../promise/u
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
 import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
-const DEFAULT_BATCH_WINDOW_MS = 10;
+// batch window of 0 would capture all requests in the current sync iteration of the event loop
+// and send them all at once in a single batch
+// minimal latency
+const DEFAULT_BATCH_WINDOW_MS = 0;
 
 export type SafeJsonRpcClientOptions = {
   namespaceMethods?: string | false;
@@ -36,6 +39,14 @@ type JsonRpcResponse =
       id?: number;
       error: { code: number; data?: any; message: string };
     };
+
+// expose helpful information on the RPC clients such that we can recognize them later
+const SEND_BATCH = Symbol('JsonRpcClient.sendBatch');
+const CLIENT_ID = Symbol('JsonRpcClient.clientId');
+
+let nextClientId = 1;
+// keep a reference to clients so that we can force send a batch
+let clients = new Map<number, WeakRef<{ [SEND_BATCH]: () => Promise<void> }>>();
 
 /**
  * Creates a Proxy object that delegates over RPC and validates outputs against a given schema.
@@ -154,10 +165,44 @@ export function createSafeJsonRpcClient<T extends object>(
     return (schema as ApiSchema)[methodName].returnType().parseAsync(response.result);
   };
 
-  const proxy: any = {};
+  const clientId = nextClientId++;
+  const proxy: any = { [CLIENT_ID]: clientId, [SEND_BATCH]: sendBatch };
   for (const method of Object.keys(schema)) {
-    proxy[method] = (...params: any[]) => request(method, params);
+    // attach the clientId to the promise so that if we want to trigger a batch immediately, we can do that
+    proxy[method] = (...params: any[]) => Object.assign(request(method, params), { [CLIENT_ID]: clientId });
   }
 
+  clients.set(clientId, new WeakRef(proxy));
+
   return proxy as T;
+}
+
+/**
+ * Triggers a batch to be sent immediately
+ */
+export async function batch<T extends readonly unknown[]>(
+  values: T,
+): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
+  const clientIdsSeen = new Set<number>();
+
+  await Promise.allSettled(
+    values.map(val => {
+      if (typeof val === 'object' && val && Object.hasOwn(val, CLIENT_ID)) {
+        const clientId = (val as { [CLIENT_ID]: any })[CLIENT_ID];
+        if (typeof clientId === 'number') {
+          if (clientIdsSeen.has(clientId)) {
+            return;
+          }
+
+          clientIdsSeen.add(clientId);
+          const client = clients.get(clientId)?.deref();
+          if (client) {
+            return client[SEND_BATCH]();
+          }
+        }
+      }
+    }),
+  );
+
+  return Promise.all(values);
 }

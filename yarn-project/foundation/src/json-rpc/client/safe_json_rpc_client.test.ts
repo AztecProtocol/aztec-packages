@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { ApiSchemaFor } from '../../schemas/api.js';
 import { sleep } from '../../sleep/index.js';
 import type { JsonRpcFetch } from './fetch.js';
-import { createSafeJsonRpcClient } from './safe_json_rpc_client.js';
+import { batch, createSafeJsonRpcClient } from './safe_json_rpc_client.js';
 
 interface TestService {
   setValue: (val: string) => Promise<string>;
@@ -64,7 +64,7 @@ describe('SafeJsonRpcClient', () => {
     };
   });
 
-  describe.each([0, 10, 100])('batching window %d', ms => {
+  describe.each([0, 1, 10, 25, 100])('batching window %d', ms => {
     let client: TestService;
 
     beforeEach(() => {
@@ -92,6 +92,7 @@ describe('SafeJsonRpcClient', () => {
       ]);
     });
 
+    // test disabled because sometimesit hangs in supertest..
     it.skip('breaks batches up after window closes', async () => {
       const p1 = client.setValue('a');
       await sleep(ms);
@@ -129,6 +130,55 @@ describe('SafeJsonRpcClient', () => {
         { status: 'fulfilled', value: expect.stringMatching(/^foo|1$/) },
         { status: 'rejected', reason: expect.objectContaining({ name: 'ZodError' }) },
       ]);
+    });
+  });
+
+  describe('manual batching', () => {
+    let client: TestService;
+
+    beforeEach(() => {
+      client = createSafeJsonRpcClient('http://localhost', schema, {
+        batchWindowMS: 100,
+        fetch: stFetch,
+      });
+    });
+
+    it('splits into batches', async () => {
+      const b1 = batch([client.getValue(), client.setValue('1')]);
+      const b2 = batch([client.setValue('bar')]);
+
+      await expect(b1).resolves.toEqual(['foo', '1']);
+      await expect(b2).resolves.toEqual(['bar']);
+
+      expect(handler).toHaveBeenNthCalledWith(1, [
+        { jsonrpc: '2.0', id: 0, method: 'getValue', params: [] },
+        { jsonrpc: '2.0', id: 1, method: 'setValue', params: ['1'] },
+      ]);
+
+      expect(handler).toHaveBeenNthCalledWith(2, [{ jsonrpc: '2.0', id: 2, method: 'setValue', params: ['bar'] }]);
+    });
+
+    it('splits into batches inside Promise.all', async () => {
+      const [b1, b2] = await Promise.all([
+        batch([client.getValue(), client.setValue('1')]),
+        batch([client.setValue('bar')]),
+      ]);
+
+      expect(b1).toEqual(['foo', '1']);
+      expect(b2).toEqual(['bar']);
+
+      expect(handler).toHaveBeenNthCalledWith(1, [
+        { jsonrpc: '2.0', id: 0, method: 'getValue', params: [] },
+        { jsonrpc: '2.0', id: 1, method: 'setValue', params: ['1'] },
+      ]);
+
+      expect(handler).toHaveBeenNthCalledWith(2, [{ jsonrpc: '2.0', id: 2, method: 'setValue', params: ['bar'] }]);
+    });
+
+    it('accepts normal promises', async () => {
+      const res = await batch([client.getValue(), Promise.resolve(42)]);
+      expect(res).toEqual(['foo', 42]);
+      expect(handler).toHaveBeenNthCalledWith(1, [{ jsonrpc: '2.0', id: 0, method: 'getValue', params: [] }]);
     });
   });
 });
