@@ -31,6 +31,8 @@ validator:
   sequencer:
     minTxsPerBlock: 0
     maxTxsPerBlock: 8
+  p2p:
+    blockCheckIntervalMs: 1000
   validator:
     disabled: false
   maxOldSpaceSize: "8192"

@@ -164,6 +164,7 @@ validator:
   p2p:
     enabled: "true"
     floodPublish: true
+    blockCheckIntervalMs: 500
   startupProbe:
     periodSeconds: 10
     # Only if we fail for 20 minutes straight do we call it botched

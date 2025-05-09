@@ -125,6 +125,8 @@ spec:
               value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.validator.p2p.floodPublish }}"
+            - name: P2P_BLOCK_CHECK_INTERVAL_MS
+              value: "{{ .Values.validator.p2p.blockCheckIntervalMs }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE
