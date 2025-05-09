@@ -207,7 +207,7 @@ function bench {
   }
   END {
     print "]";
-  }' gas_benchmark.md > ./bench-out/l1-gas-bench.json
+  }' gas_benchmark.md > ./bench-out/l1-gas.bench.json
 
   cache_upload l1-gas-bench-results-$hash.tar.gz ./bench-out/l1-gas-bench.json
 }

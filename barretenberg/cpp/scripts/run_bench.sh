@@ -18,9 +18,11 @@ mkdir -p bench-out
 
 case $arch in
   native)
-    $bin --benchmark_out=./bench-out/$name.bench.json --benchmark_filter=$filter
+    $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
   wasm)
-    ./scripts/wasmtime.sh $bin --benchmark_out=./bench-out/$name.bench.json --benchmark_filter=$filter
+    ./scripts/wasmtime.sh $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
 esac
+
+jq '[{name: .benchmarks[0].name, value: .benchmarks[0].real_time, unit: .benchmarks[0].time_unit}]' ./bench-out/$name.json > ./bench-out/$name.bench.json
