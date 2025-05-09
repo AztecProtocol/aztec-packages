@@ -118,11 +118,6 @@ export function describeAztecMap(
       ['zero-based numbers', [0, 1, 2, 3]],
     ]) {
       it(`supports range queries over ${name} keys`, async () => {
-        // TODO(#14182)
-        if (name === 'zero-based numbers') {
-          return;
-        }
-
         const [a, b, c, d] = data;
 
         await map.set(a, 'a');
