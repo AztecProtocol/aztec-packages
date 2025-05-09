@@ -145,7 +145,6 @@ export function NetworkSelector() {
     setOpenAddNetworksDialog(false);
   };
 
-
   if (connecting) {
     return (
       <div css={navbarButtonStyle}>
@@ -213,10 +212,8 @@ export function NetworkSelector() {
 
       <Dialog open={showNetworkDownNotification} onClose={() => setShowNetworkDownNotification(false)}>
         <DialogTitle css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>
-            Testnet is congested
-          </span>
-          <IconButton onClick={() => setShowNetworkDownNotification(false)} >
+          <span>Testnet is congested</span>
+          <IconButton onClick={() => setShowNetworkDownNotification(false)}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -226,8 +223,11 @@ export function NetworkSelector() {
             The Playground is currently unavailable with the Public Testnet while we troubleshoot network congestion.
             <br />
             <br />
-            Please check back in a few hours or use the Playground with the local sandbox instead.
-            Please visit the <a href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener noreferrer">Aztec Docs</a> to get started.
+            Please check back in a few hours or use the Playground with the local sandbox instead. Please visit the{' '}
+            <a href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener noreferrer">
+              Aztec Docs
+            </a>{' '}
+            to get started.
           </Typography>
         </DialogContent>
       </Dialog>

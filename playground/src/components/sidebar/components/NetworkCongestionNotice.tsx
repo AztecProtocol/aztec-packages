@@ -31,7 +31,7 @@ export function NetworkCongestionNotice() {
     };
 
     checkCongestion();
-    const interval = setInterval(checkCongestion, 10 * 1000);
+    const interval = setInterval(checkCongestion, 60 * 1000);
 
     return () => clearInterval(interval);
   }, [node, network, setIsNetworkCongested]);

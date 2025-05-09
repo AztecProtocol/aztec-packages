@@ -43,7 +43,7 @@ import {
   TxReceipt,
   TxSimulationResult,
 } from '../tx/index.js';
-import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProfileResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
@@ -370,7 +370,14 @@ class MockPXE implements PXE {
       expect(msgSender).toBeInstanceOf(AztecAddress);
     }
     const provingTime = skipProofGeneration ? 1 : undefined;
-    return Promise.resolve(new TxProfileResult([], 1, provingTime));
+    return Promise.resolve(
+      new TxProfileResult([], {
+        perFunction: [{ functionName: 'something', time: 1 }],
+        proving: provingTime,
+        unaccounted: 1,
+        total: 2,
+      }),
+    );
   }
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);

@@ -5,6 +5,13 @@ import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
+  public validate(_txs: Tx[]): Promise<void> {
+    return Promise.resolve();
+  }
+
+  public clear(): Promise<void> {
+    throw new Error('DummyP2P does not implement "clear".');
+  }
   public getPendingTxs(): Promise<Tx[]> {
     throw new Error('DummyP2P does not implement "getPendingTxs"');
   }

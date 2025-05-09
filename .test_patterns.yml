@@ -217,6 +217,11 @@ tests:
     owners:
       - *grego
 
+  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
+    error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *esau
+
   # kind tests
   - regex: "spartan/bootstrap.sh"
     # Will skip all kind tests for now. Too unstable, blocking merge queue.
@@ -238,6 +243,10 @@ tests:
     error_regex: "Is the docker daemon running"
     owners:
       - *charlie
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "code: 124"
+    owners:
+      - *esau
 
   # Slack testing.
   - regex: "nonsense to match"

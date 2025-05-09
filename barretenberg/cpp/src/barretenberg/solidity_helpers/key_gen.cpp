@@ -4,6 +4,7 @@
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
 
+#include "barretenberg/srs/global_crs.hpp"
 #include "circuits/add_2_circuit.hpp"
 #include "circuits/blake_circuit.hpp"
 #include "circuits/ecdsa_circuit.hpp"
@@ -62,7 +63,7 @@ int main(int argc, char** argv)
     const std::string output_path = args[2];
     const std::string srs_path = args[3];
 
-    bb::srs::init_crs_factory(srs_path);
+    bb::srs::init_bn254_net_crs_factory(srs_path);
     // @todo - Add support for unrolled standard verifier. Needs a new solidity verifier contract.
 
     info("Generating  keys for ", circuit_flavor, " circuit");

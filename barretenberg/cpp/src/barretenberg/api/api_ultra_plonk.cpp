@@ -1,7 +1,7 @@
 #include "api_ultra_plonk.hpp"
 #include "barretenberg/api/acir_format_getters.hpp"
-#include "barretenberg/api/get_bn254_crs.hpp"
-#include "barretenberg/api/init_srs.hpp"
+#include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/log.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/timer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -10,16 +10,11 @@
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace bb {
-extern std::string CRS_PATH;
-
 // Initializes without loading G1
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/811) adapt for grumpkin
 acir_proofs::AcirComposer verifier_init()
 {
-    acir_proofs::AcirComposer acir_composer(0, verbose_logging);
-    auto g2_data = get_bn254_g2_data(CRS_PATH);
-    srs::init_crs_factory({}, g2_data);
-    return acir_composer;
+    return { 0, verbose_logging };
 }
 
 std::string to_json(const std::vector<bb::fr>& data)
@@ -59,7 +54,6 @@ void prove_ultra_plonk(const std::string& bytecode_path,
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive, witness);
-    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
 
@@ -94,7 +88,6 @@ void prove_output_all_ultra_plonk(const std::string& bytecode_path,
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive, witness);
     acir_composer.finalize_circuit();
-    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
 
@@ -177,7 +170,6 @@ bool prove_and_verify_ultra_plonk(const std::string& bytecode_path,
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive, witness);
-    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
 
     acir_composer.init_proving_key();
 
@@ -238,7 +230,6 @@ void write_vk_ultra_plonk(const std::string& bytecode_path, const std::string& o
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive);
     acir_composer.finalize_circuit();
-    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto vk = acir_composer.init_verification_key();
     auto serialized_vk = to_buffer(*vk);
@@ -257,7 +248,6 @@ void write_pk_ultra_plonk(const std::string& bytecode_path, const std::string& o
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_finalized_circuit(constraint_system, recursive);
     acir_composer.finalize_circuit();
-    init_bn254_crs(acir_composer.get_finalized_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
     auto serialized_pk = to_buffer(*pk);
 

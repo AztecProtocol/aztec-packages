@@ -95,7 +95,7 @@ export class EpochsTestContext {
       proverId: Fr.fromString('1'),
       // This must be enough so that the tx from the prover is delayed properly,
       // but not so much to hang the sequencer and timeout the teardown
-      txPropagationMaxQueryAttempts: 12,
+      txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       ...opts,
     });

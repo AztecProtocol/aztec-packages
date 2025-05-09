@@ -10,8 +10,6 @@ exec wasmtime run \
   --env WASM_BACKTRACE_DETAILS=1 \
   --env HOME \
   ${MAIN_ARGS:+--env MAIN_ARGS} \
-  --env IGNITION_CRS_PATH \
-  --env GRUMPKIN_CRS_PATH \
   --dir=$HOME/.bb-crs \
   --dir=. \
   "$@"
