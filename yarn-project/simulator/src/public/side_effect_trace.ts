@@ -6,7 +6,7 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -209,10 +209,10 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       throw new SideEffectLimitReachedError('public log', MAX_PUBLIC_LOGS_PER_TX);
     }
 
-    if (log.length > PUBLIC_LOG_DATA_SIZE_IN_FIELDS) {
-      throw new Error(`Emitted public log is too large, max: ${PUBLIC_LOG_DATA_SIZE_IN_FIELDS}, passed: ${log.length}`);
+    if (log.length > PUBLIC_LOG_SIZE_IN_FIELDS) {
+      throw new Error(`Emitted public log is too large, max: ${PUBLIC_LOG_SIZE_IN_FIELDS}, passed: ${log.length}`);
     }
-    const publicLog = new PublicLog(contractAddress, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
+    const publicLog = new PublicLog(contractAddress, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS), log.length);
     this.publicLogs.push(publicLog);
     this.log.trace(`Tracing new public log (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();

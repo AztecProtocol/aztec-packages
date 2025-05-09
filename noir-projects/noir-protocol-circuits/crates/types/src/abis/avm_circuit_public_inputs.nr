@@ -59,7 +59,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        MAX_ENQUEUED_CALLS_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+        MAX_ENQUEUED_CALLS_PER_TX, PUBLIC_LOG_SIZE_IN_FIELDS,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
@@ -318,12 +318,13 @@ fn set_public_logs_in_cols<let SIZE: u32>(
     array_start_row_idx: u32,
 ) {
     for i in 0..logs.len() {
-        let first_row_for_log = array_start_row_idx + i * PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
-        for j in 0..PUBLIC_LOG_DATA_SIZE_IN_FIELDS {
+        let first_row_for_log = array_start_row_idx + i * PUBLIC_LOG_SIZE_IN_FIELDS;
+        for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
             // always set contract address in col 0 so that some entry in the row is always non-zero
             cols[0][first_row_for_log + j] = logs[i].contract_address.to_field();
+            cols[1][first_row_for_log + j] = logs[i].log.length as Field;
             // and set the actual log data entry
-            cols[1][first_row_for_log + j] = logs[i].log.fields[j];
+            cols[2][first_row_for_log + j] = logs[i].log.fields[j];
         }
     }
 }
@@ -624,7 +625,8 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     // Add a public log
     item.accumulated_data.public_logs[0].contract_address = AztecAddress::from_field(11223);
     // set some number of items in the log (less than max)
-    for j in 0..PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 2 {
+    item.accumulated_data.public_logs[0].log.length = PUBLIC_LOG_SIZE_IN_FIELDS - 2;
+    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
         item.accumulated_data.public_logs[0].log.fields[j] = 10000 + j as Field;
     }
 
@@ -677,8 +679,9 @@ fn flat_columns_of_avm_circuit_public_inputs() {
 
     // Public logs
     let public_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
-    for j in 0..PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 2 {
-        assert_eq(flat[col1_offset + public_log_row + j], 10000 + j as Field);
+    assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
+    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
+        assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
     }
 
     // Public data writes

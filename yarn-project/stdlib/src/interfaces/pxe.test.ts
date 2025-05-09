@@ -179,7 +179,7 @@ describe('PXESchema', () => {
   });
 
   it('sendTx', async () => {
-    const result = await context.client.sendTx(await Tx.random());
+    const result = await context.client.sendTx(Tx.random());
     expect(result).toBeInstanceOf(TxHash);
   });
 
