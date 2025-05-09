@@ -45,18 +45,18 @@ const mockTxsWithCCLog = (numTxs: number) =>
       { length: MAX_CONTRACT_CLASS_LOGS_PER_TX },
       () => 1 + randomInt(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - 2),
     );
-    const logPreimages = Array.from({ length: MAX_CONTRACT_CLASS_LOGS_PER_TX }, (_, i) =>
+    const logs = Array.from({ length: MAX_CONTRACT_CLASS_LOGS_PER_TX }, (_, i) =>
       ContractClassLogFields.random(emittedLengths[i]),
     );
     const logHashes = await Promise.all(
-      logPreimages.map(async (p, i) =>
+      logs.map(async (log, i) =>
         LogHash.from({
-          value: await p.hash(),
+          value: await log.hash(),
           length: emittedLengths[i],
         }).scope(await AztecAddress.random()),
       ),
     );
-    tx.contractClassLogPreimages.push(...logPreimages);
+    tx.contractClassLogs.push(...logs);
     logHashes.forEach((hash, i) => (tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[i] = hash));
     return tx;
   });
@@ -174,9 +174,9 @@ describe('TxDataValidator', () => {
     const badTxs = await mockTxsWithCCLog(2);
     // Missing log hashes/log.
     badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[
-      badTxs[0].contractClassLogPreimages.length - 1
+      badTxs[0].contractClassLogs.length - 1
     ] = ScopedLogHash.empty();
-    badTxs[1].contractClassLogPreimages.pop();
+    badTxs[1].contractClassLogs.pop();
     // Extra log hashes/log.
     // Can uncomment below if MAX_CONTRACT_CLASS_LOGS_PER_TX > 1 and we do not fill a tx's logs in mockTxsWithCCLog:
     // const extraLogHash = goodTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0];
@@ -214,7 +214,7 @@ describe('TxDataValidator', () => {
     const badLogHash = badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0];
     badLogHash.logHash.value = badLogHash.value.add(Fr.ONE);
     badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = badLogHash;
-    badTxs[1].contractClassLogPreimages[0].fields[0] = badTxs[1].contractClassLogPreimages[0].fields[0].add(Fr.ONE);
+    badTxs[1].contractClassLogs[0].fields[0] = badTxs[1].contractClassLogs[0].fields[0].add(Fr.ONE);
 
     await expectValid(goodTxs);
 
@@ -230,11 +230,11 @@ describe('TxDataValidator', () => {
     goodTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash.length += 1;
 
     // Add an extra non-zero field.
-    const preimage = badTxs[0].contractClassLogPreimages[0];
+    const log = badTxs[0].contractClassLogs[0];
     const logHash = badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash;
-    preimage.fields[logHash.length] = Fr.ONE;
+    log.fields[logHash.length] = Fr.ONE;
     // Update the corresponding hash because changing the raw log results in an incorrect hash, which throws first.
-    logHash.value = await preimage.hash();
+    logHash.value = await log.hash();
 
     await expectValid(goodTxs);
 

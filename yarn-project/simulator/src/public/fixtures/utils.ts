@@ -129,10 +129,10 @@ export async function addNewContractClassToTx(
   ];
   const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
   const emittedLength = contractClassLogFields.length;
-  const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+  const log = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
 
   const contractClassLogHash = LogHash.from({
-    value: await logFields.hash(),
+    value: await log.hash(),
     length: emittedLength,
   }).scope(contractAddress);
 
@@ -145,7 +145,7 @@ export async function addNewContractClassToTx(
   const nextLogIndex = countAccumulatedItems(accumulatedData.contractClassLogsHashes);
   accumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
 
-  tx.contractClassLogPreimages.push(logFields);
+  tx.contractClassLogs.push(log);
 }
 
 export async function addNewContractInstanceToTx(

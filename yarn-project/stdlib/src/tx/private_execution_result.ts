@@ -224,7 +224,7 @@ function collectContractClassLogs(execResult: PrivateCallExecutionResult): Count
  * @param execResult - The topmost execution result.
  * @returns All contract class logs.
  */
-export function collectSortedContractClassLogPreimages(execResult: PrivateExecutionResult): ContractClassLogFields[] {
+export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): ContractClassLogFields[] {
   const allLogs = collectContractClassLogs(execResult.entrypoint);
   const sortedLogs = sortByCounter(allLogs);
   return sortedLogs.map(l => l.log.fields);

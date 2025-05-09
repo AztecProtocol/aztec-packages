@@ -60,16 +60,16 @@ export class DataTxValidator implements TxValidator<Tx> {
 
   async #hasCorrectContractClassLogs(tx: Tx): Promise<TxValidationResult> {
     const contractClassLogsHashes = tx.data.getNonEmptyContractClassLogsHashes();
-    if (contractClassLogsHashes.length !== tx.contractClassLogPreimages.length) {
+    if (contractClassLogsHashes.length !== tx.contractClassLogs.length) {
       this.#log.warn(
         `Rejecting tx ${await Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
           contractClassLogsHashes.length
-        }. Got ${tx.contractClassLogPreimages.length}.`,
+        }. Got ${tx.contractClassLogs.length}.`,
       );
       return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_COUNT] };
     }
 
-    const expectedHashes = await Promise.all(tx.contractClassLogPreimages.map(l => l.hash()));
+    const expectedHashes = await Promise.all(tx.contractClassLogs.map(l => l.hash()));
     for (const [i, logHash] of contractClassLogsHashes.entries()) {
       const hash = expectedHashes[i];
       if (!logHash.value.equals(hash)) {
@@ -91,7 +91,7 @@ export class DataTxValidator implements TxValidator<Tx> {
         }
       }
 
-      const expectedMinLength = 1 + tx.contractClassLogPreimages[i].fields.findLastIndex(f => !f.isZero());
+      const expectedMinLength = 1 + tx.contractClassLogs[i].fields.findLastIndex(f => !f.isZero());
       if (logHash.logHash.length < expectedMinLength) {
         this.#log.warn(
           `Rejecting tx ${await Tx.getHash(

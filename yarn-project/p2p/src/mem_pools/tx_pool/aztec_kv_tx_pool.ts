@@ -437,12 +437,7 @@ export class AztecKVTxPool implements TxPool {
           tailIdx++;
         }
 
-        const archivedTx: Tx = new Tx(
-          tx.data,
-          ClientIvcProof.empty(),
-          tx.contractClassLogPreimages,
-          tx.publicFunctionCalldata,
-        );
+        const archivedTx: Tx = new Tx(tx.data, ClientIvcProof.empty(), tx.contractClassLogs, tx.publicFunctionCalldata);
         const txHash = txHashes[i].toString();
         await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
         await this.#archivedTxIndices.set(headIdx, txHash);

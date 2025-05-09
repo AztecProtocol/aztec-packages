@@ -175,12 +175,12 @@ describe('public_tx_simulator', () => {
     ];
     const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
     const emittedLength = contractClassLogFields.length;
-    const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+    const log = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
 
-    tx.contractClassLogPreimages.push(logFields);
+    tx.contractClassLogs.push(log);
 
     const contractClassLogHash = LogHash.from({
-      value: await logFields.hash(),
+      value: await log.hash(),
       length: emittedLength,
     }).scope(contractAddress);
     if (revertible) {
@@ -877,10 +877,10 @@ describe('public_tx_simulator', () => {
 
     const contractClass = await contractsDB.getContractClass(contractClassId);
     if (kind == 'revertible') {
-      expect(tx.contractClassLogPreimages.length).toEqual(0);
+      expect(tx.contractClassLogs.length).toEqual(0);
       expect(contractClass).toBeUndefined();
     } else {
-      expect(tx.contractClassLogPreimages.length).toEqual(1);
+      expect(tx.contractClassLogs.length).toEqual(1);
       expect(contractClass).toBeDefined();
     }
   });

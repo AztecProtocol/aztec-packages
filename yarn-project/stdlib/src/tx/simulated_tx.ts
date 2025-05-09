@@ -10,7 +10,7 @@ import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
-  collectSortedContractClassLogPreimages,
+  collectSortedContractClassLogs,
 } from './private_execution_result.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
@@ -26,12 +26,12 @@ export class PrivateSimulationResult {
   }
 
   toSimulatedTx(): Tx {
-    const contractClassLogPreimages = collectSortedContractClassLogPreimages(this.privateExecutionResult);
+    const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
 
     const tx = new Tx(
       this.publicInputs,
       ClientIvcProof.empty(),
-      contractClassLogPreimages,
+      contractClassLogs,
       this.privateExecutionResult.publicFunctionCalldata,
     );
     return tx;
