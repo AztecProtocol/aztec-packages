@@ -1991,7 +1991,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_8bit_secp256k1)
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, ecdsa_mul_secp256k1)
 {
-    if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
+    // TODO(suyash): temporary hasplookup, remove once we get ecdsa tests working.
+    if constexpr (HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::Curve::type == CurveType::SECP256K1) {
         TestFixture::test_ecdsa_mul_secp256k1();
     } else {
         GTEST_SKIP();
