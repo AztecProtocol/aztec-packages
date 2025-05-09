@@ -11,6 +11,7 @@
 
 namespace bb::avm2 {
 
+<<<<<<< HEAD
 /////////////////// lookup_execution_instruction_fetching_result ///////////////////
 
 struct lookup_execution_instruction_fetching_result_settings_ {
@@ -73,6 +74,9 @@ template <typename FF_>
 using lookup_execution_instruction_fetching_body_relation =
     lookup_relation_base<FF_, lookup_execution_instruction_fetching_body_settings>;
 
+=======
+<<<<<<< HEAD
+>>>>>>> 470be80ed7 (wip)
 /////////////////// lookup_execution_exec_spec_read ///////////////////
 
 struct lookup_execution_exec_spec_read_settings_ {
@@ -156,5 +160,55 @@ struct lookup_execution_exec_spec_read_settings_ {
 using lookup_execution_exec_spec_read_settings = lookup_settings<lookup_execution_exec_spec_read_settings_>;
 template <typename FF_>
 using lookup_execution_exec_spec_read_relation = lookup_relation_base<FF_, lookup_execution_exec_spec_read_settings>;
+=======
+/////////////////// lookup_execution_push_call_stack ///////////////////
+
+struct lookup_execution_push_call_stack_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_PUSH_CALL_STACK";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_internal_call;
+    static constexpr Column DST_SELECTOR = Column::call_stack_sel;
+    static constexpr Column COUNTS = Column::lookup_execution_push_call_stack_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_push_call_stack_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_internal_call_id,
+        ColumnAndShifts::execution_internal_call_return_id,
+        ColumnAndShifts::execution_next_pc
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::call_stack_id, ColumnAndShifts::call_stack_return_id, ColumnAndShifts::call_stack_return_pc
+    };
+};
+
+using lookup_execution_push_call_stack_settings = lookup_settings<lookup_execution_push_call_stack_settings_>;
+template <typename FF_>
+using lookup_execution_push_call_stack_relation = lookup_relation_base<FF_, lookup_execution_push_call_stack_settings>;
+
+/////////////////// lookup_execution_unwind_call_stack ///////////////////
+
+struct lookup_execution_unwind_call_stack_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_UNWIND_CALL_STACK";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_internal_return;
+    static constexpr Column DST_SELECTOR = Column::call_stack_sel;
+    static constexpr Column COUNTS = Column::lookup_execution_unwind_call_stack_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_unwind_call_stack_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_internal_call_id_shift,
+        ColumnAndShifts::execution_internal_call_return_id_shift,
+        ColumnAndShifts::execution_pc_shift
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::call_stack_id, ColumnAndShifts::call_stack_return_id, ColumnAndShifts::call_stack_return_pc
+    };
+};
+
+using lookup_execution_unwind_call_stack_settings = lookup_settings<lookup_execution_unwind_call_stack_settings_>;
+template <typename FF_>
+using lookup_execution_unwind_call_stack_relation =
+    lookup_relation_base<FF_, lookup_execution_unwind_call_stack_settings>;
+>>>>>>> fd2cbf39cd (wip)
 
 } // namespace bb::avm2

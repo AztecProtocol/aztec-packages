@@ -129,8 +129,11 @@ namespace execution;
     // nested_exit_call = 1 <==> constraints come from lookup
     // sel_enter_call   = 1 <==> pc' = 0
     // otherwise        = 0 <==> pc' = next_pc
-    #[PC_NEXT_ROW]
+    #[PC_NEXT_ROW_DEFAULT]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
+    #[PC_NEXT_ROW_INT_CALL]
+    NOT_LAST_EXEC * sel_internal_call * (pc' - op1) = 0;
+    #[PC_NEXT_ROW_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
 
     // nested_exit_call = 1 <==> constraints come from lookup

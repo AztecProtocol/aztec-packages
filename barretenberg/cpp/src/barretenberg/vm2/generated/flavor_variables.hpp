@@ -49,7 +49,15 @@
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_data_copy.hpp"
+<<<<<<< HEAD
 #include "relations/lookups_execution.hpp"
+=======
+<<<<<<< HEAD
+>>>>>>> a423283097 (feat(avm): cd_copy)
+=======
+#include "relations/lookups_execution.hpp"
+>>>>>>> fd2cbf39cd (wip)
+>>>>>>> 44cdc56833 (wip)
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
@@ -164,10 +172,10 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_ALL_ENTITIES = 2523;
 =======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2171;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 158;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2187;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 162;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2337;
 =======
@@ -280,14 +288,41 @@ struct AvmFlavorVariables {
 >>>>>>> 5aa4c478e0 (feat(avm): internal call stack)
 >>>>>>> 6631c9a54a (feat(avm): internal call stack)
 >>>>>>> 3b106f22e1 (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> 5900476467 (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> e3aec344dc (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> aa9c15ee82 (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> a68f81e909 (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> a561982bd9 (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> dcc5545abc (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> a805f81ef7 (feat(avm): internal call stack)
+<<<<<<< HEAD
 >>>>>>> 70deab7cad (feat(avm): internal call stack)
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2420;
+>>>>>>> fd2cbf39cd (wip)
+>>>>>>> 44cdc56833 (wip)
+>>>>>>> 470be80ed7 (wip)
+>>>>>>> 30c6b2560b (wip)
+>>>>>>> 41d7b90fbe (wip)
+>>>>>>> bcee8f3e95 (wip)
+>>>>>>> af3ee58bbb (wip)
+>>>>>>> 2ff5b9c469 (wip)
+>>>>>>> fb6825b382 (wip)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -386,6 +421,34 @@ struct AvmFlavorVariables {
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
+<<<<<<< HEAD
+=======
+=======
+=======
+        lookup_data_copy_col_read_relation<FF_>,
+        lookup_data_copy_mem_read_relation<FF_>,
+        lookup_data_copy_mem_write_relation<FF_>,
+>>>>>>> a423283097 (feat(avm): cd_copy)
+>>>>>>> aab01214cd (feat(avm): cd_copy)
+=======
+        lookup_data_copy_col_read_relation<FF_>,
+        lookup_data_copy_mem_read_relation<FF_>,
+        lookup_data_copy_mem_write_relation<FF_>,
+<<<<<<< HEAD
+        lookup_execution_exec_spec_read_relation<FF_>,
+<<<<<<< HEAD
+>>>>>>> f5c63bcde8 (feat: calldata and some hashing)
+=======
+=======
+<<<<<<< HEAD
+>>>>>>> a423283097 (feat(avm): cd_copy)
+=======
+        lookup_execution_push_call_stack_relation<FF_>,
+        lookup_execution_unwind_call_stack_relation<FF_>,
+>>>>>>> fd2cbf39cd (wip)
+>>>>>>> 44cdc56833 (wip)
+>>>>>>> 470be80ed7 (wip)
+>>>>>>> 30c6b2560b (wip)
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,

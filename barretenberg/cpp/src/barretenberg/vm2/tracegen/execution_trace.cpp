@@ -275,6 +275,14 @@ void ExecutionTraceBuilder::process(
                       { C::execution_bytecode_id, ex_event.bytecode_id },
                   } });
 
+        // Internal stack
+        trace.set(row,
+                  { {
+                      { C::execution_internal_call_id, ex_event.internal_call_id },
+                      { C::execution_internal_call_return_id, ex_event.internal_call_return_id },
+                      { C::execution_next_internal_call_id, ex_event.next_internal_call_id },
+                  } });
+
         /**************************************************************************************************
          *  Temporality group 1: Instruction fetching.
          **************************************************************************************************/
@@ -413,6 +421,7 @@ void ExecutionTraceBuilder::process(
                           } });
             }
         }
+<<<<<<< HEAD
 
         /**************************************************************************************************
          *  Discarding.
@@ -759,6 +768,7 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         // Instruction fetching
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_result_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
+<<<<<<< HEAD
         // Addressing
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_base_address_from_memory_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_0_settings>>(),
@@ -775,6 +785,11 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
+=======
+        // Internal Call Stack
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_execution_push_call_stack_settings_>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_execution_unwind_call_stack_settings_>>(),
+>>>>>>> bcee8f3e95 (wip)
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),

@@ -98,7 +98,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
     typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
     typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
-    typename S::template DefaultEventEmitter<InternalStackEvent> internal_call_stack_emitter;
+    typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
 
     uint32_t current_block_number = hints.tx.globalVariables.blockNumber;
 
