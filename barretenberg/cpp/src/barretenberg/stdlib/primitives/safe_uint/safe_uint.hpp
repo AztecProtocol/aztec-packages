@@ -21,11 +21,11 @@ namespace bb::stdlib {
 
 template <typename Builder> class safe_uint_t {
   private:
-    typedef field_t<Builder> field_ct;
-    typedef bool_t<Builder> bool_ct;
+    using field_ct = field_t<Builder>;
+    using bool_ct = bool_t<Builder>;
     // this constructor is private since we only want the operators to be able to define a positive int without a range
     // check.
-    safe_uint_t(field_ct const& value, uint256_t current_max, size_t safety)
+    safe_uint_t(field_ct const& value, const uint256_t& current_max, size_t safety)
         : value(value)
         , current_max(current_max)
     {

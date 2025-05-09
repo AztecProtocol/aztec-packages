@@ -28,11 +28,17 @@ namespace bb::numeric {
 
 template <class base_uint> class uintx {
   public:
-    constexpr uintx(const uint64_t data = 0)
+    constexpr uintx(const uint64_t& data = 0)
         : lo(data)
         , hi(base_uint(0))
     {}
 
+    constexpr uintx(const uint256_t& data)
+        requires(!std::is_same_v<base_uint, uint256_t>)
+        : lo(data)
+        , hi(base_uint(0))
+
+    {}
     constexpr uintx(const base_uint input_lo)
         : lo(input_lo)
         , hi(base_uint(0))
@@ -43,11 +49,7 @@ template <class base_uint> class uintx {
         , hi(input_hi)
     {}
 
-    constexpr uintx(const uintx& other)
-        : lo(other.lo)
-        , hi(other.hi)
-    {}
-
+    constexpr uintx(const uintx& other) = default;
     constexpr uintx(uintx&& other) noexcept = default;
 
     static constexpr size_t length() { return 2 * base_uint::length(); }
@@ -55,11 +57,11 @@ template <class base_uint> class uintx {
     constexpr uintx& operator=(uintx&& other) noexcept = default;
 
     constexpr ~uintx() = default;
-    explicit constexpr operator bool() const { return static_cast<bool>(lo.data[0]); };
-    explicit constexpr operator uint8_t() const { return static_cast<uint8_t>(lo.data[0]); };
-    explicit constexpr operator uint16_t() const { return static_cast<uint16_t>(lo.data[0]); };
-    explicit constexpr operator uint32_t() const { return static_cast<uint32_t>(lo.data[0]); };
-    explicit constexpr operator uint64_t() const { return static_cast<uint64_t>(lo.data[0]); };
+    explicit constexpr operator bool() const { return static_cast<bool>(lo); };
+    explicit constexpr operator uint8_t() const { return static_cast<uint8_t>(lo); };
+    explicit constexpr operator uint16_t() const { return static_cast<uint16_t>(lo); };
+    explicit constexpr operator uint32_t() const { return static_cast<uint32_t>(lo); };
+    explicit constexpr operator uint64_t() const { return static_cast<uint64_t>(lo); };
 
     explicit constexpr operator base_uint() const { return lo; }
 
@@ -110,11 +112,13 @@ template <class base_uint> class uintx {
         return *this;
     };
     constexpr uintx& operator/=(const uintx& other)
+
     {
         *this = *this / other;
         return *this;
     };
     constexpr uintx& operator%=(const uintx& other)
+
     {
         *this = *this % other;
         return *this;
@@ -165,7 +169,10 @@ template <class base_uint> class uintx {
     base_uint hi;
 
     template <base_uint modulus> constexpr std::pair<uintx, uintx> barrett_reduction() const;
+
+    // This only works (and is only used) for uint256_t
     constexpr std::pair<uintx, uintx> divmod(const uintx& b) const;
+    // This only works (and is only used) for uint256_t
     constexpr std::pair<uintx, uintx> divmod_base(const uintx& b) const;
 };
 
@@ -192,7 +199,9 @@ template <class base_uint> inline std::ostream& operator<<(std::ostream& os, uin
     return os;
 }
 
-using uint512_t = uintx<numeric::uint256_t>;
+extern template class uintx<uint256_t>;
+using uint512_t = uintx<uint256_t>;
+extern template class uintx<uint512_t>;
 using uint1024_t = uintx<uint512_t>;
 
 } // namespace bb::numeric

@@ -11,6 +11,7 @@
 namespace bb::numeric {
 template <class base_uint>
 constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(const uintx& b) const
+
 {
     ASSERT(b != 0);
     if (*this == 0) {
@@ -203,11 +204,13 @@ constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::mul_ex
 }
 
 template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator/(const uintx& other) const
+
 {
     return divmod(other).first;
 }
 
 template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator%(const uintx& other) const
+
 {
     return divmod(other).second;
 }
@@ -345,6 +348,7 @@ template <class base_uint> constexpr uintx<base_uint> uintx<base_uint>::operator
 
 template <class base_uint>
 constexpr std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod(const uintx& b) const
+
 {
     constexpr uint256_t BN254FQMODULUS256 =
         uint256_t(0x3C208C16D87CFD47UL, 0x97816a916871ca8dUL, 0xb85045b68181585dUL, 0x30644e72e131a029UL);
