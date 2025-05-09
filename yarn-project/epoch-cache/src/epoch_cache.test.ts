@@ -132,11 +132,8 @@ describe('EpochCache', () => {
     rollupContract.getCommitteeAt.mockResolvedValue(expectedCommittee.map(v => v.toString()));
     rollupContract.getSampleSeedAt.mockResolvedValue(expectedSeed);
 
-    // Call getCommittee with the targetSlot. This should trigger computeCommittee for epoch 1 (or equivalent).
-    // computeCommittee will be called with epoch = correctEpochForTargetSlot, and ts = timestampGeneratedByBug
     await epochCache.getCommittee(targetSlot);
 
-    // Assert that the rollup contract methods were called with the incorrectly calculated timestamp.
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
 
