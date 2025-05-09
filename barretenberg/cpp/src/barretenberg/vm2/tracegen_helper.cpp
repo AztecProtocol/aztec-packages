@@ -86,6 +86,10 @@ auto build_public_inputs_columns_jobs(TraceContainer& trace, const PublicInputs&
         },
         [&]() {
             PublicInputsTraceBuilder public_inputs_builder;
+            public_inputs_builder.process_public_inputs_aux(trace, public_inputs);
+        },
+        [&]() {
+            PublicInputsTraceBuilder public_inputs_builder;
             public_inputs_builder.process_public_inputs_aux_precomputed(trace);
         },
     };
