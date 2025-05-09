@@ -137,7 +137,6 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
   }
 
   async verifyV2(proofRes: BBSuccess, publicInputs: AvmCircuitPublicInputs): Promise<BBResult> {
-    // TODO: Placeholder for now. They get ignored in C++.
     return await verifyAvmProofV2(
       BB_PATH,
       this.bbWorkingDirectory,

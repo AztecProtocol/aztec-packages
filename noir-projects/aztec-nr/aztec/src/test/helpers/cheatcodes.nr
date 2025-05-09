@@ -112,6 +112,14 @@ pub unconstrained fn private_call_new_flow(
     (end_side_effect_counter, returns_hash, tx_hash)
 }
 
+pub unconstrained fn disable_oracles() {
+    oracle_disable_oracles();
+}
+
+pub unconstrained fn enable_oracles() {
+    oracle_enable_oracles();
+}
+
 #[oracle(reset)]
 unconstrained fn oracle_reset() {}
 
@@ -182,3 +190,9 @@ unconstrained fn oracle_private_call_new_flow(
     _args_hash: Field,
     _is_static_call: bool,
 ) -> [Field; 3] {}
+
+#[oracle(enableOracles)]
+unconstrained fn oracle_disable_oracles() {}
+
+#[oracle(disableOracles)]
+unconstrained fn oracle_enable_oracles() {}
