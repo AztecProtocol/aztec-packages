@@ -75,6 +75,17 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
+      t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots`);
+      await retryUntil(
+        async () => {
+          const { initialSlot, lastProcessedSlot } = await nodes[0].getValidatorsStats();
+          return initialSlot && lastProcessedSlot && lastProcessedSlot - initialSlot >= blockCount - 1;
+        },
+        'sentinel processed blocks',
+        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 4,
+        1,
+      );
+
       stats = await nodes[0].getValidatorsStats();
       t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
     });
