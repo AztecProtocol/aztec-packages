@@ -128,7 +128,7 @@ case ${1:-} in
       fi
 
       # unset PORTS_TO_EXPOSE if we're just running --help
-      if [ "${NO_PORT_FORWARDING:-0}" -eq 1 ]; then
+      if [ ! -z "${NO_PORT_FORWARDING:-}" ]; then
         export PORTS_TO_EXPOSE=""
       fi
 
