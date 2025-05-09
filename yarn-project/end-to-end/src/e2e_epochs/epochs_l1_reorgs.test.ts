@@ -12,7 +12,7 @@ import 'jest-extended';
 import { keccak256, parseTransaction } from 'viem';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } from './epochs_test.js';
+import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -25,14 +25,18 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
 
+  let L1_BLOCK_TIME_IN_S: number;
+  let L2_SLOT_DURATION_IN_S: number;
+
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
       l1PublishRetryIntervalMS: 300_000, // Do not retry l1 txs, we dont want them to land
       txPropagationMaxQueryAttempts: 2, // We are blocking txs here, so do not spend much time looking for them
+      ethereumSlotDuration: process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 4, // Got to speed these tests up for CI
     });
-    ({ proverDelayer, sequencerDelayer, context, logger, monitor } = test);
+    ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
     proverNode = context.proverNode!;
   });
