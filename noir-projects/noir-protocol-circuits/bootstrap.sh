@@ -12,7 +12,7 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
-key_dir=./target/keys
+export key_dir=./target/keys
 mkdir -p $key_dir
 
 # Allows reusing this script when running from mock-protocol-circuits dir.
@@ -20,19 +20,19 @@ project_name=$(basename "$PWD")
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
+export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
 readarray -t rollup_honk_patterns < <(jq -r '.[]' "../rollup_honk_circuits.json")
+# Convert to regex string here and export for use in exported functions.
+export ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
+export rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
 function on_exit {
   rm -f joblog.txt
 }
 trap on_exit EXIT
-
-# Export vars needed inside compile.
-export key_dir circuits_hash
 
 function compile {
   set -euo pipefail
@@ -65,9 +65,6 @@ function compile {
     fi
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
-
-  local ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
-  local rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"

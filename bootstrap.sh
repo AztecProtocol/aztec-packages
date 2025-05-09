@@ -18,6 +18,7 @@ cmd=${1:-}
 
 if [ ! -v NOIR_HASH ]; then
   export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  [ -n "$NOIR_HASH" ]
 fi
 
 function encourage_dev_container {

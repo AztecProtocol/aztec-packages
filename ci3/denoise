@@ -85,7 +85,7 @@ PARENT_LOG_URL=$url bash -c "$cmd" > $outfile 2>&1 &
 job_pid=$!
 
 # Dot logging.
-# set +e
+set +e
 echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
 tail --sleep-interval=0.2 -n +1 -f $outfile | while IFS= read -r line; do
