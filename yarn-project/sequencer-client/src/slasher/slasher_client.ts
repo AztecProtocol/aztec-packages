@@ -15,7 +15,7 @@ import {
   getContract,
 } from 'viem';
 
-import { Offence, type SlasherConfig, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from './config.js';
+import { Offence, type SlasherConfig, WANT_TO_SLASH_EVENT, type WantToSlashArgs, bigIntToOffence } from './config.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 /**
@@ -156,7 +156,7 @@ export class SlasherClient extends WithTracer {
         data: encodeFunctionData({
           abi: SlashFactoryAbi,
           functionName: 'createSlashPayload',
-          args: [args.validators, args.amounts, args.offenses],
+          args: [args.validators, args.amounts, args.offenses.map(offense => BigInt(offense))],
         }),
       })
       // note, we don't need to monitor the logs here,
@@ -181,7 +181,7 @@ export class SlasherClient extends WithTracer {
         payloadAddress: EthAddress.fromString(args.payloadAddress),
         validators: args.validators.map(EthAddress.fromString),
         amounts: args.amounts,
-        offenses: args.offences,
+        offenses: args.offences.map(offense => bigIntToOffence(offense)),
         observedAtL1BlockNumber: event.blockNumber,
         totalAmount: args.amounts.reduce((acc, amount) => acc + amount, BigInt(0)),
       };

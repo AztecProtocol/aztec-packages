@@ -8,6 +8,19 @@ export enum Offence {
   INACTIVITY = 2,
 }
 
+export function bigIntToOffence(offense: bigint): Offence {
+  switch (offense) {
+    case 0n:
+      return Offence.UNKNOWN;
+    case 1n:
+      return Offence.EPOCH_PRUNE;
+    case 2n:
+      return Offence.INACTIVITY;
+    default:
+      throw new Error(`Unknown offence: ${offense}`);
+  }
+}
+
 export const WANT_TO_SLASH_EVENT = 'wantToSlash' as const;
 
 export interface WantToSlashArgs {
