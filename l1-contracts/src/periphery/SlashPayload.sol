@@ -15,7 +15,7 @@ contract SlashPayload is IPayload {
 
   address[] public validators;
   uint256[] public amounts;
-  ISlashFactory.Offense[] public offenses;
+  uint256[] public offenses;
 
   constructor(
     address[] memory _validators,

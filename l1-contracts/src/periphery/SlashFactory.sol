@@ -17,7 +17,7 @@ contract SlashFactory is ISlashFactory {
   function createSlashPayload(
     address[] memory _validators,
     uint256[] memory _amounts,
-    Offense[] memory _offences
+    uint256[] memory _offences
   ) external override(ISlashFactory) returns (IPayload) {
     require(
       _validators.length == _amounts.length,
@@ -51,7 +51,7 @@ contract SlashFactory is ISlashFactory {
   function getAddressAndIsDeployed(
     address[] memory _validators,
     uint256[] memory _amounts,
-    Offense[] memory _offences,
+    uint256[] memory _offences,
     uint256 _currentHour
   ) public view override(ISlashFactory) returns (address, bool) {
     address predictedAddress =
@@ -63,7 +63,7 @@ contract SlashFactory is ISlashFactory {
   function _computeSlashPayloadAddress(
     address[] memory _validators,
     uint256[] memory _amounts,
-    Offense[] memory _offences,
+    uint256[] memory _offences,
     uint256 _currentHour
   ) internal view returns (address) {
     bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts, _offences, _currentHour));

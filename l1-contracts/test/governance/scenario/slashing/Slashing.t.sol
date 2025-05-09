@@ -12,7 +12,6 @@ import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {ISlashFactory} from "@aztec/periphery/interfaces/ISlashFactory.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {TestBase} from "@test/base/Base.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
@@ -91,10 +90,10 @@ contract SlashingScenario is TestBase {
     uint256 slashAmount = 10e18;
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(1));
     uint256[] memory amounts = new uint256[](attesters.length);
-    ISlashFactory.Offense[] memory offenses = new ISlashFactory.Offense[](attesters.length);
+    uint256[] memory offenses = new uint256[](attesters.length);
     for (uint256 i = 0; i < attesters.length; i++) {
       amounts[i] = slashAmount;
-      offenses[i] = ISlashFactory.Offense.Unknown;
+      offenses[i] = 0;
     }
     IPayload payload = slashFactory.createSlashPayload(attesters, amounts, offenses);
 

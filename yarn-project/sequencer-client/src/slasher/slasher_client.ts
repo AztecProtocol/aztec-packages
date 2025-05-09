@@ -66,14 +66,11 @@ type MonitoredSlashPayload = {
  * Hypomeiones: a class of individuals in ancient Sparta who were considered inferior or lesser citizens compared
  * to the full Spartan citizens.
  *
- * The implementation here is less than ideal. It exists, not to be the end all be all, but to show that
- * slashing can be done with this mechanism.
+ * How it works:
  *
- * The implementation is VERY brute in the sense that it only looks for pruned blocks and then tries to slash
- * the full committee of that.
- * If it sees a prune, it will mark the full epoch as "to be slashed".
  *
- * Also, it is not particularly smart around what it should if there were to be multiple slashing events.
+ *
+ *
  *
  * A few improvements:
  * - Only vote on the proposal if it is possible to reach, e.g., if 6 votes are needed and only 4 slots are left don't vote.

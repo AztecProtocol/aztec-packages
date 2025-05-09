@@ -9,7 +9,6 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {ISlashFactory} from "@aztec/periphery/interfaces/ISlashFactory.sol";
 
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -169,7 +168,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
-    ISlashFactory.Offense[] memory offenses = new ISlashFactory.Offense[](attesters.length);
+    uint256[] memory offenses = new uint256[](attesters.length);
     uint256[] memory amounts = new uint256[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
@@ -177,7 +176,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     for (uint256 i = 0; i < attesters.length; i++) {
       ValidatorInfo memory info = rollup.getInfo(attesters[i]);
       stakes[i] = info.stake;
-      offenses[i] = ISlashFactory.Offense.Unknown;
+      offenses[i] = 0;
       amounts[i] = slashAmount;
 
       assertTrue(info.status == Status.VALIDATING, "Invalid status");

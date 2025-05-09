@@ -5,14 +5,8 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 interface ISlashFactory {
-  enum Offense {
-    Unknown,
-    EpochPruned,
-    Inactivity
-  }
-
   event SlashPayloadCreated(
-    address payloadAddress, address[] validators, uint256[] amounts, Offense[] offences
+    address payloadAddress, address[] validators, uint256[] amounts, uint256[] offences
   );
 
   error SlashPayloadAmountsLengthMismatch(uint256 expected, uint256 actual);
@@ -21,13 +15,13 @@ interface ISlashFactory {
   function createSlashPayload(
     address[] memory _validators,
     uint256[] memory _amounts,
-    Offense[] memory _offences
+    uint256[] memory _offences
   ) external returns (IPayload);
 
   function getAddressAndIsDeployed(
     address[] memory _validators,
     uint256[] memory _amounts,
-    Offense[] memory _offences,
+    uint256[] memory _offences,
     uint256 _currentHour
   ) external view returns (address, bool);
 }
