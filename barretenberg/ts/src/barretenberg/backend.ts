@@ -6,7 +6,6 @@ import {
   flattenFieldsAsArray,
   ProofData,
   reconstructHonkProof,
-  reconstructUltraPlonkProof,
   splitHonkProof,
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
