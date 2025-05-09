@@ -7,7 +7,7 @@ metadata:
 spec:
   sessionAffinity:
     affinityType: "CLIENT_IP"
-    affinityCookieTtlSec: 240
+    affinityCookieTtlSec: 10
   healthCheck:
     checkIntervalSec: 15
     healthyThreshold: 2
