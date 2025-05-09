@@ -2,6 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
@@ -48,7 +49,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
-    protected readonly instance: NativeWorldState,
+    protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
@@ -136,6 +137,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [await this.initialHeader.hash()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
+  }
+
+  public async clear() {
+    await this.instance.close();
+    this.cachedStatusSummary = undefined;
+    await tryRmDir(this.instance.getDataDir(), this.log);
+    this.instance = this.instance.clone();
   }
 
   public getCommitted(): MerkleTreeReadOperations {

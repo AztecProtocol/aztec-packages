@@ -5,6 +5,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { Tx } from '../tx/tx.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import {
@@ -40,6 +41,10 @@ export class BlockProposal extends Gossipable {
 
     /** The signer of the BlockProposal over the header of the new block*/
     public readonly signature: Signature,
+
+    // Note(md): this is placed after the txs payload in order to be backwards compatible with previous versions
+    /** The transactions in the block */
+    public readonly txs?: Tx[],
   ) {
     super();
   }
@@ -59,12 +64,14 @@ export class BlockProposal extends Gossipable {
   static async createProposalFromSigner(
     blockNumber: Fr,
     payload: ConsensusPayload,
+    // Note(md): Provided seperately to tx hashes such that this function can be optional
+    txs: Tx[],
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
     const hashed = getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
     const sig = await payloadSigner(hashed);
 
-    return new BlockProposal(blockNumber, payload, sig);
+    return new BlockProposal(blockNumber, payload, sig, txs);
   }
 
   /**Get Sender
@@ -85,15 +92,35 @@ export class BlockProposal extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockNumber, this.payload, this.signature]);
+    const buffer: any[] = [this.blockNumber, this.payload, this.signature];
+    if (this.txs) {
+      buffer.push(this.txs.length);
+      buffer.push(this.txs);
+    }
+    return serializeToBuffer(buffer);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockProposal {
     const reader = BufferReader.asReader(buf);
-    return new BlockProposal(reader.readObject(Fr), reader.readObject(ConsensusPayload), reader.readObject(Signature));
+
+    const blockNumber = reader.readObject(Fr);
+    const payload = reader.readObject(ConsensusPayload);
+    const sig = reader.readObject(Signature);
+
+    if (!reader.isEmpty()) {
+      const txs = reader.readArray(reader.readNumber(), Tx);
+      return new BlockProposal(blockNumber, payload, sig, txs);
+    }
+
+    return new BlockProposal(blockNumber, payload, sig);
   }
 
   getSize(): number {
-    return this.blockNumber.size + this.payload.getSize() + this.signature.getSize();
+    return (
+      this.blockNumber.size +
+      this.payload.getSize() +
+      this.signature.getSize() +
+      (this.txs ? this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0)
+    );
   }
 }
