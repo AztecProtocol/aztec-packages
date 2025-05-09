@@ -67,7 +67,6 @@ jobs:
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI: 1
           # Nightly test env vars.
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
@@ -81,7 +80,7 @@ jobs:
           elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
             exec ./ci.sh release
           else
-            exec ./ci.sh pr
+            exec ./ci.sh fast
           fi
 
       - name: Download benchmarks

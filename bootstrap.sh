@@ -357,7 +357,7 @@ case "$cmd" in
     install_hooks
     build $cmd
   ;;
-  "ci-pr")
+  "ci-fast")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0

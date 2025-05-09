@@ -67,35 +67,33 @@ function tail_live_instance {
 }
 
 case "$cmd" in
-  "pr")
-    # Spin up ec2 instance and run the PR flow.
-    exec bootstrap_ec2 "./booststrap.sh ci-pr"
+  "fast")
+    # Spin up ec2 instance and run the fast flow.
+    exec bootstrap_ec2 "./booststrap.sh ci-fast"
     ;;
   "full")
-    # Spin up ec2 instance and run the PR flow.
+    # Spin up ec2 instance and run the full flow.
     exec bootstrap_ec2 "./booststrap.sh ci-full"
     ;;
   "merge-queue")
     # Spin up ec2 instance and run the merge-queue flow.
     export RUN_ID=${RUN_ID:-$(date +%s%3N)}
     export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
-    export CI_FULL=1
     export DENOISE=1
     export DENOISE_WIDTH=32
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=${USER}_$1 ARCH=$2 USE_TEST_CACHE=$3 \
-        denoise "bootstrap_ec2 './bootstrap.sh ci-full'"
+      JOB_ID=$1 INSTANCE_POSTFIX=${USER}_$1 ARCH=$2 \
+        denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    # We perform two full runs of all tests on x86, and a single run on arm64 (allowing use of test cache).
+    # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1 amd64 0' \
-      'run x2 amd64 0' \
-      'run a2 arm64 1' | DUP=1 cache_log "GA CI run" $RUN_ID
+      'run x1 amd64 ci-full' \
+      'run x2 amd64 ci-full' \
+      'run a2 arm64 ci-fast' | DUP=1 cache_log "Merge Queue CI run" $RUN_ID
     ;;
   "nightly")
     # Spin up ec2 instance and run the nightly flow.
-    export CI_NIGHTLY=1
     exec bootstrap_ec2 "./bootstrap.sh ci-nightly"
     ;;
   "release")
