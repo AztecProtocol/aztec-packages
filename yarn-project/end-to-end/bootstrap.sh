@@ -54,6 +54,7 @@ function test_cmds {
   echo "$prefix simple e2e_double_spend"
   echo "$prefix simple e2e_epochs/epochs_empty_blocks"
   echo "$prefix simple e2e_epochs/epochs_long_proving_time"
+  echo "$prefix simple e2e_epochs/epochs_manual_rollback"
   echo "$prefix simple e2e_epochs/epochs_multi_proof"
   echo "$prefix simple e2e_epochs/epochs_proof_fails"
   echo "$prefix simple e2e_epochs/epochs_sync_after_reorg"

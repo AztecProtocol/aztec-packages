@@ -421,12 +421,13 @@ export class ReqResp {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
+    dialTimeout?: number,
   ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
 
-      stream = await this.connectionSampler.dialProtocol(peerId, subProtocol);
+      stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
 
       // Open the stream with a timeout
       const result = await executeTimeout<ReqRespResponse>(
@@ -621,7 +622,7 @@ export class ReqResp {
             const response = await handler(connection.remotePeer, msg);
 
             if (protocol === ReqRespSubProtocol.GOODBYE) {
-              // Don't respond
+              // Dont respond
               await stream.close();
               return;
             }
@@ -636,13 +637,16 @@ export class ReqResp {
         stream,
       );
     } catch (e: any) {
-      this.logger.warn('Reqresp Response error: ', e);
+      this.logger.debug(`Reqresp Response error: ${e.name} ${e.code}`);
       this.metrics.recordResponseError(protocol);
 
       // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown
       let errorStatus = ReqRespStatus.UNKNOWN;
       if (e instanceof ReqRespStatusError) {
         errorStatus = e.status;
+      } else if (e.name === 'CodeError') {
+        // If it is a code error in libp2p, the stream is already closed and we cannot sent the error chunk
+        return;
       }
 
       const sendErrorChunk = this.sendErrorChunk(errorStatus);

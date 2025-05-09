@@ -14,6 +14,7 @@ import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
+import { ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
 import { PeerManagerMetrics } from './metrics.js';
 import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
@@ -22,6 +23,7 @@ const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
 const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
+const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 
 type CachedPeer = {
   peerId: PeerId;
@@ -398,7 +400,22 @@ export class PeerManager {
     this.metrics.recordGoodbyeSent(reason);
 
     try {
-      await this.reqresp.sendRequestToPeer(peer, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
+      const resp = await this.reqresp.sendRequestToPeer(
+        peer,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([reason]),
+        GOODBYE_DIAL_TIMEOUT_MS,
+      );
+
+      if (resp.status === ReqRespStatus.FAILURE) {
+        this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}`);
+      } else if (resp.status === ReqRespStatus.SUCCESS) {
+        this.logger.verbose(`Sent goodbye to peer ${peer.toString()}`);
+      } else {
+        this.logger.debug(
+          `Unexpected status sending goodbye to peer ${peer.toString()}: ${ReqRespStatus[resp.status]}`,
+        );
+      }
     } catch (error) {
       this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}: ${error}`);
     } finally {

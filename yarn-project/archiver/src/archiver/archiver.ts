@@ -57,7 +57,7 @@ import { type GetContractReturnType, createPublicClient, fallback, getContract, 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';
 import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
-import { NoBlobBodiesFoundError } from './errors.js';
+import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
 import type { PublishedL2Block } from './structs/published.js';
@@ -182,8 +182,12 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       throw new Error('Archiver is already running');
     }
 
+    await this.blobSinkClient.testSources();
+
     if (blockUntilSynced) {
-      await this.syncSafe(blockUntilSynced);
+      while (!(await this.syncSafe(true))) {
+        this.log.info(`Retrying initial archiver sync in ${this.config.pollingIntervalMs}ms`);
+      }
     }
 
     this.runningPromise = new RunningPromise(
@@ -211,8 +215,14 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   private async syncSafe(initialRun: boolean) {
     try {
       await this.sync(initialRun);
+      return true;
     } catch (error) {
-      this.log.error('Error during sync', { error });
+      if (error instanceof NoBlobBodiesFoundError) {
+        this.log.error(`Error syncing archiver: ${error.message}`);
+      } else {
+        this.log.error('Error during archiver sync', error);
+      }
+      return false;
     }
   }
 
@@ -550,11 +560,30 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         });
       }
 
-      const [processDuration] = await elapsed(() => this.store.addBlocks(retrievedBlocks));
-      this.instrumentation.processNewBlocks(
-        processDuration / retrievedBlocks.length,
-        retrievedBlocks.map(b => b.block),
-      );
+      try {
+        const [processDuration] = await elapsed(() => this.store.addBlocks(retrievedBlocks));
+        this.instrumentation.processNewBlocks(
+          processDuration / retrievedBlocks.length,
+          retrievedBlocks.map(b => b.block),
+        );
+      } catch (err) {
+        if (err instanceof InitialBlockNumberNotSequentialError) {
+          const { previousBlockNumber, newBlockNumber } = err;
+          const previousBlock = previousBlockNumber ? await this.store.getBlock(previousBlockNumber) : undefined;
+          const updatedL1SyncPoint = previousBlock?.l1.blockNumber ?? this.l1constants.l1StartBlock;
+          await this.store.setBlockSynchedL1BlockNumber(updatedL1SyncPoint);
+          this.log.warn(
+            `Attempting to insert block ${newBlockNumber} with previous block ${previousBlockNumber}. Rolling back L1 sync point to ${updatedL1SyncPoint} to try and fetch the missing blocks.`,
+            {
+              previousBlockNumber,
+              previousBlockHash: await previousBlock?.block.hash(),
+              newBlockNumber,
+              updatedL1SyncPoint,
+            },
+          );
+        }
+        throw err;
+      }
 
       for (const block of retrievedBlocks) {
         this.log.info(`Downloaded L2 block ${block.block.number}`, {
@@ -734,11 +763,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     if (number < 0) {
       number = await this.store.getSynchedL2BlockNumber();
     }
-    if (number == 0) {
+    if (number === 0) {
       return undefined;
     }
-    const blocks = await this.store.getBlocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0].block;
+    const publishedBlock = await this.store.getBlock(number);
+    return publishedBlock?.block;
   }
 
   public async getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
@@ -898,6 +927,39 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
         hash: finalizedBlockHeaderHash?.toString(),
       } as L2BlockId,
     };
+  }
+
+  public async rollbackTo(targetL2BlockNumber: number): Promise<void> {
+    const currentBlocks = await this.getL2Tips();
+    const currentL2Block = currentBlocks.latest.number;
+    const currentProvenBlock = currentBlocks.proven.number;
+    // const currentFinalizedBlock = currentBlocks.finalized.number;
+
+    if (targetL2BlockNumber >= currentL2Block) {
+      throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);
+    }
+    const blocksToUnwind = currentL2Block - targetL2BlockNumber;
+    const [targetL2Block] = await this.store.getBlocks(targetL2BlockNumber, 1);
+    if (!targetL2Block) {
+      throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
+    }
+    const targetL1BlockNumber = targetL2Block.l1.blockNumber;
+    this.log.info(`Unwinding ${blocksToUnwind} blocks from L2 block ${currentL2Block}`);
+    await this.store.unwindBlocks(currentL2Block, blocksToUnwind);
+    this.log.info(`Unwinding L1 to L2 messages to ${targetL2BlockNumber}`);
+    await this.store.rollbackL1ToL2MessagesToL2Block(targetL2BlockNumber, currentL2Block);
+    this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
+    await this.store.setBlockSynchedL1BlockNumber(targetL1BlockNumber);
+    await this.store.setMessageSynchedL1BlockNumber(targetL1BlockNumber);
+    if (targetL2BlockNumber < currentProvenBlock) {
+      this.log.info(`Clearing proven L2 block number`);
+      await this.store.setProvenL2BlockNumber(0);
+    }
+    // TODO(palla/reorg): Set the finalized block when we add support for it.
+    // if (targetL2BlockNumber < currentFinalizedBlock) {
+    //   this.log.info(`Clearing finalized L2 block number`);
+    //   await this.store.setFinalizedL2BlockNumber(0);
+    // }
   }
 }
 
@@ -1068,6 +1130,12 @@ class ArchiverStoreHelper
   }
 
   async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
+    // TODO(palla/reorg): Run all these ops in a single write transaction
+
+    // Add the blocks to the store. Store will throw if the blocks are not in order, there are gaps,
+    // or if the previous block is not in the store.
+    await this.store.addBlocks(blocks);
+
     const opResults = await Promise.all([
       this.store.addLogs(blocks.map(block => block.block)),
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
@@ -1085,16 +1153,18 @@ class ArchiverStoreHelper
           ])
         ).every(Boolean);
       }),
-      this.store.addBlocks(blocks),
     ]);
 
     return opResults.every(Boolean);
   }
 
-  async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+  public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
-      throw new Error(`Can only remove from the tip`);
+      throw new Error(`Cannot unwind blocks from block ${from} when the last block is ${last}`);
+    }
+    if (blocksToUnwind <= 0) {
+      throw new Error(`Cannot unwind ${blocksToUnwind} blocks`);
     }
 
     // from - blocksToUnwind = the new head, so + 1 for what we need to remove
@@ -1123,7 +1193,9 @@ class ArchiverStoreHelper
 
     return opResults.every(Boolean);
   }
-
+  getBlock(number: number): Promise<PublishedL2Block | undefined> {
+    return this.store.getBlock(number);
+  }
   getBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
     return this.store.getBlocks(from, limit);
   }
@@ -1198,5 +1270,11 @@ class ArchiverStoreHelper
   }
   estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
+  }
+  rollbackL1ToL2MessagesToL2Block(
+    targetBlockNumber: number | bigint,
+    currentBlockNumber: number | bigint,
+  ): Promise<void> {
+    return this.store.rollbackL1ToL2MessagesToL2Block(targetBlockNumber, currentBlockNumber);
   }
 }
