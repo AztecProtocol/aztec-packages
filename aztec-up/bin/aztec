@@ -5,7 +5,11 @@ NETWORK=${NETWORK:-}
 VERSION=${VERSION:-${NETWORK:-"latest"}}
 
 # Take copy of command-line arguments, so we can mutate to parse.
-args=("$@")
+if [ $# -eq 0 ]; then
+  args=("--help")
+else
+  args=("$@")
+fi
 while [ "$#" -gt 0 ]; do
   case $1 in
     -p | --port)
@@ -37,6 +41,10 @@ while [ "$#" -gt 0 ]; do
       # Turn on proving if connecting to a network.
       export PXE_PROVER_ENABLED=1
       shift 2
+      ;;
+    --help)
+      NO_PORT_FORWARDING=1
+      shift 1
       ;;
     *)
       shift
@@ -120,11 +128,16 @@ case ${1:-} in
 
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
       fi
-
+      
       if [ -n "${ADMIN_PORT:-}" ]; then
         export ADMIN_PORT
         ADMIN_MAPPING="$ADMIN_PORT:$ADMIN_PORT"
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $ADMIN_MAPPING"
+      fi
+
+      # unset PORTS_TO_EXPOSE if we're just running --help
+      if [ ! -z "${NO_PORT_FORWARDING:-}" ]; then
+        export PORTS_TO_EXPOSE=""
       fi
 
       exec $(dirname $0)/.aztec-run aztec-start \

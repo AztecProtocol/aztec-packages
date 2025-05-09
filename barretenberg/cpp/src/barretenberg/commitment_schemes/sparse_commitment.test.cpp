@@ -1,7 +1,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 
 #include <gtest/gtest.h>
 
@@ -77,7 +77,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::BN254>> CommitmentKeyTest<curve::BN254>::create_commitment_key<
     CommitmentKey<curve::BN254>>(const size_t num_points)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
 }
 
@@ -86,7 +86,7 @@ template <>
 std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpkin>::create_commitment_key<
     CommitmentKey<curve::Grumpkin>>(const size_t num_points)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
 }
 
@@ -305,6 +305,10 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredWire)
     using CK = CommitmentKey<Curve>;
     using G1 = Curve::AffineElement;
 
+    if constexpr (std::is_same_v<Curve, curve::Grumpkin>) {
+        GTEST_SKIP() << "Skipping test for Grumpkin as it has too small a CRS.";
+    }
+
     // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
     std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
@@ -371,6 +375,10 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     using Curve = TypeParam;
     using CK = CommitmentKey<Curve>;
     using G1 = Curve::AffineElement;
+
+    if constexpr (std::is_same_v<Curve, curve::Grumpkin>) {
+        GTEST_SKIP() << "Skipping test for Grumpkin as it has too small a CRS.";
+    }
 
     // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };

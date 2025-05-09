@@ -47,6 +47,8 @@ import type {
 } from '../types/index.js';
 import type { DecodedInputs } from '../utils/decoded_inputs.js';
 
+export { mapAvmCircuitPublicInputsToNoir } from '../conversion/server.js';
+
 /**
  * Converts the inputs of the base parity circuit into a witness map.
  * @param inputs - The base parity inputs.
