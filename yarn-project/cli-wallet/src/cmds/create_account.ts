@@ -1,4 +1,4 @@
-import type { DeployAccountOptions, PXE } from '@aztec/aztec.js';
+import type { DeployAccountOptions, DeployOptions, PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -74,10 +74,11 @@ export async function createAccount(
     };
     /*
      * This is usually handled by accountManager.deploy(), but we're accessing the lower
-     * level method to get the gas estimates. That means we have to replicate some of the logic here.
+     * level method to get gas and timings. That means we have to replicate some of the logic here.
      * In case we're deploying our own account, we need to hijack the payment method for the fee,
      * wrapping it in the one that will make use of the freshly deployed account's
      * entrypoint. For reference, see aztec.js/src/account_manager.ts:deploy()
+     * Also, salt and universalDeploy have to be explicitly provided
      */
     deployOpts.fee =
       !deployOpts?.deployWallet && deployOpts?.fee
@@ -87,7 +88,7 @@ export async function createAccount(
     const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
 
     if (feeOpts.estimateOnly) {
-      const gas = await deployMethod.estimateGas({ ...deployOpts });
+      const gas = await deployMethod.estimateGas({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
       if (json) {
         out.fee = {
           gasLimits: {
@@ -103,7 +104,7 @@ export async function createAccount(
         printGasEstimates(feeOpts, gas, log);
       }
     } else {
-      const provenTx = await deployMethod.prove(deployOpts);
+      const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
       printProfileResult(provenTx.timings!, log);
       tx = provenTx.send();
 
