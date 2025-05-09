@@ -45,7 +45,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using TupleOfKeys = std::tuple<std::vector<std::shared_ptr<DeciderProvingKey>>,
                                    std::vector<std::shared_ptr<DeciderVerificationKey>>>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static void construct_circuit(Builder& builder)
     {
@@ -101,8 +101,9 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         DeciderProver decider_prover(prover_accumulator);
         DeciderVerifier decider_verifier(verifier_accumulator);
         HonkProof decider_proof = decider_prover.construct_proof();
-        bool verified = decider_verifier.verify_proof(decider_proof);
-        EXPECT_EQ(verified, expected_result);
+        auto decider_output = decider_verifier.verify_proof(decider_proof);
+        bool result = decider_output.check();
+        EXPECT_EQ(result, expected_result);
     }
 
     /**

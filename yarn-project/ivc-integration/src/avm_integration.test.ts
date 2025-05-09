@@ -46,9 +46,9 @@ describe('AVM Integration', () => {
   beforeAll(async () => {
     const clientIVCProofPath = await getWorkingDirectory('bb-avm-integration-client-ivc-');
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
-    const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, logger);
+    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCProofPath);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,

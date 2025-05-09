@@ -114,8 +114,6 @@ tests:
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
-    # Too noisey, skipping.
-    skip: true
     error_regex: "Expected: >= 2"
     owners:
       - *palla
@@ -243,6 +241,10 @@ tests:
     error_regex: "Is the docker daemon running"
     owners:
       - *charlie
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "code: 124"
+    owners:
+      - *esau
 
   # Slack testing.
   - regex: "nonsense to match"
