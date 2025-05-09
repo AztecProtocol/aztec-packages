@@ -120,7 +120,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 
     // Deploy contract and initialize
     let initializer = Test::interface().initialize();
-    let test_contract = env.deploy_self("Test").with_private_initializer(initializer);
+    let test_contract = env.deploy_self("Test").with_private_initializer(owner, initializer);
     let contract_address = test_contract.to_address();
 
     (&mut env, contract_address, owner)

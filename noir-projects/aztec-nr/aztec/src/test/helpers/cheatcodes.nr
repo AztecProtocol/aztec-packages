@@ -14,6 +14,10 @@ pub unconstrained fn get_side_effects_counter() -> u32 {
     oracle_get_side_effects_counter()
 }
 
+pub unconstrained fn get_contract_address() -> AztecAddress {
+    oracle_get_contract_address()
+}
+
 pub unconstrained fn set_contract_address(address: AztecAddress) {
     oracle_set_contract_address(address);
 }
@@ -125,6 +129,9 @@ unconstrained fn oracle_reset() {}
 
 #[oracle(setContractAddress)]
 unconstrained fn oracle_set_contract_address(address: AztecAddress) {}
+
+#[oracle(getContractAddress)]
+unconstrained fn oracle_get_contract_address() -> AztecAddress {}
 
 #[oracle(getSideEffectsCounter)]
 unconstrained fn oracle_get_side_effects_counter() -> u32 {}
