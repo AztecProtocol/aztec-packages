@@ -14,7 +14,7 @@ template <typename FF_> class contextImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 3, 4, 5, 5, 5, 5,
-                                                                            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                                                                            5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                                                                             5, 5, 6, 5, 5, 6, 5, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -36,6 +36,9 @@ template <typename FF_> class contextImpl {
         const auto execution_DEFAULT_CTX_ROW = (FF(1) - execution_SWITCH_CTX);
         const auto execution_NESTED_RET_REV_ONLY =
             in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_error));
+        const auto execution_PC_JUMP = in.get(C::execution_sel_internal_call) +
+                                       in.get(C::execution_sel_internal_return) + in.get(C::execution_sel_jump) +
+                                       in.get(C::execution_sel_jumpi);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -132,7 +135,7 @@ template <typename FF_> class contextImpl {
         }
         { // PC_NEXT_ROW
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW * (FF(1) - execution_PC_JUMP) *
                        (in.get(C::execution_pc_shift) - in.get(C::execution_next_pc));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);

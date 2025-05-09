@@ -95,6 +95,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
     typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
     typename S::template DefaultEventEmitter<CalldataHashingEvent> calldata_hashing_emitter;
+    typename S::template DefaultEventEmitter<InternalStackEvent> internal_call_stack_emitter;
 
     uint32_t current_block_number = static_cast<uint32_t>(hints.tx.globalVariables.blockNumber);
 
@@ -134,8 +135,14 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     Alu alu(alu_emitter);
     DataCopy data_copy(data_copy_emitter);
-    Execution execution(
-        alu, data_copy, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
+    InternalCallStackManager internal_call_stack_manager(internal_call_stack_emitter);
+    Execution execution(alu,
+                        data_copy,
+                        execution_components,
+                        instruction_info_db,
+                        internal_call_stack_manager,
+                        execution_emitter,
+                        context_stack_emitter);
     TxExecution tx_execution(execution, merkle_db, calldata_hasher, calldata_emitter);
     Sha256 sha256(sha256_compression_emitter);
 
@@ -169,6 +176,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         data_copy_emitter.dump_events(),
         calldata_emitter.dump_events(),
         calldata_hashing_emitter.dump_events(),
+        internal_call_stack_emitter.dump_events(),
     };
 }
 

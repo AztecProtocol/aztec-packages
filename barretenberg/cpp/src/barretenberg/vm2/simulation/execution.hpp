@@ -17,7 +17,9 @@
 #include "barretenberg/vm2/simulation/data_copy.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
+#include "barretenberg/vm2/simulation/internal_callstack_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -48,6 +50,7 @@ class Execution : public ExecutionInterface {
               DataCopyInterface& data_copy,
               ExecutionComponentsProviderInterface& execution_components,
               const InstructionInfoDBInterface& instruction_info_db,
+              InternalCallStackManagerInterface& internal_call_stack_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
         : execution_components(execution_components)
@@ -56,6 +59,7 @@ class Execution : public ExecutionInterface {
         , data_copy(data_copy)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
+        , internal_call_stack_manager(internal_call_stack_manager)
     {}
 
     ExecutionResult execute(ContextInterface& enqueued_call_context) override;
@@ -83,6 +87,8 @@ class Execution : public ExecutionInterface {
                  MemoryAddress rd_size_offset,
                  MemoryAddress rd_offset,
                  MemoryAddress dst_addr);
+    void internal_call(ContextInterface& context, uint32_t loc);
+    void internal_return(ContextInterface& context);
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
@@ -113,6 +119,7 @@ class Execution : public ExecutionInterface {
     DataCopyInterface& data_copy;
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
+    InternalCallStackManagerInterface& internal_call_stack_manager;
 
     ExecutionResult exec_result;
 

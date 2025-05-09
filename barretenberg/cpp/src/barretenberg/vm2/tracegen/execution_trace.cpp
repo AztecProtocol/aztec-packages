@@ -93,6 +93,11 @@ void ExecutionTraceBuilder::process(
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
+                { C::execution_sel_internal_call, ex_event.opcode == ExecutionOpCode::INTERNALCALL ? 1 : 0 },
+                { C::execution_sel_internal_return, ex_event.opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
+                { C::execution_sel_jump, ex_event.opcode == ExecutionOpCode::JUMP ? 1 : 0 },
+                { C::execution_sel_jumpi, ex_event.opcode == ExecutionOpCode::JUMPI ? 1 : 0 },
+
                 { C::execution_sel_call, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
                 { C::execution_sel_static_call, ex_event.opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
                 { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },

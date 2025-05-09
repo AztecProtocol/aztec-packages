@@ -162,6 +162,19 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     set_inputs({ resolved_cond });
 }
 
+void Execution::internal_call(ContextInterface& context, uint32_t loc)
+{
+
+    internal_call_stack_manager.push(context.get_next_pc());
+    context.set_next_pc(loc);
+}
+
+void Execution::internal_return(ContextInterface& context)
+{
+    auto next_pc = internal_call_stack_manager.pop();
+    context.set_next_pc(next_pc);
+}
+
 // This context interface is an top-level enqueued one
 ExecutionResult Execution::execute(ContextInterface& context)
 {
@@ -260,6 +273,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURNDATACOPY:
         call_with_operands(&Execution::rd_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::INTERNALCALL:
+        call_with_operands(&Execution::internal_call, context, resolved_operands);
+        break;
+    case ExecutionOpCode::INTERNALRETURN:
+        call_with_operands(&Execution::internal_return, context, resolved_operands);
         break;
     default:
         // TODO: should be caught by parsing.
