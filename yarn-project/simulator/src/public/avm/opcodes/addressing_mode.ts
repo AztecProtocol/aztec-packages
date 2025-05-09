@@ -1,3 +1,8 @@
+import { AVM_MAX_OPERANDS } from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import type { Tuple } from '@aztec/foundation/serialize';
+
 import { strict as assert } from 'assert';
 
 import { TaggedMemory, type TaggedMemoryInterface } from '../avm_memory_types.js';
@@ -14,20 +19,27 @@ export enum AddressingMode {
 export class Addressing {
   public constructor(
     /** The addressing mode for each operand. The length of this array is the number of operands of the instruction. */
-    private readonly modePerOperand: AddressingMode[],
+    private readonly modePerOperand: Tuple<AddressingMode, typeof AVM_MAX_OPERANDS>,
+    private readonly numOperands: number,
   ) {}
 
-  // TODO(facundo): 8 for backwards compatibility.
-  public static fromWire(wireModes: number, numOperands: number = 8): Addressing {
-    // The modes are stored in the wire format as a byte, with each bit representing the mode for an operand.
-    // The least significant bit represents the zeroth operand, and the most significant bit represents the last operand.
-    const modes = new Array<AddressingMode>(numOperands);
-    for (let i = 0; i < numOperands; i++) {
-      modes[i] =
-        (((wireModes >> i) & 1) * AddressingMode.INDIRECT) |
-        (((wireModes >> (i + numOperands)) & 1) * AddressingMode.RELATIVE);
+  public static fromModes(modes: AddressingMode[]): Addressing {
+    if (modes.length > AVM_MAX_OPERANDS) {
+      throw new Error('Too many operands for addressing mode');
     }
-    return new Addressing(modes);
+    return new Addressing(padArrayEnd(modes, AddressingMode.DIRECT, AVM_MAX_OPERANDS), modes.length);
+  }
+
+  public static fromWire(wireModes: number, numOperands: number = AVM_MAX_OPERANDS): Addressing {
+    // The modes are stored in the wire format as one or two bytes, with each two bits representing the modes for an operand.
+    // Even bits are indirect, odd bits are relative.
+    const modes = makeTuple<AddressingMode, typeof AVM_MAX_OPERANDS>(AVM_MAX_OPERANDS, () => AddressingMode.DIRECT);
+    for (let i = 0; i < AVM_MAX_OPERANDS; i++) {
+      modes[i] =
+        (((wireModes >> (i * 2)) & 1) * AddressingMode.INDIRECT) |
+        (((wireModes >> (i * 2 + 1)) & 1) * AddressingMode.RELATIVE);
+    }
+    return new Addressing(modes, numOperands);
   }
 
   public toWire(): number {
@@ -36,10 +48,10 @@ export class Addressing {
     let wire: number = 0;
     for (let i = 0; i < this.modePerOperand.length; i++) {
       if (this.modePerOperand[i] & AddressingMode.INDIRECT) {
-        wire |= 1 << i;
+        wire |= 1 << (i * 2);
       }
       if (this.modePerOperand[i] & AddressingMode.RELATIVE) {
-        wire |= 1 << (this.modePerOperand.length + i);
+        wire |= 1 << (i * 2 + 1);
       }
     }
     return wire;
@@ -57,7 +69,7 @@ export class Addressing {
    * @returns The resolved offsets. The length of the returned array is the same as the length of the input array.
    */
   public resolve(offsets: number[], mem: TaggedMemoryInterface): number[] {
-    assert(offsets.length <= this.modePerOperand.length);
+    assert(offsets.length <= this.numOperands);
     const resolved = new Array(offsets.length);
 
     let didRelativeOnce = false;
