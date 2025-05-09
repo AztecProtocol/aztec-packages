@@ -1199,13 +1199,11 @@ export class TXEService {
     targetContractAddress: ForeignCallSingle,
     functionSelector: ForeignCallSingle,
     argsHash: ForeignCallSingle,
-    isStaticCall: ForeignCallSingle,
   ) {
     const result = await (this.typedOracle as TXE).simulateUtilityFunction(
       addressFromSingle(targetContractAddress),
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromSingle(argsHash),
-      fromSingle(isStaticCall).toBool(),
     );
 
     return toForeignCallResult([toSingle(result)]);

@@ -264,7 +264,6 @@ impl TestEnvironment {
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             args_hash,
-            call_interface.get_is_static(),
         );
 
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
@@ -283,7 +282,6 @@ impl TestEnvironment {
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             args_hash,
-            call_interface.get_is_static(),
         );
 
         ReturnsHash::new(returns_hash).assert_empty();

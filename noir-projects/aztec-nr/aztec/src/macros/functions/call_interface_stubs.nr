@@ -253,8 +253,11 @@ comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
+    // This is here because utility function call interfaces can only be used within TXe tests.
+    let modified_fn_name = f"_experimental_{fn_name}".quoted_contents();
+
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $modified_fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::UtilityCallInterface::new(
@@ -262,8 +265,6 @@ comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 $SERIALIZED_ARGS_SLICE_NAME,
-                // Utility functions are static
-                true
             )
         }
     }
@@ -273,8 +274,11 @@ comptime fn create_utility_void_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
 
+    // This is here because utility function call interfaces can only be used within TXe tests.
+    let modified_fn_name = f"_experimental_{fn_name}".quoted_contents();
+
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityVoidCallInterface<$fn_name_len> {
+        pub fn $modified_fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityVoidCallInterface<$fn_name_len> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::UtilityVoidCallInterface::new(
@@ -282,8 +286,6 @@ comptime fn create_utility_void_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 $SERIALIZED_ARGS_SLICE_NAME,
-                // Utility functions are static
-                true
             )
         }
     }
