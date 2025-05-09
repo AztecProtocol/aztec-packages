@@ -21,7 +21,6 @@ interface ISlashFactory {
   function getAddressAndIsDeployed(
     address[] memory _validators,
     uint256[] memory _amounts,
-    uint256[] memory _offences,
-    uint256 _currentHour
+    uint256[] memory _offences
   ) external view returns (address, bool);
 }

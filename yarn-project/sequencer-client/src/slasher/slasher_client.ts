@@ -1,18 +1,16 @@
+import type { EpochCache } from '@aztec/epoch-cache';
 import { type ExtendedViemWalletClient, type L1ContractsConfig, type L1ReaderConfig, L1TxUtils } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import {
-  type L2BlockId,
-  type L2BlockSourceEvent,
-  type L2BlockSourceEventEmitter,
-  L2BlockSourceEvents,
-} from '@aztec/stdlib/block';
+import type { L2BlockId, L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type GetContractReturnType, encodeFunctionData, getAddress, getContract } from 'viem';
+import { type GetContractReturnType, getAddress, getContract } from 'viem';
 
-import type { SlasherConfig } from './config.js';
+import { type Offence, type SlasherConfig, WANT_TO_SLASH_EVENT } from './config.js';
+import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 /**
  * Enum defining the possible states of the Slasher client.
@@ -37,19 +35,12 @@ export interface SlasherSyncState {
   syncedToL2Block: L2BlockId;
 }
 
-// Corresponds to ISlashFactory.Offense enum
-export enum Offense {
-  Unknown,
-  EpochPruned,
-  Inactivity,
-}
-
 // Renamed from SlashEvent and updated for new event structure
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
   validators: readonly EthAddress[];
   amounts: readonly bigint[];
-  offenses: readonly Offense[];
+  offenses: readonly Offence[];
   // For TTL management, using L1 block number when event was seen
   // Alternatively, could be a timestamp if preferred and L1 gives us reliable timestamps.
   // slotNumber seems to map to L2 slots, L1 event monitoring will give L1 blockNumber.
@@ -68,7 +59,15 @@ type MonitoredSlashPayload = {
  *
  * How it works:
  *
+ * The constructor creates instances of classes that correspond to specific offences. These "watchers" do two things:
+ * - watch for their offence conditions and emit an event when they are detected
+ * - confirm/deny whether they agree with a proposed offence
  *
+ * The SlasherClient class is responsible for:
+ * - listening for events from the watchers and creating a corresponding payload
+ * - listening for the payloads from L1 filtering them through the watchers
+ * - ordering the payloads and discarding stale payloads
+ * - presenting the payload that ought to be currently voted for
  *
  *
  *
@@ -87,10 +86,23 @@ export class SlasherClient extends WithTracer {
 
   protected slashFactoryContract?: GetContractReturnType<typeof SlashFactoryAbi, ExtendedViemWalletClient> = undefined;
 
+  static new(
+    config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
+    l1Constants: L1RollupConstants,
+    epochCache: EpochCache,
+    l2BlockSource: L2BlockSourceEventEmitter,
+    l1TxUtils: L1TxUtils,
+    telemetry: TelemetryClient = getTelemetryClient(),
+  ) {
+    const epochPruneWatcher = new EpochPruneWatcher(l2BlockSource, l1Constants, epochCache, config.slashPrunePenalty);
+    return new SlasherClient(config, l2BlockSource, l1TxUtils, epochPruneWatcher, telemetry);
+  }
+
   constructor(
     private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1TxUtils: L1TxUtils,
+    private epochPruneWatcher: EpochPruneWatcher,
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
   ) {
@@ -114,10 +126,19 @@ export class SlasherClient extends WithTracer {
 
   public start() {
     this.log.info('Starting Slasher client...');
-    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
-    if (this.slashFactoryContract) {
-      this.watchSlashFactoryEvents();
+    if (!this.slashFactoryContract) {
+      this.log.warn('No slash factory contract found, skipping slash factory event watching');
+      return;
     }
+
+    this.watchSlashFactoryEvents();
+    this.epochPruneWatcher.on(WANT_TO_SLASH_EVENT, this.handleWantsToSlash.bind(this));
+
+    this.epochPruneWatcher.start();
+  }
+
+  private handleWantsToSlash(args: { validators: `0x${string}`[]; amounts: bigint[]; offenses: Offence[] }) {
+    this.log.info('Wants to slash', args);
   }
 
   public getSlashPayload(_slotNumber: bigint): Promise<EthAddress | undefined> {
@@ -155,51 +176,12 @@ export class SlasherClient extends WithTracer {
    */
   public stop() {
     this.log.debug('Stopping Slasher client...');
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
     // TODO: Properly stop watching SlashFactory events (viem returns an unwatch function)
     if (this.unwatchSlashFactoryEvents) {
       this.unwatchSlashFactoryEvents();
     }
+    this.epochPruneWatcher.stop();
     this.log.info('Slasher client stopped.');
-  }
-
-  private handlePruneL2Blocks(event: L2BlockSourceEvent): void {
-    if (!this.config.slashPruneCreate || this.config.slashPrunePenalty === 0n) {
-      this.log.debug('Prune slashing creation disabled or penalty is zero.');
-      return;
-    }
-
-    const { /*_slotNumber,*/ epochNumber } = event; // L2 slotNumber might be used for timing
-    this.log.info(`Detected chain prune. Attempting to create slash for epoch ${epochNumber}`, event);
-
-    // get the validators for the epoch
-    const validators = this.getValidatorsForEpoch(epochNumber);
-    if (validators.length === 0) {
-      this.log.debug('No validators found for epoch, skipping slash creation.');
-      return;
-    }
-
-    const amounts = Array(validators.length).fill(this.config.slashPrunePenalty);
-    const offenses = Array(validators.length).fill(Offense.EpochPruned);
-
-    // create the slash payload
-    this.l1TxUtils
-      .sendAndMonitorTransaction({
-        to: this.slashFactoryContract!.address,
-        data: encodeFunctionData({
-          abi: SlashFactoryAbi,
-          functionName: 'createSlashPayload',
-          args: [[...validators], [...amounts], [...offenses]],
-        }),
-      })
-      .catch(error => {
-        this.log.error('Error creating slash payload:', error);
-      });
-  }
-
-  private getValidatorsForEpoch(_epochNumber: bigint): `0x${string}`[] {
-    // TODO: Implement this
-    return [];
   }
 
   private unwatchSlashFactoryEvents?: () => void;
@@ -228,7 +210,7 @@ export class SlasherClient extends WithTracer {
             validators: log.args.validators?.map(EthAddress.fromString) ?? [],
             amounts: log.args.amounts ?? [],
             // Ensure mapping from number to Offense enum. Solidity enums are uint8.
-            offenses: log.args.offences?.map(o => o as Offense) ?? [],
+            offenses: log.args.offences?.map(o => o as Offence) ?? [],
             observedAtL1BlockNumber: log.blockNumber, // Correctly capture L1 block number
           };
 

@@ -2,6 +2,14 @@ import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { bigintConfigHelper, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
+export enum Offence {
+  UNKNOWN = 0,
+  EPOCH_PRUNE = 1,
+  INACTIVITY = 2,
+}
+
+export const WANT_TO_SLASH_EVENT = 'wantToSlash' as const;
+
 export interface SlasherConfig {
   // New configurations based on design doc
   slashOverridePayload?: EthAddress;

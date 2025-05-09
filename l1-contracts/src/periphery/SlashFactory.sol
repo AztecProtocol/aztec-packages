@@ -28,18 +28,15 @@ contract SlashFactory is ISlashFactory {
       ISlashFactory.SlashPayloadOffencesLengthMismatch(_validators.length, _offences.length)
     );
 
-    uint256 currentHour = block.timestamp / 3600;
     (address predictedAddress, bool isDeployed) =
-      getAddressAndIsDeployed(_validators, _amounts, _offences, currentHour);
+      getAddressAndIsDeployed(_validators, _amounts, _offences);
 
     if (isDeployed) {
       return IPayload(predictedAddress);
     }
 
     // Use a salt so that validators don't create many payloads for the same slash.
-    // Include the current hour in the salt to allow repeat slashing.
-    // This implies you cannot create a new payload for the same slash until the next hour.
-    bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts, _offences, currentHour));
+    bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts, _offences));
 
     // Don't need to pass _offences as they are not used in the payload.
     SlashPayload payload = new SlashPayload{salt: salt}(_validators, VALIDATOR_SELECTION, _amounts);
@@ -51,11 +48,9 @@ contract SlashFactory is ISlashFactory {
   function getAddressAndIsDeployed(
     address[] memory _validators,
     uint256[] memory _amounts,
-    uint256[] memory _offences,
-    uint256 _currentHour
+    uint256[] memory _offences
   ) public view override(ISlashFactory) returns (address, bool) {
-    address predictedAddress =
-      _computeSlashPayloadAddress(_validators, _amounts, _offences, _currentHour);
+    address predictedAddress = _computeSlashPayloadAddress(_validators, _amounts, _offences);
     bool isDeployed = predictedAddress.code.length > 0;
     return (predictedAddress, isDeployed);
   }
@@ -63,10 +58,9 @@ contract SlashFactory is ISlashFactory {
   function _computeSlashPayloadAddress(
     address[] memory _validators,
     uint256[] memory _amounts,
-    uint256[] memory _offences,
-    uint256 _currentHour
+    uint256[] memory _offences
   ) internal view returns (address) {
-    bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts, _offences, _currentHour));
+    bytes32 salt = keccak256(abi.encodePacked(_validators, _amounts, _offences));
 
     bytes memory constructorArgs = abi.encode(_validators, VALIDATOR_SELECTION, _amounts);
     bytes32 creationCodeHash =
