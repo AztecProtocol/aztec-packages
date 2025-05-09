@@ -52,7 +52,7 @@ TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
     Fq v = Fq::random_element();
     Fq x = Fq::random_element();
 
-    Fq previous_accumulator = Fq::random_element();
+    Fq previous_accumulator = Fq(0);
 
     // Create a circuit builder
     auto circuit_builder = TranslatorCircuitBuilder(v, x);

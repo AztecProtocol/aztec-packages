@@ -99,13 +99,11 @@ library StakingLib {
     require(
       _amount >= store.minimumStake, Errors.Staking__InsufficientStake(_amount, store.minimumStake)
     );
-    store.stakingAsset.transferFrom(msg.sender, address(this), _amount);
     require(
       store.info[_attester].status == Status.NONE, Errors.Staking__AlreadyRegistered(_attester)
     );
+    store.stakingAsset.transferFrom(msg.sender, address(this), _amount);
     require(store.attesters.add(_attester), Errors.Staking__AlreadyActive(_attester));
-
-    // If BLS, need to check possession of private key to avoid attacks.
 
     store.info[_attester] = ValidatorInfo({
       stake: _amount,

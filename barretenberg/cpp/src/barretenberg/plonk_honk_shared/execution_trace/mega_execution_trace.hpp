@@ -286,22 +286,6 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
                                                       .overflow = 0 };
 
 /**
- * @brief A minimal structuring specifically tailored to the medium complexity transaction of the Client IVC
- * benchmark.
- */
-static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
-                                                            .busread = 1 << 7,
-                                                            .lookup = 72000,
-                                                            .pub_inputs = 1 << 7,
-                                                            .arithmetic = 170000,
-                                                            .delta_range = 90000,
-                                                            .elliptic = 9000,
-                                                            .aux = 136000,
-                                                            .poseidon2_external = 5000,
-                                                            .poseidon2_internal = 25000,
-                                                            .overflow = 0 };
-
-/**
  * @brief An example structuring of size 2^18.
  */
 static constexpr TraceStructure EXAMPLE_18{ .ecc_op = 1 << 10,

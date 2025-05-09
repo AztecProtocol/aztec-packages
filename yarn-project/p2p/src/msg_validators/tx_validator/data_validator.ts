@@ -26,7 +26,7 @@ export class DataTxValidator implements TxValidator<Tx> {
   async #hasCorrectCalldata(tx: Tx): Promise<TxValidationResult> {
     if (tx.publicFunctionCalldata.length !== tx.numberOfPublicCalls()) {
       const reason = TX_ERROR_CALLDATA_COUNT_MISMATCH;
-      this.#log.warn(
+      this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Expected ${tx.numberOfPublicCalls()}. Got ${
           tx.publicFunctionCalldata.length
         }.`,
@@ -36,7 +36,7 @@ export class DataTxValidator implements TxValidator<Tx> {
 
     if (tx.getTotalPublicCalldataCount() > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
       const reason = TX_ERROR_CALLDATA_COUNT_TOO_LARGE;
-      this.#log.warn(
+      this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(
           tx,
         )}. Reason: ${reason}. Expected no greater than ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS} fields. Got ${tx.getTotalPublicCalldataCount()}.`,
@@ -50,7 +50,7 @@ export class DataTxValidator implements TxValidator<Tx> {
       const hash = await computeCalldataHash(calldata);
       if (!hash.equals(request.calldataHash)) {
         const reason = TX_ERROR_INCORRECT_CALLDATA;
-        this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Call request index: ${i}.`);
+        this.#log.verbose(`Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Call request index: ${i}.`);
         return { result: 'invalid', reason: [reason] };
       }
     }
@@ -61,7 +61,7 @@ export class DataTxValidator implements TxValidator<Tx> {
   async #hasCorrectContractClassLogs(tx: Tx): Promise<TxValidationResult> {
     const contractClassLogsHashes = tx.data.getNonEmptyContractClassLogsHashes();
     if (contractClassLogsHashes.length !== tx.contractClassLogs.length) {
-      this.#log.warn(
+      this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
           contractClassLogsHashes.length
         }. Got ${tx.contractClassLogs.length}.`,
@@ -75,14 +75,14 @@ export class DataTxValidator implements TxValidator<Tx> {
       if (!logHash.value.equals(hash)) {
         if (expectedHashes.some(h => logHash.value.equals(h))) {
           const matchingLogIndex = expectedHashes.findIndex(l => logHash.value.equals(l));
-          this.#log.warn(
+          this.#log.verbose(
             `Rejecting tx ${await Tx.getHash(
               tx,
             )} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
           );
           return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_SORTING] };
         } else {
-          this.#log.warn(
+          this.#log.verbose(
             `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
               logHash.value
             } from the kernels. Got ${hash} in the tx.`,
@@ -93,7 +93,7 @@ export class DataTxValidator implements TxValidator<Tx> {
 
       const expectedMinLength = 1 + tx.contractClassLogs[i].fields.findLastIndex(f => !f.isZero());
       if (logHash.logHash.length < expectedMinLength) {
-        this.#log.warn(
+        this.#log.verbose(
           `Rejecting tx ${await Tx.getHash(
             tx,
           )} because of incorrect contract class log length. Expected the length to be at least ${expectedMinLength}. Got ${

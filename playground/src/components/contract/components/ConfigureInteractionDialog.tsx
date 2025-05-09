@@ -13,7 +13,7 @@ import Autocomplete from '@mui/material/Autocomplete';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import Divider from '@mui/material/Divider';
-import { DialogContent, DialogContentText } from '@mui/material';
+import { DialogContent } from '@mui/material';
 import { Box, DialogActions } from '@mui/material';
 import { INFO_TEXT } from '../../../constants';
 

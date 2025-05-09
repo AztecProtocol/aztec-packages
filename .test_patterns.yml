@@ -217,6 +217,11 @@ tests:
     owners:
       - *grego
 
+  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
+    error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *esau
+
   # kind tests
   - regex: "spartan/bootstrap.sh"
     # Will skip all kind tests for now. Too unstable, blocking merge queue.

@@ -107,16 +107,19 @@ export class CombinedProverCoordination implements ProverCoordination {
     const toFindFromP2P = txsToFind.size;
     this.log.verbose(`Gathering ${toFindFromP2P} txs from p2p network`);
     const foundFromP2P = await pool.getTxsByHash([...txsToFind].map(tx => TxHash.fromString(tx)));
+
+    // TODO(!!): test for this
+    // getTxsByHash returns undefined for transactions that are not found, so it must be filtered to find the true length
+    const foundFromP2PLength = foundFromP2P.filter(tx => !!tx).length;
+
     const numFoundFromNodes = originalToFind - toFindFromP2P;
-    const numNotFound = toFindFromP2P - foundFromP2P.length;
+    const numNotFound = toFindFromP2P - foundFromP2PLength;
     if (numNotFound === 0) {
-      this.log.info(
-        `Found all ${originalToFind} txs. ${numFoundFromNodes} from nodes, ${foundFromP2P.length} from p2p`,
-      );
+      this.log.info(`Found all ${originalToFind} txs. ${numFoundFromNodes} from nodes, ${foundFromP2PLength} from p2p`);
       return;
     }
     this.log.warn(
-      `Failed to find ${numNotFound} txs from any source. Found ${foundFromP2P.length} from p2p and ${numFoundFromNodes} from nodes`,
+      `Failed to find ${numNotFound} txs from any source. Found ${foundFromP2PLength} from p2p and ${numFoundFromNodes} from nodes`,
     );
   }
 

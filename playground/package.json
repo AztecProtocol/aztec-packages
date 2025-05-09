@@ -32,9 +32,12 @@
     "@mui/icons-material": "^6.3.1",
     "@mui/material": "^6.3.1",
     "@mui/styles": "^6.3.1",
+    "@toolpad/core": "^0.14.0",
+    "@uidotdev/usehooks": "^2.4.1",
     "buffer-json": "^2.0.0",
     "nosleep.js": "^0.12.0",
     "react": "^18.3.1",
+    "react-confetti": "^6.4.0",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.5"
   },

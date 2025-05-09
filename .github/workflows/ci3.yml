@@ -192,6 +192,22 @@ jobs:
           alert-comment-cc-users: "@dbanks12"
           max-items-in-chart: 50
 
+      - name: Store l1 gas benchmark result
+        if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "L1 Gas Benchmark"
+          benchmark-data-dir-path: "dev/l1-gas-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/l1-gas-bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "110%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@LHerskind"
+          max-items-in-chart: 50
+
       # - name: Store p2p benchmark result
       #   if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
       #   continue-on-error: true

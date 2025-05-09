@@ -47,7 +47,9 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
                                                      const BF& batching_challenge_v,
                                                      const BF& accumulated_result);
 
-    PairingPoints verify_proof(const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const HonkProof& proof,
+                                                                                     const BF& evaluation_input_x,
+                                                                                     const BF& batching_challenge_v);
 
     void verify_translation(const TranslationEvaluations& translation_evaluations,
                             const BF& translation_masking_term_eval);
