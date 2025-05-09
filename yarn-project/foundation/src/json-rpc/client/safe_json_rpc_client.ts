@@ -58,7 +58,7 @@ export function createSafeJsonRpcClient<T extends object>(
   let queue: Array<{ request: JsonRpcRequest; deferred: PromiseWithResolvers<JsonRpcResponse> }> = [];
 
   const sendBatch = async () => {
-    if (typeof sendBatchTimeoutHandle !== 'undefined') {
+    if (sendBatchTimeoutHandle !== undefined) {
       clearTimeout(sendBatchTimeoutHandle);
       sendBatchTimeoutHandle = undefined;
     }
@@ -66,6 +66,13 @@ export function createSafeJsonRpcClient<T extends object>(
     const rpcCalls = queue;
     queue = [];
 
+    if (rpcCalls.length === 0) {
+      return;
+    }
+
+    log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length}`, {
+      methods: rpcCalls.map(({ request }) => request.method),
+    });
     const { response, headers } = await fetch(
       host,
       rpcCalls.map(({ request }) => request),
@@ -129,7 +136,7 @@ export function createSafeJsonRpcClient<T extends object>(
     const deferred = promiseWithResolvers<JsonRpcResponse>();
     queue.push({ request: body, deferred });
 
-    if (typeof sendBatchTimeoutHandle === 'undefined') {
+    if (sendBatchTimeoutHandle === undefined) {
       sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
     }
 
