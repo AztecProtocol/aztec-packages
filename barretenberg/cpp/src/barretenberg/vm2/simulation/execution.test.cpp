@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 
-#include "gmock/gmock.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -25,6 +24,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -45,6 +45,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
     StrictMock<MockDataCopy> data_copy;
+    StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -56,6 +57,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                     context_provider,
                                     instruction_info_db,
                                     execution_id_manager,
+                                    internal_call_stack_manager,
                                     execution_event_emitter,
                                     context_stack_event_emitter);
 };
@@ -120,4 +122,5 @@ TEST_F(ExecutionSimulationTest, Call)
 }
 
 } // namespace
+
 } // namespace bb::avm2::simulation

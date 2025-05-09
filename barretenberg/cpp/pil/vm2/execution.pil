@@ -29,8 +29,13 @@ include "nullifier_check.pil";
 include "public_inputs.pil";
 include "gas.pil";
 include "data_copy.pil";
+include "internal_call_stack.pil";
 
 namespace execution;
+
+// If `sel` is 0, then the Execution relation should pass.
+#[skippable_if]
+sel = 0;
 
 pol commit sel; // subtrace selector
 pol commit last; // last row selector
@@ -41,14 +46,11 @@ last * (1 - last) = 0;
 pol commit enqueued_call_start;
 pol commit enqueued_call_end;
 
-// If `sel` is 0, then the Execution relation should pass.
-#[skippable_if]
-sel = 0;
 
 /**************************************************************************************************
  *  Setup (some general constraints)
  **************************************************************************************************/
-
+// Subtrace operation id
 // If the current row is an execution row, then either
 // the next row is an execution row, or the current row is marked as the last row.
 // sel => (sel' v last) = 1              iff

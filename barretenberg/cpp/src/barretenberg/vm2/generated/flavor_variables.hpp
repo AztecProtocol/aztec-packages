@@ -22,6 +22,7 @@
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/internal_call_stack.hpp"
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
@@ -70,7 +71,223 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_WITNESS_ENTITIES = 2443;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 175;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2712;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2713;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2652;
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2638;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2327;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 170;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> dcc5545abc (feat(avm): internal call stack)
+    static constexpr size_t NUM_ALL_ENTITIES = 2584;
+>>>>>>> 7dfbf9b2b1 (feat(avm): cd_copy)
+>>>>>>> c063228abb (feat(avm): cd_copy)
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2432;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 173;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2699;
+>>>>>>> 23d41b1076 (feat: calldata and some hashing)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2592;
+>>>>>>> 5bdc3cfb17 (feat: calldata and some hashing)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2594;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2593;
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2530;
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2523;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2120;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2337;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2315;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 70;
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2116;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2312;
+>>>>>>> 26ad1f749a (feat: context stack lookups)
+>>>>>>> a9649efad5 (feat: context stack lookups)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2332;
+<<<<<<< HEAD
+>>>>>>> 89312f23b5 (feat: rd_size no longer offset)
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2157;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 157;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2384;
+>>>>>>> 32729bc2c5 (feat(avm): cd_copy)
+>>>>>>> dd93f5fe02 (feat(avm): cd_copy)
+>>>>>>> cb9799feca (feat(avm): cd_copy)
+>>>>>>> a423283097 (feat(avm): cd_copy)
+>>>>>>> aab01214cd (feat(avm): cd_copy)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2334;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 174;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2595;
+<<<<<<< HEAD
+>>>>>>> f5c63bcde8 (feat: calldata and some hashing)
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2523;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 71;
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2171;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 158;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2337;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2315;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 70;
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2116;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2312;
+>>>>>>> 26ad1f749a (feat: context stack lookups)
+>>>>>>> a9649efad5 (feat: context stack lookups)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2332;
+<<<<<<< HEAD
+>>>>>>> 89312f23b5 (feat: rd_size no longer offset)
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2157;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 157;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2384;
+>>>>>>> 32729bc2c5 (feat(avm): cd_copy)
+>>>>>>> dd93f5fe02 (feat(avm): cd_copy)
+>>>>>>> cb9799feca (feat(avm): cd_copy)
+>>>>>>> a423283097 (feat(avm): cd_copy)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2400;
+<<<<<<< HEAD
+>>>>>>> ed44524cd3 (feat: calldata and some hashing)
+=======
+=======
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2120;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2337;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 144;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2315;
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 70;
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2167;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 158;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
+<<<<<<< HEAD
+    static constexpr size_t NUM_ALL_ENTITIES = 2312;
+>>>>>>> 26ad1f749a (feat: context stack lookups)
+>>>>>>> a9649efad5 (feat: context stack lookups)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2332;
+<<<<<<< HEAD
+>>>>>>> 89312f23b5 (feat: rd_size no longer offset)
+=======
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2157;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 157;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2384;
+>>>>>>> 32729bc2c5 (feat(avm): cd_copy)
+>>>>>>> dd93f5fe02 (feat(avm): cd_copy)
+<<<<<<< HEAD
+>>>>>>> cb9799feca (feat(avm): cd_copy)
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2395;
+<<<<<<< HEAD
+>>>>>>> 0cf8bb70a6 (feat: calldata and some hashing)
+<<<<<<< HEAD
+>>>>>>> a23205cd99 (feat: calldata and some hashing)
+=======
+=======
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2116;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 146;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2332;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2157;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 157;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2384;
+>>>>>>> 32729bc2c5 (feat(avm): cd_copy)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2166;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 158;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2394;
+>>>>>>> 68f4b0ee9c (feat: calldata and some hashing)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2175;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 159;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2404;
+>>>>>>> 6915ab8555 (feat(avm): internal call stack)
+>>>>>>> f663e2aa30 (feat(avm): internal call stack)
+>>>>>>> e2318e8360 (feat(avm): internal call stack)
+>>>>>>> 5aa4c478e0 (feat(avm): internal call stack)
+>>>>>>> 6631c9a54a (feat(avm): internal call stack)
+>>>>>>> 3b106f22e1 (feat(avm): internal call stack)
+>>>>>>> 5900476467 (feat(avm): internal call stack)
+>>>>>>> e3aec344dc (feat(avm): internal call stack)
+>>>>>>> aa9c15ee82 (feat(avm): internal call stack)
+>>>>>>> a68f81e909 (feat(avm): internal call stack)
+>>>>>>> a561982bd9 (feat(avm): internal call stack)
+>>>>>>> dcc5545abc (feat(avm): internal call stack)
+>>>>>>> a805f81ef7 (feat(avm): internal call stack)
+>>>>>>> 70deab7cad (feat(avm): internal call stack)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -96,6 +313,7 @@ struct AvmFlavorVariables {
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::internal_call_stack<FF_>,
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,

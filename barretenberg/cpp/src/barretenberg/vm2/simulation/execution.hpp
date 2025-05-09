@@ -19,8 +19,10 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
+#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/internal_callstack_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -50,6 +52,7 @@ class Execution : public ExecutionInterface {
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
               ExecutionIdManagerInterface& execution_id_manager,
+              InternalCallStackManagerInterface& internal_call_stack_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
         : execution_components(execution_components)
@@ -60,6 +63,7 @@ class Execution : public ExecutionInterface {
         , data_copy(data_copy)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
+        , internal_call_stack_manager(internal_call_stack_manager)
     {}
 
     ExecutionResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
@@ -86,6 +90,8 @@ class Execution : public ExecutionInterface {
                  MemoryAddress rd_size_offset,
                  MemoryAddress rd_offset,
                  MemoryAddress dst_addr);
+    void internal_call(ContextInterface& context, uint32_t loc);
+    void internal_return(ContextInterface& context);
 
     void init_gas_tracker(ContextInterface& context);
     GasEvent finish_gas_tracker();
@@ -124,6 +130,7 @@ class Execution : public ExecutionInterface {
 
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
+    InternalCallStackManagerInterface& internal_call_stack_manager;
 
     ExecutionResult exec_result;
 
