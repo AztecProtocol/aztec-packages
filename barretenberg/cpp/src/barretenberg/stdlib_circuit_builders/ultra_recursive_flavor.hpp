@@ -148,24 +148,30 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1378): Stop automatically converting to witness
+            // in verifiers,  so we can remove unset_free_witness calls
             using namespace bb::stdlib::field_conversion;
 
             size_t num_frs_read = 0;
 
             this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->circuit_size.unset_free_witness();
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. log_circuit_size must be a
             // witness to make the Recursive Verifier circuit constant. Seems that other members also need to be turned
             // into witnesses.
             this->log_circuit_size =
                 FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
+            this->log_circuit_size.unset_free_witness();
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->num_public_inputs.unset_free_witness();
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-
+            this->pub_inputs_offset.unset_free_witness();
             this->pairing_inputs_public_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+                commitment.unset_free_witness();
             }
         }
 
