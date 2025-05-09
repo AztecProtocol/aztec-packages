@@ -82,9 +82,7 @@ export async function deployAccount(
     }
   } else {
     const provenTx = await deployMethod.prove(deployOpts);
-
     printProfileResult(provenTx.timings!, log);
-
     tx = provenTx.send();
 
     const txHash = await tx.getTxHash();
