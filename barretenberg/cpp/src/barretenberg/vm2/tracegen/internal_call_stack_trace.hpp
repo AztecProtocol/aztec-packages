@@ -9,7 +9,7 @@ namespace bb::avm2::tracegen {
 
 class InternalCallStackBuilder final {
   public:
-    void process(const simulation::EventEmitterInterface<simulation::InternalStackEvent>::Container& events,
+    void process(const simulation::EventEmitterInterface<simulation::InternalCallStackEvent>::Container& events,
                  TraceContainer& trace);
 };
 

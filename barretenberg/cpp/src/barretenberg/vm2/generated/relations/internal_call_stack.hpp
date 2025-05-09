@@ -18,7 +18,7 @@ template <typename FF_> class internal_call_stackImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
-        return (in.get(C::internal_call_stack_sel)).is_zero();
+        return (in.get(C::call_stack_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -31,23 +31,23 @@ template <typename FF_> class internal_call_stackImpl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::internal_call_stack_sel) * (FF(1) - in.get(C::internal_call_stack_sel));
+            auto tmp = in.get(C::call_stack_sel) * (FF(1) - in.get(C::call_stack_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         { // NON_ZERO_ID
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::internal_call_stack_id) * ((FF(1) - in.get(C::internal_call_stack_sel)) *
-                                                                 (FF(1) - in.get(C::internal_call_stack_id_inv)) +
-                                                             in.get(C::internal_call_stack_id_inv)) -
-                        in.get(C::internal_call_stack_sel));
+            auto tmp = (in.get(C::call_stack_id) *
+                            ((FF(1) - in.get(C::call_stack_sel)) * (FF(1) - in.get(C::call_stack_id_inv)) +
+                             in.get(C::call_stack_id_inv)) -
+                        in.get(C::call_stack_sel));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // TRACE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::internal_call_stack_sel)) *
-                       in.get(C::internal_call_stack_sel_shift);
+            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::call_stack_sel)) *
+                       in.get(C::call_stack_sel_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }

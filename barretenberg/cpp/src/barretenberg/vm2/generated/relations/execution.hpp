@@ -13,7 +13,7 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3 };
+    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -28,6 +28,8 @@ template <typename FF_> class executionImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -61,6 +63,35 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
+        { // INCR_NEXT_INT_CALL_ID
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC *
+                       (in.get(C::execution_next_internal_call_id_shift) -
+                        (in.get(C::execution_next_internal_call_id) + in.get(C::execution_sel_internal_call)));
+            tmp *= scaling_factor;
+            std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_internal_call) *
+                       (in.get(C::execution_internal_call_id_shift) - in.get(C::execution_next_internal_call_id));
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_internal_call) *
+                       (in.get(C::execution_internal_call_return_id_shift) - in.get(C::execution_internal_call_id));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_internal_return) *
+                       (in.get(C::execution_internal_call_id_shift) - in.get(C::execution_internal_call_return_id));
+            tmp *= scaling_factor;
+            std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -77,6 +108,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "TRACE_CONTINUITY_2";
         case 4:
             return "LAST_IS_LAST";
+        case 5:
+            return "INCR_NEXT_INT_CALL_ID";
         }
         return std::to_string(index);
     }
@@ -85,6 +118,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_TRACE_CONTINUITY_1 = 2;
     static constexpr size_t SR_TRACE_CONTINUITY_2 = 3;
     static constexpr size_t SR_LAST_IS_LAST = 4;
+    static constexpr size_t SR_INCR_NEXT_INT_CALL_ID = 5;
 };
 
 } // namespace bb::avm2

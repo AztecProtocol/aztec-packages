@@ -54,7 +54,7 @@ struct EventsContainer {
     EventEmitterInterface<DataCopyEvent>::Container data_copy_events;
     EventEmitterInterface<CalldataEvent>::Container calldata_events;
     EventEmitterInterface<CalldataHashingEvent>::Container cd_hashing_events;
-    EventEmitterInterface<InternalStackEvent>::Container internal_call_stack_events;
+    EventEmitterInterface<InternalCallStackEvent>::Container internal_call_stack_events;
 };
 
 } // namespace bb::avm2::simulation

@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -306,6 +307,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/calldata_hashing",
                                    calldata_builder.process_hashing(events.cd_hashing_events, trace));
                     clear_events(events.cd_hashing_events);
+                },
+                [&]() {
+                    InternalCallStackBuilder internal_call_stack_builder;
+                    AVM_TRACK_TIME("tracegen/internal_call_stack",
+                                   internal_call_stack_builder.process(events.internal_call_stack_events, trace));
+                    clear_events(events.internal_call_stack_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -313,7 +320,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
 
     // Now we can compute lookups and permutations.
     {
-        auto jobs_interactions = concatenate_jobs(Poseidon2TraceBuilder::lookup_jobs(),
+        auto jobs_interactions = concatenate_jobs(ExecutionTraceBuilder::lookup_jobs(),
+                                                  Poseidon2TraceBuilder::lookup_jobs(),
                                                   RangeCheckTraceBuilder::lookup_jobs(),
                                                   BitwiseTraceBuilder::lookup_jobs(),
                                                   Sha256TraceBuilder::lookup_jobs(),

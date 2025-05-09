@@ -218,6 +218,11 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             ex_event.context_event = context_event;
             ex_event.next_context_id = execution_components.get_next_context_id();
 
+            // Emit the internal call stack - there must be a better way!
+            ex_event.internal_call_id = internal_call_stack_manager.get_current_call_id();
+            ex_event.internal_call_return_id = internal_call_stack_manager.get_current_return_id();
+            ex_event.next_internal_call_id = internal_call_stack_manager.get_next_call_id();
+
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
             // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
