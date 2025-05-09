@@ -79,6 +79,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       await retryUntil(
         async () => {
           const { initialSlot, lastProcessedSlot, stats } = await nodes[0].getValidatorsStats();
+          t.logger.verbose(`Testing validator stats`, { initialSlot, lastProcessedSlot, stats });
           return (
             initialSlot &&
             lastProcessedSlot &&
