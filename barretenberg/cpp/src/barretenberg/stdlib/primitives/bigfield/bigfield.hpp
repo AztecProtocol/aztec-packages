@@ -159,7 +159,7 @@ template <typename Builder, typename T> class bigfield {
                                       .add_two(result.binary_basis_limbs[2].element * shift_2,
                                                result.binary_basis_limbs[1].element * shift_1);
         result.prime_basis_limb += (result.binary_basis_limbs[0].element);
-        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : static_cast<size_t>(NUM_LAST_LIMB_BITS);
         if constexpr (HasPlookup<Builder>) {
             ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
                                            result.binary_basis_limbs[1].element.get_normalized_witness_index(),
@@ -248,7 +248,7 @@ template <typename Builder, typename T> class bigfield {
         uint256_t(modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS));
     inline static const Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };
     inline static const Basis binary_basis{ uint512_t(1) << LOG2_BINARY_MODULUS, LOG2_BINARY_MODULUS };
-    inline static const Basis target_basis{ modulus_u512, modulus_u512.get_msb() + 1 };
+    inline static const Basis target_basis{ modulus_u512, static_cast<size_t>(modulus_u512.get_msb() + 1) };
     static constexpr bb::fr shift_1 = bb::fr(uint256_t(1) << NUM_LIMB_BITS);
     static constexpr bb::fr shift_2 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 2));
     static constexpr bb::fr shift_3 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 3));
