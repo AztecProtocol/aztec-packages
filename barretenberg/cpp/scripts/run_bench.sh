@@ -16,6 +16,8 @@ export HARDWARE_CONCURRENCY=${CPUS:-8}
 export IGNITION_CRS_PATH=./srs_db/ignition
 export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
+mkdir -p bench-out
+
 case $arch in
   native)
     $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
