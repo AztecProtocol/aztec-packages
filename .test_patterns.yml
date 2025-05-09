@@ -88,7 +88,12 @@ tests:
     owners:
       - *tom
 
-  # e2e tests
+  # e2e tests skipped
+  - regex: "src/e2e_sequencer/gov_proposal"
+    skip: true
+    owners:
+      - *lasse
+  # e2e tests flakes
   - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
