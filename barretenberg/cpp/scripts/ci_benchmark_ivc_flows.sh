@@ -98,7 +98,7 @@ function client_ivc_flow {
   local runtime_suffix=""
   [[ "$runtime" == "wasm" ]] && runtime_suffix="-wasm"
 
-  cat > "$output/benchmarks.json" <<EOF
+  cat > "$output/benchmarks.bench.json" <<EOF
 [
   {
     "name": "bb/$flow-ivc-proof$runtime_suffix",

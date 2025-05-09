@@ -65,7 +65,7 @@ function test {
 }
 
 function bench_cmds {
-  echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/yp-bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+  echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
   for dir in $bench_fixtures_dir/*; do
     for runtime in native wasm; do
       echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"

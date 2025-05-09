@@ -203,10 +203,9 @@ function build_bench {
     # bb_cli_bench is later used in yarn-project.
     parallel --line-buffered --tag -v denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset op-count-time --target ultra_honk_bench --target client_ivc_bench"
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench}
   fi
 }
 
@@ -217,7 +216,6 @@ function bench_cmds {
     "native ultra_honk_release build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
     "native client_ivc_17_in_20_release build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
     "native client_ivc_release build/bin/client_ivc_bench ClientIVCBench/Full/6$"
-    "native client_ivc_op_count_time build-op-count-time/bin/client_ivc_bench ClientIVCBench/Full/6$"
     "wasm ultra_honk_wasm build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
     "wasm client_ivc_wasm build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
   )

@@ -153,7 +153,7 @@ function test {
 
 function bench_cmds {
   local hash=$(hash)
-  echo "$hash BENCH_OUTPUT=bench-out/sim-bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
 }
 
 function release_packages {

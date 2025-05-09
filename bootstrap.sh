@@ -212,31 +212,31 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  # These projects are dependant on each other and must be built linearly
-  dependent_projects=(
+  # These projects are dependent on each other and must be built linearly.
+  serial_projects=(
     noir
     barretenberg
     avm-transpiler
     noir-projects
-    # Relies on noir-projects for verifier solidity generation.
     l1-contracts
     yarn-project
   )
-  # These projects rely on the output of the dependant projects and can be built in parallel
-  non_dependent_projects=(
-    boxes
-    playground
-    docs
-    release-image
-    spartan
-    aztec-up
+  # These projects can be built in parallel.
+  parallel_cmds=(
+    boxes/bootstrap.sh
+    playground/bootstrap.sh
+    docs/bootstrap.sh
+    release-image/bootstrap.sh
+    spartan/bootstrap.sh
+    aztec-up/bootstrap.sh
+    build_bench
   )
 
-  for project in "${dependent_projects[@]}"; do
+  for project in "${serial_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
 
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}/bootstrap.sh ${1:-}'" ::: ${non_dependent_projects[@]}
+  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
 }
 
 function bench_cmds {
@@ -247,7 +247,7 @@ function bench_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
 }
 
-function bench {
+function build_bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
     return
@@ -255,6 +255,14 @@ function bench {
   parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
     barretenberg/cpp \
     yarn-project/end-to-end
+}
+export -f build_bench
+
+function bench {
+  # TODO bench for arm64.
+  if [ $(arch) == arm64 ]; then
+    return
+  fi
   bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
@@ -356,7 +364,7 @@ case "$cmd" in
   ;;
   ""|"fast"|"full")
     install_hooks
-    build $cmd
+    build
   ;;
   "ci-fast")
     export CI=1
@@ -388,7 +396,7 @@ case "$cmd" in
     build
     release
     ;;
-  test|test_cmds|bench|bench_cmds|release|release_dryrun)
+  test|test_cmds|build_bench|bench|bench_cmds|release|release_dryrun)
     $cmd "$@"
     ;;
   *)

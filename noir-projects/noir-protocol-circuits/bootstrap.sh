@@ -196,17 +196,7 @@ function bench_cmds {
 function bench {
   rm -rf bench-out && mkdir -p bench-out
 
-  if cache_download noir-protocol-circuits-bench-results-$circuits_hash.tar.gz; then
-    return
-  fi
-
   bench_cmds | STRICT_SCHEDULING=1 parallelise
-
-  local metrics=$(jq '.functions[0] | .name = (input_filename | split ("/")[-1])' bench-out/*)
-  rm -rf bench-out/*
-  echo $metrics | jq -s 'map({ name, unit: "opcodes", value: .acir_opcodes })' > ./bench-out/protocol-circuits-opcodes-bench.json
-  echo $metrics | jq -s 'map({ name, unit: "gates", value: .circuit_size })' > ./bench-out/protocol-circuits-gates-bench.json
-  cache_upload noir-protocol-circuits-bench-results-$circuits_hash.tar.gz ./bench-out/*
 }
 
 case "$cmd" in
