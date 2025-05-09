@@ -110,19 +110,35 @@ export function describeAztecMap(
       expect(await keys()).to.deep.equal(['baz', 'foo']);
     });
 
-    it('supports range queries', async () => {
-      await map.set('a', 'a');
-      await map.set('b', 'b');
-      await map.set('c', 'c');
-      await map.set('d', 'd');
+    for (const [name, data] of [
+      ['chars', ['a', 'b', 'c', 'd']],
+      ['numbers', [1, 2, 3, 4]],
+      ['negative numbers', [-4, -3, -2, -1]],
+      ['strings', ['aaa', 'bbb', 'ccc', 'ddd']],
+      ['zero-based numbers', [0, 1, 2, 3]],
+    ]) {
+      it(`supports range queries over ${name} keys`, async () => {
+        // TODO(#14182)
+        if (name === 'zero-based numbers') {
+          return;
+        }
 
-      expect(await keys({ start: 'b', end: 'c' })).to.deep.equal(['b']);
-      expect(await keys({ start: 'b' })).to.deep.equal(['b', 'c', 'd']);
-      expect(await keys({ end: 'c' })).to.deep.equal(['a', 'b']);
-      expect(await keys({ start: 'b', end: 'c', reverse: true })).to.deep.equal(['c']);
-      expect(await keys({ start: 'b', limit: 1 })).to.deep.equal(['b']);
-      expect(await keys({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
-      expect(await keys({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
-    });
+        const [a, b, c, d] = data;
+
+        await map.set(a, 'a');
+        await map.set(b, 'b');
+        await map.set(c, 'c');
+        await map.set(d, 'd');
+
+        expect(await keys()).to.deep.equal([a, b, c, d]);
+        expect(await keys({ start: b, end: c })).to.deep.equal([b]);
+        expect(await keys({ start: b })).to.deep.equal([b, c, d]);
+        expect(await keys({ end: c })).to.deep.equal([a, b]);
+        expect(await keys({ start: b, end: c, reverse: true })).to.deep.equal([c]);
+        expect(await keys({ start: b, limit: 1 })).to.deep.equal([b]);
+        expect(await keys({ start: b, reverse: true })).to.deep.equal([d, c]);
+        expect(await keys({ end: b, reverse: true })).to.deep.equal([b, a]);
+      });
+    }
   });
 }
