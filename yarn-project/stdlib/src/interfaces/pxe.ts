@@ -38,7 +38,7 @@ import {
   TxSimulationResult,
   indexedTxSchema,
 } from '../tx/index.js';
-import { TxProfileResult } from '../tx/profiling.js';
+import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import {
   type GetContractClassLogsResponse,
@@ -291,7 +291,7 @@ export interface PXE {
     authwits?: AuthWitness[],
     from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<AbiDecoded>;
+  ): Promise<UtilitySimulationResult>;
 
   /**
    * Gets public logs based on the provided filter.
@@ -510,7 +510,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       optional(schemas.AztecAddress),
       optional(z.array(schemas.AztecAddress)),
     )
-    .returns(AbiDecodedSchema),
+    .returns(UtilitySimulationResult.schema),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
   getBlockNumber: z.function().returns(z.number()),

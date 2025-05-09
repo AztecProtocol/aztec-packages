@@ -43,7 +43,7 @@ import {
   TxReceipt,
   TxSimulationResult,
 } from '../tx/index.js';
-import { TxProfileResult } from '../tx/profiling.js';
+import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
@@ -458,12 +458,12 @@ class MockPXE implements PXE {
     authwits?: AuthWitness[],
     from?: AztecAddress | undefined,
     scopes?: AztecAddress[] | undefined,
-  ): Promise<AbiDecoded> {
+  ): Promise<UtilitySimulationResult> {
     expect(to).toEqual(this.address);
     expect(from).toEqual(this.address);
     expect(scopes).toEqual([this.address]);
     expect(authwits).toEqual([]);
-    return Promise.resolve(10n);
+    return Promise.resolve(new UtilitySimulationResult(10n));
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);

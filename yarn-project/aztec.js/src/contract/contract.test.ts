@@ -9,7 +9,15 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
+import type {
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxProvingResult,
+  TxReceipt,
+  TxSimulationResult,
+  UtilitySimulationResult,
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -28,7 +36,7 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
-  const mockUtilityResultValue = 1;
+  const mockUtilityResultValue = { type: 'UtilitySimulationResult' } as any as UtilitySimulationResult;
   const l1Addresses: L1ContractAddresses = {
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
@@ -164,7 +172,7 @@ describe('Contract Class', () => {
       isContractPubliclyDeployed: true,
     });
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue as any as AbiDecoded);
+    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);

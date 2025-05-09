@@ -1,8 +1,15 @@
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
+import {
+  type AbiDecoded,
+  type FunctionAbi,
+  FunctionSelector,
+  FunctionType,
+  decodeFromAbi,
+  encodeArguments,
+} from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { Capsule, HashedValues, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, HashedValues, SimulationTimings, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
@@ -12,6 +19,10 @@ import type {
   SendMethodOptions,
   SimulateMethodOptions,
 } from './interaction_options.js';
+
+type SimulationReturn<T extends boolean | undefined> = T extends true
+  ? { meta: { timings?: SimulationTimings }; result: any }
+  : any;
 
 /**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
@@ -93,16 +104,30 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
+  public async simulate<T extends SimulateMethodOptions = {}>(
+    options?: T,
+  ): Promise<SimulationReturn<T['includeMetadata']>>;
+  public async simulate(
+    options: SimulateMethodOptions = {},
+  ): Promise<SimulationReturn<typeof options.includeMetadata>> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
-      return this.wallet.simulateUtility(
+      const utilityResult = await this.wallet.simulateUtility(
         this.functionDao.name,
         this.args,
         this.contractAddress,
         options.authWitnesses ?? [],
         options?.from,
       );
+
+      if (options.includeMetadata) {
+        return {
+          meta: { timings: utilityResult.timings },
+          result: utilityResult.result,
+        };
+      } else {
+        return utilityResult.result;
+      }
     }
 
     const txRequest = await this.create(options);
@@ -129,7 +154,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       rawReturnValues = simulatedTx.getPublicReturnValues()?.[0].values;
     }
 
-    return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+    const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+
+    if (options.includeMetadata) {
+      return { meta: { timings: simulatedTx.timings }, result: returnValue };
+    } else {
+      return returnValue;
+    }
   }
 
   /**

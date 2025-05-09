@@ -3,6 +3,7 @@ import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { printProfileResult } from '../utils/profiling.js';
 
 export async function deployAccount(
   account: AccountManager,
@@ -49,20 +50,22 @@ export async function deployAccount(
     ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
 
+  /*
+   * This is usually handled by accountManager.deploy(), but we're accessing the lower
+   * level method to get the gas estimates. That means we have to replicate some of the logic here.
+   * In case we're deploying our own account, we need to hijack the payment method for the fee,
+   * wrapping it in the one that will make use of the freshly deployed account's
+   * entrypoint. For reference, see aztec.js/src/account_manager.ts:deploy()
+   */
+  deployOpts.fee =
+    !deployOpts?.deployWallet && deployOpts?.fee
+      ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
+      : deployOpts?.fee;
+
+  const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
+
   if (feeOpts.estimateOnly) {
-    /*
-     * This is usually handled by accountManager.deploy(), but we're accessing the lower
-     * level method to get the gas estimates. That means we have to replicate some of the logic here.
-     * In case we're deploying our own account, we need to hijack the payment method for the fee,
-     * wrapping it in the one that will make use of the freshly deployed account's
-     * entrypoint. For reference, see aztec.js/src/account_manager.ts:deploy()
-     */
-    const fee =
-      !deployOpts?.deployWallet && deployOpts?.fee
-        ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
-        : deployOpts?.fee;
-    const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
-    const gas = await deployMethod.estimateGas({ ...deployOpts, fee, universalDeploy: true });
+    const gas = await deployMethod.estimateGas({ ...deployOpts });
     if (json) {
       out.fee = {
         gasLimits: {
@@ -78,7 +81,12 @@ export async function deployAccount(
       printGasEstimates(feeOpts, gas, log);
     }
   } else {
-    tx = account.deploy(deployOpts);
+    const provenTx = await deployMethod.prove(deployOpts);
+
+    printProfileResult(provenTx.timings!, log);
+
+    tx = provenTx.send();
+
     const txHash = await tx.getTxHash();
     debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
     out.txHash = txHash;

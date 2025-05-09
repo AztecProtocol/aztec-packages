@@ -321,7 +321,7 @@ export function injectCommands(
     }
   });
 
-  program
+  const simulateCommand = program
     .command('simulate')
     .description('Simulates the execution of a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to simulate')
@@ -333,27 +333,38 @@ export function injectCommands(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
     .addOption(createAuthwitnessOption('Authorization witness to use for the simulation', !db, db))
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .action(async (functionName, _options, command) => {
-      const { simulate } = await import('./simulate.js');
-      const options = command.optsWithGlobals();
-      const {
-        args,
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        from: parsedFromAddress,
-        rpcUrl,
-        secretKey,
-        authWitness,
-      } = options;
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db));
 
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await account.getWallet();
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      const authWitnesses = cleanupAuthWitnesses(authWitness);
-      await simulate(wallet, functionName, args, artifactPath, contractAddress, authWitnesses, log);
-    });
+  addOptions(simulateCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
+    const { simulate } = await import('./simulate.js');
+    const options = command.optsWithGlobals();
+    const {
+      args,
+      contractArtifact: artifactPathPromise,
+      contractAddress,
+      from: parsedFromAddress,
+      rpcUrl,
+      secretKey,
+
+      authWitness,
+    } = options;
+
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
+    const wallet = await account.getWallet();
+    const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+    const authWitnesses = cleanupAuthWitnesses(authWitness);
+    await simulate(
+      wallet,
+      functionName,
+      args,
+      artifactPath,
+      contractAddress,
+      await FeeOpts.fromCli(options, client, log, db),
+      authWitnesses,
+      log,
+    );
+  });
 
   const profileCommand = program
     .command('profile')
