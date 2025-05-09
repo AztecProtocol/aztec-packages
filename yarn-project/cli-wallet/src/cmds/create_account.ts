@@ -1,4 +1,4 @@
-import type { DeployAccountOptions, DeployOptions, PXE } from '@aztec/aztec.js';
+import type { DeployAccountOptions, PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';

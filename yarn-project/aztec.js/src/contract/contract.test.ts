@@ -1,6 +1,6 @@
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,

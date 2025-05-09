@@ -1,12 +1,5 @@
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import {
-  type AbiDecoded,
-  type FunctionAbi,
-  FunctionSelector,
-  FunctionType,
-  decodeFromAbi,
-  encodeArguments,
-} from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule, HashedValues, SimulationTimings, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
@@ -20,8 +13,28 @@ import type {
   SimulateMethodOptions,
 } from './interaction_options.js';
 
+/**
+ * Represents the result type of a simulation.
+ * By default, it will just be the return value of the simulated function
+ * so contract interfaces behave as plain functions. If `includeMetadata` is set to true,
+ * it will provide extra information.
+ */
 type SimulationReturn<T extends boolean | undefined> = T extends true
-  ? { meta: { timings?: SimulationTimings }; result: any }
+  ? {
+      /**
+       * Additional metadata about the simulation
+       */
+      meta: {
+        /**
+         * Timings of the different operations performed, including per function breakdown
+         */
+        timings?: SimulationTimings;
+      };
+      /**
+       * Return value of the function
+       */
+      result: any;
+    }
   : any;
 
 /**
@@ -104,9 +117,8 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate<T extends SimulateMethodOptions = {}>(
-    options?: T,
-  ): Promise<SimulationReturn<T['includeMetadata']>>;
+  public async simulate<T extends SimulateMethodOptions>(options?: T): Promise<SimulationReturn<T['includeMetadata']>>;
+  // eslint-disable-next-line jsdoc/require-jsdoc
   public async simulate(
     options: SimulateMethodOptions = {},
   ): Promise<SimulationReturn<typeof options.includeMetadata>> {

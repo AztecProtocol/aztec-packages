@@ -14,7 +14,6 @@ import {
 } from '@aztec/protocol-contracts';
 import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 import {
-  type AbiDecoded,
   type ContractArtifact,
   EventSelector,
   FunctionCall,

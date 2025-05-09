@@ -6,7 +6,6 @@ import { SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import { type AbiType, AbiTypeSchema, type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
-import type { AbiDecoded } from '../abi/decoder.js';
 import type { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import type { AztecAddress } from '../aztec-address/index.js';

@@ -12,7 +12,6 @@ import { deepStrictEqual } from 'assert';
 import omit from 'lodash.omit';
 
 import type { ContractArtifact } from '../abi/abi.js';
-import type { AbiDecoded } from '../abi/decoder.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';

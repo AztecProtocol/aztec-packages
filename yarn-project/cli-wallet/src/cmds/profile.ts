@@ -1,8 +1,7 @@
 import { type AccountWalletWithSecretKey, AuthWitness, type AztecAddress, Contract } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
-import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
-import type { TxProfileResult } from '@aztec/stdlib/tx';
+import { serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 
 import { promises as fs } from 'fs';
 import path from 'path';

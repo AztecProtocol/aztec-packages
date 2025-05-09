@@ -25,10 +25,10 @@ export function printProfileResult(
 
   timings.perFunction.forEach((fn, i) => {
     const currentExecutionStep = executionSteps?.[i];
-    if (currentExecutionStep?.gateCount! > biggest?.gateCount!) {
+    if (currentExecutionStep && biggest && currentExecutionStep.gateCount! > biggest.gateCount!) {
       biggest = currentExecutionStep;
     }
-    acc += currentExecutionStep?.gateCount!;
+    acc += currentExecutionStep ? currentExecutionStep.gateCount! : 0;
 
     log(
       format(
