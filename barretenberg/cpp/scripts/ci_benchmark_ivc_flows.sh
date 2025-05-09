@@ -115,7 +115,3 @@ EOF
 export -f verify_ivc_flow run_bb_cli_bench
 
 client_ivc_flow $1 $2
-
-# ../scripts/combine_benchmarks.py \
-#   ./bench-out/*/benchmarks.json \
-#   > $benchmark_output/ivc-bench.json

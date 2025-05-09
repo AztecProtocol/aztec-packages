@@ -264,6 +264,9 @@ function bench {
     return
   fi
   bench_cmds | STRICT_SCHEDULING=1 parallelise
+  rm -rf bench-out
+  mkdir -p bench-out
+  find . -path "*/bench-out/*.bench.json" -type f | xargs cat | jq -s add > bench-out/bench.json
 }
 
 function release_github {
@@ -401,7 +404,6 @@ case "$cmd" in
     ;;
   *)
     echo "Unknown command: $cmd"
-    echo "usage: $0 <clean|check|fast|full|test_cmds|test|ci|release>"
     exit 1
   ;;
 esac

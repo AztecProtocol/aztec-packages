@@ -17,11 +17,11 @@ function echo_cmd {
 function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
-  echo_cmd "pr"             "Spin up an EC2 instance and run the PR flow."
-  echo_cmd "full"           "Spin up an EC2 instance and run the full CI flow."
-  echo_cmd "merge-queue"    "Spin up an EC2 instance and run the merge-queue flow."
-  echo_cmd "nightly"        "Spin up an EC2 instance and run the nightly flow."
-  echo_cmd "release"        "Spin up an EC2 instance and run the release flow."
+  echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
+  echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
+  echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
+  echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
+  echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"          "Drop into a shell in the current running build instance container."
   echo_cmd "shell-host"     "Drop into a shell in the current running build host."
