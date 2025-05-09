@@ -17,6 +17,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   protected l2Blocks: L2Block[] = [];
 
   private provenBlockNumber: number = 0;
+  private finalizedBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
 
@@ -42,6 +43,13 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public setProvenBlockNumber(provenBlockNumber: number) {
     this.provenBlockNumber = provenBlockNumber;
+  }
+
+  public setFinalizedBlockNumber(finalizedBlockNumber: number) {
+    if (finalizedBlockNumber > this.provenBlockNumber) {
+      this.provenBlockNumber = finalizedBlockNumber;
+    }
+    this.finalizedBlockNumber = finalizedBlockNumber;
   }
 
   /**
@@ -174,7 +182,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     const [latest, proven, finalized] = [
       await this.getBlockNumber(),
       await this.getProvenBlockNumber(),
-      await this.getProvenBlockNumber(),
+      this.finalizedBlockNumber,
     ] as const;
 
     const latestBlock = this.l2Blocks[latest - 1];
