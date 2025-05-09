@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {TestERC20} from "src/mock/TestERC20.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -74,7 +75,7 @@ contract InboxTest is Test {
   // be violated
   modifier checkInvariant() {
     _;
-    assertLt(blockNumber, inbox.inProgress());
+    assertLt(blockNumber, inbox.getInProgress());
   }
 
   function testRevertIfNotConsumingFromRollup() public {
@@ -89,19 +90,27 @@ contract InboxTest is Test {
   }
 
   function testFuzzInsert(DataStructures.L1ToL2Msg memory _message) public checkInvariant {
+    Inbox.InboxState memory stateBefore = inbox.getState();
     uint256 globalLeafIndex = (FIRST_REAL_TREE_NUM - 1) * SIZE;
     DataStructures.L1ToL2Msg memory message = _boundMessage(_message, globalLeafIndex);
 
     bytes32 leaf = message.sha256ToField();
+    bytes16 expectedRollingHash =
+      bytes16(keccak256(abi.encodePacked(stateBefore.rollingHash, leaf)));
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, globalLeafIndex, leaf, expectedRollingHash);
     // event we will get
     (bytes32 insertedLeaf, uint256 insertedIndex) =
       inbox.sendL2Message(message.recipient, message.content, message.secretHash);
 
     assertEq(insertedLeaf, leaf);
     assertEq(insertedIndex, globalLeafIndex);
+
+    Inbox.InboxState memory stateAfter = inbox.getState();
+    assertEq(stateBefore.totalMessagesInserted + 1, stateAfter.totalMessagesInserted);
+    assertEq(expectedRollingHash, stateAfter.rollingHash);
+    assertEq(stateBefore.inProgress, stateAfter.inProgress);
   }
 
   function testSendDuplicateL2Messages() public checkInvariant {
@@ -215,7 +224,8 @@ contract InboxTest is Test {
     // Now we consume the trees
     for (uint256 i = 0; i < numTreesToConsume; i++) {
       uint256 numTrees = inbox.getNumTrees();
-      uint256 expectedNumTrees = (blockNumber + 1 == inbox.inProgress()) ? numTrees + 1 : numTrees;
+      uint256 expectedNumTrees =
+        (blockNumber + 1 == inbox.getInProgress()) ? numTrees + 1 : numTrees;
       bytes32 root = inbox.consume(blockNumber);
 
       // We check whether a new tree is correctly initialized when the one which was in progress was set as to consume

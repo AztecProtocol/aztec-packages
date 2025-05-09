@@ -2,6 +2,8 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, deserializeBigInt, serializeBigInt } from '@aztec/foundation/serialize';
 
+import { inspect } from 'util';
+
 import { bufferToHex } from '../string/index.js';
 
 /**
@@ -72,6 +74,10 @@ export class Buffer32 {
     return bufferToHex(this.buffer);
   }
 
+  [inspect.custom]() {
+    return `Buffer32<${this.toString()}>`;
+  }
+
   toJSON() {
     return this.toString();
   }
@@ -85,8 +91,6 @@ export class Buffer32 {
   }
   /**
    * Creates a Buffer32 from a bigint.
-   * @param hash - The tx hash as a big int.
-   * @returns The Buffer32.
    */
   public static fromBigInt(hash: bigint) {
     return new Buffer32(serializeBigInt(hash, Buffer32.SIZE));
@@ -112,15 +116,13 @@ export class Buffer32 {
 
   /**
    * Converts a string into a Buffer32 object.
-   * @param str - The TX hash in string format.
-   * @returns A new Buffer32 object.
    */
   public static fromString(str: string): Buffer32 {
     if (str.startsWith('0x')) {
       str = str.slice(2);
     }
-    if (str.length !== 64) {
-      throw new Error(`Expected string to be 64 characters long, but was ${str.length}`);
+    if (str.length !== this.SIZE * 2) {
+      throw new Error(`Expected string to be ${this.SIZE * 2} characters long, but was ${str.length}`);
     }
     return new Buffer32(Buffer.from(str, 'hex'));
   }

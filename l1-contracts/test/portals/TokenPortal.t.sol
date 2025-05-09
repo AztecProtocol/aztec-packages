@@ -10,6 +10,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 
 // Interfaces
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -35,7 +36,7 @@ contract TokenPortalTest is Test {
 
   Registry internal registry;
   RewardDistributor internal rewardDistributor;
-  IInbox internal inbox;
+  Inbox internal inbox;
   IOutbox internal outbox;
 
   Rollup internal rollup;
@@ -71,7 +72,7 @@ contract TokenPortalTest is Test {
       TestConstants.getGenesisState(),
       TestConstants.getRollupConfigInput()
     );
-    inbox = rollup.getInbox();
+    inbox = Inbox(address(rollup.getInbox()));
     outbox = rollup.getOutbox();
 
     registry.addRollup(IRollup(address(rollup)));
@@ -131,11 +132,12 @@ contract TokenPortalTest is Test {
       _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
-
+    bytes16 expectedHash =
+      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
     // event we will get
 
     // Perform op
@@ -158,11 +160,13 @@ contract TokenPortalTest is Test {
     DataStructures.L1ToL2Msg memory expectedMessage =
       _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
+    bytes16 expectedHash =
+      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
 
     // Perform op
     (bytes32 leaf, uint256 index) =
