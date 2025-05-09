@@ -12,6 +12,7 @@ export async function deployAccount(
   publicDeploy: boolean,
   feeOpts: IFeeOpts,
   json: boolean,
+  verbose: boolean,
   debugLogger: Logger,
   log: LogFn,
 ) {
@@ -82,7 +83,9 @@ export async function deployAccount(
     }
   } else {
     const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
-    printProfileResult(provenTx.timings!, log);
+    if (verbose) {
+      printProfileResult(provenTx.timings!, log);
+    }
     tx = provenTx.send();
 
     const txHash = await tx.getTxHash();

@@ -15,6 +15,7 @@ export async function simulate(
   contractAddress: AztecAddress,
   feeOpts: IFeeOpts,
   authWitnesses: AuthWitness[],
+  verbose: boolean,
   log: LogFn,
 ) {
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
@@ -26,6 +27,8 @@ export async function simulate(
     authWitnesses,
     includeMetadata: true,
   });
-  printProfileResult(simulationResult.meta.timings!, log);
+  if (verbose) {
+    printProfileResult(simulationResult.meta.timings!, log);
+  }
   log(format('\nSimulation result: ', simulationResult.result, '\n'));
 }

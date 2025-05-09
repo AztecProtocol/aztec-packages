@@ -21,6 +21,7 @@ export async function deploy(
   universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
+  verbose: boolean,
   debugLogger: Logger,
   log: LogFn,
   logJson: (output: any) => void,
@@ -61,8 +62,9 @@ export async function deploy(
   }
 
   const provenTx = await deploy.prove(deployOpts);
-
-  printProfileResult(provenTx.timings!, log);
+  if (verbose) {
+    printProfileResult(provenTx.timings!, log);
+  }
 
   const tx = provenTx.send();
 

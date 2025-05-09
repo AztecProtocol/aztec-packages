@@ -19,6 +19,7 @@ export async function createAccount(
   wait: boolean,
   feeOpts: IFeeOpts,
   json: boolean,
+  verbose: boolean,
   debugLogger: Logger,
   log: LogFn,
 ) {
@@ -105,7 +106,9 @@ export async function createAccount(
       }
     } else {
       const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
-      printProfileResult(provenTx.timings!, log);
+      if (verbose) {
+        printProfileResult(provenTx.timings!, log);
+      }
       tx = provenTx.send();
 
       const txHash = await tx.getTxHash();

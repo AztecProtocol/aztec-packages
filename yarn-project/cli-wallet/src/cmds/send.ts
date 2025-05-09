@@ -23,6 +23,7 @@ export async function send(
   cancellable: boolean,
   feeOpts: IFeeOpts,
   authWitnesses: AuthWitness[],
+  verbose: boolean,
   log: LogFn,
 ) {
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
@@ -47,8 +48,9 @@ export async function send(
   }
 
   const provenTx = await call.prove(sendOptions);
-
-  printProfileResult(provenTx.timings!, log);
+  if (verbose) {
+    printProfileResult(provenTx.timings!, log);
+  }
 
   const tx = provenTx.send();
   const txHash = await tx.getTxHash();
