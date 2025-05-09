@@ -96,6 +96,8 @@ const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = {
     { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::CALLDATACOPY, RegisterMemInfo().has_inputs(2) },
     { ExecutionOpCode::RETURNDATACOPY, RegisterMemInfo().has_inputs(2) },
+    { ExecutionOpCode::INTERNALCALL, RegisterMemInfo() },
+    { ExecutionOpCode::INTERNALRETURN, RegisterMemInfo() },
 } };
 
 } // namespace bb::avm2::tracegen

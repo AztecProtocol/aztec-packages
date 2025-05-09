@@ -397,7 +397,9 @@ const std::unordered_map<WireOpCode, ExecutionOpCode> OPCODE_MAP = {
     { WireOpCode::MOV_8, ExecutionOpCode::MOV },
     { WireOpCode::MOV_16, ExecutionOpCode::MOV },
     { WireOpCode::CALLDATACOPY, ExecutionOpCode::CALLDATACOPY },
-    { WireOpCode::RETURNDATACOPY, ExecutionOpCode::RETURNDATACOPY }
+    { WireOpCode::RETURNDATACOPY, ExecutionOpCode::RETURNDATACOPY },
+    { WireOpCode::INTERNALCALL, ExecutionOpCode::INTERNALCALL },
+    { WireOpCode::INTERNALRETURN, ExecutionOpCode::INTERNALRETURN },
 };
 
 const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_SPEC = {
@@ -433,6 +435,12 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .base_da = 0,
                       .dyn_l2 = AVM_RETURNDATACOPY_DYN_L2_GAS,
                       .dyn_da = 0 } } },
+    { ExecutionOpCode::INTERNALCALL,
+      { .num_addresses = 0,
+        .gas_cost = { .base_l2 = AVM_INTERNALCALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::INTERNALRETURN,
+      { .num_addresses = 0,
+        .gas_cost = { .base_l2 = AVM_INTERNALRETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
 };
 
 } // namespace bb::avm2

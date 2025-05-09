@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -39,6 +40,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
     StrictMock<MockDataCopy> data_copy;
+    StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -46,6 +48,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                     data_copy,
                                     execution_components,
                                     instruction_info_db,
+                                    internal_call_stack_manager,
                                     execution_event_emitter,
                                     context_stack_event_emitter);
 };
