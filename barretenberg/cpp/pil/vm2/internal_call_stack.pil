@@ -1,14 +1,14 @@
 include "precomputed.pil";
 
-namespace internal_call_stack;
+namespace call_stack;
     #[skippable_if]
     sel = 0;
 
     pol commit sel; // = 1 iff id != 0
     sel * (1 - sel) = 0;
     pol commit id; // Must be constrained to start at 1
-    pol commit prev_id;
-    pol commit next_pc;
+    pol commit return_id;
+    pol commit return_pc;
 
     pol commit id_inv;
     #[NON_ZERO_ID]

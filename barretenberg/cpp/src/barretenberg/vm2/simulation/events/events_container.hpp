@@ -55,7 +55,7 @@ struct EventsContainer {
     EventEmitterInterface<NullifierTreeCheckEvent>::Container nullifier_tree_check_events;
     EventEmitterInterface<DataCopyEvent>::Container data_copy_events;
     EventEmitterInterface<CalldataEvent>::Container calldata_events;
-    EventEmitterInterface<InternalStackEvent>::Container internal_call_stack_events;
+    EventEmitterInterface<InternalCallStackEvent>::Container internal_call_stack_events;
 };
 
 } // namespace bb::avm2::simulation
