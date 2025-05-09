@@ -168,39 +168,6 @@ spec:
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
-            # -- Only supply environment variables for network configuration if custom network is enabled.
-            {{- if .Values.network.customNetwork.enabled }}
-            - name: ROLLUP_CONTRACT_ADDRESS
-              value: "{{ .Values.network.customNetwork.rollupContractAddress }}"
-            - name: REGISTRY_CONTRACT_ADDRESS
-              value: "{{ .Values.network.customNetwork.registryContractAddress }}"
-            - name: INBOX_CONTRACT_ADDRESS
-              value: "{{ .Values.network.customNetwork.inboxContractAddress }}"
-            - name: OUTBOX_CONTRACT_ADDRESS
-              value: "{{ .Values.network.customNetwork.outboxContractAddress }}"
-            - name: FEE_JUICE_CONTRACT_ADDRESS
-              value: "{{ .Values.network.customNetwork.feeJuiceContractAddress }}"
-            - name: STAKING_CONTRACT_ADDRESS
-              value: "{{ .Values.network.customNetwork.stakingContractAddress }}"
-            - name: EPOCH_DURATION
-              value: "{{ .Values.network.customNetwork.epochDuration }}"
-            - name: TARGET_COMMITTEE_SIZE
-              value: "{{ .Values.network.customNetwork.targetCommitteeSize }}"
-            - name: PROOF_SUBMISSION_WINDOW
-              value: "{{ .Values.network.customNetwork.proofSubmissionWindow }}"
-            - name: SLASHING_QUORUM
-              value: "{{ .Values.network.customNetwork.slashingQuorum }}"
-            - name: SLASHING_ROUND_SIZE
-              value: "{{ .Values.network.customNetwork.slashingRoundSize }}"
-            - name: GOVERNANCE_PROPOSER_QUORUM
-              value: "{{ .Values.network.customNetwork.governanceProposerQuorum }}"
-            - name: GOVERNANCE_PROPOSER_ROUND_SIZE
-              value: "{{ .Values.network.customNetwork.governanceProposerRoundSize }}"
-            - name: MANA_TARGET
-              value: "{{ .Values.network.customNetwork.manaTarget }}"
-            - name: PROVING_COST_PER_MANA
-              value: "{{ .Values.network.customNetwork.provingCostPerMana }}"
-            {{- end }}
           ports:
             - containerPort: {{ .Values.fullNode.service.nodePort }}
             - containerPort: {{ .Values.fullNode.service.adminPort }}
