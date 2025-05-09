@@ -546,7 +546,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
-    // If an ivc instance is not provided, we create an ivc with mocked state based on the ivc recursion constraints
+    // If an ivc instance is not provided, we mock one with the state required to construct the recursion constraints
     // present in the program
     if (ivc == nullptr) {
         ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
