@@ -24,7 +24,6 @@ process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
-  // const REAL_PROOFS = false;
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
@@ -77,7 +76,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it.only(
+  it(
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
