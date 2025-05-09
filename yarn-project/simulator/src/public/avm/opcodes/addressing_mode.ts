@@ -1,5 +1,4 @@
 import { AVM_MAX_OPERANDS } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 
@@ -30,13 +29,14 @@ export class Addressing {
   public static fromWire(wireModes: number): Addressing {
     // The modes are stored in the wire format as one or two bytes, with each two bits representing the modes for an operand.
     // Even bits are indirect, odd bits are relative.
-    const modes = makeTuple<AddressingMode, typeof AVM_MAX_OPERANDS>(AVM_MAX_OPERANDS, () => AddressingMode.DIRECT);
+    const modes = new Array<AddressingMode>(AVM_MAX_OPERANDS);
     for (let i = 0; i < AVM_MAX_OPERANDS; i++) {
       modes[i] =
         (((wireModes >> (i * 2)) & 1) * AddressingMode.INDIRECT) |
         (((wireModes >> (i * 2 + 1)) & 1) * AddressingMode.RELATIVE);
     }
-    return new Addressing(modes);
+    // Casting the array to tuple since it should be more performant than using makeTuple
+    return new Addressing(modes as Tuple<AddressingMode, typeof AVM_MAX_OPERANDS>);
   }
 
   public toWire(): number {
