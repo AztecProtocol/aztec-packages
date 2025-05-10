@@ -218,6 +218,10 @@ contract RollupCore is
     ExtRollupLib.setupEpoch();
   }
 
+  function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
+    ExtRollupLib.setupSeedSnapshotForNextEpoch();
+  }
+
   /**
    * @notice  Updates the l1 gas fee oracle
    * @dev     This function is called by the `propose` function
