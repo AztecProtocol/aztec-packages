@@ -267,7 +267,7 @@ function bench {
   rm -rf bench-out
   mkdir -p bench-out
   find . -path "*/bench-out/*.bench.json" -type f | xargs cat | jq -s add > bench-out/bench.json
-  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+  cache_upload bench-$COMMIT_HASH.tar.gz bench-out/bench.json
 }
 
 function release_github {
