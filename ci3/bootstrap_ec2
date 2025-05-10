@@ -29,11 +29,7 @@ cores=${CPUS:-$cores}
 function on_exit {
   set +e
   if [ -n "${iid:-}" ]; then
-    if [ "$NO_TERMINATE" -eq 0 ]; then
-      aws_terminate_instance $iid $sir
-    else
-      echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
-    fi
+    aws_terminate_instance $iid $sir
     iid=""
   fi
 }
@@ -98,9 +94,6 @@ if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
     exit 1
   fi
 fi
-
-# If we're asking to not terminate the instance automatically, we also don't want to remove the container.
-[ "$NO_TERMINATE" -eq 0 ] && docker_args+=" --rm"
 
 # Interactive if stdin is connected to terminal.
 [ -t 0 ] && docker_args+=" -i"
@@ -224,7 +217,7 @@ function run {
     trap 'sudo kill \$cpufile_pid \$memfile_pid' EXIT
 
     echo Starting devbox...
-    docker run --privileged ${docker_args:-} \
+    docker run --privileged --rm ${docker_args:-} \
       --name aztec_build \
       --hostname $instance_name \
       -v bootstrap_ci_local_docker:/var/lib/docker \

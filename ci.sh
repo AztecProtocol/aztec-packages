@@ -83,7 +83,7 @@ case "$cmd" in
     export DENOISE_WIDTH=32
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=${USER}_$1 ARCH=$2 \
-        denoise "bootstrap_ec2 './bootstrap.sh $3'"
+        exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
     # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
