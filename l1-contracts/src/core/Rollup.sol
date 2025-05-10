@@ -20,7 +20,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
@@ -88,7 +88,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _flags - The flags to validate
    */
   function validateHeader(
-    bytes calldata _header,
+    Header calldata _header,
     Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
@@ -97,7 +97,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   ) external override(IRollup) {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
-        header: HeaderLib.decode(_header),
+        header: _header,
         attestations: _signatures,
         digest: _digest,
         currentTime: _currentTime,

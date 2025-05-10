@@ -64,8 +64,9 @@ contract IgnitionTest is RollupBase {
       testERC20 = new TestERC20("test", "TEST", address(this));
 
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
+      Slot slotNumber = full.block.header.slotNumber;
+      uint256 initialTime =
+        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
       vm.warp(initialTime);
     }
 

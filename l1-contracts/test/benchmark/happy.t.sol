@@ -61,6 +61,7 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
+import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -227,7 +228,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     bytes32[] memory txHashes = new bytes32[](0);
 
-    bytes memory header = full.block.header;
+    Header memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     TestPoint memory point = points[slotNumber.unwrap() - 1];
@@ -240,18 +241,18 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     address proposer = rollup.getCurrentProposer();
 
     // Updating the header with important information!
-    header = DecoderBase.updateHeaderArchive(header, archiveRoot);
-    header = DecoderBase.updateHeaderSlot(header, slotNumber);
-    header = DecoderBase.updateHeaderTimestamp(header, ts);
-    header = DecoderBase.updateHeaderCoinbase(header, proposer);
-    header = DecoderBase.updateHeaderFeeRecipient(header, address(0));
-    header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
-    header = DecoderBase.updateHeaderManaUsed(header, manaSpent);
+    header.lastArchiveRoot = archiveRoot;
+    header.slotNumber = slotNumber;
+    header.timestamp = ts;
+    header.coinbase = proposer;
+    header.feeRecipient = bytes32(0);
+    header.gasFees.feePerL2Gas = manaBaseFee;
+    header.totalManaUsed = manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
-      stateReference: new bytes(0),
+      stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
       txHashes: txHashes
     });
