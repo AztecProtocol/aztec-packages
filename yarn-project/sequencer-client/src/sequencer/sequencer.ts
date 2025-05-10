@@ -93,7 +93,7 @@ export class Sequencer {
     protected globalsBuilder: GlobalVariableBuilder,
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
-    protected slasherClient: SlasherClient,
+    protected slasherClient: SlasherClient | undefined,
     protected blockBuilderFactory: BlockBuilderFactory,
     protected l2BlockSource: L2BlockSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
@@ -120,7 +120,9 @@ export class Sequencer {
     this.validatorClient?.registerBlockBuilder(this.buildBlock.bind(this));
 
     // Register the slasher on the publisher to fetch slashing payloads
-    this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
+    if (this.slasherClient) {
+      this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
+    }
   }
 
   get tracer(): Tracer {
@@ -219,7 +221,9 @@ export class Sequencer {
     this.metrics.stop();
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
-    this.slasherClient.stop();
+    if (this.slasherClient) {
+      this.slasherClient.stop();
+    }
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
     this.l1Metrics.stop();

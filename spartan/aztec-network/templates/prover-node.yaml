@@ -87,7 +87,7 @@ spec:
 
               env
 
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node --archiver
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-node {{- if not .Values.archiver.enabled }} --archiver{{- end }}
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts
@@ -198,6 +198,10 @@ spec:
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
+            {{- if .Values.archiver.enabled }}
+            - name: ARCHIVER_URL
+              value: http://{{ include "aztec-network.fullname" . }}-archiver:{{ .Values.archiver.service.nodePort }}
+            {{- end }}
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pPort }}

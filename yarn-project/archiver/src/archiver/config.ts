@@ -8,6 +8,7 @@ import {
 } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type BaseSnapshotConfig, baseSnapshotConfigMappings } from '@aztec/stdlib/snapshots';
 
 /**
  * There are 2 polling intervals used in this configuration. The first is the archiver polling interval, archiverPollingIntervalMS.
@@ -46,7 +47,8 @@ export type ArchiverConfig = {
 } & L1ReaderConfig &
   L1ContractsConfig &
   BlobSinkConfig &
-  ChainConfig;
+  ChainConfig &
+  BaseSnapshotConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobSinkConfigMapping,
@@ -88,6 +90,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     ...numberConfigHelper(1000),
   },
   ...l1ContractsConfigMappings,
+  ...baseSnapshotConfigMappings,
 };
 
 /**

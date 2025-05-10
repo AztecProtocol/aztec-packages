@@ -126,7 +126,7 @@ spec:
               source /shared/config/service-addresses && \
               source /shared/config/otel-resource && \
               env && \
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --sequencer --pxe {{- if not .Values.archiver.enabled }} --archiver{{- end }}
           startupProbe:
             httpGet:
               path: /status
@@ -221,6 +221,10 @@ spec:
               value: "{{ .Values.aztec.testAccounts }}"
             - name: SPONSORED_FPC
               value: "{{ .Values.aztec.sponsoredFPC }}"
+            {{- if .Values.archiver.enabled }}
+            - name: ARCHIVER_URL
+              value: http://{{ include "aztec-network.fullname" . }}-archiver:{{ .Values.archiver.service.nodePort }}
+            {{- end }}
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}

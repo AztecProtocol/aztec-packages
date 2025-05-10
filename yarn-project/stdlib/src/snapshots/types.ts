@@ -1,7 +1,28 @@
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
+
+export type BaseSnapshotConfig = {
+  /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
+  syncMode: 'full' | 'snapshot' | 'force-snapshot';
+  /** Base URL for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
+  snapshotsUrl?: string;
+};
+
+export const baseSnapshotConfigMappings: ConfigMappingsType<BaseSnapshotConfig> = {
+  syncMode: {
+    env: 'SYNC_MODE',
+    description:
+      'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+    defaultValue: 'snapshot',
+  },
+  snapshotsUrl: {
+    env: 'SYNC_SNAPSHOTS_URL',
+    description: 'Base URL for snapshots index.',
+  },
+};
 
 export const SnapshotDataKeys = [
   'archiver',
@@ -14,6 +35,12 @@ export const SnapshotDataKeys = [
 
 export type SnapshotDataKeys = (typeof SnapshotDataKeys)[number];
 
+export const SnapshotComponents = ['archiver', 'worldState'] as const;
+
+export const snapshotComponentMap: Record<(typeof SnapshotComponents)[number], SnapshotDataKeys[]> = {
+  archiver: ['archiver'],
+  worldState: ['nullifier-tree', 'public-data-tree', 'note-hash-tree', 'archive-tree', 'l1-to-l2-message-tree'],
+};
 export type SnapshotDataUrls = Record<SnapshotDataKeys, string>;
 
 export type SnapshotMetadata = {

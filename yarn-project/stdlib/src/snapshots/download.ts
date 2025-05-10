@@ -45,9 +45,12 @@ export function getSnapshotIndexPath(metadata: SnapshotsIndexMetadata): string {
   return `${getBasePath(metadata)}/index.json`;
 }
 
-export function makeSnapshotPaths(baseDir: string): SnapshotDataUrls {
+export function makeSnapshotPaths(
+  baseDir: string,
+  keys: readonly SnapshotDataKeys[] = SnapshotDataKeys,
+): SnapshotDataUrls {
   // We do not use path.join since that screws up protocol prefixes
-  return fromEntries(SnapshotDataKeys.map(key => [key, `${baseDir}/${key}.db`]));
+  return fromEntries(keys.map(key => [key, `${baseDir}/${key}.db`]));
 }
 
 export async function downloadSnapshot(

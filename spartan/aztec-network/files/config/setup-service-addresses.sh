@@ -117,8 +117,8 @@ else
 fi
 
 # Configure Prover Node address
-if [ "${PROVER_NODE_EXTERNAL_HOST}" != "" ]; then
-  PROVER_NODE_ADDR="${PROVER_NODE_EXTERNAL_HOST}"
+if [ "${EXTERNAL_PROVER_NODE_HOST}" != "" ]; then
+  PROVER_NODE_ADDR="${EXTERNAL_PROVER_NODE_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
   PROVER_NODE_ADDR=$(get_service_address "prover-node" "${PROVER_NODE_PORT}")
 else

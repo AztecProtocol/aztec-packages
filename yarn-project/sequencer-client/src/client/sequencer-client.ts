@@ -55,7 +55,7 @@ export class SequencerClient {
       validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
-      slasherClient: SlasherClient;
+      slasherClient: SlasherClient | undefined;
       contractDataSource: ContractDataSource;
       l2BlockSource: L2BlockSource;
       l1ToL2MessageSource: L1ToL2MessageSource;

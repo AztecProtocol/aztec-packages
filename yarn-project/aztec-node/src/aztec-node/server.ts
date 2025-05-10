@@ -1,4 +1,4 @@
-import { Archiver, createArchiver } from '@aztec/archiver';
+import { Archiver, createArchiver, createRemoteArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
@@ -30,12 +30,20 @@ import {
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
+  SlasherClient,
   createSlasherClient,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
+import type {
+  InBlock,
+  L2Block,
+  L2BlockNumber,
+  L2BlockSource,
+  L2BlockSourceEventEmitter,
+  PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -52,6 +60,7 @@ import type {
   GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import {
+  type ArchiverApi,
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
   type ProverConfig,
@@ -208,9 +217,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // attempt snapshot sync if possible
-    await trySnapshotSync(config, log);
-
-    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
+    let archiver: ArchiverApi | (ArchiverApi & Service & L2BlockSourceEventEmitter);
+    if (config.archiverUrl) {
+      await trySnapshotSync(config, log, ['worldState']);
+      archiver = createRemoteArchiver(config) as ArchiverApi;
+    } else {
+      await trySnapshotSync(config, log, ['archiver', 'worldState']);
+      archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
+    }
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(
@@ -243,8 +257,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
-    slasherClient.start();
+    let slasherClient: SlasherClient | undefined;
+    if (config.archiverUrl) {
+      log.info('Slasher client not started because it requires a local archiver');
+    } else {
+      slasherClient = createSlasherClient(
+        config,
+        archiver as ArchiverApi & Service & L2BlockSourceEventEmitter,
+        telemetry,
+      );
+      slasherClient.start();
+    }
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
