@@ -12,7 +12,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { InMemoryAttestationPool } from '../mem_pools/attestation_pool/memory_attestation_pool.js';
+import { KvAttestationPool } from '../mem_pools/attestation_pool/kv_attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
@@ -52,7 +52,7 @@ export const createP2PClient = async <T extends P2PClientType>(
       }),
     attestationPool:
       clientType === P2PClientType.Full
-        ? ((deps.attestationPool ?? new InMemoryAttestationPool(telemetry)) as T extends P2PClientType.Full
+        ? ((deps.attestationPool ?? new KvAttestationPool(store, telemetry)) as T extends P2PClientType.Full
             ? AttestationPool
             : undefined)
         : undefined,
