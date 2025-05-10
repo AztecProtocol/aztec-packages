@@ -24,11 +24,16 @@ class ECCVMVerifier {
 
   public:
     ECCVMVerifier() = default;
+
+    // Constructor accepting existing transcript
+    explicit ECCVMVerifier(const std::shared_ptr<Transcript>& goblin_transcript = nullptr)
+        : transcript(goblin_transcript){};
+
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
         : key(verifier_key){};
 
-    explicit ECCVMVerifier(const std::shared_ptr<ECCVMVerifier::ProvingKey>& proving_key)
-        : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
+    explicit ECCVMVerifier(const std::shared_ptr<ProvingKey>& proving_key)
+        : ECCVMVerifier(std::make_shared<VerificationKey>(proving_key)){};
 
     bool verify_proof(const ECCVMProof& proof);
     void compute_translation_opening_claims(
@@ -38,7 +43,7 @@ class ECCVMVerifier {
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
-    std::array<OpeningClaim<typename ECCVMFlavor::Curve>, NUM_OPENING_CLAIMS> opening_claims;
+    std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
 
     std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::map<std::string, Commitment> commitments;

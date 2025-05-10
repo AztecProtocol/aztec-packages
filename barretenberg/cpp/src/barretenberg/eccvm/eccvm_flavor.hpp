@@ -924,7 +924,7 @@ class ECCVMFlavor {
      * @brief Derived class that defines proof structure for ECCVM proofs, as well as supporting functions.
      *
      */
-    class Transcript : public NativeTranscript {
+    class TranscriptWithManifest : public NativeTranscript {
       public:
         Commitment transcript_add_comm;
         Commitment transcript_mul_comm;
@@ -1045,9 +1045,9 @@ class ECCVMFlavor {
         FF translation_quotient_eval;
         Commitment shplonk_q2_comm;
 
-        Transcript() = default;
+        TranscriptWithManifest() = default;
 
-        Transcript(const HonkProof& proof)
+        TranscriptWithManifest(const HonkProof& proof)
             : NativeTranscript(proof)
         {}
 
@@ -1506,6 +1506,7 @@ class ECCVMFlavor {
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
         }
     };
+    using Transcript = NativeTranscript;
 };
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)

@@ -25,10 +25,17 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
+
+    if (!transcript) {
+        transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
+    } else {
+        info("correct branch in eccvm native verifier");
+        transcript->load_proof(proof.pre_ipa_proof);
+    }
+
     ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
-    transcript->enable_manifest();
-    ipa_transcript->enable_manifest();
+    // transcript->enable_manifest();
+    // ipa_transcript->enable_manifest();
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -164,6 +171,7 @@ void ECCVMVerifier::compute_translation_opening_claims(
 
     // Get the batching challenge for commitments and evaluations
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
+    info("V batching challenge ", batching_challenge_v);
 
     // Get the value ∑ mᵢ(x) ⋅ vⁱ
     translation_masking_term_eval = transcript->template receive_from_prover<FF>("Translation:masking_term_eval");
