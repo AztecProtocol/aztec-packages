@@ -263,6 +263,7 @@ function bench {
   if [ $(arch) == arm64 ]; then
     return
   fi
+  echo_header "bench all"
   bench_cmds | STRICT_SCHEDULING=1 parallelise
   rm -rf bench-out
   mkdir -p bench-out
