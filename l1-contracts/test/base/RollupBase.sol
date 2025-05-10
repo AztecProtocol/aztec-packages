@@ -71,8 +71,6 @@ contract RollupBase is DecoderBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: parentBlockLog.archive,
       endArchive: endFull.block.archive,
-      endTimestamp: Timestamp.wrap(0), // WHAT ?
-      outHash: bytes32(0), // WHAT ?
       proverId: _prover
     });
 

@@ -162,17 +162,17 @@ export class ProverNodePublisher {
 
     // Check the archive for the immediate block before the epoch
     const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
-    if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
+    if (publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
       throw new Error(
-        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,
+        `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${blockLog.archive}`,
       );
     }
 
     // Check the archive for the last block in the epoch
     const endBlockLog = await this.rollupContract.getBlock(BigInt(toBlock));
-    if (publicInputs.endArchive.root.toString() !== endBlockLog.archive) {
+    if (publicInputs.endArchiveRoot.toString() !== endBlockLog.archive) {
       throw new Error(
-        `End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endBlockLog.archive}`,
+        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`,
       );
     }
 
@@ -249,10 +249,8 @@ export class ProverNodePublisher {
       BigInt(args.fromBlock),
       BigInt(args.toBlock),
       {
-        previousArchive: args.publicInputs.previousArchive.root.toString(),
-        endArchive: args.publicInputs.endArchive.root.toString(),
-        endTimestamp: args.publicInputs.endTimestamp.toBigInt(),
-        outHash: args.publicInputs.outHash.toString(),
+        previousArchive: args.publicInputs.previousArchiveRoot.toString(),
+        endArchive: args.publicInputs.endArchiveRoot.toString(),
         proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
       },
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
