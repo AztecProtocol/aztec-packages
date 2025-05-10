@@ -63,8 +63,9 @@ contract MultiProofTest is RollupBase {
   modifier setUpFor(string memory _name) {
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
+      uint256 slotNumber = Slot.unwrap(full.block.header.slotNumber);
+      uint256 initialTime =
+        Timestamp.unwrap(full.block.header.timestamp) - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 

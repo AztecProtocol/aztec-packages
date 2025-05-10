@@ -296,7 +296,7 @@ describe('L1Publisher integration', () => {
         blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
         blockNumber: block.number,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        decodedHeader: {
+        header: {
           lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
           contentCommitment: {
             blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
@@ -314,7 +314,6 @@ describe('L1Publisher integration', () => {
           },
           totalManaUsed: `0x${block.header.totalManaUsed.toBuffer().toString('hex').padStart(64, '0')}`,
         },
-        header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
         numTxs: block.body.txEffects.length,
       },
     };
