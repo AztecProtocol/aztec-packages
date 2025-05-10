@@ -5,6 +5,8 @@ pragma solidity >=0.8.27;
 import {TestBase} from "../base/Base.sol";
 
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {Header, ContentCommitment, GasFees} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+
 // Many of the structs in here match what you see in `header` but with very important exceptions!
 // The order of variables is sorted alphabetically in the structs in here to work with the
 // JSON cheatcodes.
@@ -14,6 +16,12 @@ contract DecoderBase is TestBase {
   // Note: Members of the struct (and substructs) have to be in ALPHABETICAL order!
   struct Full {
     Data block;
+    Messages messages;
+    Populate populate;
+  }
+
+  struct AlphabeticalFull {
+    AlphabeticalData block;
     Messages messages;
     Populate populate;
   }
@@ -28,21 +36,16 @@ contract DecoderBase is TestBase {
     bytes32[] l2ToL1Messages;
   }
 
-  struct Data {
-    bytes32 archive;
-    bytes blobInputs;
-    uint256 blockNumber;
-    bytes body;
-    DecodedHeader decodedHeader;
-    bytes header;
-    // Note: The following could be decoded from body but having it explicitaly here makes tests more robust against
-    // decoder changes
-    uint32 numTxs;
+  struct AlphabeticalContentCommitment {
+    bytes32 blobsHash;
+    bytes32 inHash;
+    uint256 numTxs;
+    bytes32 outHash;
   }
 
-  struct DecodedHeader {
+  struct AlphabeticalHeader {
     address coinbase;
-    ContentCommitment contentCommitment;
+    AlphabeticalContentCommitment contentCommitment;
     bytes32 feeRecipient;
     GasFees gasFees;
     bytes32 lastArchiveRoot;
@@ -51,16 +54,22 @@ contract DecoderBase is TestBase {
     uint256 totalManaUsed;
   }
 
-  struct GasFees {
-    uint128 feePerDaGas;
-    uint128 feePerL2Gas;
+  struct Data {
+    bytes32 archive;
+    bytes blobInputs;
+    uint256 blockNumber;
+    bytes body;
+    Header header;
+    uint32 numTxs;
   }
 
-  struct ContentCommitment {
-    bytes32 blobsHash;
-    bytes32 inHash;
-    uint256 numTxs;
-    bytes32 outHash;
+  struct AlphabeticalData {
+    bytes32 archive;
+    bytes blobInputs;
+    uint256 blockNumber;
+    bytes body;
+    AlphabeticalHeader header;
+    uint32 numTxs;
   }
 
   function load(string memory name) internal view returns (Full memory) {
@@ -68,8 +77,42 @@ contract DecoderBase is TestBase {
     string memory path = string.concat(root, "/test/fixtures/", name, ".json");
     string memory json = vm.readFile(path);
     bytes memory jsonBytes = vm.parseJson(json);
-    Full memory full = abi.decode(jsonBytes, (Full));
-    return full;
+    AlphabeticalFull memory full = abi.decode(jsonBytes, (AlphabeticalFull));
+    return fromAlphabeticalToNormal(full);
+  }
+
+  // Decode does not support the custom types
+  function fromAlphabeticalToNormal(AlphabeticalFull memory full)
+    internal
+    pure
+    returns (Full memory)
+  {
+    return Full({
+      block: Data({
+        archive: full.block.archive,
+        blobInputs: full.block.blobInputs,
+        blockNumber: full.block.blockNumber,
+        body: full.block.body,
+        header: Header({
+          lastArchiveRoot: full.block.header.lastArchiveRoot,
+          contentCommitment: ContentCommitment({
+            blobsHash: full.block.header.contentCommitment.blobsHash,
+            inHash: full.block.header.contentCommitment.inHash,
+            outHash: full.block.header.contentCommitment.outHash,
+            numTxs: full.block.header.contentCommitment.numTxs
+          }),
+          slotNumber: Slot.wrap(full.block.header.slotNumber),
+          timestamp: Timestamp.wrap(full.block.header.timestamp),
+          coinbase: full.block.header.coinbase,
+          feeRecipient: full.block.header.feeRecipient,
+          gasFees: full.block.header.gasFees,
+          totalManaUsed: full.block.header.totalManaUsed
+        }),
+        numTxs: full.block.numTxs
+      }),
+      messages: full.messages,
+      populate: full.populate
+    });
   }
 
   function max(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -197,34 +240,24 @@ contract DecoderBase is TestBase {
     return _header;
   }
 
-  function updateHeaderDaFee(bytes memory _header, uint128 _fee)
+  function updateHeaderDaFee(bytes memory _header, uint256 _fee)
     internal
     pure
     returns (bytes memory)
   {
     assembly {
-      let ptr := add(_header, add(0x20, 0x00fc))
-      // Da fee per gas is only 16 bytes, so we need to keep the the other 16 bytes.
-      let prev := mload(ptr)
-      let mask := shr(mul(16, 8), not(0))
-      let updated := or(and(prev, mask), shl(mul(16, 8), _fee))
-      mstore(ptr, updated)
+      mstore(add(_header, add(0x20, 0x00fc)), _fee)
     }
     return _header;
   }
 
-  function updateHeaderBaseFee(bytes memory _header, uint128 _baseFee)
+  function updateHeaderBaseFee(bytes memory _header, uint256 _baseFee)
     internal
     pure
     returns (bytes memory)
   {
     assembly {
-      let ptr := add(_header, add(0x20, 0x010c))
-      // Base fee per gas is only 16 bytes, so we need to keep the the other 16 bytes.
-      let prev := mload(ptr)
-      let mask := shr(mul(16, 8), not(0))
-      let updated := or(and(prev, mask), shl(mul(16, 8), _baseFee))
-      mstore(ptr, updated)
+      mstore(add(_header, add(0x20, 0x011c)), _baseFee)
     }
     return _header;
   }
@@ -235,7 +268,7 @@ contract DecoderBase is TestBase {
     returns (bytes memory)
   {
     assembly {
-      mstore(add(_header, add(0x20, 0x011c)), _manaUsed)
+      mstore(add(_header, add(0x20, 0x013c)), _manaUsed)
     }
     return _header;
   }
