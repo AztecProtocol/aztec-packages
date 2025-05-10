@@ -683,3 +683,81 @@ impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {
         self.is_static
     }
 }
+
+// UtilityCallInterface
+
+pub struct UtilityCallInterface<let N: u32, T> {
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args_hash: Field,
+    args: [Field],
+    return_type: T,
+}
+
+impl<let N: u32, T> UtilityCallInterface<N, T> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+    ) -> Self {
+        let args_hash = hash_args(args);
+        Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
+    }
+
+    pub fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    pub fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    pub fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    pub fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+}
+
+// UtilityVoidCallInterface
+
+pub struct UtilityVoidCallInterface<let N: u32> {
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    name: str<N>,
+    args_hash: Field,
+    args: [Field],
+    return_type: (),
+}
+
+impl<let N: u32> UtilityVoidCallInterface<N> {
+    pub fn new(
+        target_contract: AztecAddress,
+        selector: FunctionSelector,
+        name: str<N>,
+        args: [Field],
+    ) -> Self {
+        let args_hash = hash_args(args);
+        Self { target_contract, selector, name, args_hash, args, return_type: () }
+    }
+
+    pub fn get_args(self) -> [Field] {
+        self.args
+    }
+
+    pub fn get_selector(self) -> FunctionSelector {
+        self.selector
+    }
+
+    pub fn get_name(self) -> str<N> {
+        self.name
+    }
+
+    pub fn get_contract_address(self) -> AztecAddress {
+        self.target_contract
+    }
+}

@@ -1194,4 +1194,18 @@ export class TXEService {
   enableOracles() {
     this.oraclesEnabled = true;
   }
+
+  async simulateUtilityFunction(
+    targetContractAddress: ForeignCallSingle,
+    functionSelector: ForeignCallSingle,
+    argsHash: ForeignCallSingle,
+  ) {
+    const result = await (this.typedOracle as TXE).simulateUtilityFunction(
+      addressFromSingle(targetContractAddress),
+      FunctionSelector.fromField(fromSingle(functionSelector)),
+      fromSingle(argsHash),
+    );
+
+    return toForeignCallResult([toSingle(result)]);
+  }
 }
