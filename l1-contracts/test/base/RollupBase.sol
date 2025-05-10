@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
+import {IRollupCore} from "@aztec/core/interfaces/IRollup.sol";
 import {
   IRollup,
   BlockLog,
@@ -18,10 +19,12 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {StateReference} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposeArgs, OracleInput} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {IForwarder} from "@aztec/periphery/interfaces/IForwarder.sol";
 
 contract RollupBase is DecoderBase {
   IInstance internal rollup;
@@ -108,12 +111,37 @@ contract RollupBase is DecoderBase {
     );
   }
 
+  // move
+  struct ProposeWithForwarderArgs {
+    bool enabled;
+    bool overwriteCoinbase;
+    address forwarder;
+    address sender;
+    address setCoinbase;
+  }
+
+  ProposeWithForwarderArgs EMPTY_FORWARDER_ARGS = ProposeWithForwarderArgs({
+    enabled: false,
+    overwriteCoinbase: false,
+    forwarder: address(0),
+    sender: address(0),
+    setCoinbase: address(0)
+  });
+
   function _proposeBlock(string memory _name, uint256 _slotNumber) public {
     _proposeBlock(_name, _slotNumber, 0);
   }
 
   function _proposeBlock(string memory _name, uint256 _slotNumber, uint256 _manaUsed) public {
-    _proposeBlock(_name, _slotNumber, _manaUsed, "");
+    _proposeBlock(_name, _slotNumber, _manaUsed, "", EMPTY_FORWARDER_ARGS);
+  }
+
+  function _proposeBlockWithCustomForwarder(
+    string memory _name,
+    uint256 _slotNumber,
+    ProposeWithForwarderArgs memory _forwarderArgs
+  ) public {
+    _proposeBlock(_name, _slotNumber, 0, "", _forwarderArgs);
   }
 
   function _proposeBlockFail(
@@ -122,14 +150,15 @@ contract RollupBase is DecoderBase {
     uint256 _manaUsed,
     bytes memory _revertMsg
   ) public {
-    _proposeBlock(_name, _slotNumber, _manaUsed, _revertMsg);
+    _proposeBlock(_name, _slotNumber, _manaUsed, _revertMsg, EMPTY_FORWARDER_ARGS);
   }
 
   function _proposeBlock(
     string memory _name,
     uint256 _slotNumber,
     uint256 _manaUsed,
-    bytes memory _revertMsg
+    bytes memory _revertMsg,
+    ProposeWithForwarderArgs memory proposeWithForwarderArgs
   ) private {
     DecoderBase.Full memory full = load(_name);
     bytes memory blobInputs = full.block.blobInputs;
@@ -185,7 +214,24 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, signatures, blobInputs);
+    if (proposeWithForwarderArgs.enabled) {
+      // Update coinbase
+      if (proposeWithForwarderArgs.overwriteCoinbase) {
+        args.header.coinbase = proposeWithForwarderArgs.setCoinbase;
+      }
+
+      // Craft forwarder data to make the rollup call
+      address[] memory to = new address[](1);
+      to[0] = address(rollup);
+
+      bytes[] memory data = new bytes[](1);
+      data[0] = abi.encodeCall(IRollupCore.propose, (args, signatures, blobInputs));
+
+      vm.prank(proposeWithForwarderArgs.sender);
+      IForwarder(proposeWithForwarderArgs.forwarder).forward(to, data);
+    } else {
+      rollup.propose(args, signatures, blobInputs);
+    }
 
     if (_revertMsg.length > 0) {
       return;

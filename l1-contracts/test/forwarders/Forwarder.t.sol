@@ -3,8 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-import {Forwarder} from "../src/periphery/Forwarder.sol";
-import {IForwarder} from "../src/periphery/interfaces/IForwarder.sol";
+import {Forwarder} from "../../src/periphery/forwarders/Forwarder.sol";
+import {IForwarder} from "../../src/periphery/interfaces/IForwarder.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 // solhint-disable comprehensive-interface
