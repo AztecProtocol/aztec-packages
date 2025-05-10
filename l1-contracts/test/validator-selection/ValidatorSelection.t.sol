@@ -29,6 +29,7 @@ import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 // solhint-disable comprehensive-interface
@@ -211,12 +212,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     bool _invalidProposer
   ) internal {
     DecoderBase.Full memory full = load(_name);
-    bytes memory header = full.block.header;
+    Header memory header = full.block.header;
 
     StructToAvoidDeepStacks memory ree;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.timestamp));
+    vm.warp(max(block.timestamp, Timestamp.unwrap(full.block.header.timestamp)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
@@ -230,14 +231,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     {
       uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
       bytes32 inHash = inbox.getRoot(full.block.blockNumber);
-      header = DecoderBase.updateHeaderInboxRoot(header, inHash);
-      header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
+      header.contentCommitment.inHash = inHash;
+      header.gasFees.feePerL2Gas = manaBaseFee;
     }
 
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      stateReference: new bytes(0),
+      stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });

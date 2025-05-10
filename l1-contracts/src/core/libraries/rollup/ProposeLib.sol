@@ -18,7 +18,7 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {ValidatorSelectionLib} from
   "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
 import {BlobLib} from "./BlobLib.sol";
-import {Header, HeaderLib} from "./HeaderLib.sol";
+import {Header, HeaderLib, StateReference} from "./HeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
@@ -27,15 +27,16 @@ struct ProposeArgs {
   // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
   // by the last archive and blobs hash.
   // It can be removed if the archiver can refer to world state for the updated roots.
-  bytes stateReference;
+  // md: updated to be StateReference type such that propose args is fixes length
+  StateReference stateReference;
   OracleInput oracleInput;
-  bytes header;
+  Header header;
   bytes32[] txHashes;
 }
 
 struct ProposePayload {
   bytes32 archive;
-  bytes stateReference;
+  StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
   bytes32[] txHashes;
@@ -98,7 +99,7 @@ library ProposeLib {
     (v.blobHashes, v.blobsHashesCommitment, v.blobPublicInputsHash) =
       BlobLib.validateBlobs(_blobInput, _checkBlob);
 
-    Header memory header = HeaderLib.decode(_args.header);
+    Header memory header = _args.header;
     v.headerHash = HeaderLib.hash(_args.header);
 
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
