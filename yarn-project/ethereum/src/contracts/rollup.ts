@@ -303,7 +303,7 @@ export class RollupContract {
   }
 
   public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
-    return await this.rollup.read.getEpochAtSlot([slotNumber]);
+    return await this.rollup.read.getEpochAtSlot([slotNumber], { blockTag: 'earliest' });
   }
 
   getEpochProofPublicInputs(

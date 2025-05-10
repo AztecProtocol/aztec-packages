@@ -357,7 +357,6 @@ describe('Discv5Service', () => {
       peerCheckIntervalMS: 50,
       p2pEnabled: true,
       l2QueueSize: 100,
-      keepProvenTxsInPoolFor: 0,
       ...overrides,
     };
     return new DiscV5Service(peerId, config, undefined, undefined, overrides);
