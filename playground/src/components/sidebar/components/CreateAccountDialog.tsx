@@ -72,10 +72,8 @@ export function CreateAccountDialog({
           break;
         }
         case 'aztec-keychain': {
-          // Index of the key
-          const signingKeyIndex = 0;
-          signingKey = Buffer.from([signingKeyIndex]);
-          accountManager = await getEcdsaRSerialAccount(pxe, signingKeyIndex);
+          signingKey = Buffer.from([-1]);
+          accountManager = await getEcdsaRSerialAccount(pxe, -1);
           break;
         }
         default: {
@@ -114,6 +112,7 @@ export function CreateAccountDialog({
 
       onClose(accountWallet, true, deployMethod, opts);
     } catch (e) {
+      console.error(e);
       setError(e.message);
     } finally {
       setIsRegistering(false);
