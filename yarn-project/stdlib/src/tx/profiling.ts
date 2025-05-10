@@ -97,7 +97,7 @@ export class UtilitySimulationResult {
     return z
       .object({
         result: AbiDecodedSchema,
-        timings: SimulationTimingsSchema,
+        timings: optional(SimulationTimingsSchema),
       })
       .transform(({ result, timings }) => new UtilitySimulationResult(result, timings));
   }

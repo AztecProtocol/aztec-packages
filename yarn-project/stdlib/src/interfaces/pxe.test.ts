@@ -227,7 +227,7 @@ describe('PXESchema', () => {
 
   it('simulateUtility', async () => {
     const result = await context.client.simulateUtility('function', [], address, [], address, [address]);
-    expect(result).toEqual(10n);
+    expect(result).toEqual({ result: 10n });
   });
 
   it('getPublicLogs', async () => {
