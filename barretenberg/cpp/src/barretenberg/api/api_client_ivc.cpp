@@ -38,17 +38,10 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
 
 std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(acir_format::AcirProgram& program)
 {
-    const std::vector<acir_format::RecursionConstraint>& ivc_constraints =
-        program.constraints.ivc_recursion_constraints;
-
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-
-    acir_format::ProgramMetadata metadata{
-        .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
-    };
-    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
+    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
 }
 
