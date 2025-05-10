@@ -90,7 +90,7 @@ case "$cmd" in
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1 amd64 ci-full' \
       'run x2 amd64 ci-full' \
-      'run a2 arm64 ci-fast' | DUP=1 cache_log "Merge Queue CI run" $RUN_ID
+      'run a2 arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "nightly")
     # Spin up ec2 instance and run the nightly flow.
