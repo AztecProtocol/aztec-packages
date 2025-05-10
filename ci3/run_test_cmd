@@ -93,7 +93,7 @@ History: http://ci.aztec-labs.com/list/$test_hash
 EOF
 
 function publish_log {
-  cat $tmp_file | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
 }
 
 function live_publish_log {
@@ -106,12 +106,12 @@ function live_publish_log {
   publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
-    sleep 5 &
-    sleep_pid=$!
-    wait $sleep_pid
     if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
       publish_log
     fi
+    sleep 5 &
+    sleep_pid=$!
+    wait $sleep_pid
   done
 }
 

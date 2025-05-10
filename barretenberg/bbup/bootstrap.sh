@@ -26,7 +26,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full"|"bench")
+  ""|fast|full|bench|bench_cmds)
     ;;
   "ci")
     test

@@ -12,13 +12,12 @@ echo "Starting test run using max $num_cpus cpus..."
 sem_sched init $num_cpus
 
 function cleanup {
-  echo >&2
   [ -f "$output" ] && rm -f $output
   kill -TERM $(jobs -p) &>/dev/null
 }
 trap cleanup EXIT
 
-trap exit SIGINT SIGTERM
+trap 'echo >&2; exit' SIGINT SIGTERM
 
 output=$(mktemp)
 
