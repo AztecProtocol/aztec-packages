@@ -99,13 +99,7 @@ function build_bench {
 function bench {
   rm -rf bench-out
   mkdir -p bench-out
-
   bench_cmds | STRICT_SCHEDULING=1 parallelise
-
-  # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
-  # place to test them.
-  # ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/example-app-ivc-inputs-out $(pwd)/bench-out
-  # cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json ./bench-out/ivc-bench.json
 }
 
 case "$cmd" in

@@ -69,11 +69,11 @@ function tail_live_instance {
 case "$cmd" in
   "fast")
     # Spin up ec2 instance and run the fast flow.
-    exec bootstrap_ec2 "./booststrap.sh ci-fast"
+    exec bootstrap_ec2 "./bootstrap.sh ci-fast"
     ;;
   "full")
     # Spin up ec2 instance and run the full flow.
-    exec bootstrap_ec2 "./booststrap.sh ci-full"
+    exec bootstrap_ec2 "./bootstrap.sh ci-full"
     ;;
   "merge-queue")
     # Spin up ec2 instance and run the merge-queue flow.
