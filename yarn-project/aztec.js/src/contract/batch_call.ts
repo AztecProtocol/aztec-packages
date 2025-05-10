@@ -106,7 +106,7 @@ export class BatchCall extends BaseContractInteraction {
 
     const results: any[] = [];
 
-    utilityResults.forEach(([result, index]) => {
+    utilityResults.forEach(([{ result }, index]) => {
       results[index] = result;
     });
     indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {

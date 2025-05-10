@@ -5,6 +5,7 @@ import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { printProfileResult } from '../utils/profiling.js';
 
 export async function deploy(
   wallet: AccountWalletWithSecretKey,
@@ -20,6 +21,7 @@ export async function deploy(
   universalDeploy: boolean | undefined,
   wait: boolean,
   feeOpts: IFeeOpts,
+  verbose: boolean,
   debugLogger: Logger,
   log: LogFn,
   logJson: (output: any) => void,
@@ -59,7 +61,12 @@ export async function deploy(
     return;
   }
 
-  const tx = deploy.send(deployOpts);
+  const provenTx = await deploy.prove(deployOpts);
+  if (verbose) {
+    printProfileResult(provenTx.timings!, log);
+  }
+
+  const tx = provenTx.send();
 
   const txHash = await tx.getTxHash();
   debugLogger.debug(`Deploy tx sent with hash ${txHash}`);

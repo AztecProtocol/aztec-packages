@@ -14,7 +14,6 @@ import {
 } from '@aztec/protocol-contracts';
 import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 import {
-  type AbiDecoded,
   type ContractArtifact,
   EventSelector,
   FunctionCall,
@@ -67,6 +66,7 @@ import {
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
+  UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
@@ -919,19 +919,34 @@ export class PXEService implements PXE {
     authwits?: AuthWitness[],
     _from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<AbiDecoded> {
+  ): Promise<UtilitySimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
     return this.#putInJobQueue(async () => {
       try {
+        const totalTimer = new Timer();
+        const syncTimer = new Timer();
         await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
         // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
+        const functionTimer = new Timer();
         const executionResult = await this.#simulateUtility(functionCall, authwits ?? [], scopes);
+        const functionTime = functionTimer.ms();
 
-        // TODO - Return typed result based on the function artifact.
-        return executionResult;
+        const totalTime = totalTimer.ms();
+
+        const perFunction = [{ functionName, time: functionTime }];
+
+        const timings: SimulationTimings = {
+          total: totalTime,
+          sync: syncTime,
+          perFunction,
+          unaccounted: totalTime - (syncTime + perFunction.reduce((acc, { time }) => acc + time, 0)),
+        };
+
+        return { result: executionResult, timings };
       } catch (err: any) {
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
