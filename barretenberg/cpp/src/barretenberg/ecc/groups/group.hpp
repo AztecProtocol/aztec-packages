@@ -85,10 +85,9 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      * @param domain_separator
      * @return std::vector<affine_element>
      */
-    inline static constexpr std::vector<affine_element> derive_generators(
-        const std::vector<uint8_t>& domain_separator_bytes,
-        const size_t num_generators,
-        const size_t starting_index = 0)
+    inline static std::vector<affine_element> derive_generators(const std::vector<uint8_t>& domain_separator_bytes,
+                                                                const size_t num_generators,
+                                                                const size_t starting_index = 0)
     {
         std::vector<affine_element> result;
         const auto domain_hash = blake3::blake3s_constexpr(&domain_separator_bytes[0], domain_separator_bytes.size());
@@ -110,9 +109,9 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         return result;
     }
 
-    inline static constexpr std::vector<affine_element> derive_generators(const std::string_view& domain_separator,
-                                                                          const size_t num_generators,
-                                                                          const size_t starting_index = 0)
+    inline static std::vector<affine_element> derive_generators(const std::string_view& domain_separator,
+                                                                const size_t num_generators,
+                                                                const size_t starting_index = 0)
     {
         std::vector<uint8_t> domain_bytes;
         for (char i : domain_separator) {

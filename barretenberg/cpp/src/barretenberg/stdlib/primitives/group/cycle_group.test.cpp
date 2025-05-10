@@ -871,7 +871,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename Group::coordinate_field> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::LHS_GENERATOR_POINT;
+            auto element = plookup::fixed_base::table::lhs_generator_point();
             typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
@@ -881,7 +881,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(uint256_t(scalar));
 
             // 2: add entry where point is constant, scalar is constant
-            element = plookup::fixed_base::table::RHS_GENERATOR_POINT;
+            element = plookup::fixed_base::table::rhs_generator_point();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
@@ -902,7 +902,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename Group::subgroup_field> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::LHS_GENERATOR_POINT;
+            auto element = plookup::fixed_base::table::lhs_generator_point();
             typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
@@ -912,7 +912,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(scalar);
 
             // 2: add entry where point is constant, scalar is constant
-            element = plookup::fixed_base::table::RHS_GENERATOR_POINT;
+            element = plookup::fixed_base::table::rhs_generator_point();
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
@@ -938,7 +938,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::LHS_GENERATOR_POINT;
+            auto element = plookup::fixed_base::table::lhs_generator_point();
             typename Group::subgroup_field scalar = 0;
 
             // 1: add entry where point is constant, scalar is witness

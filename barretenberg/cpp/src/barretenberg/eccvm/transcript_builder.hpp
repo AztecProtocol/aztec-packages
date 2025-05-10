@@ -72,7 +72,7 @@ class ECCVMTranscriptBuilder {
      */
     static AffineElement offset_generator()
     {
-        static constexpr auto offset_generator_base = CycleGroup::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        static const auto offset_generator_base = CycleGroup::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
         static const AffineElement result =
             AffineElement(Element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
         return result;
