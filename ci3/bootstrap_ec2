@@ -160,7 +160,6 @@ container_script=$(cat <<EOF
     local code=\${PIPESTATUS[0]}
     set +x
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    sudo cat /tmp/netfile* | cache_log 'netfile'
     sudo cat /tmp/cpufile | cache_log 'cpufile'
     sudo cat /tmp/memfile | cache_log 'memfile'
     return \$code
