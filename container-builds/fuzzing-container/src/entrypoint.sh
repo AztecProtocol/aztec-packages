@@ -143,14 +143,14 @@ fuzz() {
         echo "Start minimization"
         for crash in "${files[@]}"; do
             crash_name=$(basename "$crash")
-            echo "Minimizing $crash_name: $(wc -c $crash | awk '{print $1}')B"
+            echo "Minimizing $crash_name: $(wc -c < $crash)B"
 
             MINDIR=$(mktemp -d)
             mv "$TMPOUT/$crash_name" "$MINDIR";
             "$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>> "$TMPOUT/minimize.log"
 
             smallest_crash=$(ls -S "$MINDIR/" | tail -n 1);
-            echo "Minimized  $smallest_crash: $(wc -c $MINDIR/$smallest_crash | awk '{print $1}')B"
+            echo "Minimized  $smallest_crash: $(wc -c < $MINDIR/$smallest_crash)B"
 
             cp "$MINDIR/$smallest_crash" "$OUTPUT"
             "$post_fuzzer" "$MINDIR/$smallest_crash" &> "$OUTPUT/$smallest_crash"_result.txt
