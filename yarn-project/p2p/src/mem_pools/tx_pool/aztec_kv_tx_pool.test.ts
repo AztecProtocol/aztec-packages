@@ -224,6 +224,89 @@ describe('KV TX pool', () => {
     expect(pendingTxHashes).toEqual(expect.arrayContaining([await tx2.getTxHash(), await tx3.getTxHash()]));
     expect(pendingTxHashes).toHaveLength(2);
   });
+
+  it('Does not evict low priority txs marked as non-evictable', async () => {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxTxPoolSize: 15000,
+    });
+
+    const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
+    const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
+    const tx3 = await mockTx(3, { maxPriorityFeesPerGas: new GasFees(3, 3) });
+    await txPool.addTxs([tx1, tx2, tx3]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx3.getTxHash(),
+      await tx2.getTxHash(),
+      await tx1.getTxHash(),
+    ]);
+
+    const tx1Hash = await tx1.getTxHash();
+    await txPool.markTxsAsNonEvictable([tx1Hash]);
+
+    // once the tx pool size limit is reached, the lowest priority txs that are evictable (tx2, tx3) should be evicted
+    const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
+    const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
+    await txPool.addTxs([tx4, tx5]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx5.getTxHash(),
+      await tx4.getTxHash(),
+      await tx1.getTxHash(),
+    ]);
+
+    // if another tx is added after the tx pool size limit is reached, the lowest priority tx that is evictable (tx1) should be evicted
+    await txPool.markTxsAsEvictable([tx1Hash]);
+    const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(6, 6) });
+    await txPool.addTxs([tx6]);
+    await expect(txPool.getPendingTxHashes()).resolves.toEqual([
+      await tx6.getTxHash(),
+      await tx5.getTxHash(),
+      await tx4.getTxHash(),
+    ]);
+  });
+
+  it('Does not evict invalid mined txs marked as non-evictable', async () => {
+    const tx1 = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const tx2 = await mockTx(2, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const tx3 = await mockTx(3, { numberOfNonRevertiblePublicCallRequests: 1 });
+    const tx4 = await mockTx(4, { numberOfNonRevertiblePublicCallRequests: 1 });
+
+    // simulate a situation where tx1, tx2, and tx3 have the same nullifier and mark tx2 as non-evictable
+    tx2.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] =
+      tx1.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
+    tx3.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] =
+      tx1.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
+    await txPool.markTxsAsNonEvictable([await tx2.getTxHash()]);
+
+    await txPool.addTxs([tx1, tx2, tx3, tx4]);
+    await txPool.markAsMined([await tx1.getTxHash()], 1);
+    expect(await txPool.getPendingTxHashes()).toEqual(
+      expect.arrayContaining([await tx2.getTxHash(), await tx4.getTxHash()]),
+    );
+  });
+
+  it('Does not evict invalid txs marked as non-evictable during a reorg', async () => {
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
+    const tx3 = await mockTx(3);
+
+    await txPool.addTxs([tx1, tx2, tx3]);
+    await txPool.markAsMined([await tx2.getTxHash()], 1);
+
+    // modify tx1 to have an insufficient fee payer balance after the reorg and mark as non evictable
+    txPool.mockGasTxValidator.validateTxFee.mockImplementation(async (tx: Tx) => {
+      return Promise.resolve({
+        result: (await tx.getTxHash()).equals(await tx1.getTxHash()) ? 'invalid' : 'valid',
+      } as TxValidationResult);
+    });
+    await txPool.markTxsAsNonEvictable([await tx1.getTxHash()]);
+    await txPool.markMinedAsPending([await tx2.getTxHash()]);
+
+    const pendingTxHashes = await txPool.getPendingTxHashes();
+    expect(pendingTxHashes).toEqual(
+      expect.arrayContaining([await tx1.getTxHash(), await tx2.getTxHash(), await tx3.getTxHash()]),
+    );
+    expect(pendingTxHashes).toHaveLength(3);
+  });
 });
 
 class TestAztecKVTxPool extends AztecKVTxPool {
