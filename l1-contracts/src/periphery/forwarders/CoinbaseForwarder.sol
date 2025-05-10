@@ -4,12 +4,12 @@ pragma solidity >=0.8.27;
 
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Address} from "@oz/utils/Address.sol";
-import {IForwarder} from "../interfaces/IForwarder.sol";
+import {IForwarder} from "./../interfaces/IForwarder.sol";
 
 struct CoinbaseLocation {
   address contractAddress;
-  bytes4 proposeSignature;
   uint256 offset;
+  bytes4 proposeSignature;
 }
 
 contract CoinbaseForwarder is Ownable, IForwarder {
@@ -25,21 +25,14 @@ contract CoinbaseForwarder is Ownable, IForwarder {
     COINBASE = _coinbase;
   }
 
-
-  /**
-   * @notice Set the coinbase location for the forwarder
-   *         This is the rollup contract address and the offset of the coinbase location
-   * @param _coinbaseLocation The coinbase location to set
-   */
-  function setCoinbaseLocation(CoinbaseLocation memory _coinbaseLocation) external onlyOwner {
-    COINBASE_LOCATION = _coinbaseLocation;
-  }
-
   /**
    * @notice Enforce that the coinbase in the calldata is set to an address expected by the forwarder
    * @param _coinbaseLocation The coinbase location to enforce
    */
-  function _enforceCoinbaseLocation(CoinbaseLocation memory _coinbaseLocation, uint256 _callIndex) internal view {
+  function _enforceCoinbaseLocation(CoinbaseLocation memory _coinbaseLocation, uint256 _callIndex)
+    internal
+    view
+  {
     uint256 coinbaseOffset = _coinbaseLocation.offset;
     address recoveredCoinbase;
 
@@ -48,7 +41,6 @@ contract CoinbaseForwarder is Ownable, IForwarder {
       // (to[], data[])
       // (0x04, 0x24)
       let calldataArrayOffset := calldataload(0x24)
-
 
       // Get the start of the calldata array
       // [0x04, ......... [data.length, data[0].offset, data[1].offset, ...]]
@@ -68,7 +60,8 @@ contract CoinbaseForwarder is Ownable, IForwarder {
       // [0x04, ......... [data.length, data[0].offset, data[1].offset, ..., targetCalldata.length, targetCalldata.......]]
       // .                                                                   ^
       //                                                                targetCalldataOffset
-      let targetCalldataOffset := add(targetCalldataArrayOffset , calldataload(targetCalldataOffsetPointer))
+      let targetCalldataOffset :=
+        add(targetCalldataArrayOffset, calldataload(targetCalldataOffsetPointer))
 
       // Get the start of the target calldata
       // [0x04, ......... [data.length, data[0].offset, data[1].offset, ..., targetCalldata.length, targetCalldata.......]]
@@ -89,6 +82,15 @@ contract CoinbaseForwarder is Ownable, IForwarder {
     }
   }
 
+  /**
+   * @notice Set the coinbase location for the forwarder
+   *         This is the rollup contract address and the offset of the coinbase location
+   * @param _coinbaseLocation The coinbase location to set
+   */
+  function setCoinbaseLocation(CoinbaseLocation memory _coinbaseLocation) external onlyOwner {
+    COINBASE_LOCATION = _coinbaseLocation;
+  }
+
   function forward(address[] calldata _to, bytes[] calldata _data)
     external
     override(IForwarder)
@@ -104,7 +106,10 @@ contract CoinbaseForwarder is Ownable, IForwarder {
       _to.length == _data.length, IForwarder.ForwarderLengthMismatch(_to.length, _data.length)
     );
     for (uint256 i = 0; i < _to.length; i++) {
-      if (coinbaseLocation.contractAddress == _to[i] && coinbaseLocation.proposeSignature == bytes4(_data[i][0:4])) {
+      if (
+        coinbaseLocation.contractAddress == _to[i]
+          && coinbaseLocation.proposeSignature == bytes4(_data[i][0:4])
+      ) {
         _enforceCoinbaseLocation(coinbaseLocation, i);
       }
 
