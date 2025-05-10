@@ -10,7 +10,13 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, RegistryContract, createEthereumChain } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  RegistryContract,
+  createEthereumChain,
+  createExtendedL1Client,
+} from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -30,7 +36,7 @@ import {
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  createSlasherClient,
+  SlasherClient,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
@@ -43,6 +49,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
@@ -193,6 +200,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
+    const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+    const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+
     const rollup = getContract({
       address: l1ContractsAddresses.rollupAddress.toString(),
       abi: RollupAbi,
@@ -245,7 +255,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
+    const slasherClient = SlasherClient.new(
+      config,
+      {} as unknown as L1RollupConstants,
+      {} as unknown as EpochCache,
+
+      archiver,
+      l1TxUtils,
+      telemetry,
+    );
     slasherClient.start();
 
     const validatorClient = createValidatorClient(config, {
@@ -266,6 +284,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       ? undefined
       : await SequencerClient.new(config, {
           ...deps,
+          l1TxUtils,
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
