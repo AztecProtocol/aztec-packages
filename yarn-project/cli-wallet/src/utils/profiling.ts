@@ -54,12 +54,26 @@ export function printProfileResult(
   log(format('\nSync time:'.padEnd(25), `${timings.sync?.toFixed(2)}ms`.padStart(16)));
   log(
     format(
-      'Total simulation time:'.padEnd(25),
+      'Private simulation time:'.padEnd(25),
       `${timings.perFunction.reduce((acc, { time }) => acc + time, 0).toFixed(2)}ms`.padStart(15),
     ),
   );
   if ((timings as ProvingTimings).proving) {
     log(format('Proving time:'.padEnd(25), `${(timings as ProvingTimings).proving?.toFixed(2)}ms`.padStart(15)));
+  }
+  if ((timings as SimulationTimings).publicSimulation) {
+    log(
+      format(
+        'Public simulation time:'.padEnd(25),
+        `${(timings as SimulationTimings).publicSimulation?.toFixed(2)}ms`.padStart(15),
+      ),
+    );
+  }
+
+  if ((timings as SimulationTimings).validation) {
+    log(
+      format('Validation time:'.padEnd(25), `${(timings as SimulationTimings).validation?.toFixed(2)}ms`.padStart(15)),
+    );
   }
 
   log(
