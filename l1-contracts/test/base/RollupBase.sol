@@ -144,8 +144,7 @@ contract RollupBase is DecoderBase {
       full.block.header.slotNumber = slotNumber;
     }
 
-    uint256 baseFee =
-      rollup.getManaBaseFeeAt(full.block.header.timestamp, true);
+    uint256 baseFee = rollup.getManaBaseFeeAt(full.block.header.timestamp, true);
     full.block.header.gasFees.feePerL2Gas = baseFee;
     full.block.header.totalManaUsed = _manaUsed;
 

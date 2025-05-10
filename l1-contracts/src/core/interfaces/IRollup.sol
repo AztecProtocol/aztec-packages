@@ -2,18 +2,20 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import { IFeeJuicePortal } from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import { IVerifier } from "@aztec/core/interfaces/IVerifier.sol";
-import { IInbox } from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import { IOutbox } from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import { Signature } from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import { FeeHeader, L1FeeData, ManaBaseFeeComponents } from "@aztec/core/libraries/rollup/FeeLib.sol";
-import { FeeAssetPerEthE9, EthValue, FeeAssetValue } from "@aztec/core/libraries/rollup/FeeLib.sol";
-import { Header } from "@aztec/core/libraries/rollup/HeaderLib.sol";
-import { ProposeArgs } from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import { Timestamp, Slot, Epoch } from "@aztec/core/libraries/TimeLib.sol";
-import { IRewardDistributor } from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import { IERC20 } from "@oz/token/ERC20/IERC20.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {
+  FeeHeader, L1FeeData, ManaBaseFeeComponents
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct PublicInputArgs {
   bytes32 previousArchive;
