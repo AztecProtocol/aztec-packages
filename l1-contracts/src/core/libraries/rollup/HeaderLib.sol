@@ -2,9 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
