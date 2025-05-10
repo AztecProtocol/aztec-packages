@@ -75,6 +75,9 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
+      t.logger.info(`Shutting down sequencers to ensure at least a block is missed`);
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 100 })));
+
       t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots and a missed and a mined block`);
       await retryUntil(
         async () => {
@@ -145,8 +148,11 @@ describe('e2e_p2p_validators_sentinel', () => {
         `${DATA_DIR}-i`,
       );
 
+      t.logger.info(`Reenabling block building`);
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
+
       t.logger.info(`Waiting for a few more blocks to be mined`);
-      const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 4 * 8;
+      const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 4 * 12;
       await retryUntil(() => t.monitor.l2BlockNumber > l2BlockNumber + 3, 'more blocks mined', timeout);
       await sleep(1000);
 
