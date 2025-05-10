@@ -105,6 +105,18 @@ const receiptForBob = await bananaCoin
   .wait();
 ```
 
+## Portals
+
+### L1 to L2 messages
+
+In the sandbox, an L1 to L2 message is available after two blocks have progressed on L2. This is often instigated by triggering two arbitrary transactions after the L1 transaction that creates the message.
+
+On testnet, waiting ~1.5-2 minutes should be enough to allow the message to be made available on L2.
+
+### L2 to L1 messages
+
+On testnet,L2 to L1 messages are only available to be consumed on L1 after a block has been finalized on L1. This typically takes ~30 minutes.
+
 ## Some things to note
 
 - All contracts, including account contracts and the sponsored FPC, will need to be registered in the PXE
