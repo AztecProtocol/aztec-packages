@@ -592,7 +592,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!result || !block) {
       return;
     }
-    await this.processValidBlockProposal(block);
+    await this.processValidBlockProposal(block, source);
   }
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -602,7 +602,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
   }))
-  private async processValidBlockProposal(block: BlockProposal) {
+  private async processValidBlockProposal(block: BlockProposal, peerId: PeerId) {
     this.logger.verbose(
       `Received block ${block.blockNumber.toNumber()} for slot ${block.slotNumber.toNumber()} from external peer.`,
       {
@@ -612,6 +612,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         block: block.blockNumber.toNumber(),
       },
     );
+    // Grab any transactions in the proposal
+    await this.extractTxsFromBlockProposal(block, peerId);
     const attestation = await this.blockReceivedCallback(block);
 
     // TODO: fix up this pattern - the abstraction is not nice
@@ -704,6 +706,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockNumber = (await this.archiver.getBlockNumber()) + 1;
     const messageValidators = await this.createMessageValidators(blockNumber);
 
+    return this.executeValidatorsOnTransaction(tx, messageValidators, peerId, blockNumber);
+  }
+
+  private async executeValidatorsOnTransaction(
+    tx: Tx,
+    messageValidators: Record<string, MessageValidator>[],
+    peerId: PeerId,
+    blockNumber: number,
+  ): Promise<boolean> {
     for (const validator of messageValidators) {
       const outcome = await this.runValidations(tx, validator);
 
@@ -724,15 +735,38 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return true;
   }
 
-  private async getGasFees(blockNumber: number): Promise<GasFees> {
-    if (blockNumber === this.feesCache?.blockNumber) {
-      return this.feesCache.gasFees;
-    }
+  /**
+   * Run validations on a tx.
+   * @param tx - The tx to validate.
+   * @param messageValidators - The message validators to run.
+   * @returns The validation outcome.
+   */
+  private async runValidations(
+    tx: Tx,
+    messageValidators: Record<string, MessageValidator>,
+  ): Promise<ValidationOutcome> {
+    const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
+      const { result } = await validator.validateTx(tx);
+      return { name, isValid: result !== 'invalid', severity };
+    });
 
-    const header = await this.archiver.getBlockHeader(blockNumber);
-    const gasFees = header?.globalVariables.gasFees ?? GasFees.empty();
-    this.feesCache = { blockNumber, gasFees };
-    return gasFees;
+    // A promise that resolves when all validations have been run
+    const allValidations = await Promise.all(validationPromises);
+    const failed = allValidations.find(x => !x.isValid);
+    if (failed) {
+      return {
+        allPassed: false,
+        failure: {
+          isValid: { result: 'invalid' as const, reason: ['Failed validation'] },
+          name: failed.name,
+          severity: failed.severity,
+        },
+      };
+    } else {
+      return {
+        allPassed: true,
+      };
+    }
   }
 
   public async validate(txs: Tx[]): Promise<void> {
@@ -749,6 +783,43 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         }
       }),
     );
+  }
+
+  private async extractTxsFromBlockProposal(block: BlockProposal, peerId: PeerId): Promise<void> {
+    const receivedTxs = block.txs ?? [];
+    const receivedTxHashes = await Promise.all(receivedTxs.map(tx => tx.getTxHash()));
+    if (receivedTxHashes.length === 0) {
+      return;
+    }
+    // Check if we already have the transactions in our pool
+    const haveAlready = await this.mempools.txPool.hasTxs(receivedTxHashes);
+    const newTxs = receivedTxs.filter((_, i) => !haveAlready[i]);
+    if (newTxs.length === 0) {
+      return;
+    }
+    // Validate the transactions
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
+    const messageValidators = await this.createMessageValidators(blockNumber);
+    const validationResults = await Promise.all(
+      newTxs.map(tx => this.executeValidatorsOnTransaction(tx, messageValidators, peerId, blockNumber)),
+    );
+    const validTxs = newTxs.filter((_, i) => validationResults[i]);
+    if (validTxs.length === 0) {
+      return;
+    }
+    this.logger.verbose(`Adding ${validTxs.length} new txs to the tx pool, extracted from a block proposal.`);
+    await this.mempools.txPool.addTxs(validTxs);
+  }
+
+  private async getGasFees(blockNumber: number): Promise<GasFees> {
+    if (blockNumber === this.feesCache?.blockNumber) {
+      return this.feesCache.gasFees;
+    }
+
+    const header = await this.archiver.getBlockHeader(blockNumber);
+    const gasFees = header?.globalVariables.gasFees ?? GasFees.empty();
+    this.feesCache = { blockNumber, gasFees };
+    return gasFees;
   }
 
   /**
@@ -813,40 +884,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         },
       },
     ];
-  }
-
-  /**
-   * Run validations on a tx.
-   * @param tx - The tx to validate.
-   * @param messageValidators - The message validators to run.
-   * @returns The validation outcome.
-   */
-  private async runValidations(
-    tx: Tx,
-    messageValidators: Record<string, MessageValidator>,
-  ): Promise<ValidationOutcome> {
-    const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
-      const { result } = await validator.validateTx(tx);
-      return { name, isValid: result !== 'invalid', severity };
-    });
-
-    // A promise that resolves when all validations have been run
-    const allValidations = await Promise.all(validationPromises);
-    const failed = allValidations.find(x => !x.isValid);
-    if (failed) {
-      return {
-        allPassed: false,
-        failure: {
-          isValid: { result: 'invalid' as const, reason: ['Failed validation'] },
-          name: failed.name,
-          severity: failed.severity,
-        },
-      };
-    } else {
-      return {
-        allPassed: true,
-      };
-    }
   }
 
   /**
