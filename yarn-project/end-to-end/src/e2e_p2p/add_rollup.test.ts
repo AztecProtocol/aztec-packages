@@ -13,6 +13,7 @@ import {
   defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
+  l1Artifacts,
 } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import {
@@ -22,7 +23,6 @@ import {
   RegisterNewRollupVersionPayloadAbi,
   RegisterNewRollupVersionPayloadBytecode,
   RegistryAbi,
-  RollupAbi,
   TestERC20Abi as StakingAssetAbi,
   TestERC20Abi,
 } from '@aztec/l1-artifacts';
@@ -199,6 +199,13 @@ describe('e2e_p2p_add_rollup', () => {
 
       const stakeNeeded = attesterInfos.reduce((acc, curr) => acc + curr.amount, 0n);
 
+      const { address: multiAdderAddress } = await deployL1Contract(
+        t.ctx.deployL1ContractsValues.l1Client,
+        l1Artifacts.multiAdder.contractAbi,
+        l1Artifacts.multiAdder.contractBytecode,
+        [newRollup.address, t.ctx.deployL1ContractsValues.l1Client.account.address],
+      );
+
       // I **LOVE** wrapping things like this to avoid underpaying.
       await Promise.all([
         await l1TxUtils.sendAndMonitorTransaction({
@@ -206,25 +213,17 @@ describe('e2e_p2p_add_rollup', () => {
           data: encodeFunctionData({
             abi: TestERC20Abi,
             functionName: 'mint',
-            args: [emperor.address, stakeNeeded],
-          }),
-        }),
-        await l1TxUtils.sendAndMonitorTransaction({
-          to: stakingAsset.address,
-          data: encodeFunctionData({
-            abi: TestERC20Abi,
-            functionName: 'approve',
-            args: [newRollup.address, stakeNeeded],
+            args: [multiAdderAddress.toString(), stakeNeeded],
           }),
         }),
       ]);
 
       // Works fine because only 4 nodes.
       await l1TxUtils.sendAndMonitorTransaction({
-        to: newRollup.address,
+        to: multiAdderAddress.toString(),
         data: encodeFunctionData({
-          abi: RollupAbi,
-          functionName: 'cheat__InitialiseValidatorSet',
+          abi: l1Artifacts.multiAdder.contractAbi,
+          functionName: 'addValidators',
           args: [attesterInfos],
         }),
       });
