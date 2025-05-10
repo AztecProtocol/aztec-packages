@@ -216,30 +216,16 @@ function generateFunctionArtifact(
 }
 
 function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
-  if (fn.custom_attributes.some(attr => attr.endsWith(AZTEC_PRIVATE_ATTRIBUTE))) {
+  if (fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE)) {
     return FunctionType.PRIVATE;
-  } else if (fn.custom_attributes.some(attr => attr.endsWith(AZTEC_PUBLIC_ATTRIBUTE))) {
+  } else if (fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE)) {
     return FunctionType.PUBLIC;
-  } else if (fn.custom_attributes.some(attr => attr.endsWith(AZTEC_UTILITY_ATTRIBUTE))) {
+  } else if (fn.custom_attributes.includes(AZTEC_UTILITY_ATTRIBUTE)) {
     return FunctionType.UTILITY;
   } else {
     throw new Error(`Invalid function type for a noir contract function ${fn.name}`);
   }
 }
-
-// TODO(https://github.com/noir-lang/noir/issues/7912): Replace the above function with this one once the linked issue
-// is fixed.
-// function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
-//   if (fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE)) {
-//     return FunctionType.PRIVATE;
-//   } else if (fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE)) {
-//     return FunctionType.PUBLIC;
-//   } else if (fn.custom_attributes.includes(AZTEC_UTILITY_ATTRIBUTE)) {
-//     return FunctionType.UTILITY;
-//   } else {
-//     throw new Error(`Invalid function type for a noir contract function ${fn.name}`);
-//   }
-// }
 
 /**
  * Returns true if the first parameter is kernel function inputs.
