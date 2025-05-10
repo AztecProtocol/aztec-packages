@@ -174,6 +174,7 @@ class AvmGoblinRecursiveVerifier {
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         Goblin goblin;
         MegaBuilder mega_builder(goblin.op_queue);
+        mega_builder.queue_ecc_no_op();
 
         // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
         std::vector<FF> mega_hash_buffer;

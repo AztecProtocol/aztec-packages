@@ -33,6 +33,11 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
     PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
     translator_pairing_points.aggregate(merge_pairing_points);
+
+    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
+    // and final merge verifier
+    translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
+
     return { translator_pairing_points, opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk
