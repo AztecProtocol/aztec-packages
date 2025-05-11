@@ -63,6 +63,7 @@ import type { BlockProvingState } from './block-proving-state.js';
 import { EpochProvingState, type ProvingResult, type TreeSnapshots } from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { TxProvingState } from './tx-proving-state.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 const logger = createLogger('prover-client:orchestrator');
 
@@ -137,6 +138,13 @@ export class ProvingOrchestrator implements EpochProver {
 
     if (!this.provingState?.isAcceptingBlocks()) {
       throw new Error(`Epoch not accepting further blocks`);
+    }
+
+    // Ensure coinbase is not zero
+    if (globalVariables.coinbase.isZero()) {
+      logger.warn('Coinbase address is zero, using provider ID as coinbase');
+      // Use the prover ID as the coinbase address if not set
+      globalVariables.coinbase = EthAddress.fromField(this.proverId);
     }
 
     logger.info(
