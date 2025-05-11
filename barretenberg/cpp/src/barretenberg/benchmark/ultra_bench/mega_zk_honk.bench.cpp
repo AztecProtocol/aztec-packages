@@ -18,7 +18,7 @@ static void construct_proof_megahonk_zk(State& state,
 }
 
 /**
- * @brief Benchmark: Construction of a Ultra Plonk proof with 2**n gates
+ * @brief Benchmark: Construction of a Ultra Honk proof with 2**n gates
  */
 static void construct_proof_megahonk_power_of_2_zk(State& state) noexcept
 {

@@ -1,6 +1,6 @@
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
-#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
+#include "barretenberg/honk/composer/composer_lib.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include <array>

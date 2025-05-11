@@ -1,6 +1,6 @@
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 

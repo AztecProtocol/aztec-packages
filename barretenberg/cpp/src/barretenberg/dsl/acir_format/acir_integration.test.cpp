@@ -1,5 +1,4 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"

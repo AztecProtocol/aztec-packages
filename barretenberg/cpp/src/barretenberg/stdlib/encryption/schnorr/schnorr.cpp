@@ -40,7 +40,7 @@ schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::sc
  *          e' = hash(([s]g + [e]pub).x | message)
           and return e'.
  *
- * @details UltraPlonk: ~5018 gates, excluding gates required to init the UltraPlonk range check
+ * @details Ultra: ~5018 gates, excluding gates required to init the Ultra range check
  * (~1,169k for fixed/variable_base_mul, ~4k for blake2s) for a string of length = 34.
  */
 template <typename C>

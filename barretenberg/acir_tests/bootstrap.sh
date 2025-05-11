@@ -124,8 +124,6 @@ function test {
 # Prints to stdout, one per line, the command to execute each individual test.
 # Paths are all relative to the repository root.
 function test_cmds {
-  local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof|fold')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof|fold')
 
@@ -163,7 +161,6 @@ function test_cmds {
   echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
 
   # barretenberg-acir-tests-bb-ultra-honk:
-  # Exclude plonk tests.
   for t in $honk_tests; do
     echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
   done

@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include "barretenberg/plonk/proof_system/constants.hpp"
 #include <array>
 #include <barretenberg/common/assert.hpp>
 #include <cstddef>

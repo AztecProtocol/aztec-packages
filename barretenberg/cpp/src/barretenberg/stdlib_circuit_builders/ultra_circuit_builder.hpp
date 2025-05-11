@@ -5,10 +5,10 @@
 // =====================
 
 #pragma once
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
-#include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
+#include "barretenberg/honk/types/merkle_hash_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
@@ -683,7 +683,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     }
 
     /**
-     * @brief Get the actual finalized size of a Plonk circuit. Assumes the circuit is finalized already.
+     * @brief Get the actual finalized size of a circuit. Assumes the circuit is finalized already.
      *
      * @details This method calculates the size of the circuit without rounding up to the next power of 2. It takes into
      * account the possibility that the tables will dominate the size and checks both the plookup argument
