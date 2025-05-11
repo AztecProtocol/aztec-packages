@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
+#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -34,6 +35,12 @@ struct ExecutionEvent {
     // Sub-events.
     AddressingEvent addressing_event;
     ContextEvent context_event;
+
+    // Internal Call Stack Info
+    InternalCallStackEvent internal_call_event;
+    InternalCallId internal_call_id = 0;
+    InternalCallId internal_call_return_id = 0;
+    InternalCallId next_internal_call_id = 0;
 
     // Not thread safe.
     static ExecutionEvent allocate()

@@ -9,11 +9,14 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 namespace {
@@ -93,6 +96,11 @@ void ExecutionTraceBuilder::process(
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
+                { C::execution_sel_internal_call, ex_event.opcode == ExecutionOpCode::INTERNALCALL ? 1 : 0 },
+                { C::execution_sel_internal_return, ex_event.opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
+                { C::execution_sel_jump, ex_event.opcode == ExecutionOpCode::JUMP ? 1 : 0 },
+                { C::execution_sel_jumpi, ex_event.opcode == ExecutionOpCode::JUMPI ? 1 : 0 },
+
                 { C::execution_sel_call, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
                 { C::execution_sel_static_call, ex_event.opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
                 { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
@@ -214,12 +222,26 @@ void ExecutionTraceBuilder::process(
                       { C::execution_next_context_id, ex_event.next_context_id },
                   } });
 
+        trace.set(row,
+                  { {
+                      { C::execution_internal_call_id, ex_event.internal_call_id },
+                      { C::execution_internal_call_return_id, ex_event.internal_call_return_id },
+                      { C::execution_next_internal_call_id, ex_event.next_internal_call_id },
+                  } });
+
         row++;
     }
 
     if (!ex_events.empty()) {
         trace.set(C::execution_last, row - 1, 1);
     }
+}
+
+std::vector<std::unique_ptr<class InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_execution_push_call_stack_settings_>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_execution_unwind_call_stack_settings_>>());
 }
 
 } // namespace bb::avm2::tracegen

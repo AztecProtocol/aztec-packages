@@ -9,6 +9,7 @@ namespace bb::avm2 {
 
 using AztecAddress = FF;
 using ContractClassId = FF;
+using PC = uint32_t;
 using AffinePoint = grumpkin::g1::affine_element;
 
 struct PublicKeys {

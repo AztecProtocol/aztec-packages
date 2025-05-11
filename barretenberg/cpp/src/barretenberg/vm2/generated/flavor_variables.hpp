@@ -18,6 +18,7 @@
 #include "relations/execution.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/internal_call_stack.hpp"
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
@@ -41,6 +42,7 @@
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_data_copy.hpp"
+#include "relations/lookups_execution.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_merkle_check.hpp"
@@ -57,10 +59,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 70;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2166;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 158;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2182;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 162;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2394;
+    static constexpr size_t NUM_ALL_ENTITIES = 2414;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -82,6 +84,7 @@ struct AvmFlavorVariables {
         avm2::execution<FF_>,
         avm2::ff_gt<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::internal_call_stack<FF_>,
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
@@ -132,6 +135,8 @@ struct AvmFlavorVariables {
         lookup_data_copy_col_read_relation<FF_>,
         lookup_data_copy_mem_read_relation<FF_>,
         lookup_data_copy_mem_write_relation<FF_>,
+        lookup_execution_push_call_stack_relation<FF_>,
+        lookup_execution_unwind_call_stack_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,

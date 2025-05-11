@@ -162,6 +162,19 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     set_inputs({ resolved_cond });
 }
 
+void Execution::internal_call(ContextInterface& context, uint32_t loc)
+{
+
+    internal_call_stack_manager.push(context.get_next_pc());
+    context.set_next_pc(loc);
+}
+
+void Execution::internal_return(ContextInterface& context)
+{
+    auto next_pc = internal_call_stack_manager.pop();
+    context.set_next_pc(next_pc);
+}
+
 // This context interface is an top-level enqueued one
 ExecutionResult Execution::execute(ContextInterface& context)
 {
@@ -204,6 +217,11 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             auto context_event = context.serialize_context_event();
             ex_event.context_event = context_event;
             ex_event.next_context_id = execution_components.get_next_context_id();
+
+            // Emit the internal call stack - there must be a better way!
+            ex_event.internal_call_id = internal_call_stack_manager.get_current_call_id();
+            ex_event.internal_call_return_id = internal_call_stack_manager.get_current_return_id();
+            ex_event.next_internal_call_id = internal_call_stack_manager.get_next_call_id();
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
@@ -260,6 +278,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURNDATACOPY:
         call_with_operands(&Execution::rd_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::INTERNALCALL:
+        call_with_operands(&Execution::internal_call, context, resolved_operands);
+        break;
+    case ExecutionOpCode::INTERNALRETURN:
+        call_with_operands(&Execution::internal_return, context, resolved_operands);
         break;
     default:
         // TODO: should be caught by parsing.
