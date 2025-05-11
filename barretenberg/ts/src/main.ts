@@ -11,13 +11,6 @@ import { UltraHonkBackendOptions } from './barretenberg/backend.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
-// Maximum circuit size for plonk we support in node and the browser is 2^19.
-// This is because both node and browser use barretenberg.wasm which has a 4GB memory limit.
-//
-// This is not a restriction in the bb binary and one should be
-// aware of this discrepancy, when creating proofs in bb versus
-// creating the same proofs in the node CLI.
-const MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM = 2 ** 19;
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
 function getBytecode(bytecodePath: string): Uint8Array {
@@ -61,39 +54,6 @@ async function computeCircuitSize(bytecodePath: string, recursive: boolean, honk
   const bytecode = getBytecode(bytecodePath);
   const [total, subgroup] = await api.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
   return { total, subgroup };
-}
-
-async function initUltraPlonk(
-  bytecodePath: string,
-  recursive: boolean,
-  crsPath: string,
-  subgroupSizeOverride = -1,
-  honkRecursion = false,
-) {
-  const api = await Barretenberg.new({ threads });
-
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1248): Get rid of this call to avoid building the circuit twice.
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraPlonk function
-  const circuitSize = await getGatesUltra(bytecodePath, recursive, honkRecursion, api);
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
-  const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
-
-  if (subgroupSize > MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM) {
-    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM}`);
-  }
-  debug(`Loading CRS for UltraPlonk with circuit-size=${circuitSize} subgroup-size=${subgroupSize}`);
-  // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(subgroupSize + 1, crsPath);
-
-  // // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
-  // await api.commonInitSlabAllocator(subgroupSize);
-
-  // Load CRS into wasm global CRS state.
-  // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-  const acirComposer = await api.acirNewAcirComposer(subgroupSize);
-  return { api, acirComposer, circuitSize, subgroupSize };
 }
 
 async function initUltraHonk(bytecodePath: string, crsPath: string) {
@@ -142,36 +102,6 @@ async function initLite(crsPath: string) {
   return { api, acirComposer };
 }
 
-export async function proveAndVerify(bytecodePath: string, recursive: boolean, witnessPath: string, crsPath: string) {
-  /* eslint-disable camelcase */
-  const acir_test = path.basename(process.cwd());
-
-  const { api, acirComposer, circuitSize, subgroupSize } = await initUltraPlonk(bytecodePath, recursive, crsPath);
-  try {
-    debug(`Creating proof bytecode=${bytecodePath} witness=${witnessPath} recursive=${recursive}`);
-    const bytecode = getBytecode(bytecodePath);
-    const witness = getWitness(witnessPath);
-
-    const pkTimer = new Timer();
-    await api.acirInitProvingKey(acirComposer, bytecode, recursive);
-    writeBenchmark('pk_construction_time', pkTimer.ms(), { acir_test, threads });
-    writeBenchmark('gate_count', circuitSize, { acir_test, threads });
-    writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
-
-    const proofTimer = new Timer();
-    const proof = await api.acirCreateProof(acirComposer, bytecode, recursive, witness);
-    writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
-
-    debug(`Proof complete. Verifying.`);
-    const verified = await api.acirVerifyProof(acirComposer, proof);
-    debug(`Verification ${verified ? 'successful' : 'failed'}`);
-    return verified;
-  } finally {
-    await api.destroy();
-  }
-  /* eslint-enable camelcase */
-}
-
 export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const { api } = await initUltraHonk(bytecodePath, crsPath);
@@ -185,47 +115,6 @@ export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath:
     await api.destroy();
   }
   /* eslint-enable camelcase */
-}
-
-export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
-  /* eslint-disable camelcase */
-  const { api } = await initUltraPlonk(bytecodePath, false, crsPath);
-  try {
-    const bytecode = getBytecode(bytecodePath);
-    const witness = getWitness(witnessPath);
-
-    const verified = await api.acirProveAndVerifyMegaHonk(bytecode, witness);
-    return verified;
-  } finally {
-    await api.destroy();
-  }
-  /* eslint-enable camelcase */
-}
-
-export async function prove(
-  bytecodePath: string,
-  recursive: boolean,
-  witnessPath: string,
-  crsPath: string,
-  outputPath: string,
-) {
-  const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
-  try {
-    debug(`Creating proof bytecode=${bytecodePath} witness=${witnessPath} recursive=${recursive}`);
-    const bytecode = getBytecode(bytecodePath);
-    const witness = getWitness(witnessPath);
-    const proof = await api.acirCreateProof(acirComposer, bytecode, recursive, witness);
-
-    if (outputPath === '-') {
-      process.stdout.write(proof);
-      debug(`Proof written to stdout`);
-    } else {
-      writeFileSync(outputPath, proof);
-      debug(`Proof written to ${outputPath}`);
-    }
-  } finally {
-    await api.destroy();
-  }
 }
 
 export async function gateCountUltra(bytecodePath: string, recursive: boolean, honkRecursion: boolean) {
@@ -290,47 +179,6 @@ export async function contractUltraHonk(bytecodePath: string, vkPath: string, cr
     } else {
       writeFileSync(outputPath, contract);
       debug(`Solidity verifier contract written to ${outputPath}`);
-    }
-  } finally {
-    await api.destroy();
-  }
-}
-
-export async function writeVk(bytecodePath: string, recursive: boolean, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
-  try {
-    debug(`Initializing proving key bytecode=${bytecodePath} recursive=${recursive}`);
-    const bytecode = getBytecode(bytecodePath);
-    await api.acirInitProvingKey(acirComposer, bytecode, recursive);
-
-    debug(`Initializing verification key`);
-    const vk = await api.acirGetVerificationKey(acirComposer);
-
-    if (outputPath === '-') {
-      process.stdout.write(vk);
-      debug(`Verification key written to stdout`);
-    } else {
-      writeFileSync(outputPath, vk);
-      debug(`Verification key written to ${outputPath}`);
-    }
-  } finally {
-    await api.destroy();
-  }
-}
-
-export async function writePk(bytecodePath: string, recursive: boolean, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
-  try {
-    debug(`Initializing proving key bytecode=${bytecodePath} recursive=${recursive}`);
-    const bytecode = getBytecode(bytecodePath);
-    const pk = await api.acirGetProvingKey(acirComposer, bytecode, recursive);
-
-    if (outputPath === '-') {
-      process.stdout.write(pk);
-      debug(`Proving key written to stdout`);
-    } else {
-      writeFileSync(outputPath, pk);
-      debug(`Proving key written to ${outputPath}`);
     }
   } finally {
     await api.destroy();
