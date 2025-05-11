@@ -34,16 +34,6 @@ export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array
   return proofWithPublicInputs;
 }
 
-export function reconstructUltraPlonkProof(proofData: ProofData): Uint8Array {
-  // Flatten publicInputs
-  const publicInputsConcatenated = flattenFieldsAsArray(proofData.publicInputs);
-
-  // Concatenate publicInputs and proof
-  const proofWithPublicInputs = Uint8Array.from([...publicInputsConcatenated, ...proofData.proof]);
-
-  return proofWithPublicInputs;
-}
-
 export function deflattenFields(flattenedFields: Uint8Array): string[] {
   const publicInputSize = 32;
   const chunkedFlattenedPublicInputs: Uint8Array[] = [];
