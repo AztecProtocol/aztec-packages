@@ -130,6 +130,27 @@ if [ -n "$CONTAINER_NAME" ]; then
   arg_container_name="--name $CONTAINER_NAME"
 fi
 
+# Restart container in case it is already running.
+check_conflicts() {
+  running=$(docker ps --filter "name=aztec-start-" \
+                      --format '{{.ID}} {{.Names}} {{.Ports}}')
+  for mapping in ${PORTS_TO_EXPOSE:-}; do
+    host_port=${mapping%%:*}; host_port=${host_port%%/*}
+    hit=$(grep -E "\b0\.0\.0\.0:${host_port}->" <<<"$running" || true)
+    if [[ -n $hit ]]; then
+      cid=$(awk '{print $1}' <<<"$hit")
+      cname=$(awk '{print $2}' <<<"$hit")
+      read -r -p "A container named: \"${cname}\" already exists at port \"${host_port}\". Do you want to close it? [y/N] " ans
+      if [[ $ans =~ ^[Yy]$ ]]; then
+        docker rm -f "$cid"
+      else
+        warn "Aborting."
+        exit 1
+      fi
+    fi
+  done
+}
+
 function run {
   docker run \
     ${arg_container_name:-} \
@@ -148,6 +169,7 @@ function run {
 if [ -t 0 ]; then
   # We're in a terminal. Docker will receive e.g. SIGINT directly.
   arg_interactive=-ti
+  check_conflicts
   run
 else
   # Not connected to a terminal. We need to ensure we can propagate kill signals.
