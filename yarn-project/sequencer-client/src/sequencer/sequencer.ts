@@ -427,6 +427,12 @@ export class Sequencer {
     newGlobalVariables: GlobalVariables,
     opts: { validateOnly?: boolean } = {},
   ) {
+    // Ensure coinbase is not zero
+    if (newGlobalVariables.coinbase.isZero()) {
+      this.log.warn('Coinbase address is zero, using configured value instead');
+      newGlobalVariables.coinbase = this._coinbase;
+    }
+
     const blockNumber = newGlobalVariables.blockNumber.toNumber();
     const slot = newGlobalVariables.slotNumber.toBigInt();
     this.log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
@@ -577,13 +583,23 @@ export class Sequencer {
   ) {
     const { chainId, version } = await this.globalsBuilder.getGlobalConstantVariables();
     const globalVariables = GlobalVariables.from({
-      ...header,
-      blockNumber,
-      timestamp: new Fr(header.timestamp),
       chainId,
       version,
+      blockNumber,
+      slotNumber: header.slotNumber,
+      timestamp: header.timestamp,
+      coinbase: header.coinbase,
+      feeRecipient: header.feeRecipient,
+      gasFees: header.gasFees,
     });
-    return await this.buildBlock(pendingTxs, globalVariables, opts);
+
+    // Ensure global variables have a valid coinbase
+    if (globalVariables.coinbase.isZero()) {
+      this.log.warn('Coinbase address is zero in proposal, using configured value instead');
+      globalVariables.coinbase = this._coinbase;
+    }
+
+    return this.buildBlock(pendingTxs, globalVariables, opts);
   }
 
   /**
