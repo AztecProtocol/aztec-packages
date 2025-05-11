@@ -73,7 +73,7 @@ __metadata:
     "@mui/material": "npm:^6.3.1"
     "@mui/styles": "npm:^6.3.1"
     "@playwright/test": "npm:1.49.0"
-    "@thunkar/aztec-keychain-accounts": "npm:0.1.2"
+    "@thunkar/aztec-keychain-accounts": "link:../../aztec-keychain/integration"
     "@toolpad/core": "npm:^0.14.0"
     "@types/buffer-json": "npm:^2"
     "@types/node": "npm:^22.10.5"
@@ -2985,18 +2985,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@thunkar/aztec-keychain-accounts@npm:0.1.2":
-  version: 0.1.2
-  resolution: "@thunkar/aztec-keychain-accounts@npm:0.1.2"
-  dependencies:
-    "@aztec/accounts": "npm:0.85.0-alpha-testnet.5"
-    "@aztec/aztec.js": "npm:0.85.0-alpha-testnet.5"
-    "@aztec/stdlib": "npm:0.85.0-alpha-testnet.5"
-    pako: "npm:^2.1.0"
-    tslib: "npm:^2.4.0"
-  checksum: 10c0/324a5aee3af35073aec820efaceb132d2cbdfde2a471160a7ddc9870d01704a686c435b23ff9a2ab3e3510c2a010b71056c6f7220a444d499189a1333aa55dd9
+"@thunkar/aztec-keychain-accounts@link:../../aztec-keychain/integration::locator=%40aztec%2Fplayground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@thunkar/aztec-keychain-accounts@link:../../aztec-keychain/integration::locator=%40aztec%2Fplayground%40workspace%3A."
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@tokenizer/token@npm:^0.3.0":
   version: 0.3.0
@@ -10974,13 +10967,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pako@npm:^2.1.0":
-  version: 2.1.0
-  resolution: "pako@npm:2.1.0"
-  checksum: 10c0/8e8646581410654b50eb22a5dfd71159cae98145bd5086c9a7a816ec0370b5f72b4648d08674624b3870a521e6a3daffd6c2f7bc00fdefc7063c9d8232ff5116
-  languageName: node
-  linkType: hard
-
 "pako@npm:~1.0.5":
   version: 1.0.11
   resolution: "pako@npm:1.0.11"
@@ -13468,7 +13454,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:^2.4.0, tslib@npm:^2.7.0":
+"tslib@npm:^2.7.0":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
