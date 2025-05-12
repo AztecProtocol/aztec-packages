@@ -61,7 +61,8 @@ class TranslatorFlavor {
     // involved in the interleaving subprotocol)
     static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
 
-    static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
+    // LOG_MINI_CIRCUIT_SIZE + log2(INTERLEAVING_GROUP_SIZE)
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
 
     static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 
@@ -614,7 +615,7 @@ class TranslatorFlavor {
         ProverPolynomials()
         {
 
-            size_t circuit_size = MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE;
+            const size_t circuit_size = 1 << CONST_TRANSLATOR_LOG_N;
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
                                                        /*largest possible index*/ circuit_size,
