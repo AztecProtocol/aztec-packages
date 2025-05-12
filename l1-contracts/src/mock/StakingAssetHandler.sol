@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -117,12 +117,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     // If the attester is currently exiting, we finalize the exit for him.
-    if (rollup.getInfo(_attester).status == Status.EXITING) {
+    if (rollup.getExit(_attester).exists) {
       rollup.finaliseWithdraw(_attester);
     }
 
     STAKING_ASSET.approve(address(rollup), depositAmount);
-    rollup.deposit(_attester, _proposer, withdrawer, depositAmount);
+    rollup.deposit(_attester, _proposer, withdrawer, true);
     emit ValidatorAdded(address(rollup), _attester, _proposer, withdrawer);
   }
 
