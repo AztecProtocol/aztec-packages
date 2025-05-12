@@ -202,19 +202,19 @@ library ValidatorSelectionLib {
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
     bool smallerCommittee = validatorSetSize <= targetCommitteeSize;
-    uint256 committeeSize = smallerCommittee ? validatorSetSize : targetCommitteeSize;
-    address[] memory committee = new address[](committeeSize);
+    address[] memory committee =
+      new address[](smallerCommittee ? validatorSetSize : targetCommitteeSize);
 
     // If we have less validators than the target committee size, we just return the full set
     if (smallerCommittee) {
-      committee = _stakingStore.attesters.valuesAtEpoch(_epoch);
+      committee = _stakingStore.attesters.valuesAtTimestamp(ts);
     } else {
       // Sample the larger committee
       uint256[] memory indices =
         SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
 
-      for (uint256 i = 0; i < committeeSize; i++) {
-        committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
+      for (uint256 i = 0; i < committee.length; i++) {
+        committee[i] = _stakingStore.attesters.getAddressFromIndexAtTimestamp(indices[i], ts);
       }
     }
 
@@ -264,7 +264,8 @@ library ValidatorSelectionLib {
 
     // TODO(md): calcaulte and store the size alongside the commitment
     // We do not want to recalculate this each time
-    committeeSize = _stakingStore.attesters.lengthAtEpoch(_epochNumber);
+    uint32 ts = Timestamp.unwrap(_epochNumber.toTimestamp()).toUint32() - 1;
+    committeeSize = _stakingStore.attesters.lengthAtTimestamp(ts);
     if (committeeSize > store.targetCommitteeSize) {
       committeeSize = store.targetCommitteeSize;
     }

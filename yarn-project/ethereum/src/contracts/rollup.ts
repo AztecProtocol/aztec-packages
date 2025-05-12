@@ -360,26 +360,12 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
-    // TODO(md): dep management
-    epochCache: {
-      getCommittee: (slot: bigint) => Promise<{
-        committee: EthAddress[];
-        seed: bigint;
-        epoch: bigint;
-      }>;
-    },
+    committeeAttestations: ViemCommitteeAttestation[],
   ): Promise<[bigint, bigint]> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
     const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
-
-    // TODO: tidy up
-    const committee = await epochCache.getCommittee(timeOfNextL1Slot);
-    const committeeAttestations: ViemCommitteeAttestation[] = committee.committee.map(committeeMember => ({
-      addr: committeeMember.toString(),
-      signature: Signature.empty().toViemSignature(),
-    }));
 
     try {
       const {

@@ -269,9 +269,11 @@ export class Sequencer {
     // If we cannot find a tip archive, assume genesis.
     const chainTipArchive = chainTip.archive;
 
-    const slot = await this.slotForProposal(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
+    const { slot } = this.publisher.epochCache.getEpochAndSlotInNextSlot();
     this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
-    if (!slot) {
+
+    const getProposerInNextSlot = await this.publisher.epochCache.getProposerInNextSlot();
+    if (getProposerInNextSlot.equals(this.publisher.getSenderAddress())) {
       this.log.debug(`Cannot propose block ${newBlockNumber}`);
       return;
     }
@@ -370,29 +372,6 @@ export class Sequencer {
 
   public getForwarderAddress() {
     return this.publisher.getForwarderAddress();
-  }
-
-  /**
-   * Checks if we can propose at the next block and returns the slot number if we can.
-   * @param tipArchive - The archive of the previous block.
-   * @param proposalBlockNumber - The block number of the proposal.
-   * @returns The slot number if we can propose at the next block, otherwise undefined.
-   */
-  async slotForProposal(tipArchive: Buffer, proposalBlockNumber: bigint): Promise<bigint | undefined> {
-    const result = await this.publisher.canProposeAtNextEthBlock(tipArchive);
-
-    if (!result) {
-      return undefined;
-    }
-
-    const [slot, blockNumber] = result;
-
-    if (proposalBlockNumber !== blockNumber) {
-      const msg = `Sequencer block number mismatch. Expected ${proposalBlockNumber} but got ${blockNumber}.`;
-      this.log.warn(msg);
-      throw new Error(msg);
-    }
-    return slot;
   }
 
   /**

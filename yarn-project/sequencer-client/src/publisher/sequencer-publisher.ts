@@ -74,7 +74,7 @@ interface RequestWithExpiry {
 export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
-  private epochCache: EpochCache;
+  public epochCache: EpochCache;
   private forwarderContract: ForwarderContract;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
@@ -263,14 +263,19 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(tipArchive: Buffer) {
+  public async canProposeAtNextEthBlock(tipArchive: Buffer, slot: bigint) {
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
+
+    const committeeAttesations = (await this.epochCache.getCommittee(slot)).committee.map(address =>
+      CommitteeAttestation.fromAddress(address).toViem(),
+    );
+
     return this.rollupContract
       .canProposeAtNextEthBlock(
         tipArchive,
         this.getForwarderAddress().toString(),
         this.ethereumSlotDuration,
-        this.epochCache,
+        committeeAttesations,
       )
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
@@ -304,7 +309,7 @@ export class SequencerPublisher {
     // so that the committee is recalculated correctly
     const ignoreSignatures = attestationData.attestations.length === 0;
     if (ignoreSignatures) {
-      const committee = await this.epochCache.getCommittee(ts);
+      const committee = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
       attestationData.attestations = committee.committee.map(committeeMember =>
         CommitteeAttestation.fromAddress(committeeMember),
       );

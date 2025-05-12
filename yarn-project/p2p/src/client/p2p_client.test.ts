@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { CommitteeAttestation, L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 

@@ -59,7 +59,7 @@ export class TXEStateMachine {
             blockNumber: block.header.globalVariables.blockNumber.toBigInt(),
             timestamp: block.header.globalVariables.blockNumber.toBigInt(),
           },
-          signatures: [],
+          attestations: [],
         },
       ]),
       this.syncDataProvider.setHeader(block.header),
