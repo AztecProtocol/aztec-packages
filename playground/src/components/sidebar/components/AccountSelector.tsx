@@ -180,7 +180,7 @@ export function AccountSelector() {
 
       <FormControl css={navbarSelect}>
         {!wallet?.getAddress().toString() && (
-          <InputLabel id="account-label">SelectAccount</InputLabel>
+          <InputLabel id="account-label">Select Account</InputLabel>
         )}
 
         <Select

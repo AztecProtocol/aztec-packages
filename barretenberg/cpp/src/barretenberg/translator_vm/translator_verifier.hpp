@@ -28,9 +28,9 @@ class TranslatorVerifier {
 
     // Default construct fixed VK
     std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
-    std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
+    std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
 
     TranslatorVerifier(const std::shared_ptr<Transcript>& transcript);
 
@@ -45,5 +45,7 @@ class TranslatorVerifier {
     bool verify_proof(const HonkProof& proof, const uint256_t& evaluation_input_x, const BF& batching_challenge_v);
     bool verify_translation(const TranslationEvaluations& translation_evaluations,
                             const BF& translation_masking_term_eval);
+    bool verify_consistency_with_final_merge(
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments);
 };
 } // namespace bb

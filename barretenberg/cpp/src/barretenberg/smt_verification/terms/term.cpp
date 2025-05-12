@@ -164,7 +164,7 @@ STerm STerm::operator-(const STerm& other) const
 void STerm::operator-=(const STerm& other)
 {
     cvc5::Term tmp_term = this->solver->term_manager.mkTerm(this->operations.at(OpType::NEG), { other.term });
-    this->term = this->solver->term_manager.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, tmp_term });
+    this->term = this->solver->term_manager.mkTerm(this->operations.at(OpType::ADD), { this->term, tmp_term });
 }
 
 STerm STerm::operator-() const

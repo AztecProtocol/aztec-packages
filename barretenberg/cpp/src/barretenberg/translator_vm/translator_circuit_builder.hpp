@@ -324,18 +324,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_)
-    {
-        add_variable(Fr::zero());
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): The builder should not add data to
-        // wires populated from the op queue. Adding two zeroes at the beginning of these  wires (and subsequently
-        // random data) should be done as part of the op queue logic.
-        for (auto& wire : wires) {
-            wire.emplace_back(0);
-            wire.emplace_back(0);
-        }
-        num_gates += 2;
-    };
+        , evaluation_input_x(evaluation_input_x_){};
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside
@@ -351,7 +340,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
     {
         PROFILE_THIS_NAME("TranslatorCircuitBuilder::constructor");
-        feed_ecc_op_queue_into_circuit(op_queue);
+        feed_ecc_op_queue_into_circuit(std::move(op_queue));
     }
 
     TranslatorCircuitBuilder() = default;
