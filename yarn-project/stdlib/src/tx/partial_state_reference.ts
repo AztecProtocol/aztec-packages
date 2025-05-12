@@ -72,6 +72,14 @@ export class PartialStateReference {
     };
   }
 
+  toAbi(): [
+    ReturnType<AppendOnlyTreeSnapshot['toAbi']>,
+    ReturnType<AppendOnlyTreeSnapshot['toAbi']>,
+    ReturnType<AppendOnlyTreeSnapshot['toAbi']>,
+  ] {
+    return [this.noteHashTree.toAbi(), this.nullifierTree.toAbi(), this.publicDataTree.toAbi()];
+  }
+
   static empty(): PartialStateReference {
     return new PartialStateReference(
       AppendOnlyTreeSnapshot.zero(),

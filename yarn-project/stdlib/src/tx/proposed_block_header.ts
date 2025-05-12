@@ -98,6 +98,31 @@ export class ProposedBlockHeader {
     ]);
   }
 
+  /**
+   * To Abi Buffer
+   * @returns A header buffer encoded as abi params
+   */
+  toAbiBuffer() {
+    return serializeToBuffer([
+      this.lastArchiveRoot,
+      this.contentCommitment,
+      this.slotNumber,
+      this.timestamp,
+      this.coinbase.toBuffer32(),
+      this.feeRecipient,
+      this.gasFees,
+      this.totalManaUsed,
+    ]);
+  }
+
+  /**
+   * Abi hash
+   * @returns the same value that would be returned by sha256ToField(abi.encode(header)) in solidity
+   */
+  toAbiHash(): Fr {
+    return sha256ToField([this.toAbiBuffer()]);
+  }
+
   hash(): Fr {
     return sha256ToField([this.toBuffer()]);
   }
@@ -161,7 +186,7 @@ export class ProposedBlockHeader {
       slotNumber: this.slotNumber.toBigInt(),
       timestamp: this.timestamp,
       coinbase: this.coinbase.toString(),
-      feeRecipient: this.feeRecipient.toString(),
+      feeRecipient: `0x${this.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
       gasFees: {
         feePerDaGas: this.gasFees.feePerDaGas.toBigInt(),
         feePerL2Gas: this.gasFees.feePerL2Gas.toBigInt(),

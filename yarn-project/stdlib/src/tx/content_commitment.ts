@@ -83,9 +83,9 @@ export class ContentCommitment {
   toViem(): ViemContentCommitment {
     return {
       numTxs: this.numTxs.toBigInt(),
-      blobsHash: bufferToHex(this.blobsHash),
-      inHash: bufferToHex(this.inHash),
-      outHash: bufferToHex(this.outHash),
+      blobsHash: `0x${this.blobsHash.toString('hex').padStart(64, '0')}`,
+      inHash: `0x${this.inHash.toString('hex').padStart(64, '0')}`,
+      outHash: `0x${this.outHash.toString('hex').padStart(64, '0')}`,
     };
   }
   static fromBuffer(buffer: Buffer | BufferReader): ContentCommitment {

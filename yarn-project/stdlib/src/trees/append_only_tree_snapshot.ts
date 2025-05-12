@@ -83,6 +83,10 @@ export class AppendOnlyTreeSnapshot {
     };
   }
 
+  toAbi(): [`0x${string}`, number] {
+    return [this.root.toString(), this.nextAvailableLeafIndex];
+  }
+
   static zero() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
