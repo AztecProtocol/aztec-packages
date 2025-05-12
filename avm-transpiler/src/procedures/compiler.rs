@@ -387,7 +387,8 @@ fn build_addressing_mode(indirect: Vec<bool>) -> AvmOperand {
     let mut result = 0;
     for (i, indirect) in indirect.into_iter().enumerate() {
         if indirect {
-            result |= 1 << i;
+            // No relative, so we only operate on even bits
+            result |= 1 << (i * 2);
         }
     }
 

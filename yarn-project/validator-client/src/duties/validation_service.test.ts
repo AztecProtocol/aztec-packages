@@ -1,5 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { makeBlockProposal } from '@aztec/stdlib/testing';
+import { Tx } from '@aztec/stdlib/tx';
 
 import { generatePrivateKey } from 'viem/accounts';
 
@@ -18,15 +19,18 @@ describe('ValidationService', () => {
   });
 
   it('creates a proposal', async () => {
+    const txs = await Promise.all([Tx.random(), Tx.random()]);
     const {
-      payload: { header, archive, txHashes },
-    } = makeBlockProposal();
-    const proposal = await service.createBlockProposal(header, archive, txHashes);
+      blockNumber,
+      payload: { header, archive, stateReference },
+    } = makeBlockProposal({ txs });
+    const proposal = await service.createBlockProposal(blockNumber, header, archive, stateReference, txs);
     expect(proposal.getSender()).toEqual(store.getAddress());
   });
 
   it('attests to proposal', async () => {
-    const proposal = makeBlockProposal();
+    const txs = await Promise.all([Tx.random(), Tx.random()]);
+    const proposal = makeBlockProposal({ txs });
     const attestation = await service.attestToProposal(proposal);
     expect(attestation.getSender()).toEqual(store.getAddress());
   });

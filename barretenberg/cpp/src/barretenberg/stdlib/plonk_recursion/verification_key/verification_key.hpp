@@ -259,7 +259,7 @@ template <typename Curve> struct verification_key {
         // NOTE: For now `contains_pairing_point_accumulator` and `pairing_point_accumulator_public_input_indices` need
         // to be circuit constants!
         key->contains_pairing_point_accumulator = inner_proof_contains_pairing_point_accumulator;
-        for (size_t i = 0; i < PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+        for (size_t i = 0; i < PAIRING_POINTS_SIZE; ++i) {
             key->pairing_point_accumulator_public_input_indices[i] = pairing_point_accumulator_public_input_indices[i];
         }
 
@@ -445,7 +445,7 @@ template <typename Curve> struct verification_key {
 
     // Native data:
 
-    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> reference_string;
+    std::shared_ptr<bb::srs::factories::Crs<curve::BN254>> reference_string;
 
     plonk::PolynomialManifest polynomial_manifest;
     // Used to check in the circuit if a proof contains any aggregated state.

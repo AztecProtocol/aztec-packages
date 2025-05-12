@@ -21,11 +21,11 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
-import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -310,17 +310,33 @@ export class FeesTest {
         };
 
         this.getProverFee = async (blockNumber: number) => {
+          const block = await this.pxe.getBlock(blockNumber);
+
           const publicClient = getPublicClient({
             l1RpcUrls: context.aztecNodeConfig.l1RpcUrls,
             l1ChainId: context.aztecNodeConfig.l1ChainId,
           });
           const rollup = new RollupContract(publicClient, data.rollupAddress);
 
-          const provingCostPerMana = await rollup.getProvingCostPerManaInFeeAsset();
+          // @todo @lherskind As we deal with #13601
+          // Right now the value is from `FeeLib.sol`
+          const L1_GAS_PER_EPOCH_VERIFIED = 1000000n;
 
-          const block = await this.pxe.getBlock(blockNumber);
+          // We round up
+          const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
+
+          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp.toBigInt());
+          const proverCost =
+            mulDiv(
+              mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await rollup.getEpochDuration()),
+              1n,
+              await rollup.getManaTarget(),
+            ) + (await rollup.getProvingCostPerMana());
+
+          const price = await rollup.getFeeAssetPerEth();
+
           const mana = block!.header.totalManaUsed.toBigInt();
-          return mana * provingCostPerMana;
+          return mulDiv(mana * proverCost, price, 10n ** 9n);
         };
       },
     );
@@ -333,16 +349,15 @@ export class FeesTest {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
         expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
 
-        this.sponsoredFPC = await setupSponsoredFPC(context.pxe);
-        this.logger.info(`SponsoredFPC deployed at ${this.sponsoredFPC.address}`);
+        const sponsoredFPC = await setupSponsoredFPC(context.pxe);
+        this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);
 
         return {
-          sponsoredFPCAddress: this.sponsoredFPC.address,
+          sponsoredFPCAddress: sponsoredFPC.address,
         };
       },
       async data => {
-        const sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.aliceWallet);
-        this.sponsoredFPC = sponsoredFPC;
+        this.sponsoredFPC = await SponsoredFPCContract.at(data.sponsoredFPCAddress, this.aliceWallet);
       },
     );
   }

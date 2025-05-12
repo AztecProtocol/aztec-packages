@@ -12,7 +12,7 @@ import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { SHA256 } from '@aztec/merkle-tree';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';

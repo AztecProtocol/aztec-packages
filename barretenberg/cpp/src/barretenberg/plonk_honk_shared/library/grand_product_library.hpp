@@ -108,7 +108,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         for (size_t i = start; i < end; ++i) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
             auto row_idx = get_active_range_poly_idx(i);
-            if constexpr (IsUltraFlavor<Flavor>) {
+            if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 row = full_polynomials.get_row_for_permutation_arg(row_idx);
             } else {
                 row = full_polynomials.get_row(row_idx);
@@ -182,7 +182,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     ASSERT(grand_product_polynomial.start_index() == 1);
 
     // For Ultra/Mega, the first row is an inactive zero row thus the grand prod takes value 1 at both i = 0 and i = 1
-    if constexpr (IsUltraFlavor<Flavor>) {
+    if constexpr (IsUltraOrMegaHonk<Flavor>) {
         grand_product_polynomial.at(1) = 1;
     }
 

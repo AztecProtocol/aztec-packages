@@ -2,7 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -43,7 +43,7 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
 export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
-    private dateProvider: DateProvider,
+    private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
@@ -58,6 +58,7 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
+    clientInitiatedSimulation: boolean = false,
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
@@ -66,6 +67,7 @@ export class PublicProcessorFactory {
       globalVariables,
       /*doMerkleOperations=*/ true,
       skipFeeEnforcement,
+      clientInitiatedSimulation,
     );
 
     return new PublicProcessor(
@@ -84,6 +86,7 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
+    clientInitiatedSimulation: boolean,
   ): PublicTxSimulator {
     return new TelemetryPublicTxSimulator(
       merkleTree,
@@ -91,6 +94,7 @@ export class PublicProcessorFactory {
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,
+      clientInitiatedSimulation,
       this.telemetryClient,
     );
   }
@@ -145,10 +149,11 @@ export class PublicProcessor implements Traceable {
       preprocessValidator?: TxValidator<Tx>;
       nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
     } = {},
-  ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
+    const usedTxs: Tx[] = [];
     const failed: FailedTx[] = [];
     const timer = new Timer();
 
@@ -244,6 +249,7 @@ export class PublicProcessor implements Traceable {
         // I'd rather pass the validators the processedTx as well and let them deal with it.
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
+        usedTxs.push(tx);
         returns = returns.concat(returnValues);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
@@ -281,7 +287,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, returns];
+    return [result, failed, usedTxs, returns];
   }
 
   @trackSpan('PublicProcessor.processTx', async tx => ({ [Attributes.TX_HASH]: (await tx.getTxHash()).toString() }))

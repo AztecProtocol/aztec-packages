@@ -71,7 +71,7 @@ You can create arbitrary aliases with the `alias` command. For example `aztec-wa
 
 ## Paying Fees
 
-import { Why_Fees, CLI_Fees } from '@site/src/components/Snippets/snippets';
+import { Why_Fees, CLI_Fees } from '@site/src/components/Snippets/general_snippets';
 
 <Why_Fees />
 
@@ -136,7 +136,13 @@ First register an account, mint the fee asset on L1 and bridge it to fee juice:
 You'll have to wait for two blocks to pass for bridged fee juice to be ready on Aztec.
 For the sandbox you do this by putting through two arbitrary transactions. Eg:
 
-#include_code force-two-blocks yarn-project/cli-wallet/test/flows/create_account_pay_native.sh bash
+<!-- This is hard coded because the 'aztec-wallet deploy Counter' command is different in the test file -->
+
+```bash title="force-two-blocks" showLineNumbers
+aztec-wallet import-test-accounts # if you haven't already imported the test accounts
+aztec-wallet deploy Counter --init initialize --args 0 accounts:test0 -f test0 -a counter
+aztec-wallet send increment -ca counter --args accounts:test0 accounts:test0 -f test0
+```
 
 Now the funded account can deploy itself with the bridged fees, claiming the bridged fee juice and deploying the contract in one transaction:
 
@@ -144,10 +150,10 @@ Now the funded account can deploy itself with the bridged fees, claiming the bri
 
 #### Minting on Testnet
 
-This will mint the max amount of fee juice on L1 and bridge it to L2.
+This will mint the specified amount of fee juice on L1 and bridge it to L2.
 
 ```bash
-aztec-wallet bridge-fee-juice <AztecAddress>
+aztec-wallet bridge-fee-juice <amount> <AztecAddress> -n <aztec_node_url> --mint --l1-rpc-urls <rpc_url_s> --l1-private-key <pkey> --l1-chain-id 11155111 # sepolia
 ```
 
 ## Connect to the Testnet
@@ -573,10 +579,10 @@ aztec-wallet bridge-fee-juice [options] <amount> <recipient>
 
 #### Example
 
-This example mints and bridges 1000 units of fee juice and bridges it to the `master_yoda` recipient on L2.
+This simple sandbox example mints an amount of fee juice and bridges it to the `master_yoda` recipient on L2. For testnet, you will need to specify relevant L1 options listed above.
 
 ```bash
-aztec-wallet bridge-fee-juice --mint 1000 master_yoda
+aztec-wallet bridge-fee-juice --mint <amount> master_yoda
 ```
 
 ### Get Transaction

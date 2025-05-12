@@ -4,17 +4,17 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
-  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
-  type RECURSIVE_PROOF_LENGTH,
+  RECURSIVE_PROOF_LENGTH,
   ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple, mapTuple } from '@aztec/foundation/serialize';
+import { mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { type AvmAccumulatedData, type AvmCircuitPublicInputs, PublicDataHint, RevertCode } from '@aztec/stdlib/avm';
 import {
@@ -25,7 +25,6 @@ import {
   PrivateToRollupKernelCircuitPublicInputs,
   RollupValidationRequests,
 } from '@aztec/stdlib/kernel';
-import type { ContractClassLog } from '@aztec/stdlib/logs';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
 import {
@@ -60,7 +59,7 @@ import type {
   AvmProofData as AvmProofDataNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
-  BigNum,
+  BLS12_381_Fr as BigNum,
   BlobCommitment as BlobCommitmentNoir,
   BlobPublicInputs as BlobPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
@@ -70,10 +69,8 @@ import type {
   BlockRootRollupData as BlockRootRollupDataNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
-  ContractClassLog as ContractClassLogNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   FeeRecipient as FeeRecipientNoir,
-  FixedLengthArray,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
@@ -110,6 +107,7 @@ import {
   mapAztecAddressToNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
+  mapFieldArrayToNoir,
   mapFieldFromNoir,
   mapFieldToNoir,
   mapGasFromNoir,
@@ -295,23 +293,6 @@ export function mapBlockBlobPublicInputsFromNoir(
   );
 }
 
-/**
- * Maps a contract class log to noir.
- * @param log - The ts contract class log.
- * @returns The noir contract class log.
- */
-export function mapContractClassLogToNoir(log: ContractClassLog): ContractClassLogNoir {
-  return {
-    log: {
-      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      fields: Array.from({ length: CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS }, (_, idx) =>
-        mapFieldToNoir(log.fields[idx]),
-      ) as Tuple<string, typeof CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS>,
-    },
-    contract_address: mapAztecAddressToNoir(log.contractAddress),
-  };
-}
-
 function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
   return {
     leaf_slot: mapFieldToNoir(hint.leafSlot),
@@ -385,6 +366,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     start_global_variables: mapGlobalVariablesToNoir(blockRootOrBlockMergePublicInputs.startGlobalVariables),
     end_global_variables: mapGlobalVariablesToNoir(blockRootOrBlockMergePublicInputs.endGlobalVariables),
     out_hash: mapFieldToNoir(blockRootOrBlockMergePublicInputs.outHash),
+    proposed_block_header_hashes: mapTuple(blockRootOrBlockMergePublicInputs.proposedBlockHeaderHashes, mapFieldToNoir),
     fees: mapTuple(blockRootOrBlockMergePublicInputs.fees, mapFeeRecipientToNoir),
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.protocolContractTreeRoot),
@@ -393,9 +375,12 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
   };
 }
 
-export function mapRecursiveProofToNoir<PROOF_LENGTH extends number>(proof: RecursiveProof<PROOF_LENGTH>) {
+export function mapRecursiveProofToNoir<PROOF_LENGTH extends number>(
+  proof: RecursiveProof<PROOF_LENGTH>,
+  length: PROOF_LENGTH = proof.proofLength as PROOF_LENGTH,
+) {
   return {
-    fields: mapTuple(proof.proof, mapFieldToNoir) as FixedLengthArray<string, PROOF_LENGTH>,
+    fields: mapFieldArrayToNoir(proof.proof, length),
   };
 }
 
@@ -432,7 +417,10 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.end_timestamp),
     mapFieldFromNoir(rootRollupPublicInputs.end_block_number),
     mapFieldFromNoir(rootRollupPublicInputs.out_hash),
+    mapTupleFromNoir(rootRollupPublicInputs.proposed_block_header_hashes, AZTEC_MAX_EPOCH_DURATION, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
+    mapFieldFromNoir(rootRollupPublicInputs.chain_id),
+    mapFieldFromNoir(rootRollupPublicInputs.version),
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
@@ -551,7 +539,7 @@ function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDa
   };
 }
 
-function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCircuitPublicInputsNoir {
+export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCircuitPublicInputsNoir {
   return {
     global_variables: mapGlobalVariablesToNoir(inputs.globalVariables),
     start_tree_snapshots: mapTreeSnapshotsToNoir(inputs.startTreeSnapshots),
@@ -595,6 +583,11 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.start_global_variables),
     mapGlobalVariablesFromNoir(blockRootOrBlockMergePublicInputs.end_global_variables),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.out_hash),
+    mapTupleFromNoir(
+      blockRootOrBlockMergePublicInputs.proposed_block_header_hashes,
+      AZTEC_MAX_EPOCH_DURATION,
+      mapFieldFromNoir,
+    ),
     mapTupleFromNoir(blockRootOrBlockMergePublicInputs.fees, AZTEC_MAX_EPOCH_DURATION, mapFeeRecipientFromNoir),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.protocol_contract_tree_root),
@@ -816,7 +809,9 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, mapContractClassLogToNoir),
+    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, p =>
+      mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
+    ),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
   };
 }
@@ -851,7 +846,9 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, mapContractClassLogToNoir),
+    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, p =>
+      mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
+    ),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
   };
 }

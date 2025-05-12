@@ -60,6 +60,7 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
+    private clientInitiatedSimulation: boolean = false,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
@@ -273,8 +274,6 @@ export class PublicTxSimulator {
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
-    stateManager.traceEnqueuedCall(callRequest.request);
-
     const result = await this.simulateEnqueuedCallInternal(
       stateManager,
       callRequest,
@@ -333,6 +332,7 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
+      this.clientInitiatedSimulation,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();
@@ -361,6 +361,12 @@ export class PublicTxSimulator {
         await stateManager.writeUniqueNoteHash(noteHash);
       }
     }
+    for (const l2ToL1Message of context.nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
+      if (!l2ToL1Message.isEmpty()) {
+        stateManager.writeScopedL2ToL1Message(l2ToL1Message);
+      }
+    }
+
     // add new contracts to the contracts db so that their functions may be found and called
     // TODO(#6464): Should we allow emitting contracts in the private setup phase?
     // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
@@ -400,6 +406,11 @@ export class PublicTxSimulator {
       if (!noteHash.isEmpty()) {
         // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
         await stateManager.writeSiloedNoteHash(noteHash);
+      }
+    }
+    for (const l2ToL1Message of context.revertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
+      if (!l2ToL1Message.isEmpty()) {
+        stateManager.writeScopedL2ToL1Message(l2ToL1Message);
       }
     }
     // add new contracts to the contracts db so that their functions may be found and called

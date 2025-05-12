@@ -6,7 +6,7 @@ import {
     NUMBER_OF_ENTITIES,
     BATCHED_RELATION_PARTIAL_LENGTH,
     CONST_PROOF_SIZE_LOG_N,
-    PAIRING_POINT_OBJECT_LENGTH
+    PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
@@ -90,11 +90,11 @@ library TranscriptLib {
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
-        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINT_OBJECT_LENGTH; i++) {
+        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
-        for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
-            round0[3 + publicInputsSize - PAIRING_POINT_OBJECT_LENGTH + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            round0[3 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
@@ -289,7 +289,7 @@ library TranscriptLib {
          uint256 boundary = 0x0;
 
         // Pairing point object
-        for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
             p.pairingPointObject[i] = bytesToFr(proof[boundary:boundary + 0x20]);
             boundary += 0x20;
         }

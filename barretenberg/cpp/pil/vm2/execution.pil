@@ -21,13 +21,18 @@ include "to_radix.pil";
 include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
-include "public_data_read.pil";
+include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
+include "public_inputs.pil";
 
 namespace execution;
 
 pol commit sel; // subtrace selector
+
+#[skippable_if]
+sel = 0;
+
 // Subtrace operation id
 pol commit subtrace_operation_id;
 

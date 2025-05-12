@@ -1,0 +1,79 @@
+#!/bin/bash
+source $(git rev-parse --show-toplevel)/ci3/source
+
+# Configuration
+SHM_FILE="/dev/shm/cpu_alloc.shm"
+SEM_BIN="./semc"
+MUTEX_NAME="/cpu_alloc_mutex"
+FREE_SEM="/cpu_alloc_free"
+
+function init {
+  # Build semc if not already built.
+  if [ ! -f "$ci3/$SEM_BIN" ]; then
+    gcc -O3 -o "$ci3/$SEM_BIN" "$ci3/semc.c"
+  fi
+
+  # Initialize shared memory and free semaphore if not already created.
+  n=${1:-$(nproc)}
+  head -c $n < /dev/zero | tr '\0' '0' > "$SHM_FILE"
+  $SEM_BIN --name "$FREE_SEM" --init $n
+  $SEM_BIN --name "$MUTEX_NAME" --init 1
+}
+
+# Acquire mutex to update shared memory and select free CPUs
+function acquire {
+  local num_cpus="${1:-2}"
+  local timeout="${2:-0}"
+
+  # Block until num_cpus are available.
+  $SEM_BIN --name "$FREE_SEM" --atomic --timeout $timeout -$num_cpus
+
+  # Update the shared memory to mark the allocated CPUs.
+  $SEM_BIN --name "$MUTEX_NAME" -1
+  data=$(cat "$SHM_FILE")
+  len=${#data}
+  allocated_list=()
+  for ((i=0; i<len && ${#allocated_list[@]} < num_cpus; i++)); do
+    if [ "${data:$i:1}" == "0" ]; then
+      allocated_list+=($i)
+      data="${data:0:$i}1${data:$((i+1))}"
+    fi
+  done
+  echo -n "$data" > "$SHM_FILE"
+  cpu_list=$(IFS=, ; echo "${allocated_list[*]}")
+
+  $SEM_BIN --name "$MUTEX_NAME" +1
+  echo $cpu_list
+}
+
+function release {
+  local cpu_list="$1"
+  local num_cpus=0
+
+  $SEM_BIN --name "$MUTEX_NAME" -1
+  data=$(cat "$SHM_FILE")
+  len=${#data}
+  for cpu in $(echo $cpu_list | tr ',' ' '); do
+    data="${data:0:$cpu}0${data:$((cpu+1))}"
+    num_cpus=$((num_cpus + 1))
+  done
+  echo -n "$data" > "$SHM_FILE"
+  $SEM_BIN --name "$MUTEX_NAME" +1
+  $SEM_BIN --name "$FREE_SEM" +$num_cpus
+}
+
+cmd="${1:-}"
+[ -n "$cmd" ] && shift 1
+
+case "$cmd" in
+  init|acquire|release)
+    $cmd "$@"
+    ;;
+  *)
+    echo "Usage: sem_sched {init|acquire|release} [num_cpus]"
+    exit 1
+    ;;
+esac
+
+# Run command with taskset binding
+# taskset -c "$cpu_list" "$@"

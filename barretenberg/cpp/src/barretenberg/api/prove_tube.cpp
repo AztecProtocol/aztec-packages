@@ -1,6 +1,5 @@
 #include "prove_tube.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
@@ -17,13 +16,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
     std::string proof_path = output_path + "/proof";
-
-    // Note: this could be decreased once we optimise the size of the ClientIVC recursive verifier
-    init_bn254_crs(1 << 25);
-    init_grumpkin_crs(1 << 18);
 
     // Read the proof  and verification data from given files
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
@@ -36,7 +30,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
     auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(vk.mega->num_public_inputs));
-    num_inner_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
+    num_inner_public_inputs -= bb::PAIRING_POINTS_SIZE; // don't add the agg object
 
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
         builder->add_public_variable(proof.mega_proof[i]);
@@ -45,14 +39,11 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
-    // This is currently just setting the aggregation object to the default one.
-    AggregationObject::add_default_pairing_points_to_public_inputs(*builder);
-
+    client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
     builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
-    ASSERT(builder->ipa_proof.size() && "IPA proof should not be empty");
+    BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
@@ -98,9 +89,11 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
-        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE;
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
     // The extra calculation is for the IPA proof length.
-    ASSERT(tube_proof.size() == HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs);
+    BB_ASSERT_EQ(tube_proof.size(),
+                 HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs,
+                 "In prove_tube, tube proof length is incorrect.");
     // split out the ipa proof
     const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(
         HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS - IPA_PROOF_LENGTH + num_inner_public_inputs);

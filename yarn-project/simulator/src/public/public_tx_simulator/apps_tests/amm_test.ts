@@ -34,7 +34,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   );
 
   const ammConstructorResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'constructor',
+    /*txLabel=*/ 'AMM/constructor',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -51,7 +51,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
 
   // set the AMM as the minter for the liquidity token
   const setMinterResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'set_minter',
+    /*txLabel=*/ 'AMM/set_minter',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -139,7 +139,7 @@ async function addLiquidity(
   };
 
   return await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'add_liquidity',
+    /*txLabel=*/ 'AMM/add_liquidity',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -218,7 +218,7 @@ async function swapExactTokensForTokens(
   };
 
   return await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'swap_exact_tokens_for_tokens',
+    /*txLabel=*/ 'AMM/swap_exact_tokens_for_tokens',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -267,7 +267,7 @@ async function removeLiquidity(
   };
 
   return await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'remove_liquidity',
+    /*txLabel=*/ 'AMM/remove_liquidity',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [

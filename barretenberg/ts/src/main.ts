@@ -172,11 +172,7 @@ export async function proveAndVerify(bytecodePath: string, recursive: boolean, w
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyUltraHonk(
-  bytecodePath: string,
-  witnessPath: string,
-  crsPath: string,
-) {
+export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
@@ -191,11 +187,7 @@ export async function proveAndVerifyUltraHonk(
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyMegaHonk(
-  bytecodePath: string,
-  witnessPath: string,
-  crsPath: string,
-) {
+export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const { api } = await initUltraPlonk(bytecodePath, false, crsPath);
   try {
@@ -407,9 +399,11 @@ export async function proveUltraHonk(
 
     const acirProveUltraHonk = options?.keccak
       ? api.acirProveUltraKeccakHonk.bind(api)
+      : options?.keccakZK
+      ? api.acirProveUltraKeccakZKHonk.bind(api)
       : options?.starknet
-        ? api.acirProveUltraStarknetHonk.bind(api)
-        : api.acirProveUltraHonk.bind(api);
+      ? api.acirProveUltraStarknetHonk.bind(api)
+      : api.acirProveUltraHonk.bind(api);
     const proof = await acirProveUltraHonk(bytecode, witness);
 
     if (outputPath === '-') {
@@ -437,9 +431,11 @@ export async function writeVkUltraHonk(
 
     const acirWriteVkUltraHonk = options?.keccak
       ? api.acirWriteVkUltraKeccakHonk.bind(api)
+      : options?.keccakZK
+      ? api.acirWriteVkUltraKeccakZKHonk.bind(api)
       : options?.starknet
-        ? api.acirWriteVkUltraStarknetHonk.bind(api)
-        : api.acirWriteVkUltraHonk.bind(api);
+      ? api.acirWriteVkUltraStarknetHonk.bind(api)
+      : api.acirWriteVkUltraHonk.bind(api);
     const vk = await acirWriteVkUltraHonk(bytecode);
 
     if (outputPath === '-') {
@@ -464,9 +460,11 @@ export async function verifyUltraHonk(
   try {
     const acirVerifyUltraHonk = options?.keccak
       ? api.acirVerifyUltraKeccakHonk.bind(api)
+      : options?.keccakZK
+      ? api.acirVerifyUltraKeccakZKHonk.bind(api)
       : options?.starknet
-        ? api.acirVerifyUltraStarknetHonk.bind(api)
-        : api.acirVerifyUltraHonk.bind(api);
+      ? api.acirVerifyUltraStarknetHonk.bind(api)
+      : api.acirVerifyUltraHonk.bind(api);
     const verified = await acirVerifyUltraHonk(
       Uint8Array.from(readFileSync(proofPath)),
       new RawBuffer(readFileSync(vkPath)),
@@ -530,17 +528,20 @@ function handleGlobalOptions() {
   return { crsPath: program.opts().crsPath };
 }
 
+const deprecatedCommandError = () => async () => {
+  console.error(
+    `Error: UltraPlonk is now deprecated (see https://github.com/AztecProtocol/barretenberg/issues/1377). Use UltraHonk!`,
+  );
+  process.exit(1);
+};
+
 program
   .command('prove_and_verify')
-  .description('Generate a proof and verify it. Process exits with success or failure code.')
+  .description('Generate a proof and verify it. Process exits with success or failure code. [DEPRECATED]')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, recursive, witnessPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    const result = await proveAndVerify(bytecodePath, recursive, witnessPath, crsPath);
-    process.exit(result ? 0 : 1);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('prove_and_verify_ultra_honk')
@@ -566,15 +567,12 @@ program
 
 program
   .command('prove')
-  .description('Generate a proof and write it to a file.')
+  .description('Generate a proof and write it to a file. [DEPRECATED]')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, recursive, witnessPath, outputPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    await prove(bytecodePath, recursive, witnessPath, crsPath, outputPath);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('gates')
@@ -589,25 +587,18 @@ program
 
 program
   .command('verify')
-  .description('Verify a proof. Process exists with success or failure code.')
+  .description('Verify a proof. Process exists with success or failure code. [DEPRECATED]')
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
-  .action(async ({ proofPath, vk }) => {
-    const { crsPath } = handleGlobalOptions();
-    const result = await verify(proofPath, vk, crsPath);
-    process.exit(result ? 0 : 1);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('contract')
-  .description('Output solidity verification key contract.')
+  .description('Output solidity verification key contract. [DEPRECATED]')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk-path <path>', 'Path to a verification key. avoids recomputation.')
-  .action(async ({ outputPath, vkPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    await contract(outputPath, vkPath, crsPath);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('contract_ultra_honk')
@@ -622,46 +613,36 @@ program
 
 program
   .command('write_vk')
-  .description('Output verification key.')
+  .description('Output verification key. [DEPRECATED]')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, recursive, outputPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    await writeVk(bytecodePath, recursive, crsPath, outputPath);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('write_pk')
-  .description('Output proving key.')
+  .description('Output proving key. [DEPRECATED]')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, recursive, outputPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    await writePk(bytecodePath, recursive, crsPath, outputPath);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('proof_as_fields')
-  .description('Return the proof as fields elements')
+  .description('Return the proof as fields elements. [DEPRECATED]')
   .requiredOption('-p, --proof-path <path>', 'Specify the proof path')
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
-  .action(async ({ proofPath, vkPath, outputPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    await proofAsFields(proofPath, vkPath, outputPath, crsPath);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('vk_as_fields')
-  .description('Return the verification key represented as fields elements. Also return the verification key hash.')
+  .description(
+    'Return the verification key represented as fields elements. Also return the verification key hash. [DEPRECATED]',
+  )
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields and key hash')
-  .action(async ({ vkPath, outputPath }) => {
-    const { crsPath } = handleGlobalOptions();
-    await vkAsFields(vkPath, outputPath, crsPath);
-  });
+  .action(deprecatedCommandError());
 
 program
   .command('prove_ultra_honk')

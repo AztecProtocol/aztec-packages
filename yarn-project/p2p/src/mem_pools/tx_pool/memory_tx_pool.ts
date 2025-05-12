@@ -31,6 +31,10 @@ export class InMemoryTxPool implements TxPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
   }
 
+  public isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.txs.size === 0);
+  }
+
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
     for (const key of keys) {
@@ -101,6 +105,13 @@ export class InMemoryTxPool implements TxPool {
   public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const result = this.txs.get(txHash.toBigInt());
     return Promise.resolve(result === undefined ? undefined : Tx.clone(result));
+  }
+
+  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    return Promise.all(txHashes.map(txHash => this.getTxByHash(txHash)));
+  }
+  hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return Promise.resolve(txHashes.map(txHash => this.txs.has(txHash.toBigInt())));
   }
 
   public getArchivedTxByHash(): Promise<Tx | undefined> {

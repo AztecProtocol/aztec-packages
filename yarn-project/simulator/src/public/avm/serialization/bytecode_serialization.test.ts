@@ -84,16 +84,16 @@ describe('Bytecode Serialization', () => {
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
+        /*argsOffset=*/ 0xb234,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
+        /*argsOffset=*/ 0xb234,
       ),
     ];
     const bytecode = Buffer.concat(instructions.map(i => i.toBuffer()));
@@ -116,16 +116,16 @@ describe('Bytecode Serialization', () => {
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
+        /*argsOffset=*/ 0xb234,
       ),
       new StaticCall(
         /*indirect=*/ 0x01,
         /*l2GasOffset=*/ 0x1234,
         /*daGasOffset=*/ 0x5678,
         /*addrOffset=*/ 0xa234,
-        /*argsOffset=*/ 0xb234,
         /*argsSize=*/ 0xc234,
+        /*argsOffset=*/ 0xb234,
       ),
     ];
 

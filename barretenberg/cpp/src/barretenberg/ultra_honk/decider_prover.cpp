@@ -19,7 +19,7 @@ namespace bb {
  *
  * @tparam a type of UltraFlavor
  * */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving_key,
                                        const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::move(proving_key))
@@ -31,7 +31,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
  * challenges and all evaluations at u being calculated.
  *
  */
-template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
+template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = proving_key->proving_key.circuit_size;
@@ -65,7 +65,7 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
  * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
  */
-template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
+template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
@@ -99,13 +99,13 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
     vinfo("computed opening proof");
 }
 
-template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
     PROFILE_THIS_NAME("Decider::construct_proof");
 

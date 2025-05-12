@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';

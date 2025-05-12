@@ -105,6 +105,13 @@ export class AztecKVTxPool implements TxPool {
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, () => store.estimateSize());
   }
 
+  public async isEmpty(): Promise<boolean> {
+    for await (const _ of this.#txs.entriesAsync()) {
+      return false;
+    }
+    return true;
+  }
+
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
@@ -218,6 +225,22 @@ export class AztecKVTxPool implements TxPool {
     return undefined;
   }
 
+  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const txs = await Promise.all(txHashes.map(txHash => this.#txs.getAsync(txHash.toString())));
+    return txs.map((buffer, index) => {
+      if (buffer) {
+        const tx = Tx.fromBuffer(buffer);
+        tx.setTxHash(txHashes[index]);
+        return tx;
+      }
+      return undefined;
+    });
+  }
+
+  async hasTxs(txHashes: TxHash[]): Promise<boolean[]> {
+    return await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
+  }
+
   /**
    * Checks if an archived tx exists and returns it.
    * @param txHash - The tx hash.
@@ -248,12 +271,17 @@ export class AztecKVTxPool implements TxPool {
       await Promise.all(
         txs.map(async (tx, i) => {
           const { txHash, txStats } = hashesAndStats[i];
+          const key = txHash.toString();
+          if (await this.#txs.hasAsync(key)) {
+            this.#log.debug(`Tx ${txHash.toString()} already exists in the pool`);
+            return;
+          }
+
           this.#log.verbose(`Adding tx ${txHash.toString()} to pool`, {
             eventName: 'tx-added-to-pool',
             ...txStats,
           } satisfies TxAddedToPoolStats);
 
-          const key = txHash.toString();
           await this.#txs.set(key, tx.toBuffer());
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {

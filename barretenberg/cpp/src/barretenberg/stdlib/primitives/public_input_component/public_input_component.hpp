@@ -60,11 +60,12 @@ class PublicInputComponent {
     {
         // Ensure that the key has been set
         if (!key.is_set()) {
-            info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
-            ASSERT(false);
+            ASSERT(false && "ERROR: Trying to construct a PublicInputComponent from an invalid key!");
         }
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
+        ASSERT(key.start_idx + COMPONENT_SIZE <= public_inputs.size() &&
+               "PublicInputComponent cannot be reconstructed - PublicInputComponentKey start_idx out of bounds");
         std::span<const Fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }
