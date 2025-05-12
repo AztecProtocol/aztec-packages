@@ -80,6 +80,10 @@ export class StateReference {
     };
   }
 
+  toAbi(): [ReturnType<AppendOnlyTreeSnapshot['toAbi']>, ReturnType<PartialStateReference['toAbi']>] {
+    return [this.l1ToL2MessageTree.toAbi(), [...this.partial.toAbi()]];
+  }
+
   isEmpty(): boolean {
     return this.l1ToL2MessageTree.isZero() && this.partial.isEmpty();
   }
