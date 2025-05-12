@@ -33,9 +33,10 @@ function cleanup {
     wait $tail_pid
     tail_pid=
   fi
-  rm -f $outfile
 }
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup SIGINT SIGTERM
+# Remove file on exit, so we can publish even after SIGINT or SIGTERM.
+trap 'cleanup; rm -f $outfile' EXIT
 
 dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
