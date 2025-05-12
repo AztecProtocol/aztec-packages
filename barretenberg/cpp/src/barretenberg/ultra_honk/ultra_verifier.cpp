@@ -6,6 +6,7 @@
 
 #include "./ultra_verifier.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -73,8 +74,21 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
+    auto decider_output = decider_verifier.verify();
 
-    return decider_verifier.verify();
+    // Extract nested pairing points from the proof
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.
+    if constexpr (!std::is_same_v<Flavor, UltraKeccakFlavor> && !std::is_same_v<Flavor, UltraKeccakZKFlavor>) {
+        std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{
+            verification_key->public_inputs.data() +
+                verification_key->verification_key->pairing_inputs_public_input_key.start_idx,
+            PAIRING_POINTS_SIZE
+        };
+        PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
+        decider_output.pairing_points.aggregate(nested_pairing_points);
+    }
+
+    return decider_output.check();
 }
 
 template class UltraVerifier_<UltraFlavor>;

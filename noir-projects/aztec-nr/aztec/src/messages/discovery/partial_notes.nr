@@ -10,7 +10,7 @@ use crate::{
 
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+    constants::PUBLIC_LOG_SIZE_IN_FIELDS,
     debug_log::debug_log_format,
     hash::sha256_to_field,
     traits::{Deserialize, Serialize, ToField},
@@ -37,7 +37,7 @@ pub global NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG: u32 = 2;
 /// The maximum length of the packed representation of public fields in a partial note. This is limited by public log
 /// size and extra fields in the log (e.g. the tag).
 pub global MAX_PUBLIC_PARTIAL_NOTE_PACKED_CONTENT_LENGTH: u32 =
-    PUBLIC_LOG_DATA_SIZE_IN_FIELDS - NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG;
+    PUBLIC_LOG_SIZE_IN_FIELDS - NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG;
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
 /// log that will complete it and lead to a note being discovered and delivered.

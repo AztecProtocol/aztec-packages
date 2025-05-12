@@ -383,7 +383,7 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
         const auto& x_hi_z_1_shift = input_elements.x_hi_z_1_shift;
         const auto& y_lo_z_2_shift = input_elements.y_lo_z_2_shift;
 
-        const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
+        const auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
 
         RelationValues expected_values;
 
@@ -414,17 +414,17 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
                                                   MICRO_LIMB_SHIFTx3,
                                                   MICRO_LIMB_SHIFTx4,
                                                   MICRO_LIMB_SHIFTx5,
-                                                  lagrange_odd_in_minicircuit](auto& micro_limb_0,
-                                                                               auto& micro_limb_1,
-                                                                               auto& micro_limb_2,
-                                                                               auto& micro_limb_3,
-                                                                               auto& micro_limb_4,
-                                                                               auto& micro_limb_5,
-                                                                               auto& decomposed_limb) {
+                                                  lagrange_even_in_minicircuit](auto& micro_limb_0,
+                                                                                auto& micro_limb_1,
+                                                                                auto& micro_limb_2,
+                                                                                auto& micro_limb_3,
+                                                                                auto& micro_limb_4,
+                                                                                auto& micro_limb_5,
+                                                                                auto& decomposed_limb) {
             return (micro_limb_0 + micro_limb_1 * MICRO_LIMB_SHIFT + micro_limb_2 * MICRO_LIMB_SHIFTx2 +
                     micro_limb_3 * MICRO_LIMB_SHIFTx3 + micro_limb_4 * MICRO_LIMB_SHIFTx4 +
                     micro_limb_5 * MICRO_LIMB_SHIFTx5 - decomposed_limb) *
-                   lagrange_odd_in_minicircuit;
+                   lagrange_even_in_minicircuit;
         };
 
         /**
@@ -432,29 +432,31 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
          * 5 14-bit microlimbs
          *
          */
-        auto check_standard_limb_decomposition =
-            [MICRO_LIMB_SHIFT, MICRO_LIMB_SHIFTx2, MICRO_LIMB_SHIFTx3, MICRO_LIMB_SHIFTx4, lagrange_odd_in_minicircuit](
-                auto& micro_limb_0,
-                auto& micro_limb_1,
-                auto& micro_limb_2,
-                auto& micro_limb_3,
-                auto& micro_limb_4,
-                auto& decomposed_limb) {
-                return (micro_limb_0 + micro_limb_1 * MICRO_LIMB_SHIFT + micro_limb_2 * MICRO_LIMB_SHIFTx2 +
-                        micro_limb_3 * MICRO_LIMB_SHIFTx3 + micro_limb_4 * MICRO_LIMB_SHIFTx4 - decomposed_limb) *
-                       lagrange_odd_in_minicircuit;
-            };
+        auto check_standard_limb_decomposition = [MICRO_LIMB_SHIFT,
+                                                  MICRO_LIMB_SHIFTx2,
+                                                  MICRO_LIMB_SHIFTx3,
+                                                  MICRO_LIMB_SHIFTx4,
+                                                  lagrange_even_in_minicircuit](auto& micro_limb_0,
+                                                                                auto& micro_limb_1,
+                                                                                auto& micro_limb_2,
+                                                                                auto& micro_limb_3,
+                                                                                auto& micro_limb_4,
+                                                                                auto& decomposed_limb) {
+            return (micro_limb_0 + micro_limb_1 * MICRO_LIMB_SHIFT + micro_limb_2 * MICRO_LIMB_SHIFTx2 +
+                    micro_limb_3 * MICRO_LIMB_SHIFTx3 + micro_limb_4 * MICRO_LIMB_SHIFTx4 - decomposed_limb) *
+                   lagrange_even_in_minicircuit;
+        };
 
         /**
          * @brief Check the decomposition of a standard top limb. Standard top limb is 50 bits (254 = 68 * 3 + 50)
          *
          */
         auto check_standard_top_limb_decomposition =
-            [MICRO_LIMB_SHIFT, MICRO_LIMB_SHIFTx2, MICRO_LIMB_SHIFTx3, lagrange_odd_in_minicircuit](
+            [MICRO_LIMB_SHIFT, MICRO_LIMB_SHIFTx2, MICRO_LIMB_SHIFTx3, lagrange_even_in_minicircuit](
                 auto& micro_limb_0, auto& micro_limb_1, auto& micro_limb_2, auto& micro_limb_3, auto& decomposed_limb) {
                 return (micro_limb_0 + micro_limb_1 * MICRO_LIMB_SHIFT + micro_limb_2 * MICRO_LIMB_SHIFTx2 +
                         micro_limb_3 * MICRO_LIMB_SHIFTx3 - decomposed_limb) *
-                       lagrange_odd_in_minicircuit;
+                       lagrange_even_in_minicircuit;
             };
 
         /**
@@ -463,8 +465,8 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_standard_tail_micro_limb_correctness =
-            [SHIFT_12_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
-                return (nonshifted_micro_limb * SHIFT_12_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
+            [SHIFT_12_TO_14, lagrange_even_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_12_TO_14 - shifted_micro_limb) * lagrange_even_in_minicircuit;
             };
 
         /**
@@ -473,8 +475,8 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_top_tail_micro_limb_correctness =
-            [SHIFT_8_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
-                return (nonshifted_micro_limb * SHIFT_8_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
+            [SHIFT_8_TO_14, lagrange_even_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_8_TO_14 - shifted_micro_limb) * lagrange_even_in_minicircuit;
             };
 
         /**
@@ -483,8 +485,8 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_z_top_tail_micro_limb_correctness =
-            [SHIFT_4_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
-                return (nonshifted_micro_limb * SHIFT_4_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
+            [SHIFT_4_TO_14, lagrange_even_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_4_TO_14 - shifted_micro_limb) * lagrange_even_in_minicircuit;
             };
 
         /**
@@ -493,8 +495,8 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_quotient_top_tail_micro_limb_correctness =
-            [SHIFT_10_TO_14, lagrange_odd_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
-                return (nonshifted_micro_limb * SHIFT_10_TO_14 - shifted_micro_limb) * lagrange_odd_in_minicircuit;
+            [SHIFT_10_TO_14, lagrange_even_in_minicircuit](auto& nonshifted_micro_limb, auto shifted_micro_limb) {
+                return (nonshifted_micro_limb * SHIFT_10_TO_14 - shifted_micro_limb) * lagrange_even_in_minicircuit;
             };
 
         /**
@@ -502,8 +504,8 @@ TEST_F(TranslatorRelationConsistency, DecompositionRelation)
          *
          */
         auto check_wide_limb_into_regular_limb_correctness =
-            [LIMB_SHIFT, lagrange_odd_in_minicircuit](auto& low_limb, auto& high_limb, auto& wide_limb) {
-                return (low_limb + high_limb * LIMB_SHIFT - wide_limb) * lagrange_odd_in_minicircuit;
+            [LIMB_SHIFT, lagrange_even_in_minicircuit](auto& low_limb, auto& high_limb, auto& wide_limb) {
+                return (low_limb + high_limb * LIMB_SHIFT - wide_limb) * lagrange_even_in_minicircuit;
             };
 
         // Check decomposition 50-72 bit limbs into microlimbs
@@ -739,7 +741,7 @@ TEST_F(TranslatorRelationConsistency, OpcodeConstraintRelation)
         const auto parameters = RelationParameters<FF>::get_random();
 
         // (Contribution 1)
-        auto contribution_1 = op * (op - FF(1)) * (op - FF(2)) * (op - FF(3)) * (op - FF(4)) * (op - FF(8));
+        auto contribution_1 = op * (op - FF(3)) * (op - FF(4)) * (op - FF(8));
         expected_values[0] = contribution_1;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
@@ -756,9 +758,9 @@ TEST_F(TranslatorRelationConsistency, AccumulatorTransferRelation)
 
         const InputElements input_elements = random_inputs ? get_random_input() : get_special_input();
 
-        const auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
-        const auto& lagrange_second = input_elements.lagrange_second;
-        const auto& lagrange_second_to_last_in_minicircuit = input_elements.lagrange_second_to_last_in_minicircuit;
+        const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
+        const auto& lagrange_result_row = input_elements.lagrange_result_row;
+        const auto& lagrange_last_in_minicircuit = input_elements.lagrange_last_in_minicircuit;
         const auto& accumulators_binary_limbs_0 = input_elements.accumulators_binary_limbs_0;
         const auto& accumulators_binary_limbs_0_shift = input_elements.accumulators_binary_limbs_0_shift;
         const auto& accumulators_binary_limbs_1 = input_elements.accumulators_binary_limbs_1;
@@ -777,25 +779,25 @@ TEST_F(TranslatorRelationConsistency, AccumulatorTransferRelation)
 
         // Check transfer of accumulator at even indices
         expected_values[0] =
-            lagrange_even_in_minicircuit * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
         expected_values[1] =
-            lagrange_even_in_minicircuit * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
         expected_values[2] =
-            lagrange_even_in_minicircuit * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
         expected_values[3] =
-            lagrange_even_in_minicircuit * (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
 
         // Check the accumulator starts as zero
-        expected_values[4] = accumulators_binary_limbs_0 * lagrange_second_to_last_in_minicircuit;
-        expected_values[5] = accumulators_binary_limbs_1 * lagrange_second_to_last_in_minicircuit;
-        expected_values[6] = accumulators_binary_limbs_2 * lagrange_second_to_last_in_minicircuit;
-        expected_values[7] = accumulators_binary_limbs_3 * lagrange_second_to_last_in_minicircuit;
+        expected_values[4] = accumulators_binary_limbs_0 * lagrange_last_in_minicircuit;
+        expected_values[5] = accumulators_binary_limbs_1 * lagrange_last_in_minicircuit;
+        expected_values[6] = accumulators_binary_limbs_2 * lagrange_last_in_minicircuit;
+        expected_values[7] = accumulators_binary_limbs_3 * lagrange_last_in_minicircuit;
 
         // Check the accumulator results in submitted value
-        expected_values[8] = (accumulators_binary_limbs_0 - accumulated_result_0) * lagrange_second;
-        expected_values[9] = (accumulators_binary_limbs_1 - accumulated_result_1) * lagrange_second;
-        expected_values[10] = (accumulators_binary_limbs_2 - accumulated_result_2) * lagrange_second;
-        expected_values[11] = (accumulators_binary_limbs_3 - accumulated_result_3) * lagrange_second;
+        expected_values[8] = (accumulators_binary_limbs_0 - accumulated_result_0) * lagrange_result_row;
+        expected_values[9] = (accumulators_binary_limbs_1 - accumulated_result_1) * lagrange_result_row;
+        expected_values[10] = (accumulators_binary_limbs_2 - accumulated_result_2) * lagrange_result_row;
+        expected_values[11] = (accumulators_binary_limbs_3 - accumulated_result_3) * lagrange_result_row;
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
@@ -1076,7 +1078,7 @@ TEST_F(TranslatorRelationConsistency, NonNativeFieldRelation)
         auto& quotient_high_binary_limbs_shift = input_elements.quotient_high_binary_limbs_shift;
         auto& relation_wide_limbs = input_elements.relation_wide_limbs;
         auto& relation_wide_limbs_shift = input_elements.relation_wide_limbs_shift;
-        auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
+        auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
 
         RelationValues expected_values;
 
@@ -1106,7 +1108,7 @@ TEST_F(TranslatorRelationConsistency, NonNativeFieldRelation)
               quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] - accumulators_binary_limbs_1) *
                  shift -
              relation_wide_limbs * shiftx2) *
-            lagrange_odd_in_minicircuit;
+            lagrange_even_in_minicircuit;
 
         // Higher wide limb subrelation
         expected_values[1] =
@@ -1148,7 +1150,7 @@ TEST_F(TranslatorRelationConsistency, NonNativeFieldRelation)
               quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[3] - accumulators_binary_limbs_3) *
                  shift -
              relation_wide_limbs_shift * shiftx2) *
-            lagrange_odd_in_minicircuit;
+            lagrange_even_in_minicircuit;
         auto reconstructed_p_x =
             (p_x_low_limbs + p_x_low_limbs_shift * shift + p_x_high_limbs * shiftx2 + p_x_high_limbs_shift * shiftx3);
         auto reconstructed_p_y =
@@ -1172,7 +1174,7 @@ TEST_F(TranslatorRelationConsistency, NonNativeFieldRelation)
                               reconstructed_z1 * parameters.batching_challenge_v[2][4] +
                               reconstructed_z2 * parameters.batching_challenge_v[3][4] +
                               reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] - reconstructed_current_accumulator) *
-                             lagrange_odd_in_minicircuit;
+                             lagrange_even_in_minicircuit;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };

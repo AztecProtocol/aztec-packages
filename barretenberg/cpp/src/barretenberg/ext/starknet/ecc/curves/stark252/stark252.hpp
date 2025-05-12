@@ -43,9 +43,9 @@ struct FqParams {
     static constexpr uint64_t r_inv_wasm_2 = 0x00000000;
     static constexpr uint64_t r_inv_wasm_3 = 0x00000000;
     static constexpr uint64_t r_inv_wasm_4 = 0x00000000;
-    static constexpr uint64_t r_inv_wasm_5 = 0x3fbc0000;
+    static constexpr uint64_t r_inv_wasm_5 = 0x1fbc0000;
     static constexpr uint64_t r_inv_wasm_6 = 0x0043ffff;
-    static constexpr uint64_t r_inv_wasm_7 = 0x3ff80000;
+    static constexpr uint64_t r_inv_wasm_7 = 0x1ff80000;
     static constexpr uint64_t r_inv_wasm_8 = 0x0007ffff;
 };
 

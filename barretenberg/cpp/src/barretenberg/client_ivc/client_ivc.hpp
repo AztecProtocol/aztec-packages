@@ -39,6 +39,7 @@ class ClientIVC {
     using MegaVerificationKey = Flavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
+    using Point = Flavor::Curve::AffineElement;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
@@ -69,6 +70,7 @@ class ClientIVC {
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -176,8 +178,9 @@ class ClientIVC {
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
 
-    PairingPoints perform_recursive_verification_and_databus_consistency_checks(
-        ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs, PairingPoints points_accumulator);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints
+    perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
+                                                                  const StdlibVerifierInputs& verifier_inputs);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
@@ -197,6 +200,7 @@ class ClientIVC {
     Proof prove();
 
     std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, MergeProof> construct_hiding_circuit_key();
+    static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

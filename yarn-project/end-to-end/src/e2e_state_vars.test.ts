@@ -94,7 +94,7 @@ describe('e2e_state_vars', () => {
     it('initializing PublicImmutable the second time should fail', async () => {
       // Jest executes the tests sequentially and the first call to initialize_public_immutable was executed
       // in the previous test, so the call below should fail.
-      await expect(contract.methods.initialize_public_immutable(1).prove()).rejects.toThrow(
+      await expect(contract.methods.initialize_public_immutable(1).simulate()).rejects.toThrow(
         'Assertion failed: PublicImmutable already initialized',
       );
     });

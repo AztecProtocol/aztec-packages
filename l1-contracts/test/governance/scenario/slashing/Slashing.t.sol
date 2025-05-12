@@ -22,6 +22,7 @@ import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {TimeCheater} from "../../../staking/TimeCheater.sol";
 
 contract SlashingScenario is TestBase {
   TestERC20 internal testERC20;
@@ -30,6 +31,7 @@ contract SlashingScenario is TestBase {
   Slasher internal slasher;
   SlashFactory internal slashFactory;
   SlashingProposer internal slashingProposer;
+  TimeCheater internal timeCheater;
 
   function test_Slashing() public {
     uint256 validatorCount = 4;
@@ -65,26 +67,42 @@ contract SlashingScenario is TestBase {
     slashingProposer = slasher.PROPOSER();
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
+    timeCheater = new TimeCheater(
+      address(rollup),
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION
+    );
+
     testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
-    // Lets make a proposal to slash!
+    // Cast a bunch of votes
+    timeCheater.cheat__jumpForwardEpochs(1);
+
+    assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
+
+    // Lets make a proposal to slash! For
+    // We jump to perfectly land at the start of the next round
+    uint256 desiredSlot = Slot.unwrap(rollup.getCurrentSlot())
+      + Slot.unwrap(rollup.getCurrentSlot()) % slashingProposer.M();
+
+    timeCheater.cheat__jumpToSlot(desiredSlot);
+    uint256 round = slashingProposer.computeRound(rollup.getCurrentSlot());
 
     uint256 slashAmount = 10e18;
-    IPayload payload = slashFactory.createSlashPayload(Epoch.wrap(0), slashAmount);
-
-    // Cast a bunch of votes
-    vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
+    IPayload payload = slashFactory.createSlashPayload(Epoch.wrap(1), slashAmount);
 
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
       slashingProposer.vote(payload);
-      vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
+      timeCheater.cheat__progressSlot();
     }
 
-    address[] memory attesters = rollup.getAttesters();
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(1));
+    assertEq(attesters.length, validatorCount, "Invalid attester count");
     uint256[] memory stakes = new uint256[](attesters.length);
 
     for (uint256 i = 0; i < attesters.length; i++) {
@@ -93,7 +111,7 @@ contract SlashingScenario is TestBase {
       assertTrue(info.status == Status.VALIDATING, "Invalid status");
     }
 
-    slashingProposer.executeProposal(0);
+    slashingProposer.executeProposal(round);
 
     // Make sure that the slash was successful,
     // Meaning that validators are now LIVING and have lost the slash amount

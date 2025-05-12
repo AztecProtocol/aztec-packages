@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -16,46 +17,47 @@ template <typename FF_> class executionImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        const auto& new_term = in;
-        return (new_term.execution_sel).is_zero();
+        using C = ColumnAndShifts;
+        return (in.get(C::execution_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        using C = ColumnAndShifts;
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.execution_sel * (FF(1) - new_term.execution_sel);
+            auto tmp = in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = new_term.execution_last * (FF(1) - new_term.execution_last);
+            auto tmp = in.get(C::execution_last) * (FF(1) - in.get(C::execution_last));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // TRACE_CONTINUITY_1
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.execution_sel * (FF(1) - new_term.execution_sel_shift) * (FF(1) - new_term.execution_last);
+            auto tmp = in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_shift)) *
+                       (FF(1) - in.get(C::execution_last));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         { // TRACE_CONTINUITY_2
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * (FF(1) - new_term.execution_sel) *
-                       new_term.execution_sel_shift;
+            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::execution_sel)) *
+                       in.get(C::execution_sel_shift);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         { // LAST_IS_LAST
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.execution_last * new_term.execution_sel_shift;
+            auto tmp = in.get(C::execution_last) * in.get(C::execution_sel_shift);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }

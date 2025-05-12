@@ -169,14 +169,14 @@ describe('e2e_fees dapp_subscription', () => {
   it('should reject after the sub runs out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
     await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet), 0);
-    await expect(dappIncrement()).rejects.toThrow(/Block number mismatch/i);
+    await expect(dappIncrement().simulate()).rejects.toThrow(/Block number mismatch/i);
   });
 
   it('should reject after the txs run out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
     await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet), 5, 1);
-    await expect(dappIncrement()).resolves.toBeDefined();
-    await expect(dappIncrement()).rejects.toThrow("you're out of txs");
+    await expect(dappIncrement().send().wait()).resolves.toBeDefined();
+    await expect(dappIncrement().send().wait()).rejects.toThrow("you're out of txs");
   });
 
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
@@ -196,7 +196,7 @@ describe('e2e_fees dapp_subscription', () => {
   function dappIncrement() {
     const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
     const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
-    return counterContractViaDappEntrypoint.methods.increment(bobAddress, aliceAddress).send().wait();
+    return counterContractViaDappEntrypoint.methods.increment(bobAddress, aliceAddress);
   }
 
   const expectBananasPrivateDelta = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>

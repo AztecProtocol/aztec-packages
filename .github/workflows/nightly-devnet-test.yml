@@ -13,7 +13,7 @@ env:
   # This path is a workaround because the runner does not have perms to upload files anywhere else
   STATE_S3_BASE_PATH: s3://aztec-ci-artifacts/build-cache
   STATE_S3_KEY: build-cache/devnet-nightly-tests-state.json
-  AZTEC_VERSION: 0.85.0-alpha-testnet.2
+  AZTEC_VERSION: alpha-testnet
   NODE_URL: http://34.169.170.55:8080
   L1_URL: http://34.169.72.63:8545
   FAUCET_URL: http://34.169.129.31:8086

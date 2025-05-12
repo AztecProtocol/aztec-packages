@@ -12,7 +12,7 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_L1_SLOTS } from './epochs_test.js';
+import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -26,11 +26,15 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let sequencerDelayer: Delayer;
   let monitor: ChainMonitor;
 
+  let L1_BLOCK_TIME_IN_S: number;
+  let L2_SLOT_DURATION_IN_S: number;
+
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup();
     ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
+    ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
 
   afterEach(async () => {
@@ -64,11 +68,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     expect(await rollup.getSlotNumber()).toEqual(8n);
 
     // The prover tx should have been rejected, and mined strictly before the one that triggered the rollback
-    const lastProverTxHash = proverDelayer.getTxs().at(-1);
+    const lastProverTxHash = proverDelayer.getSentTxHashes().at(-1);
     const lastProverTxReceipt = await l1Client.getTransactionReceipt({ hash: lastProverTxHash! });
     expect(lastProverTxReceipt.status).toEqual('reverted');
 
-    const lastL2BlockTxHash = sequencerDelayer.getTxs().at(-1);
+    const lastL2BlockTxHash = sequencerDelayer.getSentTxHashes().at(-1);
     const lastL2BlockTxReceipt = await l1Client.getTransactionReceipt({ hash: lastL2BlockTxHash! });
     expect(lastL2BlockTxReceipt.status).toEqual('success');
     expect(lastL2BlockTxReceipt.blockNumber).toBeGreaterThan(lastProverTxReceipt!.blockNumber);
@@ -83,9 +87,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
       const prover = originalCreate();
       jest.spyOn(prover, 'finaliseEpoch').mockImplementation(async () => {
-        const seconds = L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * test.epochDuration;
+        const seconds = L2_SLOT_DURATION_IN_S * test.epochDuration;
         logger.warn(`Finalise epoch: sleeping ${seconds}s.`);
-        await sleep(L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * test.epochDuration * 1000);
+        await sleep(L2_SLOT_DURATION_IN_S * test.epochDuration * 1000);
         logger.warn(`Finalise epoch: returning.`);
         finaliseEpochPromise.resolve();
         return { publicInputs: RootRollupPublicInputs.random(), proof: Proof.empty() };
@@ -95,7 +99,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
 
     await test.waitUntilEpochStarts(1);
     logger.info(`Starting epoch 1`);
-    const proverTxCount = proverDelayer.getTxs().length;
+    const proverTxCount = proverDelayer.getSentTxHashes().length;
 
     await test.waitUntilEpochStarts(2);
     logger.info(`Starting epoch 2`);
@@ -107,6 +111,6 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     logger.info(`Awaiting finalise epoch`);
     await finaliseEpochPromise.promise;
     await sleep(1000);
-    expect(proverDelayer.getTxs().length - proverTxCount).toEqual(0);
+    expect(proverDelayer.getSentTxHashes().length - proverTxCount).toEqual(0);
   });
 });

@@ -46,9 +46,7 @@ import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
-// Note: these ports must be distinct from the other e2e tests, else the tests will
-// interfere with each other.
-const BOOT_NODE_UDP_PORT = 45000;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-old-'));
 const DATA_DIR_NEW = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-new-'));

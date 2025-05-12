@@ -43,7 +43,7 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7</a></sub></sup>
 
 
-Then you can use the `Contract` class **or** the [generated contract class](#using-generated-class) to deploy the contract.
+Then you can use the `Contract` class **or** the [generated contract class](#using-generated-contract-class) to deploy the contract.
 
 To use the `Contract` class to deploy a contract:
 

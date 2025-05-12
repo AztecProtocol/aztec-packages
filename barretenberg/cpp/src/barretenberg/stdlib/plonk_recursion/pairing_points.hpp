@@ -9,6 +9,7 @@
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -48,16 +49,26 @@ template <typename Builder_> struct PairingPoints {
 
     /**
      * @brief Compute a linear combination of the present pairing points with an input set of pairing points
-     *
+     * @details The linear combination is done with a recursion separator that is the hash of the two sets of pairing
+     * points.
      * @param other
      * @param recursion_separator
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Potentially switch a batch_mul approach to
+    // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
-        Builder* builder = other.P0.get_context();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
-        typename Curve::ScalarField recursion_separator =
-            Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
+        // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
+        BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
+        ASSERT(this->has_data && "Cannot aggregate when accumulator is not set.");
+        ASSERT(other.has_data && "Cannot aggregate with null pairing points.");
+        transcript.send_to_verifier("Accumulator_P0", P0);
+        transcript.send_to_verifier("Accumulator_P1", P1);
+        transcript.send_to_verifier("Aggregated_P0", other.P0);
+        transcript.send_to_verifier("Aggregated_P1", other.P1);
+        auto recursion_separator =
+            transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
         // If Mega Builder is in use, the EC operations are deferred via Goblin
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Can we improve efficiency here?
@@ -113,6 +124,7 @@ template <typename Builder_> struct PairingPoints {
     uint32_t set_public()
     {
         Builder* ctx = P0.get_context();
+        ASSERT(this->has_data && "Calling set_public on empty pairing points.");
         if (ctx->pairing_inputs_public_input_key.is_set()) {
             throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
         }

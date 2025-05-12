@@ -57,6 +57,9 @@ class TranslatorFlavor {
     static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
 
     // None of this parameters can be changed
+    // Number of wires representing the op queue whose commitments are going to be checked against those from the
+    // final round of merge
+    static constexpr size_t NUM_OP_QUEUE_WIRES = 4;
 
     // How many mini_circuit_size polynomials are interleaved in one interleaved_*
     static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
@@ -73,6 +76,11 @@ class TranslatorFlavor {
 
     // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
+
+    // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
+    // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
+    // responsible for checking it against the evaluations received from ECCVM.
+    static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
@@ -161,12 +169,12 @@ class TranslatorFlavor {
                               lagrange_last,                             // column 2
                               // TODO(https://github.com/AztecProtocol/barretenberg/issues/758): Check if one of these
                               // can be replaced by shifts
-                              lagrange_odd_in_minicircuit,            // column 3
-                              lagrange_even_in_minicircuit,           // column 4
-                              lagrange_second,                        // column 5
-                              lagrange_second_to_last_in_minicircuit, // column 6
-                              lagrange_masking,                       // column 7
-                              lagrange_real_last);                    // column 8
+                              lagrange_odd_in_minicircuit,  // column 3
+                              lagrange_even_in_minicircuit, // column 4
+                              lagrange_result_row,          // column 5
+                              lagrange_last_in_minicircuit, // column 6
+                              lagrange_masking,             // column 7
+                              lagrange_real_last);          // column 8
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -643,7 +651,7 @@ class TranslatorFlavor {
 
             // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_second = Polynomial{ /*size*/ 2, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
             lagrange_even_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
             lagrange_odd_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
 
@@ -764,8 +772,8 @@ class TranslatorFlavor {
                        lagrange_last,
                        lagrange_odd_in_minicircuit,
                        lagrange_even_in_minicircuit,
-                       lagrange_second,
-                       lagrange_second_to_last_in_minicircuit,
+                       lagrange_result_row,
+                       lagrange_last_in_minicircuit,
                        lagrange_masking,
                        lagrange_real_last);
     };
@@ -904,8 +912,8 @@ class TranslatorFlavor {
             this->lagrange_last = "__LAGRANGE_LAST";
             this->lagrange_odd_in_minicircuit = "__LAGRANGE_ODD_IN_MINICIRCUIT";
             this->lagrange_even_in_minicircuit = "__LAGRANGE_EVEN_IN_MINICIRCUIT";
-            this->lagrange_second = "__LAGRANGE_SECOND";
-            this->lagrange_second_to_last_in_minicircuit = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
+            this->lagrange_result_row = "__LAGRANGE_RESULT_ROW";
+            this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
             this->lagrange_masking = "__LAGRANGE_MASKING";
             this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
@@ -921,8 +929,8 @@ class TranslatorFlavor {
             this->lagrange_last = verification_key->lagrange_last;
             this->lagrange_odd_in_minicircuit = verification_key->lagrange_odd_in_minicircuit;
             this->lagrange_even_in_minicircuit = verification_key->lagrange_even_in_minicircuit;
-            this->lagrange_second = verification_key->lagrange_second;
-            this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
+            this->lagrange_result_row = verification_key->lagrange_result_row;
+            this->lagrange_last_in_minicircuit = verification_key->lagrange_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
             this->lagrange_masking = verification_key->lagrange_masking;
