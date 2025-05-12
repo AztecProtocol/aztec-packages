@@ -77,21 +77,23 @@ describe('sequencer', () => {
   let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
-  const archive = Fr.random();
-
   const mockedSig = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27);
   const committee = [EthAddress.random()];
 
   const getSignatures = () => [mockedSig];
 
   const getAttestations = () => {
-    const attestation = new BlockAttestation(new ConsensusPayload(block.header, archive, []), mockedSig);
+    const attestation = new BlockAttestation(
+      block.header.globalVariables.blockNumber,
+      ConsensusPayload.fromBlock(block),
+      mockedSig,
+    );
     (attestation as any).sender = committee[0];
     return [attestation];
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(new ConsensusPayload(block.header, archive, [TxHash.random()]), mockedSig);
+    return new BlockProposal(block.header.globalVariables.blockNumber, ConsensusPayload.fromBlock(block), mockedSig);
   };
 
   const processTxs = async (txs: Tx[]) => {
@@ -212,7 +214,7 @@ describe('sequencer', () => {
       const txs = await toArray(txsIter);
       const processed = await processTxs(txs);
       logger.verbose(`Processed ${txs.length} txs`, { txHashes: await Promise.all(txs.map(tx => tx.getTxHash())) });
-      return [processed, [], []];
+      return [processed, [], txs, []];
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
@@ -376,6 +378,7 @@ describe('sequencer', () => {
     publicProcessor.process.mockResolvedValue([
       await processTxs(validTxs),
       [{ tx: invalidTx, error: new Error() }],
+      validTxs,
       [],
     ]);
 
@@ -607,6 +610,7 @@ class TestSubject extends Sequencer {
     numTxs: number;
     numFailedTxs: number;
     blockBuildingTimer: Timer;
+    usedTxs: Tx[];
   }> {
     return super.buildBlock(pendingTxs, newGlobalVariables, opts);
   }

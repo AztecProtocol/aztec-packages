@@ -6,7 +6,7 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
+        log_hash::LogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::{PrivateLog, PrivateLogData},
@@ -91,7 +91,7 @@ impl TailToPublicOutputValidator {
             prev_data.private_logs,
             output_non_revertible.private_logs,
             output_revertible.private_logs,
-            |l: Scoped<PrivateLogData>, out: PrivateLog| out == l.inner.log,
+            |prev: Scoped<PrivateLogData>, out: PrivateLog| out == prev.expose_to_public(),
             split_counter,
         );
     }
@@ -116,7 +116,9 @@ impl TailToPublicOutputValidator {
         // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
             prev_data.contract_class_logs_hashes,
-            prev_data.contract_class_logs_hashes.map(|log: ScopedLogHash| log.expose_to_public()),
+            prev_data.contract_class_logs_hashes.map(|log: Scoped<Counted<LogHash>>| {
+                log.expose_to_public()
+            }),
             split_counter,
             output_non_revertible.contract_class_logs_hashes,
             output_revertible.contract_class_logs_hashes,

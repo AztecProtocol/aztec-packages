@@ -52,10 +52,10 @@ export class ValidatorMetrics {
     this.reExecutionTime.record(time);
   }
 
-  public async recordFailedReexecution(proposal: BlockProposal) {
+  public recordFailedReexecution(proposal: BlockProposal) {
     this.failedReexecutionCounter.add(1, {
       [Attributes.STATUS]: 'failed',
-      [Attributes.BLOCK_PROPOSER]: (await proposal.getSender())?.toString(),
+      [Attributes.BLOCK_PROPOSER]: proposal.getSender().toString(),
     });
   }
 

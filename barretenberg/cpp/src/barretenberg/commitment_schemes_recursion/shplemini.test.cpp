@@ -9,6 +9,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -35,8 +36,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using NativePCS = std::conditional_t<std::same_as<NativeCurve, curve::BN254>, KZG<NativeCurve>, IPA<NativeCurve>>;
     using CommitmentKey = typename NativePCS::CK;
     using ShpleminiProver = ShpleminiProver_<NativeCurve>;
-    static constexpr bool USE_PADDING = true;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
@@ -44,11 +44,13 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using ClaimBatch = ClaimBatcher::Batch;
     using MockClaimGen = MockClaimGenerator<NativeCurve>;
 
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
         using diff_t = std::vector<NativeFr>::difference_type;
 
         size_t N = 1 << log_circuit_size;
+        const auto padding_indicator_array =
+            stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(log_circuit_size);
         constexpr size_t NUM_POLYS = 5;
         constexpr size_t NUM_SHIFTED = 2;
         constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 1;
@@ -123,7 +125,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             .k_shift_magnitude = MockClaimGen::k_magnitude
         };
 
-        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(log_circuit_size,
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                   claim_batcher,
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),

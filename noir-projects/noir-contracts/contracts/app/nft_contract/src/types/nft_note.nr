@@ -146,7 +146,10 @@ impl NFTNote {
 
         let encrypted_log =
             note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
-        context.emit_private_log(encrypted_log);
+        // Regardless of the original content size, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_private_log(encrypted_log, length);
 
         PartialNFTNote { commitment }
     }

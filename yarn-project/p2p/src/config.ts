@@ -146,6 +146,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   gossipsubMcacheGossip: number;
 
   /**
+   * How long to keep message IDs in the seen cache (ms).
+   */
+  gossipsubSeenTTL: number;
+
+  /**
    * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
    */
   doubleSpendSeverePeerPenaltyWindow: number;
@@ -331,6 +336,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
     description: 'How many message cache windows to include when gossiping with other pears.',
     ...numberConfigHelper(3),
+  },
+  gossipsubSeenTTL: {
+    env: 'P2P_GOSSIPSUB_SEEN_TTL',
+    description: 'How long to keep message IDs in the seen cache.',
+    ...numberConfigHelper(20 * 60 * 1000),
   },
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',

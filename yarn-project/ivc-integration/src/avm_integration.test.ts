@@ -1,7 +1,9 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -16,11 +18,9 @@ import {
   MockRollupBasePublicCircuit,
   generate3FunctionTestingIVCStack,
   mapAvmProofToNoir,
-  mapAvmPublicInputsToNoir,
   mapAvmVerificationKeyToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
-  simulateAvmBulkTesting,
   witnessGenMockPublicBaseCircuit,
 } from './index.js';
 import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
@@ -46,9 +46,9 @@ describe('AVM Integration', () => {
   beforeAll(async () => {
     const clientIVCProofPath = await getWorkingDirectory('bb-avm-integration-client-ivc-');
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
-    const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, logger);
+    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCProofPath);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
@@ -77,12 +77,26 @@ describe('AVM Integration', () => {
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = avmTestContractInstance;
 
-    const simRes = await simulateAvmBulkTesting(simTester, expectContractInstance);
+    const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+    const args = [
+      argsField,
+      argsU8,
+      /*getInstanceForAddress=*/ expectContractInstance.address.toField(),
+      /*expectedDeployer=*/ expectContractInstance.deployer.toField(),
+      /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
+      /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
+    ];
+
+    const simRes = await simTester.simulateTx(
+      /*sender=*/ AztecAddress.fromNumber(42),
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [{ address: expectContractInstance.address, fnName: 'bulk_testing', args }],
+      /*teardownCall=*/ undefined,
+    );
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
     const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
-
-    logger.debug('Avm public inputs', mapAvmPublicInputsToNoir(publicInputs));
 
     const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
       tube_data: {
@@ -95,7 +109,7 @@ describe('AVM Integration', () => {
       },
       verification_key: mapAvmVerificationKeyToNoir(vk),
       proof: mapAvmProofToNoir(proof),
-      pub_cols_flattened: mapAvmPublicInputsToNoir(publicInputs),
+      public_inputs: mapAvmCircuitPublicInputsToNoir(publicInputs),
     });
 
     await proveRollupHonk(

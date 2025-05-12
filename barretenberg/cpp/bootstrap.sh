@@ -117,15 +117,6 @@ function build_fuzzing_syntax_check_only {
   cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
 }
 
-# Download ignition transcripts. Only needed for tests.
-# The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
-# TODO: Use the flattened crs. These old transcripts are a pain. Delete this.
-function download_old_crs {
-  cd ./srs_db
-  retry "./download_ignition.sh 3"
-  retry ./download_grumpkin.sh
-}
-
 function build_release {
   local arch=$(arch)
   rm -rf build-release
@@ -144,7 +135,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only download_old_crs
+export -f build_preset build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
 
 function build {
   echo_header "bb cpp build"
@@ -153,7 +144,6 @@ function build {
     build_nodejs_module
     build_wasm
     build_wasm_threads
-    download_old_crs
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # TODO figure out why this is failing on arm64 with ultra circuit builder string op overflow.
@@ -168,18 +158,26 @@ function build {
 
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
-# We append the hash as a comment. This ensures the test harness and cache and skip future runs.
+# We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
   cd build
   for bin in ./bin/*_tests; do
-    bin_name=$(basename $bin)
+    local bin_name=$(basename $bin)
+
     $bin --gtest_list_tests | \
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
       grep -v 'DISABLED_' | \
       while read -r test; do
-        echo -e "$hash barretenberg/cpp/scripts/run_test.sh $bin_name $test"
+        local prefix=$hash
+        # A little extra resource for these tests.
+        # IPARecursiveTests and AcirHonkRecursionConstraint fail with 2 threads.
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ClientIVCKernelCapacity|AvmRecursiveTests|IPARecursiveTests|AcirHonkRecursionConstraint) ]]; then
+          prefix="$prefix:CPUS=4:MEM=8g"
+        fi
+        echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
+  echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.
@@ -208,8 +206,6 @@ function bench {
   build_benchmarks
 
   export HARDWARE_CONCURRENCY=16
-  export IGNITION_CRS_PATH=./srs_db/ignition
-  export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
   rm -rf bench-out && mkdir -p bench-out
 

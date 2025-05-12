@@ -23,9 +23,21 @@ import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
   bytes32 archive;
-  bytes32 blockHash;
+  // Including stateReference here so that the archiver can reconstruct the full block header.
+  // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
+  // by the last archive and blobs hash.
+  // It can be removed if the archiver can refer to world state for the updated roots.
+  bytes stateReference;
   OracleInput oracleInput;
   bytes header;
+  bytes32[] txHashes;
+}
+
+struct ProposePayload {
+  bytes32 archive;
+  bytes stateReference;
+  OracleInput oracleInput;
+  bytes32 headerHash;
   bytes32[] txHashes;
 }
 
@@ -35,6 +47,7 @@ struct InterimProposeValues {
   bytes32 blobPublicInputsHash;
   bytes32 inHash;
   uint256 outboxMinsize;
+  bytes32 headerHash;
 }
 
 /**
@@ -86,8 +99,10 @@ library ProposeLib {
       BlobLib.validateBlobs(_blobInput, _checkBlob);
 
     Header memory header = HeaderLib.decode(_args.header);
+    v.headerHash = HeaderLib.hash(_args.header);
 
-    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage(), currentEpoch);
 
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -96,7 +111,15 @@ library ProposeLib {
       ValidateHeaderArgs({
         header: header,
         attestations: _signatures,
-        digest: digest(_args),
+        digest: digest(
+          ProposePayload({
+            archive: _args.archive,
+            stateReference: _args.stateReference,
+            oracleInput: _args.oracleInput,
+            headerHash: v.headerHash,
+            txHashes: _args.txHashes
+          })
+        ),
         currentTime: Timestamp.wrap(block.timestamp),
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
@@ -107,18 +130,15 @@ library ProposeLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
-    rollupStore.blocks[blockNumber] = BlockLog({
-      archive: _args.archive,
-      blockHash: _args.blockHash,
-      slotNumber: header.globalVariables.slotNumber
-    });
+    rollupStore.blocks[blockNumber] =
+      BlockLog({archive: _args.archive, headerHash: v.headerHash, slotNumber: header.slotNumber});
 
     FeeLib.writeFeeHeader(
       blockNumber,
       _args.oracleInput.feeAssetPriceModifier,
       header.totalManaUsed,
       components.congestionCost,
-      components.provingCost
+      components.proverCost
     );
 
     rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
@@ -142,38 +162,19 @@ library ProposeLib {
 
   // @note: not view as sampling validators uses tstore
   function validateHeader(ValidateHeaderArgs memory _args) internal {
-    require(
-      block.chainid == _args.header.globalVariables.chainId,
-      Errors.Rollup__InvalidChainId(block.chainid, _args.header.globalVariables.chainId)
-    );
-
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    require(
-      _args.header.globalVariables.version == rollupStore.config.version,
-      Errors.Rollup__InvalidVersion(
-        rollupStore.config.version, _args.header.globalVariables.version
-      )
-    );
-
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_args.currentTime);
-
-    require(
-      _args.header.globalVariables.blockNumber == pendingBlockNumber + 1,
-      Errors.Rollup__InvalidBlockNumber(
-        pendingBlockNumber + 1, _args.header.globalVariables.blockNumber
-      )
-    );
 
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(
-      tipArchive == _args.header.lastArchive.root,
-      Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchive.root)
+      tipArchive == _args.header.lastArchiveRoot,
+      Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchiveRoot)
     );
 
-    Slot slot = _args.header.globalVariables.slotNumber;
+    Slot slot = _args.header.slotNumber;
     Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
@@ -182,8 +183,8 @@ library ProposeLib {
 
     Timestamp timestamp = TimeLib.toTimestamp(slot);
     require(
-      _args.header.globalVariables.timestamp == timestamp,
-      Errors.Rollup__InvalidTimestamp(timestamp, _args.header.globalVariables.timestamp)
+      _args.header.timestamp == timestamp,
+      Errors.Rollup__InvalidTimestamp(timestamp, _args.header.timestamp)
     );
 
     require(
@@ -196,12 +197,10 @@ library ProposeLib {
       Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
     );
 
-    require(_args.header.globalVariables.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
+    require(_args.header.gasFees.feePerDaGas == 0, Errors.Rollup__NonZeroDaFee());
     require(
-      _args.header.globalVariables.gasFees.feePerL2Gas == _args.manaBaseFee,
-      Errors.Rollup__InvalidManaBaseFee(
-        _args.manaBaseFee, _args.header.globalVariables.gasFees.feePerL2Gas
-      )
+      _args.header.gasFees.feePerL2Gas == _args.manaBaseFee,
+      Errors.Rollup__InvalidManaBaseFee(_args.manaBaseFee, _args.header.gasFees.feePerL2Gas)
     );
 
     ValidatorSelectionLib.verify(
@@ -233,7 +232,7 @@ library ProposeLib {
     return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
   }
 
-  function digest(ProposeArgs memory _args) internal pure returns (bytes32) {
+  function digest(ProposePayload memory _args) internal pure returns (bytes32) {
     return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
   }
 }

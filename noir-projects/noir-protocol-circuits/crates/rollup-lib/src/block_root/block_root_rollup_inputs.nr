@@ -27,8 +27,7 @@ impl BlockRootRollupInputs {
         BlockRootRollupInputsValidator::new(
             self.previous_rollup_data,
             ALLOWED_PREVIOUS_CIRCUITS,
-            self.data.l1_to_l2_roots,
-            self.data.previous_block_header,
+            self.data,
         )
             .validate();
 
@@ -50,7 +49,7 @@ pub(crate) mod tests {
         block_root::block_root_rollup_inputs::BlockRootRollupInputs,
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
-    use std::hash::poseidon2::Poseidon2;
+    use poseidon::poseidon2::Poseidon2;
     use types::{
         hash::accumulate_sha256, tests::utils::assert_array_eq, utils::arrays::array_concat,
     };
@@ -190,6 +189,27 @@ pub(crate) mod tests {
 
         builder.inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start.note_hash_tree.root +=
             1;
+
+        let _ = builder.execute();
+    }
+
+    #[test(should_fail_with = "input proofs have different note hash tree snapshots")]
+    unconstrained fn random_block_header_for_second_tx_fails() {
+        let mut builder = TestBuilder::new();
+
+        builder.inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start.note_hash_tree.root +=
+            1;
+
+        let _ = builder.execute();
+    }
+
+    #[test(should_fail_with = "hash of the previous block header is not the last leaf in the archive tree")]
+    unconstrained fn random_previous_block_header_fails() {
+        let mut builder = TestBuilder::new();
+
+        builder.inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start.note_hash_tree.root +=
+            1;
+        builder.inputs.previous_block_header.state.partial.note_hash_tree.root += 1;
 
         let _ = builder.execute();
     }

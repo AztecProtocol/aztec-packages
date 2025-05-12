@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::goblin {
@@ -23,7 +29,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
 template <typename CircuitBuilder>
-MergeRecursiveVerifier_<CircuitBuilder>::AggregationObject MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
+MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const StdlibProof<CircuitBuilder>& proof)
 {
     // Transform proof into a stdlib object

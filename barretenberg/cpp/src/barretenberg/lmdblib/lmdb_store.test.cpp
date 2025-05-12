@@ -999,8 +999,12 @@ TEST_F(LMDBStoreTest, reports_stats)
     write_test_data(dbNames, numKeys, numValues, *store);
 
     std::vector<DBStats> stats;
-    uint64_t mapSize = store->get_stats(stats);
+    auto [mapSize, physicalFileSize] = store->get_stats(stats);
+    std::string dataDbPath = (std::filesystem::path(_directory) / "data.mdb").string();
+    EXPECT_TRUE(std::filesystem::exists(dataDbPath));
+
     EXPECT_EQ(mapSize, LMDBStoreTest::_mapSize * 1024);
+    EXPECT_EQ(physicalFileSize, std::filesystem::file_size(dataDbPath));
     EXPECT_EQ(stats.size(), 2);
     for (size_t i = 0; i < 2; i++) {
         if (stats[i].name == dbNames[0]) {

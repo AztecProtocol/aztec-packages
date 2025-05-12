@@ -28,7 +28,7 @@ cores=${CPUS:-$cores}
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
   set +e
-  if [ -n "$iid" ]; then
+  if [ -n "${iid:-}" ]; then
     if [ "$NO_TERMINATE" -eq 0 ]; then
       aws_terminate_instance $iid $sir
     else
@@ -144,7 +144,7 @@ container_script=$(cat <<EOF
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 
   function run {
-    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL CI_NIGHTLY=\$CI_NIGHTLY DRY_RUN=\${DRY_RUN:-0}"
+    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL USE_TEST_CACHE=\$USE_TEST_CACHE CI_NIGHTLY=\$CI_NIGHTLY DRY_RUN=\${DRY_RUN:-0}"
     if semver check "\$REF_NAME"; then
       echo "Performing a release because \$REF_NAME is a semver."
     fi
@@ -280,7 +280,7 @@ function run {
       -v bootstrap_ci_local_docker:/var/lib/docker \
       -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
       -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
+      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
       -v /tmp:/tmp \
       -v /dev/kmsg:/dev/kmsg \
       -e RUN_ID=${RUN_ID:-} \

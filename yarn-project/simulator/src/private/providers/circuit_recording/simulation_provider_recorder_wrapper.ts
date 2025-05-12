@@ -4,6 +4,7 @@ import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import type { ACIRCallback, ACIRExecutionResult } from '../../acvm/acvm.js';
 import type { ACVMWitness } from '../../acvm/acvm_types.js';
+import type { ACVMSuccess } from '../acvm_native.js';
 import type { SimulationProvider } from '../simulation_provider.js';
 import { CircuitRecorder } from './circuit_recorder.js';
 
@@ -18,10 +19,10 @@ export class SimulationProviderRecorderWrapper implements SimulationProvider {
     input: ACVMWitness,
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler | undefined,
-  ): Promise<ACVMWitness> {
+  ): Promise<ACVMSuccess> {
     const bytecode = Buffer.from(artifact.bytecode, 'base64');
 
-    return this.#simulate<ForeignCallHandler | undefined, ACVMWitness>(
+    return this.#simulate<ForeignCallHandler | undefined, ACVMSuccess>(
       wrappedCallback => this.simulator.executeProtocolCircuit(input, artifact, wrappedCallback),
       input,
       bytecode,

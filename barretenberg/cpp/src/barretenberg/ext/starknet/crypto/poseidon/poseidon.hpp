@@ -1,3 +1,4 @@
+#ifdef STARKNET_GARAGA_FLAVORS
 #pragma once
 
 #include "barretenberg/crypto/poseidon2/sponge/sponge.hpp"
@@ -20,3 +21,4 @@ template <typename Params> class Poseidon {
 extern template class Poseidon<PoseidonStark252BaseFieldParams>;
 
 } // namespace bb::starknet::crypto
+#endif

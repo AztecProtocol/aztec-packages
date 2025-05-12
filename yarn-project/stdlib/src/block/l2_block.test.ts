@@ -1,3 +1,5 @@
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+
 import { L2Block } from './l2_block.js';
 
 describe('L2Block', () => {
@@ -8,5 +10,11 @@ describe('L2Block', () => {
     const recovered = L2Block.fromBuffer(buffer);
 
     expect(recovered).toEqual(block);
+  });
+
+  it('convert to and from json', async () => {
+    const block = await L2Block.random(42);
+    const parsed = L2Block.schema.parse(JSON.parse(jsonStringify(block)));
+    expect(parsed).toEqual(block);
   });
 });

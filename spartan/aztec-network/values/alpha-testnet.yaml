@@ -24,6 +24,7 @@ network:
 
 blobSink:
   enabled: true
+  archiveApiUrl: "https://api.sepolia.blobscan.com"
   dataStoreConfig:
     dataDir: "/data"
     storageSize: "128Gi"
@@ -44,6 +45,8 @@ bootNode:
   externalHost: "http://localhost:8080"
 
 fullNode:
+  fixedStaticIpName: "alpha-testnet-full-node-ip"
+  staticIpUrl: full-node.alpha-testnet.aztec.network
   enabled: true
   replicas: 1
   maxOldSpaceSize: "8192"
@@ -58,6 +61,7 @@ proverNode:
   l1FixedPriorityFeePerGas: 3
   l1GasLimitBufferPercentage: 15
   l1GasPriceMax: 1000
+  failedEpochStore: "gs://aztec-testnet/failed-epochs/"
   maxOldSpaceSize: "8192"
   storageSize: "512Gi"
   resources:
@@ -81,6 +85,9 @@ validator:
     requests:
       cpu: "3"
       memory: "10Gi"
+
+proverBroker:
+  storageSize: "10Gi"
 
 proverAgent:
   replicas: 32

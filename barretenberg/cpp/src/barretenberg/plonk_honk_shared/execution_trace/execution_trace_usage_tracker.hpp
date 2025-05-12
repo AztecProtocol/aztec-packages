@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
@@ -121,15 +127,13 @@ struct ExecutionTraceUsageTracker {
 
     void print()
     {
+        // NOTE: This is used by downstream tools for parsing the required block sizes. Do not change this
+        // without updating (or consulting Grego).
         info("Largest circuit: ", max_gates_size, " gates. Trace details:");
+        info("Minimum required block sizes for structured trace: ");
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {
-            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size;
-            if (idx % 4 == 3) {
-                std::cout << std::endl;
-            } else {
-                std::cout << "\t";
-            }
+            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
             idx++;
         }
         info("");

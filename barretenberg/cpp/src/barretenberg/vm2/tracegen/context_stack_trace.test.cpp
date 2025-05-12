@@ -13,7 +13,6 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
 TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
 {
@@ -22,6 +21,7 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
 
     builder.process({ {
                         .id = 1,
+                        .parent_id = 0,
                         .next_pc = 20,
                         .msg_sender = 30,
                         .contract_addr = 40,
@@ -33,7 +33,8 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
                 ElementsAre(
                     // Only one row.
                     AllOf(ROW_FIELD_EQ(R, context_stack_context_id, 1),
-                          ROW_FIELD_EQ(R, context_stack_pc, 20),
+                          ROW_FIELD_EQ(R, context_stack_parent_id, 0),
+                          ROW_FIELD_EQ(R, context_stack_next_pc, 20),
                           ROW_FIELD_EQ(R, context_stack_msg_sender, 30),
                           ROW_FIELD_EQ(R, context_stack_contract_address, 40),
                           ROW_FIELD_EQ(R, context_stack_is_static, false))));

@@ -9,8 +9,7 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { PublicTxSimulationTester } from '../../../server.js';
-import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from '../public_processor.js';

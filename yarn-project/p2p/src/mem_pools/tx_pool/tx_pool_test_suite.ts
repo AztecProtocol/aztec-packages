@@ -110,6 +110,49 @@ export function describeTxPool(getTxPool: () => TxPool) {
     );
   });
 
+  it('Returns txs by their hash', async () => {
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
+    const tx3 = await mockTx(3);
+
+    await pool.addTxs([tx1, tx2, tx3]);
+
+    const requestedTxs = await pool.getTxsByHash([await tx1.getTxHash(), await tx3.getTxHash()]);
+    expect(requestedTxs).toHaveLength(2);
+    expect(requestedTxs).toEqual(expect.arrayContaining([tx1, tx3]));
+  });
+
+  it('Returns a large number of transactions by their hash', async () => {
+    const numTxs = 1000;
+    const txs = await Promise.all(Array.from({ length: numTxs }, (_, i) => mockTx(i)));
+    const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+    await pool.addTxs(txs);
+    const requestedTxs = await pool.getTxsByHash(hashes);
+    expect(requestedTxs).toHaveLength(numTxs);
+    expect(requestedTxs).toEqual(expect.arrayContaining(txs));
+  });
+
+  it('Returns whether or not txs exist', async () => {
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
+    const tx3 = await mockTx(3);
+
+    await pool.addTxs([tx1, tx2, tx3]);
+
+    const tx4 = await mockTx(4);
+    const tx5 = await mockTx(5);
+
+    const availability = await pool.hasTxs([
+      await tx1.getTxHash(),
+      await tx2.getTxHash(),
+      await tx3.getTxHash(),
+      await tx4.getTxHash(),
+      await tx5.getTxHash(),
+    ]);
+    expect(availability).toHaveLength(5);
+    expect(availability).toEqual(expect.arrayContaining([true, true, true, false, false]));
+  });
+
   it('Returns pending tx hashes sorted by priority', async () => {
     const withPriorityFee = (tx: Tx, fee: number) => {
       unfreeze(tx.data.constants.txContext.gasSettings).maxPriorityFeesPerGas = new GasFees(fee, fee);

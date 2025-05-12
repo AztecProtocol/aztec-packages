@@ -99,6 +99,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: BLOB_SINK_PORT
               value: "{{ .Values.blobSink.service.nodePort }}"
+            - name: BLOB_SINK_ARCHIVE_API_URL
+              value: "{{ .Values.blobSink.archiveApiUrl }}"
             - name: LOG_LEVEL
               value: "{{ .Values.blobSink.logLevel }}"
             - name: LOG_JSON

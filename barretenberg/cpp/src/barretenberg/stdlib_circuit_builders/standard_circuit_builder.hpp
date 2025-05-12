@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -31,7 +37,6 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
-    // TODO(#216)(Adrian): Why is this not in CircuitBuilderBase
     std::map<FF, uint32_t> constant_variable_indices;
 
     StandardCircuitBuilder_(const size_t size_hint = 0)

@@ -63,7 +63,7 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
     );
 }
 
-#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow 'self - other'")]
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, not_owner, amount) =

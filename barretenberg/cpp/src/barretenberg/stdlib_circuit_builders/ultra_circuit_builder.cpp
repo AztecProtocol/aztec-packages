@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file ultra_circuit_builder.cpp
  * @author Luke (ledwards2225) and Kesha (Rumata888)
@@ -2857,32 +2863,34 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     ++this->num_gates;
 }
 
-template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit()
+/**
+ * @brief Compute a hash of some of the main circuit components.
+ * @note This hash can differ for circuits that will ultimately result in an identical verification key. For example,
+ * when we construct circuits from acir programs with dummy witnesses, the hash will in general disagree with the hash
+ * of the circuit constructed using a genuine witness. This is not because the hash includes geunines witness values
+ * (only indices) but rather because in the dummy witness context we use add_variable and assert_equal to set the values
+ * of dummy witnesses, which effects the content of real_variable_index, but in the end results in an identical
+ * VK/circuit.
+ *
+ */
+template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit() const
 {
-    finalize_circuit(/*ensure_nonzero=*/false);
+    // Copy the circuit and finalize without modifying the original
+    auto circuit = *this;
+    circuit.finalize_circuit(/*ensure_nonzero=*/false);
 
-    size_t sum_of_block_sizes(0);
-    for (auto& block : blocks.get()) {
-        sum_of_block_sizes += block.size();
-    }
-
-    size_t num_bytes_in_selectors = sizeof(FF) * ExecutionTrace::NUM_SELECTORS * sum_of_block_sizes;
-    size_t num_bytes_in_wires_and_copy_constraints =
-        sizeof(uint32_t) * (ExecutionTrace::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
-    size_t num_bytes_to_hash = num_bytes_in_selectors + num_bytes_in_wires_and_copy_constraints;
-
-    std::vector<uint8_t> to_hash(num_bytes_to_hash);
-
+    std::vector<uint8_t> to_hash;
     const auto convert_and_insert = [&to_hash](auto& vector) {
         std::vector<uint8_t> buffer = to_buffer(vector);
         to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
     };
 
+    // Hash the selectors, the wires, and the variable index array (which captures information about copy constraints)
     for (auto& block : blocks.get()) {
         std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
         std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
     }
-    convert_and_insert(this->real_variable_index);
+    convert_and_insert(circuit.real_variable_index);
 
     return from_buffer<uint256_t>(crypto::sha256(to_hash));
 }
@@ -2926,7 +2934,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     for (auto var : this->variables) {
         cir.variables.push_back(var);
     }
-    // TODO(alex): manage non native gates
 
     FF curve_b;
     if constexpr (FF::modulus == bb::fq::modulus) {
@@ -2988,6 +2995,37 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     for (const auto& list : range_lists) {
         cir.range_tags[list.second.range_tag] = list.first;
+    }
+
+    for (auto& rom_table : this->rom_arrays) {
+        std::sort(rom_table.records.begin(), rom_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(rom_table.records.size());
+        for (const auto& rom_entry : rom_table.records) {
+            table.push_back({
+                this->real_variable_index[rom_entry.index_witness],
+                this->real_variable_index[rom_entry.value_column1_witness],
+                this->real_variable_index[rom_entry.value_column2_witness],
+            });
+        }
+        cir.rom_records.push_back(table);
+        cir.rom_states.push_back(rom_table.state);
+    }
+
+    for (auto& ram_table : this->ram_arrays) {
+        std::sort(ram_table.records.begin(), ram_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(ram_table.records.size());
+        for (const auto& ram_entry : ram_table.records) {
+            table.push_back({ this->real_variable_index[ram_entry.index_witness],
+                              this->real_variable_index[ram_entry.value_witness],
+                              this->real_variable_index[ram_entry.timestamp_witness],
+                              ram_entry.access_type });
+        }
+        cir.ram_records.push_back(table);
+        cir.ram_states.push_back(ram_table.state);
     }
 
     cir.circuit_finalized = this->circuit_finalized;

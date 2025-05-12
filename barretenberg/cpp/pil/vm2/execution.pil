@@ -10,6 +10,7 @@ include "range_check.pil";
 include "bitwise.pil";
 include "merkle_check.pil";
 include "memory.pil";
+include "keccakf1600.pil";
 include "precomputed.pil";
 include "sha256.pil";
 include "ecc.pil";
@@ -20,23 +21,51 @@ include "to_radix.pil";
 include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
-include "public_data_read.pil";
+include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
+include "public_inputs.pil";
 
 namespace execution;
 
 pol commit sel; // subtrace selector
 
+#[skippable_if]
+sel = 0;
+
+// Subtrace operation id
+pol commit subtrace_operation_id;
+
+// Subtrace Dispatch selectors
+// These boolean selectors are constrained via the precomputed Execution Instruction Spec Table
+pol commit sel_alu;
+pol commit sel_bitwise;
+pol commit sel_to_radix;
+pol commit sel_ecc_add;
+pol commit sel_poseidon2_perm;
+
 pol commit ex_opcode;
 pol commit indirect;
 // operands
 pol commit op1, op2, op3, op4;
+pol commit op5, op6, op7;
 // resolved operands
 pol commit rop1, rop2, rop3, rop4;
+pol commit rop5, rop6, rop7;
+// Registers
+pol commit reg1, reg2, reg3, reg4;
+pol commit reg5, reg6, reg7;
+// Memory Acccesses
+pol commit mem_op1, mem_op2, mem_op3, mem_op4;
+pol commit mem_op5, mem_op6, mem_op7;
+// Memory Tag
+pol commit mem_tag1, mem_tag2, mem_tag3, mem_tag4;
+pol commit mem_tag5, mem_tag6, mem_tag7;
+// Read / Write selectors
+pol commit rw1, rw2, rw3, rw4;
+pol commit rw5, rw6, rw7;
 
 pol commit bytecode_id;
-pol commit clk;
 pol commit last;
 
 // Selector constraints

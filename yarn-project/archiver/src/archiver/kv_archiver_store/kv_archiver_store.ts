@@ -7,6 +7,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
+  ContractDataSource,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
@@ -33,7 +34,7 @@ export const ARCHIVER_DB_VERSION = 1;
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
-export class KVArchiverDataStore implements ArchiverDataStore {
+export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSource {
   public static readonly SCHEMA_VERSION = ARCHIVER_DB_VERSION;
 
   #blockStore: BlockStore;
@@ -51,6 +52,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
     this.#contractInstanceStore = new ContractInstanceStore(db);
+  }
+
+  public getBlockNumber(): Promise<number> {
+    return this.getSynchedL2BlockNumber();
+  }
+
+  public async getContract(
+    address: AztecAddress,
+    blockNumber?: number,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    return this.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
@@ -157,8 +169,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
-    return this.#blockStore.addBlocks(blocks);
+  addBlocks(blocks: PublishedL2Block[], opts: { force?: boolean } = {}): Promise<boolean> {
+    return this.#blockStore.addBlocks(blocks, opts);
   }
 
   /**
@@ -172,6 +184,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
   }
 
+  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
+    return this.#blockStore.getBlock(number);
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    *
@@ -179,7 +195,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
+  getPublishedBlocks(start: number, limit: number): Promise<PublishedL2Block[]> {
     return toArray(this.#blockStore.getBlocks(start, limit));
   }
 
@@ -346,5 +362,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   public estimateSize(): Promise<StoreSize> {
     return this.db.estimateSize();
+  }
+
+  public rollbackL1ToL2MessagesToL2Block(
+    targetBlockNumber: number | bigint,
+    currentBlock: number | bigint,
+  ): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(BigInt(targetBlockNumber), BigInt(currentBlock));
   }
 }

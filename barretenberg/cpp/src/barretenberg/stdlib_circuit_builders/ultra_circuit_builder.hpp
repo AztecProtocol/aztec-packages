@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
@@ -292,7 +298,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
-    // TODO(#216)(Adrian): Why is this not in CircuitBuilderBase
     std::map<FF, uint32_t> constant_variable_indices;
 
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
@@ -863,7 +868,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 
-    uint256_t hash_circuit();
+    uint256_t hash_circuit() const;
 
     msgpack::sbuffer export_circuit() override;
 };

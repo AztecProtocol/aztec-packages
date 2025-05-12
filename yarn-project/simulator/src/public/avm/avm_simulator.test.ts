@@ -10,7 +10,9 @@ import {
 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import type { Fieldable } from '@aztec/foundation/serialize';
-import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
+import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
+import { NoteGetterContract } from '@aztec/noir-test-contracts.js/NoteGetter';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
@@ -39,10 +41,8 @@ import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
+import { AvmRevertReason } from './errors.js';
 import {
-  getAvmGadgetsTestContractBytecode,
-  getAvmTestContractArtifact,
-  getAvmTestContractBytecode,
   getContractFunctionArtifact,
   initContext,
   initExecutionEnvironment,
@@ -52,7 +52,6 @@ import {
   randomMemoryBytes,
   randomMemoryFields,
   randomMemoryUint64s,
-  resolveAvmTestContractAssertionMessage,
   resolveContractAssertionMessage,
 } from './fixtures/index.js';
 import {
@@ -101,10 +100,10 @@ describe('AVM simulator: injected bytecode', () => {
     bytecode = encodeToBytecode([
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
-      new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
+      new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
       new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
-      new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySizeOffset=*/ 0),
+      new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
     ]);
   });
 
@@ -472,7 +471,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const calldata = input.map(e => e.toFr());
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      const bytecode = getAvmGadgetsTestContractBytecode(name);
+      const bytecode = getAvmGadgetsTestContractArtifact(name).bytecode;
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
@@ -1264,10 +1263,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   it('should be able to execute contracts that only have private functions', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata: [] }) });
 
-    // Counter contract is a private only contract (no public functions)
+    // NoteGetter contract is a private only contract (no public functions)
     const counterDispatch = getContractFunctionArtifact(
       'public_dispatch',
-      CounterContract.artifact,
+      NoteGetterContract.artifact,
     ) as FunctionArtifact;
     assert(!!counterDispatch?.bytecode);
     const results = await new AvmSimulator(context).executeBytecode(counterDispatch.bytecode);
@@ -1279,7 +1278,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         'public_dispatch',
         results.revertReason!,
         results.output,
-        CounterContract.artifact,
+        NoteGetterContract.artifact,
       ),
     ).toMatch('No public functions');
   });
@@ -1307,4 +1306,35 @@ async function pedersenFromMemoryFields(fields: Fieldable[]): Promise<Fr[]> {
 
 async function indexedPedersenFromMemoryFields(fields: Fieldable[]): Promise<Fr[]> {
   return [await pedersenHash(fields, /*index=*/ 20)];
+}
+
+function resolveAvmTestContractAssertionMessage(
+  functionName: string,
+  revertReason: AvmRevertReason,
+  output: Fr[],
+): string | undefined {
+  return resolveContractAssertionMessage(functionName, revertReason, output, AvmTestContract.artifactForPublic);
+}
+
+function getAvmTestContractBytecode(functionName: string): Buffer {
+  const artifact = getAvmTestContractArtifact(functionName);
+  return artifact.bytecode;
+}
+
+function getAvmGadgetsTestContractArtifact(functionName: string): FunctionArtifact {
+  const artifact = AvmGadgetsTestContract.artifactForPublic.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact;
+}
+
+function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
+  const artifact = getContractFunctionArtifact(functionName, AvmTestContract.artifactForPublic) as FunctionArtifact;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact;
 }

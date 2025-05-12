@@ -10,7 +10,7 @@ import {TimeCheater} from "./TimeCheater.sol";
 
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
-import {Slasher} from "@aztec/core/staking/Slasher.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet

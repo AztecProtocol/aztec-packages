@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, sleep } from '@aztec/aztec.js';
+import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
 import { addL1Validator } from '@aztec/cli/l1';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -25,7 +25,7 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
-const BOOT_NODE_UDP_PORT = 44600;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -93,13 +93,13 @@ describe('e2e_p2p_network', () => {
     const rollup = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     const stakingAssetHandler = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!.toString(),
       abi: StakingAssetHandlerAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
+      client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
     expect((await rollup.read.getAttesters()).length).toBe(0);
@@ -121,9 +121,8 @@ describe('e2e_p2p_network', () => {
       });
     }
 
-    // Changes do not take effect until the next epoch
     const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
-    expect(attestersImmedatelyAfterAdding.length).toBe(0);
+    expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
@@ -148,8 +147,8 @@ describe('e2e_p2p_network', () => {
     expect(attesters.length).toBe(NUM_NODES);
 
     // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await t.ctx.deployL1ContractsValues.l1Client.sendTransaction({
         to: t.baseAccount.address,
         value: 1n,
         account: t.baseAccount,
@@ -202,10 +201,12 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = await contexts[0].txs[0].getReceipt().then(r => r.blockNumber!);
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
-    const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
+    const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures.filter(s => !s.isEmpty).map(sig => new BlockAttestation(payload, sig));
-    const signers = await Promise.all(attestations.map(att => att.getSender().then(s => s.toString())));
+    const attestations = block.signatures
+      .filter(s => !s.isEmpty)
+      .map(sig => new BlockAttestation(new Fr(block.block.number), payload, sig));
+    const signers = attestations.map(att => att.getSender().toString());
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
