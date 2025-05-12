@@ -53,6 +53,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   ) {
     super();
     const { p2pIp, p2pPort, p2pBroadcastPort, bootstrapNodes, trustedPeers, privatePeers } = config;
+
     this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
     const privatePeerEnrs = new Set(privatePeers);
     this.trustedPeerEnrs = trustedPeers.filter(x => !privatePeerEnrs.has(x)).map(x => ENR.decodeTxt(x));
@@ -63,6 +64,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
     // If no overridden broadcast port is provided, use the p2p port as the broadcast port
     if (!p2pBroadcastPort) {
+      this.logger.warn('No p2pBroadcastPort provided, using p2pPort as broadcast port');
       config.p2pBroadcastPort = p2pPort;
     }
 
@@ -204,7 +206,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     }
   }
 
-  public getAllPeers(): ENR[] {
+  public getKadValues(): ENR[] {
     return this.discv5.kadValues();
   }
 

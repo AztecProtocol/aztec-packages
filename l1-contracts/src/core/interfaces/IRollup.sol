@@ -19,8 +19,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 struct PublicInputArgs {
   bytes32 previousArchive;
   bytes32 endArchive;
-  bytes32 previousBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
-  bytes32 endBlockHash; // @todo #8829 Not needed as public input, unconstrained on L1
   Timestamp endTimestamp;
   bytes32 outHash;
   address proverId;
@@ -37,7 +35,7 @@ struct SubmitEpochRootProofArgs {
 
 struct BlockLog {
   bytes32 archive;
-  bytes32 blockHash;
+  bytes32 headerHash; // hash of the proposed block header
   Slot slotNumber;
 }
 
@@ -71,7 +69,6 @@ struct GenesisState {
   bytes32 vkTreeRoot;
   bytes32 protocolContractTreeRoot;
   bytes32 genesisArchiveRoot;
-  bytes32 genesisBlockHash;
 }
 
 struct RollupConfigInput {

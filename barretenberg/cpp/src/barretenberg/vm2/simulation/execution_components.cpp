@@ -19,7 +19,7 @@ std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_nested_conte
                                            msg_sender,
                                            is_static,
                                            std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-                                           std::make_unique<Memory>(context_id, memory_events),
+                                           std::make_unique<Memory>(context_id, range_check, memory_events),
                                            parent_context,
                                            cd_offset_address,
                                            cd_size_address);
@@ -37,7 +37,7 @@ std::unique_ptr<ContextInterface> ExecutionComponentsProvider::make_enqueued_con
                                                  msg_sender,
                                                  is_static,
                                                  std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
-                                                 std::make_unique<Memory>(context_id, memory_events),
+                                                 std::make_unique<Memory>(context_id, range_check, memory_events),
                                                  calldata);
 }
 

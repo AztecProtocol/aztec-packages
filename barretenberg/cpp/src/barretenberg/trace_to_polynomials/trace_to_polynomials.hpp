@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
@@ -31,7 +37,7 @@ template <class Flavor> class TraceToPolynomials {
 
             PROFILE_THIS_NAME("TraceData constructor");
 
-            if constexpr (IsUltraFlavor<Flavor>) {
+            if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 // Initialize and share the wire and selector polynomials
                 for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
                     wire = other_wire.share();

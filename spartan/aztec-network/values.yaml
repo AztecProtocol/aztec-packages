@@ -17,7 +17,11 @@ network:
   # If true then configured bootnodes are considered non-gossiping peers
   p2pBootstrapNodesAsFullPeers: true
 
-  mempoolLimitBytes: 100000000 # approx 100MB
+  mempoolLimitBytes: "100000000" # approx 100MB
+
+blobs:
+  remoteBlobSinkUrl: ""
+  remoteBlobSinkEnabled: false
 
 storage:
   localSsd: false
@@ -211,6 +215,7 @@ proverNode:
     intervalMs: 1000
     maxParallelRequests: 100
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  failedEpochStore: ""
   l1GasPriceMax: 100
   l1FixedPriorityFeePerGas: ""
   l1GasLimitBufferPercentage: ""

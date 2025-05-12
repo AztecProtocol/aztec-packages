@@ -72,9 +72,8 @@ export async function startProverNode(
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
-  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
@@ -109,9 +108,8 @@ export async function startProverNode(
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
-  const p2p = proverNode.getP2P();
-  if (p2p) {
-    services.p2p = [proverNode.getP2P(), P2PApiSchema];
+  if (proverNode.getP2P()) {
+    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
   }
 
   if (!proverConfig.proverBrokerUrl) {
@@ -120,6 +118,6 @@ export async function startProverNode(
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  proverNode.start();
+  await proverNode.start();
   return { config: proverConfig };
 }

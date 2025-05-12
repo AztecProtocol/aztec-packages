@@ -25,10 +25,10 @@ pub struct PrivateSet<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<N> for PrivateSet<T, Context>
-where
-    T: Packable<N>,
-{
+// Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
+// value spilling over multiple slots. For this reason PrivateSet (and all other private state variables) needs just one
+// slot to be reserved, regardless of what it stores.
+impl<T, Context> Storage<1> for PrivateSet<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }

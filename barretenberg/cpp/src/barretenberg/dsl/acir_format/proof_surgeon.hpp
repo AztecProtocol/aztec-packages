@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -17,7 +23,8 @@ class ProofSurgeon {
     // construct a string of the form "[<fr_0 hex>, <fr_1 hex>, ...]"
     static std::string to_json(const std::vector<bb::fr>& data)
     {
-        return format("[", bb::join(map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
+        return format(
+            "[", bb::join(bb::transform::map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
     }
 
   public:
@@ -37,7 +44,7 @@ class ProofSurgeon {
 
         // Get public inputs by cutting them out of the proof
         size_t num_public_inputs_to_extract =
-            static_cast<uint32_t>(verification_key.num_public_inputs) - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+            static_cast<uint32_t>(verification_key.num_public_inputs) - bb::PAIRING_POINTS_SIZE;
         if (ipa_accumulation) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }

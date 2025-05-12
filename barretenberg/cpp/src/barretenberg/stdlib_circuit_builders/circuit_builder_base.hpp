@@ -1,11 +1,17 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
-#include <msgpack/sbuffer_decl.hpp>
 #include <utility>
 
 #include <unordered_map>
@@ -39,13 +45,15 @@ template <typename FF_> class CircuitBuilderBase {
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> tau;
 
-    // Public input indices which contain recursive proof information
+    // (PLONK ONLY) Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bool contains_pairing_point_accumulator = false;
 
-    // Public input indices which contain the output IPA opening claim
-    IPAClaimPubInputIndices ipa_claim_public_input_indices;
-    bool contains_ipa_claim = false;
+    // Index of the pairing inputs in the public inputs
+    PublicComponentKey pairing_inputs_public_input_key;
+
+    // Index of the IPA opening claim in the public inputs
+    PublicComponentKey ipa_claim_public_input_key;
 
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
     // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
@@ -254,6 +262,10 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    std::vector<std::vector<std::vector<uint32_t>>> rom_records;
+    std::vector<std::vector<std::array<uint32_t, 2>>> rom_states;
+    std::vector<std::vector<std::vector<uint32_t>>> ram_records;
+    std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
@@ -265,6 +277,10 @@ template <typename FF> struct CircuitSchemaInternal {
                    lookup_tables,
                    real_variable_tags,
                    range_tags,
+                   rom_records,
+                   rom_states,
+                   ram_records,
+                   ram_states,
                    circuit_finalized);
 };
 } // namespace bb

@@ -28,7 +28,7 @@ import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {Slasher} from "@aztec/core/staking/Slasher.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -120,7 +120,6 @@ contract RollupCore is
     onlyOwner
   {
     CheatLib.cheat__InitialiseValidatorSet(_args);
-    setupEpoch();
   }
 
   function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
@@ -176,7 +175,6 @@ contract RollupCore is
     external
     override(IStakingCore)
   {
-    setupEpoch();
     StakingLib.deposit(_attester, _proposer, _withdrawer, _amount);
   }
 
@@ -185,7 +183,6 @@ contract RollupCore is
     override(IStakingCore)
     returns (bool)
   {
-    setupEpoch();
     return StakingLib.initiateWithdraw(_attester, _recipient);
   }
 

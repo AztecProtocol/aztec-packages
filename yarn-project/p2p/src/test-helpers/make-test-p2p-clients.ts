@@ -1,6 +1,7 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -57,6 +58,7 @@ export async function makeTestP2PClient(
     p2pEnabled: true,
     peerIdPrivateKey,
     p2pIp: `127.0.0.1`,
+    listenAddress: `127.0.0.1`,
     p2pPort: port,
     bootstrapNodes: peers,
     peerCheckIntervalMS: 1000,
@@ -101,7 +103,16 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
   const clients: P2PClient[] = [];
   const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
 
-  const ports = await getPorts(numberOfPeers);
+  let ports = [];
+  while (true) {
+    try {
+      ports = await getPorts(numberOfPeers);
+      break;
+    } catch (err) {
+      await sleep(1000);
+    }
+  }
+
   const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, testConfig.p2pBaseConfig);
 
   for (let i = 0; i < numberOfPeers; i++) {
@@ -113,5 +124,12 @@ export async function makeTestP2PClients(numberOfPeers: number, testConfig: Make
   }
 
   await Promise.all(clients.map(client => client.isReady()));
-  return clients;
+  return clients.map((client, index) => {
+    return {
+      client,
+      peerPrivateKey: peerIdPrivateKeys[index],
+      port: ports[index],
+      enr: peerEnrs[index],
+    };
+  });
 }

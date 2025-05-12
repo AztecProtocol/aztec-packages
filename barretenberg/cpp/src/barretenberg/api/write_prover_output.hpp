@@ -1,4 +1,6 @@
 #pragma once
+#include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/log.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/map.hpp"
@@ -27,7 +29,7 @@ void write(const ProverOutput& prover_output,
         if (data.empty()) {
             return std::string("[]");
         }
-        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
 
     const auto write_bytes = [&](const ObjectToWrite& obj) {

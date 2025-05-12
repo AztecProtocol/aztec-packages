@@ -1738,7 +1738,7 @@ template <typename Builder> class stdlib_uint : public testing::Test {
     }
 };
 
-using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_uint, CircuitTypes);
 
@@ -1845,11 +1845,7 @@ TYPED_TEST(stdlib_uint, test_divide_special)
 }
 TYPED_TEST(stdlib_uint, div_remainder_constraint)
 {
-    if constexpr (IsSimulator<CircuitSimulatorBN254>) {
-        GTEST_SKIP() << "Doesn't apply to the simulator.";
-    } else {
-        TestFixture::div_remainder_constraint();
-    }
+    TestFixture::div_remainder_constraint();
 }
 TYPED_TEST(stdlib_uint, test_and)
 {

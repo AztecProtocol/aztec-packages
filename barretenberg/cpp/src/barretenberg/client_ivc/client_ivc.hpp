@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/goblin/goblin.hpp"
@@ -33,6 +39,7 @@ class ClientIVC {
     using MegaVerificationKey = Flavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
+    using Point = Flavor::Curve::AffineElement;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
@@ -62,7 +69,8 @@ class ClientIVC {
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    using AggregationObject = stdlib::recursion::aggregation_state<ClientCircuit>;
+    using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -75,16 +83,11 @@ class ClientIVC {
         HonkProof mega_proof;
         GoblinProof goblin_proof;
 
-        size_t size() const { return mega_proof.size() + goblin_proof.size(); }
+        size_t size() const;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
-        msgpack::sbuffer to_msgpack_buffer() const
-        {
-            msgpack::sbuffer buffer;
-            msgpack::pack(buffer, *this);
-            return buffer;
-        }
+        msgpack::sbuffer to_msgpack_buffer() const;
 
         /**
          * @brief Very quirky method to convert a msgpack buffer to a "heap" buffer
@@ -93,13 +96,7 @@ class ClientIVC {
          *
          * @return uint8_t* Double size-prefixed msgpack buffer
          */
-        uint8_t* to_msgpack_heap_buffer() const
-        {
-            msgpack::sbuffer buffer = to_msgpack_buffer();
-
-            std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
-            return to_heap_buffer(buf);
-        }
+        uint8_t* to_msgpack_heap_buffer() const;
 
         class DeserializationError : public std::runtime_error {
           public:
@@ -108,55 +105,11 @@ class ClientIVC {
             {}
         };
 
-        static Proof from_msgpack_buffer(uint8_t const*& buffer)
-        {
-            auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+        static Proof from_msgpack_buffer(uint8_t const*& buffer);
+        static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer);
 
-            msgpack::sbuffer sbuf;
-            sbuf.write(reinterpret_cast<char*>(uint8_buffer.data()), uint8_buffer.size());
-
-            return from_msgpack_buffer(sbuf);
-        }
-
-        static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer)
-        {
-            msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
-            msgpack::object obj = oh.get();
-            Proof proof;
-            obj.convert(proof);
-            return proof;
-        }
-
-        void to_file_msgpack(const std::string& filename) const
-        {
-            msgpack::sbuffer buffer = to_msgpack_buffer();
-            std::ofstream ofs(filename, std::ios::binary);
-            if (!ofs.is_open()) {
-                throw_or_abort("Failed to open file for writing.");
-            }
-            ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-            ofs.close();
-        }
-
-        static Proof from_file_msgpack(const std::string& filename)
-        {
-            std::ifstream ifs(filename, std::ios::binary);
-            if (!ifs.is_open()) {
-                throw_or_abort("Failed to open file for reading.");
-            }
-
-            ifs.seekg(0, std::ios::end);
-            size_t file_size = static_cast<size_t>(ifs.tellg());
-            ifs.seekg(0, std::ios::beg);
-
-            std::vector<char> buffer(file_size);
-            ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
-            ifs.close();
-            msgpack::sbuffer msgpack_buffer;
-            msgpack_buffer.write(buffer.data(), file_size);
-
-            return Proof::from_msgpack_buffer(msgpack_buffer);
-        }
+        void to_file_msgpack(const std::string& filename) const;
+        static Proof from_file_msgpack(const std::string& filename);
 
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
@@ -220,24 +173,14 @@ class ClientIVC {
 
     bool initialized = false; // Is the IVC accumulator initialized
 
-    ClientIVC(TraceSettings trace_settings = {})
-        : trace_usage_tracker(trace_settings)
-        , trace_settings(trace_settings)
-        , goblin(bn254_commitment_key)
-    {
-        // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
-        // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
-        size_t commitment_key_size =
-            std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
-        info("BN254 commitment key size: ", commitment_key_size);
-        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
-    }
+    ClientIVC(TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
 
-    void perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
-                                                                       const StdlibVerifierInputs& verifier_inputs);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints
+    perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
+                                                                  const StdlibVerifierInputs& verifier_inputs);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
@@ -257,6 +200,7 @@ class ClientIVC {
     Proof prove();
 
     std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, MergeProof> construct_hiding_circuit_key();
+    static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
@@ -270,9 +214,7 @@ class ClientIVC {
     std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
         std::vector<ClientCircuit> circuits);
 
-    VerificationKey get_vk() const
-    {
-        return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
-    }
+    VerificationKey get_vk() const;
 };
+
 } // namespace bb

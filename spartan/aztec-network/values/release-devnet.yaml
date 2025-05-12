@@ -1,3 +1,6 @@
+network:
+  mempoolLimitBytes: "10000000" # approx 10MB
+
 telemetry:
   enabled: true
 

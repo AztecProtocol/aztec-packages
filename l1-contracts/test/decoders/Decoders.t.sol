@@ -37,32 +37,20 @@ contract DecodersTest is DecoderBase {
 
       // GlobalVariables
       {
-        DecoderBase.GlobalVariables memory globalVariables = referenceHeader.globalVariables;
-
+        assertEq(header.slotNumber, referenceHeader.slotNumber, "Invalid slot number");
+        assertEq(header.timestamp, referenceHeader.timestamp, "Invalid timestamp");
+        assertEq(header.coinbase, referenceHeader.coinbase, "Invalid coinbase");
         assertEq(
-          header.globalVariables.blockNumber, globalVariables.blockNumber, "Invalid block number"
+          header.gasFees.feePerL2Gas,
+          referenceHeader.gasFees.feePerL2Gas,
+          "Invalid gasFees.feePerL2Gas"
         );
         assertEq(
-          header.globalVariables.slotNumber, globalVariables.slotNumber, "Invalid slot number"
-        );
-        assertEq(header.globalVariables.chainId, globalVariables.chainId, "Invalid chain Id");
-        assertEq(header.globalVariables.timestamp, globalVariables.timestamp, "Invalid timestamp");
-        assertEq(header.globalVariables.version, globalVariables.version, "Invalid version");
-        assertEq(header.globalVariables.coinbase, globalVariables.coinbase, "Invalid coinbase");
-        assertEq(
-          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
-        );
-        assertEq(
-          header.globalVariables.gasFees.feePerDaGas,
-          globalVariables.gasFees.feePerDaGas,
+          header.gasFees.feePerDaGas,
+          referenceHeader.gasFees.feePerDaGas,
           "Invalid gasFees.feePerDaGas"
         );
-        assertEq(
-          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
-        );
-        assertEq(
-          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
-        );
+        assertEq(header.feeRecipient, referenceHeader.feeRecipient, "Invalid feeRecipient");
       }
 
       // ContentCommitment
@@ -77,73 +65,9 @@ contract DecodersTest is DecoderBase {
         assertEq(header.contentCommitment.outHash, contentCommitment.outHash, "Invalid outHash");
       }
 
-      // StateReference
-      {
-        DecoderBase.StateReference memory stateReference = referenceHeader.stateReference;
+      assertEq(header.lastArchiveRoot, referenceHeader.lastArchiveRoot, "Invalid lastArchiveRoot");
 
-        // L1 -> L2 messages
-        assertEq(
-          header.stateReference.l1ToL2MessageTree.nextAvailableLeafIndex,
-          stateReference.l1ToL2MessageTree.nextAvailableLeafIndex,
-          "Invalid l1ToL2MessageTree.nextAvailableLeafIndex"
-        );
-        assertEq(
-          header.stateReference.l1ToL2MessageTree.root,
-          stateReference.l1ToL2MessageTree.root,
-          "Invalid l1ToL2MessageTree.root"
-        );
-
-        // PartialStateReference
-        {
-          DecoderBase.PartialStateReference memory partialStateReference =
-            referenceHeader.stateReference.partialStateReference;
-
-          // NoteHashTree
-          assertEq(
-            header.stateReference.partialStateReference.noteHashTree.nextAvailableLeafIndex,
-            partialStateReference.noteHashTree.nextAvailableLeafIndex,
-            "Invalid noteHashTree.nextAvailableLeafIndex"
-          );
-          assertEq(
-            header.stateReference.partialStateReference.noteHashTree.root,
-            partialStateReference.noteHashTree.root,
-            "Invalid noteHashTree.root"
-          );
-
-          // NullifierTree
-          assertEq(
-            header.stateReference.partialStateReference.nullifierTree.nextAvailableLeafIndex,
-            partialStateReference.nullifierTree.nextAvailableLeafIndex,
-            "Invalid nullifierTree.nextAvailableLeafIndex"
-          );
-          assertEq(
-            header.stateReference.partialStateReference.nullifierTree.root,
-            partialStateReference.nullifierTree.root,
-            "Invalid nullifierTree.root"
-          );
-
-          // PublicDataTree
-          assertEq(
-            header.stateReference.partialStateReference.publicDataTree.nextAvailableLeafIndex,
-            partialStateReference.publicDataTree.nextAvailableLeafIndex,
-            "Invalid publicDataTree.nextAvailableLeafIndex"
-          );
-          assertEq(
-            header.stateReference.partialStateReference.publicDataTree.root,
-            partialStateReference.publicDataTree.root,
-            "Invalid publicDataTree.root"
-          );
-        }
-      }
-
-      assertEq(
-        header.lastArchive.nextAvailableLeafIndex,
-        referenceHeader.lastArchive.nextAvailableLeafIndex,
-        "Invalid lastArchive.nextAvailableLeafIndex"
-      );
-      assertEq(
-        header.lastArchive.root, referenceHeader.lastArchive.root, "Invalid lastArchive.root"
-      );
+      assertEq(header.totalManaUsed, referenceHeader.totalManaUsed, "Invalid totalManaUsed");
     }
     // The public inputs are computed based of these values, but not directly part of the decoding per say.
   }

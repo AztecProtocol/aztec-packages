@@ -16,7 +16,6 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import type { Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -25,7 +24,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body } from '@aztec/stdlib/block';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { ContractClassLog } from '@aztec/stdlib/logs';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -54,8 +53,6 @@ import {
 } from '@aztec/stdlib/tx';
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
 import type { MerkleTreeReadOperations } from '@aztec/world-state';
-
-import { inspect } from 'util';
 
 /**
  * Type representing the names of the trees for the base rollup.
@@ -143,7 +140,7 @@ export const buildBaseRollupHints = runInSpan(
 
     const contractClassLogsPreimages = makeTuple(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed() || ContractClassLog.empty(),
+      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed().fields || ContractClassLogFields.empty(),
     );
 
     if (tx.avmProvingRequest) {
@@ -255,13 +252,12 @@ export const buildBlobHints = runInSpan(
 export const buildHeaderFromCircuitOutputs = runInSpan(
   'BlockBuilderHelpers',
   'buildHeaderFromCircuitOutputs',
-  async (
+  (
     _span,
     previousRollupData: BaseOrMergeRollupPublicInputs[],
     parityPublicInputs: ParityPublicInputs,
     rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
     endState: StateReference,
-    logger?: Logger,
   ) => {
     if (previousRollupData.length > 2) {
       throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
@@ -286,7 +282,8 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
 
     const accumulatedFees = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedFees), Fr.ZERO);
     const accumulatedManaUsed = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedManaUsed), Fr.ZERO);
-    const header = new BlockHeader(
+
+    return new BlockHeader(
       rootRollupOutputs.previousArchive,
       contentCommitment,
       endState,
@@ -294,15 +291,6 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       accumulatedFees,
       accumulatedManaUsed,
     );
-    if (!(await header.hash()).equals(rootRollupOutputs.endBlockHash)) {
-      logger?.error(
-        `Block header mismatch when building header from circuit outputs.` +
-          `\n\nHeader: ${inspect(header)}` +
-          `\n\nCircuit: ${toFriendlyJSON(rootRollupOutputs)}`,
-      );
-      throw new Error(`Block header mismatch when building from circuit outputs`);
-    }
-    return header;
   },
 );
 
@@ -397,6 +385,12 @@ export const validateState = runInSpan(
     );
   },
 );
+
+export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
+  const { size } = await db.getTreeInfo(treeId);
+  const path = await db.getSiblingPath(treeId, size - 1n);
+  return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
+}
 
 export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);

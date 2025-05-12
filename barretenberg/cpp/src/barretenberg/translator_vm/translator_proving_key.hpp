@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include <utility>
 
@@ -48,13 +54,13 @@ class TranslatorProvingKey {
         for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
-            // WORKTODO: I think we should share memory here in the same way we do in the `DeciderProvingKey` class.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);
                     } else {
-                        ASSERT(wire[i] == 0);
+                        ASSERT(circuit.get_variable(wire[i]) == 0);
                     }
                 }
             });

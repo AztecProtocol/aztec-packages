@@ -2,7 +2,7 @@ import { type AccountWalletWithSecretKey, AztecAddress, Fr } from '@aztec/aztec.
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js/TestLog';
+import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-test-contracts.js/TestLog';
 
 import { jest } from '@jest/globals';
 

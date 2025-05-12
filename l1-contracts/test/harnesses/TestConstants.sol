@@ -20,7 +20,6 @@ library TestConstants {
 
   // Genesis state
   bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
-  bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(Constants.GENESIS_BLOCK_HASH);
   bytes32 internal constant GENESIS_VK_TREE_ROOT = bytes32(0);
   bytes32 internal constant GENESIS_PROTOCOL_CONTRACT_TREE_ROOT = bytes32(0);
 
@@ -28,8 +27,7 @@ library TestConstants {
     return GenesisState({
       vkTreeRoot: GENESIS_VK_TREE_ROOT,
       protocolContractTreeRoot: GENESIS_PROTOCOL_CONTRACT_TREE_ROOT,
-      genesisArchiveRoot: GENESIS_ARCHIVE_ROOT,
-      genesisBlockHash: GENESIS_BLOCK_HASH
+      genesisArchiveRoot: GENESIS_ARCHIVE_ROOT
     });
   }
 

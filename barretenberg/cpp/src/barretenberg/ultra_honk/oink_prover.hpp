@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 // clang-format off
 /*                                            )\   /|
@@ -31,7 +37,7 @@ namespace bb {
  *
  * @tparam Flavor
  */
-template <IsUltraFlavor Flavor> class OinkProver {
+template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;

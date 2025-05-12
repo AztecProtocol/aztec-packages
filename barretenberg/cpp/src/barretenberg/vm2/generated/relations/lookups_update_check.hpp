@@ -3,6 +3,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 #include <cstddef>
 #include <string_view>
@@ -12,21 +13,10 @@ namespace bb::avm2 {
 
 /////////////////// lookup_update_check_shared_mutable_slot_poseidon2 ///////////////////
 
-class lookup_update_check_shared_mutable_slot_poseidon2_settings {
-  public:
+struct lookup_update_check_shared_mutable_slot_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_SHARED_MUTABLE_SLOT_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "update_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_update_check_shared_mutable_slot_poseidon2_counts;
@@ -43,90 +33,20 @@ class lookup_update_check_shared_mutable_slot_poseidon2_settings {
         ColumnAndShifts::poseidon2_hash_input_2,
         ColumnAndShifts::poseidon2_hash_output
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._update_check_sel() == 1 || in._poseidon2_hash_end() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_update_check_shared_mutable_slot_poseidon2_inv(),
-                                     in._lookup_update_check_shared_mutable_slot_poseidon2_counts(),
-                                     in._update_check_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._update_check_updated_class_ids_slot(),
-                                     in._update_check_address(),
-                                     in._precomputed_zero(),
-                                     in._update_check_shared_mutable_slot(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
-    }
 };
 
+using lookup_update_check_shared_mutable_slot_poseidon2_settings =
+    lookup_settings<lookup_update_check_shared_mutable_slot_poseidon2_settings_>;
 template <typename FF_>
-class lookup_update_check_shared_mutable_slot_poseidon2_relation
-    : public GenericLookupRelation<lookup_update_check_shared_mutable_slot_poseidon2_settings, FF_> {
-  public:
-    using Settings = lookup_update_check_shared_mutable_slot_poseidon2_settings;
-    static constexpr std::string_view NAME = lookup_update_check_shared_mutable_slot_poseidon2_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_update_check_shared_mutable_slot_poseidon2_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_update_check_shared_mutable_slot_poseidon2_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_update_check_shared_mutable_slot_poseidon2_relation =
+    lookup_relation_base<FF_, lookup_update_check_shared_mutable_slot_poseidon2_settings>;
 
 /////////////////// lookup_update_check_shared_mutable_leaf_slot_poseidon2 ///////////////////
 
-class lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings {
-  public:
+struct lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_SHARED_MUTABLE_LEAF_SLOT_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "update_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_update_check_shared_mutable_leaf_slot_poseidon2_counts;
@@ -143,92 +63,22 @@ class lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings {
         ColumnAndShifts::poseidon2_hash_input_2,
         ColumnAndShifts::poseidon2_hash_output
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._update_check_sel() == 1 || in._poseidon2_hash_end() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_sel());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_update_check_shared_mutable_leaf_slot_poseidon2_inv(),
-                                     in._lookup_update_check_shared_mutable_leaf_slot_poseidon2_counts(),
-                                     in._update_check_sel(),
-                                     in._poseidon2_hash_end(),
-                                     in._update_check_public_leaf_index_domain_separator(),
-                                     in._update_check_deployer_protocol_contract_address(),
-                                     in._update_check_shared_mutable_hash_slot(),
-                                     in._update_check_shared_mutable_leaf_slot(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
-    }
 };
 
+using lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings =
+    lookup_settings<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings_>;
 template <typename FF_>
-class lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation
-    : public GenericLookupRelation<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings, FF_> {
-  public:
-    using Settings = lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings;
-    static constexpr std::string_view NAME = lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_update_check_shared_mutable_leaf_slot_poseidon2_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation =
+    lookup_relation_base<FF_, lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings>;
 
 /////////////////// lookup_update_check_update_hash_public_data_read ///////////////////
 
-class lookup_update_check_update_hash_public_data_read_settings {
-  public:
+struct lookup_update_check_update_hash_public_data_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_UPDATE_HASH_PUBLIC_DATA_READ";
     static constexpr std::string_view RELATION_NAME = "update_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
-    static constexpr Column DST_SELECTOR = Column::public_data_read_sel;
+    static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_public_data_read_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_public_data_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -237,92 +87,24 @@ class lookup_update_check_update_hash_public_data_read_settings {
         ColumnAndShifts::update_check_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::public_data_read_value,
-        ColumnAndShifts::public_data_read_slot,
-        ColumnAndShifts::public_data_read_root
+        ColumnAndShifts::public_data_check_value,
+        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_root
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._update_check_sel() == 1 || in._public_data_read_sel() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_sel());
-        const auto is_table_entry = View(in._public_data_read_sel());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_update_check_update_hash_public_data_read_inv(),
-                                     in._lookup_update_check_update_hash_public_data_read_counts(),
-                                     in._update_check_sel(),
-                                     in._public_data_read_sel(),
-                                     in._update_check_update_hash(),
-                                     in._update_check_shared_mutable_leaf_slot(),
-                                     in._update_check_public_data_tree_root(),
-                                     in._public_data_read_value(),
-                                     in._public_data_read_slot(),
-                                     in._public_data_read_root());
-    }
 };
 
+using lookup_update_check_update_hash_public_data_read_settings =
+    lookup_settings<lookup_update_check_update_hash_public_data_read_settings_>;
 template <typename FF_>
-class lookup_update_check_update_hash_public_data_read_relation
-    : public GenericLookupRelation<lookup_update_check_update_hash_public_data_read_settings, FF_> {
-  public:
-    using Settings = lookup_update_check_update_hash_public_data_read_settings;
-    static constexpr std::string_view NAME = lookup_update_check_update_hash_public_data_read_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_update_check_update_hash_public_data_read_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_update_check_update_hash_public_data_read_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_update_check_update_hash_public_data_read_relation =
+    lookup_relation_base<FF_, lookup_update_check_update_hash_public_data_read_settings>;
 
 /////////////////// lookup_update_check_update_hash_poseidon2 ///////////////////
 
-class lookup_update_check_update_hash_poseidon2_settings {
-  public:
+struct lookup_update_check_update_hash_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_UPDATE_HASH_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "update_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_poseidon2_counts;
@@ -339,89 +121,20 @@ class lookup_update_check_update_hash_poseidon2_settings {
         ColumnAndShifts::poseidon2_hash_input_2,
         ColumnAndShifts::poseidon2_hash_output
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._update_check_hash_not_zero() == 1 || in._poseidon2_hash_end() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._poseidon2_hash_end());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_update_check_update_hash_poseidon2_inv(),
-                                     in._lookup_update_check_update_hash_poseidon2_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._poseidon2_hash_end(),
-                                     in._update_check_update_preimage_metadata(),
-                                     in._update_check_update_preimage_pre_class_id(),
-                                     in._update_check_update_preimage_post_class_id(),
-                                     in._update_check_update_hash(),
-                                     in._poseidon2_hash_input_0(),
-                                     in._poseidon2_hash_input_1(),
-                                     in._poseidon2_hash_input_2(),
-                                     in._poseidon2_hash_output());
-    }
 };
 
+using lookup_update_check_update_hash_poseidon2_settings =
+    lookup_settings<lookup_update_check_update_hash_poseidon2_settings_>;
 template <typename FF_>
-class lookup_update_check_update_hash_poseidon2_relation
-    : public GenericLookupRelation<lookup_update_check_update_hash_poseidon2_settings, FF_> {
-  public:
-    using Settings = lookup_update_check_update_hash_poseidon2_settings;
-    static constexpr std::string_view NAME = lookup_update_check_update_hash_poseidon2_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_update_check_update_hash_poseidon2_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_update_check_update_hash_poseidon2_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_update_check_update_hash_poseidon2_relation =
+    lookup_relation_base<FF_, lookup_update_check_update_hash_poseidon2_settings>;
 
 /////////////////// lookup_update_check_update_hi_metadata_range ///////////////////
 
-class lookup_update_check_update_hi_metadata_range_settings {
-  public:
+struct lookup_update_check_update_hi_metadata_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_UPDATE_HI_METADATA_RANGE";
     static constexpr std::string_view RELATION_NAME = "update_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hi_metadata_range_counts;
@@ -432,86 +145,20 @@ class lookup_update_check_update_hi_metadata_range_settings {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._update_check_hash_not_zero() == 1 || in._range_check_sel() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._range_check_sel());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_update_check_update_hi_metadata_range_inv(),
-                                     in._lookup_update_check_update_hi_metadata_range_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._range_check_sel(),
-                                     in._update_check_update_hi_metadata(),
-                                     in._update_check_update_hi_metadata_bit_size(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
-    }
 };
 
+using lookup_update_check_update_hi_metadata_range_settings =
+    lookup_settings<lookup_update_check_update_hi_metadata_range_settings_>;
 template <typename FF_>
-class lookup_update_check_update_hi_metadata_range_relation
-    : public GenericLookupRelation<lookup_update_check_update_hi_metadata_range_settings, FF_> {
-  public:
-    using Settings = lookup_update_check_update_hi_metadata_range_settings;
-    static constexpr std::string_view NAME = lookup_update_check_update_hi_metadata_range_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_update_check_update_hi_metadata_range_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_update_check_update_hi_metadata_range_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_update_check_update_hi_metadata_range_relation =
+    lookup_relation_base<FF_, lookup_update_check_update_hi_metadata_range_settings>;
 
 /////////////////// lookup_update_check_update_lo_metadata_range ///////////////////
 
-class lookup_update_check_update_lo_metadata_range_settings {
-  public:
+struct lookup_update_check_update_lo_metadata_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_UPDATE_LO_METADATA_RANGE";
     static constexpr std::string_view RELATION_NAME = "update_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_update_lo_metadata_range_counts;
@@ -522,86 +169,20 @@ class lookup_update_check_update_lo_metadata_range_settings {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._update_check_hash_not_zero() == 1 || in._range_check_sel() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._range_check_sel());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_update_check_update_lo_metadata_range_inv(),
-                                     in._lookup_update_check_update_lo_metadata_range_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._range_check_sel(),
-                                     in._update_check_update_block_of_change(),
-                                     in._update_check_block_number_bit_size(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
-    }
 };
 
+using lookup_update_check_update_lo_metadata_range_settings =
+    lookup_settings<lookup_update_check_update_lo_metadata_range_settings_>;
 template <typename FF_>
-class lookup_update_check_update_lo_metadata_range_relation
-    : public GenericLookupRelation<lookup_update_check_update_lo_metadata_range_settings, FF_> {
-  public:
-    using Settings = lookup_update_check_update_lo_metadata_range_settings;
-    static constexpr std::string_view NAME = lookup_update_check_update_lo_metadata_range_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_update_check_update_lo_metadata_range_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_update_check_update_lo_metadata_range_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_update_check_update_lo_metadata_range_relation =
+    lookup_relation_base<FF_, lookup_update_check_update_lo_metadata_range_settings>;
 
 /////////////////// lookup_update_check_block_of_change_cmp_range ///////////////////
 
-class lookup_update_check_block_of_change_cmp_range_settings {
-  public:
+struct lookup_update_check_block_of_change_cmp_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_BLOCK_OF_CHANGE_CMP_RANGE";
     static constexpr std::string_view RELATION_NAME = "update_check";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_block_of_change_cmp_range_counts;
@@ -612,67 +193,12 @@ class lookup_update_check_block_of_change_cmp_range_settings {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._update_check_hash_not_zero() == 1 || in._range_check_sel() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._update_check_hash_not_zero());
-        const auto is_table_entry = View(in._range_check_sel());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_update_check_block_of_change_cmp_range_inv(),
-                                     in._lookup_update_check_block_of_change_cmp_range_counts(),
-                                     in._update_check_hash_not_zero(),
-                                     in._range_check_sel(),
-                                     in._update_check_block_of_change_subtraction(),
-                                     in._update_check_block_number_bit_size(),
-                                     in._range_check_value(),
-                                     in._range_check_rng_chk_bits());
-    }
 };
 
+using lookup_update_check_block_of_change_cmp_range_settings =
+    lookup_settings<lookup_update_check_block_of_change_cmp_range_settings_>;
 template <typename FF_>
-class lookup_update_check_block_of_change_cmp_range_relation
-    : public GenericLookupRelation<lookup_update_check_block_of_change_cmp_range_settings, FF_> {
-  public:
-    using Settings = lookup_update_check_block_of_change_cmp_range_settings;
-    static constexpr std::string_view NAME = lookup_update_check_block_of_change_cmp_range_settings::NAME;
-    static constexpr std::string_view RELATION_NAME =
-        lookup_update_check_block_of_change_cmp_range_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_update_check_block_of_change_cmp_range_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_update_check_block_of_change_cmp_range_relation =
+    lookup_relation_base<FF_, lookup_update_check_block_of_change_cmp_range_settings>;
 
 } // namespace bb::avm2

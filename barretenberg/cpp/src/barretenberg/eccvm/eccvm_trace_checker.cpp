@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "eccvm_trace_checker.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"

@@ -8,8 +8,8 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; |
-      awk '{ print "^" $1 }' | sort -u)
+    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
+      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
 if semver check $REF_NAME; then
@@ -32,6 +32,14 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
+function release_docs {
+  echo "deploying docs to prod"
+  yarn install
+  yarn build
+
+  yarn netlify deploy --site aztec-docs-dev --prod 2>&1
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -42,8 +50,8 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "release-preview")
-    release_preview
+  "release-docs")
+    release_docs
     ;;
   *)
     echo "Unknown command: $cmd"

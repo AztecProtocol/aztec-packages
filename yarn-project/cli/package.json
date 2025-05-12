@@ -109,6 +109,7 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^"
   },

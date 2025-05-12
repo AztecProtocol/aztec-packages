@@ -25,7 +25,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using QUEUE_TYPE = ClientIVC::QUEUE_TYPE;
     using VerificationQueue = ClientIVC::VerificationQueue;
     using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
-    using AggregationObject = ClientIVC::AggregationObject;
+    using PairingPoints = ClientIVC::PairingPoints;
 
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
@@ -36,13 +36,13 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         Builder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
-
+        PairingPoints::add_default_to_public_inputs(circuit);
         return circuit;
     }
 
     static UltraCircuitBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using InnerAggState = bb::stdlib::recursion::aggregation_state<UltraCircuitBuilder>;
+        using InnerPairingPoints = bb::stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
         UltraCircuitBuilder builder;
 
@@ -62,7 +62,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        InnerAggState::add_default_pairing_points_to_public_inputs(builder);
+        InnerPairingPoints::add_default_to_public_inputs(builder);
         return builder;
     }
 
@@ -82,7 +82,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         {
             using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
             using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-            using OuterAggState = bb::stdlib::recursion::aggregation_state<Builder>;
 
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
@@ -101,8 +100,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             // Instantiate the recursive verifier using the native verification key
             stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
 
-            VerifierOutput output = verifier.verify_proof(inner_proof, OuterAggState::construct_default(circuit));
-            output.agg_obj.set_public(); // useless for now but just checking if it breaks anything
+            VerifierOutput output = verifier.verify_proof(inner_proof);
+            output.points_accumulator.set_public(); // useless for now but just checking if it breaks anything
         }
 
         return circuit;
@@ -187,8 +186,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         // Create kernel circuit from kernel program and the mocked IVC (empty witness mimics VK construction context)
         const ProgramMetadata metadata{ mock_ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-        // Note: adding pairing point normally happens in accumulate()
-        AggregationObject::add_default_pairing_points_to_public_inputs(kernel);
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
@@ -198,11 +195,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
   protected:
-    void SetUp() override
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    void SetUp() override { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**
@@ -308,17 +301,10 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         const ProgramMetadata metadata{ ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-        // Note that this would normally happen in accumulate()
-        AggregationObject::add_default_pairing_points_to_public_inputs(kernel);
-
         auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_settings);
         MegaProver prover(proving_key);
         kernel_vk = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
     }
-
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
 
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }
@@ -357,10 +343,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
-
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
@@ -410,10 +392,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
-
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
@@ -472,10 +450,6 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
         kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
 
-    // PCS verification keys will not match so set to null before comparing
-    kernel_vk->pcs_verification_key = nullptr;
-    expected_kernel_vk->pcs_verification_key = nullptr;
-
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
 }
@@ -531,7 +505,6 @@ TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
     EXPECT_TRUE(CircuitChecker::check(kernel));
     ivc->accumulate(kernel);
 
-    // Still expect this to be true since we don't aggregate pairing point objects correctly.
-    // If we fix aggregation, we should expect this test to fail.
-    EXPECT_TRUE(ivc->prove_and_verify());
+    // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
+    EXPECT_FALSE(ivc->prove_and_verify());
 }

@@ -46,7 +46,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk proof, including pairing point object.
     uint256 constant PROOF_SIZE = 456;
-    uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
+    uint256 constant PAIRING_POINTS_SIZE = 16;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -58,7 +58,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
-        if (publicInputs.length != vk.publicInputsSize - PAIRING_POINT_OBJECT_LENGTH) {
+        if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE) {
             revert PublicInputsLengthWrong();
         }
 
@@ -84,7 +84,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
-    function computePublicInputDelta(bytes32[] memory publicInputs, Fr[PAIRING_POINT_OBJECT_LENGTH] memory pairingPointObject, Fr beta, Fr gamma, uint256 offset)
+    function computePublicInputDelta(bytes32[] memory publicInputs, Fr[PAIRING_POINTS_SIZE] memory pairingPointObject, Fr beta, Fr gamma, uint256 offset)
         internal
         view
         returns (Fr publicInputDelta)
@@ -96,7 +96,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < numPublicInputs - PAIRING_POINT_OBJECT_LENGTH; i++) {
+            for (uint256 i = 0; i < numPublicInputs - PAIRING_POINTS_SIZE; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -106,7 +106,7 @@ abstract contract BaseHonkVerifier is IVerifier {
                 denominatorAcc = denominatorAcc - beta;
             }
 
-            for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
+            for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
                 Fr pubInput = pairingPointObject[i];
 
                 numerator = numerator * (numeratorAcc + pubInput);

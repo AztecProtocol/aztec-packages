@@ -206,13 +206,14 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
     app: full-node
+  annotations:
+    {{- if hasKey .Values.fullNode "fixedStaticIpName" }}
+    cloud.google.com/backend-config: '{"default": "{{ include "aztec-network.fullname" . }}-full-node-backend-config"}'
+    {{- end }}
 spec:
   # If this is a public network, we want to expose the fulls node as a LoadBalancer
   {{- if .Values.network.public }}
   type: LoadBalancer
-  {{- if hasKey .Values.fullNode "fixedExternalIP" }}
-  loadBalancerIP: {{ .Values.fullNode.fixedExternalIP }}
-  {{- end}}
   {{- else }}
   type: ClusterIP
   clusterIP: None
@@ -251,14 +252,30 @@ spec:
       targetPort: {{ .Values.fullNode.service.adminPort }}
       name: admin
 ---
-{{- if hasKey .Values.fullNode "fixedExternalIP" }}
-apiVersion: networking.gke.io/v1beta2
+{{- if hasKey .Values.fullNode "fixedStaticIpName" }}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node-backend-config
+  namespace: {{ .Release.Namespace }}
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 2
+    type: HTTP
+    requestPath: /status
+    port: 8080
+---
+apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
   name: {{ include "aztec-network.fullname" . }}-full-node-cert
 spec:
   domains:
-  - aztecprotocol.com
+  # Note: A record must be added in this domain to point at  {{ .Values.fullNode.fixedStaticIpName }}
+  - {{ .Values.fullNode.staticIpUrl }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -267,13 +284,17 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "gce"
     networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-full-node-cert
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.fullNode.fixedStaticIpName }}
+    kubernetes.io/ingress.allow-http: "false"
+    cloud.google.com/health-check-port: "8080"
+    cloud.google.com/healthcheck-path: "/status"
 spec:
   rules:
-  - host: aztecprotocol.com
+  - host: {{ .Values.fullNode.staticIpUrl }}
     http:
       paths:
-      - path: /*
-        pathType: ImplementationSpecific
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: {{ include "aztec-network.fullname" . }}-full-node

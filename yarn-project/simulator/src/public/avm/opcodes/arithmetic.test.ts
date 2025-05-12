@@ -26,8 +26,8 @@ describe('Arithmetic Instructions', () => {
         Add.wireFormat16,
       );
 
-      expect(Add.as(Add.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Add.as(Add.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([
@@ -60,7 +60,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(32, new Uint32(5)); // indirect
 
       await new Add(
-        /*indirect=*/ new Addressing([
+        /*indirect=*/ Addressing.fromModes([
           /*aOffset*/ AddressingMode.DIRECT,
           /*bOffset*/ AddressingMode.DIRECT,
           /*dstOffset*/ AddressingMode.INDIRECT | AddressingMode.RELATIVE,
@@ -107,8 +107,8 @@ describe('Arithmetic Instructions', () => {
         Sub.wireFormat16,
       );
 
-      expect(Sub.as(Sub.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Sub.as(Sub.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([
@@ -169,8 +169,8 @@ describe('Arithmetic Instructions', () => {
         Mul.wireFormat16,
       );
 
-      expect(Mul.as(Mul.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Mul.as(Mul.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([
@@ -226,8 +226,8 @@ describe('Arithmetic Instructions', () => {
         Div.wireFormat16,
       );
 
-      expect(Div.as(Div.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Div.as(Div.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([
@@ -263,8 +263,8 @@ describe('Arithmetic Instructions', () => {
         FieldDiv.wireFormat16,
       );
 
-      expect(FieldDiv.as(FieldDiv.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(FieldDiv.as(FieldDiv.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should perform field division', async () => {

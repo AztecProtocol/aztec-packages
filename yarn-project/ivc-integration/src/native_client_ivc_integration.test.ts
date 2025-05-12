@@ -9,8 +9,6 @@ import { getWorkingDirectory } from './bb_working_directory.js';
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
 
-/* eslint-disable camelcase */
-
 const logger = createLogger('ivc-integration:test:native');
 
 jest.setTimeout(120_000);
@@ -30,9 +28,9 @@ describe('Client IVC Integration', () => {
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
   it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
-    const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _, vks] = await generate3FunctionTestingIVCStack();
 
-    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, logger);
+    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
@@ -52,9 +50,9 @@ describe('Client IVC Integration', () => {
   // 5. Run the reset kernel to process the read request emitted by the reader app
   // 6. Run the tail kernel to finish the client IVC chain
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
-    const [bytecodes, witnessStack] = await generate6FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, _, vks] = await generate6FunctionTestingIVCStack();
 
-    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, logger);
+    const proof = await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, bbWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,

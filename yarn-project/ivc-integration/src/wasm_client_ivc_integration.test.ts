@@ -50,7 +50,7 @@ describe('Client IVC Integration', () => {
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
-    const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, , vks] = await generate3FunctionTestingIVCStack();
 
     // We use the bb binary for verification / writing out the VK
     const bbBinaryPath = path.join(
@@ -60,7 +60,7 @@ describe('Client IVC Integration', () => {
     );
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
     const tasks = [
-      proveClientIVCNative(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger),
+      proveClientIVCNative(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger),
       proveClientIVCWasm(bytecodes, witnessStack),
     ];
     const [_, wasmProof] = await Promise.all(tasks);
@@ -85,7 +85,10 @@ describe('Client IVC Integration', () => {
     ];
 
     // Initialize AztecClientBackend with the given bytecodes
-    const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
+    const backend = new AztecClientBackend(
+      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
+      { threads: 1, logger: logger.info },
+    );
 
     // Compute the numbers of gates in each circuit
     const gateNumbers = await backend.gates();

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -119,7 +125,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = native_key->pcs_verification_key;
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
@@ -127,9 +132,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset =
                 stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->pub_inputs_offset);
-            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices =
-                native_key->pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -150,14 +153,16 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             size_t num_frs_read = 0;
 
             this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. log_circuit_size must be a
+            // witness to make the Recursive Verifier circuit constant. Seems that other members also need to be turned
+            // into witnesses.
+            this->log_circuit_size =
+                FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->contains_pairing_point_accumulator =
-                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
-                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            }
+            this->pairing_inputs_public_input_key.start_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);

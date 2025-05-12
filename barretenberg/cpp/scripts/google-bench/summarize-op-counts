@@ -3,15 +3,21 @@
 
 set -eu
 op_count_json="$1"
+num_lines="${2:-10}"
 if [ -z "$op_count_json" ]; then
-  echo "Usage: $0 <input_file>"
+  echo "Usage: $0 <input_file> [number of lines]"
   exit 1
 fi
+
+# Get the time in seconds, truncating to 3 decimal places
+jq -r '.benchmarks[0].real_time / 1e3' $op_count_json |
+  awk '{printf "%.9f\n", $1}' |
+  sed 's/^\./0./' |
+  xargs -I{} echo -e "{}\tTOTAL(s)"
 
 jq -r '.benchmarks[0] | to_entries[] |
   select(.key | endswith("(t)")) |
   {op: (.key | rtrimstr("(t)")), seconds: (.value / 1e9)} |
-  [.op, .seconds] | @tsv' $op_count_json |
-  sort -k2 -nr |
-  head -10 |
-  awk '{printf "%-50s %10.2f seconds\n", $1, $2}'
+  [.seconds,.op] | @tsv' $op_count_json |
+  sort -k1 -nr |
+  head -$num_lines

@@ -186,10 +186,12 @@ impl AddressingModeBuilder {
             self.indirect.into_iter().zip(self.relative.into_iter()).enumerate()
         {
             if indirect {
-                result |= 1 << i;
+                // Even bits are indirect
+                result |= 1 << (i * 2);
             }
             if relative {
-                result |= 1 << (num_operands + i);
+                // Odd bits are relative
+                result |= 1 << (i * 2 + 1);
             }
         }
 

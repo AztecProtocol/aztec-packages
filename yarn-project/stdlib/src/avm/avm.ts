@@ -159,7 +159,7 @@ type IndexedTreeLeafPreimagesClasses = typeof NullifierLeafPreimage | typeof Pub
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmGetLeafPreimageHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       // params (tree id will be implicit)
@@ -175,7 +175,7 @@ function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
           index: schemas.BigInt,
           leafPreimage: klass.schema,
         })
-        .transform(({ hintKey, index, leafPreimage }) => new AvmGetLeafPreimageHint(hintKey, index, leafPreimage));
+        .transform(({ hintKey, index, leafPreimage }) => new this(hintKey, index, leafPreimage));
     }
   };
 }
@@ -212,7 +212,7 @@ export class AvmGetLeafValueHint {
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmSequentialInsertHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       public readonly stateAfter: AppendOnlyTreeSnapshot,
@@ -252,7 +252,7 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
         })
         .transform(
           ({ hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData }) =>
-            new AvmSequentialInsertHint(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
+            new this(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
         );
     }
   };
@@ -306,7 +306,7 @@ class AvmCheckpointActionNoStateChangeHint {
       })
       .transform(
         ({ actionCounter, oldCheckpointId, newCheckpointId }) =>
-          new AvmCheckpointActionNoStateChangeHint(actionCounter, oldCheckpointId, newCheckpointId),
+          new this(actionCounter, oldCheckpointId, newCheckpointId),
       );
   }
 }

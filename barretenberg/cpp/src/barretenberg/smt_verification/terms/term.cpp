@@ -78,6 +78,10 @@ STerm::STerm(const std::string& t, Solver* slv, bool isconst, uint32_t base, Ter
         case TermType::BVTerm:
             this->term = slv->term_manager.mkConst(slv->bv_sort, t);
             break;
+        default:
+            info("Invalid TermType was provided for STerm constructor. Expected: FFTerm, FFITerm, ITerm, BVTerm. Got: ",
+                 type);
+            abort();
         }
     } else {
         std::string strvalue;
@@ -100,6 +104,10 @@ STerm::STerm(const std::string& t, Solver* slv, bool isconst, uint32_t base, Ter
             strvalue = slv->term_manager.mkFiniteFieldElem(t, slv->ff_sort, base).getFiniteFieldValue();
             this->term = slv->term_manager.mkBitVector(slv->bv_sort.getBitVectorSize(), strvalue, 10);
             break;
+        default:
+            info("Invalid TermType was provided for STerm constructor. Expected: FFTerm, FFITerm, ITerm, BVTerm. Got: ",
+                 type);
+            abort();
         }
     }
 }
@@ -156,7 +164,7 @@ STerm STerm::operator-(const STerm& other) const
 void STerm::operator-=(const STerm& other)
 {
     cvc5::Term tmp_term = this->solver->term_manager.mkTerm(this->operations.at(OpType::NEG), { other.term });
-    this->term = this->solver->term_manager.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, tmp_term });
+    this->term = this->solver->term_manager.mkTerm(this->operations.at(OpType::ADD), { this->term, tmp_term });
 }
 
 STerm STerm::operator-() const
@@ -480,19 +488,6 @@ STerm STerm::extract_bit(const uint32_t& bit_index)
     return { res, this->solver, this->type };
 }
 
-/**
- * @brief Create an inclusion constraint
- *
- * @param entry entry to be checked
- * @param table table that consists of elements, ranges mostly
- */
-void STerm::in(const cvc5::Term& table) const
-{
-    STerm left = this->normalize();
-    cvc5::Term inc = this->solver->term_manager.mkTerm(cvc5::Kind::SET_MEMBER, { left.term, table });
-    this->solver->assertFormula(inc);
-}
-
 STerm operator+(const bb::fr& lhs, const STerm& rhs)
 {
     return rhs + lhs;
@@ -552,6 +547,18 @@ std::ostream& operator<<(std::ostream& os, const TermType type)
         break;
     case TermType::ITerm:
         os << "ITerm";
+        break;
+    case TermType::SBool:
+        os << "SBool";
+        break;
+    case TermType::STuple:
+        os << "STuple";
+        break;
+    case TermType::SymArray:
+        os << "SymArray";
+        break;
+    case TermType::SymSet:
+        os << "SymSet";
         break;
     };
     return os;

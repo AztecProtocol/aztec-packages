@@ -29,8 +29,8 @@ describe('Memory instructions', () => {
         Set.wireFormat8,
       );
 
-      expect(Set.as(Set.wireFormat8).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat8).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u16]', () => {
@@ -46,8 +46,8 @@ describe('Memory instructions', () => {
         Set.wireFormat16,
       );
 
-      expect(Set.as(Set.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u32]', () => {
@@ -65,8 +65,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x12345678,
       ).as(Opcode.SET_32, Set.wireFormat32);
 
-      expect(Set.as(Set.wireFormat32).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat32).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u64]', () => {
@@ -84,8 +84,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x1234567812345678n,
       ).as(Opcode.SET_64, Set.wireFormat64);
 
-      expect(Set.as(Set.wireFormat64).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat64).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u128]', () => {
@@ -103,8 +103,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x12345678123456781234567812345678n,
       ).as(Opcode.SET_128, Set.wireFormat128);
 
-      expect(Set.as(Set.wireFormat128).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormat128).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=ff]', () => {
@@ -122,8 +122,8 @@ describe('Memory instructions', () => {
         /*value=*/ 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefn,
       ).as(Opcode.SET_FF, Set.wireFormatFF);
 
-      expect(Set.as(Set.wireFormatFF).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Set.as(Set.wireFormatFF).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('should correctly set value and tag (uninitialized)', async () => {
@@ -175,8 +175,8 @@ describe('Memory instructions', () => {
         /*dstTag=*/ TypeTag.FIELD,
       ).as(Opcode.CAST_16, Cast.wireFormat16);
 
-      expect(Cast.as(Cast.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Cast.as(Cast.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should upcast between integral types', async () => {
@@ -328,8 +328,8 @@ describe('Memory instructions', () => {
         Mov.wireFormat8,
       );
 
-      expect(Mov.as(Mov.wireFormat8).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Mov.as(Mov.wireFormat8).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should move integrals on different memory cells', async () => {
@@ -346,7 +346,10 @@ describe('Memory instructions', () => {
     it('Should support INDIRECT addressing', async () => {
       context.machineState.memory.set(0, new Uint16(55));
       context.machineState.memory.set(10, new Uint32(20));
-      const addressing = new Addressing([/*srcOffset*/ AddressingMode.DIRECT, /*dstOffset*/ AddressingMode.INDIRECT]);
+      const addressing = Addressing.fromModes([
+        /*srcOffset*/ AddressingMode.DIRECT,
+        /*dstOffset*/ AddressingMode.INDIRECT,
+      ]);
       await new Mov(/*indirect=*/ addressing.toWire(), /*srcOffset=*/ 0, /*dstOffset=*/ 10).execute(context);
 
       expect(context.machineState.memory.get(1)).toEqual(new Field(0));
@@ -369,20 +372,20 @@ describe('Memory instructions', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // cdOffsetAddress
+        0x10, // indirect
         ...Buffer.from('2345', 'hex'), // copysizeOffset
+        ...Buffer.from('1234', 'hex'), // cdOffsetAddress
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
-        /*indirect=*/ 0x01,
-        /*cdOffsetAddress=*/ 0x1234,
+        /*indirect=*/ 0x10,
         /*copysizeOffset=*/ 0x2345,
+        /*cdOffsetAddress=*/ 0x1234,
         /*dstOffset=*/ 0x3456,
       );
 
-      expect(CalldataCopy.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(CalldataCopy.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Writes nothing if size is 0', async () => {
@@ -392,7 +395,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint32(0)); // size
       context.machineState.memory.set(3, new Uint16(12)); // not overwritten
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.get(3);
       expect(actual).toEqual(new Uint16(12));
@@ -404,7 +407,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(0)); // cdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(1), new Field(2), new Field(3)]);
@@ -416,7 +419,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(1)); // cdoffset
       context.machineState.memory.set(1, new Uint32(2)); // size
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
       expect(actual).toEqual([new Field(2), new Field(3)]);
@@ -431,8 +434,8 @@ describe('Memory instructions', () => {
       await expect(
         new CalldataCopy(
           /*indirect=*/ 0,
-          /*cdStartOffset=*/ 0,
           /*copySizeOffset=*/ 1,
+          /*cdStartOffset=*/ 0,
           /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 2,
         ).execute(context),
       ).rejects.toThrow(MemorySliceOutOfRangeError);
@@ -444,7 +447,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(2)); // cdStart = 2
       context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
 
-      await new CalldataCopy(/*indirect=*/ 0, /*cdStartOffset=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0).execute(
+      await new CalldataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 1, /*cdStartOffset=*/ 0, /*dstOffset=*/ 0).execute(
         context,
       );
 
@@ -462,8 +465,8 @@ describe('Memory instructions', () => {
       ]);
       const inst = new ReturndataSize(/*indirect=*/ 0x01, /*dstOffset=*/ 0x3456);
 
-      expect(ReturndataSize.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(ReturndataSize.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Writes size', async () => {
@@ -481,20 +484,20 @@ describe('Memory instructions', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         ReturndataCopy.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // rdOffsetAddress
+        0x10, // indirect
         ...Buffer.from('2345', 'hex'), // copysizeOffset
+        ...Buffer.from('1234', 'hex'), // rdOffsetAddress
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new ReturndataCopy(
-        /*indirect=*/ 0x01,
-        /*cdOffsetAddress=*/ 0x1234,
+        /*indirect=*/ 0x10,
         /*copysizeOffset=*/ 0x2345,
+        /*cdOffsetAddress=*/ 0x1234,
         /*dstOffset=*/ 0x3456,
       );
 
-      expect(ReturndataCopy.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(ReturndataCopy.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Writes nothing if size is 0', async () => {
@@ -504,7 +507,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(1, new Uint32(0)); // size
       context.machineState.memory.set(3, new Uint16(12)); // not overwritten
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.get(3);
       expect(actual).toEqual(new Uint16(12));
@@ -516,7 +519,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(0)); // rdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(1), new Field(2), new Field(3)]);
@@ -528,7 +531,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(1)); // rdoffset
       context.machineState.memory.set(1, new Uint32(2)); // size
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
       expect(actual).toEqual([new Field(2), new Field(3)]);
@@ -543,8 +546,8 @@ describe('Memory instructions', () => {
       await expect(
         new ReturndataCopy(
           /*indirect=*/ 0,
-          /*rdStartOffset=*/ 0,
           /*copySizeOffset=*/ 1,
+          /*rdStartOffset=*/ 0,
           /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 1,
         ).execute(context),
       ).rejects.toThrow(MemorySliceOutOfRangeError);
@@ -556,7 +559,7 @@ describe('Memory instructions', () => {
       context.machineState.memory.set(0, new Uint32(2)); // rdStart = 2
       context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
 
-      await new ReturndataCopy(/*indirect=*/ 0, /*rdStartOffset=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0).execute(
+      await new ReturndataCopy(/*indirect=*/ 0, /*copySizeOffset=*/ 1, /*rdStartOffset=*/ 0, /*dstOffset=*/ 0).execute(
         context,
       );
 

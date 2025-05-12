@@ -119,8 +119,7 @@ export function executeBB(
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,
-  bytecodeStackPath: string,
-  witnessStackPath: string,
+  inputsPath: string,
   log: LogFn,
   writeVk = false,
 ): Promise<BBFailure | BBSuccess> {
@@ -144,30 +143,16 @@ export async function executeBbClientIvcProof(
 
   try {
     // Write the bytecode to the working directory
-    log(`bytecodePath ${bytecodeStackPath}`);
-    log(`outputPath ${outputPath}`);
-    const args = [
-      '-o',
-      outputPath,
-      '-b',
-      bytecodeStackPath,
-      '-w',
-      witnessStackPath,
-      '-v',
-      '--scheme',
-      'client_ivc',
-      '--input_type',
-      'runtime_stack',
-    ];
-    if (writeVk) {
-      args.push('--write_vk');
-    }
-
+    log(`inputsPath ${inputsPath}`);
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`bb - ${message}`);
     };
 
+    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
+    if (writeVk) {
+      args.push('--write_vk');
+    }
     const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
 
@@ -198,6 +183,9 @@ function getArgs(flavor: UltraHonkFlavor) {
     }
     case 'ultra_keccak_honk': {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'keccak'];
+    }
+    case 'ultra_starknet_honk': {
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'starknet'];
     }
     case 'ultra_rollup_honk': {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation'];
@@ -621,7 +609,7 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath];
+    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath, '-v'];
     const timer = new Timer();
     const command = 'verify';
     const result = await executeBB(pathToBB, command, args, log);

@@ -21,10 +21,9 @@
 #include "barretenberg/nodejs_module/util/async_op.hpp"
 #include "barretenberg/nodejs_module/world_state/world_state.hpp"
 #include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
-#include "msgpack/v3/pack_decl.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
 #include "napi.h"
 
 using namespace bb::nodejs;
@@ -123,7 +122,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     // optional parameters
     size_t map_size_index = 5;
     if (info.Length() > map_size_index) {
-        if (info[4].IsObject()) {
+        if (info[map_size_index].IsObject()) {
             Napi::Object obj = info[map_size_index].As<Napi::Object>();
 
             for (auto tree_id : tree_ids) {
