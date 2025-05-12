@@ -21,6 +21,7 @@ import {
   IndexedTaggingSecret,
   LogWithTxData,
   PendingTaggedLog,
+  PublicLog,
   TxScopedL2Log,
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
@@ -585,11 +586,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     capsuleArrayBaseSlot: Fr,
     recipient: AztecAddress,
-    logs: TxScopedL2Log[],
+    privateLogs: TxScopedL2Log[],
   ) {
     // Build all pending tagged logs upfront with their tx effects
     const pendingTaggedLogs = await Promise.all(
-      logs.map(async scopedLog => {
+      privateLogs.map(async scopedLog => {
         // TODO(#9789): get these effects along with the log
         const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
         if (!txEffect) {
@@ -597,7 +598,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         }
 
         const pendingTaggedLog = new PendingTaggedLog(
-          scopedLog.log.toFields(),
+          scopedLog.log.fields,
           scopedLog.txHash,
           txEffect.data.noteHashes,
           txEffect.data.nullifiers[0],
@@ -724,12 +725,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
     }
 
-    // Public logs always take up all available fields by padding with zeroes, and the length of the originally emitted
-    // log is lost. Until this is improved, we simply remove all of the zero elements we find at the end.
-    // TODO(#11636): use the actual log length.
-    const trimmedLog = trimTrailingZeros(scopedLog.log.toFields());
+    const logContent = (scopedLog.isFromPublic ? [(scopedLog.log as PublicLog).contractAddress.toField()] : []).concat(
+      scopedLog.log.getEmittedFields(),
+    );
 
-    return new LogWithTxData(trimmedLog, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
+    return new LogWithTxData(logContent, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
@@ -832,16 +832,4 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       blockNumber,
     );
   }
-}
-
-// TODO(#11636): remove once we have the actual log length and we don't need to trim it anymore
-export function trimTrailingZeros(array: Fr[]): Fr[] {
-  // Make a copy to avoid modifying the original one
-  const toReturn = [...array];
-
-  while (toReturn.length > 0 && toReturn[toReturn.length - 1].isZero()) {
-    toReturn.pop();
-  }
-
-  return toReturn;
 }

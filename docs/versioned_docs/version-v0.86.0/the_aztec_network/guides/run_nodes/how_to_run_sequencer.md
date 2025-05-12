@@ -134,8 +134,11 @@ See the next section regarding any issues, and also the [Aztec discord server](h
 ### Update aztec alpha-testnet version
 To make sure you're using the latest version, run: `aztec-up alpha-testnet`, then restart your node.
 
-#### "No blob bodies found", "rpc rate", "quota limit"
-Register rpc url.
+#### "rpc rate", "quota limit"
+Registering with your rpc url provider will give you a token that may permit more requests.
+
+#### "No blob bodies found", "Unable to get blob sidecar, Gateway Time-out (504)"
+Check `L1_CONSENSUS_HOST_URLS` (for the beacon chain), if you see it regularly likely also a rate/limit issue.
 
 #### "Insufficient L1 funds"
 EOA needs sepolia eth, use faucet.

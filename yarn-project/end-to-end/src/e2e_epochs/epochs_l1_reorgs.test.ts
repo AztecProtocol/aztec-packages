@@ -12,7 +12,7 @@ import 'jest-extended';
 import { keccak256, parseTransaction } from 'viem';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } from './epochs_test.js';
+import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -25,14 +25,18 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
 
+  let L1_BLOCK_TIME_IN_S: number;
+  let L2_SLOT_DURATION_IN_S: number;
+
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
       l1PublishRetryIntervalMS: 300_000, // Do not retry l1 txs, we dont want them to land
       txPropagationMaxQueryAttempts: 2, // We are blocking txs here, so do not spend much time looking for them
+      ethereumSlotDuration: process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 4, // Got to speed these tests up for CI
     });
-    ({ proverDelayer, sequencerDelayer, context, logger, monitor } = test);
+    ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
     proverNode = context.proverNode!;
   });
@@ -53,8 +57,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
     // And remove the proof from L1
     await context.cheatCodes.eth.reorg(2);
-    await monitor.run();
-    expect(monitor.l2ProvenBlockNumber).toEqual(0);
+    expect((await monitor.run(true)).l2ProvenBlockNumber).toEqual(0);
 
     // Wait until the end of the proof submission window for the first epoch
     await test.waitUntilEndOfProofSubmissionWindow(0);
@@ -68,7 +71,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     // This is because the call to createNonValidatorNode will block until the initial sync is completed,
     // but the initial sync is done to the latest L1 block _at the time the initial sync starts_. So a new
     // node may have appeared while the initial sync runs, that's why we account for a small span of blocks.
-    const currentBlock = monitor.l2BlockNumber;
+    const currentBlock = (await monitor.run(true)).l2BlockNumber;
     expect(await newNode.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
 
     // And check that the old node has processed the reorg as well
