@@ -1208,4 +1208,20 @@ export class TXEService {
 
     return toForeignCallResult([toSingle(result)]);
   }
+
+  async publicCallNewFlow(
+    from: ForeignCallSingle,
+    address: ForeignCallSingle,
+    _length: ForeignCallSingle,
+    calldata: ForeignCallArray,
+  ) {
+    const result = await (this.typedOracle as TXE).publicCallNewFlow(
+      addressFromSingle(from),
+      addressFromSingle(address),
+      fromArray(calldata),
+      /* isStaticCall */ false,
+    );
+
+    return toForeignCallResult([toArray([result.returnsHash, result.txHash])]);
+  }
 }
