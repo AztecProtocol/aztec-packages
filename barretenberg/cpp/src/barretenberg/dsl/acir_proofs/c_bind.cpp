@@ -6,7 +6,6 @@
 
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
-#include "acir_composer.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/mem.hpp"
