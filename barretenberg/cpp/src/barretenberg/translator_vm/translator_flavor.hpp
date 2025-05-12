@@ -61,8 +61,8 @@ class TranslatorFlavor {
     // involved in the interleaving subprotocol)
     static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
 
-    // LOG_MINI_CIRCUIT_SIZE + log2(INTERLEAVING_GROUP_SIZE)
-    static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
+    // Determines the size of the polynomials initialised on the full domain
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
 
     static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 

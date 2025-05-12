@@ -28,7 +28,8 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
 
     // Create storage for polynomials
-    TranslatorProvingKey key{};
+    TranslatorProvingKey key;
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     // Fill in lagrange polynomials used in the permutation relation
@@ -74,6 +75,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     TranslatorProvingKey key;
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
@@ -653,7 +655,8 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     auto& engine = numeric::get_debug_randomness();
     const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
-    TranslatorProvingKey key;
+    TranslatorProvingKey key{};
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
     const size_t real_circuit_size = full_circuit_size - full_masking_offset;
 
@@ -725,6 +728,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     const auto max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     TranslatorProvingKey key;
+    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
     const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;

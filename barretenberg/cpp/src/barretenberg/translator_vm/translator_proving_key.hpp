@@ -21,8 +21,11 @@ class TranslatorProvingKey {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
-    size_t mini_circuit_dyadic_size;
-    size_t dyadic_circuit_size;
+    size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
+    // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
+    // to bring the degree of relations down, while extending the length.
+
+    size_t dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
     std::shared_ptr<ProvingKey> proving_key;
 
     BF batching_challenge_v = { 0 };
@@ -40,11 +43,6 @@ class TranslatorProvingKey {
         if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
-        mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
-
-        // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
-        // to bring the degree of relations down, while extending the length.
-        dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
 
         proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
 
