@@ -2,7 +2,7 @@ import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { readTestData, writeTestData } from '@aztec/foundation/testing/files';
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 
-import { createAvmMinimalPublicTx } from '../../fixtures/minimal_public_tx.js';
+import { createAvmMinimalPublicTx, readAvmMinimalPublicTxInputsFromFile } from '../../fixtures/minimal_public_tx.js';
 
 describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
   it('Minimal Tx avm inputs snapshot', async () => {
@@ -24,5 +24,12 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
     const expectedJson = readTestData(path);
     const expectedAvmInputs = await jsonParseWithSchema(expectedJson.toString(), AvmCircuitInputs.schema);
     expect(expectedAvmInputs).toEqual(inputs);
+  });
+
+  it('Minimal Tx avm inputs snapshot loaded from json file', async () => {
+    const result = await createAvmMinimalPublicTx();
+    const inputs = result.avmProvingRequest.inputs;
+    const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
+    expect(inputs).toEqual(avmInputsFromFile);
   });
 });
