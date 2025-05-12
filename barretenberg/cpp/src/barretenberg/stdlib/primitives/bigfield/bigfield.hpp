@@ -159,23 +159,20 @@ template <typename Builder, typename T> class bigfield {
                                       .add_two(result.binary_basis_limbs[2].element * shift_2,
                                                result.binary_basis_limbs[1].element * shift_1);
         result.prime_basis_limb += (result.binary_basis_limbs[0].element);
-        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
-        if constexpr (HasPlookup<Builder>) {
-            ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
-                                           result.binary_basis_limbs[1].element.get_normalized_witness_index(),
-                                           static_cast<size_t>(NUM_LIMB_BITS),
-                                           static_cast<size_t>(NUM_LIMB_BITS));
-            ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
-                                           result.binary_basis_limbs[3].element.get_normalized_witness_index(),
-                                           static_cast<size_t>(NUM_LIMB_BITS),
-                                           static_cast<size_t>(num_last_limb_bits));
 
-        } else {
-            a.create_range_constraint(NUM_LIMB_BITS);
-            b.create_range_constraint(NUM_LIMB_BITS);
-            c.create_range_constraint(NUM_LIMB_BITS);
-            d.create_range_constraint(num_last_limb_bits);
-        }
+        // Range contrain the first two limbs each to NUM_LIMB_BITS
+        ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
+                                       result.binary_basis_limbs[1].element.get_normalized_witness_index(),
+                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                       static_cast<size_t>(NUM_LIMB_BITS));
+
+        // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
+        const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+        ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
+                                       result.binary_basis_limbs[3].element.get_normalized_witness_index(),
+                                       static_cast<size_t>(NUM_LIMB_BITS),
+                                       static_cast<size_t>(num_last_limb_bits));
+
         return result;
     };
     /**
