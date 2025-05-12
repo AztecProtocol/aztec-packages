@@ -3,7 +3,7 @@
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -35,11 +35,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
-    static void SetUpTestSuite()
-    {
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Adds operations in BN254 to the op_queue and then constructs and ECCVM circuit from the op_queue.
@@ -90,7 +86,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
-        stdlib::recursion::aggregation_state<OuterBuilder>::add_default_pairing_points_to_public_inputs(outer_circuit);
+        stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
@@ -145,8 +141,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.verify_proof(proof);
-        stdlib::recursion::aggregation_state<OuterBuilder>::add_default_pairing_points_to_public_inputs(outer_circuit);
+        [[maybe_unused]] auto output = verifier.verify_proof(proof);
+        stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
         info("Recursive Verifier: estimated num finalized gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -168,9 +164,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            verifier.verify_proof(proof);
-            stdlib::recursion::aggregation_state<OuterBuilder>::add_default_pairing_points_to_public_inputs(
-                outer_circuit);
+            [[maybe_unused]] auto output = verifier.verify_proof(proof);
+            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             // Check for a failure flag in the recursive verifier circuit
             EXPECT_FALSE(CircuitChecker::check(outer_circuit));
@@ -195,8 +190,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
             auto [opening_claim, ipa_transcript] = verifier.verify_proof(inner_proof);
-            stdlib::recursion::aggregation_state<OuterBuilder>::add_default_pairing_points_to_public_inputs(
-                outer_circuit);
+            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =

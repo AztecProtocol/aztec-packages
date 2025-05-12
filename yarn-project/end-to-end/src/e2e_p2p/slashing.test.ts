@@ -18,7 +18,7 @@ jest.setTimeout(1000000);
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
-const BOOT_NODE_UDP_PORT = 41000;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slashing-'));
 
@@ -358,9 +358,6 @@ describe('e2e_p2p_slashing', () => {
     // Send tx
     await t.sendDummyTx();
 
-    // Slashed parties should be removed from the validator set in the next epoch
-    const attestersNextEpoch = await rollup.getAttesters();
-
     for (const attester of attestersPre) {
       const attesterInfo = await rollup.getInfo(attester);
       // Check that status is Living
@@ -372,8 +369,6 @@ describe('e2e_p2p_slashing', () => {
     // Committee should only update in the next epoch
     const committee = await rollup.getEpochCommittee(targetEpoch);
     expect(attestersPre.length).toBe(committee.length);
-    expect(attestersPost.length).toBe(committee.length);
-
-    expect(attestersNextEpoch.length).toBe(0);
+    expect(attestersPost.length).toBe(0);
   }, 1_000_000);
 });

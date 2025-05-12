@@ -85,6 +85,10 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeDb.backupTo(dstPath, compact);
   }
 
+  public clear(): Promise<void> {
+    return this.merkleTreeDb.clear();
+  }
+
   public async start() {
     if (this.currentState === WorldStateRunningState.STOPPED) {
       throw new Error('Synchronizer already stopped');

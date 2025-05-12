@@ -14,7 +14,7 @@ using namespace bb;
 class MegaMockCircuitsPinning : public ::testing::Test {
   protected:
     using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 TEST_F(MegaMockCircuitsPinning, FunctionSizes)
@@ -58,27 +58,17 @@ TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
 {
     Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    GoblinMockCircuits::AggregationObject::add_default_pairing_points_to_public_inputs(app_circuit);
+    GoblinMockCircuits::PairingPoints::add_default_to_public_inputs(app_circuit);
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
 }
 
-TEST_F(MegaMockCircuitsPinning, ClientIVCBenchStructuredCircuitSize)
+TEST_F(MegaMockCircuitsPinning, AztecStructuredCircuitSize)
 {
     Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    GoblinMockCircuits::AggregationObject::add_default_pairing_points_to_public_inputs(app_circuit);
-    TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
-    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
-}
-
-TEST_F(MegaMockCircuitsPinning, E2EStructuredCircuitSize)
-{
-    Goblin goblin;
-    MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    GoblinMockCircuits::AggregationObject::add_default_pairing_points_to_public_inputs(app_circuit);
+    GoblinMockCircuits::PairingPoints::add_default_to_public_inputs(app_circuit);
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);

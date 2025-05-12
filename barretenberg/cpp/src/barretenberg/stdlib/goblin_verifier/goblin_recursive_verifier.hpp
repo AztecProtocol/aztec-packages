@@ -17,8 +17,8 @@ struct GoblinRecursiveVerifierOutput {
     using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
     using Curve = grumpkin<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using AggregationObject = aggregation_state<Builder>;
-    AggregationObject agg_obj;
+    using PairingAccumulator = PairingPoints<Builder>;
+    PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
     std::shared_ptr<Transcript> ipa_transcript;
 };
@@ -47,13 +47,11 @@ class GoblinRecursiveVerifier {
     /**
      * @brief Construct a Goblin recursive verifier circuit
      * @details Contains three recursive verifiers: Merge, ECCVM, and Translator
-     * @todo(https://github.com/AztecProtocol/barretenberg/issues/1021): The values returned by the recursive verifiers
-     * are not aggregated here. We need to aggregate and return the pairing points from Merge/Translator plus deal with
-     * the IPA accumulator from ECCVM.
      *
      * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
      */
-    GoblinRecursiveVerifierOutput verify(const GoblinProof&);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
+        const GoblinProof&);
 
   private:
     Builder* builder;

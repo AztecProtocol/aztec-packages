@@ -2,7 +2,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -16,7 +16,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using FF = Flavor::FF;
@@ -50,7 +50,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
         manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
-        for (size_t i = 0; i < PAIRING_POINT_ACCUMULATOR_SIZE; i++) {
+        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
@@ -177,8 +177,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         uint32_t d_idx = builder.add_variable(d);
 
         builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
-        stdlib::recursion::aggregation_state<
-            typename Flavor::CircuitBuilder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
     }
 };
 TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);

@@ -23,7 +23,7 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     // Add default pairing points as its required, but this causes gates to be created...
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Get rid of gates when creating default
     // pairing points.
-    stdlib::recursion::aggregation_state<Builder>::add_default_pairing_points_to_public_inputs(builder);
+    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
 
     stdlib::field_t a(stdlib::witness_t(&builder, fr::random_element()));
     stdlib::field_t b(stdlib::witness_t(&builder, fr::random_element()));
@@ -88,7 +88,7 @@ void construct_proof_with_specified_num_iterations(
     void (*test_circuit_function)(typename Prover::Flavor::CircuitBuilder&, size_t),
     size_t num_iterations)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     for (auto _ : state) {
         // Construct circuit and prover; don't include this part in measurement

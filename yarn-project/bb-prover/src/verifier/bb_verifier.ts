@@ -110,7 +110,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         );
 
         if (result.status === BB_RESULT.FAILURE) {
-          const errorMessage = `Failed to verify ${circuit} proof!`;
+          const errorMessage = `Failed to verify ${circuit} proof for ${expectedCircuit}!`;
           throw new Error(errorMessage);
         }
 

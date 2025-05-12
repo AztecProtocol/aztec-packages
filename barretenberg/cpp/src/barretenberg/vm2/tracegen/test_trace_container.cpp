@@ -33,9 +33,9 @@ TestTraceContainer TestTraceContainer::from_rows(const std::vector<AvmFullRow>& 
     return container;
 }
 
-AvmFullRowConstRef TestTraceContainer::get_row(uint32_t row) const
+AvmFullRowProxy TestTraceContainer::get_row(uint32_t row) const
 {
-    return get_full_row_ref(*this, row);
+    return { row, *this };
 }
 
 std::vector<AvmFullRowConstRef> TestTraceContainer::as_rows() const
@@ -44,7 +44,7 @@ std::vector<AvmFullRowConstRef> TestTraceContainer::as_rows() const
     std::vector<AvmFullRowConstRef> full_row_trace;
     full_row_trace.reserve(max_rows);
     for (uint32_t i = 0; i < max_rows; ++i) {
-        full_row_trace.push_back(get_row(i));
+        full_row_trace.push_back(get_full_row_ref(*this, i));
     }
     return full_row_trace;
 }

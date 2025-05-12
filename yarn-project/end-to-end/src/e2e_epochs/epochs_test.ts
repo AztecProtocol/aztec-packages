@@ -10,7 +10,7 @@ import type { TestProverNode } from '@aztec/prover-node/test';
 import type { SequencerPublisher } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 
 import { join } from 'path';
 import type { Hex } from 'viem';
@@ -23,9 +23,6 @@ import {
   setup,
 } from '../fixtures/utils.js';
 
-// This can be lowered to as much as 2s in non-CI
-export const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
-export const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
 export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
@@ -33,7 +30,15 @@ export const ARCHIVER_POLL_INTERVAL = 50;
 export type EpochsTestOpts = Partial<
   Pick<
     SetupOptions,
-    'startProverNode' | 'aztecProofSubmissionWindow' | 'aztecEpochDuration' | 'proverTestDelayMs' | 'proverNodeConfig'
+    | 'startProverNode'
+    | 'aztecProofSubmissionWindow'
+    | 'aztecEpochDuration'
+    | 'proverTestDelayMs'
+    | 'l1PublishRetryIntervalMS'
+    | 'txPropagationMaxQueryAttempts'
+    | 'proverNodeConfig'
+    | 'ethereumSlotDuration'
+    | 'aztecSlotDuration'
   >
 >;
 
@@ -57,17 +62,33 @@ export class EpochsTestContext {
 
   public epochDuration!: number;
 
+  public L1_BLOCK_TIME_IN_S!: number;
+  public L2_SLOT_DURATION_IN_S!: number;
+
   public static async setup(opts: EpochsTestOpts = {}) {
     const test = new EpochsTestContext();
     await test.setup(opts);
     return test;
   }
 
+  public static getSlotDurations(opts: EpochsTestOpts = {}) {
+    const envEthereumSlotDuration = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
+    const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
+    const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
+    const aztecProofSubmissionWindow = opts.aztecProofSubmissionWindow ?? aztecEpochDuration * 2 - 1;
+    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow };
+  }
+
   public async setup(opts: EpochsTestOpts = {}) {
+    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow } =
+      EpochsTestContext.getSlotDurations(opts);
+
+    this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
+    this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
+
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
-    const proofSubmissionWindow = opts.aztecProofSubmissionWindow ?? aztecEpochDuration * 2 - 1;
     const context = await setup(0, {
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
@@ -75,9 +96,9 @@ export class EpochsTestContext {
       skipProtocolContracts: true,
       salt: 1,
       aztecEpochDuration,
-      aztecSlotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
-      ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      aztecProofSubmissionWindow: proofSubmissionWindow,
+      aztecSlotDuration,
+      ethereumSlotDuration,
+      aztecProofSubmissionWindow,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,
@@ -87,7 +108,7 @@ export class EpochsTestContext {
       proverId: Fr.fromString('1'),
       // This must be enough so that the tx from the prover is delayed properly,
       // but not so much to hang the sequencer and timeout the teardown
-      txPropagationMaxQueryAttempts: 12,
+      txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       ...opts,
     });
@@ -119,11 +140,11 @@ export class EpochsTestContext {
     this.epochDuration = aztecEpochDuration;
     this.constants = {
       epochDuration: aztecEpochDuration,
-      slotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
+      slotDuration: aztecSlotDuration,
       l1StartBlock: await this.rollup.getL1StartBlock(),
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
-      ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      proofSubmissionWindow,
+      ethereumSlotDuration,
+      proofSubmissionWindow: aztecProofSubmissionWindow,
     };
 
     this.logger.info(
@@ -177,14 +198,14 @@ export class EpochsTestContext {
   public async waitUntilEpochStarts(epoch: number) {
     const [start] = getTimestampRangeForEpoch(BigInt(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
-    await waitUntilL1Timestamp(this.l1Client, start - BigInt(L1_BLOCK_TIME_IN_S));
+    await waitUntilL1Timestamp(this.l1Client, start - BigInt(this.L1_BLOCK_TIME_IN_S));
     return start;
   }
 
   /** Waits until the given L2 block number is mined. */
   public async waitUntilL2BlockNumber(target: number, timeout = 60) {
     await retryUntil(
-      () => Promise.resolve(target === this.monitor.l2BlockNumber),
+      () => Promise.resolve(target <= this.monitor.l2BlockNumber),
       `Wait until L2 block ${target}`,
       timeout,
       0.1,
@@ -194,11 +215,20 @@ export class EpochsTestContext {
   /** Waits until the given L2 block number is marked as proven. */
   public async waitUntilProvenL2BlockNumber(t: number, timeout = 60) {
     await retryUntil(
-      () => Promise.resolve(t === this.monitor.l2ProvenBlockNumber),
+      () => Promise.resolve(t <= this.monitor.l2ProvenBlockNumber),
       `Wait proven L2 block ${t}`,
       timeout,
       0.1,
     );
+    return this.monitor.l2ProvenBlockNumber;
+  }
+
+  /** Waits until the end of the proof submission window for a given epoch. */
+  public async waitUntilEndOfProofSubmissionWindow(epochNumber: number | bigint) {
+    const deadline = getProofSubmissionDeadlineTimestamp(BigInt(epochNumber), this.constants);
+    const date = new Date(Number(deadline) * 1000);
+    this.logger.info(`Waiting until end of submission window for epoch ${epochNumber} at ${date}`, { deadline });
+    await waitUntilL1Timestamp(this.l1Client, deadline);
   }
 
   /** Waits for the aztec node to sync to the target block number. */

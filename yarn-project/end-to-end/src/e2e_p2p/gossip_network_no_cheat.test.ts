@@ -25,7 +25,7 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
-const BOOT_NODE_UDP_PORT = 44600;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -121,9 +121,8 @@ describe('e2e_p2p_network', () => {
       });
     }
 
-    // Changes do not take effect until the next epoch
     const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
-    expect(attestersImmedatelyAfterAdding.length).toBe(0);
+    expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
@@ -202,7 +201,7 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = await contexts[0].txs[0].getReceipt().then(r => r.blockNumber!);
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
-    const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
+    const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())

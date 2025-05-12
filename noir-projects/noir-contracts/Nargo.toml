@@ -21,7 +21,7 @@ members = [
     "contracts/app/token_bridge_contract",
     "contracts/app/token_contract",
     "contracts/app/uniswap_contract",
-    "contracts/app/simple_token_playground",
+    "contracts/app/simple_token_contract",
     "contracts/docs/docs_example_contract",
     "contracts/fees/fpc_contract",
     "contracts/fees/sponsored_fpc_contract",
@@ -51,6 +51,7 @@ members = [
     "contracts/test/static_parent_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
+    "contracts/test/txe_test_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"
 ]

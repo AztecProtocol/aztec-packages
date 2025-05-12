@@ -58,7 +58,7 @@ describe('FeeAssetHandler', () => {
   });
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(logger.error);
   });
 
   it('should mint fee asset', async () => {

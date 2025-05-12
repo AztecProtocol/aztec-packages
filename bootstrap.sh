@@ -16,6 +16,10 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
+if [ ! -v NOIR_HASH ]; then
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
+fi
+
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
@@ -110,13 +114,36 @@ function check_toolchains {
 # Install pre-commit git hooks.
 function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
-  echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
-  echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
-  echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
-  echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
+  cat <<EOF >$hooks_dir/pre-commit
+#!/usr/bin/env bash
+set -euo pipefail
+(cd barretenberg/cpp && ./format.sh staged)
+./yarn-project/precommit.sh
+./noir-projects/precommit.sh
+./yarn-project/constants/precommit.sh
+EOF
   chmod +x $hooks_dir/pre-commit
   echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
   chmod +x $hooks_dir/post-checkout
+}
+
+function sort_by_cpus {
+  awk '
+    {
+      cpus = 0;  # Default value
+      # Split line on space, take first field ($1)
+      split($1, subfields, ":");  # Split first field on :
+      for (i in subfields) {
+        split(subfields[i], arr, "=");
+        if (arr[1] == "CPUS") {
+          cpus = arr[2];
+          break;
+        }
+      }
+      # Print padded CPUS value followed by original line
+      printf "%010d %s\n", cpus, $0
+    }
+  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
 }
 
 function test_cmds {
@@ -124,7 +151,7 @@ function test_cmds {
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds
+  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
 function start_txes {
@@ -138,7 +165,7 @@ function start_txes {
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'strace -e trace=network node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
@@ -156,31 +183,28 @@ export -f start_txes
 
 function test {
   echo_header "test all"
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   start_txes
 
   # Make sure KIND starts so it is running by the time we do spartan tests.
-  spartan/bootstrap.sh kind &>/dev/null &
+  # spartan/bootstrap.sh kind &>/dev/null &
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
-  local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
   # Note: Capturing strips last newline. The echo re-adds it.
   local num
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
   echo "Gathered $num tests."
-  echo -n "$tests" | parallelise $((num_cpus / 2))
+
+  echo "$tests" | parallelise
 }
 
 function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
-  echo_header "sync noir repo"
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   check_toolchains
 
@@ -207,13 +231,11 @@ function build {
     aztec-up
   )
 
-  echo_header "Building dependent projects in serial"
   for project in "${dependent_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
 
-  echo_header "build non-dependent projects in parallel"
-  parallel --line-buffer --tag --halt now,fail=1 '{}/bootstrap.sh ${1:-}' ::: ${non_dependent_projects[@]}
+  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}/bootstrap.sh ${1:-}'" ::: ${non_dependent_projects[@]}
 }
 
 function bench {
@@ -223,6 +245,8 @@ function bench {
   fi
   denoise "barretenberg/bootstrap.sh bench"
   denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
+  denoise "yarn-project/simulator/bootstrap.sh bench"
+  denoise "l1-contracts/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }

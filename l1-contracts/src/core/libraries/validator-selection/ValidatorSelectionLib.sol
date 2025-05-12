@@ -27,6 +27,7 @@ library ValidatorSelectionLib {
   using MessageHashUtils for bytes32;
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
+  using TimeLib for Epoch;
   using AddressSnapshotLib for SnapshottedAddressSet;
   using Checkpoints for Checkpoints.Trace224;
   using SafeCast for *;
@@ -192,8 +193,12 @@ library ValidatorSelectionLib {
     bytes32 _committeeCommitment
   ) internal returns (address[] memory) {
     ValidatorSelectionStorage storage store = getStorage();
-
-    uint256 validatorSetSize = _stakingStore.attesters.lengthAtEpoch(_epoch);
+    // We do -1, as the snapshots practically happen at the end of the block, e.g.,
+    // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
+    // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
+    //  as we "start" time $t$.
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - 1;
+    uint256 validatorSetSize = _stakingStore.attesters.lengthAtTimestamp(ts);
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
     bool smallerCommittee = validatorSetSize <= targetCommitteeSize;

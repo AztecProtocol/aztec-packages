@@ -155,7 +155,7 @@ std::string Solver::get_array_name(const cvc5::Term& term)
     if (term.getKind() == cvc5::Kind::STORE) {
         return get_array_name(term[0]);
     }
-    return term.toString();
+    return stringify_term(term);
 }
 
 /**
@@ -184,19 +184,19 @@ std::pair<std::string, size_t> Solver::print_set_trace(const cvc5::Term& term, b
     if (this->cached_set_traces[set_name] < cur_depth) {
         std::string res = stringify_term(term[term.getNumChildren() - 1]) + " <- {";
 
-#ifdef SHOW_SYMBOLIC_SET_MEMBERS
-        for (size_t i = 0; i < term.getNumChildren() - 2; i++) {
+        size_t to_print = term.getNumChildren() > 257 ? 128 : term.getNumChildren() - 2;
+        for (size_t i = 0; i < to_print; i++) {
             res += stringify_term(term[i]) + ", ";
         }
+        if (to_print != term.getNumChildren() - 2) {
+            res += "... , ";
+        }
         res += stringify_term(term[term.getNumChildren() - 2]);
-#else
-        res += "TOO MANY VALUES";
-#endif
         res += "}";
         info(res);
     }
     if (is_head) {
-        this->cached_array_traces[set_name] = cur_depth;
+        this->cached_set_traces[set_name] = cur_depth;
     }
     return { set_name, cur_depth + 1 };
 }
@@ -212,9 +212,13 @@ std::string Solver::get_set_name(const cvc5::Term& term)
     bool is_insert = term.getKind() == cvc5::Kind::SET_INSERT;
     bool is_set = term.getSort().isSet() && term.getKind() == cvc5::Kind::CONSTANT;
     if (!is_insert && !is_set) {
+        throw std::invalid_argument("Expected SET or INSERT. Got: " + term.toString());
+    };
+
+    if (term.getKind() == cvc5::Kind::SET_INSERT) {
         return get_set_name(term[term.getNumChildren() - 1]);
     }
-    return term.toString();
+    return stringify_term(term);
 }
 
 /**
@@ -364,9 +368,12 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
         if (term.getNumChildren() != 2) {
             throw std::runtime_error("Expected set_member op. Got: " + term.toString());
         }
-        std::string set_name = get_set_name(term[term.getNumChildren() - 1]);
-        print_set_trace(term[term.getNumChildren() - 1]);
-        std::string res = stringify_term(term[1], /*parenthesis=*/true) + " in " + set_name;
+        std::string set_name = get_set_name(term[1]);
+        print_set_trace(term[1]);
+        std::string res = stringify_term(term[0], /*parenthesis=*/true) + " in " + set_name;
+        if (parenthesis) {
+            return "(" + res + ")";
+        }
         return res;
     }
     case cvc5::Kind::STORE: {

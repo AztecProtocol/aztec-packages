@@ -196,7 +196,7 @@ using lookup_instr_fetching_bytes_from_bc_dec_relation =
 struct lookup_instr_fetching_wire_instruction_info_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INSTR_FETCHING_WIRE_INSTRUCTION_INFO";
     static constexpr std::string_view RELATION_NAME = "instr_fetching";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 24;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 23;
     static constexpr Column SRC_SELECTOR = Column::instr_fetching_sel_pc_in_range;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_instr_fetching_wire_instruction_info_counts;
@@ -213,7 +213,7 @@ struct lookup_instr_fetching_wire_instruction_info_settings_ {
         ColumnAndShifts::instr_fetching_sel_op_dc_10, ColumnAndShifts::instr_fetching_sel_op_dc_11,
         ColumnAndShifts::instr_fetching_sel_op_dc_12, ColumnAndShifts::instr_fetching_sel_op_dc_13,
         ColumnAndShifts::instr_fetching_sel_op_dc_14, ColumnAndShifts::instr_fetching_sel_op_dc_15,
-        ColumnAndShifts::instr_fetching_sel_op_dc_16, ColumnAndShifts::instr_fetching_sel_op_dc_17
+        ColumnAndShifts::instr_fetching_sel_op_dc_16
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,          ColumnAndShifts::precomputed_opcode_out_of_range,
@@ -227,7 +227,7 @@ struct lookup_instr_fetching_wire_instruction_info_settings_ {
         ColumnAndShifts::precomputed_sel_op_dc_10, ColumnAndShifts::precomputed_sel_op_dc_11,
         ColumnAndShifts::precomputed_sel_op_dc_12, ColumnAndShifts::precomputed_sel_op_dc_13,
         ColumnAndShifts::precomputed_sel_op_dc_14, ColumnAndShifts::precomputed_sel_op_dc_15,
-        ColumnAndShifts::precomputed_sel_op_dc_16, ColumnAndShifts::precomputed_sel_op_dc_17
+        ColumnAndShifts::precomputed_sel_op_dc_16
     };
 };
 

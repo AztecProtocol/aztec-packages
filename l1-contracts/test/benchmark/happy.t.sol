@@ -68,8 +68,7 @@ import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 
 // solhint-disable comprehensive-interface
 
-uint256 constant MANA_TARGET = 100000000;
-uint256 constant VALIDATOR_COUNT = 100;
+uint256 constant MANA_TARGET = 1e8;
 
 contract FakeCanonical is IRewardDistributor {
   uint256 public constant BLOCK_REWARD = 50e18;
@@ -135,11 +134,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
   mapping(address proposer => address attester) internal proposerToAttester;
 
-  constructor() {
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
-  }
+  Forwarder internal baseForwarder = new Forwarder(address(this));
 
-  function setUp() public {
+  modifier prepare(uint256 _validatorCount) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
@@ -162,7 +159,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
         slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
         manaTarget: MANA_TARGET,
-        provingCostPerMana: TestConstants.AZTEC_PROVING_COST_PER_MANA
+        provingCostPerMana: provingCost
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -174,9 +171,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
 
     // We are going to set up all of the validators
-    CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](VALIDATOR_COUNT);
+    CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](_validatorCount);
 
-    for (uint256 i = 1; i < VALIDATOR_COUNT + 1; i++) {
+    for (uint256 i = 1; i < _validatorCount + 1; i++) {
       uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", i)));
       address attester = vm.addr(attesterPrivateKey);
       attesterPrivateKeys[attester] = attesterPrivateKey;
@@ -193,17 +190,35 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       });
     }
 
-    asset.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
-    asset.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    asset.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+    asset.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
     asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
 
     asset.transferOwnership(address(fakeCanonical));
+
+    _;
+  }
+
+  constructor() {
+    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
   }
 
   function _loadL1Metadata(uint256 index) internal {
     vm.roll(l1Metadata[index].block_number);
     vm.warp(l1Metadata[index].timestamp);
+  }
+
+  function test_no_validators() public prepare(0) {
+    benchmark();
+  }
+
+  function test_48_validators() public prepare(48) {
+    benchmark();
+  }
+
+  function test_100_validators() public prepare(100) {
+    benchmark();
   }
 
   /**
@@ -305,14 +320,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
 
-  function test_Benchmarking() public {
+  function benchmark() public {
     // Do nothing for the first epoch
     Slot nextSlot = Slot.wrap(EPOCH_DURATION + 1);
     Epoch nextEpoch = Epoch.wrap(2);
-
-    rollup.setProvingCostPerMana(
-      EthValue.wrap(points[0].outputs.mana_base_fee_components_in_wei.proving_cost)
-    );
 
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
@@ -326,10 +337,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // and part of the `empty_block_1.json` file. The block cannot be proven, but it
       // will be accepted as a proposal so very useful for testing a long range of blocks.
       if (rollup.getCurrentSlot() == nextSlot) {
-        TestPoint memory point = points[nextSlot.unwrap() - 1];
-        rollup.setProvingCostPerMana(
-          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
-        );
+        rollup.setupEpoch();
 
         Block memory b = getBlock();
         address proposer = rollup.getCurrentProposer();
@@ -342,10 +350,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         bytes[] memory data = new bytes[](1);
         data[0] = abi.encodeCall(IRollupCore.propose, (b.proposeArgs, b.attestations, b.blobInputs));
 
-        address caller = proposerToAttester[proposer];
-        vm.prank(caller);
-        Forwarder(proposer).forward(targets, data);
-        // rollup.propose(b.proposeArgs, b.signatures, b.blobInputs);
+        if (proposer == address(0)) {
+          baseForwarder.forward(targets, data);
+        } else {
+          address caller = proposerToAttester[proposer];
+          vm.prank(caller);
+          Forwarder(proposer).forward(targets, data);
+        }
 
         nextSlot = nextSlot + Slot.wrap(1);
       }

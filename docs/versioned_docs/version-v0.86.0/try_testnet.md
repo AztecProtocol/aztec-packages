@@ -12,17 +12,21 @@ id: try_testnet
 
 ## Take part
 
-- [Run a node](./the_aztec_network/index.md)
+- [Run a node](./the_aztec_network/guides/run_nodes/how_to_run_sequencer.md)
 - [Interact with testnet using Playground, a tool for deploying & interacting with contracts](https://play.aztec.network/)
 - [Get inspiration for what you could build](./developers/inspiration.md)
 
 ## Develop on Aztec Testnet
 
-Follow the [getting started on testnet guide](./developers/guides/local_env/getting_started_on_testnet.md).
+- Follow the [getting started on testnet guide](./developers/guides/getting_started_on_testnet.md)
+- Try the [`testnet` branch of the Aztec Starter template Github repo](https://github.com/AztecProtocol/aztec-starter/tree/testnet)
+- Follow our [tutorials](./developers/tutorials/codealong/contract_tutorials/counter_contract.md) in order to write your first contract, deploy it, and interact with it using Aztec CLI and Aztec.js
 
 ## Chain Information
 
-**Version**: `0.85.0-alpha-testnet.2`
+**Version**: `alpha-testnet`
+
+**Node URL**: `https://aztec-alpha-testnet-fullnode.zkv.xyz`
 
 **L1 Chain ID**: `11155111`
 
@@ -49,7 +53,7 @@ Follow the [getting started on testnet guide](./developers/guides/local_env/gett
 | Governance            | `0xee63e102e35f24c34b9ea09b597acfb491c94e78` |
 | Slash Factory         | `0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be` |
 | Fee Asset Handler     | `0x80d848dc9f52df56789e2d62ce66f19555ff1019` |
-| Staking Asset Handler | `undefined`                                  |
+| Staking Asset Handler | `0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2` |
 
 ### L2 Contract Addresses
 

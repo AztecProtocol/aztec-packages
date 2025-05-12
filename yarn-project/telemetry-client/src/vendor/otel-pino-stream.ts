@@ -173,7 +173,7 @@ export class OTelPinoStream extends Writable {
         return;
       }
 
-      // Parse, and handle edge cases similar to how `pino-abtract-transport` does:
+      // Parse, and handle edge cases similar to how `pino-abstract-transport` does:
       // https://github.com/pinojs/pino-abstract-transport/blob/v1.2.0/index.js#L28-L45
       // - Emitting an 'unknown' event on parse error mimicks pino-abstract-transport.
       let recObj;

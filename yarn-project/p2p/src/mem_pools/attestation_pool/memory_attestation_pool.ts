@@ -15,6 +15,10 @@ export class InMemoryAttestationPool implements AttestationPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
+  public isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.attestations.size === 0);
+  }
+
   public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
     return Promise.resolve(
       Array.from(this.attestations.get(slot)?.values() ?? []).flatMap(proposalAttestationMap =>

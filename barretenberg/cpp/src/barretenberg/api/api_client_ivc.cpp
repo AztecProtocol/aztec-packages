@@ -1,8 +1,8 @@
 #include "api_client_ivc.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/map.hpp"
@@ -11,6 +11,8 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_check_eq.hpp"
+#include <algorithm>
 #include <stdexcept>
 
 namespace bb {
@@ -34,6 +36,22 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
     return wv;
 }
 
+std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(acir_format::AcirProgram& program)
+{
+    const std::vector<acir_format::RecursionConstraint>& ivc_constraints =
+        program.constraints.ivc_recursion_constraints;
+
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+
+    acir_format::ProgramMetadata metadata{
+        .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+    };
+    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
+
+    // Construct the verification key via the prover-constructed proving key with the proper trace settings
+    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
+}
+
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
@@ -46,34 +64,14 @@ void write_standalone_vk(const std::string& output_data_type,
                          const std::string& bytecode_path,
                          const std::string& output_path)
 {
-    using Builder = ClientIVC::ClientCircuit;
-    using Prover = ClientIVC::MegaProver;
-    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
-    using VerificationKey = ClientIVC::MegaVerificationKey;
-    using Program = acir_format::AcirProgram;
-    using ProgramMetadata = acir_format::ProgramMetadata;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
-    Program program{ get_constraint_system(bytecode_path), /*witness=*/{} };
-    auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-
-    const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
-                                               ? nullptr
-                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
-    Builder builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
-    Prover prover{ proving_key };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    PubInputsProofAndKey<VerificationKey> to_write{
-        PublicInputsVector{}, HonkProof{}, std::make_shared<VerificationKey>(prover.proving_key->proving_key)
-    };
+    acir_format::AcirProgram program{ get_constraint_system(bytecode_path), /*witness=*/{} };
+    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
+    ClientIVC::MegaProver prover{ proving_key };
+    PubInputsProofAndKey<ClientIVC::MegaVerificationKey> to_write{ PublicInputsVector{},
+                                                                   HonkProof{},
+                                                                   std::make_shared<ClientIVC::MegaVerificationKey>(
+                                                                       prover.proving_key->proving_key) };
 
     write(to_write, output_data_type, "vk", output_path);
 }
@@ -84,15 +82,12 @@ size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input
     auto steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
     const PrivateExecutionStepRaw& last_step = steps.back();
     std::vector<uint8_t> bytecode_buf(last_step.bytecode.begin(), last_step.bytecode.end());
-    const AcirFormat constraints = circuit_buf_to_acir_format(bytecode_buf);
+    const AcirFormat constraints = circuit_buf_to_acir_format(std::move(bytecode_buf));
     return constraints.public_inputs.size();
 }
 
 void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path& output_dir)
 {
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
     const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(input_path);
     info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
 
@@ -127,9 +122,6 @@ void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
                          const std::filesystem::path& output_dir)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
@@ -172,10 +164,6 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
-    init_bn254_crs(1);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
@@ -185,9 +173,6 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
 
 bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
@@ -208,6 +193,28 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
                                            [[maybe_unused]] const std::filesystem::path& vk_path)
 {
     throw_or_abort("API function contract not implemented");
+}
+
+bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path)
+
+{
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    for (auto [program, precomputed_vk, function_name] :
+         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
+        if (precomputed_vk == nullptr) {
+            info("FAIL: Expected precomputed vk for function ", function_name);
+            return false;
+        }
+        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
+        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+        std::string error_message = "FAIL: Precomputed vk does not match computed vk for function " + function_name;
+        if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void ClientIVCAPI::write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path)
@@ -242,9 +249,6 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
     auto constraint_systems = get_constraint_systems(bytecode_path);
 
-    // Initialize an SRS to make the ClientIVC constructor happy
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     size_t i = 0;
@@ -295,11 +299,8 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;

@@ -5,22 +5,26 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 source "$SCRIPT_DIR/utils.sh"
 
-# Check all required environment variables
-check_env_var "STATE_S3_BASE_PATH"
-check_env_var "STATE_S3_KEY"
+# Required vars for running on CI to keep track of previous runs
+if [ "$LOCAL" != "true" ]; then
+  check_env_var "STATE_S3_BASE_PATH"
+  check_env_var "STATE_S3_KEY"
+fi
+
+# Check all required environment variables for both local and remote running
 check_env_var "AZTEC_VERSION"
 check_env_var "NODE_URL"
 check_env_var "L1_URL"
 check_env_var "FAUCET_URL"
 
-print_header "Retrieving state from S3"
-source "$SCRIPT_DIR/retrieve_state.sh"
+print_header "Setting initial state"
+source "$SCRIPT_DIR/set_initial_state.sh"
 
 print_header "Installing Aztec"
 source "$SCRIPT_DIR/install_aztec.sh"
 
-print_header "Set SponsoredFPC payment method"
-source "$SCRIPT_DIR/get_sponsored_fpc_address.sh"
+print_header "Setting SponsoredFPC payment method"
+source "$SCRIPT_DIR/set_sponsored_fpc_address.sh"
 
 print_header "Registering existing accounts from state"
 source "$SCRIPT_DIR/register_existing_accounts_from_state.sh"
