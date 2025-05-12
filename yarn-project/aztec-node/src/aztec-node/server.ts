@@ -715,25 +715,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error('Block is not defined');
     }
 
-    const l2ToL1Messages = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
+    const l2ToL1MessagesPerTxs = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
 
-    // Find index of message
-    let indexOfMsgInSubtree = -1;
-    const indexOfMsgTx = l2ToL1Messages.findIndex(msgs => {
+    // Find index of tx containing the message and the index of the message in the tx
+    let indexOfMsgInTxSubtree = -1;
+    const indexOfTxContainingMsgInBlock = l2ToL1MessagesPerTxs.findIndex(msgs => {
       const idx = msgs.findIndex(msg => msg.equals(l2ToL1Message));
-      indexOfMsgInSubtree = Math.max(indexOfMsgInSubtree, idx);
+      indexOfMsgInTxSubtree = Math.max(indexOfMsgInTxSubtree, idx);
       return idx !== -1;
     });
 
-    if (indexOfMsgTx === -1) {
-      throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
+    if (indexOfTxContainingMsgInBlock === -1) {
+      throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist in a given block');
     }
 
+    // We store the temporary stores in order to be able to wipe them after we're done with the computation
     const tempStores: AztecKVStore[] = [];
 
-    // Construct message subtrees
-    const l2toL1Subtrees = await Promise.all(
-      l2ToL1Messages.map(async (msgs, i) => {
+    // Construct message subtrees for each tx in the block
+    const l2toL1SubtreesPerTxs = await Promise.all(
+      l2ToL1MessagesPerTxs.map(async (msgs, i) => {
         const store = openTmpStore(true);
         tempStores.push(store);
         const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
@@ -743,31 +744,42 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }),
     );
 
-    // path of the input msg from leaf -> first out hash calculated in base rolllup
-    const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(
-      BigInt(indexOfMsgInSubtree),
+    // path of the input msg from leaf -> first out hash calculated in base rollup
+    const pathOfL2ToL1MessageInTxSubtree = await l2toL1SubtreesPerTxs[indexOfTxContainingMsgInBlock].getSiblingPath(
+      BigInt(indexOfMsgInTxSubtree),
       true,
     );
 
     const numTxs = block.body.txEffects.length;
     if (numTxs === 1) {
-      return [BigInt(indexOfMsgInSubtree), subtreePathOfL2ToL1Message];
+      return [BigInt(indexOfMsgInTxSubtree), pathOfL2ToL1MessageInTxSubtree];
     }
 
-    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
+    // We get the tx subtree roots such that we can build the final out hash tree
+    const l2toL1SubtreeRoots = l2toL1SubtreesPerTxs.map(t => Fr.fromBuffer(t.getRoot(true)));
     const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
     const outHashTree = new UnbalancedTree(new SHA256Trunc(), 'temp_outhash_sibling_path', maxTreeHeight, Fr);
     await outHashTree.appendLeaves(l2toL1SubtreeRoots);
 
-    const pathOfTxInOutHashTree = await outHashTree.getSiblingPath(l2toL1SubtreeRoots[indexOfMsgTx].toBigInt());
-    // Append subtree path to out hash tree path
-    const mergedPath = subtreePathOfL2ToL1Message.toBufferArray().concat(pathOfTxInOutHashTree.toBufferArray());
+    // We get the path of the tx subtree containing the message in the out hash tree
+    const pathOfTxSubtreeInOutHashTree = await outHashTree.getSiblingPath(
+      l2toL1SubtreeRoots[indexOfTxContainingMsgInBlock].toBigInt(),
+    );
+
+    // Finally we get the full message path by concatenating the tx subtree path and the out hash tree path
+    const mergedPath = pathOfL2ToL1MessageInTxSubtree
+      .toBufferArray()
+      .concat(pathOfTxSubtreeInOutHashTree.toBufferArray());
     // Append binary index of subtree path to binary index of out hash tree path
     const mergedIndex = parseInt(
-      indexOfMsgTx
+      indexOfTxContainingMsgInBlock
         .toString(2)
-        .concat(indexOfMsgInSubtree.toString(2).padStart(l2toL1Subtrees[indexOfMsgTx].getDepth(), '0')),
+        .concat(
+          indexOfMsgInTxSubtree
+            .toString(2)
+            .padStart(l2toL1SubtreesPerTxs[indexOfTxContainingMsgInBlock].getDepth(), '0'),
+        ),
       2,
     );
 
