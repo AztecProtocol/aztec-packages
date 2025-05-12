@@ -159,6 +159,7 @@ const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
 export function ContractComponent() {
   const [currentContract, setCurrentContract] = useState<Contract | null>(null);
+  const [currentContractClassId, setCurrentContractClassId] = useState<string | null>(null);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
   const [filters, setFilters] = useState({
     searchTerm: '',
@@ -209,6 +210,17 @@ export function ContractComponent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentContractArtifact, currentContractAddress, wallet]);
+
+  useEffect(() => {
+    const updateContractClassId = async () => {
+      const contractClass = await getContractClassFromArtifact(currentContractArtifact);
+      setCurrentContractClassId(contractClass.id.toString());
+    };
+
+    if (currentContractArtifact) {
+      updateContractClassId();
+    }
+  }, [currentContractArtifact]);
 
   useEffect(() => {
     if (!currentContractAddress) {
@@ -305,7 +317,11 @@ export function ContractComponent() {
               </Box>
 
               <Typography variant="caption" css={contractClassIdCss}>
+<<<<<<< HEAD
                 Contract Class ID: {currentContract?.instance?.currentContractClassId.toString()}
+=======
+                Contract Class ID: {currentContractClassId}
+>>>>>>> 38ec44558c (feat(playground): handle struct types, display contractClassId, fix input types (#14176))
               </Typography>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (
