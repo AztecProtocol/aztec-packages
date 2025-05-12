@@ -137,13 +137,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
-    RollupBuilder builder = new RollupBuilder(address(this));
-    builder.setProvingCostPerMana(provingCost);
-    builder.setManaTarget(MANA_TARGET);
-    builder.setSlotDuration(SLOT_DURATION);
-    builder.setEpochDuration(EPOCH_DURATION);
-    builder.setProofSubmissionWindow(EPOCH_DURATION * 2 - 1);
-    builder.setMintFeeAmount(1e30);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;

@@ -36,64 +36,81 @@ contract RollupBuilder {
     config.rollupConfigInput = TestConstants.getRollupConfigInput();
   }
 
-  function setTestERC20(address _testERC20) public {
+  function setTestERC20(address _testERC20) public returns (RollupBuilder) {
     config.testERC20 = TestERC20(_testERC20);
+    return this;
   }
 
-  function setRegistry(address _registry) public {
+  function setRegistry(address _registry) public returns (RollupBuilder) {
     config.registry = Registry(_registry);
+    return this;
   }
 
-  function setGenesisState(GenesisState memory _genesisState) public {
+  function setGenesisState(GenesisState memory _genesisState) public returns (RollupBuilder) {
     config.genesisState = _genesisState;
+    return this;
   }
 
-  function setRollupConfigInput(RollupConfigInput memory _rollupConfigInput) public {
+  function setRollupConfigInput(RollupConfigInput memory _rollupConfigInput)
+    public
+    returns (RollupBuilder)
+  {
     config.rollupConfigInput = _rollupConfigInput;
+    return this;
   }
 
-  function setRewardDistributor(address _rewardDistributor) public {
+  function setRewardDistributor(address _rewardDistributor) public returns (RollupBuilder) {
     config.rewardDistributor = RewardDistributor(_rewardDistributor);
+    return this;
   }
 
-  function setMintFeeAmount(uint256 _mintFeeAmount) public {
+  function setMintFeeAmount(uint256 _mintFeeAmount) public returns (RollupBuilder) {
     config.mintFeeAmount = _mintFeeAmount;
+    return this;
   }
 
   /* -------------------------------------------------------------------------- */
   /*                               Rollup config                                */
   /* -------------------------------------------------------------------------- */
 
-  function setProvingCostPerMana(EthValue _provingCostPerMana) public {
+  function setProvingCostPerMana(EthValue _provingCostPerMana) public returns (RollupBuilder) {
     config.rollupConfigInput.provingCostPerMana = _provingCostPerMana;
+    return this;
   }
 
-  function setManaTarget(uint256 _manaTarget) public {
+  function setManaTarget(uint256 _manaTarget) public returns (RollupBuilder) {
     config.rollupConfigInput.manaTarget = _manaTarget;
+    return this;
   }
 
-  function setSlotDuration(uint256 _slotDuration) public {
+  function setSlotDuration(uint256 _slotDuration) public returns (RollupBuilder) {
     config.rollupConfigInput.aztecSlotDuration = _slotDuration;
+    return this;
   }
 
-  function setEpochDuration(uint256 _epochDuration) public {
+  function setEpochDuration(uint256 _epochDuration) public returns (RollupBuilder) {
     config.rollupConfigInput.aztecEpochDuration = _epochDuration;
+    return this;
   }
 
-  function setProofSubmissionWindow(uint256 _proofSubmissionWindow) public {
+  function setProofSubmissionWindow(uint256 _proofSubmissionWindow) public returns (RollupBuilder) {
     config.rollupConfigInput.aztecProofSubmissionWindow = _proofSubmissionWindow;
+    return this;
   }
 
-  function setSlashingQuorum(uint256 _slashingQuorum) public {
+  function setSlashingQuorum(uint256 _slashingQuorum) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingQuorum = _slashingQuorum;
+    return this;
   }
 
-  function setSlashingRoundSize(uint256 _slashingRoundSize) public {
+  function setSlashingRoundSize(uint256 _slashingRoundSize) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingRoundSize = _slashingRoundSize;
+    return this;
   }
 
-  function setTargetCommitteeSize(uint256 _targetCommitteeSize) public {
+  function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
+    return this;
   }
 
   /* -------------------------------------------------------------------------- */

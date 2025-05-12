@@ -67,8 +67,7 @@ contract IgnitionTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this));
-    builder.setManaTarget(0);
+    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(0);
     builder.deploy();
 
     rollup = IInstance(address(builder.getConfig().rollup));
