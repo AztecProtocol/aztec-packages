@@ -10,33 +10,35 @@ This page covers all the tools for developing on Aztec. For a higher level summa
 ## Network
 
 | Component | Description | Key Commands | Notes |
-|:----------|:------------|:-------------|:-------------|
-| Sandbox | Emulated Aztec Network | | Requires Docker | A local Aztec node and bundle of CLI tools: aztec, aztec-nargo, aztec-up, aztec-wallet |
+|:----------|:------------|:-------------|:------|
+| Sandbox | Emulated Aztec Network | | Requires Docker. A local Aztec node and bundle of CLI tools: aztec, aztec-nargo, aztec-up, aztec-wallet |
 | aztec | CLI to interact with Aztec Node | `aztec start --sandbox`<br/>`aztec start --node [options]`<br/>`aztec test`<br/>`aztec update`<br/>`aztec codegen`<br/>`aztec send/call/deploy/add-contract` | Similar to Ethereum's Geth |
-| aztec-nargo | CLI for compiling Noir contracts | `aztec-nargo compile` | |s
+| aztec-nargo | CLI for compiling Noir contracts | `aztec-nargo compile` | |
 | aztec-up | CLI to install and update sandbox and its components | `aztec-up 0.86.0` | |
 | Anvil | Emulated Ethereum Node | | Externally created & maintained, part of Sandbox |
 | Private Execution Environment (PXE) | A package that runs locally, simulates private transactions, and generates proofs. It can be run as part of the sandbox or independently (recommended)| | There can be multiple PXE implementations, it is not enshrined in the Aztec protocol |
 
 ## Tooling
 
-| Noir LSP | VSCode language server | Plugs into aztec-nargo / nargo | Provides syntax highlighting, go-to-definition, compiler warnings, debugging, testing |
+| Component | Description | Notes |
+|:----------|:------------|:------|
+| Noir LSP | VSCode language server | Plugs into aztec-nargo / nargo. Provides syntax highlighting, go-to-definition, compiler warnings, debugging, testing |
 
 ## Smart Contracts
 
 | Component | Description | Usage | Notes |
-|:----------|:------------|:------|:-------------|
-| Aztec.nr | Smart contract writing framework | | | Similar to Solidity |
+|:----------|:------------|:------|:------|
+| Aztec.nr | Smart contract writing framework | | Similar to Solidity |
 | Tx Profiling Tool | Measures gate counts of transactions | `aztec-wallet simulate --profile` | Part of `aztec-wallet` |
-| Flamegraph Tool | Visualizes gate counts of Noir circuits | `aztec flamegraph` | | Part of `aztec` command |
-| Codegen Tool | Generates TypeScript wrappers for Aztec.nr contracts | `aztec codegen` | | Part of `aztec` command |
-| TXE | Fast emulated PXE for testing | `aztec test` | | Faster than PXE, similar to Foundry |
+| Flamegraph Tool | Visualizes gate counts of Noir circuits | `aztec flamegraph` | Part of `aztec` command |
+| Codegen Tool | Generates TypeScript wrappers for Aztec.nr contracts | `aztec codegen` | Part of `aztec` command |
+| TXE | Fast emulated PXE for testing | `aztec test` | Faster than PXE, similar to Foundry |
 
 ## Interacting with the network
 
 | Component | Description | Usage | Notes |
-|:----------|:------------|:-------------|:------|
-| aztec-wallet | Wallet management tool | `aztec-wallet import-test-accounts`<br/>`aztec-wallet create-account`<br/>`aztec-wallet deploy`<br/>`aztec-wallet send`<br/>`aztec-wallet simulate`<br/>`aztec-wallet simulate --profile` |  |
+|:----------|:------------|:------|:------|
+| aztec-wallet | Wallet management tool | `aztec-wallet import-test-accounts`<br/>`aztec-wallet create-account`<br/>`aztec-wallet deploy`<br/>`aztec-wallet send`<br/>`aztec-wallet simulate`<br/>`aztec-wallet simulate --profile` | |
 | @aztec/aztec.js | JS library for managing accounts and contracts | | Updated via npm/yarn |
 
 ## Noir
