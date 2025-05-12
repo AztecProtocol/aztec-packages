@@ -130,12 +130,9 @@ describe('e2e_contract_updates', () => {
   });
 
   it('should not allow to change the delay to a value lower than the minimum', async () => {
-    await expect(
-      contract.methods
-        .set_update_delay(MINIMUM_UPDATE_DELAY - 1)
-        .send()
-        .wait(),
-    ).rejects.toThrow('New update delay is too low');
+    await expect(contract.methods.set_update_delay(MINIMUM_UPDATE_DELAY - 1).simulate()).rejects.toThrow(
+      'New update delay is too low',
+    );
   });
 
   it('should not allow to instantiate a contract with an updated class before the update happens', async () => {

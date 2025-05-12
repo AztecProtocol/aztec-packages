@@ -18,40 +18,36 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
     assertFalse(validatorSet.remove(address(1)));
   }
 
-  function test_WhenValidatorIsInTheSet() public {
+  function test_WhenValidatorIsInTheSet(uint16 _add2) public {
     // It returns true
     // It decreases the length
     // It updates the snapshot for that index
     // It maintains historical values correctly
 
-    timeCheater.cheat__setEpochNow(1);
-    validatorSet.add(address(1));
-    // Length remains 0 within this epoch
-    assertEq(validatorSet.length(), 0);
+    uint32 ts = uint32(block.timestamp);
+    uint32 ts2 = ts + uint32(bound(_add2, 1, 1000));
 
-    // Length increases to 1 in the next epoch
-    timeCheater.cheat__setEpochNow(2);
+    validatorSet.add(address(1));
+    assertEq(validatorSet.length(), 1);
+
+    vm.warp(ts2);
+
     assertEq(validatorSet.length(), 1);
 
     assertTrue(validatorSet.remove(address(1)));
-    // Length remains 1 within this epoch
-    assertEq(validatorSet.length(), 1);
-
-    timeCheater.cheat__setEpochNow(3);
-    // Length decreases to 0 in the next epoch
     assertEq(validatorSet.length(), 0);
 
     vm.expectRevert(
       abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
     );
-    validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(3));
+    validatorSet.getAddressFromIndexAtTimestamp(0, ts2);
 
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(1));
+    assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts), address(1));
   }
 
   function test_WhenValidatorRemovingAnIndexLargerThanTheCurrentLength() public {
     // It reverts
-    timeCheater.cheat__setEpochNow(1);
+
     vm.expectRevert(
       abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
     );
@@ -62,45 +58,68 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
     validatorSet.add(address(2));
     validatorSet.add(address(3));
 
-    timeCheater.cheat__setEpochNow(2);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 10, 3)
     );
     validatorSet.remove(10);
   }
 
-  function test_WhenRemovingMultipleValidators() public {
+  function test_WhenRemovingMultipleValidators(uint16 _add2, uint16 _add3) public {
     // It maintains correct order of remaining validators
     // It updates snapshots correctly for each removal
 
-    timeCheater.cheat__setEpochNow(1);
+    uint32 ts = uint32(block.timestamp);
+    uint32 ts2 = ts + uint32(bound(_add2, 1, 1000));
+    uint32 ts3 = ts2 + uint32(bound(_add3, 1, 1000));
+
     validatorSet.add(address(1));
     validatorSet.add(address(2));
     validatorSet.add(address(3));
 
-    timeCheater.cheat__setEpochNow(2);
+    address[] memory vals = validatorSet.values();
+    assertEq(vals.length, 3);
+    assertEq(vals[0], address(1));
+    assertEq(vals[1], address(2));
+    assertEq(vals[2], address(3));
+
+    vm.warp(ts2);
     validatorSet.remove(address(2));
 
-    timeCheater.cheat__setEpochNow(3);
-
-    address[] memory vals = validatorSet.values();
+    vals = validatorSet.values();
     assertEq(vals.length, 2);
     assertEq(vals[0], address(1));
     assertEq(vals[1], address(3));
 
+    vm.warp(ts3);
     validatorSet.remove(address(1));
-    timeCheater.cheat__setEpochNow(4);
 
     vals = validatorSet.values();
     assertEq(vals.length, 1);
     assertEq(vals[0], address(3));
 
     // Verify snapshots
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(2)), address(2));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(2, Epoch.wrap(2)), address(3));
+    assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts), address(1));
+    assertEq(validatorSet.getAddressFromIndexAtTimestamp(1, ts), address(2));
+    assertEq(validatorSet.getAddressFromIndexAtTimestamp(2, ts), address(3));
 
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(3)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(3)), address(3));
+    assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts2), address(1));
+    assertEq(validatorSet.getAddressFromIndexAtTimestamp(1, ts2), address(3));
+
+    assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts3), address(3));
+
+    vals = validatorSet.valuesAtTimestamp(ts);
+    assertEq(vals.length, 3);
+    assertEq(vals[0], address(1));
+    assertEq(vals[1], address(2));
+    assertEq(vals[2], address(3));
+
+    vals = validatorSet.valuesAtTimestamp(ts2);
+    assertEq(vals.length, 2);
+    assertEq(vals[0], address(1));
+    assertEq(vals[1], address(3));
+
+    vals = validatorSet.valuesAtTimestamp(ts3);
+    assertEq(vals.length, 1);
+    assertEq(vals[0], address(3));
   }
 }

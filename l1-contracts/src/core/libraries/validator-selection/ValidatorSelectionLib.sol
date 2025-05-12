@@ -25,6 +25,7 @@ library ValidatorSelectionLib {
   using MessageHashUtils for bytes32;
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
+  using TimeLib for Epoch;
   using AddressSnapshotLib for SnapshottedAddressSet;
   using Checkpoints for Checkpoints.Trace224;
   using SafeCast for *;
@@ -174,7 +175,12 @@ library ValidatorSelectionLib {
     returns (address[] memory)
   {
     ValidatorSelectionStorage storage store = getStorage();
-    uint256 validatorSetSize = _stakingStore.attesters.lengthAtEpoch(_epoch);
+    // We do -1, as the snapshots practically happen at the end of the block, e.g.,
+    // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
+    // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
+    //  as we "start" time $t$.
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - 1;
+    uint256 validatorSetSize = _stakingStore.attesters.lengthAtTimestamp(ts);
 
     if (validatorSetSize == 0) {
       return new address[](0);
@@ -184,7 +190,7 @@ library ValidatorSelectionLib {
 
     // If we have less validators than the target committee size, we just return the full set
     if (validatorSetSize <= targetCommitteeSize) {
-      return _stakingStore.attesters.valuesAtEpoch(_epoch);
+      return _stakingStore.attesters.valuesAtTimestamp(ts);
     }
 
     uint256[] memory indices =
@@ -192,7 +198,7 @@ library ValidatorSelectionLib {
 
     address[] memory committee = new address[](targetCommitteeSize);
     for (uint256 i = 0; i < targetCommitteeSize; i++) {
-      committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
+      committee[i] = _stakingStore.attesters.getAddressFromIndexAtTimestamp(indices[i], ts);
     }
     return committee;
   }

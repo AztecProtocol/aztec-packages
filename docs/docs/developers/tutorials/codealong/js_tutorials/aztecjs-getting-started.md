@@ -1,6 +1,6 @@
 ---
 title: Getting started with Aztec.js
-sidebar_position: 1
+sidebar_position: 0
 ---
 
 import Image from "@theme/IdealImage";
@@ -15,7 +15,7 @@ This tutorial is for the sandbox and will need adjustments if deploying to testn
 
 ## Prerequisites
 
-- A running Aztec sandbox
+- A running Aztec sandbox at version #include_version_without_prefix. Install with `aztec-up #include_version_without_prefix`.
 
 ## Set up the project
 
@@ -40,7 +40,7 @@ mkdir src
 3. Add necessary yarn packages
 
 ```sh
-yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @types/node
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix typescript @types/node
 ```
 
 and yarn config:

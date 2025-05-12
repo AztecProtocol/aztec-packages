@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -19,11 +20,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
     {
@@ -151,8 +148,8 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof);
 
-    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
-        bb::srs::get_grumpkin_crs_path(), 1 << CONST_ECCVM_LOG_N);
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    auto crs_factory = srs::get_grumpkin_crs_factory();
     auto grumpkin_verifier_commitment_key =
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
@@ -182,7 +179,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
@@ -200,7 +197,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -213,12 +210,15 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    // Tamper with one of the translation evaluations
-    proof.translation_evaluations.Px += 1;
+    // Tamper with the evaluation of `op` witness. The index is computed manually.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+    // Better recursion testing - create more flexible proof tampering tests.
+    const size_t op_limb_index = 593;
+    proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

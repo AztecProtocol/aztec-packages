@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
@@ -29,7 +28,7 @@ struct Index {
 /**
  * @title AddressSnapshotLib
  * @notice A library for managing a set of addresses with historical snapshots
- * @dev This library provides functionality similar to EnumerableSet but can track addresses across different epochs
+ * @dev This library provides functionality similar to EnumerableSet but can track addresses across time
  *      and allows querying the state of addresses at any point in time
  */
 library AddressSnapshotLib {
@@ -48,17 +47,14 @@ library AddressSnapshotLib {
       return false;
     }
 
-    // Insert into the end of the array
-    Epoch _nextEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)) + Epoch.wrap(1);
-
     uint224 index = _self.size.latest();
-
     _self.addressToIndex[_address] = Index({exists: true, index: index});
-    _self.checkpoints[index].push(
-      Epoch.unwrap(_nextEpoch).toUint32(), uint160(_address).toUint224()
-    );
 
-    _self.size.push(Epoch.unwrap(_nextEpoch).toUint32(), (index + 1).toUint224());
+    uint32 key = block.timestamp.toUint32();
+
+    _self.checkpoints[index].push(key, uint160(_address).toUint224());
+    _self.size.push(key, (index + 1).toUint224());
+
     return true;
   }
 
@@ -105,25 +101,25 @@ library AddressSnapshotLib {
 
     // To remove from the list, we push the last item into the index and reduce the size
     uint224 lastIndex = size - 1;
-    uint256 nextEpoch =
-      Epoch.unwrap(TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)) + Epoch.wrap(1));
 
     address lastValidator = address(_self.checkpoints[lastIndex].latest().toUint160());
 
+    uint32 key = block.timestamp.toUint32();
+
     // If we are removing the last item, we cannot swap it with anything
-    // so we append a new address of zero for this epoch
+    // so we append a new address of zero for this timestamp
     // And since we are removing it, we set the location to 0
     _self.addressToIndex[_address] = Index({exists: false, index: 0});
     if (lastIndex == _index) {
-      _self.checkpoints[_index].push(nextEpoch.toUint32(), uint224(0));
+      _self.checkpoints[_index].push(key, uint224(0));
     } else {
       // Otherwise, we swap the last item with the item we are removing
       // and update the location of the last item
       _self.addressToIndex[lastValidator] = Index({exists: true, index: _index.toUint224()});
-      _self.checkpoints[_index].push(nextEpoch.toUint32(), uint160(lastValidator).toUint224());
+      _self.checkpoints[_index].push(key, uint160(lastValidator).toUint224());
     }
 
-    _self.size.push(nextEpoch.toUint32(), (lastIndex).toUint224());
+    _self.size.push(key, (lastIndex).toUint224());
     return true;
   }
 
@@ -134,29 +130,25 @@ library AddressSnapshotLib {
    * @return address The current address at the given index
    */
   function at(SnapshottedAddressSet storage _self, uint256 _index) internal view returns (address) {
-    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-    return getAddressFromIndexAtEpoch(_self, _index, currentEpoch);
+    return getAddressFromIndexAtTimestamp(_self, _index, block.timestamp.toUint32());
   }
 
   /**
-   * @notice Gets the address at a specific index and epoch
+   * @notice Gets the address at a specific index and timestamp
    * @param _self The storage reference to the set
    * @param _index The index to query
-   * @param _epoch The epoch number to query
-   * @return address The address at the given index and epoch
+   * @param _timestamp The timestamp to query
+   * @return address The address at the given index and timestamp
    */
-  function getAddressFromIndexAtEpoch(
+  function getAddressFromIndexAtTimestamp(
     SnapshottedAddressSet storage _self,
     uint256 _index,
-    Epoch _epoch
+    uint32 _timestamp
   ) internal view returns (address) {
-    uint256 size = lengthAtEpoch(_self, _epoch);
+    uint256 size = lengthAtTimestamp(_self, _timestamp);
+    require(_index < size, Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size));
 
-    if (_index >= size) {
-      revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
-    }
-
-    uint224 addr = _self.checkpoints[_index].upperLookup(Epoch.unwrap(_epoch).toUint32());
+    uint224 addr = _self.checkpoints[_index].upperLookup(_timestamp);
     return address(addr.toUint160());
   }
 
@@ -166,24 +158,23 @@ library AddressSnapshotLib {
    * @return uint256 The number of addresses in the set
    */
   function length(SnapshottedAddressSet storage _self) internal view returns (uint256) {
-    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-    return lengthAtEpoch(_self, currentEpoch);
+    return lengthAtTimestamp(_self, block.timestamp.toUint32());
   }
 
   /**
-   * @notice Gets the size of the set at a specific epoch
+   * @notice Gets the size of the set at a specific timestamp
    * @param _self The storage reference to the set
-   * @param _epoch The epoch number to query
-   * @return uint256 The number of addresses in the set at the given epoch
+   * @param _timestamp The timestamp to query
+   * @return uint256 The number of addresses in the set at the given timestamp
    *
-   * @dev Note, the values returned from this function are in flux if the epoch is in the future.
+   * @dev Note, the values returned from this function are in flux if the timestamp is in the future.
    */
-  function lengthAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch)
+  function lengthAtTimestamp(SnapshottedAddressSet storage _self, uint32 _timestamp)
     internal
     view
     returns (uint256)
   {
-    return _self.size.upperLookup(Epoch.unwrap(_epoch).toUint32());
+    return _self.size.upperLookup(_timestamp);
   }
 
   /**
@@ -192,28 +183,27 @@ library AddressSnapshotLib {
    * @return address[] Array of all current addresses in the set
    */
   function values(SnapshottedAddressSet storage _self) internal view returns (address[] memory) {
-    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-    return valuesAtEpoch(_self, currentEpoch);
+    return valuesAtTimestamp(_self, block.timestamp.toUint32());
   }
 
   /**
-   * @notice Gets all addresses in the set at a specific epoch
+   * @notice Gets all addresses in the set at a specific timestamp
    * @param _self The storage reference to the set
-   * @param _epoch The epoch number to query
-   * @return address[] Array of all addresses in the set at the given epoch
+   * @param _timestamp The timestamp to query
+   * @return address[] Array of all addresses in the set at the given timestamp
    *
-   * @dev Note, the values returned from this function are in flux if the epoch is in the future.
+   * @dev Note, the values returned from this function are in flux if the timestamp is in the future.
    *
    */
-  function valuesAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch)
+  function valuesAtTimestamp(SnapshottedAddressSet storage _self, uint32 _timestamp)
     internal
     view
     returns (address[] memory)
   {
-    uint256 size = lengthAtEpoch(_self, _epoch);
+    uint256 size = lengthAtTimestamp(_self, _timestamp);
     address[] memory vals = new address[](size);
     for (uint256 i; i < size;) {
-      vals[i] = getAddressFromIndexAtEpoch(_self, i, _epoch);
+      vals[i] = getAddressFromIndexAtTimestamp(_self, i, _timestamp);
 
       unchecked {
         i++;
