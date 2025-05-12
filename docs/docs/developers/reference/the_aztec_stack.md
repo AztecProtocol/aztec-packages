@@ -7,7 +7,7 @@ This page covers all the tools for developing on Aztec. For a higher level summa
 
 <img src="/img/aztec_tech_stack.png" />
 
-## Network
+## Sandbox
 
 | Component | Description | Key Commands | Notes |
 |:----------|:------------|:-------------|:------|
