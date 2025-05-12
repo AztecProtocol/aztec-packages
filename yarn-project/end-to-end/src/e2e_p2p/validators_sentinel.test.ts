@@ -156,6 +156,14 @@ describe('e2e_p2p_validators_sentinel', () => {
       await retryUntil(() => t.monitor.l2BlockNumber > l2BlockNumber + 3, 'more blocks mined', timeout);
       await sleep(1000);
 
+      t.logger.info(`Waiting for sentinel to collect history`);
+      await retryUntil(
+        () => newNode.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
+        'sentinel stats',
+        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 2,
+        1,
+      );
+
       const stats = await newNode.getValidatorsStats();
       t.logger.info(`Collected validator stats from new node at block ${t.monitor.l2BlockNumber}`, { stats });
       const newNodeValidator = t.validators.at(-1)!.attester.toLowerCase();
