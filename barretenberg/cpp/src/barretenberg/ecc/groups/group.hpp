@@ -117,56 +117,7 @@ template <typename Fq_, typename Fr_, typename Params> class group {
         for (char i : domain_separator) {
             domain_bytes.emplace_back(static_cast<unsigned char>(i));
         }
-        auto derived = derive_generators(domain_bytes, num_generators, starting_index);
-
-        // We print of the form
-        /**
-    template <>
-    class PrecomputedGenerators<DS_my_domain, affine_element, 8, 0> {
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    affine_element generators[8] = {
-    {{0x3B9ACA07ULL, 0x00000000ULL, 0xDEADBEEFULL, 0xCAFEBABEULL},
-     {0x01234567ULL, 0x89ABCDEFULL, 0x0BADF00DULL, 0xB16B00B5ULL} },
-    …
-    };
-    };
-         */
-        info("template <> class PrecomputedGenerators<OperationLabel(",
-             domain_separator,
-             ")",
-             ",",
-             abi::__cxa_demangle(typeid(affine_element).name(), NULL, NULL, NULL),
-             ",",
-             num_generators,
-             ",",
-             starting_index,
-             "> {");
-        info(" // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)");
-        info(" affine_element generators[", num_generators, "] = {");
-        for (size_t i = 0; i < derived.size(); ++i) {
-            // Replace with appropriate field printing if needed
-            info("{{",
-                 derived[i].x.data[0],
-                 "ULL,",
-                 derived[i].x.data[1],
-                 "ULL,",
-                 derived[i].x.data[2],
-                 "ULL,",
-                 derived[i].x.data[3],
-                 "ULL}, {",
-                 derived[i].y.data[0],
-                 "ULL,",
-                 derived[i].y.data[1],
-                 "ULL,",
-                 derived[i].y.data[2],
-                 "ULL,",
-                 derived[i].y.data[3],
-                 "}},");
-        }
-        info("};");
-        info("};");
-
-        return derived;
+        return derive_generators(domain_bytes, num_generators, starting_index);
     }
 
     BB_INLINE static void conditional_negate_affine(const affine_element* src,

@@ -9,6 +9,7 @@
 #include <cstddef>
 
 #include "./eccvm_builder_types.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
@@ -215,7 +216,7 @@ class ECCVMMSMMBuilder {
         std::span<Element> accumulator_trace(&points_to_normalize[num_point_adds_and_doubles * 3], num_accumulators);
 
         // we start the accumulator at the offset generator point
-        auto offset_generator = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         accumulator_trace[0] = offset_generator;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/973): Reinstate multitreading?

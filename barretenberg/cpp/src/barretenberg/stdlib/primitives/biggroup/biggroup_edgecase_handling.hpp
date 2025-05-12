@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/ecc/groups/precomputed_generators.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
 namespace bb::stdlib::element_default {
@@ -21,7 +22,8 @@ namespace bb::stdlib::element_default {
 template <typename C, class Fq, class Fr, class G>
 typename G::affine_element element<C, Fq, Fr, G>::compute_table_offset_generator()
 {
-    const typename G::affine_element offset_generator = G::derive_generators("biggroup table offset generator", 1)[0];
+    const typename G::affine_element& offset_generator =
+        get_precomputed_generators<G, "biggroup table offset generator", 1>()[0];
 
     return offset_generator;
 }
