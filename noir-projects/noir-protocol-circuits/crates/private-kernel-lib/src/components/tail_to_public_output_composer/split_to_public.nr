@@ -53,7 +53,7 @@ pub unconstrained fn split_to_public(
             let nullifier = nullifiers.get_unchecked(i);
             let is_padding = nullifier.counter() == MAX_U32_VALUE;
             if (nullifier.counter() < min_revertible_side_effect_counter)
-                | (is_padding & (padded_non_revertible > 0)) {
+                | (is_padding & (padded_non_revertible != 0)) {
                 non_revertible_builder.nullifiers.push(nullifier.value());
                 padded_non_revertible -= 1 * is_padding as u32;
             } else {
@@ -90,7 +90,7 @@ pub unconstrained fn split_to_public(
             let private_log = private_logs.get_unchecked(i);
             let is_padding = private_log.counter() == MAX_U32_VALUE;
             if (private_log.counter() < min_revertible_side_effect_counter)
-                | (is_padding & (padded_non_revertible > 0)) {
+                | (is_padding & (padded_non_revertible != 0)) {
                 non_revertible_builder.private_logs.push(private_log.expose_to_public());
                 padded_non_revertible -= 1 * is_padding as u32;
             } else {
