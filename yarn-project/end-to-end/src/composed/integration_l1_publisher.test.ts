@@ -443,9 +443,9 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
+              header: block.header.toPropose().toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-              stateReference: `0x${block.header.state.toBuffer().toString('hex')}`,
+              stateReference: block.header.state.toViem(),
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },

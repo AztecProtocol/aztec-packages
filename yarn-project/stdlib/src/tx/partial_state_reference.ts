@@ -1,4 +1,5 @@
 import { PARTIAL_STATE_REFERENCE_LENGTH } from '@aztec/constants';
+import type { ViemPartialStateReference } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -53,6 +54,22 @@ export class PartialStateReference {
     const publicDataTree = AppendOnlyTreeSnapshot.fromFields(reader);
 
     return new PartialStateReference(noteHashTree, nullifierTree, publicDataTree);
+  }
+
+  static fromViem(stateReference: ViemPartialStateReference) {
+    return new PartialStateReference(
+      AppendOnlyTreeSnapshot.fromViem(stateReference.noteHashTree),
+      AppendOnlyTreeSnapshot.fromViem(stateReference.nullifierTree),
+      AppendOnlyTreeSnapshot.fromViem(stateReference.publicDataTree),
+    );
+  }
+
+  toViem(): ViemPartialStateReference {
+    return {
+      noteHashTree: this.noteHashTree.toViem(),
+      nullifierTree: this.nullifierTree.toViem(),
+      publicDataTree: this.publicDataTree.toViem(),
+    };
   }
 
   static empty(): PartialStateReference {

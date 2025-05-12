@@ -17,6 +17,7 @@ import { L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -806,10 +807,10 @@ describe('Archiver', () => {
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
 async function makeRollupTx(l2Block: L2Block) {
-  const header = toHex(l2Block.header.toPropose().toBuffer());
+  const header = ProposedBlockHeader.empty().toViem();
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const stateReference = toHex(l2Block.header.state.toBuffer());
+  const stateReference = StateReference.empty().toViem();
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',

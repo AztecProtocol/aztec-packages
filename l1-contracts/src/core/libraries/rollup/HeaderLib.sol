@@ -14,7 +14,6 @@ struct AppendOnlyTreeSnapshot {
 struct PartialStateReference {
   AppendOnlyTreeSnapshot noteHashTree;
   AppendOnlyTreeSnapshot nullifierTree;
-  AppendOnlyTreeSnapshot contractTree;
   AppendOnlyTreeSnapshot publicDataTree;
 }
 

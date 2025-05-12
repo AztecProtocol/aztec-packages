@@ -25,7 +25,6 @@ contract TestBase is Test {
   PartialStateReference EMPTY_PARTIALSTATE_REFERENCE = PartialStateReference({
     noteHashTree: EMPTY_APPENDONLY_TREE_SNAPSHOT,
     nullifierTree: EMPTY_APPENDONLY_TREE_SNAPSHOT,
-    contractTree: EMPTY_APPENDONLY_TREE_SNAPSHOT,
     publicDataTree: EMPTY_APPENDONLY_TREE_SNAPSHOT
   });
 

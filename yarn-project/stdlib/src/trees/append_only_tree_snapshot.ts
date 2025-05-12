@@ -1,3 +1,4 @@
+import type { ViemAppendOnlyTreeSnapshot } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -71,7 +72,18 @@ export class AppendOnlyTreeSnapshot {
     return new AppendOnlyTreeSnapshot(reader.readField(), Number(reader.readField().toBigInt()));
   }
 
-  static empty() {
+  static fromViem(snapshot: ViemAppendOnlyTreeSnapshot) {
+    return new AppendOnlyTreeSnapshot(Fr.fromString(snapshot.root), snapshot.nextAvailableLeafIndex);
+  }
+
+  toViem(): ViemAppendOnlyTreeSnapshot {
+    return {
+      root: this.root.toString(),
+      nextAvailableLeafIndex: this.nextAvailableLeafIndex,
+    };
+  }
+
+  static zero() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
 
