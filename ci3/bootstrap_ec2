@@ -226,6 +226,7 @@ function run {
       -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
       -v /tmp:/tmp \
       -v /dev/kmsg:/dev/kmsg \
+      -e CI=1 \
       -e RUN_ID=${RUN_ID:-} \
       -e JOB_ID=${JOB_ID:-} \
       -e REF_NAME=${REF_NAME:-} \

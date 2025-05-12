@@ -70,10 +70,12 @@ function tail_live_instance {
 case "$cmd" in
   "fast")
     # Spin up ec2 instance and run the fast flow.
+    export JOB_ID="x1-fast"
     exec bootstrap_ec2 "./bootstrap.sh ci-fast"
     ;;
   "full")
     # Spin up ec2 instance and run the full flow.
+    export JOB_ID="x1-full"
     exec bootstrap_ec2 "./bootstrap.sh ci-full"
     ;;
   "merge-queue")
@@ -89,16 +91,18 @@ case "$cmd" in
     export -f run
     # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1 amd64 ci-full' \
-      'run x2 amd64 ci-full' \
-      'run a2 arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+      'run x1-full amd64 ci-full' \
+      'run x2-full amd64 ci-full' \
+      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "nightly")
     # Spin up ec2 instance and run the nightly flow.
+    export JOB_ID="x1-nightly"
     exec bootstrap_ec2 "./bootstrap.sh ci-nightly"
     ;;
   "release")
     # Spin up ec2 instance and run the release flow.
+    export JOB_ID="x1-release"
     exec bootstrap_ec2 "./bootstrap.sh ci-release"
     ;;
   "shell-new")
