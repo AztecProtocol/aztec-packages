@@ -110,9 +110,7 @@ if [ -t 1 ]; then
   fi
 else
   # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
-  run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps"
-  # If the caller isn't logging the run, we need to log it ourselves.
-  [ -z "${PARENT_LOG_URL:-}" ] && run_cmd+=" | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
+  run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
 container_script=$(cat <<EOF
