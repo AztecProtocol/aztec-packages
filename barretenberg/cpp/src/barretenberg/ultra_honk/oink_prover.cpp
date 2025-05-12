@@ -80,13 +80,13 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
-    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
-    const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
+    // const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
+    // const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
+    // const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
 
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
+    // transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
+    // transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
+    // transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
     BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
 

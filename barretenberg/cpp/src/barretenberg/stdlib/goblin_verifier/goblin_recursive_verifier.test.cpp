@@ -59,7 +59,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         goblin_last.op_queue = goblin.op_queue;
 
         auto circuit = construct_mock_circuit(goblin_last.op_queue);
-        auto merge_proof = goblin_last.prove_merge();
+        auto merge_proof = goblin_last.prove_final_merge();
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
         return { goblin_last.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };

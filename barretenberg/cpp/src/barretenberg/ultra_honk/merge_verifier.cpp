@@ -11,7 +11,12 @@
 namespace bb {
 
 MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& goblin_transcript)
-    : transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>()){};
+    : transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>())
+{
+    if (goblin_transcript) {
+        info("goblin transcript received");
+    };
+};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -28,6 +33,9 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& goblin_transcrip
  */
 bool MergeVerifier::verify_proof(const HonkProof& proof)
 {
+    info("inside merge");
+
+    // transcript->print();
     transcript->load_proof(proof);
 
     uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");

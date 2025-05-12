@@ -62,6 +62,8 @@ class Goblin {
      */
     MergeProof prove_merge();
 
+    MergeProof prove_final_merge();
+
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
      */

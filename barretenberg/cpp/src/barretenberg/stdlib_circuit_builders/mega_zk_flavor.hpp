@@ -47,7 +47,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
      * Note: Made generic for use in MegaRecursive.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
 i     */
-    class Transcript : public MegaFlavor::Transcript {
+    class TranscriptWithManifest : public MegaFlavor::Transcript {
       public:
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
@@ -63,9 +63,9 @@ i     */
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
 
-        Transcript() = default;
+        TranscriptWithManifest() = default;
 
-        Transcript(const HonkProof& proof)
+        TranscriptWithManifest(const HonkProof& proof)
             : MegaFlavor::Transcript(proof)
         {}
 
@@ -206,6 +206,8 @@ i     */
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
+
+    using Transcript = NativeTranscript;
 };
 
 } // namespace bb

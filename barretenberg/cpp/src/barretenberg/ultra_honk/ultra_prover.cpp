@@ -56,7 +56,9 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
-    proof = transcript->proof_data;
+    if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {
+        return transcript->export_proof();
+    }
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         // The extra calculation is for the IPA proof length.
@@ -84,6 +86,8 @@ template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::construct_pr
 
     DeciderProver_<Flavor> decider_prover(proving_key, transcript);
     decider_prover.construct_proof();
+    info(transcript->num_frs_read);
+    info(transcript->num_frs_written);
     return export_proof();
 }
 

@@ -23,6 +23,14 @@ Goblin::Goblin(const std::shared_ptr<Transcript>& transcript,
 Goblin::MergeProof Goblin::prove_merge()
 {
     PROFILE_THIS_NAME("Goblin::merge");
+    MergeProver merge_prover{ op_queue, commitment_key };
+    merge_proof = merge_prover.construct_proof();
+    return merge_proof;
+}
+
+Goblin::MergeProof Goblin::prove_final_merge()
+{
+    PROFILE_THIS_NAME("Goblin::merge");
     MergeProver merge_prover{ op_queue, commitment_key, goblin_transcript };
     merge_proof = merge_prover.construct_proof();
     return merge_proof;
@@ -66,17 +74,21 @@ GoblinProof Goblin::prove(MergeProof merge_proof_in)
         prove_translator();
         vinfo("finished translator proving.");
     }
+
+    goblin_transcript->print();
     return goblin_proof;
 }
 
 bool Goblin::verify(const GoblinProof& proof)
 {
-    goblin_transcript->enable_manifest();
+    // goblin_transcript->enable_manifest();
     MergeVerifier merge_verifier(goblin_transcript);
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+    goblin_transcript->print();
 
     ECCVMVerifier eccvm_verifier(goblin_transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    goblin_transcript->print();
 
     TranslatorVerifier translator_verifier(goblin_transcript);
 

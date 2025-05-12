@@ -20,7 +20,12 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     : op_queue(op_queue)
     , pcs_commitment_key(commitment_key ? commitment_key
                                         : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
-    , transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>()){};
+    , transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>())
+{
+    if (goblin_transcript) {
+        info("mergep rover, goblin transcript");
+    };
+};
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -38,6 +43,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
+
     // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
     std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
