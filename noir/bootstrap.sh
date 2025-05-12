@@ -55,7 +55,6 @@ function noir_content_hash {
         echo $noir_hash
         ;;
       "noir-repo")
-        noir_sync
         echo $(hash_str $noir_hash $(noir_repo_content_hash .noir-repo.rebuild_patterns .noir-repo.rebuild_patterns_tests))
         ;;
       *)
@@ -65,7 +64,8 @@ function noir_content_hash {
   fi
 }
 
-if [ ! -v NOIR_HASH ]; then
+if [ ! -v NOIR_HASH ] && [ $cmd != "clean" ] ; then
+  noir_sync
   export NOIR_HASH=$(noir_content_hash)
 fi
 
@@ -233,16 +233,13 @@ case "$cmd" in
     git clean -ffdx
     ;;
   "ci")
-    noir_sync
     build
     test
     ;;
   ""|"fast"|"full")
-    noir_sync
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
-    noir_sync
     $cmd "$@"
     ;;
   "hash")
@@ -252,11 +249,9 @@ case "$cmd" in
     echo $NOIR_HASH
     ;;
   "make-patch")
-    noir_sync
     scripts/sync.sh make-patch
     ;;
   "bump-noir-repo-ref")
-    noir_sync
     bump_noir_repo_ref $@
     ;;
   *)
