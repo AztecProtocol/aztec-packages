@@ -154,9 +154,14 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_circuit(MegaBuilder& builder)
+    static void construct_simple_circuit(MegaBuilder& builder, bool last_circuit = false)
     {
         PROFILE_THIS();
+        // The last circuit to be accumulated must contain a no-op
+        if (last_circuit) {
+            builder.queue_ecc_no_op();
+        }
+
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
         PairingPoints::add_default_to_public_inputs(builder);
