@@ -26,7 +26,6 @@ struct ProposeArgs {
   // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
   // by the last archive and blobs hash.
   // It can be removed if the archiver can refer to world state for the updated roots.
-  // md: updated to be StateReference type such that propose args is fixes length
   StateReference stateReference;
   OracleInput oracleInput;
   Header header;

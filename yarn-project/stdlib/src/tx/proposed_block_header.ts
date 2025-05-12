@@ -1,3 +1,4 @@
+import type { ViemHeader } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -138,6 +139,35 @@ export class ProposedBlockHeader {
 
   static fromString(str: string): ProposedBlockHeader {
     return ProposedBlockHeader.fromBuffer(hexToBuffer(str));
+  }
+
+  static fromViem(header: ViemHeader) {
+    return new ProposedBlockHeader(
+      Fr.fromString(header.lastArchiveRoot),
+      ContentCommitment.fromViem(header.contentCommitment),
+      new Fr(header.slotNumber),
+      header.timestamp,
+      new EthAddress(hexToBuffer(header.coinbase)),
+      new AztecAddress(hexToBuffer(header.feeRecipient)),
+      new GasFees(header.gasFees.feePerDaGas, header.gasFees.feePerL2Gas),
+      new Fr(header.totalManaUsed),
+    );
+  }
+
+  toViem(): ViemHeader {
+    return {
+      lastArchiveRoot: this.lastArchiveRoot.toString(),
+      contentCommitment: this.contentCommitment.toViem(),
+      slotNumber: this.slotNumber.toBigInt(),
+      timestamp: this.timestamp,
+      coinbase: this.coinbase.toString(),
+      feeRecipient: this.feeRecipient.toString(),
+      gasFees: {
+        feePerDaGas: this.gasFees.feePerDaGas.toBigInt(),
+        feePerL2Gas: this.gasFees.feePerL2Gas.toBigInt(),
+      },
+      totalManaUsed: this.totalManaUsed.toBigInt(),
+    };
   }
 
   toInspect() {
