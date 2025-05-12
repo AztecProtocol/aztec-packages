@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "resolveJsonModule": true
   },
   "references": [
     {
@@ -40,5 +41,5 @@
       "path": "../noir-test-contracts.js"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "src/public/public_tx_simulator/avm_minimal_inputs.json"]
 }

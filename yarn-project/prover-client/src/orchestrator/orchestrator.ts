@@ -15,7 +15,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
+import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
 import { L2Block } from '@aztec/stdlib/block';
 import type {
   EpochProver,
@@ -942,9 +942,8 @@ export class ProvingOrchestrator implements EpochProver {
             );
 
             try {
-              const minimalPublicTxResult = await createAvmMinimalPublicTx();
-              const snapshotInputs = minimalPublicTxResult.avmProvingRequest.inputs;
-              return await this.prover.getAvmProof(snapshotInputs, true, signal, provingState.epochNumber);
+              const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
+              return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
             } catch (err) {
               logger.error(`Error thrown when proving snapshotted AVM inputs.`, err);
               throw err;

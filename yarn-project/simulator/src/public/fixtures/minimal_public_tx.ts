@@ -1,10 +1,14 @@
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+
+import { strict as assert } from 'assert';
 
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Add, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import { Opcode } from '../avm/serialization/instruction_serialization.js';
+import avmMinimalCircuitInputsJson from '../public_tx_simulator/avm_minimal_inputs.json' assert { type: 'json' };
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
@@ -65,4 +69,12 @@ export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
       },
     ],
   );
+}
+
+/**
+ * Reads the AVM circuit inputs for the minimal public tx from a pre-generated JSON file.
+ * @returns The AvmCircuitInputs for the minimal public tx.
+ */
+export function readAvmMinimalPublicTxInputsFromFile(): AvmCircuitInputs {
+  return AvmCircuitInputs.schema.parse(avmMinimalCircuitInputsJson);
 }
