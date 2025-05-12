@@ -90,12 +90,13 @@ void set_public_logs_in_cols(const std::array<PublicLog, SIZE>& logs,
                              size_t array_start_row_idx)
 {
     for (size_t i = 0; i < logs.size(); ++i) {
-        size_t first_row_for_log = array_start_row_idx + (i * PUBLIC_LOG_DATA_SIZE_IN_FIELDS);
-        for (size_t j = 0; j < PUBLIC_LOG_DATA_SIZE_IN_FIELDS; ++j) {
+        size_t first_row_for_log = array_start_row_idx + (i * PUBLIC_LOG_SIZE_IN_FIELDS);
+        for (size_t j = 0; j < PUBLIC_LOG_SIZE_IN_FIELDS; ++j) {
             // always set contract address in col 0 so that some entry in the row is always non-zero
             cols[0][first_row_for_log + j] = logs[i].contractAddress;
+            cols[1][first_row_for_log + j] = logs[i].emittedLength;
             // and set the actual log data entry
-            cols[1][first_row_for_log + j] = logs[i].log[j];
+            cols[2][first_row_for_log + j] = logs[i].fields[j];
         }
     }
 }

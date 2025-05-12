@@ -6,7 +6,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, L1_BLOCK_TIME_IN_S, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
+import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -16,11 +16,13 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
 
+  let L1_BLOCK_TIME_IN_S: number;
+
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup();
-    ({ context, rollup, logger, monitor } = test);
+    ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 
   afterEach(async () => {

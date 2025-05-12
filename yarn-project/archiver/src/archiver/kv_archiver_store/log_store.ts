@@ -59,7 +59,7 @@ export class LogStore {
       });
 
       txEffect.publicLogs.forEach((log, logIndex) => {
-        const tag = log.log[0];
+        const tag = log.fields[0];
         this.#log.debug(`Found public log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
