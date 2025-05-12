@@ -1,4 +1,5 @@
 import { STATE_REFERENCE_LENGTH } from '@aztec/constants';
+import type { ViemStateReference } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -61,8 +62,22 @@ export class StateReference {
     return new StateReference(l1ToL2MessageTree, partial);
   }
 
+  static fromViem(stateReference: ViemStateReference) {
+    return new StateReference(
+      AppendOnlyTreeSnapshot.fromViem(stateReference.l1ToL2MessageTree),
+      PartialStateReference.fromViem(stateReference.partialStateReference),
+    );
+  }
+
   static empty(): StateReference {
     return new StateReference(AppendOnlyTreeSnapshot.zero(), PartialStateReference.empty());
+  }
+
+  toViem(): ViemStateReference {
+    return {
+      l1ToL2MessageTree: this.l1ToL2MessageTree.toViem(),
+      partialStateReference: this.partial.toViem(),
+    };
   }
 
   isEmpty(): boolean {

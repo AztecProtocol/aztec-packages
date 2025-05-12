@@ -26,7 +26,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -38,11 +38,11 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: Buffer;
+  header: ProposedBlockHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** State reference after the L2 block is applied. */
-  stateReference: Buffer;
+  stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -299,7 +299,7 @@ export class SequencerPublisher {
     const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
 
     const args = [
-      toHex(header.toBuffer()),
+      header.toViem(),
       formattedSignatures,
       toHex(attestationData.digest),
       ts,
@@ -416,9 +416,9 @@ export class SequencerPublisher {
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: proposedBlockHeader.toBuffer(),
+      header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
-      stateReference: block.header.state.toBuffer(),
+      stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -492,9 +492,9 @@ export class SequencerPublisher {
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
-        header: toHex(encodedData.header),
+        header: encodedData.header.toViem(),
         archive: toHex(encodedData.archive),
-        stateReference: toHex(encodedData.stateReference),
+        stateReference: encodedData.stateReference.toViem(),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
