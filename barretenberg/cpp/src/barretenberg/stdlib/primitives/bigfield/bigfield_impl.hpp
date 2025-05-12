@@ -60,37 +60,12 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     field_t<Builder> limb_2(context);
     field_t<Builder> limb_3(context);
     if (!low_bits_in.is_constant()) {
-        std::vector<uint32_t> low_accumulator;
-        if constexpr (HasPlookup<Builder>) {
-            // MERGE NOTE: this was the if constexpr block introduced in ecebe7643
-            const auto limb_witnesses =
-                context->decompose_non_native_field_double_width_limb(low_bits_in.get_normalized_witness_index());
-            limb_0.witness_index = limb_witnesses[0];
-            limb_1.witness_index = limb_witnesses[1];
-            field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
-
-            // // Enforce that low_bits_in indeed only contains 2*NUM_LIMB_BITS bits
-            // low_accumulator = context->decompose_into_default_range(low_bits_in.witness_index,
-            //                                                         static_cast<size_t>(NUM_LIMB_BITS * 2));
-            // // If this doesn't hold we're using a default plookup range size that doesn't work well with the limb
-            // size
-            // // here
-            // ASSERT(low_accumulator.size() % 2 == 0);
-            // size_t mid_index = low_accumulator.size() / 2 - 1;
-            // limb_0.witness_index = low_accumulator[mid_index]; // Q:safer to just slice this from low_bits_in?
-            // limb_1 = (low_bits_in - limb_0) * shift_right_1;
-        } else {
-            size_t mid_index;
-            low_accumulator = context->decompose_into_base4_accumulators(low_bits_in.get_normalized_witness_index(),
-                                                                         static_cast<size_t>(NUM_LIMB_BITS * 2),
-                                                                         "bigfield: low_bits_in too large.");
-            mid_index = static_cast<size_t>((NUM_LIMB_BITS / 2) - 1);
-            // Range constraint returns an array of partial sums, midpoint will happen to hold the big limb
-            // value
-            limb_1.witness_index = low_accumulator[mid_index];
-            // We can get the first half bits of low_bits_in from the variables we already created
-            limb_0 = (low_bits_in - (limb_1 * shift_1));
-        }
+        // Decompose the low bits into 2 limbs and range constrain them.
+        const auto limb_witnesses =
+            context->decompose_non_native_field_double_width_limb(low_bits_in.get_normalized_witness_index());
+        limb_0.witness_index = limb_witnesses[0];
+        limb_1.witness_index = limb_witnesses[1];
+        field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
     } else {
         uint256_t slice_0 = uint256_t(low_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_1 = uint256_t(low_bits_in.additive_constant).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS);
@@ -111,23 +86,12 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     // We create the high limb values similar to the low limb ones above
     const uint64_t num_high_limb_bits = NUM_LIMB_BITS + num_last_limb_bits;
     if (!high_bits_in.is_constant()) {
-
-        std::vector<uint32_t> high_accumulator;
-        if constexpr (HasPlookup<Builder>) {
-            const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-                high_bits_in.get_normalized_witness_index(), (size_t)num_high_limb_bits);
-            limb_2.witness_index = limb_witnesses[0];
-            limb_3.witness_index = limb_witnesses[1];
-            field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
-
-        } else {
-            high_accumulator = context->decompose_into_base4_accumulators(high_bits_in.get_normalized_witness_index(),
-                                                                          static_cast<size_t>(num_high_limb_bits),
-                                                                          "bigfield: high_bits_in too large.");
-
-            limb_3.witness_index = high_accumulator[static_cast<size_t>(((num_last_limb_bits + 1) / 2) - 1)];
-            limb_2 = (high_bits_in - (limb_3 * shift_1));
-        }
+        // Decompose the high bits into 2 limbs and range constrain them.
+        const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
+            high_bits_in.get_normalized_witness_index(), (size_t)num_high_limb_bits);
+        limb_2.witness_index = limb_witnesses[0];
+        limb_3.witness_index = limb_witnesses[1];
+        field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
     } else {
         uint256_t slice_2 = uint256_t(high_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_3 = uint256_t(high_bits_in.additive_constant).slice(NUM_LIMB_BITS, num_high_limb_bits);
@@ -196,67 +160,60 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     limbs[2] = value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo;
     limbs[3] = value.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo;
 
-    if constexpr (HasPlookup<Builder>) {
-        field_t<Builder> limb_0(ctx);
-        field_t<Builder> limb_1(ctx);
-        field_t<Builder> limb_2(ctx);
-        field_t<Builder> limb_3(ctx);
-        field_t<Builder> prime_limb(ctx);
-        limb_0.witness_index = ctx->add_variable(bb::fr(limbs[0]));
-        limb_1.witness_index = ctx->add_variable(bb::fr(limbs[1]));
-        limb_2.witness_index = ctx->add_variable(bb::fr(limbs[2]));
-        limb_3.witness_index = ctx->add_variable(bb::fr(limbs[3]));
-        prime_limb.witness_index = ctx->add_variable(limb_0.get_value() + limb_1.get_value() * shift_1 +
-                                                     limb_2.get_value() * shift_2 + limb_3.get_value() * shift_3);
-        // evaluate prime basis limb with addition gate that taps into the 4th wire in the next gate
-        ctx->create_big_add_gate({ limb_1.get_normalized_witness_index(),
-                                   limb_2.get_normalized_witness_index(),
-                                   limb_3.get_normalized_witness_index(),
-                                   prime_limb.get_normalized_witness_index(),
-                                   shift_1,
-                                   shift_2,
-                                   shift_3,
-                                   -1,
-                                   0 },
-                                 true);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add
-        // gate
-        ctx->create_dummy_gate(
-            ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.get_normalized_witness_index());
+    field_t<Builder> limb_0(ctx);
+    field_t<Builder> limb_1(ctx);
+    field_t<Builder> limb_2(ctx);
+    field_t<Builder> limb_3(ctx);
+    field_t<Builder> prime_limb(ctx);
+    limb_0.witness_index = ctx->add_variable(bb::fr(limbs[0]));
+    limb_1.witness_index = ctx->add_variable(bb::fr(limbs[1]));
+    limb_2.witness_index = ctx->add_variable(bb::fr(limbs[2]));
+    limb_3.witness_index = ctx->add_variable(bb::fr(limbs[3]));
+    prime_limb.witness_index = ctx->add_variable(limb_0.get_value() + limb_1.get_value() * shift_1 +
+                                                 limb_2.get_value() * shift_2 + limb_3.get_value() * shift_3);
+    // evaluate prime basis limb with addition gate that taps into the 4th wire in the next gate
+    ctx->create_big_add_gate({ limb_1.get_normalized_witness_index(),
+                               limb_2.get_normalized_witness_index(),
+                               limb_3.get_normalized_witness_index(),
+                               prime_limb.get_normalized_witness_index(),
+                               shift_1,
+                               shift_2,
+                               shift_3,
+                               -1,
+                               0 },
+                             true);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add
+    // gate
+    ctx->create_dummy_gate(
+        ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.get_normalized_witness_index());
 
-        uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
+    uint64_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
 
-        bigfield result(ctx);
-        result.binary_basis_limbs[0] = Limb(limb_0, DEFAULT_MAXIMUM_LIMB);
-        result.binary_basis_limbs[1] = Limb(limb_1, DEFAULT_MAXIMUM_LIMB);
-        result.binary_basis_limbs[2] = Limb(limb_2, DEFAULT_MAXIMUM_LIMB);
-        result.binary_basis_limbs[3] =
-            Limb(limb_3, can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
+    bigfield result(ctx);
+    result.binary_basis_limbs[0] = Limb(limb_0, DEFAULT_MAXIMUM_LIMB);
+    result.binary_basis_limbs[1] = Limb(limb_1, DEFAULT_MAXIMUM_LIMB);
+    result.binary_basis_limbs[2] = Limb(limb_2, DEFAULT_MAXIMUM_LIMB);
+    result.binary_basis_limbs[3] =
+        Limb(limb_3, can_overflow ? DEFAULT_MAXIMUM_LIMB : DEFAULT_MAXIMUM_MOST_SIGNIFICANT_LIMB);
 
-        // if maximum_bitlength is set, this supercedes can_overflow
-        if (maximum_bitlength > 0) {
-            ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
-            num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
-            uint256_t max_limb_value = (uint256_t(1) << num_last_limb_bits) - 1;
-            result.binary_basis_limbs[3].maximum_value = max_limb_value;
-        }
-        result.prime_basis_limb = prime_limb;
-        ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
-                                       limb_1.get_normalized_witness_index(),
-                                       (size_t)NUM_LIMB_BITS,
-                                       (size_t)NUM_LIMB_BITS);
-        ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
-                                       limb_3.get_normalized_witness_index(),
-                                       (size_t)NUM_LIMB_BITS,
-                                       (size_t)num_last_limb_bits);
-
-        return result;
-    } else {
-        return bigfield(witness_t(ctx, fr(limbs[0] + limbs[1] * shift_1)),
-                        witness_t(ctx, fr(limbs[2] + limbs[3] * shift_1)),
-                        can_overflow,
-                        maximum_bitlength);
+    // if maximum_bitlength is set, this supercedes can_overflow
+    if (maximum_bitlength > 0) {
+        ASSERT(maximum_bitlength > 3 * NUM_LIMB_BITS);
+        num_last_limb_bits = maximum_bitlength - (3 * NUM_LIMB_BITS);
+        uint256_t max_limb_value = (uint256_t(1) << num_last_limb_bits) - 1;
+        result.binary_basis_limbs[3].maximum_value = max_limb_value;
     }
+    result.prime_basis_limb = prime_limb;
+    ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
+                                   limb_1.get_normalized_witness_index(),
+                                   (size_t)NUM_LIMB_BITS,
+                                   (size_t)NUM_LIMB_BITS);
+    ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
+                                   limb_3.get_normalized_witness_index(),
+                                   (size_t)NUM_LIMB_BITS,
+                                   (size_t)num_last_limb_bits);
+
+    return result;
 }
 
 template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byte_array<Builder>& bytes)
