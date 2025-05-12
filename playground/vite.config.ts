@@ -74,6 +74,9 @@ export default defineConfig(({ mode }) => {
         BB_WASM_PATH: env.BB_WASM_PATH,
       }),
     },
+    optimizeDeps: {
+      exclude: ['@thunkar/aztec-keychain-accounts'],
+    },
     // Required for @thunkar/aztec-keychain-accounts, since it lives in a different repo with its own dependencies
     resolve: {
       dedupe: ['@aztec/stdlib', '@aztec/accounts', '@aztec/aztec.js', '@aztec/foundation'],
