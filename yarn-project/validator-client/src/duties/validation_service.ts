@@ -48,8 +48,6 @@ export class ValidationService {
    * @returns attestation
    */
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
-
     const buf = Buffer32.fromBuffer(
       keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );

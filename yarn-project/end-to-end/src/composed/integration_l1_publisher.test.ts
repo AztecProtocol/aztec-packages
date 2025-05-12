@@ -10,6 +10,7 @@ import {
   type L1ContractAddresses,
   RollupContract,
   SlashingProposerContract,
+  type ViemHeader,
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
@@ -293,25 +294,24 @@ describe('L1Publisher integration', () => {
         blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
         blockNumber: block.number,
         body: `0x${block.body.toBuffer().toString('hex')}`,
-        decodedHeader: {
+        header: {
           lastArchiveRoot: `0x${block.header.lastArchive.root.toBuffer().toString('hex').padStart(64, '0')}`,
           contentCommitment: {
             blobsHash: `0x${block.header.contentCommitment.blobsHash.toString('hex').padStart(64, '0')}`,
             inHash: `0x${block.header.contentCommitment.inHash.toString('hex').padStart(64, '0')}`,
             outHash: `0x${block.header.contentCommitment.outHash.toString('hex').padStart(64, '0')}`,
-            numTxs: Number(block.header.contentCommitment.numTxs),
+            numTxs: block.header.contentCommitment.numTxs.toBigInt(),
           },
-          slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
-          timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
+          slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
+          timestamp: block.header.globalVariables.timestamp.toBigInt(),
           coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
           feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
           gasFees: {
-            feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
-            feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
+            feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toBigInt(),
+            feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toBigInt(),
           },
-          totalManaUsed: `0x${block.header.totalManaUsed.toBuffer().toString('hex').padStart(64, '0')}`,
-        },
-        header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
+          totalManaUsed: block.header.totalManaUsed.toBigInt(),
+        } as ViemHeader,
         numTxs: block.body.txEffects.length,
       },
     };
@@ -444,9 +444,9 @@ describe('L1Publisher integration', () => {
           functionName: 'propose',
           args: [
             {
-              header: `0x${block.header.toPropose().toBuffer().toString('hex')}`,
+              header: block.header.toPropose().toViem(),
               archive: `0x${block.archive.root.toBuffer().toString('hex')}`,
-              stateReference: `0x${block.header.state.toBuffer().toString('hex')}`,
+              stateReference: block.header.state.toViem(),
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },

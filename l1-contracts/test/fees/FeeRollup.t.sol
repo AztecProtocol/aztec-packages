@@ -52,6 +52,7 @@ import {
 } from "./FeeModelTestPoints.t.sol";
 
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 // solhint-disable comprehensive-interface
@@ -70,7 +71,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   struct Block {
     bytes32 archive;
-    bytes header;
+    Header header;
     bytes body;
     bytes blobInputs;
     bytes32[] txHashes;
@@ -155,7 +156,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     Signature[] memory signatures = new Signature[](0);
 
     bytes memory body = full.block.body;
-    bytes memory header = full.block.header;
+    Header memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     TestPoint memory point = points[slotNumber.unwrap() - 1];
@@ -180,13 +181,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     address cb = coinbase;
 
     // Updating the header with important information!
-    header = DecoderBase.updateHeaderArchive(header, archiveRoot);
-    header = DecoderBase.updateHeaderSlot(header, slotNumber);
-    header = DecoderBase.updateHeaderTimestamp(header, ts);
-    header = DecoderBase.updateHeaderCoinbase(header, cb);
-    header = DecoderBase.updateHeaderFeeRecipient(header, address(0));
-    header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
-    header = DecoderBase.updateHeaderManaUsed(header, manaSpent);
+    header.lastArchiveRoot = archiveRoot;
+    header.slotNumber = slotNumber;
+    header.timestamp = ts;
+    header.coinbase = cb;
+    header.feeRecipient = bytes32(0);
+    header.gasFees.feePerL2Gas = manaBaseFee;
+    header.totalManaUsed = manaSpent;
 
     return Block({
       archive: archiveRoot,
@@ -213,7 +214,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
-            stateReference: new bytes(0),
+            stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
@@ -309,7 +310,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
-            stateReference: new bytes(0),
+            stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
