@@ -2995,7 +2995,9 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
         cir.range_tags[list.second.range_tag] = list.first;
     }
 
-    for (const auto& rom_table : this->rom_arrays) {
+    for (auto& rom_table : this->rom_arrays) {
+        std::sort(rom_table.records.begin(), rom_table.records.end());
+
         std::vector<std::vector<uint32_t>> table;
         table.reserve(rom_table.records.size());
         for (const auto& rom_entry : rom_table.records) {
@@ -3009,7 +3011,9 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
         cir.rom_states.push_back(rom_table.state);
     }
 
-    for (const auto& ram_table : this->ram_arrays) {
+    for (auto& ram_table : this->ram_arrays) {
+        std::sort(ram_table.records.begin(), ram_table.records.end());
+
         std::vector<std::vector<uint32_t>> table;
         table.reserve(ram_table.records.size());
         for (const auto& ram_entry : ram_table.records) {

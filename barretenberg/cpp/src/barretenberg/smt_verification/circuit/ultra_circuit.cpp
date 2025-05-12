@@ -39,23 +39,23 @@ UltraCircuit::UltraCircuit(CircuitSchema& circuit_info,
     // add gate in its normal state to solver
 
     size_t arith_cursor = 0;
-    while (arith_cursor < this->selectors[2].size()) {
-        arith_cursor = this->handle_arithmetic_relation(arith_cursor, 2);
+    while (arith_cursor < this->selectors[BlockType::ARITHMETIC].size()) {
+        arith_cursor = this->handle_arithmetic_relation(arith_cursor);
     }
 
     size_t elliptic_cursor = 0;
-    while (elliptic_cursor < this->selectors[4].size()) {
-        elliptic_cursor = this->handle_elliptic_relation(elliptic_cursor, 4);
+    while (elliptic_cursor < this->selectors[BlockType::ELLIPTIC].size()) {
+        elliptic_cursor = this->handle_elliptic_relation(elliptic_cursor);
     }
 
     size_t lookup_cursor = 0;
-    while (lookup_cursor < this->selectors[1].size()) {
-        lookup_cursor = this->handle_lookup_relation(lookup_cursor, 1);
+    while (lookup_cursor < this->selectors[BlockType::LOOKUP].size()) {
+        lookup_cursor = this->handle_lookup_relation(lookup_cursor);
     }
 
     size_t aux_cursor = 0;
-    while (aux_cursor < this->selectors[5].size()) {
-        aux_cursor = this->handle_aux_relation(aux_cursor, 5);
+    while (aux_cursor < this->selectors[BlockType::AUX].size()) {
+        aux_cursor = this->handle_aux_relation(aux_cursor);
     }
     this->handle_rom_tables();
     this->handle_ram_tables();
@@ -75,25 +75,24 @@ UltraCircuit::UltraCircuit(CircuitSchema& circuit_info,
  * via removing subcircuits that were already proved being correct.
  *
  * @param cusor current selector
- * @param idx arithmthetic selectors position in all selectors
  * @return new cursor value
  */
-size_t UltraCircuit::handle_arithmetic_relation(size_t cursor, size_t idx)
+size_t UltraCircuit::handle_arithmetic_relation(size_t cursor)
 {
-    bb::fr q_m = this->selectors[idx][cursor][0];
-    bb::fr q_l = this->selectors[idx][cursor][1];
-    bb::fr q_r = this->selectors[idx][cursor][2];
-    bb::fr q_o = this->selectors[idx][cursor][3];
-    bb::fr q_4 = this->selectors[idx][cursor][4];
-    bb::fr q_c = this->selectors[idx][cursor][5];
-    bb::fr q_arith = this->selectors[idx][cursor][6];
+    bb::fr q_m = this->selectors[BlockType::ARITHMETIC][cursor][0];
+    bb::fr q_l = this->selectors[BlockType::ARITHMETIC][cursor][1];
+    bb::fr q_r = this->selectors[BlockType::ARITHMETIC][cursor][2];
+    bb::fr q_o = this->selectors[BlockType::ARITHMETIC][cursor][3];
+    bb::fr q_4 = this->selectors[BlockType::ARITHMETIC][cursor][4];
+    bb::fr q_c = this->selectors[BlockType::ARITHMETIC][cursor][5];
+    bb::fr q_arith = this->selectors[BlockType::ARITHMETIC][cursor][6];
 
-    uint32_t w_l_idx = this->wires_idxs[idx][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[idx][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[idx][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[idx][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[idx][cursor][4];
-    uint32_t w_4_shift_idx = this->wires_idxs[idx][cursor][7];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][0];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][1];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][2];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][3];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][4];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ARITHMETIC][cursor][7];
 
     STerm w_l = this->symbolic_vars[w_l_idx];
     STerm w_r = this->symbolic_vars[w_r_idx];
@@ -207,27 +206,26 @@ void UltraCircuit::process_new_table(uint32_t table_idx)
  * via removing subcircuits that were already proved being correct.
  *
  * @param cusor current selector
- * @param idx lookup selectors position in all selectors
  * @return new cursor value
  */
-size_t UltraCircuit::handle_lookup_relation(size_t cursor, size_t idx)
+size_t UltraCircuit::handle_lookup_relation(size_t cursor)
 {
-    bb::fr q_m = this->selectors[idx][cursor][0];
-    bb::fr q_r = this->selectors[idx][cursor][2];
-    bb::fr q_o = this->selectors[idx][cursor][3];
-    bb::fr q_c = this->selectors[idx][cursor][5];
-    bb::fr q_lookup = this->selectors[idx][cursor][10];
+    bb::fr q_m = this->selectors[BlockType::LOOKUP][cursor][0];
+    bb::fr q_r = this->selectors[BlockType::LOOKUP][cursor][2];
+    bb::fr q_o = this->selectors[BlockType::LOOKUP][cursor][3];
+    bb::fr q_c = this->selectors[BlockType::LOOKUP][cursor][5];
+    bb::fr q_lookup = this->selectors[BlockType::LOOKUP][cursor][10];
 
     if (q_lookup.is_zero()) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[idx][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[idx][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[idx][cursor][2];
-    uint32_t w_l_shift_idx = this->wires_idxs[idx][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[idx][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[idx][cursor][6];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::LOOKUP][cursor][0];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::LOOKUP][cursor][1];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::LOOKUP][cursor][2];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][4];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][5];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::LOOKUP][cursor][6];
 
     optimized[w_l_idx] = false;
     optimized[w_r_idx] = false;
@@ -302,24 +300,23 @@ size_t UltraCircuit::handle_lookup_relation(size_t cursor, size_t idx)
  * @brief Adds all the elliptic gate constraints to the solver.
  *
  * @param cusor current selector
- * @param idx elliptic selectors position in all selectors
  * @return new cursor value
  */
-size_t UltraCircuit::handle_elliptic_relation(size_t cursor, size_t idx)
+size_t UltraCircuit::handle_elliptic_relation(size_t cursor)
 {
-    bb::fr q_is_double = this->selectors[idx][cursor][0];
-    bb::fr q_sign = this->selectors[idx][cursor][1];
-    bb::fr q_elliptic = this->selectors[idx][cursor][8];
+    bb::fr q_is_double = this->selectors[BlockType::ELLIPTIC][cursor][0];
+    bb::fr q_sign = this->selectors[BlockType::ELLIPTIC][cursor][1];
+    bb::fr q_elliptic = this->selectors[BlockType::ELLIPTIC][cursor][8];
     if (q_elliptic.is_zero()) {
         return cursor + 1;
     }
 
-    uint32_t w_r_idx = this->wires_idxs[idx][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[idx][cursor][2];
-    uint32_t w_l_shift_idx = this->wires_idxs[idx][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[idx][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[idx][cursor][6];
-    uint32_t w_4_shift_idx = this->wires_idxs[idx][cursor][7];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][1];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][2];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][4];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][5];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][6];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::ELLIPTIC][cursor][7];
     optimized[w_r_idx] = false;
     optimized[w_o_idx] = false;
     optimized[w_l_shift_idx] = false;
@@ -349,7 +346,7 @@ size_t UltraCircuit::handle_elliptic_relation(size_t cursor, size_t idx)
         y_add_identity == 0; // scaling_factor = 1
     }
 
-    bb::fr curve_b = this->selectors[idx][cursor][11];
+    bb::fr curve_b = this->selectors[BlockType::ELLIPTIC][cursor][11];
     auto x_pow_4 = (y1_sqr - curve_b) * x_1;
     auto y1_sqr_mul_4 = y1_sqr + y1_sqr;
     y1_sqr_mul_4 += y1_sqr_mul_4;
@@ -371,22 +368,21 @@ size_t UltraCircuit::handle_elliptic_relation(size_t cursor, size_t idx)
  * @brief Adds all the delta_range gate constraints to the solver.
  *
  * @param cusor current selector
- * @param idx delta_range selectors position in all selectors
  * @return new cursor value
  * @todo Useless?
  */
-size_t UltraCircuit::handle_delta_range_relation(size_t cursor, size_t idx)
+size_t UltraCircuit::handle_delta_range_relation(size_t cursor)
 {
-    bb::fr q_delta_range = this->selectors[idx][cursor][7];
+    bb::fr q_delta_range = this->selectors[BlockType::DELTA_RANGE][cursor][7];
     if (q_delta_range == 0) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[idx][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[idx][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[idx][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[idx][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[idx][cursor][4];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][0];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][1];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][2];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][3];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::DELTA_RANGE][cursor][4];
 
     STerm w_1 = this->symbolic_vars[w_l_idx];
     STerm w_2 = this->symbolic_vars[w_r_idx];
@@ -455,25 +451,24 @@ void UltraCircuit::handle_range_constraints()
  * @brief Adds all the aux constraints to the solver.
  *
  * @param cursor current selector
- * @param idx aux selectors positioin in all selectors
  * @return new cursor value
  */
 
-size_t UltraCircuit::handle_aux_relation(size_t cursor, size_t idx)
+size_t UltraCircuit::handle_aux_relation(size_t cursor)
 {
-    bb::fr q_aux = this->selectors[idx][cursor][9];
+    bb::fr q_aux = this->selectors[BlockType::AUX][cursor][9];
     if (q_aux == 0) {
         return cursor + 1;
     }
 
-    uint32_t w_l_idx = this->wires_idxs[idx][cursor][0];
-    uint32_t w_r_idx = this->wires_idxs[idx][cursor][1];
-    uint32_t w_o_idx = this->wires_idxs[idx][cursor][2];
-    uint32_t w_4_idx = this->wires_idxs[idx][cursor][3];
-    uint32_t w_l_shift_idx = this->wires_idxs[idx][cursor][4];
-    uint32_t w_r_shift_idx = this->wires_idxs[idx][cursor][5];
-    uint32_t w_o_shift_idx = this->wires_idxs[idx][cursor][6];
-    uint32_t w_4_shift_idx = this->wires_idxs[idx][cursor][7];
+    uint32_t w_l_idx = this->wires_idxs[BlockType::AUX][cursor][0];
+    uint32_t w_r_idx = this->wires_idxs[BlockType::AUX][cursor][1];
+    uint32_t w_o_idx = this->wires_idxs[BlockType::AUX][cursor][2];
+    uint32_t w_4_idx = this->wires_idxs[BlockType::AUX][cursor][3];
+    uint32_t w_l_shift_idx = this->wires_idxs[BlockType::AUX][cursor][4];
+    uint32_t w_r_shift_idx = this->wires_idxs[BlockType::AUX][cursor][5];
+    uint32_t w_o_shift_idx = this->wires_idxs[BlockType::AUX][cursor][6];
+    uint32_t w_4_shift_idx = this->wires_idxs[BlockType::AUX][cursor][7];
 
     STerm w_1 = this->symbolic_vars[w_l_idx];
     STerm w_2 = this->symbolic_vars[w_r_idx];
@@ -484,13 +479,13 @@ size_t UltraCircuit::handle_aux_relation(size_t cursor, size_t idx)
     STerm w_3_shift = this->symbolic_vars[w_o_shift_idx];
     STerm w_4_shift = this->symbolic_vars[w_4_shift_idx];
 
-    bb::fr q_m = this->selectors[idx][cursor][0];
-    bb::fr q_1 = this->selectors[idx][cursor][1];
-    bb::fr q_2 = this->selectors[idx][cursor][2];
-    bb::fr q_3 = this->selectors[idx][cursor][3];
-    bb::fr q_4 = this->selectors[idx][cursor][4];
-    // bb::fr q_c = this->selectors[idx][cursor][5];
-    bb::fr q_arith = this->selectors[idx][cursor][6];
+    bb::fr q_m = this->selectors[BlockType::AUX][cursor][0];
+    bb::fr q_1 = this->selectors[BlockType::AUX][cursor][1];
+    bb::fr q_2 = this->selectors[BlockType::AUX][cursor][2];
+    bb::fr q_3 = this->selectors[BlockType::AUX][cursor][3];
+    bb::fr q_4 = this->selectors[BlockType::AUX][cursor][4];
+    // bb::fr q_c = this->selectors[BlockType::AUX][cursor][5];
+    bb::fr q_arith = this->selectors[BlockType::AUX][cursor][6];
 
     bb::fr LIMB_SIZE(uint256_t(1) << 68);
     bb::fr SUBLIMB_SHIFT(uint256_t(1) << 14);

@@ -7,6 +7,14 @@ namespace smt_circuit {
 #define RESET "\033[0m"
 
 enum class TableType : int32_t { XOR, AND, UNKNOWN };
+struct BlockType {
+    static const size_t PUB = 0;
+    static const size_t LOOKUP = 1;
+    static const size_t ARITHMETIC = 2;
+    static const size_t DELTA_RANGE = 3;
+    static const size_t ELLIPTIC = 4;
+    static const size_t AUX = 5;
+};
 
 /**
  * @brief Symbolic Circuit class for Standard Circuit Builder.
@@ -71,11 +79,11 @@ class UltraCircuit : public CircuitBase {
     bool simulate_circuit_eval(std::vector<bb::fr>& witness) const override;
     void process_new_table(uint32_t table_idx);
 
-    size_t handle_arithmetic_relation(size_t cursor, size_t idx);
-    size_t handle_lookup_relation(size_t cursor, size_t idx);
-    size_t handle_elliptic_relation(size_t cursor, size_t idx);
-    size_t handle_delta_range_relation(size_t cursor, size_t idx);
-    size_t handle_aux_relation(size_t cursor, size_t idx);
+    size_t handle_arithmetic_relation(size_t cursor);
+    size_t handle_lookup_relation(size_t cursor);
+    size_t handle_elliptic_relation(size_t cursor);
+    size_t handle_delta_range_relation(size_t cursor);
+    size_t handle_aux_relation(size_t cursor);
 
     void handle_range_constraints();
 
