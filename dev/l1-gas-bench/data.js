@@ -1,112 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747075816748,
+  "lastUpdate": 1747076331534,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "L1 Gas Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "647bb120e484e6502efe12773202362c3b81a7e0",
-          "message": "chore: allow for multiple aztec-wallet invocations (#14141)\n\nResolves #14140.",
-          "timestamp": "2025-05-07T16:31:36Z",
-          "tree_id": "5a6311b6af52c2377e6f98fc3c4ac1a1815c04fd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/647bb120e484e6502efe12773202362c3b81a7e0"
-        },
-        "date": 1746637711949,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "forward (100_validators)",
-            "value": 639564,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (100_validators) per l2 tx",
-            "value": 1776.57,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators)",
-            "value": 310600,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators) per l2 tx",
-            "value": 862.78,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead)",
-            "value": 328964,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead) per l2 tx",
-            "value": 913.79,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators)",
-            "value": 1583400,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators) per l2 tx",
-            "value": 137.45,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators)",
-            "value": 67061,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators) per l2 tx",
-            "value": 5.82,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead)",
-            "value": 1516339,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead) per l2 tx",
-            "value": 131.63,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators)",
-            "value": 894670,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators) per l2 tx",
-            "value": 77.66,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators)",
-            "value": 911770,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators) per l2 tx",
-            "value": 79.15,
-            "unit": "gas"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -5113,6 +5009,110 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c2226eb54b8b1b5e8a94f9466e879d3e731c1a7"
         },
         "date": 1747075815455,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "forward (100_validators)",
+            "value": 639571,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (100_validators) per l2 tx",
+            "value": 1776.59,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators)",
+            "value": 312354,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators) per l2 tx",
+            "value": 867.65,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead)",
+            "value": 327217,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead) per l2 tx",
+            "value": 908.94,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators)",
+            "value": 1579009,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators) per l2 tx",
+            "value": 137.07,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators)",
+            "value": 67905,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators) per l2 tx",
+            "value": 5.89,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead)",
+            "value": 1511104,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead) per l2 tx",
+            "value": 131.17,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators)",
+            "value": 894670,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators) per l2 tx",
+            "value": 77.66,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators)",
+            "value": 911770,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators) per l2 tx",
+            "value": 79.15,
+            "unit": "gas"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "eda5cc8f20cd5acf14d1d0513234e86dbc13875f",
+          "message": "fix: Delete txs and attestations from p2p pool on finalized blocks (#14200)\n\nInstead of relying on config variables for choosing how long to keep\nproven txs and attestations, rely on finalized blocks instead.\n\n**Breaking**: Removes env vars `P2P_TX_POOL_KEEP_PROVEN_FOR` and\n`P2P_ATTESTATION_POOL_KEEP_FOR` (cc @devrel).\n    \nFixes #13575",
+          "timestamp": "2025-05-12T18:24:09Z",
+          "tree_id": "067801c2d4fddc7239604c8b47c8d7a0bc32f71c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/eda5cc8f20cd5acf14d1d0513234e86dbc13875f"
+        },
+        "date": 1747076330360,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
