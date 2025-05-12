@@ -11,6 +11,7 @@
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
 namespace bb::plookup::fixed_base {
 

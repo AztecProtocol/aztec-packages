@@ -4,9 +4,10 @@
 #include "group.hpp"
 #include "precomputed_generators.hpp"
 
+// NOTE: Must be included before using get_precomputed_generators if using grumpkin g1!
 namespace bb::detail {
 
-template <> class PrecomputedGenerators<"pedersen_hash_length", curve::Grumpkin::AffineElement, 1, 0> {
+template <> class PrecomputedGenerators<"pedersen_hash_length", bb::grumpkin::g1::affine_element, 1, 0> {
   public:
     static std::span<const curve::Grumpkin::AffineElement> get_generators()
     {
@@ -19,50 +20,31 @@ template <> class PrecomputedGenerators<"pedersen_hash_length", curve::Grumpkin:
     }
 };
 
-template <>
-class PrecomputedGenerators<"DEFAULT_DOMAIN_SEPARATOR",
-                            bb::group_elements::affine_element<bb::field<bb::Bn254FrParams>,
-                                                               bb::field<bb::Bn254FqParams>,
-                                                               bb::grumpkin::G1Params>,
-                            8,
-                            0> {
+template <> class PrecomputedGenerators<"DEFAULT_DOMAIN_SEPARATOR", bb::grumpkin::g1::affine_element, 8, 0> {
   public:
-    static std::span<const bb::group_elements::affine_element<bb::field<bb::Bn254FrParams>,
-                                                              bb::field<bb::Bn254FqParams>,
-                                                              bb::grumpkin::G1Params>>
-    get_generators()
+    static std::span<const grumpkin::g1::affine_element> get_generators()
     {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        static const bb::group_elements::affine_element<bb::field<bb::Bn254FrParams>,
-                                                        bb::field<bb::Bn254FqParams>,
-                                                        bb::grumpkin::G1Params>
-            generators[8] = {
-                { { 8097510402157351886ULL, 18286764647757768191ULL, 1390796234792946144ULL, 2718566285137854674ULL },
-                  { 2109250742227638753ULL, 16752273950062635966ULL, 7599370438609686865ULL, 2715068713368795909ULL } },
-                { { 9145024212942358488ULL, 5239068376580510067ULL, 1807250672629161837ULL, 317225244069461550ULL },
-                  { 3449402241748545434ULL, 7294377535255866006ULL, 17984424441230862336ULL, 1129310788628411652ULL } },
-                { { 13272595681489794481ULL, 11580950799759027524ULL, 182504106434033816ULL, 1108850088764929360ULL },
-                  { 18190836789794844169ULL,
-                    16900253116938438826ULL,
-                    18370380156362363775ULL,
-                    1099597609032769429ULL } },
-                { { 14000643211362041761ULL, 18352808663614668611ULL, 14279614583520359091ULL, 231839634660253044ULL },
-                  { 12952994988652972331ULL, 4269144144691522446ULL, 16160222762976276856ULL, 192762583745698599ULL } },
-                { { 11956946790992744538ULL, 2038971329877258167ULL, 4236513458565476044ULL, 1067922408514335070ULL },
-                  { 8618661570247211675ULL, 710724359851646488ULL, 5884147206979441610ULL, 2413331525593934492ULL } },
-                { { 16245745509748196532ULL, 3577415316578040287ULL, 3386488852141264886ULL, 691027757720252637ULL },
-                  { 16451825000115923786ULL,
-                    16641216180082465440ULL,
-                    14457422320097567518ULL,
-                    3263422977454216160ULL } },
-                { { 17091916817097447578ULL, 16742724884540730920ULL, 10261912859017445991ULL, 2370203496159964153ULL },
-                  { 9699608790079731833ULL, 3691104471280108040ULL, 765533241152524381ULL, 2990289254220953829ULL } },
-                { { 8993338889715650835ULL, 5712670458228723228ULL, 2120794487196328325ULL, 1287090278976494593ULL },
-                  { 16225717072186929821ULL, 11966146851468791936ULL, 10821795104831884699ULL, 506430069685697751ULL } }
-            };
+        static const grumpkin::g1::affine_element generators[8] = {
+            { { 8097510402157351886ULL, 18286764647757768191ULL, 1390796234792946144ULL, 2718566285137854674ULL },
+              { 2109250742227638753ULL, 16752273950062635966ULL, 7599370438609686865ULL, 2715068713368795909ULL } },
+            { { 9145024212942358488ULL, 5239068376580510067ULL, 1807250672629161837ULL, 317225244069461550ULL },
+              { 3449402241748545434ULL, 7294377535255866006ULL, 17984424441230862336ULL, 1129310788628411652ULL } },
+            { { 13272595681489794481ULL, 11580950799759027524ULL, 182504106434033816ULL, 1108850088764929360ULL },
+              { 18190836789794844169ULL, 16900253116938438826ULL, 18370380156362363775ULL, 1099597609032769429ULL } },
+            { { 14000643211362041761ULL, 18352808663614668611ULL, 14279614583520359091ULL, 231839634660253044ULL },
+              { 12952994988652972331ULL, 4269144144691522446ULL, 16160222762976276856ULL, 192762583745698599ULL } },
+            { { 11956946790992744538ULL, 2038971329877258167ULL, 4236513458565476044ULL, 1067922408514335070ULL },
+              { 8618661570247211675ULL, 710724359851646488ULL, 5884147206979441610ULL, 2413331525593934492ULL } },
+            { { 16245745509748196532ULL, 3577415316578040287ULL, 3386488852141264886ULL, 691027757720252637ULL },
+              { 16451825000115923786ULL, 16641216180082465440ULL, 14457422320097567518ULL, 3263422977454216160ULL } },
+            { { 17091916817097447578ULL, 16742724884540730920ULL, 10261912859017445991ULL, 2370203496159964153ULL },
+              { 9699608790079731833ULL, 3691104471280108040ULL, 765533241152524381ULL, 2990289254220953829ULL } },
+            { { 8993338889715650835ULL, 5712670458228723228ULL, 2120794487196328325ULL, 1287090278976494593ULL },
+              { 16225717072186929821ULL, 11966146851468791936ULL, 10821795104831884699ULL, 506430069685697751ULL } }
+        };
         return { generators, 8 };
     }
 };
 
 }; // namespace bb::detail
-   // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

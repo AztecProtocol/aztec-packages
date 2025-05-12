@@ -8,6 +8,7 @@
 
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/public_inputs/public_inputs.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"

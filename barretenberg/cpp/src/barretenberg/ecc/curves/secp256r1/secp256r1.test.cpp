@@ -1,4 +1,5 @@
 #include "secp256r1.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
@@ -451,3 +452,9 @@ TEST(secp256r1, MontgomeryMulBigBug)
     EXPECT_EQ((a_sqr == expected), true);
 }
 #endif
+
+TEST(secp256r1, CheckPrecomputedGenerators)
+{
+    ASSERT_TRUE((bb::check_precomputed_generators<secp256r1::g1, "biggroup offset generator", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<secp256r1::g1, "biggroup table offset generator", 1UL>()));
+}

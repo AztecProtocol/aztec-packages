@@ -8,6 +8,7 @@
 
 #include "./eccvm_builder_types.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators.hpp"
+#include "barretenberg/op_queue/ecc_ops_table.hpp"
 
 namespace bb {
 
