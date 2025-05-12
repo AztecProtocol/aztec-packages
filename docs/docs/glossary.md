@@ -11,7 +11,7 @@ The command line tool used to compile Aztec contracts. It gets its name from the
 
 A [Noir](https://noir-lang.org) framework for writing smart contracts on Aztec.
 
-Read more and review the source code [here](https://github.com/AztecProtocol/aztec-nr).
+Read more and review the source code [here](https://aztec.nr).
 
 ### Barretenberg
 
