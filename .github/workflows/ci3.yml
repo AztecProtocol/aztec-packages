@@ -38,9 +38,7 @@ jobs:
 
       - name: CI Full Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
-        run: |
-          echo "CI_FULL=1" >> $GITHUB_ENV
-          echo "USE_TEST_CACHE=0" >> $GITHUB_ENV
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
 
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
