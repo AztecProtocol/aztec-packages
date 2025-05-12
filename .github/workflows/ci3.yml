@@ -84,11 +84,11 @@ jobs:
           fi
 
       - name: Download benchmarks
-        if: github.event_name == 'merge_group'
+        # if: github.event_name == 'merge_group'
         run: ./ci.sh gh-bench
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group'
+        # if: github.event_name == 'merge_group'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks
