@@ -11,13 +11,12 @@ This page covers all the tools for developing on Aztec. For a higher level summa
 
 | Component | Description | Key Commands | Notes |
 |:----------|:------------|:-------------|:-------------|
-| Sandbox | Emulated Aztec Network | | Docker | A local Aztec node, Anvil node, and bundle of CLI tools: aztec, aztec-nargo, aztec-up, aztec-wallet |
-| aztec | CLI to interact with Aztec Node | `aztec start --sandbox`<br/>`aztec start --node [options]`<br/>`aztec test`<br/>`aztec update`<br/>`aztec codegen`<br/>`aztec flamegraph`<br/>`aztec send/call/deploy/add-contract` | Similar to Ethereum's Geth |
+| Sandbox | Emulated Aztec Network | | Requires Docker | A local Aztec node and bundle of CLI tools: aztec, aztec-nargo, aztec-up, aztec-wallet |
+| aztec | CLI to interact with Aztec Node | `aztec start --sandbox`<br/>`aztec start --node [options]`<br/>`aztec test`<br/>`aztec update`<br/>`aztec codegen`<br/>`aztec send/call/deploy/add-contract` | Similar to Ethereum's Geth |
 | aztec-nargo | CLI for compiling Noir contracts | `aztec-nargo compile` | |s
 | aztec-up | CLI to install and update sandbox and its components | `aztec-up 0.86.0` | |
-| Anvil | Emulated Ethereum Node | | | Externally created & maintained, part of Sandbox |
-| Private Execution Environment (PXE) | A package that runs locally, simulates private transactions, and generates proofs. It can be run as part of the sandbox or independently (recommended)| | | There can be multiple PXE implementations, it is not enshrined in the Aztec protocol |
-
+| Anvil | Emulated Ethereum Node | | Externally created & maintained, part of Sandbox |
+| Private Execution Environment (PXE) | A package that runs locally, simulates private transactions, and generates proofs. It can be run as part of the sandbox or independently (recommended)| | There can be multiple PXE implementations, it is not enshrined in the Aztec protocol |
 
 ## Tooling
 
