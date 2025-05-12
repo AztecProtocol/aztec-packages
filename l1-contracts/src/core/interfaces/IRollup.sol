@@ -76,7 +76,6 @@ struct RollupConfigInput {
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
   uint256 aztecProofSubmissionWindow;
-  uint256 minimumStake;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;

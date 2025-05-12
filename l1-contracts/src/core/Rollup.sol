@@ -15,7 +15,7 @@ import {
   FeeHeader,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
-import {IStaking, ValidatorInfo, Exit, OperatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking, Info, Exit} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
@@ -35,7 +35,6 @@ import {
   IRewardDistributor,
   IFeeJuicePortal,
   IERC20,
-  StakingLib,
   TimeLib,
   Slot,
   Epoch,
@@ -49,6 +48,8 @@ import {
   IInbox,
   IOutbox
 } from "./RollupCore.sol";
+import {StakingLib, FullStatus} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {GSE} from "@aztec/core/staking/GSE.sol";
 
 /**
  * @title Rollup
@@ -69,10 +70,21 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
+    GSE _gse,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
-  ) RollupCore(_feeAsset, _rewardDistributor, _stakingAsset, _governance, _genesisState, _config) {}
+  )
+    RollupCore(
+      _feeAsset,
+      _rewardDistributor,
+      _stakingAsset,
+      _gse,
+      _governance,
+      _genesisState,
+      _config
+    )
+  {}
 
   /**
    * @notice  Validate a header for submission
@@ -211,11 +223,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getMinimumStake() external view override(IStaking) returns (uint256) {
-    return StakingLib.getStorage().minimumStake;
+    return StakingLib.getStorage().gse.MINIMUM_DEPOSIT();
   }
 
   function getExitDelay() external view override(IStaking) returns (Timestamp) {
     return StakingLib.getStorage().exitDelay;
+  }
+
+  function getGSE() external view override(IStaking) returns (GSE) {
+    return StakingLib.getStorage().gse;
   }
 
   function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
@@ -342,27 +358,21 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return getProposerForAttester(getAttesterAtIndex(_index));
   }
 
-  function getInfo(address _attester)
-    external
-    view
-    override(IStaking)
-    returns (ValidatorInfo memory)
-  {
+  function getInfo(address _attester) external view override(IStaking) returns (Info memory) {
     return StakingLib.getInfo(_attester);
   }
 
   function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
-    return StakingLib.getStorage().exits[_attester];
+    return StakingLib.getExit(_attester);
   }
 
-  function getOperatorAtIndex(uint256 _index)
+  function getFullStatus(address _attester)
     external
     view
     override(IStaking)
-    returns (OperatorInfo memory)
+    returns (FullStatus memory)
   {
-    address attester = getAttesterAtIndex(_index);
-    return OperatorInfo({proposer: getProposerForAttester(attester), attester: attester});
+    return StakingLib.getFullStatus(_attester);
   }
 
   /**

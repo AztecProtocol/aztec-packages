@@ -2,25 +2,49 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {
-  Status, ValidatorInfo, Exit, Timestamp, IStakingCore
-} from "@aztec/core/interfaces/IStaking.sol";
+import {Timestamp, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {GSE, Info} from "@aztec/core/staking/GSE.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
+struct Exit {
+  uint256 amount;
+  Timestamp exitableAt;
+  address recipientOrWithdrawer;
+  bool isRecipient;
+  bool exists;
+}
+
+// None -> Does not exist in our setup
+// Validating -> Participating as validator
+// Living -> Not participating as validator, but have funds in setup,
+// 			 hit if slashes and going below the minimum
+// Exiting -> In the process of exiting the system
+enum Status {
+  NONE,
+  VALIDATING,
+  LIVING,
+  EXITING
+}
+
+struct FullStatus {
+  Status status;
+  uint256 effectiveBalance;
+  Exit exit;
+  Info info;
+}
+
 struct StakingStorage {
   IERC20 stakingAsset;
   address slasher;
-  uint256 minimumStake;
+  GSE gse;
   Timestamp exitDelay;
-  SnapshottedAddressSet attesters;
-  mapping(address attester => ValidatorInfo) info;
   mapping(address attester => Exit) exits;
 }
 
@@ -31,71 +55,77 @@ library StakingLib {
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
-  function initialize(
-    IERC20 _stakingAsset,
-    uint256 _minimumStake,
-    Timestamp _exitDelay,
-    address _slasher
-  ) internal {
+  function initialize(IERC20 _stakingAsset, GSE _gse, Timestamp _exitDelay, address _slasher)
+    internal
+  {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
-    store.minimumStake = _minimumStake;
+    store.gse = _gse;
     store.exitDelay = _exitDelay;
     store.slasher = _slasher;
   }
 
   function finaliseWithdraw(address _attester) internal {
     StakingStorage storage store = getStorage();
-    ValidatorInfo storage validator = store.info[_attester];
-    require(validator.status == Status.EXITING, Errors.Staking__NotExiting(_attester));
-
-    Exit storage exit = store.exits[_attester];
+    // We load it into memory to cache it, as we will delete it before we use it.
+    Exit memory exit = store.exits[_attester];
+    require(exit.exists);
+    require(exit.isRecipient);
     require(
       exit.exitableAt <= Timestamp.wrap(block.timestamp),
       Errors.Staking__WithdrawalNotUnlockedYet(Timestamp.wrap(block.timestamp), exit.exitableAt)
     );
 
-    uint256 amount = validator.stake;
-    address recipient = exit.recipient;
-
     delete store.exits[_attester];
-    delete store.info[_attester];
+    store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
-    store.stakingAsset.transfer(recipient, amount);
-
-    emit IStakingCore.WithdrawFinalised(_attester, recipient, amount);
+    emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
 
   function slash(address _attester, uint256 _amount) internal {
     StakingStorage storage store = getStorage();
     require(msg.sender == store.slasher, Errors.Staking__NotSlasher(store.slasher, msg.sender));
 
-    ValidatorInfo storage validator = store.info[_attester];
-    require(validator.status != Status.NONE, Errors.Staking__NoOneToSlash(_attester));
+    Exit storage exit = store.exits[_attester];
 
-    // There is a special, case, if exiting and past the limit, it is untouchable!
-    require(
-      !(
-        validator.status == Status.EXITING
-          && store.exits[_attester].exitableAt <= Timestamp.wrap(block.timestamp)
-      ),
-      Errors.Staking__CannotSlashExitedStake(_attester)
-    );
-    validator.stake -= _amount;
+    if (exit.exists) {
+      require(
+        exit.exitableAt > Timestamp.wrap(block.timestamp),
+        Errors.Staking__CannotSlashExitedStake(_attester)
+      );
 
-    // If the attester was validating AND is slashed below the MINIMUM_STAKE we update him to LIVING
-    // When LIVING, he can only start exiting, we don't "really" exit him, because that cost
-    // gas and cost edge cases around recipient, so lets just avoid that.
-    if (validator.status == Status.VALIDATING && validator.stake < store.minimumStake) {
-      require(store.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
+      if (exit.amount == _amount) {
+        // If we slashes the entire thing, nuke it entirely
+        delete store.exits[_attester];
+      } else {
+        exit.amount -= _amount;
+      }
+    } else {
+      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
+      require(attesterExists);
 
-      validator.status = Status.LIVING;
+      (uint256 amountWithdrawn, bool removed) = store.gse.withdraw(_attester, _amount);
+
+      if (removed) {
+        uint256 toUser = amountWithdrawn - _amount;
+        store.exits[_attester] = Exit({
+          amount: toUser,
+          exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
+          recipientOrWithdrawer: withdrawer,
+          isRecipient: false,
+          exists: true
+        });
+      }
     }
 
     emit IStakingCore.Slashed(_attester, _amount);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
+  function deposit(address _attester, address _proposer, address _withdrawer) internal {
+    deposit(_attester, _proposer, _withdrawer, true);
+  }
+
+  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     internal
   {
     require(
@@ -103,72 +133,76 @@ library StakingLib {
       Errors.Staking__InvalidDeposit(_attester, _proposer)
     );
     StakingStorage storage store = getStorage();
+    require(!store.exits[_attester].exists);
     require(
-      _amount >= store.minimumStake, Errors.Staking__InsufficientStake(_amount, store.minimumStake)
+      !store.gse.isRegistered(address(this), _attester),
+      Errors.Staking__AlreadyRegistered(_attester)
     );
-    require(
-      store.info[_attester].status == Status.NONE, Errors.Staking__AlreadyRegistered(_attester)
-    );
-    store.stakingAsset.transferFrom(msg.sender, address(this), _amount);
-    require(store.attesters.add(_attester), Errors.Staking__AlreadyActive(_attester));
+    uint256 amount = store.gse.MINIMUM_DEPOSIT();
 
-    store.info[_attester] = ValidatorInfo({
-      stake: _amount,
-      withdrawer: _withdrawer,
-      proposer: _proposer,
-      status: Status.VALIDATING
-    });
-
-    emit IStakingCore.Deposit(_attester, _proposer, _withdrawer, _amount);
+    store.stakingAsset.transferFrom(msg.sender, address(this), amount);
+    store.stakingAsset.approve(address(store.gse), amount);
+    store.gse.deposit(_attester, _proposer, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient) internal returns (bool) {
+    require(_recipient != address(0));
     StakingStorage storage store = getStorage();
-    ValidatorInfo storage validator = store.info[_attester];
 
-    require(
-      msg.sender == validator.withdrawer,
-      Errors.Staking__NotWithdrawer(validator.withdrawer, msg.sender)
-    );
-    require(
-      validator.status == Status.VALIDATING || validator.status == Status.LIVING,
-      Errors.Staking__NothingToExit(_attester)
-    );
-    if (validator.status == Status.VALIDATING) {
-      require(store.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
+    if (store.exits[_attester].exists) {
+      // If there is already an exit, we either started, it and should revert
+      // or it is because of a slash and we should udpate the recipient
+      // Still only if we are the withdrawer
+      // We DO NOT update the exitableAt
+      require(!store.exits[_attester].isRecipient);
+      require(store.exits[_attester].recipientOrWithdrawer == msg.sender);
+      store.exits[_attester].recipientOrWithdrawer = _recipient;
+      store.exits[_attester].isRecipient = true;
+
+      emit IStakingCore.WithdrawInitiated(_attester, _recipient, store.exits[_attester].amount);
+    } else {
+      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
+      require(attesterExists);
+      require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
+
+      uint256 amount = store.gse.balanceOf(address(this), _attester);
+      (uint256 actualAmount, bool removed) = store.gse.withdraw(_attester, amount);
+      require(removed);
+
+      store.exits[_attester] = Exit({
+        amount: actualAmount,
+        exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
+        recipientOrWithdrawer: _recipient,
+        isRecipient: true,
+        exists: true
+      });
+      emit IStakingCore.WithdrawInitiated(_attester, _recipient, actualAmount);
     }
-
-    // Note that the "amount" is not stored here, but reusing the `validators`
-    // We always exit fully.
-    // @note The attester might be chosen for the epoch, so the delay must be long enough
-    //       to allow for that.
-    store.exits[_attester] =
-      Exit({exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay, recipient: _recipient});
-    validator.status = Status.EXITING;
-
-    emit IStakingCore.WithdrawInitiated(_attester, _recipient, validator.stake);
 
     return true;
   }
 
   function getAttesterCountAtTimestamp(Timestamp _timestamp) internal view returns (uint256) {
     StakingStorage storage store = getStorage();
-    return store.attesters.lengthAtTimestamp(Timestamp.unwrap(_timestamp).toUint32());
+    return store.gse.getAttesterCountAtTimestamp(address(this), _timestamp);
   }
 
   function getAttestersAtTimestamp(Timestamp _timestamp) internal view returns (address[] memory) {
     StakingStorage storage store = getStorage();
-    return store.attesters.valuesAtTimestamp(Timestamp.unwrap(_timestamp).toUint32());
+    return store.gse.getAttestersAtTimestamp(address(this), _timestamp);
   }
 
   function getAttesterAtIndex(uint256 _index) internal view returns (address) {
     StakingStorage storage store = getStorage();
-    return store.attesters.at(_index);
+    return store.gse.getAttesterFromIndexAtTimestamp(
+      address(this), _index, Timestamp.wrap(block.timestamp)
+    );
   }
 
   function getProposerForAttester(address _attester) internal view returns (address) {
     StakingStorage storage store = getStorage();
-    return store.info[_attester].proposer;
+    (address proposer,,) = store.gse.getProposer(address(this), _attester);
+    return proposer;
   }
 
   function getAttestersFromIndicesAtTimestamp(Timestamp _timestamp, uint256[] memory _indices)
@@ -177,20 +211,34 @@ library StakingLib {
     returns (address[] memory)
   {
     StakingStorage storage store = getStorage();
-
-    uint32 timestamp = Timestamp.unwrap(_timestamp).toUint32();
-
-    address[] memory attesters = new address[](_indices.length);
-    for (uint256 i = 0; i < _indices.length; i++) {
-      attesters[i] = store.attesters.getAddressFromIndexAtTimestamp(_indices[i], timestamp);
-    }
-
-    return attesters;
+    return store.gse.getAttestersFromIndicesAtTimestamp(address(this), _timestamp, _indices);
   }
 
-  function getInfo(address _attester) internal view returns (ValidatorInfo memory) {
+  function getExit(address _attester) internal view returns (Exit memory) {
     StakingStorage storage store = getStorage();
-    return store.info[_attester];
+    return store.exits[_attester];
+  }
+
+  function getInfo(address _attester) internal view returns (Info memory) {
+    StakingStorage storage store = getStorage();
+    return store.gse.getInfo(address(this), _attester);
+  }
+
+  function getFullStatus(address _attester) internal view returns (FullStatus memory) {
+    StakingStorage storage store = getStorage();
+
+    Exit memory exit = getExit(_attester);
+    Info memory info = getInfo(_attester);
+    uint256 effectiveBalance = store.gse.balanceOf(address(this), _attester);
+
+    Status status;
+    if (exit.exists) {
+      status = exit.isRecipient ? Status.EXITING : Status.LIVING;
+    } else {
+      status = effectiveBalance > 0 ? Status.VALIDATING : Status.NONE;
+    }
+
+    return FullStatus({status: status, effectiveBalance: effectiveBalance, exit: exit, info: info});
   }
 
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {
