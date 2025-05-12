@@ -11,8 +11,12 @@ cd ..
 # IF NEW INPUTS SUDDENLY DO NOT VERIFY IN THE IVC BENCH - we need to redo this:
 # - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
 # - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
+# - Compress the results: tar -czf bb-civc-inputs.tar.gz -C example-app-ivc-inputs-out .
+# - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
+# - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/barretenberg-reference-artifacts/bb-civc-inputs-[hash(0:8)].tar.gz
+# If updating this, also update test_civc_standalone_vks_havent_changed.sh to use the new inputs.
 
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v6.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/barretenberg-reference-artifacts/bb-civc-inputs-6b3dbed6.tar.gz"
 hash=$(hash_str $(../bootstrap.sh hash) "$pinned_civc_inputs_url")
 
 if cache_download bb-prover-vks-$hash.tar.gz; then
@@ -24,5 +28,5 @@ trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
 
 curl -s -f "$pinned_civc_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/null
 
-$root/barretenberg/cpp/scripts/generate_civc_vks.sh $inputs_tmp_dir $(pwd)/artifacts
+$root/barretenberg/cpp/scripts/generate_public_vk_private_vk.sh $inputs_tmp_dir $(pwd)/artifacts
 cache_upload bb-prover-vks-$hash.tar.gz artifacts/private-civc-vk artifacts/public-civc-vk

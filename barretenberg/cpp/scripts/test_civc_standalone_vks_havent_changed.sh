@@ -10,8 +10,12 @@ cd ..
 # This allows us to compare the generated VKs here with ones we compute freshly, detecting breaking protocol changes.
 # IF A VK CHANGE IS EXPECTED - we need to redo this:
 # - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-# - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v6.tar.gz"
+# - Compress the results: tar -czf bb-civc-inputs.tar.gz -C example-app-ivc-inputs-out .
+# - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
+# - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/barretenberg-reference-artifacts/bb-civc-inputs-[hash(0:8)].tar.gz
+# If updating this, also update generate_civc_public_vk_private_vk.sh to use the new inputs.
+
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/barretenberg-reference-artifacts/bb-civc-inputs-v6.tar.gz"
 
 export inputs_tmp_dir=$(mktemp -d)
 trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
