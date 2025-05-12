@@ -60,7 +60,7 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
-import {Forwarder} from "@aztec/periphery/Forwarder.sol";
+import {Forwarder} from "@aztec/periphery/forwarders/Forwarder.sol";
 import {Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 
 // solhint-disable comprehensive-interface

@@ -15,6 +15,7 @@ gas_reports = ["Governance","Registry","RewardDistributor","GovernanceProposer",
 
 remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
+  "@splits/=lib/splits-contracts-monorepo/packages/splits-v2/src",
   "@aztec/=src",
   "@test/=test"
 ]
