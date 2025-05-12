@@ -72,8 +72,9 @@ export function CreateAccountDialog({
           break;
         }
         case 'aztec-keychain': {
-          signingKey = Buffer.from([-1]);
-          accountManager = await getEcdsaRSerialAccount(pxe, -1);
+          let index;
+          ({ manager: accountManager, index } = await getEcdsaRSerialAccount(pxe));
+          signingKey = Buffer.from([index]);
           break;
         }
         default: {

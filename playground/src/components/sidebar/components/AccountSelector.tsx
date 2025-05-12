@@ -142,7 +142,7 @@ export function AccountSelector() {
         break;
       }
       case 'aztec-keychain': {
-        accountManager = await getEcdsaRSerialAccount(pxe, accountData.signingKey[0]);
+        ({ manager: accountManager } = await getEcdsaRSerialAccount(pxe, accountData.signingKey[0]));
         break;
       }
       default: {
