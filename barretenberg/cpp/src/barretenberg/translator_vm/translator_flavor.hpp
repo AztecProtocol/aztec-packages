@@ -692,7 +692,6 @@ class TranslatorFlavor {
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
-        ProvingKey() = default;
         ProvingKey(std::shared_ptr<CommitmentKey> commitment_key = nullptr)
             : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
         {}
