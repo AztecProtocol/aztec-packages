@@ -314,7 +314,7 @@ After initializing storage, the function checks that the `msg_sender` is authori
 
 TODO: update from `prepare_transfer_to_private`
 
-This private function prepares to transfer from a public balance to a private balance by setting up a partial note for the recipient. The function returns the `hiding_point_slot`. After this, the public [`finalize_transfer_to_private`](#finalize_transfer_to_private) must be called, passing the amount and the hiding point slot.
+This private function prepares to transfer from a public balance to a private balance by setting up a partial note for the recipient. The function returns the `partial_note_commitment_slot`. After this, the public [`finalize_transfer_to_private`](#finalize_transfer_to_private) must be called, passing the amount and the partial note commitment slot.
 
 #include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
@@ -336,7 +336,7 @@ This function is called from [`burn`](#burn). The account's private balance is d
 
 #### `_finalize_transfer_to_private_unsafe`
 
-This public internal function decrements the public balance of the `from` account and finalizes the partial note for the recipient, which is hidden in the `hiding_point_slot`.
+This public internal function decrements the public balance of the `from` account and finalizes the partial note for the recipient, which is hidden in the `partial_note_commitment_slot`.
 
 This function is called by the private function [`transfer_to_private`](#transfer_to_private) to finalize the transfer. The `transfer_to_private` enforces the `from` argument, which is why using it `unsafe` is okay.
 

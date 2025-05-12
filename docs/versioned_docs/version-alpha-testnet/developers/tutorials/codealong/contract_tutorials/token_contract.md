@@ -610,7 +610,7 @@ fn burn_private(from: AztecAddress, amount: u128, nonce: Field) {
 
 TODO: update from `prepare_transfer_to_private`
 
-This private function prepares to transfer from a public balance to a private balance by setting up a partial note for the recipient. The function returns the `hiding_point_slot`. After this, the public [`finalize_transfer_to_private`](#finalize_transfer_to_private) must be called, passing the amount and the hiding point slot.
+This private function prepares to transfer from a public balance to a private balance by setting up a partial note for the recipient. The function returns the `partial_note_commitment_slot`. After this, the public [`finalize_transfer_to_private`](#finalize_transfer_to_private) must be called, passing the amount and the partial note commitment slot.
 
 ```rust title="prepare_private_balance_increase" showLineNumbers
 /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
@@ -663,7 +663,7 @@ fn _reduce_total_supply(amount: u128) {
 
 #### `_finalize_transfer_to_private_unsafe`
 
-This public internal function decrements the public balance of the `from` account and finalizes the partial note for the recipient, which is hidden in the `hiding_point_slot`.
+This public internal function decrements the public balance of the `from` account and finalizes the partial note for the recipient, which is hidden in the `partial_note_commitment_slot`.
 
 This function is called by the private function [`transfer_to_private`](#transfer_to_private) to finalize the transfer. The `transfer_to_private` enforces the `from` argument, which is why using it `unsafe` is okay.
 

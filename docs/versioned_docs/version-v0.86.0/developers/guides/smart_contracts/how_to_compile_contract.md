@@ -235,17 +235,17 @@ export class TokenContract extends ContractBase {
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, "selector">;
 
-    /** finalize_mint_to_private(amount: field, hiding_point_slot: field) */
+    /** finalize_mint_to_private(amount: field, partial_note_commitment_slot: field) */
     finalize_mint_to_private: ((
       amount: FieldLike,
-      hiding_point_slot: FieldLike
+      partial_note_commitment_slot: FieldLike
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, "selector">;
 
-    /** finalize_transfer_to_private(amount: field, hiding_point_slot: field) */
+    /** finalize_transfer_to_private(amount: field, partial_note_commitment_slot: field) */
     finalize_transfer_to_private: ((
       amount: FieldLike,
-      hiding_point_slot: FieldLike
+      partial_note_commitment_slot: FieldLike
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, "selector">;
 
