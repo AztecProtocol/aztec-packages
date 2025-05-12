@@ -51,7 +51,7 @@ use crate::{
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, PRIVATE_CALL_REQUEST_LENGTH,
         PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
         PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
@@ -775,6 +775,20 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn append_padded_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.note_hashes.push(NoteHash { value, counter: MAX_U32_VALUE }.scope(
+                    // The padded note hashes are siloed when added in the reset circuit.
+                    // So the contract address is always zero.
+                    AztecAddress::zero(),
+                ));
+            }
+        }
+    }
+
     pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let value = self.mock_nullifier_value(0);
@@ -826,6 +840,19 @@ impl FixtureBuilder {
             if i < num_extra_nullifier {
                 let value = self.mock_nullifier_value(index_offset + i);
                 self.add_siloed_nullifier(value);
+            }
+        }
+    }
+
+    pub fn append_padded_nullifiers(&mut self, num_nullifiers: u32) {
+        let index_offset = self.nullifiers.len();
+        for i in 0..self.nullifiers.max_len() {
+            if i < num_nullifiers {
+                let value = self.mock_nullifier_value(index_offset + i);
+                // The padded nullifiers are siloed when added in the reset circuit.
+                // So the contract address is always zero.
+                self.nullifiers.push(Nullifier { value, counter: MAX_U32_VALUE, note_hash: 0 }
+                    .scope(AztecAddress::zero()));
             }
         }
     }
@@ -1019,6 +1046,27 @@ impl FixtureBuilder {
             let mut fields = self.mock_private_log_fields_with_length(index_offset + i, length);
             fields[0] = compute_siloed_private_log_field(self.contract_address, fields[0]);
             self.add_siloed_private_log(fields, length, note_hash_counter);
+        }
+    }
+
+    pub fn append_siloed_private_logs(&mut self, num_logs: u32) {
+        self.append_siloed_private_logs_for_note(num_logs, 0 /* note_hash_counter */);
+    }
+
+    pub fn append_padded_private_logs(&mut self, num_logs: u32) {
+        let index_offset = self.private_logs.len();
+        for i in 0..self.private_logs.max_len() {
+            if i < num_logs {
+                let fields = self.mock_private_log_fields(index_offset + i);
+                // The padded private logs are siloed when added in the reset circuit.
+                // So the contract address is always zero.
+                self.private_logs.push(PrivateLogData {
+                    log: PrivateLog { fields, length: fields.len() },
+                    note_hash_counter: 0,
+                    counter: MAX_U32_VALUE,
+                }
+                    .scope(AztecAddress::zero()));
+            }
         }
     }
 

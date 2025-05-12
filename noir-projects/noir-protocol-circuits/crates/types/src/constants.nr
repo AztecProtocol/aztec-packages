@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_U32_VALUE: u32 = 0xffffffff;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
 pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
@@ -176,6 +177,7 @@ pub global REGISTERER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
+pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(7);
 
 // Randomly chosen slot for the bytecode capsule.
 pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
