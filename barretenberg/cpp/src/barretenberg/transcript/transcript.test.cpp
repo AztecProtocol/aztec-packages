@@ -159,3 +159,67 @@ TEST(NativeTranscript, ConsumeElement)
     auto verifier_chal = verifier_transcript.get_challenge<Fr>("alpha");
     EXPECT_EQ(prover_chal, verifier_chal);
 }
+
+/**
+ * @brief Test the case when a transcript is shared by multiple provers using `add_to_hash_buffer()` method.
+ *
+ */
+TEST(NativeTranscript, MultipleProverWithAddToHashBuffer)
+{
+
+    // Populate prover and verifier transcripts. Make sure that some elements are hashed without being placed into the
+    // proof data, i.e. use `add_to_hash_buffer()` method.
+    auto simulate_transcript_interaction_with_multiple_provers = [](const size_t num_provers,
+                                                                    Transcript& prover_transcript,
+                                                                    Transcript& verifier_transcript,
+                                                                    bool tampered_transcript = false) {
+        for (size_t prover_idx = 0; prover_idx < num_provers; prover_idx++) {
+
+            // Mock current prover transcript actions.
+            prover_transcript.add_to_hash_buffer("vk_field", Fr(1));
+            prover_transcript.send_to_verifier("random_field_element", Fr::random_element());
+            const Fr prover_challenge = prover_transcript.get_challenge<Fr>("alpha");
+            prover_transcript.send_to_verifier("random_Grumpkin_point",
+                                               curve::Grumpkin::AffineElement::random_element());
+            prover_transcript.send_to_verifier("random_bn254_point", curve::BN254::AffineElement::random_element());
+            prover_transcript.send_to_verifier<uint32_t>("integer", 5);
+
+            if (tampered_transcript) {
+                // To ensure that the challenges produced by the next prover depend on the data placed into the
+                // transcript after generating the last challenge, we modify the integer value in the proof data.
+                prover_transcript.proof_data.back() += 1;
+            }
+
+            // Mock the verifier logic.
+            verifier_transcript.load_proof(prover_transcript.export_proof());
+            verifier_transcript.add_to_hash_buffer("vk_field", Fr(1));
+            verifier_transcript.receive_from_prover<Fr>("random_field_element");
+            const Fr verifier_challenge = verifier_transcript.get_challenge<Fr>("alpha");
+
+            verifier_transcript.receive_from_prover<curve::Grumpkin::AffineElement>("random_Grumpkin_point");
+            verifier_transcript.receive_from_prover<curve::BN254::AffineElement>("random_bn254_point");
+            verifier_transcript.receive_from_prover<uint32_t>("integer");
+
+            if (tampered_transcript) {
+                // The challenge produced in the first round does not depend on the integer value being sent. The
+                // subsequent challenges must differ.
+                EXPECT_EQ(prover_challenge == verifier_challenge, prover_idx == 0);
+            } else {
+                EXPECT_TRUE(prover_challenge == verifier_challenge);
+            }
+        };
+    };
+
+    // Test valid transcript data
+    for (size_t num_provers = 2; num_provers < 5; num_provers++) {
+        Transcript prover_transcript;
+        Transcript verifier_transcript;
+        simulate_transcript_interaction_with_multiple_provers(
+            /*num_provers=*/5, prover_transcript, verifier_transcript);
+    }
+
+    // Test tampered transcript data
+    Transcript prover_transcript;
+    Transcript verifier_transcript;
+    simulate_transcript_interaction_with_multiple_provers(2, prover_transcript, verifier_transcript, true);
+}

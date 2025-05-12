@@ -164,7 +164,7 @@ template <typename TranscriptParams> class BaseTranscript {
     /**
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
      * @details This function computes a new challenge for the current round using the previous challenge
-     * and the current round data, if they are exist. It clears the current_round_data if nonempty after
+     * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
      * @return std::array<Fr, HASH_OUTPUT_SIZE>
@@ -217,7 +217,9 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param label of the element sent
      * @param element_frs serialized
      */
-    void add_element_frs_to_hash_buffer(const std::string& label, std::span<const Fr> element_frs)
+    void add_element_frs_to_hash_buffer(const std::string& label,
+                                        std::span<const Fr> element_frs,
+                                        const bool& update_num_frs_written = true)
     {
         if (use_manifest) {
             // Add an entry to the current round of the manifest
@@ -225,8 +227,9 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 
         current_round_data.insert(current_round_data.end(), element_frs.begin(), element_frs.end());
-
-        num_frs_written += element_frs.size();
+        if (update_num_frs_written) {
+            num_frs_written += element_frs.size();
+        }
     }
 
     /**
@@ -380,7 +383,9 @@ template <typename TranscriptParams> class BaseTranscript {
             info("consumed:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        // As the element is not added to the proof, `num_frs_written` remains the same.
+        const bool update_num_frs_written = false;
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs, update_num_frs_written);
     }
 
     /**
