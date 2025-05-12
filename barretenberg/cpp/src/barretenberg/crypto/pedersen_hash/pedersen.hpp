@@ -35,7 +35,7 @@ template <typename Curve> class pedersen_hash_base {
     using Fr = typename Curve::ScalarField;
     using Group = typename Curve::Group;
     using GeneratorContext = typename crypto::GeneratorContext<Curve>;
-    inline static const AffineElement length_generator =
+    inline static constexpr AffineElement length_generator =
         get_precomputed_generators<Group, "pedersen_hash_length", 1>()[0];
     static Fq hash(const std::vector<Fq>& inputs, GeneratorContext context = {});
     static Fq hash_buffer(const std::vector<uint8_t>& input, GeneratorContext context = {});

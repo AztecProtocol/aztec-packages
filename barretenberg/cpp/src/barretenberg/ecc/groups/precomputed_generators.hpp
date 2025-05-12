@@ -28,6 +28,14 @@ template <DomainSeparator domain_separator,
           std::size_t starting_index>
 struct PrecomputedGenerators {
     // If this is being invoked, there is a missing specialization in the _impl.hpp files.
+    static constexpr std::span<AffineElement> get_generators()
+    {
+        // Add dependency on template parameters to force lazy evaluation of the static_assert.
+        // This will always evaluate to false if called.
+        static_assert(domain_separator.value[0] == '0',
+                      "Should not be called! Relevant precomputed_generators_*_impl.hpp file not included OR does not "
+                      "have this specialization.");
+    };
 };
 } // namespace bb::detail
 
@@ -37,7 +45,7 @@ template <typename Group,
           detail::DomainSeparator domain_separator, // the object itself
           std::size_t num_generators,
           std::size_t starting_index = 0>
-inline std::span<const typename Group::affine_element> get_precomputed_generators()
+constexpr std::span<const typename Group::affine_element> get_precomputed_generators()
 {
     return detail::PrecomputedGenerators<domain_separator,
                                          typename Group::affine_element,
@@ -89,16 +97,9 @@ inline bool check_precomputed_generators()
                  "> {");
 
             // Print the public section and method signature
-            info("public:");
-            info("    static std::span<const ", type_name_str, "> get_generators()");
-            info("    {");
-
-            // Print the NOLINT comment and the static array declaration
-            info("        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)");
-            info("        static const ", type_name_str, " generators[", num_generators, "] = {");
+            info("with these values for generators: ");
             for (size_t i = 0; i < generators.size(); ++i) {
-                // X coordinates part
-                info("            { { ",
+                info("    { { ",
                      generators[i].x.data[0],
                      "ULL, ",
                      generators[i].x.data[1],
@@ -108,7 +109,6 @@ inline bool check_precomputed_generators()
                      generators[i].x.data[3],
                      "ULL },");
 
-                // Y coordinates part. Add a comma after the element if it's not the last one.
                 if (i < generators.size() - 1) {
                     info("              { ",
                          generators[i].y.data[0],
@@ -132,8 +132,6 @@ inline bool check_precomputed_generators()
                 }
             }
 
-            info("        };");
-            info("        return generators;");
             info("    }");
             info("};");
 

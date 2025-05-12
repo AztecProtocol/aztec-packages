@@ -7,7 +7,7 @@
 #pragma once
 
 #include "./eccvm_builder_types.hpp"
-#include "barretenberg/ecc/groups/precomputed_generators.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
 
 namespace bb {
@@ -74,7 +74,7 @@ class ECCVMTranscriptBuilder {
      */
     static AffineElement offset_generator()
     {
-        static const auto offset_generator_base =
+        static constexpr auto offset_generator_base =
             get_precomputed_generators<CycleGroup, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         static const AffineElement result =
             AffineElement(Element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));

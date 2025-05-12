@@ -9,10 +9,10 @@ namespace bb::detail {
 
 template <> class PrecomputedGenerators<"pedersen_hash_length", bb::grumpkin::g1::affine_element, 1, 0> {
   public:
-    static std::span<const curve::Grumpkin::AffineElement> get_generators()
+    static constexpr std::span<const curve::Grumpkin::AffineElement> get_generators()
     {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        static const curve::Grumpkin::AffineElement generators[1] = {
+        constexpr curve::Grumpkin::AffineElement generators[1] = {
             { { 17073107942961762201ULL, 2852173614226397194ULL, 13623573872280674322ULL, 749552761154020099ULL },
               { 5412407584077200717ULL, 8019793462306515478ULL, 16737294919534112339ULL, 1803602698978470415ULL } },
         };
@@ -22,10 +22,10 @@ template <> class PrecomputedGenerators<"pedersen_hash_length", bb::grumpkin::g1
 
 template <> class PrecomputedGenerators<"DEFAULT_DOMAIN_SEPARATOR", bb::grumpkin::g1::affine_element, 8, 0> {
   public:
-    static std::span<const grumpkin::g1::affine_element> get_generators()
+    static constexpr std::span<const grumpkin::g1::affine_element> get_generators()
     {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        static const grumpkin::g1::affine_element generators[8] = {
+        constexpr grumpkin::g1::affine_element generators[8] = {
             { { 8097510402157351886ULL, 18286764647757768191ULL, 1390796234792946144ULL, 2718566285137854674ULL },
               { 2109250742227638753ULL, 16752273950062635966ULL, 7599370438609686865ULL, 2715068713368795909ULL } },
             { { 9145024212942358488ULL, 5239068376580510067ULL, 1807250672629161837ULL, 317225244069461550ULL },
