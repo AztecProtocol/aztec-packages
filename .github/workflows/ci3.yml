@@ -51,7 +51,7 @@ jobs:
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
           # Install required packages.
-          sudo apt update && sudo apt install -y redis-tools parallel"
+          sudo apt update && sudo apt install -y redis-tools parallel
 
       #############
       # Run
