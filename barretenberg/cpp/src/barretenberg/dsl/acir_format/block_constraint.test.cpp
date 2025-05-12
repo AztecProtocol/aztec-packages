@@ -10,7 +10,6 @@
 #include <vector>
 
 using namespace acir_format;
-using Composer = plonk::UltraComposer;
 
 class UltraPlonkRAM : public ::testing::Test {
   protected:
@@ -171,12 +170,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
 
     auto builder = create_circuit(program);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(MegaHonk, Databus)
@@ -222,7 +216,7 @@ TEST_F(MegaHonk, Databus)
     // Construct a bberg circuit from the acir representation
     auto circuit = create_circuit<Builder>(program);
 
-    EXPECT_TRUE(prove_and_verify(circuit));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(MegaHonk, DatabusReturn)
@@ -327,5 +321,5 @@ TEST_F(MegaHonk, DatabusReturn)
     // Construct a bberg circuit from the acir representation
     auto circuit = create_circuit<Builder>(program);
 
-    EXPECT_TRUE(prove_and_verify(circuit));
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

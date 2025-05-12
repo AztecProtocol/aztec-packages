@@ -12,7 +12,6 @@ using namespace bb;
 using namespace bb::crypto;
 using namespace acir_format;
 using curve_ct = stdlib::secp256k1<Builder>;
-using Composer = plonk::UltraComposer;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:
@@ -127,12 +126,7 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
 
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 1);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 // Test that the verifier can create an ECDSA circuit.
@@ -177,6 +171,8 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     mock_opcode_indices(constraint_system);
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
@@ -227,9 +223,5 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 0);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

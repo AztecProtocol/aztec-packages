@@ -7,15 +7,15 @@
  *
  */
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include <benchmark/benchmark.h>
 #include <bit>
 
 using namespace benchmark;
 
 using Builder = bb::UltraCircuitBuilder;
-using Composer = bb::plonk::UltraComposer;
-using Prover = bb::plonk::UltraProver;
-using Verifier = bb::plonk::UltraVerifier;
+using Prover = bb::UltraProver;
+using Verifier = bb::UltraVerifier;
 
 constexpr size_t NUM_HASHES = 20;
 constexpr size_t CHUNK_SIZE = 64;
@@ -40,10 +40,9 @@ void generate_test_plonk_circuit(Builder& builder, size_t num_bytes)
 // Because of the way we do internal allocations in some of our more complex structures, we can't just globally allocate
 // them
 Builder* builders[NUM_HASHES];
-Composer* composers[NUM_HASHES];
 Prover provers[NUM_HASHES];
 Verifier verifiers[NUM_HASHES];
-plonk::proof proofs[NUM_HASHES];
+bb::HonkProof proofs[NUM_HASHES];
 
 /**
  * @brief Benchmark for constructing the circuit, witness polynomials, proving and verification key
@@ -57,11 +56,9 @@ void preprocess_and_construct_witnesses_bench(State& state) noexcept
         size_t idx = static_cast<size_t>(std::countr_zero(num_chunks));
         builders[idx] = new Builder();
         generate_test_plonk_circuit(*builders[idx], num_chunks * CHUNK_SIZE);
-        composers[idx] = new Composer();
-        provers[idx] = (composers[idx])->create_prover(*builders[idx]);
-        std::cout << "prover subgroup size = " << provers[idx].key->small_domain.size << std::endl;
+        provers[idx] = Prover(*builders[idx]);
 
-        verifiers[idx] = (composers[idx])->create_verifier(*builders[idx]);
+        verifiers[idx] = (Verifier(provers[idx].proving_key->proving_key));
     }
 }
 BENCHMARK(preprocess_and_construct_witnesses_bench)
@@ -81,7 +78,6 @@ void construct_proofs_bench(State& state) noexcept
         size_t idx = static_cast<size_t>(std::countr_zero(num_chunks));
 
         proofs[idx] = provers[idx].construct_proof();
-        std::cout << "Plonk proof size: " << proofs[idx].proof_data.size() << std::endl;
         state.PauseTiming();
         provers[idx].reset();
         state.ResumeTiming();

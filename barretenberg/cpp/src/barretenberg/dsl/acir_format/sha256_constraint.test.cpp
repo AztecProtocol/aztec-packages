@@ -1,6 +1,7 @@
 #include "sha256_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
@@ -9,7 +10,6 @@
 
 namespace acir_format::tests {
 using curve_ct = bb::stdlib::secp256k1<Builder>;
-using Composer = plonk::UltraComposer;
 
 class Sha256Tests : public ::testing::Test {
   protected:
@@ -101,13 +101,6 @@ TEST_F(Sha256Tests, TestSha256Compression)
                            static_cast<uint32_t>(3481642555) };
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
-
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 } // namespace acir_format::tests

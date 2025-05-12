@@ -5,9 +5,8 @@
 using namespace benchmark;
 
 using Builder = bb::UltraCircuitBuilder;
-using Composer = bb::plonk::UltraComposer;
-using Prover = bb::plonk::UltraProver;
-using Verifier = bb::plonk::UltraVerifier;
+using Prover = bb::UltraProver;
+using Verifier = bb::UltraVerifier;
 
 constexpr size_t NUM_HASHES = 8;
 constexpr size_t BYTES_PER_CHUNK = 512;
@@ -34,7 +33,7 @@ void* builders[NUM_HASHES];
 void* composers[NUM_HASHES];
 Prover provers[NUM_HASHES];
 Verifier verifiers[NUM_HASHES];
-plonk::proof proofs[NUM_HASHES];
+bb::HonkProof proofs[NUM_HASHES];
 
 void construct_witnesses_bench(State& state) noexcept
 {
@@ -50,8 +49,7 @@ void preprocess_witnesses_bench(State& state) noexcept
 {
     for (auto _ : state) {
         size_t idx = (static_cast<size_t>((state.range(0))) - START_BYTES) / BYTES_PER_CHUNK;
-        composers[idx] = (void*)new Composer();
-        provers[idx] = ((Composer*)composers[idx])->create_prover(*(Builder*)builders[idx]);
+        provers[idx] = Prover(*(Builder*)builders[idx]);
         std::cout << "prover subgroup size = " << provers[idx].key->small_domain.size << std::endl;
     }
 }
@@ -61,7 +59,7 @@ void construct_instances_bench(State& state) noexcept
 {
     for (auto _ : state) {
         size_t idx = (static_cast<size_t>((state.range(0))) - START_BYTES) / BYTES_PER_CHUNK;
-        verifiers[idx] = ((Composer*)composers[idx])->create_verifier(*(Builder*)builders[idx]);
+        verifiers[idx] = Verifier(provers[idx].proving_key->proving_key);
     }
 }
 BENCHMARK(construct_instances_bench)->DenseRange(START_BYTES, MAX_BYTES, BYTES_PER_CHUNK);

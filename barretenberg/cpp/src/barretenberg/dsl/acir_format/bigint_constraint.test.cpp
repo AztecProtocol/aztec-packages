@@ -10,8 +10,6 @@
 
 namespace acir_format::tests {
 
-using Composer = plonk::UltraComposer;
-
 class BigIntTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
@@ -207,12 +205,7 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(BigIntTests, TestBigIntConstraintSimple)
@@ -274,12 +267,8 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
         0, 3, 6, 3, 0,
     };
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
+
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 // Based on TestBigIntConstraintMultiple, we generate constraints re-using the bigfields created by the first two
@@ -336,12 +325,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(BigIntTests, TestBigIntConstraintReuse2)
@@ -396,12 +380,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(BigIntTests, TestBigIntDIV)
@@ -470,14 +449,7 @@ TEST_F(BigIntTests, TestBigIntDIV)
         0, 6, 3, 2, 0,
     };
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-    EXPECT_TRUE(CircuitChecker::check(builder));
 
-    auto builder2 = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, WitnessVector{});
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier2 = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier2.verify_proof(proof), true);
 }
 } // namespace acir_format::tests

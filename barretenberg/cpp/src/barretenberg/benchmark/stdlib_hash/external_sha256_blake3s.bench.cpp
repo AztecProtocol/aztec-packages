@@ -12,10 +12,8 @@
 using namespace benchmark;
 
 using Builder = bb::UltraCircuitBuilder;
-using Composer = bb::plonk::UltraComposer;
-
-using Prover = bb::plonk::UltraProver;
-using Verifier = bb::plonk::UltraVerifier;
+using Prover = bb::UltraProver;
+using Verifier = bb::UltraVerifier;
 
 constexpr size_t PROOF_COUNT_LOG = 10;
 constexpr size_t NUM_PROOFS = 3;
@@ -45,7 +43,7 @@ void* external_builders[NUM_PROOFS];
 void* external_composers[NUM_PROOFS];
 Prover external_provers[NUM_PROOFS];
 Verifier external_verifiers[NUM_PROOFS];
-plonk::proof external_proofs[NUM_PROOFS];
+HonkProof external_proofs[NUM_PROOFS];
 
 /**
  * @brief Construct the circuit for sequential sha256 proofs and compute the proof for each case
@@ -60,10 +58,9 @@ void generate_sha256_proof_bench(State& state) noexcept
         for (size_t i = 0; i < idx; i++) {
             num_iterations *= PROOF_COUNT_LOG;
         }
-        external_composers[idx] = (void*)new Composer();
         external_builders[idx] = (void*)new Builder();
         generate_test_sha256_plonk_circuit(*(Builder*)external_builders[idx], num_iterations);
-        external_provers[idx] = ((Composer*)external_composers[idx])->create_prover(*(Builder*)external_builders[idx]);
+        external_provers[idx] = Prover(*(Builder*)external_builders[idx]);
         external_proofs[idx] = external_provers[idx].construct_proof();
         // info("Proof Size for SHA256 hash count ", num_iterations, ": ", external_proofs[idx].proof_data.size());
     }
@@ -85,7 +82,7 @@ static void generate_sha256_verifier(const State& state)
 {
 
     size_t idx = static_cast<size_t>(state.range(0));
-    external_verifiers[idx] = ((Composer*)external_composers[idx])->create_verifier(*(Builder*)external_builders[idx]);
+    external_verifiers[idx] = Verifer(external_provers[idx].proving_key->proving_key);
 }
 /**
  * @brief Benchmark sha256 verification
@@ -136,9 +133,8 @@ void generate_blake3s_proof_bench(State& state) noexcept
         for (size_t i = 0; i < idx; i++) {
             num_iterations *= PROOF_COUNT_LOG;
         }
-        external_composers[idx] = new Composer();
         generate_test_blake3s_plonk_circuit(*(Builder*)external_builders[idx], num_iterations);
-        external_provers[idx] = ((Composer*)external_composers[idx])->create_prover(*(Builder*)external_builders[idx]);
+        external_provers[idx] = Prover(*(Builder*)external_builders[idx]);
         external_proofs[idx] = external_provers[idx].construct_proof();
         // Proof size with no public inputs is always 2144
         // info("Proof Size for Blake3s hash count ", num_iterations, ": ", external_proofs[idx].proof_data.size());
@@ -158,7 +154,7 @@ static void generate_blake3s_verifier(const State& state)
 {
 
     size_t idx = static_cast<size_t>(state.range(0));
-    external_verifiers[idx] = ((Composer*)external_composers[idx])->create_verifier(*(Builder*)external_builders[idx]);
+    external_verifiers[idx] = Verifier(external_provers[idx].proving_key->proving_key);
 }
 
 /**

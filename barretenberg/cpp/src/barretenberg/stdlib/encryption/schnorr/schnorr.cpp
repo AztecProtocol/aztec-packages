@@ -102,14 +102,12 @@ bool_t<C> schnorr_signature_verification_result(const byte_array<C>& message,
         const byte_array<circuit_type>&,                                                                               \
         const cycle_group<circuit_type>&,                                                                              \
         const schnorr_signature_bits<circuit_type>&)
-VERIFY_SIGNATURE_INTERNAL(bb::StandardCircuitBuilder);
 VERIFY_SIGNATURE_INTERNAL(bb::UltraCircuitBuilder);
 VERIFY_SIGNATURE_INTERNAL(bb::MegaCircuitBuilder);
 #define VERIFY_SIGNATURE(circuit_type)                                                                                 \
     template void schnorr_verify_signature<circuit_type>(const byte_array<circuit_type>&,                              \
                                                          const cycle_group<circuit_type>&,                             \
                                                          const schnorr_signature_bits<circuit_type>&)
-VERIFY_SIGNATURE(bb::StandardCircuitBuilder);
 VERIFY_SIGNATURE(bb::UltraCircuitBuilder);
 VERIFY_SIGNATURE(bb::MegaCircuitBuilder);
 #define SIGNATURE_VERIFICATION_RESULT(circuit_type)                                                                    \
@@ -117,13 +115,11 @@ VERIFY_SIGNATURE(bb::MegaCircuitBuilder);
         const byte_array<circuit_type>&,                                                                               \
         const cycle_group<circuit_type>&,                                                                              \
         const schnorr_signature_bits<circuit_type>&)
-SIGNATURE_VERIFICATION_RESULT(bb::StandardCircuitBuilder);
 SIGNATURE_VERIFICATION_RESULT(bb::UltraCircuitBuilder);
 SIGNATURE_VERIFICATION_RESULT(bb::MegaCircuitBuilder);
 #define CONVERT_SIGNATURE(circuit_type)                                                                                \
     template schnorr_signature_bits<circuit_type> schnorr_convert_signature<circuit_type>(                             \
         circuit_type*, const crypto::schnorr_signature&)
-CONVERT_SIGNATURE(bb::StandardCircuitBuilder);
 CONVERT_SIGNATURE(bb::UltraCircuitBuilder);
 CONVERT_SIGNATURE(bb::MegaCircuitBuilder);
 } // namespace bb::stdlib

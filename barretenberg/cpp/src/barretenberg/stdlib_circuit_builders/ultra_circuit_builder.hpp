@@ -42,7 +42,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
     static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
-    std::vector<std::string> selector_names = ExecutionTrace::selector_names;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
@@ -750,7 +749,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Plookup Methods
      **/
-    void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
     void initialize_precomputed_table(const plookup::BasicTableId id,
                                       bool (*generator)(std::vector<FF>&, std::vector<FF>&, std::vector<FF>&),
                                       std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));

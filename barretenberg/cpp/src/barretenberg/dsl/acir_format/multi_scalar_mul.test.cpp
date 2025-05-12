@@ -11,7 +11,6 @@
 namespace acir_format::tests {
 
 using namespace bb;
-using Composer = plonk::UltraComposer;
 
 class MSMTests : public ::testing::Test {
   protected:
@@ -98,15 +97,8 @@ TEST_F(MSMTests, TestMSM)
     };
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
 
-    auto builder2 = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, {});
-    auto composer2 = Composer();
-    auto verifier = composer2.create_ultra_with_keccak_verifier(builder2);
-
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 } // namespace acir_format::tests

@@ -79,7 +79,6 @@ add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
 add_subdirectory(barretenberg/env)
 add_subdirectory(barretenberg/trace_to_polynomials)
-add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/ext/starknet/crypto)
 add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
@@ -143,9 +142,9 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:eccvm_objects>
     $<TARGET_OBJECTS:ext_starknet_crypto_poseidon_objects>
     $<TARGET_OBJECTS:trace_to_polynomials_objects>
-    $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
+    $<TARGET_OBJECTS:honk>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:polynomials_objects>

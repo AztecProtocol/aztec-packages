@@ -13,7 +13,8 @@ using namespace benchmark;
 using namespace bb;
 
 using Builder = bb::UltraCircuitBuilder;
-using Composer = bb::plonk::UltraComposer;
+using Prover = bb::UltraProver;
+using Verifier = bb::UltraVerifier;
 
 constexpr size_t NUM_CIRCUITS = 10;
 
@@ -60,9 +61,9 @@ void generate_test_pedersen_hash_buffer_circuit(Builder& builder, size_t num_rep
     (void)out;
 }
 
-plonk::UltraProver pedersen_provers[NUM_CIRCUITS];
-plonk::UltraVerifier pedersen_verifiers[NUM_CIRCUITS];
-plonk::proof pedersen_proofs[NUM_CIRCUITS];
+Prover pedersen_provers[NUM_CIRCUITS];
+Verifier pedersen_verifiers[NUM_CIRCUITS];
+bb::HonkProof pedersen_proofs[NUM_CIRCUITS];
 
 grumpkin::fq pedersen_function(const size_t count)
 {
@@ -123,11 +124,7 @@ void construct_pedersen_proving_keys_bench(State& state) noexcept
         generate_test_pedersen_hash_circuit(builder, static_cast<size_t>(state.range(0)));
         size_t idx = get_index(static_cast<size_t>(state.range(0)));
 
-        auto composer = Composer();
-        composer.compute_proving_key(builder);
-        state.PauseTiming();
-        pedersen_provers[idx] = composer.create_prover(builder);
-        state.ResumeTiming();
+        pedersen_provers[idx] = Prover(builder);
     }
 }
 BENCHMARK(construct_pedersen_proving_keys_bench)
@@ -149,10 +146,8 @@ void construct_pedersen_instances_bench(State& state) noexcept
         auto builder = Builder(static_cast<size_t>(state.range(0)));
         generate_test_pedersen_hash_circuit(builder, static_cast<size_t>(state.range(0)));
         size_t idx = get_index(static_cast<size_t>(state.range(0)));
-        auto composer = Composer();
-        composer.create_prover(builder);
-        state.ResumeTiming();
-        pedersen_verifiers[idx] = composer.create_verifier(builder);
+
+        pedersen_verifiers[idx] = Verifier(pedersen_provers[idx].proving_key->proving_key);
     }
 }
 BENCHMARK(construct_pedersen_instances_bench)
@@ -174,7 +169,6 @@ void construct_pedersen_proofs_bench(State& state) noexcept
         pedersen_proofs[idx] = pedersen_provers[idx].construct_proof();
         state.PauseTiming();
         pedersen_provers[idx].reset();
-        state.ResumeTiming();
     }
 }
 BENCHMARK(construct_pedersen_proofs_bench)

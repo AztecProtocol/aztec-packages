@@ -17,6 +17,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 
 #include "barretenberg/polynomials/iterate_over_domain.hpp"
 

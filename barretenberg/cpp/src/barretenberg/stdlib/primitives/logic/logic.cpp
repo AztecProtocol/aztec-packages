@@ -113,7 +113,6 @@ field_t<Builder> logic<Builder>::create_logic_constraint(
         return field_t<Builder>::from_witness_index(ctx, out_idx);
     }
 }
-template class logic<bb::StandardCircuitBuilder>;
 template class logic<bb::UltraCircuitBuilder>;
 template class logic<bb::MegaCircuitBuilder>;
 } // namespace bb::stdlib

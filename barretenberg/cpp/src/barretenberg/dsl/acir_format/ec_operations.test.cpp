@@ -11,7 +11,6 @@
 
 namespace acir_format::tests {
 
-using Composer = plonk::UltraComposer;
 using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class EcOperations : public ::testing::Test {
@@ -92,14 +91,7 @@ TEST_F(EcOperations, TestECOperations)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(EcOperations, TestECMultiScalarMul)
@@ -227,14 +219,7 @@ TEST_F(EcOperations, TestECMultiScalarMul)
 
     auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 } // namespace acir_format::tests
