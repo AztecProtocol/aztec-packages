@@ -1,6 +1,6 @@
 use crate::note::{
     note_interface::NoteType,
-    retrieved_note::{RETRIEVED_NOTE_OVERHEAD, RetrievedNote},
+    retrieved_note::{RETRIEVED_NOTE_OVERHEAD, RetrievedNote, unpack_retrieved_note},
 };
 
 use dep::protocol_types::{
@@ -146,7 +146,7 @@ where
 
     let mut notes = BoundedVec::<_, MAX_NOTES>::new();
     for i in 0..packed_retrieved_notes.len() {
-        let retrieved_note = RetrievedNote::unpack(packed_retrieved_notes.get(i));
+        let retrieved_note = unpack_retrieved_note(packed_retrieved_notes.get(i));
         notes.push(retrieved_note);
     }
 
