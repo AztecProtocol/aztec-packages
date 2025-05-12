@@ -42,7 +42,7 @@ jobs:
 
       - name: Build dependencies
         run: |
-          for project in noir barretenberg l1-contracts yarn-project; do
+          for project in noir barretenberg l1-contracts noir-projects yarn-project; do
             $project/bootstrap.sh
           done
 
