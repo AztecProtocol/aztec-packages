@@ -17,39 +17,39 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cxxabi.h>
+
 namespace bb {
 
 /**
  * @brief group class. Represents an elliptic curve group element.
- * Group is parametrised by coordinate_field and subgroup_field
+ * Group is parametrised by Fq and subgroup_field
  *
  * Note: Currently subgroup checks are NOT IMPLEMENTED
  * Our current Plonk implementation uses G1 points that have a cofactor of 1.
  * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
  * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
  *
- * @tparam coordinate_field
+ * @tparam Fq
  * @tparam subgroup_field
- * @tparam GroupParams
+ * @tparam Params
  */
-template <typename _coordinate_field, typename _subgroup_field, typename GroupParams> class group {
+template <typename Fq_, typename Fr_, typename Params> class group {
   public:
-    // hoist coordinate_field, subgroup_field into the public namespace
-    using coordinate_field = _coordinate_field;
-    using subgroup_field = _subgroup_field;
-    using element = group_elements::element<coordinate_field, subgroup_field, GroupParams>;
-    using affine_element = group_elements::affine_element<coordinate_field, subgroup_field, GroupParams>;
-    using Fq = coordinate_field;
-    using Fr = subgroup_field;
-    static constexpr bool USE_ENDOMORPHISM = GroupParams::USE_ENDOMORPHISM;
-    static constexpr bool has_a = GroupParams::has_a;
+    // Allow using group::Fq and group::Fr
+    using Fq = Fq_;
+    using Fr = Fr_;
+    using element = group_elements::element<Fq, Fr, Params>;
+    using affine_element = group_elements::affine_element<Fq, Fr, Params>;
+    static constexpr bool USE_ENDOMORPHISM = Params::USE_ENDOMORPHISM;
+    static constexpr bool has_a = Params::has_a;
 
-    static constexpr element one{ GroupParams::one_x, GroupParams::one_y, coordinate_field::one() };
+    static constexpr element one{ Params::one_x, Params::one_y, Fq::one() };
     static constexpr element point_at_infinity = one.set_infinity();
-    static constexpr affine_element affine_one{ GroupParams::one_x, GroupParams::one_y };
+    static constexpr affine_element affine_one{ Params::one_x, Params::one_y };
     static constexpr affine_element affine_point_at_infinity = affine_one.set_infinity();
-    static constexpr coordinate_field curve_a = GroupParams::a;
-    static constexpr coordinate_field curve_b = GroupParams::b;
+    static constexpr Fq curve_a = Params::a;
+    static constexpr Fq curve_b = Params::b;
 
     /**
      * @brief Derives generator points via hash-to-curve
@@ -65,7 +65,7 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      *           c. compute BLAKE3 hash of concat(preimage buffer, 0)
      *           d. compute BLAKE3 hash of concat(preimage buffer, 1)
      *           e. interpret (c, d) as (hi, low) limbs of a 512-bit integer
-     *           f. reduce 512-bit integer modulo coordinate_field to produce x-coordinate
+     *           f. reduce 512-bit integer modulo Fq to produce x-coordinate
      *           g. attempt to derive y-coordinate. If not successful go to step (a) and continue
      *           h. if parity of y-coordinate's least significant bit does not match parity of most significant bit of
      *              (d), invert y-coordinate.
@@ -77,7 +77,7 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      * index-addressable generators.
      * NOTE: we produce 64 bytes of BLAKE3 output when producing x-coordinate field
      * element, to ensure that x-coordinate is uniformly randomly distributed in the field. Using a 256-bit input adds
-     * significant bias when reducing modulo a ~256-bit coordinate_field
+     * significant bias when reducing modulo a ~256-bit Fq
      * NOTE: We ensure y-parity is linked to preimage
      * hash because there is no canonical deterministic square root algorithm (i.e. if a field element has a square
      * root, there are two of them and `field::sqrt` may return either one)
@@ -117,7 +117,56 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         for (char i : domain_separator) {
             domain_bytes.emplace_back(static_cast<unsigned char>(i));
         }
-        return derive_generators(domain_bytes, num_generators, starting_index);
+        auto derived = derive_generators(domain_bytes, num_generators, starting_index);
+
+        // We print of the form
+        /**
+    template <>
+    class PrecomputedGenerators<DS_my_domain, affine_element, 8, 0> {
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    affine_element generators[8] = {
+    {{0x3B9ACA07ULL, 0x00000000ULL, 0xDEADBEEFULL, 0xCAFEBABEULL},
+     {0x01234567ULL, 0x89ABCDEFULL, 0x0BADF00DULL, 0xB16B00B5ULL} },
+    …
+    };
+    };
+         */
+        info("template <> class PrecomputedGenerators<OperationLabel(",
+             domain_separator,
+             ")",
+             ",",
+             abi::__cxa_demangle(typeid(affine_element).name(), NULL, NULL, NULL),
+             ",",
+             num_generators,
+             ",",
+             starting_index,
+             "> {");
+        info(" // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)");
+        info(" affine_element generators[", num_generators, "] = {");
+        for (size_t i = 0; i < derived.size(); ++i) {
+            // Replace with appropriate field printing if needed
+            info("{{",
+                 derived[i].x.data[0],
+                 "ULL,",
+                 derived[i].x.data[1],
+                 "ULL,",
+                 derived[i].x.data[2],
+                 "ULL,",
+                 derived[i].x.data[3],
+                 "ULL}, {",
+                 derived[i].y.data[0],
+                 "ULL,",
+                 derived[i].y.data[1],
+                 "ULL,",
+                 derived[i].y.data[2],
+                 "ULL,",
+                 derived[i].y.data[3],
+                 "}},");
+        }
+        info("};");
+        info("};");
+
+        return derived;
     }
 
     BB_INLINE static void conditional_negate_affine(const affine_element* src,

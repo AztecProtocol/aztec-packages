@@ -765,7 +765,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
 
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = TestFixture::generators[i];
-            typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+            typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
             // 1: add entry where point, scalar are witnesses
             expected += (element * scalar);
@@ -803,7 +803,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         auto element = TestFixture::generators[0];
-        typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
@@ -824,7 +824,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         auto element = TestFixture::generators[0];
-        typename Group::subgroup_field scalar = 0;
+        typename Group::Fr scalar = 0;
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
@@ -840,7 +840,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
         auto element = TestFixture::generators[0];
-        typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
         // is_infinity = witness
         {
@@ -868,11 +868,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::coordinate_field> scalars_native;
+        std::vector<typename Group::Fq> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = plookup::fixed_base::table::lhs_generator_point();
-            typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+            typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
             expected += (element * scalar);
@@ -899,11 +899,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
     {
         std::vector<cycle_group_ct> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::subgroup_field> scalars_native;
+        std::vector<typename Group::Fr> scalars_native;
         Element expected = Group::point_at_infinity;
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = plookup::fixed_base::table::lhs_generator_point();
-            typename Group::subgroup_field scalar = Group::subgroup_field::random_element(&engine);
+            typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
             // 1: add entry where point is constant, scalar is witness
             expected += (element * scalar);
@@ -919,8 +919,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
             scalars_native.emplace_back(scalar);
 
             // // 3: add entry where point is constant, scalar is witness
-            scalar = Group::subgroup_field::random_element(&engine);
-            element = Group::one * Group::subgroup_field::random_element(&engine);
+            scalar = Group::Fr::random_element(&engine);
+            element = Group::one * Group::Fr::random_element(&engine);
             expected += (element * scalar);
             points.emplace_back(element);
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
@@ -939,7 +939,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMul)
 
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = plookup::fixed_base::table::lhs_generator_point();
-            typename Group::subgroup_field scalar = 0;
+            typename Group::Fr scalar = 0;
 
             // 1: add entry where point is constant, scalar is witness
             points.emplace_back((element));
@@ -973,7 +973,7 @@ TYPED_TEST(CycleGroupTest, TestMul)
         cycle_group_ct result;
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = TestFixture::generators[i];
-            typename Group::subgroup_field native_scalar = Group::subgroup_field::random_element(&engine);
+            typename Group::Fr native_scalar = Group::Fr::random_element(&engine);
             auto expected_result = element * native_scalar;
 
             // 1: add entry where point, scalar are witnesses
