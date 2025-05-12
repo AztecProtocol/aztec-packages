@@ -72,8 +72,8 @@ describe('Accrued Substate', () => {
         /*existsOffset=*/ 0x4567,
       );
 
-      expect(NoteHashExists.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(NoteHashExists.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     // Will check existence at leafIndex, but nothing may be found there and/or something may be found at mockAtLeafIndex
@@ -117,8 +117,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new EmitNoteHash(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
-      expect(EmitNoteHash.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(EmitNoteHash.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append a new note hash correctly', async () => {
@@ -149,8 +149,8 @@ describe('Accrued Substate', () => {
         /*existsOffset=*/ 0x4567,
       );
 
-      expect(NullifierExists.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(NullifierExists.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([[/*exists=*/ false], [/*exists=*/ true]])('Nullifier checks', (exists: boolean) => {
@@ -186,8 +186,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new EmitNullifier(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
-      expect(EmitNullifier.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(EmitNullifier.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append a new nullifier correctly', async () => {
@@ -237,8 +237,8 @@ describe('Accrued Substate', () => {
         /*existsOffset=*/ 0xcdef,
       );
 
-      expect(L1ToL2MessageExists.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(L1ToL2MessageExists.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     // Will check existence at leafIndex, but nothing may be found there and/or something may be found at mockAtLeafIndex
@@ -284,8 +284,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*offset=*/ 0x1234, /*lengthOffset=*/ 0xa234);
 
-      expect(EmitUnencryptedLog.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(EmitUnencryptedLog.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append public logs correctly', async () => {
@@ -316,8 +316,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new SendL2ToL1Message(/*indirect=*/ 0x01, /*recipientOffset=*/ 0x1234, /*contentOffset=*/ 0xa234);
 
-      expect(SendL2ToL1Message.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SendL2ToL1Message.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append l2 to l1 message correctly', async () => {

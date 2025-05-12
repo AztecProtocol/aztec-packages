@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -34,14 +35,19 @@ class ExecutionComponentsProviderInterface {
                                                                     bool is_static) = 0;
 
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
+
+    // This can be removed if we use clk for the context id
+    virtual uint32_t get_next_context_id() = 0;
 };
 
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
   public:
     ExecutionComponentsProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
+                                RangeCheckInterface& range_check,
                                 EventEmitterInterface<MemoryEvent>& memory_events,
                                 const InstructionInfoDBInterface& instruction_info_db)
         : tx_bytecode_manager(tx_bytecode_manager)
+        , range_check(range_check)
         , memory_events(memory_events)
         , instruction_info_db(instruction_info_db)
     {}
@@ -57,10 +63,13 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
                                                             bool is_static) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
+    uint32_t get_next_context_id() override { return next_context_id; }
+
   private:
-    uint32_t next_context_id = 0;
+    uint32_t next_context_id = 1; // 0 is reserved to denote the parent of a top level context
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
+    RangeCheckInterface& range_check;
     EventEmitterInterface<MemoryEvent>& memory_events;
     const InstructionInfoDBInterface& instruction_info_db;
 

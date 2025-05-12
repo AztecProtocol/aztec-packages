@@ -64,7 +64,7 @@ Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 
 Now that we can see the balance for each user, let's transfer tokens from one account to another. To do this, we will first need access to a `Wallet` object. This wraps access to an PXE and also provides an interface to craft and sign transactions on behalf of one of the user accounts.
 
-For ease of use, `@aztec/accounts` also ships with a helper `getInitialTestAccountsWallets` method that returns a wallet for each of the pre-initialized accounts in the Sandbox, so you can send transactions as any of them.
+For ease of use, `@aztec/accounts` also ships with a helper `getInitialTestAccountsWallets` method that returns a wallet for each of the pre-initialized accounts in the Sandbox, so you can send transactions as any of them. Import it in `index.mjs`.
 
 ```js
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";

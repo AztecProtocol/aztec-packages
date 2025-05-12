@@ -23,9 +23,9 @@ class UltraCircuit : public CircuitBase {
     std::vector<std::vector<std::vector<uint32_t>>> wires_idxs; // values of the gates' wires idxs
 
     std::vector<std::vector<std::vector<bb::fr>>> lookup_tables;
-    std::unordered_map<uint32_t, cvc5::Term> cached_symbolic_tables;
+    std::unordered_map<uint32_t, SymSet<STuple>> cached_symbolic_tables;
     std::unordered_map<uint32_t, TableType> tables_types;
-    std::unordered_map<uint64_t, cvc5::Term> cached_range_tables;
+    std::unordered_map<uint64_t, SymSet<STerm>> cached_range_tables;
 
     explicit UltraCircuit(CircuitSchema& circuit_info,
                           Solver* solver,

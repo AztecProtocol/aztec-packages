@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/common/ref_vector.hpp"
@@ -26,6 +32,12 @@ template <typename T> struct UltraTraceBlockData {
     T overflow;
 
     auto get()
+    {
+        return RefArray{ pub_inputs,         lookup,  arithmetic, delta_range, elliptic, aux, poseidon2_external,
+                         poseidon2_internal, overflow };
+    }
+
+    auto get() const
     {
         return RefArray{ pub_inputs,         lookup,  arithmetic, delta_range, elliptic, aux, poseidon2_external,
                          poseidon2_internal, overflow };

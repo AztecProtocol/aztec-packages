@@ -15,7 +15,7 @@ export default {
     rules: [
       {
         test: /\.tsx?$/,
-        use: [{ loader: 'ts-loader' }],
+        loader: 'ts-loader',
       },
     ],
   },

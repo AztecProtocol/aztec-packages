@@ -139,11 +139,9 @@ void InteractiveDebugger::print_columns(const std::vector<std::string>& regexes)
         std::cout << "Invalid regex: " << e.what() << std::endl;
         return;
     }
-    // We use the full row to have the shifts as well.
-    const auto full_row = tracegen::get_full_row(trace, row);
     for (size_t i = 0; i < COLUMN_NAMES.size(); ++i) {
         if (std::regex_match(COLUMN_NAMES[i], re)) {
-            auto val = full_row.get_column(static_cast<ColumnAndShifts>(i));
+            auto val = trace.get_column_or_shift(static_cast<ColumnAndShifts>(i), row);
             std::cout << COLUMN_NAMES[i] << ": " << field_to_string(val);
             // If the value is small enough, print it as decimal and binary.
             if (val == FF(static_cast<uint64_t>(val))) {
@@ -186,6 +184,7 @@ void InteractiveDebugger::test_relation(const std::string& relation_name, std::o
         }
         found = true;
 
+        // TODO(fcarreiro): use check_relation.
         typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
         Relation::accumulate(result, tracegen::get_full_row(trace, row), {}, 1);
         for (size_t j = 0; j < result.size(); ++j) {

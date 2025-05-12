@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -1019,7 +1025,7 @@ template <typename Builder> class FieldBase {
                  * TEST(stdlib_field, test_construct_via_bool_t)
                  * {
                  *     bb::StandardCircuitBuilder builder =
-                 * bb::bb::StandardCircuitBuilder(); field_t a(witness_t(&builder,
+                 * bb::StandardCircuitBuilder(); field_t a(witness_t(&builder,
                  * fr(uint256_t{0xf396b678452ebf15, 0x82ae10893982638b, 0xdf185a29c65fbf80, 0x1d18b2de99e48308})));
                  * field_t b = a - a; field_t c(static_cast<bool_t>(b)); std::cout << c.get_value() << std::endl;
                  * }

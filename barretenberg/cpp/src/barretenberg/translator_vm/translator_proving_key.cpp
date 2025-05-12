@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "translator_proving_key.hpp"
 namespace bb {
 /**
@@ -189,12 +195,12 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
 
-    for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
-        proving_key->polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+    for (size_t i = 2; i < mini_circuit_dyadic_size; i += 2) {
+        proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
-    proving_key->polynomials.lagrange_second.at(1) = 1;
-    proving_key->polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
+    proving_key->polynomials.lagrange_result_row.at(2) = 1;
+    proving_key->polynomials.lagrange_last_in_minicircuit.at(mini_circuit_dyadic_size - 1) = 1;
 }
 
 /**

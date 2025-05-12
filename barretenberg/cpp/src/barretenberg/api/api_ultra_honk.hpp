@@ -17,7 +17,7 @@ class UltraHonkAPI : public API {
     void prove(const Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path,
-               const std::filesystem::path& output_dir) override;
+               const std::filesystem::path& output_dir);
 
     bool verify(const Flags& flags,
                 const std::filesystem::path& public_inputs_path,
@@ -26,7 +26,7 @@ class UltraHonkAPI : public API {
 
     bool prove_and_verify(const Flags& flags,
                           const std::filesystem::path& bytecode_path,
-                          const std::filesystem::path& witness_path) override;
+                          const std::filesystem::path& witness_path);
 
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,

@@ -70,7 +70,6 @@
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "@msgpack/msgpack": "^3.0.0-beta2",
     "koa": "^2.16.1",
     "koa-router": "^12.0.0",
     "lodash.omit": "^4.5.0",
@@ -79,7 +78,7 @@
     "viem": "2.23.7"
   },
   "devDependencies": {
-    "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/lodash.omit": "^4.5.7",

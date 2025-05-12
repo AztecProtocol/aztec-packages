@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -30,20 +36,20 @@ struct TranslatorFixedVKCommitments {
                             uint256_t("0x174caee01a8d7fb79e7834367d842900e5893e35054a6cbbc67dfa8b0aa6bea5")),
 
                  // lagrange_odd_in_minicircuit
-                 Commitment(uint256_t("0x1c75e8718392aac0b4964929cf4aba064bd32e073214b101400881871dd4f99a"),
-                            uint256_t("0x1afecd60ec5d28c2e0386035de8a31157c47c93130a9614fb864fc5094f3cf8c")),
+                 Commitment(uint256_t("0x2a39a989a4a1aded32a44c29c7ed5b0207d0ae06285d68c1b77713c7fcecc656"),
+                            uint256_t("0x08f5da6aaa2a8c46d71bb29d505258605c1965e37cfb0b2f85c9ec86fd58d756")),
 
                  // lagrange_even_in_minicircuit
                  Commitment(uint256_t("0x106446297fef0a6ab71219f95f448dea4460f7c1e367fe63563d88037002f1d2"),
                             uint256_t("0x2e879e1eae7cbc59c12b82eb571dc09bcd0e7d596fe7f185f557e2457eca6232")),
 
-                 // lagrange_second
-                 Commitment(uint256_t("0x2d360628289ff943ff6bd1a87bbe4e62abe7fb61ba83effd266f22bdcf31e6f9"),
-                            uint256_t("0x26b92a79e563c3f48252cce7feeca2f0f8d33dcb4ef7b0643bf07bd405700aaa")),
+                 // lagrange_result_row
+                 Commitment(uint256_t("0x020ad6e43ccd48a6a39e43897cc85187bd364919be8a3b82d4809715cfe489db"),
+                            uint256_t("0x21a79ebae2ea3d92b49c521407d2600ac061146f2c188c6c6a33c598179e4543")),
 
-                 // lagrange_second_to_last_in_minicircuit
-                 Commitment(uint256_t("0x19431d41593771fe2fdf8b662e19f72f8257c41f318582e0cbacd4f8d613dd7c"),
-                            uint256_t("0x124ff510d24efaf9c735383017b5be431bdc21c2087f9c5f1d6ae3673430eb4d")),
+                 // lagrange_last_in_minicircuit
+                 Commitment(uint256_t("0x0e6eed29ced553697d8e1d27b4cd22aaefef06d7f3b8fd1e1ef2500924cffc02"),
+                            uint256_t("0x04d1618368348731578609ff8111de1c7d9538784c5162b6f83e12e49f77938d")),
 
                  // lagrange_masking
                  Commitment::infinity(),

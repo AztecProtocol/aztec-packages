@@ -4,7 +4,6 @@
 #include <filesystem>
 
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -46,7 +45,7 @@ void avm_prove(const std::filesystem::path&, const std::filesystem::path&, const
     vinfo("num of pub inputs: ", static_cast<uint64_t>(vk_as_fields[1]));
 
     const auto to_json = [](const std::vector<bb::fr>& data) {
-        return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
     std::string vk_json = to_json(vk_as_fields);
     const auto proof_path = output_path / "proof";
@@ -67,7 +66,6 @@ void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem:
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
 
     // This is bigger than CIRCUIT_SUBGROUP_SIZE because of BB inefficiencies.
-    init_bn254_crs(avm2::CIRCUIT_SUBGROUP_SIZE * 2);
     auto [proof, vk] = avm.prove(inputs);
 
     // NOTE: As opposed to Avm1 and other proof systems, the public inputs are NOT part of the proof.
@@ -103,7 +101,6 @@ bool avm2_verify(const std::filesystem::path& proof_path,
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
     auto public_inputs = avm2::PublicInputs::from(read_file(public_inputs_path));
 
-    init_bn254_crs(1);
     avm2::AvmAPI avm;
     bool res = avm.verify(proof, public_inputs, vk_bytes);
     info("verification: ", res ? "success" : "failure");

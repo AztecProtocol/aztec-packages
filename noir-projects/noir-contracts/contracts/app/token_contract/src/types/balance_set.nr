@@ -1,3 +1,4 @@
+// docs:start:balance_set
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{
@@ -5,6 +6,7 @@ use dep::aztec::{
         note_interface::NoteProperties, retrieved_note::RetrievedNote,
     },
     protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+    state_vars::storage::Storage,
 };
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateSet};
 use dep::uint_note::uint_note::UintNote;
@@ -12,6 +14,13 @@ use std::ops::Add;
 
 pub struct BalanceSet<Context> {
     pub set: PrivateSet<UintNote, Context>,
+}
+
+// TODO(#13824): remove this impl once we allow structs to hold state variables.
+impl<Context> Storage<1> for BalanceSet<Context> {
+    fn get_storage_slot(self) -> Field {
+        self.set.get_storage_slot()
+    }
 }
 
 impl<Context> BalanceSet<Context> {
@@ -124,6 +133,7 @@ pub fn preprocess_notes_min_sum(
     }
     selected
 }
+// docs:end:balance_set
 
 mod test {
     use crate::{test::utils, Token};

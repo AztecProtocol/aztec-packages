@@ -59,8 +59,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
-import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -400,21 +400,16 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(
-      deployL1ContractsValues.publicClient,
-      deployL1ContractsValues.walletClient,
-      logger,
-      config,
-    );
+    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, config);
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
-    const rollupContract = new RollupContract(deployL1ContractsValues.publicClient, rollupAddress);
+    const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
     const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
@@ -513,7 +508,7 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const contracts: Contract[] = [];
@@ -521,7 +516,7 @@ describe('e2e_synching', () => {
             const watcher = new AnvilTestWatcher(
               opts.cheatCodes!.eth,
               opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-              opts.deployL1ContractsValues!.publicClient,
+              opts.deployL1ContractsValues!.l1Client,
             );
             await watcher.start();
 
@@ -635,7 +630,7 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
@@ -655,11 +650,11 @@ describe('e2e_synching', () => {
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.publicClient,
+            opts.deployL1ContractsValues!.l1Client,
           );
           await watcher.start();
 
-          await opts.deployL1ContractsValues!.publicClient.waitForTransactionReceipt({
+          await opts.deployL1ContractsValues!.l1Client.waitForTransactionReceipt({
             hash: await rollup.write.prune(),
           });
 
@@ -700,7 +695,7 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
@@ -717,7 +712,7 @@ describe('e2e_synching', () => {
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.publicClient,
+            opts.deployL1ContractsValues!.l1Client,
           );
           await watcher.start();
 

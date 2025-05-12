@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -5,7 +11,6 @@
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/op_queue/eccvm_row_tracker.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 namespace bb {
 
 /**
@@ -28,14 +33,16 @@ class ECCOpQueue {
     // The operations written to the queue are also performed natively; the result is stored in accumulator
     Point accumulator = point_at_infinity;
 
-    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
 
     // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for all
     // prior to ECCVM construction to avoid repeated prepending of subtables in physical memory).
     std::vector<ECCVMOperation> eccvm_ops_reconstructed;
+
+    // Storage for the reconstructed ultra ops table in contiguous memory. (Intended to be constructed once and for all
+    // prior to Translator circuit construction to avoid repeated prepending of subtables in physical memory).
+    std::vector<UltraOp> ultra_ops_reconstructed;
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -72,8 +79,14 @@ class ECCOpQueue {
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 
+    // Reconstruct the full table of ultra ops in contiguous memory from the independent subtables
+    void construct_full_ultra_ops_table() { ultra_ops_reconstructed = ultra_ops_table.get_reconstructed(); }
+
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops getters
+    // more memory efficient
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
     std::vector<ECCVMOperation>& get_eccvm_ops()
@@ -82,6 +95,14 @@ class ECCOpQueue {
             construct_full_eccvm_ops_table();
         }
         return eccvm_ops_reconstructed;
+    }
+
+    std::vector<UltraOp>& get_ultra_ops()
+    {
+        if (ultra_ops_reconstructed.empty()) {
+            construct_full_ultra_ops_table();
+        }
+        return ultra_ops_reconstructed;
     }
 
     /**
@@ -98,19 +119,6 @@ class ECCOpQueue {
      * @brief get number of muls for the current ECCVM circuit
      */
     uint32_t get_number_of_muls() const { return eccvm_row_tracker.get_number_of_muls(); }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): Can remove this with better handling of scalar
-    // mul against 0
-    void append_nonzero_ops()
-    {
-        // Add an element and scalar the accumulation of which leaves no Point-at-Infinity commitments
-        const auto x = uint256_t(0xd3c208c16d87cfd3, 0xd97816a916871ca8, 0x9b85045b68181585, 0x30644e72e131a02);
-        const auto y = uint256_t(0x3ce1cc9c7e645a83, 0x2edac647851e3ac5, 0xd0cbe61fced2bc53, 0x1a76dae6d3272396);
-        auto padding_element = Point(x, y);
-        auto padding_scalar = -Fr::one();
-        mul_accumulate(padding_element, padding_scalar);
-        eq_and_reset();
-    }
 
     /**
      * @brief A fuzzing only method for setting eccvm ops directly
@@ -239,7 +247,7 @@ class ECCOpQueue {
         ultra_op.op_code = op_code;
 
         // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
-        const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
         uint256_t x_256(point.x);
         uint256_t y_256(point.y);
         ultra_op.return_is_infinity = point.is_point_at_infinity();

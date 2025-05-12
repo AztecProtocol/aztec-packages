@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -99,7 +105,6 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(); // ?
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
             // `log_circuit_size` from MSGPACK and the verification key.
             this->circuit_size = FF{ 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N };

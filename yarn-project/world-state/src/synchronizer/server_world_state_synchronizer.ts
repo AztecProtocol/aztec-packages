@@ -31,6 +31,7 @@ import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js
 import type { WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateConfig } from './config.js';
+import { WorldStateSynchronizerError } from './errors.js';
 
 export type { SnapshotDataKeys };
 
@@ -82,6 +83,10 @@ export class ServerWorldStateSynchronizer
 
   public backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
     return this.merkleTreeDb.backupTo(dstPath, compact);
+  }
+
+  public clear(): Promise<void> {
+    return this.merkleTreeDb.clear();
   }
 
   public async start() {
@@ -202,7 +207,17 @@ export class ServerWorldStateSynchronizer
     // If we have been given a block number to sync to and we have not reached that number then fail
     const updatedBlockNumber = await this.getLatestBlockNumber();
     if (!skipThrowIfTargetNotReached && targetBlockNumber !== undefined && targetBlockNumber > updatedBlockNumber) {
-      throw new Error(`Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`);
+      throw new WorldStateSynchronizerError(
+        `Unable to sync to block number ${targetBlockNumber} (last synced is ${updatedBlockNumber})`,
+        {
+          cause: {
+            reason: 'block_not_available',
+            previousBlockNumber: currentBlockNumber,
+            updatedBlockNumber,
+            targetBlockNumber,
+          },
+        },
+      );
     }
 
     return updatedBlockNumber;
@@ -269,7 +284,7 @@ export class ServerWorldStateSynchronizer
 
     for (let i = 0; i < l2Blocks.length; i++) {
       const [duration, result] = await elapsed(() => this.handleL2Block(l2Blocks[i], l1ToL2Messages[i]));
-      this.log.verbose(`World state updated with L2 block ${l2Blocks[i].number}`, {
+      this.log.info(`World state updated with L2 block ${l2Blocks[i].number}`, {
         eventName: 'l2-block-handled',
         duration,
         unfinalisedBlockNumber: result.summary.unfinalisedBlockNumber,

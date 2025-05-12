@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include <array>
@@ -132,8 +138,14 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
     {
         size_t in_len = input.size();
         const uint256_t iv = (static_cast<uint256_t>(in_len) << 64) + out_len - 1;
+        return hash_internal<out_len>(input, iv);
+    }
+
+    template <size_t out_len> static std::array<FF, out_len> hash_internal(std::span<const FF> input, FF iv)
+    {
         FieldSponge sponge(iv);
 
+        size_t in_len = input.size();
         for (size_t i = 0; i < in_len; ++i) {
             sponge.absorb(input[i]);
         }
@@ -146,5 +158,6 @@ template <typename FF, size_t rate, size_t capacity, size_t t, typename Permutat
     }
 
     static FF hash_internal(std::span<const FF> input) { return hash_internal<1>(input)[0]; }
+    static FF hash_internal(std::span<const FF> input, FF iv) { return hash_internal<1>(input, iv)[0]; }
 };
 } // namespace bb::crypto

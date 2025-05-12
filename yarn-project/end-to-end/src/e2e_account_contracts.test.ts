@@ -14,7 +14,7 @@ import {
   getAccountContractAddress,
 } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { setup } from './fixtures/utils.js';
@@ -78,7 +78,7 @@ const itShouldBehaveLikeAnAccountContract = (
       const entrypoint = randomContract.getInterface(accountAddress, nodeInfo);
       const invalidWallet = new AccountWallet(pxe, entrypoint);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
-      await expect(childWithInvalidWallet.methods.value(42).prove()).rejects.toThrow(/Cannot satisfy constraint.*/);
+      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrow('Cannot satisfy constraint');
     });
   });
 };

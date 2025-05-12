@@ -118,7 +118,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
             // TODO(md): far right of this yuck
             left_supertree_branch[i] = merkle_hash(
                 left_supertree_branch[i - 1],
-                zero_hashes[(SUBTREE_HEIGHT as u8) - 1 + (i as u8)],
+                zero_hashes[SUBTREE_HEIGHT - 1 + i],
             );
         }
 
@@ -180,7 +180,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
         for i in 1..self.left_supertree_branch.len() {
             self.left_supertree_branch[i] = merkle_hash(
                 self.left_supertree_branch[i - 1],
-                self.zero_hashes[(SUBTREE_HEIGHT as u8) - 1 + (i as u8)],
+                self.zero_hashes[SUBTREE_HEIGHT - 1 + i],
             );
         }
     }

@@ -15,7 +15,6 @@ import {
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { ProtocolCircuitVks, TubeVk } from '@aztec/noir-protocol-circuits-types/server/vks';
@@ -54,6 +53,7 @@ import { jest } from '@jest/globals';
 import {
   buildBaseRollupHints,
   buildHeaderFromCircuitOutputs,
+  getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -64,7 +64,6 @@ jest.setTimeout(50_000);
 
 describe('LightBlockBuilder', () => {
   let simulator: ServerCircuitProver;
-  let logger: Logger;
   let globalVariables: GlobalVariables;
   let l1ToL2Messages: Fr[];
   let vkTreeRoot: Fr;
@@ -83,7 +82,6 @@ describe('LightBlockBuilder', () => {
   const expectedTxFee = new Fr(0x2200);
 
   beforeAll(() => {
-    logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver();
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
@@ -248,19 +246,16 @@ describe('LightBlockBuilder', () => {
     );
     const endState = new StateReference(messageTreeSnapshot, partialState);
 
-    const expectedHeader = await buildHeaderFromCircuitOutputs(
-      previousRollups,
-      parityOutput,
-      rootOutput,
-      endState,
-      logger,
-    );
+    const expectedHeader = buildHeaderFromCircuitOutputs(previousRollups, parityOutput, rootOutput, endState);
 
     // Ensure that the expected mana used is the sum of the txs' gas used
     const expectedManaUsed = txs.reduce((acc, tx) => acc + tx.gasUsed.totalGas.l2Gas, 0);
     expect(expectedHeader.totalManaUsed.toNumber()).toBe(expectedManaUsed);
 
-    expect(await expectedHeader.hash()).toEqual(rootOutput.endBlockHash);
+    await expectsFork.updateArchive(expectedHeader);
+    const newArchiveRoot = (await expectsFork.getTreeInfo(MerkleTreeId.ARCHIVE)).root;
+    expect(newArchiveRoot).toEqual(rootOutput.newArchive.root.toBuffer());
+
     return expectedHeader;
   };
 
@@ -345,6 +340,7 @@ describe('LightBlockBuilder', () => {
     );
 
     const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, expectsFork);
+    const previousArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
     const blobs = await Blob.getBlobs(blobFields);
@@ -364,6 +360,7 @@ describe('LightBlockBuilder', () => {
     const data = BlockRootRollupData.from({
       l1ToL2Roots: rootParityInput,
       l1ToL2MessageSubtreeSiblingPath: l1ToL2Snapshot.l1ToL2MessageSubtreeSiblingPath,
+      previousArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
       proverId: Fr.ZERO,

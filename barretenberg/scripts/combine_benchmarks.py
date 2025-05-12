@@ -61,7 +61,7 @@ def modify_benchmark_data(file_paths):
             prefix = "wasm"
         elif "release" in file_path:
             prefix = "native"
-        elif "-ivc.json" in file_path:
+        elif "ivc-" in file_path:
             prefix = "ivc-"
         if file_path.endswith(".txt"):
             # Process text files to extract memory data.
@@ -74,7 +74,7 @@ def modify_benchmark_data(file_paths):
                 }
                 combined_results['benchmarks'].append(entry)
             else:
-                print(f"Warning: No memory value found in {file_path}")
+                print(f"Warning: No memory value found in {file_path}", file=sys.stderr)
         else:
             # Process JSON files to update benchmark entries.
             benchmarks = process_json_file(file_path, prefix)

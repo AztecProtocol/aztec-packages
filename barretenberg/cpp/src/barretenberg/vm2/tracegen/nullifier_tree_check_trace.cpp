@@ -1,6 +1,13 @@
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 
+#include <memory>
+
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_nullifier_check.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -53,8 +60,8 @@ void NullifierTreeCheckTraceBuilder::process(
                 { C::nullifier_check_low_leaf_nullifier, event.low_leaf_preimage.leaf.nullifier },
                 { C::nullifier_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },
                 { C::nullifier_check_low_leaf_next_nullifier, event.low_leaf_preimage.nextKey },
-                { C::nullifier_check_write_low_leaf_next_index, updated_low_leaf_next_index },
-                { C::nullifier_check_write_low_leaf_next_nullifier, updated_low_leaf_next_key },
+                { C::nullifier_check_updated_low_leaf_next_index, updated_low_leaf_next_index },
+                { C::nullifier_check_updated_low_leaf_next_nullifier, updated_low_leaf_next_key },
                 { C::nullifier_check_low_leaf_index, event.low_leaf_index },
                 { C::nullifier_check_low_leaf_hash, event.low_leaf_hash },
                 { C::nullifier_check_intermediate_root, intermediate_root },
@@ -68,6 +75,22 @@ void NullifierTreeCheckTraceBuilder::process(
                 { C::nullifier_check_new_leaf_hash, new_leaf_hash } } });
         row++;
     }
+}
+
+std::vector<std::unique_ptr<InteractionBuilderInterface>> NullifierTreeCheckTraceBuilder::lookup_jobs()
+{
+    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+        // Nullifier check
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_poseidon2_settings>>(),
+        std::make_unique<
+            LookupIntoDynamicTableSequential<lookup_nullifier_check_updated_low_leaf_poseidon2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_merkle_check_settings>>(),
+        std::make_unique<
+            LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_nullifier_validation_settings>>(),
+        std::make_unique<
+            LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_next_nullifier_validation_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_check_new_leaf_poseidon2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_check_new_leaf_merkle_check_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

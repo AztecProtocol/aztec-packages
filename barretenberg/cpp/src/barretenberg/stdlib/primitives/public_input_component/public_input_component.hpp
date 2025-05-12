@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
@@ -46,7 +52,6 @@ class PublicInputComponent {
     {
         Key key;
         key.start_idx = component.set_public();
-        key.exists_flag = true;
         return key;
     }
 
@@ -54,13 +59,13 @@ class PublicInputComponent {
     static ComponentType reconstruct(const std::vector<Fr>& public_inputs, const Key& key)
     {
         // Ensure that the key has been set
-        if (!key.exists_flag) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1284): determine when/whether a check of this
-            // form is needed: info("WARNING: Trying to construct a PublicInputComponent from an invalid key!");
-            // ASSERT(false);
+        if (!key.is_set()) {
+            ASSERT(false && "ERROR: Trying to construct a PublicInputComponent from an invalid key!");
         }
 
         // Use the provided key to extract the limbs of the component from the public inputs then reconstruct it
+        ASSERT(key.start_idx + COMPONENT_SIZE <= public_inputs.size() &&
+               "PublicInputComponent cannot be reconstructed - PublicInputComponentKey start_idx out of bounds");
         std::span<const Fr, COMPONENT_SIZE> limbs{ public_inputs.data() + key.start_idx, COMPONENT_SIZE };
         return ComponentType::reconstruct_from_public(limbs);
     }

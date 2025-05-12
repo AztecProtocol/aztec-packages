@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 // goblin.hpp
 #pragma once
 
@@ -48,14 +54,40 @@ class Goblin {
 
     Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr);
 
-    MergeProof prove_merge(MegaBuilder& circuit_builder);
+    /**
+     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
+     *
+     * @param circuit_builder
+     */
+    MergeProof prove_merge();
 
+    /**
+     * @brief Construct an ECCVM proof and the translation polynomial evaluations
+     */
     void prove_eccvm();
 
+    /**
+     * @brief Construct a translator proof
+     *
+     */
     void prove_translator();
 
+    /**
+     * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
+     * @details The merge proof is assumed to already have been constucted in the last accumulate step. It is simply
+     * moved into the final proof here.
+     *
+     * @return Proof
+     */
     GoblinProof prove(MergeProof merge_proof_in = {});
 
+    /**
+     * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
+     *
+     * @param proof
+     * @return true
+     * @return false
+     */
     static bool verify(const GoblinProof& proof);
 };
 

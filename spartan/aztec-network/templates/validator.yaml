@@ -121,6 +121,8 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
+            - name: P2P_MAX_TX_POOL_SIZE
+              value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.validator.p2p.floodPublish }}"
             - name: VALIDATOR_DISABLED
@@ -177,10 +179,13 @@ spec:
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
-            {{- if .Values.blobSink.enabled }}
+          {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
-            {{- end }}
+          {{- else if .Values.blobs.remoteBlobSinkEnabled }}
+            - name: BLOB_SINK_URL
+              value: "{{ .Values.blobs.remoteBlobSinkUrl }}"
+          {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

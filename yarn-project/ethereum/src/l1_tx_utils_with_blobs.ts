@@ -13,7 +13,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
    * @returns The hash of the cancellation transaction
    */
   override async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
-    const account = this.walletClient.account;
+    const account = this.client.account;
 
     // Get gas price with higher priority fee for cancellation
     const cancelGasPrice = await this.getGasPrice(
@@ -38,7 +38,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
 
     // Send 0-value tx to self with higher gas price
     if (!isBlobTx) {
-      const cancelTxHash = await this.walletClient.sendTransaction({
+      const cancelTxHash = await this.client.sendTransaction({
         ...request,
         nonce,
         gas: 21_000n, // Standard ETH transfer gas
@@ -63,7 +63,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
         kzg,
         maxFeePerBlobGas: cancelGasPrice.maxFeePerBlobGas!,
       };
-      const cancelTxHash = await this.walletClient.sendTransaction({
+      const cancelTxHash = await this.client.sendTransaction({
         ...request,
         ...blobInputs,
         nonce,

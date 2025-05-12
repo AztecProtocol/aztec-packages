@@ -70,11 +70,11 @@ export class BatchConnectionSampler {
 
     if (newPeer) {
       this.batch[index] = newPeer;
-      this.logger.trace(`Replaced peer ${peerId} with ${newPeer}`, { peerId, newPeer });
+      this.logger.trace('Replaced peer', { peerId, newPeer });
     } else {
       // If we couldn't get a replacement, remove the peer and compact the array
       this.batch.splice(index, 1);
-      this.logger.trace(`Removed peer ${peerId}`, { peerId });
+      this.logger.trace('Removed peer', { peerId });
     }
   }
 

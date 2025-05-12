@@ -51,6 +51,9 @@ impl BlockMergeRollupInputs {
 
         let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
 
+        let proposed_block_header_hashes =
+            components::accumulate_proposed_block_header_hashes(left, right);
+
         let fees = components::accumulate_blocks_fees(left, right);
 
         // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
@@ -62,11 +65,10 @@ impl BlockMergeRollupInputs {
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.previous_archive,
             new_archive: right.new_archive,
-            previous_block_hash: left.previous_block_hash,
-            end_block_hash: right.end_block_hash,
             start_global_variables: left.start_global_variables,
             end_global_variables: right.end_global_variables,
             out_hash,
+            proposed_block_header_hashes,
             fees,
             vk_tree_root: left.vk_tree_root,
             protocol_contract_tree_root: left.protocol_contract_tree_root,
@@ -106,15 +108,6 @@ mod tests {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.new_archive.root = 0;
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.previous_archive.root =
-            1;
-        let _output = inputs.block_merge_rollup_circuit();
-    }
-
-    #[test(should_fail_with = "input block hashes do not follow on from each other")]
-    fn previous_rollups_dont_follow_block_hash() {
-        let mut inputs = default_block_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_block_hash = 0;
-        inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.previous_block_hash =
             1;
         let _output = inputs.block_merge_rollup_circuit();
     }

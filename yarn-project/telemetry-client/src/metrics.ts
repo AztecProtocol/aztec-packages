@@ -7,7 +7,7 @@
  */
 
 export const BLOB_SINK_STORE_REQUESTS = 'aztec.blob_sink.store_request_count';
-export const BLOB_SINK_RETRIEVE_REQUESTS = 'aztec.blob_sink.store_request_count';
+export const BLOB_SINK_RETRIEVE_REQUESTS = 'aztec.blob_sink.retrieve_request_count';
 export const BLOB_SINK_OBJECTS_IN_BLOB_STORE = 'aztec.blob_sink.objects_in_blob_store';
 export const BLOB_SINK_BLOB_SIZE = 'aztec.blob_sink.blob_size';
 
@@ -36,6 +36,7 @@ export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 export const DB_NUM_ITEMS = 'aztec.db.num_items';
 export const DB_MAP_SIZE = 'aztec.db.map_size';
+export const DB_PHYSICAL_FILE_SIZE = 'aztec.db.physical_file_size';
 export const DB_USED_SIZE = 'aztec.db.used_size';
 
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
@@ -62,6 +63,10 @@ export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_num
 export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
 export const SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS = 'aztec.sequencer.time_to_collect_attestations';
 export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
+export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
+export const SEQUENCER_SLOT_COUNT = 'aztec.sequencer.slot.total_count';
+export const SEQUENCER_FILLED_SLOT_COUNT = 'aztec.sequencer.slot.filled_count';
+export const SEQUENCER_MISSED_SLOT_COUNT = 'aztec.sequencer.slot.missed_count';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
@@ -138,12 +143,15 @@ export const PROVER_NODE_EXECUTION_DURATION = 'aztec.prover_node.execution.durat
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
 export const PROVER_NODE_JOB_BLOCKS = 'aztec.prover_node.job_blocks';
 export const PROVER_NODE_JOB_TRANSACTIONS = 'aztec.prover_node.job_transactions';
+export const PROVER_NODE_REWARDS_TOTAL = 'aztec.prover_node.rewards_total';
+export const PROVER_NODE_REWARDS_PER_EPOCH = 'aztec.prover_node.rewards_per_epoch';
 
 export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
 export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
 export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size';
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 export const WORLD_STATE_DB_MAP_SIZE = 'aztec.world_state.db_map_size';
+export const WORLD_STATE_DB_PHYSICAL_SIZE = 'aztec.world_state.db_physical_size';
 export const WORLD_STATE_TREE_SIZE = 'aztec.world_state.tree_size';
 export const WORLD_STATE_UNFINALISED_HEIGHT = 'aztec.world_state.unfinalised_height';
 export const WORLD_STATE_FINALISED_HEIGHT = 'aztec.world_state.finalised_height';
@@ -157,6 +165,8 @@ export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 
 export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
+export const VALIDATOR_ATTESTATION_COUNT = 'aztec.validator.attestation_count';
+export const VALIDATOR_FAILED_ATTESTATION_COUNT = 'aztec.validator.failed_attestation_count';
 
 export const NODEJS_EVENT_LOOP_DELAY_MIN = 'nodejs.eventloop.delay.min';
 export const NODEJS_EVENT_LOOP_DELAY_MEAN = 'nodejs.eventloop.delay.mean';

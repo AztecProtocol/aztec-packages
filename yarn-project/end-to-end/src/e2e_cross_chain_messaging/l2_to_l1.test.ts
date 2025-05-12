@@ -2,7 +2,7 @@ import { Fr } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { OutboxAbi } from '@aztec/l1-artifacts';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { type Hex, decodeEventLog, getContract } from 'viem';
 
@@ -26,12 +26,12 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     outbox = getContract({
       address: crossChainTestHarness.l1ContractAddresses.outboxAddress.toString(),
       abi: OutboxAbi,
-      client: crossChainTestHarness.walletClient,
+      client: crossChainTestHarness.l1Client,
     });
 
     version = Number(
       await new RollupContract(
-        crossChainTestHarness.publicClient,
+        crossChainTestHarness.l1Client,
         crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
       ).getVersion(),
     );
@@ -70,7 +70,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         sender: { actor: testContract.address.toString() as Hex, version: BigInt(version) },
         recipient: {
           actor: recipient.toString() as Hex,
-          chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
+          chainId: BigInt(crossChainTestHarness.l1Client.chain.id),
         },
         content: content.toString() as Hex,
       };
@@ -79,7 +79,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         testContract.address,
         new Fr(version), // aztec version
         recipient.toBuffer32(),
-        new Fr(crossChainTestHarness.publicClient.chain.id), // chain id
+        new Fr(crossChainTestHarness.l1Client.chain.id), // chain id
         content,
       ]);
 
@@ -100,7 +100,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         {} as any,
       );
 
-      const txReceipt = await crossChainTestHarness.publicClient.waitForTransactionReceipt({
+      const txReceipt = await crossChainTestHarness.l1Client.waitForTransactionReceipt({
         hash: txHash,
       });
 

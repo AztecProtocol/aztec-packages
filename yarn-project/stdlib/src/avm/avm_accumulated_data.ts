@@ -1,15 +1,23 @@
 import {
+  AVM_ACCUMULATED_DATA_LENGTH,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, type Tuple, assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  assertLength,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
@@ -92,6 +100,16 @@ export class AvmAccumulatedData {
     return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicLogs, this.publicDataWrites);
   }
 
+  static getFields(fields: FieldsOf<AvmAccumulatedData>) {
+    return [
+      fields.noteHashes,
+      fields.nullifiers,
+      fields.l2ToL1Msgs,
+      fields.publicLogs,
+      fields.publicDataWrites,
+    ] as const;
+  }
+
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new this(
@@ -101,6 +119,16 @@ export class AvmAccumulatedData {
       reader.readArray(MAX_PUBLIC_LOGS_PER_TX, PublicLog),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...AvmAccumulatedData.getFields(this));
+    if (fields.length !== AVM_ACCUMULATED_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for AvmAccumulatedData. Expected ${AVM_ACCUMULATED_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   static fromString(str: string) {

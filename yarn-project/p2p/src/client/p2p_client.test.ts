@@ -1,10 +1,10 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { Signature } from '@aztec/foundation/eth-signature';
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
+import { L2Block } from '@aztec/stdlib/block';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 
@@ -32,8 +32,10 @@ describe('In-Memory P2P Client', () => {
     txPool.getPendingTxHashes.mockResolvedValue([]);
     txPool.getMinedTxHashes.mockResolvedValue([]);
     txPool.getAllTxHashes.mockResolvedValue([]);
+    txPool.hasTxs.mockResolvedValue([]);
 
     p2pService = mock<P2PService>();
+    p2pService.sendBatchRequest.mockResolvedValue([]);
 
     attestationPool = new InMemoryAttestationPool();
 
@@ -134,7 +136,91 @@ describe('In-Memory P2P Client', () => {
     await client.stop();
   });
 
+  it('request transactions handles missing items', async () => {
+    // Mock a batch response that returns undefined items
+    const mockTx1 = await mockTx();
+    const mockTx2 = await mockTx();
+    txPool.hasTxs.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => true)));
+    p2pService.sendBatchRequest.mockResolvedValue([mockTx1, undefined, mockTx2]);
+
+    // Spy on the tx pool addTxs method, it should not be called for the missing tx
+    const addTxsSpy = jest.spyOn(txPool, 'addTxs');
+
+    await client.start();
+
+    const missingTxHash = (await mockTx()).getTxHash();
+    const query = await Promise.all([mockTx1.getTxHash(), missingTxHash, mockTx2.getTxHash()]);
+    const results = await client.requestTxsByHash(query);
+
+    expect(results).toEqual([mockTx1, undefined, mockTx2]);
+
+    expect(addTxsSpy).toHaveBeenCalledTimes(1);
+    expect(addTxsSpy).toHaveBeenCalledWith([mockTx1, mockTx2]);
+  });
+
+  it('getTxsByHash handles missing items', async () => {
+    // We expect the node to fetch this item from their local p2p pool
+    const txInMempool = await mockTx();
+    // We expect this transaction to be requested from the network
+    const txToBeRequested = await mockTx();
+    // We expect this transaction to not be found
+    const txToNotBeFound = await mockTx();
+
+    txPool.getTxByHash.mockImplementation(async txHash => {
+      if (txHash === (await txInMempool.getTxHash())) {
+        return txInMempool;
+      }
+      return undefined;
+    });
+
+    const addTxsSpy = jest.spyOn(txPool, 'addTxs');
+    const requestTxsSpy = jest.spyOn(client, 'requestTxsByHash');
+
+    p2pService.sendBatchRequest.mockResolvedValue([txToBeRequested, undefined]);
+
+    await client.start();
+
+    const query = await Promise.all([txInMempool.getTxHash(), txToBeRequested.getTxHash(), txToNotBeFound.getTxHash()]);
+    const results = await client.getTxsByHash(query);
+
+    // We should return the resolved transactions
+    expect(results).toEqual([txInMempool, txToBeRequested]);
+    // We should add the found requested transactions to the pool
+    expect(addTxsSpy).toHaveBeenCalledWith([txToBeRequested]);
+    // We should request the missing transactions from the network, but only find one of them
+    expect(requestTxsSpy).toHaveBeenCalledWith([await txToBeRequested.getTxHash(), await txToNotBeFound.getTxHash()]);
+  });
+
   describe('Chain prunes', () => {
+    it('deletes transactions mined in pruned blocks', async () => {
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+        keepProvenTxsInPoolFor: 10,
+      });
+      blockSource.setProvenBlockNumber(0);
+      await client.start();
+
+      // Create two transactions:
+      // 1. A transaction mined in block 95 (which will be pruned)
+      // 2. A transaction mined in block 90 (which will remain)
+      const txMinedInPrunedBlock = await mockTx();
+      const txMinedInKeptBlock = await mockTx();
+
+      // Mock the mined transactions
+      txPool.getMinedTxHashes.mockResolvedValue([
+        [await txMinedInPrunedBlock.getTxHash(), 95],
+        [await txMinedInKeptBlock.getTxHash(), 90],
+      ]);
+
+      txPool.getAllTxs.mockResolvedValue([txMinedInPrunedBlock, txMinedInKeptBlock]);
+
+      // Prune the chain back to block 90
+      blockSource.removeBlocks(10);
+      await client.sync();
+
+      // Verify only the transaction mined in the pruned block is deleted
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await txMinedInPrunedBlock.getTxHash()]);
+      await client.stop();
+    });
     it('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
@@ -192,7 +278,9 @@ describe('In-Memory P2P Client', () => {
       await client.stop();
     });
 
-    it('moves mined and valid txs back to the pending set', async () => {
+    // NOTE: skipping as we currently delete all mined txs within the epoch when pruning
+    // TODO: bring back once fixed: #13770
+    it.skip('moves mined and valid txs back to the pending set', async () => {
       client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
         keepProvenTxsInPoolFor: 10,
       });
@@ -233,7 +321,7 @@ describe('In-Memory P2P Client', () => {
       const deleteAttestationsOlderThanSpy = jest.spyOn(attestationPool, 'deleteAttestationsOlderThan');
 
       blockSource.setProvenBlockNumber(0);
-      (client as any).keepAttestationsInPoolFor = keepAttestationsInPoolFor;
+      (client as any).config.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
       await client.start();
       expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
@@ -242,29 +330,6 @@ describe('In-Memory P2P Client', () => {
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
       expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(
         BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
-      );
-    });
-  });
-
-  describe('Block stream events', () => {
-    it('adds attestations to the pool', async () => {
-      await client.start();
-      const block = await randomPublishedL2Block(1);
-      const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
-      await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
-      expect(addAttestationsSpy).toHaveBeenCalledWith(
-        block.signatures.map(signature => expect.objectContaining({ signature })),
-      );
-    });
-
-    it('handles empty signatures in block stream events', async () => {
-      await client.start();
-      const block = await randomPublishedL2Block(1);
-      block.signatures[0] = Signature.empty();
-      const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
-      await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
-      expect(addAttestationsSpy).toHaveBeenCalledWith(
-        block.signatures.filter(sig => !sig.isEmpty).map(signature => expect.objectContaining({ signature })),
       );
     });
   });

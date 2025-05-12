@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -21,7 +27,7 @@ template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lagrange_odd_in_minicircuit.is_zero();
+        return in.lagrange_even_in_minicircuit.is_zero();
     }
     /**
      * @brief Expression for the computation of Translator accumulator in integers through 68-bit limbs and
@@ -73,8 +79,8 @@ template <typename FF_> class TranslatorNonNativeFieldRelationImpl {
      *
      * Then the last subrelation is simply checking the integer equation in this native form
      *
-     * All of these subrelations are multiplied by lagrange_odd_in_minicircuit, which is a polynomial with 1 at each odd
-     * index less than the size of the mini-circuit (16 times smaller than the final circuit and the only part over
+     * All of these subrelations are multiplied by lagrange_even_in_minicircuit, which is a polynomial with 1 at each
+     * even index less than the size of the mini-circuit (16 times smaller than the final circuit and the only part over
      * which we need to calculate non-permutation relations). All other indices are set to zero. Each EccOpQueue entry
      * (operation) occupies 2 rows in bn254 transcripts. So the Translator VM has a 2-row cycle and we need to
      * switch the checks being performed depending on which row we are at right now. We have half a cycle of

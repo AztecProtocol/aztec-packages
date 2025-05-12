@@ -3,6 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -16,11 +17,7 @@ using namespace bb;
 
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
@@ -59,9 +56,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
         manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
+        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
+        }
         if constexpr (HasIPAAccumulator<Flavor>) {
             for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
-                manifest_expected.add_entry(round, "public_input_" + std::to_string(i + 1), frs_per_Fr);
+                manifest_expected.add_entry(
+                    round, "public_input_" + std::to_string(1 + PAIRING_POINTS_SIZE + i), frs_per_Fr);
             }
         }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
@@ -152,21 +153,21 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         return manifest_expected;
     }
 
-    void generate_test_circuit(typename Flavor::CircuitBuilder& builder)
+    void generate_test_circuit(Builder& builder)
     {
         FF a = 1;
         builder.add_variable(a);
         builder.add_public_variable(a);
-
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
+                IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
             stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
     }
 
-    void generate_random_test_circuit(typename Flavor::CircuitBuilder& builder)
+    void generate_random_test_circuit(Builder& builder)
     {
         auto a = FF::random_element();
         auto b = FF::random_element();
@@ -176,15 +177,25 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
+                IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
             stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
     }
 };
 
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = ::testing::Types<UltraFlavor,
+                                     UltraKeccakFlavor,
+                                     UltraStarknetFlavor,
+                                     UltraStarknetZKFlavor,
+                                     UltraRollupFlavor,
+                                     UltraZKFlavor,
+                                     UltraKeccakZKFlavor>;
+#else
 using FlavorTypes =
     ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
+#endif
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
 
 /**

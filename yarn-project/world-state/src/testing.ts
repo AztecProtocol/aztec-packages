@@ -1,4 +1,4 @@
-import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -10,7 +10,6 @@ async function generateGenesisValues(prefilledPublicData: PublicDataTreeLeaf[]) 
   if (!prefilledPublicData.length) {
     return {
       genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
-      genesisBlockHash: new Fr(GENESIS_BLOCK_HASH),
     };
   }
 
@@ -20,14 +19,11 @@ async function generateGenesisValues(prefilledPublicData: PublicDataTreeLeaf[]) 
     true /* cleanupTmpDir */,
     prefilledPublicData,
   );
-  const initialHeader = ws.getInitialHeader();
-  const genesisBlockHash = await initialHeader.hash();
   const genesisArchiveRoot = new Fr((await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
   await ws.close();
 
   return {
     genesisArchiveRoot,
-    genesisBlockHash,
   };
 }
 
@@ -50,11 +46,10 @@ export async function getGenesisValues(
 
   prefilledPublicData.sort((a, b) => (b.slot.lt(a.slot) ? 1 : -1));
 
-  const { genesisBlockHash, genesisArchiveRoot } = await generateGenesisValues(prefilledPublicData);
+  const { genesisArchiveRoot } = await generateGenesisValues(prefilledPublicData);
 
   return {
     genesisArchiveRoot,
-    genesisBlockHash,
     prefilledPublicData,
     fundingNeeded: BigInt(initialAccounts.length) * initialAccountFeeJuice.toBigInt(),
   };

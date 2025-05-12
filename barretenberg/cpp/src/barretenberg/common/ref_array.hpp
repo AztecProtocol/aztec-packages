@@ -28,12 +28,10 @@ template <typename T, std::size_t N> class RefArray {
             storage[i] = ptr_array[i];
         }
     }
-    template <typename... Ts> RefArray(T& ref, Ts&... rest)
-    {
-        storage[0] = &ref;
-        int i = 1;
-        ((storage[i++] = &rest), ...);
-    }
+    template <typename... Ts>
+    RefArray(T& first, Ts&... refs)
+        : storage{ &first, &refs... }
+    {}
 
     T& operator[](std::size_t idx) const
     {
@@ -44,7 +42,7 @@ template <typename T, std::size_t N> class RefArray {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #endif
-        ASSERT(idx < N);
+        BB_ASSERT_LT(idx, N);
         return *storage[idx];
 #if !defined(__clang__) && defined(__GNUC__)
 #pragma GCC diagnostic pop
@@ -70,7 +68,7 @@ template <typename T, std::size_t N> class RefArray {
 
         T& operator*() const
         {
-            ASSERT(pos < N);
+            BB_ASSERT_LT(pos, N);
             return (*array)[pos];
         }
 

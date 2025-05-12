@@ -85,7 +85,7 @@ spec:
             - "-c"
             - |
               source /shared/config/service-addresses
-              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST}
+              /scripts/configure-prover-env.sh ${BOOT_NODE_HOST:-""} ${FULL_NODE_HOST:-""}
           volumeMounts:
             - name: contracts-env
               mountPath: /shared/contracts

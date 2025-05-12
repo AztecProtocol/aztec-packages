@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -14,7 +20,7 @@ class TranslatorVerifier {
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using TranslationEvaluations = bb::TranslationEvaluations_<BF, FF>;
+    using TranslationEvaluations = bb::TranslationEvaluations_<BF>;
     using Transcript = typename Flavor::Transcript;
 
     BF evaluation_input_x = 0;

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
@@ -46,8 +52,8 @@ void compute_monomial_and_coset_selector_forms(plonk::proving_key* key,
  */
 std::shared_ptr<plonk::verification_key> compute_verification_key_common(
     std::shared_ptr<plonk::proving_key> const& proving_key,
-    // silencing for now but need to figure out where to extract type of VerifierCrs from :-/
-    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& vrs);
+    // silencing for now but need to figure out where to extract type of Crs from :-/
+    std::shared_ptr<bb::srs::factories::Crs<curve::BN254>> const& vrs);
 
 /**
  * @brief Construct polynomials containing the sorted concatenation of the lookups and the lookup tables
