@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
+source $ci3/source_refname
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}
