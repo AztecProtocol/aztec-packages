@@ -18,15 +18,12 @@ template <> class PrecomputedGenerators<"biggroup table offset generator", g1::a
 };
 template <> class PrecomputedGenerators<"biggroup offset generator", g1::affine_element, 1, 0> {
   public:
-    static constexpr std::span<const g1::affine_element> get_generators()
-    {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        constexpr g1::affine_element generators[1] = {
-            { { 3402697789448964667ULL, 12272641339941532534ULL, 3202222964502006468ULL, 3441049934705304460ULL },
-              { 16574262713924055291ULL, 14022735779041100584ULL, 1168844528721575365ULL, 1598138279242208550ULL } }
-        };
-        return generators;
-    }
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    static constexpr g1::affine_element generators[1] = {
+        { { 3402697789448964667ULL, 12272641339941532534ULL, 3202222964502006468ULL, 3441049934705304460ULL },
+          { 16574262713924055291ULL, 14022735779041100584ULL, 1168844528721575365ULL, 1598138279242208550ULL } }
+    };
+    static constexpr std::span<const g1::affine_element> get_generators() { return generators; }
 };
 template <> class PrecomputedGenerators<"ECCVM_OFFSET_GENERATOR", g1::affine_element, 1, 0> {
   public:
@@ -39,16 +36,13 @@ template <> class PrecomputedGenerators<"ECCVM_OFFSET_GENERATOR", g1::affine_ele
 };
 template <> class PrecomputedGenerators<"test generators", g1::affine_element, 2, 0> {
   public:
-    static constexpr std::span<const g1::affine_element> get_generators()
-    {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        constexpr g1::affine_element generators[2] = {
-            { { 5298051746523815354ULL, 11125407385827321085ULL, 1378860999543571258ULL, 3214580318552177664ULL },
-              { 10989126080144231302ULL, 3931925773460296875ULL, 15711120850424438078ULL, 1554456504451117922ULL } },
-            { { 12331362496270503882ULL, 1777010271948225039ULL, 3688980372647118828ULL, 2183746658631232216ULL },
-              { 2066093441324826568ULL, 18321081055934204294ULL, 4310268877597366290ULL, 3214757532116262013ULL } }
-        };
-        return generators;
-    }
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    static constexpr g1::affine_element generators[2] = {
+        { { 5298051746523815354ULL, 11125407385827321085ULL, 1378860999543571258ULL, 3214580318552177664ULL },
+          { 10989126080144231302ULL, 3931925773460296875ULL, 15711120850424438078ULL, 1554456504451117922ULL } },
+        { { 12331362496270503882ULL, 1777010271948225039ULL, 3688980372647118828ULL, 2183746658631232216ULL },
+          { 2066093441324826568ULL, 18321081055934204294ULL, 4310268877597366290ULL, 3214757532116262013ULL } }
+    };
+    static constexpr std::span<const g1::affine_element> get_generators() { return generators; }
 };
 }; // namespace bb::detail

@@ -6,7 +6,7 @@
 
 #pragma once
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/ecc/groups/precomputed_generators.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "ecc_msm_relation.hpp"
 
 namespace bb {
