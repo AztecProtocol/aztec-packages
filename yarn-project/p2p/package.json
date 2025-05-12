@@ -104,7 +104,7 @@
     "@aztec/archiver": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/node": "^18.14.6",
+    "@types/node": "^22.15.17",
     "get-port": "^7.1.0",
     "it-drain": "^3.0.5",
     "it-length": "^3.0.6",
@@ -122,6 +122,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }

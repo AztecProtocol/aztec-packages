@@ -68,7 +68,7 @@
     "@types/koa": "^2.15.0",
     "@types/koa-static": "^4.0.2",
     "@types/lodash.every": "^4.6.7",
-    "@types/node": "^18.7.23",
+    "@types/node": "^22.15.17",
     "@viem/anvil": "^0.0.9",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
@@ -116,7 +116,7 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "jest": {
     "slowTestThreshold": 300,

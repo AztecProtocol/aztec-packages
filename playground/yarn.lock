@@ -75,7 +75,7 @@ __metadata:
     "@playwright/test": "npm:1.49.0"
     "@toolpad/core": "npm:^0.14.0"
     "@types/buffer-json": "npm:^2"
-    "@types/node": "npm:^22.10.5"
+    "@types/node": "npm:^22.15.17"
     "@types/react": "npm:^19.0.6"
     "@types/react-dom": "npm:^19.0.3"
     "@uidotdev/usehooks": "npm:^2.4.1"
@@ -1569,12 +1569,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^22.10.5":
-  version: 22.14.1
-  resolution: "@types/node@npm:22.14.1"
+"@types/node@npm:^22.15.17":
+  version: 22.15.17
+  resolution: "@types/node@npm:22.15.17"
   dependencies:
     undici-types: "npm:~6.21.0"
-  checksum: 10c0/d49c4d00403b1c2348cf0701b505fd636d80aabe18102105998dc62fdd36dcaf911e73c7a868c48c21c1022b825c67b475b65b1222d84b704d8244d152bb7f86
+  checksum: 10c0/fb92aa10b628683c5b965749f955bc2322485ecb0ea6c2f4cae5f2c7537a16834607e67083a9e9281faaae8d7dee9ada8d6a5c0de9a52c17d82912ef00c0fdd4
   languageName: node
   linkType: hard
 

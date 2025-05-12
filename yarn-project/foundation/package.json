@@ -138,7 +138,7 @@
     "@types/leveldown": "^4.0.3",
     "@types/lodash.chunk": "^4.2.9",
     "@types/lodash.clonedeepwith": "^4.5.7",
-    "@types/node": "^18.7.23",
+    "@types/node": "^22.15.17",
     "@types/pako": "^2.0.0",
     "@types/supertest": "^2.0.12",
     "@typescript-eslint/eslint-plugin": "^6.2.1",
@@ -162,6 +162,6 @@
     "!*.test.*"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }
