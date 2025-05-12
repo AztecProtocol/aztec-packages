@@ -13,11 +13,11 @@ contract SetupSampleSeedTest is ValidatorSelectionTestBase {
     // Check that the epoch is not set
     _epochToTest = uint16(bound(_epochToTest, 2, type(uint16).max));
 
-    uint256 timejump = _epochToTest * TestConstants.AZTEC_EPOCH_DURATION;
-    uint256 originalSampleSeed = rollup.getSampleSeedAt(Timestamp.wrap(block.timestamp + timejump));
+    uint256 timejump = _epochToTest * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION;
+    uint256 originalSampleSeed = rollup.getSampleSeedAt(Timestamp.wrap(block.timestamp + timejump + 1));
 
     // Jump to just before the epoch we are testing
-    vm.warp(block.timestamp + (_epochToTest - 1) * TestConstants.AZTEC_EPOCH_DURATION);
+    vm.warp(block.timestamp + (_epochToTest - 1) * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION);
     rollup.setupSeedSnapshotForNextEpoch();
 
     // The sample seed should have been updated
