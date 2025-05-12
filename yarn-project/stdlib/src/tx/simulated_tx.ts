@@ -1,4 +1,4 @@
-import type { ZodFor } from '@aztec/foundation/schemas';
+import { type ZodFor, optional } from '@aztec/foundation/schemas';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -12,6 +12,7 @@ import {
   PrivateExecutionResult,
   collectSortedContractClassLogs,
 } from './private_execution_result.js';
+import { type SimulationTimings, SimulationTimingsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
@@ -43,6 +44,7 @@ export class TxSimulationResult {
     public privateExecutionResult: PrivateExecutionResult,
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
     public publicOutput?: PublicSimulationOutput,
+    public timings?: SimulationTimings,
   ) {}
 
   get gasUsed(): GasUsed {
@@ -62,22 +64,30 @@ export class TxSimulationResult {
         privateExecutionResult: PrivateExecutionResult.schema,
         publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
         publicOutput: PublicSimulationOutput.schema.optional(),
+        timings: optional(SimulationTimingsSchema),
       })
       .transform(TxSimulationResult.from);
   }
 
   static from(fields: Omit<FieldsOf<TxSimulationResult>, 'gasUsed'>) {
-    return new TxSimulationResult(fields.privateExecutionResult, fields.publicInputs, fields.publicOutput);
+    return new TxSimulationResult(
+      fields.privateExecutionResult,
+      fields.publicInputs,
+      fields.publicOutput,
+      fields.timings,
+    );
   }
 
   static fromPrivateSimulationResultAndPublicOutput(
     privateSimulationResult: PrivateSimulationResult,
     publicOutput?: PublicSimulationOutput,
+    timings?: SimulationTimings,
   ) {
     return new TxSimulationResult(
       privateSimulationResult.privateExecutionResult,
       privateSimulationResult.publicInputs,
       publicOutput,
+      timings,
     );
   }
 

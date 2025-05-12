@@ -94,9 +94,9 @@ template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::construct_pr
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
-#ifdef STARTKNET_GARAGA_FLAVORS
-template class DeciderVerifier_<UltraStarknetFlavor>;
-template class DeciderVerifier_<UltraStarknetZKFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class UltraProver_<UltraStarknetFlavor>;
+template class UltraProver_<UltraStarknetZKFlavor>;
 #endif
 template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<UltraRollupFlavor>;

@@ -66,14 +66,15 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
 {
     using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
-    // We use combination of lagrange polynomials at even indices in the minicircuit for copying the accumulator
-    auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+    // We use combination of lagrange polynomials at odd indices in the minicircuit for copying the accumulator
+    auto lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
 
-    // Lagrange at index 1 is used to confirm the accumulator result
-    auto lagrange_second = View(in.lagrange_second);
+    // Lagrange ensuring the accumulator result is validated at the correct row
+    auto lagrange_result_row = View(in.lagrange_result_row);
 
-    // Lagrange at index (size of minicircuit - 2) is used to enforce that it starts with zero
-    auto lagrange_second_to_last_in_minicircuit = View(in.lagrange_second_to_last_in_minicircuit);
+    // Lagrange at index (size of minicircuit - 1) is used to enforce that the accumulator is initialized to zero in the
+    // circuit
+    auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
 
     auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
     auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
@@ -84,66 +85,66 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     auto accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
     auto accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
 
-    // Contribution (1) (1-4 ensure transfer of accumulator limbs at even indices of the minicircuit)
+    // Contribution (1) (1-4 ensure transfer of accumulator limbs at odd indices of the minicircuit)
     auto tmp_1 = accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift;
-    tmp_1 *= lagrange_even_in_minicircuit;
+    tmp_1 *= lagrange_odd_in_minicircuit;
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
 
     // Contribution (2)
     auto tmp_2 = accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift;
-    tmp_2 *= lagrange_even_in_minicircuit;
+    tmp_2 *= lagrange_odd_in_minicircuit;
     tmp_2 *= scaling_factor;
     std::get<1>(accumulators) += tmp_2;
     // Contribution (3)
     auto tmp_3 = accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift;
-    tmp_3 *= lagrange_even_in_minicircuit;
+    tmp_3 *= lagrange_odd_in_minicircuit;
     tmp_3 *= scaling_factor;
     std::get<2>(accumulators) += tmp_3;
     // Contribution (4)
     auto tmp_4 = accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift;
-    tmp_4 *= lagrange_even_in_minicircuit;
+    tmp_4 *= lagrange_odd_in_minicircuit;
     tmp_4 *= scaling_factor;
     std::get<3>(accumulators) += tmp_4;
 
     // Contribution (5) (5-9 ensure that accumulator starts with zeroed-out limbs)
-    auto tmp_5 = accumulators_binary_limbs_0 * lagrange_second_to_last_in_minicircuit;
+    auto tmp_5 = accumulators_binary_limbs_0 * lagrange_last_in_minicircuit;
     tmp_5 *= scaling_factor;
     std::get<4>(accumulators) += tmp_5;
 
     // Contribution (6)
-    auto tmp_6 = accumulators_binary_limbs_1 * lagrange_second_to_last_in_minicircuit;
+    auto tmp_6 = accumulators_binary_limbs_1 * lagrange_last_in_minicircuit;
     tmp_6 *= scaling_factor;
     std::get<5>(accumulators) += tmp_6;
 
     // Contribution (7)
-    auto tmp_7 = accumulators_binary_limbs_2 * lagrange_second_to_last_in_minicircuit;
+    auto tmp_7 = accumulators_binary_limbs_2 * lagrange_last_in_minicircuit;
     tmp_7 *= scaling_factor;
     std::get<6>(accumulators) += tmp_7;
 
     // Contribution (8)
-    auto tmp_8 = accumulators_binary_limbs_3 * lagrange_second_to_last_in_minicircuit;
+    auto tmp_8 = accumulators_binary_limbs_3 * lagrange_last_in_minicircuit;
     tmp_8 *= scaling_factor;
     std::get<7>(accumulators) += tmp_8;
 
     // Contribution (9) (9-12 ensure the output is as stated, we basically use this to get the result out of the
-    // proof)
-    auto tmp_9 = (accumulators_binary_limbs_0 - params.accumulated_result[0]) * lagrange_second;
+    // // proof)
+    auto tmp_9 = (accumulators_binary_limbs_0 - params.accumulated_result[0]) * lagrange_result_row;
     tmp_9 *= scaling_factor;
     std::get<8>(accumulators) += tmp_9;
 
     // Contribution (10)
-    auto tmp_10 = (accumulators_binary_limbs_1 - params.accumulated_result[1]) * lagrange_second;
+    auto tmp_10 = (accumulators_binary_limbs_1 - params.accumulated_result[1]) * lagrange_result_row;
     tmp_10 *= scaling_factor;
     std::get<9>(accumulators) += tmp_10;
 
     // Contribution (11)
-    auto tmp_11 = (accumulators_binary_limbs_2 - params.accumulated_result[2]) * lagrange_second;
+    auto tmp_11 = (accumulators_binary_limbs_2 - params.accumulated_result[2]) * lagrange_result_row;
     tmp_11 *= scaling_factor;
     std::get<10>(accumulators) += tmp_11;
 
     // Contribution (12)
-    auto tmp_12 = (accumulators_binary_limbs_3 - params.accumulated_result[3]) * lagrange_second;
+    auto tmp_12 = (accumulators_binary_limbs_3 - params.accumulated_result[3]) * lagrange_result_row;
     tmp_12 *= scaling_factor;
     std::get<11>(accumulators) += tmp_12;
 };

@@ -2,8 +2,9 @@ import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -28,6 +29,7 @@ import '@aztec/stdlib/testing/jest';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
+import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from './errors.js';
 import type { PublishedL2Block } from './structs/published.js';
 
 /**
@@ -85,6 +87,18 @@ export function describeArchiverDataStore(
         await store.addBlocks(blocks);
         await expect(store.addBlocks(blocks)).resolves.toBe(true);
       });
+
+      it('throws an error if the previous block does not exist in the store', async () => {
+        const block = makePublished(await L2Block.random(2), 2);
+        await expect(store.addBlocks([block])).rejects.toThrow(InitialBlockNumberNotSequentialError);
+        await expect(store.getPublishedBlocks(1, 10)).resolves.toEqual([]);
+      });
+
+      it('throws an error if there is a gap in the blocks being added', async () => {
+        const blocks = [makePublished(await L2Block.random(1), 1), makePublished(await L2Block.random(3), 3)];
+        await expect(store.addBlocks(blocks)).rejects.toThrow(BlockNumberNotSequentialError);
+        await expect(store.getPublishedBlocks(1, 10)).resolves.toEqual([]);
+      });
     });
 
     describe('unwindBlocks', () => {
@@ -135,6 +149,19 @@ export function describeArchiverDataStore(
 
       it('throws an error if `from` it is out of range', async () => {
         await expect(store.getPublishedBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).rejects.toThrow('Invalid start: -99');
+      });
+
+      it('throws an error if unexpected initial block number is found', async () => {
+        await store.addBlocks([makePublished(await L2Block.random(21), 31)], { force: true });
+        await expect(store.getPublishedBlocks(20, 1)).rejects.toThrow(`mismatch`);
+      });
+
+      it('throws an error if a gap is found', async () => {
+        await store.addBlocks(
+          [makePublished(await L2Block.random(20), 30), makePublished(await L2Block.random(22), 32)],
+          { force: true },
+        );
+        await expect(store.getPublishedBlocks(20, 2)).rejects.toThrow(`mismatch`);
       });
     });
 
@@ -309,6 +336,26 @@ export function describeArchiverDataStore(
           await store.getL1ToL2Messages(l2BlockNumber);
         }).rejects.toThrow(`L1 to L2 message gap found in block ${l2BlockNumber}`);
       });
+
+      it('removes messages up to the given block number', async () => {
+        for (let blockNum = 1n; blockNum < 5n; blockNum++) {
+          await store.addL1ToL2Messages({
+            lastProcessedL1BlockNumber: blockNum,
+            retrievedData: generateBlockMessages(blockNum, l1ToL2MessageSubtreeSize),
+          });
+        }
+
+        for (let blockNum = 1n; blockNum < 5n; blockNum++) {
+          expect(await store.getL1ToL2Messages(blockNum)).toHaveLength(l1ToL2MessageSubtreeSize);
+        }
+
+        await store.rollbackL1ToL2MessagesToL2Block(2n, 4n);
+
+        expect(await store.getL1ToL2Messages(1n)).toHaveLength(l1ToL2MessageSubtreeSize);
+        expect(await store.getL1ToL2Messages(2n)).toHaveLength(l1ToL2MessageSubtreeSize);
+        expect(await store.getL1ToL2Messages(3n)).toHaveLength(0);
+        expect(await store.getL1ToL2Messages(4n)).toHaveLength(0);
+      });
     });
 
     describe('contractInstances', () => {
@@ -464,17 +511,22 @@ export function describeArchiverDataStore(
       let blocks: PublishedL2Block[];
 
       const makeTag = (blockNumber: number, txIndex: number, logIndex: number, isPublic = false) =>
-        new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
+        blockNumber === 1 && txIndex === 0 && logIndex === 0
+          ? Fr.ZERO // Shared tag
+          : new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
 
       const makePrivateLog = (tag: Fr) =>
-        PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
+        PrivateLog.from({
+          fields: makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
+          emittedLength: PRIVATE_LOG_SIZE_IN_FIELDS,
+        });
 
       const makePublicLog = (tag: Fr) =>
-        PublicLog.fromFields([
-          AztecAddress.fromNumber(1).toField(), // log address
-          tag, // field 0
-          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 1 to end
-        ]);
+        PublicLog.from({
+          contractAddress: AztecAddress.fromNumber(1),
+          fields: makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
+          emittedLength: PUBLIC_LOG_SIZE_IN_FIELDS,
+        });
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
         return times(numPrivateLogsPerTx, (logIndex: number) => {
@@ -509,14 +561,38 @@ export function describeArchiverDataStore(
       };
 
       beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index));
+        blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index + 1));
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.block));
       });
 
       it('is possible to batch request private logs via tags', async () => {
-        const tags = [makeTag(1, 1, 2), makeTag(0, 2, 0)];
+        const tags = [makeTag(2, 1, 2), makeTag(1, 2, 0)];
+
+        const logsByTags = await store.getLogsByTags(tags);
+
+        expect(logsByTags).toEqual([
+          [
+            expect.objectContaining({
+              blockNumber: 2,
+              log: makePrivateLog(tags[0]),
+              isFromPublic: false,
+            }),
+          ],
+          [
+            expect.objectContaining({
+              blockNumber: 1,
+              log: makePrivateLog(tags[1]),
+              isFromPublic: false,
+            }),
+          ],
+        ]);
+      });
+
+      it('is possible to batch request all logs (private and public) via tags', async () => {
+        // Tag(1, 0, 0) is shared with the first private log and the first public log.
+        const tags = [makeTag(1, 0, 0)];
 
         const logsByTags = await store.getLogsByTags(tags);
 
@@ -527,32 +603,8 @@ export function describeArchiverDataStore(
               log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
-          ],
-          [
             expect.objectContaining({
-              blockNumber: 0,
-              log: makePrivateLog(tags[1]),
-              isFromPublic: false,
-            }),
-          ],
-        ]);
-      });
-
-      it('is possible to batch request all logs (private and public) via tags', async () => {
-        // Tag(0, 0, 0) is shared with the first private log and the first public log.
-        const tags = [makeTag(0, 0, 0)];
-
-        const logsByTags = await store.getLogsByTags(tags);
-
-        expect(logsByTags).toEqual([
-          [
-            expect.objectContaining({
-              blockNumber: 0,
-              log: makePrivateLog(tags[0]),
-              isFromPublic: false,
-            }),
-            expect.objectContaining({
-              blockNumber: 0,
+              blockNumber: 1,
               log: makePublicLog(tags[0]),
               isFromPublic: true,
             }),

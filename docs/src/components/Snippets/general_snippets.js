@@ -15,9 +15,8 @@ export const General = {
       To use Aztec's suite of tools you'll need to:
       <ul>
         <li>
-          <a href="https://docs.docker.com/get-started/get-docker/">
-            Get docker
-          </a>
+          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
+          (engine or desktop)
         </li>
         <li>
           Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
@@ -58,11 +57,7 @@ export const General = {
     </p>
   ),
 
-  AztecTestnetVersion: () => (
-    <span>
-      alpha-testnet
-    </span>
-  ),
+  AztecTestnetVersion: () => <span>alpha-testnet</span>,
 
   AztecWalletCLI: () => (
     <p>
