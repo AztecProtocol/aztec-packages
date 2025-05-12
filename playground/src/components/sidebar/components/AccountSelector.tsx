@@ -195,7 +195,7 @@ export function AccountSelector() {
       <SwitchAccountIcon />
 
       <FormControl css={navbarSelect}>
-        {!wallet?.getAddress().toString() && <InputLabel id="account-label">SelectAccount</InputLabel>}
+        {!wallet?.getAddress().toString() && <InputLabel id="account-label">Select Account</InputLabel>}
 
         <Select
           fullWidth
