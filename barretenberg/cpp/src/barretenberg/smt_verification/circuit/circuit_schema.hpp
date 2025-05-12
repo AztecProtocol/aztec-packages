@@ -1,7 +1,7 @@
 #pragma once
 #include <fstream>
 
-#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 
 namespace smt_circuit_schema {
 
@@ -32,6 +32,10 @@ struct CircuitSchema {
     std::vector<std::vector<std::vector<bb::fr>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    std::vector<std::vector<std::vector<uint32_t>>> rom_records;
+    std::vector<std::vector<std::array<uint32_t, 2>>> rom_states;
+    std::vector<std::vector<std::vector<uint32_t>>> ram_records;
+    std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
@@ -43,6 +47,10 @@ struct CircuitSchema {
                    lookup_tables,
                    real_variable_tags,
                    range_tags,
+                   rom_records,
+                   rom_states,
+                   ram_records,
+                   ram_states,
                    circuit_finalized);
 };
 

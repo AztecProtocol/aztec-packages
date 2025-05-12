@@ -57,8 +57,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
     // And remove the proof from L1
     await context.cheatCodes.eth.reorg(2);
-    await monitor.run();
-    expect(monitor.l2ProvenBlockNumber).toEqual(0);
+    expect((await monitor.run(true)).l2ProvenBlockNumber).toEqual(0);
 
     // Wait until the end of the proof submission window for the first epoch
     await test.waitUntilEndOfProofSubmissionWindow(0);
@@ -72,7 +71,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     // This is because the call to createNonValidatorNode will block until the initial sync is completed,
     // but the initial sync is done to the latest L1 block _at the time the initial sync starts_. So a new
     // node may have appeared while the initial sync runs, that's why we account for a small span of blocks.
-    const currentBlock = monitor.l2BlockNumber;
+    const currentBlock = (await monitor.run(true)).l2BlockNumber;
     expect(await newNode.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
 
     // And check that the old node has processed the reorg as well
