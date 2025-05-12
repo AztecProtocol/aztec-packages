@@ -151,8 +151,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
         , evaluation_domain(bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size))
         , commitment_key(commitment_key)
         , num_public_inputs(num_public_inputs)
-
-              {};
+        , log_circuit_size(numeric::get_msb(dyadic_circuit_size)){};
 };
 
 /**
