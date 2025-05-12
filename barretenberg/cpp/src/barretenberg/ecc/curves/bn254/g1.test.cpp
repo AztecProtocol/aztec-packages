@@ -423,6 +423,8 @@ TEST(g1, InitializationCheck)
 
 TEST(g1, CheckPrecomputedGenerators)
 {
-    ASSERT_TRUE((bb::check_precomputed_generators<g1, "biggroup table offset generator", 1UL, 0UL>()));
-    ASSERT_TRUE((bb::check_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1UL, 0UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "biggroup table offset generator", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "biggroup offset generator", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "test generators", 2UL>()));
 }

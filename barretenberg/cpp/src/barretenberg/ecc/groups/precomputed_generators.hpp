@@ -236,7 +236,7 @@ inline bool check_precomputed_generators()
             }
 
             info("        };");
-            info("        return { generators, ", num_generators, " };");
+            info("        return generators;");
             info("    }");
             info("};");
 
@@ -244,7 +244,6 @@ inline bool check_precomputed_generators()
             if (demangled_name_c_str != nullptr) {
                 std::free(demangled_name_c_str); // NOLINT
             }
-            abort(); // Abort the program to indicate that the generators were not precomputed.
             return false;
         }
     }

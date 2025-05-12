@@ -16,7 +16,7 @@ template <> class PrecomputedGenerators<"pedersen_hash_length", bb::grumpkin::g1
             { { 17073107942961762201ULL, 2852173614226397194ULL, 13623573872280674322ULL, 749552761154020099ULL },
               { 5412407584077200717ULL, 8019793462306515478ULL, 16737294919534112339ULL, 1803602698978470415ULL } },
         };
-        return { generators, 1 };
+        return generators;
     }
 };
 
@@ -43,7 +43,7 @@ template <> class PrecomputedGenerators<"DEFAULT_DOMAIN_SEPARATOR", bb::grumpkin
             { { 8993338889715650835ULL, 5712670458228723228ULL, 2120794487196328325ULL, 1287090278976494593ULL },
               { 16225717072186929821ULL, 11966146851468791936ULL, 10821795104831884699ULL, 506430069685697751ULL } }
         };
-        return { generators, 8 };
+        return generators;
     }
 };
 
