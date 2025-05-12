@@ -1,6 +1,6 @@
 ---
 title: "The Aztec Stack"
-sidebar_position: 1
+sidebar_position: 0
 ---
 
 This page covers all the tools for developing on Aztec. For a higher level summary, check out the [Aztec overview](../../index.mdx).
@@ -35,7 +35,7 @@ This page covers all the tools for developing on Aztec. For a higher level summa
 ## Interacting with the network
 
 | Component | Description | Usage | Notes |
-|:----------|:------------|:-------------|:------|:------|
+|:----------|:------------|:-------------|:------|
 | aztec-wallet | Wallet management tool | `aztec-wallet import-test-accounts`<br/>`aztec-wallet create-account`<br/>`aztec-wallet deploy`<br/>`aztec-wallet send`<br/>`aztec-wallet simulate`<br/>`aztec-wallet simulate --profile` |  |
 | @aztec/aztec.js | JS library for managing accounts and contracts | | Updated via npm/yarn |
 
