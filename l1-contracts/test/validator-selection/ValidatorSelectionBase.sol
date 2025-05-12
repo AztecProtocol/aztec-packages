@@ -21,7 +21,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
-
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
@@ -81,17 +81,12 @@ contract ValidatorSelectionTestBase is DecoderBase {
       initialValidators[i - 1] = createDepositArgs(i);
     }
 
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this), testERC20);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup({
-      _feeAsset: testERC20,
-      _rewardDistributor: rewardDistributor,
-      _stakingAsset: testERC20,
-      _governance: address(this),
-      _genesisState: TestConstants.getGenesisState(),
-      _config: TestConstants.getRollupConfigInput()
-    });
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
+
+    rollup = builder.getConfig().rollup;
+    rewardDistributor = builder.getConfig().rewardDistributor;
+    testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
