@@ -135,7 +135,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 // In these tests we deploy a contract and can prove whether it has been deployed / initialized at specific blocks.
 #[test]
 unconstrained fn contract_historical_proofs_happy_path() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _) = setup();
 
     let context_at_block_before_deployment = env.private_at(CONTRACT_DEPLOYED_AT - 1);
     let context_at_block_of_deployment = env.private_at(CONTRACT_DEPLOYED_AT);
@@ -162,7 +162,7 @@ unconstrained fn contract_historical_proofs_happy_path() {
 // of the deployment nullifier in state.
 #[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
 unconstrained fn proving_contract_deployment_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _) = setup();
 
     let context = env.private_at(CONTRACT_DEPLOYED_AT - 1);
 
@@ -173,7 +173,7 @@ unconstrained fn proving_contract_deployment_fails() {
 // of the initialization nullifier in state.
 #[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
 unconstrained fn proving_contract_initialization_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _) = setup();
 
     let context = env.private_at(CONTRACT_INITIALIZED_AT - 1);
 
@@ -183,7 +183,7 @@ unconstrained fn proving_contract_initialization_fails() {
 // In this test, we fail to prove contract non-deployment at the block of its deployment.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn proving_contract_non_deployment_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _) = setup();
 
     let context = env.private_at(CONTRACT_DEPLOYED_AT);
 
@@ -193,7 +193,7 @@ unconstrained fn proving_contract_non_deployment_fails() {
 // In this test, we fail to prove contract non-initialization at the block of its deployment.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn proving_contract_non_initialization_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _) = setup();
 
     let context = env.private_at(CONTRACT_INITIALIZED_AT);
 
