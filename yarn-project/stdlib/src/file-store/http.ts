@@ -1,35 +1,36 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import { dirname } from 'path';
-// import { Readable } from 'stream';
+import { Readable } from 'stream';
 import { finished } from 'stream/promises';
 
 import type { ReadOnlyFileStore } from './interface.js';
 
 export class HttpFileStore implements ReadOnlyFileStore {
   private readonly axiosInstance: AxiosInstance;
+  private readonly fetch: <T>(config: AxiosRequestConfig) => Promise<AxiosResponse<T>>;
 
   constructor(private readonly baseUrl: string, private readonly log: Logger = createLogger('stdlib:http-file-store')) {
     this.axiosInstance = axios.create();
-    this.axiosInstance.interceptors.request.use(async config => {
+    this.fetch = async <T>(config: AxiosRequestConfig) => {
       return await retry(
-        () => Promise.resolve(config),
+        () => this.axiosInstance.request<T>(config),
         `Fetching ${config.url}`,
         makeBackoff([1, 1, 3]),
         this.log,
         /*failSilently=*/ true,
       );
-    });
+    };
   }
 
   public async read(pathOrUrl: string): Promise<Buffer> {
     const url = this.getUrl(pathOrUrl);
     try {
-      const response = await this.axiosInstance.get(url, { responseType: 'arraybuffer' });
+      const response = await this.fetch<ArrayBuffer>({ url, method: 'GET', responseType: 'arraybuffer' });
       return Buffer.from(response.data);
     } catch (error) {
       throw new Error(`Error fetching file from ${url}: ${error instanceof Error ? error.message : String(error)}`);
@@ -39,7 +40,7 @@ export class HttpFileStore implements ReadOnlyFileStore {
   public async download(pathOrUrl: string, destPath: string): Promise<void> {
     const url = this.getUrl(pathOrUrl);
     try {
-      const response = await this.axiosInstance.get(url, { responseType: 'stream' });
+      const response = await this.fetch<Readable>({ url, method: 'GET', responseType: 'stream' });
       await mkdir(dirname(destPath), { recursive: true });
       await finished(response.data.pipe(createWriteStream(destPath)));
     } catch (error) {
@@ -50,7 +51,7 @@ export class HttpFileStore implements ReadOnlyFileStore {
   public async exists(pathOrUrl: string): Promise<boolean> {
     const url = this.getUrl(pathOrUrl);
     try {
-      await this.axiosInstance.head(url);
+      await this.fetch<unknown>({ url, method: 'HEAD' });
       return true;
     } catch (error) {
       return false;
