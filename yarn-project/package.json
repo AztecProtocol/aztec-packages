@@ -76,7 +76,7 @@
     "eslint-plugin-import": "^2.27.5",
     "prettier": "^2.8.8",
     "typedoc": "^0.24.8",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "resolutions": {
     "@aztec/bb.js": "portal:../barretenberg/ts",

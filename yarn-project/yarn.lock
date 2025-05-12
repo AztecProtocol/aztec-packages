@@ -77,7 +77,7 @@ __metadata:
     ts-loader: "npm:^9.4.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -111,7 +111,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tsc-watch: "npm:^6.0.0"
     tslib: "npm:^2.5.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
@@ -133,7 +133,7 @@ __metadata:
     koa-bodyparser: "npm:^4.4.1"
     koa-router: "npm:^12.0.0"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   bin:
@@ -175,7 +175,7 @@ __metadata:
     koa-router: "npm:^12.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   bin:
     aztec-node: ./dest/bin/index.js
@@ -207,7 +207,7 @@ __metadata:
     ts-loader: "npm:^9.4.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     util: "npm:^0.12.5"
     viem: "npm:2.23.7"
   languageName: unknown
@@ -228,7 +228,7 @@ __metadata:
     eslint-plugin-import: "npm:^2.27.5"
     prettier: "npm:^2.8.8"
     typedoc: "npm:^0.24.8"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -276,7 +276,7 @@ __metadata:
     koa: "npm:^2.16.1"
     koa-router: "npm:^12.0.0"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   bin:
     aztec: ./dest/bin/index.js
@@ -303,7 +303,7 @@ __metadata:
     serve: "npm:^14.2.1"
     ts-loader: "npm:^9.5.1"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     webpack: "npm:^5.99.6"
     webpack-cli: "npm:^6.0.1"
     webpack-dev-server: "npm:^5.2.1"
@@ -340,7 +340,7 @@ __metadata:
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   bin:
     bb-cli: ./dest/bb/index.js
@@ -376,7 +376,7 @@ __metadata:
     jest: "npm:^29.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -403,7 +403,7 @@ __metadata:
     supertest: "npm:^7.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   bin:
@@ -434,7 +434,7 @@ __metadata:
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -451,7 +451,7 @@ __metadata:
     commander: "npm:^12.1.0"
     jest: "npm:^29.5.0"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   bin:
     aztec-builder: dest/bin/cli.js
   languageName: unknown
@@ -484,7 +484,7 @@ __metadata:
     ts-jest: "npm:^29.1.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   bin:
     aztec-wallet: ./dest/bin/index.js
   languageName: unknown
@@ -526,7 +526,7 @@ __metadata:
     ts-jest: "npm:^29.1.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   peerDependencies:
     "@aztec/accounts": "workspace:^"
@@ -553,7 +553,7 @@ __metadata:
     prettier: "npm:^2.8.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -640,7 +640,7 @@ __metadata:
     ts-loader: "npm:^9.4.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     util: "npm:^0.12.5"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
@@ -660,7 +660,7 @@ __metadata:
     jest: "npm:^29.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -682,7 +682,7 @@ __metadata:
     jest-mock-extended: "npm:^3.0.7"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
@@ -705,7 +705,7 @@ __metadata:
     lodash.omit: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
@@ -764,7 +764,7 @@ __metadata:
     sha3: "npm:^2.1.4"
     supertest: "npm:^6.3.3"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     undici: "npm:^5.28.5"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
@@ -811,7 +811,7 @@ __metadata:
     ts-loader: "npm:^9.5.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     webpack: "npm:^5.99.6"
     webpack-cli: "npm:^6.0.1"
     webpack-dev-server: "npm:^5.2.1"
@@ -832,7 +832,7 @@ __metadata:
     jest: "npm:^29.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -867,7 +867,7 @@ __metadata:
     ordered-binary: "npm:^1.5.3"
     sinon: "npm:^19.0.2"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -878,7 +878,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -897,7 +897,7 @@ __metadata:
     sha256: "npm:^0.2.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -914,7 +914,7 @@ __metadata:
     jest: "npm:^29.5.0"
     msgpackr: "npm:^1.11.2"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -947,7 +947,7 @@ __metadata:
     jest-mock-extended: "npm:^3.0.3"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -968,7 +968,7 @@ __metadata:
     jest: "npm:^29.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -1026,7 +1026,7 @@ __metadata:
     jest: "npm:^29.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -1041,7 +1041,7 @@ __metadata:
     jest: "npm:^29.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -1070,7 +1070,7 @@ __metadata:
     koa-router: "npm:^12.0.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -1123,7 +1123,7 @@ __metadata:
     snappy: "npm:^7.2.2"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     uint8arrays: "npm:^5.0.3"
     viem: "npm:2.23.7"
     xxhash-wasm: "npm:^1.1.0"
@@ -1149,7 +1149,7 @@ __metadata:
     ts-loader: "npm:^9.4.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 
@@ -1185,7 +1185,7 @@ __metadata:
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -1222,7 +1222,7 @@ __metadata:
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
@@ -1259,7 +1259,7 @@ __metadata:
     sha3: "npm:^2.1.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   bin:
     pxe: ./dest/bin/index.js
@@ -1281,7 +1281,7 @@ __metadata:
     lodash.pick: "npm:^4.4.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
   bin:
     docs-preview-comment: ./dest/bin/docs-preview.js
   languageName: unknown
@@ -1330,7 +1330,7 @@ __metadata:
     prettier: "npm:^2.8.7"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
@@ -1364,7 +1364,7 @@ __metadata:
     lodash.merge: "npm:^4.6.2"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
@@ -1401,7 +1401,7 @@ __metadata:
     prettier: "npm:^2.8.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
   languageName: unknown
@@ -1433,7 +1433,7 @@ __metadata:
     jest: "npm:^29.5.0"
     prom-client: "npm:^15.1.3"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
@@ -1462,7 +1462,7 @@ __metadata:
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
     ts-node: "npm:^10.9.1"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     zod: "npm:^3.23.8"
   bin:
     txe: ./dest/bin/index.js
@@ -1489,7 +1489,7 @@ __metadata:
     koa-router: "npm:^12.0.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
   bin:
     validator-client: ./dest/bin/index.js
@@ -1516,7 +1516,7 @@ __metadata:
     jest-mock-extended: "npm:^3.0.5"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.0.4"
+    typescript: "npm:^5.3.3"
     zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
@@ -20735,23 +20735,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^5.0.4":
-  version: 5.4.5
-  resolution: "typescript@npm:5.4.5"
+"typescript@npm:^5.3.3":
+  version: 5.8.3
+  resolution: "typescript@npm:5.8.3"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/d04a9e27e6d83861f2126665aa8d84847e8ebabcea9125b9ebc30370b98cb38b5dff2508d74e2326a744938191a83a69aa9fddab41f193ffa43eabfdf3f190a5
+  checksum: 10/65c40944c51b513b0172c6710ee62e951b70af6f75d5a5da745cb7fab132c09ae27ffdf7838996e3ed603bb015dadd099006658046941bd0ba30340cc563ae92
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^5.0.4#optional!builtin<compat/typescript>":
-  version: 5.4.5
-  resolution: "typescript@patch:typescript@npm%3A5.4.5#optional!builtin<compat/typescript>::version=5.4.5&hash=5adc0c"
+"typescript@patch:typescript@npm%3A^5.3.3#optional!builtin<compat/typescript>":
+  version: 5.8.3
+  resolution: "typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=5786d5"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10/760f7d92fb383dbf7dee2443bf902f4365db2117f96f875cf809167f6103d55064de973db9f78fe8f31ec08fff52b2c969aee0d310939c0a3798ec75d0bca2e1
+  checksum: 10/b9b1e73dabac5dc730c041325dbd9c99467c1b0d239f1b74ec3b90d831384af3e2ba973946232df670519147eb51a2c20f6f96163cea2b359f03de1e2091cc4f
   languageName: node
   linkType: hard
 
