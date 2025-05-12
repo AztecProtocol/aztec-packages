@@ -35,7 +35,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
 fi
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ] && [ "${GITHUB_ACTIONS:-}" == "true" ] && ! command redis-cli &>/dev/null; then
-  dump_fail "sudo apt update && sudo apt install -y redis-tools"
+  dump_fail "sudo apt update && sudo apt install -y redis-tools" >/dev/null
 fi
 
 # If redis isn't available, neither is the test cache.
