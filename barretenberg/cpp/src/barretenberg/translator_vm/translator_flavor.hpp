@@ -52,18 +52,18 @@ class TranslatorFlavor {
     // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
     // they become too small.
 
-    // The log of the full Translator circuit size. It determines MINI_CIRCUIT_SIZE and, in the current design,
-    // is the only Translator-related constant that can be modified.
-    static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
-
     // None of this parameters can be changed
 
     // How many mini_circuit_size polynomials are interleaved in one interleaved_*
     static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
-    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
-    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
-    // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = (1UL << CONST_TRANSLATOR_LOG_N) / INTERLEAVING_GROUP_SIZE;
+
+    // The fixed size of Translator circuit which also corresponds to the size of most polynomials (except the ones
+    // involved in the interleaving subprotocol)
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
+
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
+
+    static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
@@ -607,63 +607,12 @@ class TranslatorFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials() = default;
-
         /**
          * @brief ProverPolynomials constructor
-         * @details Attempts to initialize polynomials efficiently by using the actual size of the mini circuit rather
-         * than the fixed dydaic size.
-         *
-         * @param actual_mini_circuit_size Actual number of rows in the Translator circuit.
+         * @details Initialises wire polynomials efficiently to be only minicircuit size..
          */
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1318)
-        ProverPolynomials([[maybe_unused]] size_t actual_mini_circuit_size)
+        ProverPolynomials()
         {
-            // const size_t mini_circuit_size = MINI_CIRCUIT_SIZE;
-            // const size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
-
-            // for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
-            //     ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
-            //                                            /*virtual_size*/ circuit_size,
-            //                                            1 };
-            // }
-
-            // z_perm = Polynomial{ /*size*/ circuit_size - 1,
-            //                      /*virtual_size*/ circuit_size,
-            //                      /*start_index*/ 1 };
-
-            // // Initialize to be shifted wires based on actual size of the mini circuit
-            // for (auto& poly : get_wires_to_be_shifted()) {
-            //     poly = Polynomial{ /*size*/ actual_mini_circuit_size - 1,
-            //                        /*virtual_size*/ circuit_size,
-            //                        /*start_index*/ 1 };
-            // }
-
-            // // Initialize interleaved polys based on actual mini circuit size times number of polys to be interleaved
-            // const size_t actual_circuit_size = actual_mini_circuit_size * INTERLEAVING_GROUP_SIZE;
-            // for (auto& poly : get_interleaved()) {
-            //     poly = Polynomial{ actual_circuit_size, circuit_size };
-            // }
-
-            // // Initialize some one-off polys with special structure
-            // lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            // lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
-            // lagrange_even_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
-            // lagrange_odd_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
-
-            // // WORKTODO: why does limiting this to actual_mini_circuit_size not work?
-            // op = Polynomial{ circuit_size }; // Polynomial{ actual_mini_circuit_size, circuit_size };
-
-            // // Catch-all for the rest of the polynomials
-            // // WORKTODO: determine what exactly falls in here and be more specific (just the remaining precomputed?)
-            // for (auto& poly : get_unshifted()) {
-            //     if (poly.is_empty()) { // Only set those polys which were not already set above
-            //         poly = Polynomial{ circuit_size };
-            //     }
-            // }
-            // // Set all shifted polynomials based on their unshifted counterpart
-            // set_shifted();
 
             size_t circuit_size = MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE;
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
@@ -738,23 +687,12 @@ class TranslatorFlavor {
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
-        ProvingKey() = default;
-        // WORKTODO: this is a constructor used only in tests. We should get rid of it or make it a test-only method.
-        ProvingKey(const size_t dyadic_circuit_size, const size_t actual_mini_circuit_size)
-            : Base(dyadic_circuit_size, 0)
-            , polynomials(actual_mini_circuit_size)
-        {}
-
-        ProvingKey(const size_t dyadic_circuit_size,
-                   std::shared_ptr<CommitmentKey> commitment_key,
-                   const size_t actual_mini_circuit_size)
-            : Base(dyadic_circuit_size, 0, std::move(commitment_key))
-            , polynomials(actual_mini_circuit_size)
+        ProvingKey(std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+            : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
         {}
     };
 
@@ -781,12 +719,9 @@ class TranslatorFlavor {
             }
         }
 
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
