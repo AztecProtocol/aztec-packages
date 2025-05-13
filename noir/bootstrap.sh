@@ -222,6 +222,10 @@ function bump_noir_repo_ref {
   git fetch --depth 1 origin $branch || true
   git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
   scripts/sync.sh write-noir-repo-ref $ref
+
+  # Build nargo and run formatter on `noir-projects`
+  build_native
+  ../noir-projects/bootstrap.sh format
   git add .
   git commit -m "chore: Update noir-repo-ref to $ref" || true
   do_or_dryrun git push --set-upstream origin $branch
