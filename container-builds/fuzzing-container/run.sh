@@ -96,6 +96,7 @@ if [ -z "${fuzzer}" ]; then
 fi
 
 [[ -d crash-reports ]] || mkdir crash-reports;
+[[ -d crash-reports/unsorted ]] || mkdir crash-reports/unsorted;
 [[ -d output ]] || mkdir output;
 
 if [[ $verbosity == '1' ]]; then

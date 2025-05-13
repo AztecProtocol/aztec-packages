@@ -9,6 +9,8 @@ workdir="/home/fuzzer"
 
 CRASHES="$workdir/crash-reports"
 [[ -d "$CRASHES" ]] ||  mkdir "$CRASHES" 2> /dev/null
+UNSORTED_CRASHES="$CRASHES/unsorted"
+[[ -d "$UNSORTED_CRASHES" ]] || mkdir "$UNSORTED_CRASHES" 2> /dev/null
 
 OUTPUT="$workdir/output"
 [[ -d "$OUTPUT" ]] || mkdir "$OUTPUT" 2> /dev/null
@@ -116,18 +118,31 @@ fi
 [[ -d "$OUTPUT" ]] || mkdir "$OUTPUT"
 printf "Output directory is: %s\n" "$OUTPUT";
 
-# Test on the existing crashes
-if compgen -G "$CRASHES/*" &> /dev/null; then
-    for x in "$CRASHES"/*; do
-        "$post_fuzzer" "$x" &> /dev/null;
-        status=$?;
-        if [[ "$status" -ne 0 ]]; then
-            "$post_fuzzer" "$x" &> "$OUTPUT"/result.txt;
-            printf "Existing %s resulted in exit status %d\n" "$x" "$status";
-            exit 1;
-        fi
-    done;
+regress() {
+    src="$1"
+    echo "Entering $src...";
+    if compgen -G "$src/*" &> /dev/null; then
+        for x in "$src"/*; do
+            echo "Testing $x"
+            "$main_fuzzer" "$x" &> /dev/null;
+            status=$?;
+            if [[ "$status" -ne 0 ]]; then
+                "$post_fuzzer" "$x" &> "$OUTPUT"/result.txt;
+                cp "$x" "$OUTPUT";
+                cp "$x" "$CRASHES" 2>/dev/null;
+                printf "Existing %s resulted in exit status %d\n" "$x" "$status";
+                exit 1;
+            fi
+        done;
+    echo "Leaving $src..."
+    echo;
 fi
+}
+
+echo "Start regression testing"
+regress "$CRASHES";
+regress "$UNSORTED_CRASHES";
+echo "End of regression"
 
 fuzz() {
     TMPOUT="$(mktemp -d)"
