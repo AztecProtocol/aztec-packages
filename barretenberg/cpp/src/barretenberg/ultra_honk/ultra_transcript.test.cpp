@@ -184,7 +184,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     }
 };
 
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 using FlavorTypes = ::testing::Types<UltraFlavor,
                                      UltraKeccakFlavor,
                                      UltraStarknetFlavor,

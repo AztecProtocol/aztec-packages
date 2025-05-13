@@ -19,7 +19,7 @@ namespace bb {
 class StandardFlavor;
 class UltraFlavor;
 class UltraKeccakFlavor;
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 class UltraStarknetFlavor;
 #endif
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 #include "barretenberg/ext/starknet/ecc/curves/stark252/stark252.hpp"
 
 namespace bb::starknet::crypto {

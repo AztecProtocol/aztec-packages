@@ -64,7 +64,7 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
 using UltraProver = UltraProver_<UltraFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 using UltraStarknetProver = UltraProver_<UltraStarknetFlavor>;
 using UltraStarknetZKProver = UltraProver_<UltraStarknetZKFlavor>;
 #endif

@@ -1,4 +1,4 @@
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 #include "poseidon.hpp"
 
 namespace bb::starknet::crypto {

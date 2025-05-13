@@ -90,7 +90,7 @@ template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::construct_pr
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 template class UltraProver_<UltraStarknetFlavor>;
 template class UltraProver_<UltraStarknetZKFlavor>;
 #endif

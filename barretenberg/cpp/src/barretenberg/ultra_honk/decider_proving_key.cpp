@@ -337,7 +337,7 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 template class DeciderProvingKey_<UltraFlavor>;
 template class DeciderProvingKey_<UltraZKFlavor>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 template class DeciderProvingKey_<UltraStarknetFlavor>;
 template class DeciderProvingKey_<UltraStarknetZKFlavor>;
 #endif

@@ -1,4 +1,4 @@
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 #pragma once
 
 #include "barretenberg/crypto/poseidon2/sponge/sponge.hpp"

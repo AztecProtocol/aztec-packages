@@ -1,5 +1,5 @@
 
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
 #include "poseidon_permutation.hpp"
 #include "barretenberg/ext/starknet/ecc/curves/stark252/stark252.hpp"
 #include "poseidon_params.hpp"

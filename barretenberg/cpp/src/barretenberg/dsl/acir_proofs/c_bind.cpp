@@ -282,7 +282,7 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
                                                 [[maybe_unused]] uint8_t const* witness_vec,
                                                 [[maybe_unused]] uint8_t** out)
 {
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
     // Lambda function to ensure things get freed before proving.
     UltraStarknetProver prover = [&] {
         const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
@@ -344,7 +344,7 @@ WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const*
                                                  [[maybe_unused]] uint8_t const* vk_buf,
                                                  [[maybe_unused]] bool* result)
 {
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
     using Verifier = UltraVerifier_<UltraStarknetFlavor>;
 
@@ -415,7 +415,7 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_zk_honk(uint8_t const* acir_vec, uin
 WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t const* acir_vec,
                                                    [[maybe_unused]] uint8_t** out)
 {
-#if 1
+#ifdef STARKNET_GARAGA_FLAVORS
     using DeciderProvingKey = DeciderProvingKey_<UltraStarknetFlavor>;
     using VerificationKey = UltraStarknetFlavor::VerificationKey;
 
