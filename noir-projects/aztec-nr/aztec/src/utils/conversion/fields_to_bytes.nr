@@ -128,7 +128,7 @@ mod tests {
         // Obtain the byte representation of the maximum field value
         let max_field_value_as_bytes: [u8; 32] = (-1).to_be_bytes();
 
-        let byte_to_bump = max_field_value_as_bytes[index_of_byte_to_bump];
+        let byte_to_bump = max_field_value_as_bytes[index_of_byte_to_bump as u32];
 
         // Skip test execution if the selected byte is already at maximum value (255).
         // This is acceptable since we are using fuzz testing to generate many test cases.

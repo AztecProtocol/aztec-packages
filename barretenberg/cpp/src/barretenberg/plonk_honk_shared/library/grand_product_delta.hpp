@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include <span>
@@ -54,12 +60,16 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     Field numerator_acc = gamma + (beta * Field(domain_size + offset));
     Field denominator_acc = gamma - beta * Field(1 + offset);
 
-    for (const auto& x_i : public_inputs) {
-        numerator *= (numerator_acc + x_i);     // γ + xᵢ + β(n+i)
-        denominator *= (denominator_acc + x_i); // γ + xᵢ - β(1+i)
+    for (size_t i = 0; i < public_inputs.size(); i++) {
+        numerator *= (numerator_acc + public_inputs[i]);     // γ + xᵢ + β(n+i)
+        denominator *= (denominator_acc + public_inputs[i]); // γ + xᵢ - β(1+i)
 
-        numerator_acc += beta;
-        denominator_acc -= beta;
+        // To avoid introducing extra variables in the circuit, we skip numeratoc_acc
+        // and denominator_acc in the final loop iteration, since their values won't be used
+        if (i < public_inputs.size() - 1) {
+            numerator_acc += beta;
+            denominator_acc -= beta;
+        }
     }
     return numerator / denominator;
 }

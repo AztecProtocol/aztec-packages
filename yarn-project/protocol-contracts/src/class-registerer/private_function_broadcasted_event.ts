@@ -17,7 +17,7 @@ export class PrivateFunctionBroadcastedEvent {
   constructor(
     public readonly contractClassId: Fr,
     public readonly artifactMetadataHash: Fr,
-    public readonly unconstrainedFunctionsArtifactTreeRoot: Fr,
+    public readonly utilityFunctionsTreeRoot: Fr,
     public readonly privateFunctionTreeSiblingPath: Tuple<Fr, typeof FUNCTION_TREE_HEIGHT>,
     public readonly privateFunctionTreeLeafIndex: number,
     public readonly artifactFunctionTreeSiblingPath: Tuple<Fr, typeof ARTIFACT_FUNCTION_TREE_MAX_HEIGHT>,
@@ -26,11 +26,11 @@ export class PrivateFunctionBroadcastedEvent {
   ) {}
 
   static isPrivateFunctionBroadcastedEvent(log: ContractClassLog) {
-    return log.fields[0].equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG);
+    return log.fields.fields[0].equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG);
   }
 
   static fromLog(log: ContractClassLog) {
-    const reader = new FieldReader(log.fields.slice(1));
+    const reader = new FieldReader(log.fields.fields.slice(1));
     const event = PrivateFunctionBroadcastedEvent.fromFields(reader);
     while (!reader.isFinished()) {
       const field = reader.readField();
@@ -46,7 +46,7 @@ export class PrivateFunctionBroadcastedEvent {
     const reader = FieldReader.asReader(fields);
     const contractClassId = reader.readField();
     const artifactMetadataHash = reader.readField();
-    const unconstrainedFunctionsArtifactTreeRoot = reader.readField();
+    const utilityFunctionsTreeRoot = reader.readField();
     const privateFunctionTreeSiblingPath = reader.readFieldArray(FUNCTION_TREE_HEIGHT);
     const privateFunctionTreeLeafIndex = reader.readField().toNumber();
     const artifactFunctionTreeSiblingPath = reader.readFieldArray(ARTIFACT_FUNCTION_TREE_MAX_HEIGHT);
@@ -56,7 +56,7 @@ export class PrivateFunctionBroadcastedEvent {
     return new PrivateFunctionBroadcastedEvent(
       contractClassId,
       artifactMetadataHash,
-      unconstrainedFunctionsArtifactTreeRoot,
+      utilityFunctionsTreeRoot,
       privateFunctionTreeSiblingPath,
       privateFunctionTreeLeafIndex,
       artifactFunctionTreeSiblingPath,
@@ -71,7 +71,7 @@ export class PrivateFunctionBroadcastedEvent {
       bytecode: this.privateFunction.bytecode,
       functionMetadataHash: this.privateFunction.metadataHash,
       artifactMetadataHash: this.artifactMetadataHash,
-      unconstrainedFunctionsArtifactTreeRoot: this.unconstrainedFunctionsArtifactTreeRoot,
+      utilityFunctionsTreeRoot: this.utilityFunctionsTreeRoot,
       privateFunctionTreeSiblingPath: this.privateFunctionTreeSiblingPath,
       privateFunctionTreeLeafIndex: this.privateFunctionTreeLeafIndex,
       artifactTreeSiblingPath: this.artifactFunctionTreeSiblingPath.filter(fr => !fr.isZero()),

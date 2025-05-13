@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -25,18 +31,16 @@ class ECCVMProver {
     using Polynomial = typename Flavor::Polynomial;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
+    using TranslationEvaluations = bb::TranslationEvaluations_<FF>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const bool fixed_size = false,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
-    BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
     BB_PROFILE void execute_log_derivative_commitments_round();
     BB_PROFILE void execute_grand_product_computation_round();
@@ -55,7 +59,6 @@ class ECCVMProver {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
-    bool fixed_size;
     size_t unmasked_witness_size;
 
     // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a

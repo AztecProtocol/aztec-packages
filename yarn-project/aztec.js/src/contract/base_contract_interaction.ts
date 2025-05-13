@@ -49,8 +49,7 @@ export abstract class BaseContractInteraction {
    */
   protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
     const txRequest = await this.create(options);
-    const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
-    return await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+    return await this.wallet.proveTx(txRequest);
   }
 
   // docs:start:prove
@@ -62,13 +61,13 @@ export abstract class BaseContractInteraction {
   public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
-    return new ProvenTx(this.wallet, txProvingResult.toTx());
+    return new ProvenTx(this.wallet, txProvingResult.toTx(), txProvingResult.timings);
   }
 
   // docs:start:send
   /**
    * Sends a transaction to the contract function with the specified options.
-   * This function throws an error if called on an unconstrained function.
+   * This function throws an error if called on a utility function.
    * It creates and signs the transaction if necessary, and returns a SentTx instance,
    * which can be used to track the transaction status, receipt, and events.
    * @param options - An optional object containing 'from' property representing
@@ -92,7 +91,7 @@ export abstract class BaseContractInteraction {
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    opts?: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });

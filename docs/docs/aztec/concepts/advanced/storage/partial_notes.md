@@ -113,7 +113,7 @@ We also need to create a point for the owner of the FPC (whom we call Bob) to re
 So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg sender})$.
 
 :::warning
-We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L491) of `setup_refund` function)
+We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L491) of `setup_refund` function)
 :::
 
 $$
@@ -144,14 +144,14 @@ We can see the complete implementation of creating and completing partial notes 
 
 #### `fee_entrypoint_private`
 
-#include_code fee_entrypoint_private noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
+#include_code fee_entrypoint_private noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 The `fee_entrypoint_private` function sets the `complete_refund` function to be called at the end of the public function execution (`set_public_teardown_function`).
 This ensures that the refund partial note will be completed for the user.
 
 #### `complete_refund`
 
-#include_code complete_refund noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
+#include_code complete_refund noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 ## Note discovery
 

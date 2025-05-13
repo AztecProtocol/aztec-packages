@@ -126,7 +126,7 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
     ContractInstance instance = {};
-    instance.contract_class_id = class_id;
+    instance.current_class_id = class_id;
     bc_trace_builder.process_retrieval({ { .bytecode_id = 0,
                                            .address = 1,
                                            .siloed_address = 2,

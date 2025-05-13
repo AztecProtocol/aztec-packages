@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::goblin {
@@ -23,7 +29,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
 template <typename CircuitBuilder>
-std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
+MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const StdlibProof<CircuitBuilder>& proof)
 {
     // Transform proof into a stdlib object
@@ -34,7 +40,6 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> t_commitments;
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
-    std::array<Commitment, NUM_WIRES> T_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         std::string suffix = std::to_string(idx);
         t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
@@ -91,7 +96,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 
     auto pairing_points = KZG::reduce_verify(batched_claim, transcript);
 
-    return pairing_points;
+    return { pairing_points[0], pairing_points[1] };
 }
 
 template class MergeRecursiveVerifier_<MegaCircuitBuilder>;

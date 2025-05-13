@@ -11,9 +11,9 @@ import {
   createLogger,
 } from '@aztec/aztec.js';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
+import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 
 import { jest } from '@jest/globals';
 
@@ -67,7 +67,7 @@ export class BlacklistTokenContractTest {
   accounts: CompleteAddress[] = [];
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
-  badAccount!: DocsExampleContract;
+  badAccount!: InvalidAccountContract;
 
   admin!: AccountWallet;
   other!: AccountWallet;
@@ -119,7 +119,7 @@ export class BlacklistTokenContractTest {
         this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         await this.mineBlocks();
@@ -138,7 +138,7 @@ export class BlacklistTokenContractTest {
           this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(

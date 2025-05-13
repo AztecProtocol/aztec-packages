@@ -6,7 +6,6 @@ aztec:
   numberOfDefaultAccounts: 0
 
 network:
-  setupL2Contracts: false
   public: false
 
 ethereum:

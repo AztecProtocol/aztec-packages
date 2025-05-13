@@ -3,7 +3,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "aztec-network.fullname" . }}-upload-snapshots-cron-job
+  name: {{ include "aztec-network.fullname" . }}-snapshots-cron-job
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:

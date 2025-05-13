@@ -10,7 +10,7 @@ import {
   isBooleanConfigValue,
   omitConfigMappings,
 } from '@aztec/foundation/config';
-import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
+import { type P2PConfig, bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
@@ -347,6 +347,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
         ...(Object.keys(archiverConfigMappings) as (keyof ArchiverConfig)[]),
         ...(Object.keys(proverBrokerConfigMappings) as (keyof ProverBrokerConfig)[]),
         ...(Object.keys(proverAgentConfigMappings) as (keyof ProverAgentConfig)[]),
+        ...(Object.keys(p2pConfigMappings) as (keyof P2PConfig)[]),
       ]),
     ),
   ],
@@ -379,7 +380,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
-    ...getOptions('p2pBootstrap', bootnodeConfigMappings),
+    ...getOptions(
+      'p2pBootstrap',
+      omitConfigMappings(bootnodeConfigMappings, [
+        'p2pIp',
+        'p2pPort',
+        'peerIdPrivateKey',
+        'bootstrapNodes',
+        'listenAddress',
+      ]),
+    ),
   ],
   BOT: [
     {

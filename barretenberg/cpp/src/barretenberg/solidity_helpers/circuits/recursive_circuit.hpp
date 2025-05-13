@@ -38,7 +38,7 @@ class RecursiveCircuit {
     using VerifierOfInnerProof = plonk::UltraVerifier;
 
     struct circuit_outputs {
-        stdlib::recursion::aggregation_state<outer_curve> aggregation_state;
+        stdlib::recursion::PairingPoints<Builder> pairing_points;
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
@@ -142,10 +142,10 @@ class RecursiveCircuit {
     {
         auto g2_lines = bb::srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
         g1::affine_element P[2];
-        P[0].x = outer_scalar_field(circuit_output.aggregation_state.P0.x.get_value().lo);
-        P[0].y = outer_scalar_field(circuit_output.aggregation_state.P0.y.get_value().lo);
-        P[1].x = outer_scalar_field(circuit_output.aggregation_state.P1.x.get_value().lo);
-        P[1].y = outer_scalar_field(circuit_output.aggregation_state.P1.y.get_value().lo);
+        P[0].x = outer_scalar_field(circuit_output.pairing_points.P0.x.get_value().lo);
+        P[0].y = outer_scalar_field(circuit_output.pairing_points.P0.y.get_value().lo);
+        P[1].x = outer_scalar_field(circuit_output.pairing_points.P1.x.get_value().lo);
+        P[1].y = outer_scalar_field(circuit_output.pairing_points.P1.y.get_value().lo);
         pairing_target_field inner_proof_result = bb::pairing::reduced_ate_pairing_batch_precomputed(P, g2_lines, 2);
         if (inner_proof_result != pairing_target_field::one()) {
             throw_or_abort("inner proof result != 1");
@@ -162,7 +162,7 @@ class RecursiveCircuit {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.pairing_points.assign_object_to_proof_outputs_for_plonk();
         if (outer_circuit.failed()) {
             throw_or_abort("outer composer failed");
         }

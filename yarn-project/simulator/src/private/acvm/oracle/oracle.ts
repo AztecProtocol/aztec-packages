@@ -1,7 +1,7 @@
 import { Fr, Point } from '@aztec/foundation/fields';
 import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
+import { ContractClassLog, ContractClassLogFields, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -288,10 +288,11 @@ export class Oracle {
   notifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
     message: ACVMField[],
+    [length]: ACVMField[],
     [counter]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const logPayload = message.map(Fr.fromString);
-    const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logPayload);
+    const logFields = new ContractClassLogFields(message.map(Fr.fromString));
+    const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logFields, +length);
 
     this.typedOracle.notifyCreatedContractClassLog(log, +counter);
     return Promise.resolve([]);
@@ -398,7 +399,7 @@ export class Oracle {
       fromBoundedVec(content, contentLength),
       Fr.fromString(noteHash),
       Fr.fromString(nullifier),
-      Fr.fromString(txHash),
+      TxHash.fromString(txHash),
       AztecAddress.fromString(recipient),
     );
 
@@ -496,18 +497,20 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [recipient]: ACVMField[],
     [eventSelector]: ACVMField[],
-    logContentBVecStorage: ACVMField[],
-    [logContentLength]: ACVMField[],
+    msgContentBVecStorage: ACVMField[],
+    [msgContentLength]: ACVMField[],
     [txHash]: ACVMField[],
     [logIndexInTx]: ACVMField[],
+    [txIndexInBlock]: ACVMField[],
   ) {
     await this.typedOracle.storePrivateEventLog(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       AztecAddress.fromField(Fr.fromString(recipient)),
       EventSelector.fromField(Fr.fromString(eventSelector)),
-      fromBoundedVec(logContentBVecStorage, logContentLength),
+      fromBoundedVec(msgContentBVecStorage, msgContentLength),
       new TxHash(Fr.fromString(txHash)),
       Fr.fromString(logIndexInTx).toNumber(),
+      Fr.fromString(txIndexInBlock).toNumber(),
     );
     return [];
   }

@@ -6,8 +6,8 @@ import solc from "solc";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 440;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 491;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 456;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 507;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -225,19 +225,11 @@ try {
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
 
-  let publicInputsAsFieldsPath; // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
-  try {
-    publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
-  } catch (e) {
-    // noop
-  }
+  let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
+    "PUBLIC_INPUTS_AS_FIELDS"
+  ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
   var publicInputs;
-  let proofAsFieldsPath; // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
-  try {
-    proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-  } catch (e) {
-    // noop
-  }
+  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
   let numExtraPublicInputs = 0;
   let extraPublicInputs = [];
   if (proofAsFieldsPath) {
@@ -246,10 +238,6 @@ try {
     [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
       JSON.parse(proofAsFields.toString())
     );
-    if (testingHonk) {
-      // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
-      proofStr = proofStr.substring(8);
-    }
   }
   // We need to do this because plonk doesn't define this path
   if (publicInputsAsFieldsPath) {
@@ -262,7 +250,6 @@ try {
     // for plonk, the extraPublicInputs are all of the public inputs
     publicInputs = extraPublicInputs;
   }
-
   proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 

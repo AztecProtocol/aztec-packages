@@ -14,7 +14,6 @@ import {
 } from '@aztec/protocol-contracts';
 import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
 import {
-  type AbiDecoded,
   type ContractArtifact,
   EventSelector,
   FunctionCall,
@@ -26,7 +25,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -54,17 +53,20 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
+  type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
+  type ProvingTimings,
   PublicSimulationOutput,
+  type SimulationTimings,
   Tx,
-  type TxEffect,
   TxExecutionRequest,
   type TxHash,
   TxProfileResult,
   TxProvingResult,
   type TxReceipt,
   TxSimulationResult,
+  UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 
 import { inspect } from 'util';
@@ -91,6 +93,8 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  * A Private eXecution Environment (PXE) implementation.
  */
 export class PXEService implements PXE {
+  #nodeInfo?: NodeInfo;
+
   private constructor(
     private node: AztecNode,
     private synchronizer: Synchronizer,
@@ -209,7 +213,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.node.getTxEffect(txHash);
   }
 
@@ -343,29 +347,16 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
-   * Returns the simulation result containing the outputs of the unconstrained function.
-   *
-   * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns The simulation result containing the outputs of the unconstrained function.
+   * Simulate a utility function call on the given contract.
+   * @param call - The function call to execute.
+   * @param authWitnesses - Authentication witnesses required for the function call.
+   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
+   * accounts if not specified.
+   * @returns The simulation result containing the outputs of the utility function.
    */
-  async #simulateUnconstrained(execRequest: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
-    const { to: contractAddress, selector: functionSelector } = execRequest;
-
-    this.log.debug('Executing unconstrained simulator...');
+  async #simulateUtility(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
     try {
-      const result = await this.simulator.runUnconstrained(
-        execRequest,
-        contractAddress,
-        functionSelector,
-        authWitnesses ?? [],
-        scopes,
-      );
-      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
-
-      return result;
+      return this.simulator.runUtility(call, authWitnesses ?? [], scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractDataProvider, this.log);
@@ -661,23 +652,52 @@ export class PXEService implements PXE {
 
   public proveTx(
     txRequest: TxExecutionRequest,
-    privateExecutionResult: PrivateExecutionResult,
+    privateExecutionResult?: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
     return this.#putInJobQueue(async () => {
+      const totalTimer = new Timer();
       try {
-        const { publicInputs, clientIvcProof } = await this.#prove(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-          {
-            simulate: false,
-            skipFeeEnforcement: false,
-            profileMode: 'none',
-          },
-        );
-        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
+        let syncTime: number | undefined;
+        if (!privateExecutionResult) {
+          const syncTimer = new Timer();
+          await this.synchronizer.sync();
+          syncTime = syncTimer.ms();
+          privateExecutionResult = await this.#executePrivate(txRequest);
+        }
+        const {
+          publicInputs,
+          clientIvcProof,
+          executionSteps,
+          timings: { proving } = {},
+        } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+          simulate: false,
+          skipFeeEnforcement: false,
+          profileMode: 'none',
+        });
+
+        const totalTime = totalTimer.ms();
+
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+          functionName,
+          time: witgen,
+        }));
+
+        const timings: ProvingTimings = {
+          total: totalTime,
+          sync: syncTime,
+          proving,
+          perFunction,
+          unaccounted:
+            totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
+        };
+
+        this.log.info(`Proving completed in ${totalTime}ms`, {
+          timings,
+        });
+
+        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, timings);
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       }
@@ -687,10 +707,12 @@ export class PXEService implements PXE {
   public profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'full' | 'execution-steps' | 'gates',
+    skipProofGeneration: boolean = true,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async () => {
+      const totalTimer = new Timer();
       try {
         const txInfo = {
           origin: txRequest.origin,
@@ -705,16 +727,48 @@ export class PXEService implements PXE {
           `Profiling transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
           txInfo,
         );
+        const syncTimer = new Timer();
         await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
+
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
 
-        const { executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-          simulate: true,
-          skipFeeEnforcement: false,
-          profileMode,
-        });
+        const { executionSteps, timings: { proving } = {} } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+          {
+            simulate: skipProofGeneration,
+            skipFeeEnforcement: false,
+            profileMode,
+          },
+        );
 
-        return new TxProfileResult(executionSteps);
+        const totalTime = totalTimer.ms();
+
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+          functionName,
+          time: witgen,
+        }));
+
+        // Gate computation is time is not relevant for profiling, so we subtract it from the total time.
+        const gateCountComputationTime =
+          executionSteps.reduce((acc, { timings }) => acc + (timings.gateCount ?? 0), 0) ?? 0;
+
+        const timings: ProvingTimings = {
+          total: totalTime - gateCountComputationTime,
+          sync: syncTime,
+          proving,
+          perFunction,
+          unaccounted:
+            totalTime -
+            ((syncTime ?? 0) +
+              (proving ?? 0) +
+              perFunction.reduce((acc, { time }) => acc + time, 0) +
+              gateCountComputationTime),
+        };
+
+        return new TxProfileResult(executionSteps, timings);
       } catch (err: any) {
         throw this.#contextualizeError(
           err,
@@ -740,6 +794,7 @@ export class PXEService implements PXE {
     // delete the same read value, or reading values that another simulation is currently modifying).
     return this.#putInJobQueue(async () => {
       try {
+        const totalTimer = new Timer();
         const txInfo = {
           origin: txRequest.origin,
           functionSelector: txRequest.functionSelector,
@@ -753,32 +808,67 @@ export class PXEService implements PXE {
           `Simulating transaction execution request to ${txRequest.functionSelector} at ${txRequest.origin}`,
           txInfo,
         );
-        const timer = new Timer();
+        const syncTimer = new Timer();
         await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
+
         const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-        const { publicInputs } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-          simulate: true,
-          skipFeeEnforcement,
-          profileMode: 'none',
-        });
+        const { publicInputs, executionSteps } = await this.#prove(
+          txRequest,
+          this.proofCreator,
+          privateExecutionResult,
+          {
+            simulate: true,
+            skipFeeEnforcement,
+            profileMode: 'none',
+          },
+        );
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
         const simulatedTx = privateSimulationResult.toSimulatedTx();
+        let publicSimulationTime: number | undefined;
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
+          const publicSimulationTimer = new Timer();
           publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
+          publicSimulationTime = publicSimulationTimer.ms();
         }
 
+        let validationTime: number | undefined;
         if (!skipTxValidation) {
+          const validationTimer = new Timer();
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+          validationTime = validationTimer.ms();
           if (validationResult.result === 'invalid') {
             throw new Error('The simulated transaction is unable to be added to state and is invalid.');
           }
         }
 
         const txHash = await simulatedTx.getTxHash();
-        this.log.info(`Simulation completed for ${txHash.toString()} in ${timer.ms()}ms`, {
+
+        const totalTime = totalTimer.ms();
+
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+          functionName,
+          time: witgen,
+        }));
+
+        const timings: SimulationTimings = {
+          total: totalTime,
+          sync: syncTime,
+          publicSimulation: publicSimulationTime,
+          validation: validationTime,
+          perFunction,
+          unaccounted:
+            totalTime -
+            (syncTime +
+              (publicSimulationTime ?? 0) +
+              (validationTime ?? 0) +
+              perFunction.reduce((acc, { time }) => acc + time, 0)),
+        };
+
+        this.log.info(`Simulation completed for ${txHash.toString()} in ${totalTime}ms`, {
           txHash,
           ...txInfo,
           ...(publicOutput
@@ -788,9 +878,14 @@ export class PXEService implements PXE {
                 revertReason: publicOutput.revertReason,
               }
             : {}),
+          timings,
         });
 
-        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput);
+        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
+          privateSimulationResult,
+          publicOutput,
+          timings,
+        );
       } catch (err: any) {
         throw this.#contextualizeError(
           err,
@@ -817,31 +912,46 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public simulateUnconstrained(
+  public simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
     _from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<AbiDecoded> {
+  ): Promise<UtilitySimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
     // to the capsules), and we need to prevent concurrent runs from interfering with one another (e.g. attempting to
     // delete the same read value, or reading values that another simulation is currently modifying).
     return this.#putInJobQueue(async () => {
       try {
+        const totalTimer = new Timer();
+        const syncTimer = new Timer();
         await this.synchronizer.sync();
+        const syncTime = syncTimer.ms();
         // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
-        const executionResult = await this.#simulateUnconstrained(functionCall, authwits ?? [], scopes);
+        const functionTimer = new Timer();
+        const executionResult = await this.#simulateUtility(functionCall, authwits ?? [], scopes);
+        const functionTime = functionTimer.ms();
 
-        // TODO - Return typed result based on the function artifact.
-        return executionResult;
+        const totalTime = totalTimer.ms();
+
+        const perFunction = [{ functionName, time: functionTime }];
+
+        const timings: SimulationTimings = {
+          total: totalTime,
+          sync: syncTime,
+          perFunction,
+          unaccounted: totalTime - (syncTime + perFunction.reduce((acc, { time }) => acc + time, 0)),
+        };
+
+        return { result: executionResult, timings };
       } catch (err: any) {
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
           err,
-          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `simulateUtility ${to}:${functionName}(${stringifiedArgs})`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }
@@ -849,25 +959,31 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.node.getNodeVersion(),
-      this.node.getVersion(),
-      this.node.getChainId(),
-      this.node.getEncodedEnr(),
-      this.node.getL1ContractAddresses(),
-      this.node.getProtocolContractAddresses(),
-    ]);
+    // This assumes we're connected to a single node, so we cache the info to avoid repeated calls.
+    // Load balancers and a myriad other configurations can break this assumption, so review this!
+    // Temporary mesure to avoid hammering full nodes with requests on testnet.
+    if (!this.#nodeInfo) {
+      const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+        await Promise.all([
+          this.node.getNodeVersion(),
+          this.node.getVersion(),
+          this.node.getChainId(),
+          this.node.getEncodedEnr(),
+          this.node.getL1ContractAddresses(),
+          this.node.getProtocolContractAddresses(),
+        ]);
 
-    const nodeInfo: NodeInfo = {
-      nodeVersion,
-      l1ChainId: chainId,
-      rollupVersion,
-      enr,
-      l1ContractAddresses: contractAddresses,
-      protocolContractAddresses: protocolContractAddresses,
-    };
+      this.#nodeInfo = {
+        nodeVersion,
+        l1ChainId: chainId,
+        rollupVersion,
+        enr,
+        l1ContractAddresses: contractAddresses,
+        protocolContractAddresses: protocolContractAddresses,
+      };
+    }
 
-    return nodeInfo;
+    return this.#nodeInfo;
   }
 
   public getPXEInfo(): Promise<PXEInfo> {
@@ -896,7 +1012,7 @@ export class PXEService implements PXE {
     this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
     // TODO(#13113): This is a temporary hack to ensure that the notes are synced before getting the events.
-    await this.simulateUnconstrained('sync_notes', [], contractAddress);
+    await this.simulateUtility('sync_notes', [], contractAddress);
 
     const events = await this.privateEventDataProvider.getPrivateEvents(
       contractAddress,
@@ -921,19 +1037,19 @@ export class PXEService implements PXE {
       .map(log => {
         // +1 for the event selector
         const expectedLength = eventMetadataDef.fieldNames.length + 1;
-        const logFields = log.log.log.slice(0, expectedLength);
+        if (log.log.emittedLength !== expectedLength) {
+          throw new Error(
+            `Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length. Expected ${expectedLength}. Got ${log.log.emittedLength}.`,
+          );
+        }
+
+        const logFields = log.log.getEmittedFields();
         // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
         if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadataDef.eventSelector)) {
           return undefined;
         }
-        // If any of the remaining fields, are non-zero, the payload does match expected:
-        if (log.log.log.slice(expectedLength + 1).find(f => !f.isZero())) {
-          throw new Error(
-            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
-          );
-        }
 
-        return decodeFromAbi([eventMetadataDef.abiType], log.log.log) as T;
+        return decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T;
       })
       .filter(log => log !== undefined) as T[];
 

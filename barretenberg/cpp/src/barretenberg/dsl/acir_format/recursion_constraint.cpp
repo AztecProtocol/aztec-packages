@@ -1,8 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "recursion_constraint.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib/plonk_recursion/verifier/verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
@@ -17,7 +23,7 @@ using verification_key_ct = stdlib::recursion::verification_key<bn254>;
 using field_ct = stdlib::field_t<Builder>;
 using Composer = plonk::UltraComposer;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = stdlib::recursion::aggregation_state<bn254>;
+using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
 
 using namespace plonk;
 
@@ -44,11 +50,11 @@ void generate_dummy_proof() {}
 PairingPointAccumulatorIndices create_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
-    const PairingPointAccumulatorIndices& input_aggregation_object,
-    const PairingPointAccumulatorIndices& nested_aggregation_object,
+    const PairingPointAccumulatorIndices& input_points_accumulator,
+    const PairingPointAccumulatorIndices& nested_points_accumulator,
     bool has_valid_witness_assignments)
 {
-    const auto& nested_aggregation_indices = nested_aggregation_object;
+    const auto& nested_aggregation_indices = nested_points_accumulator;
     bool nested_aggregation_indices_all_zero = true;
     for (const auto& idx : nested_aggregation_indices) {
         nested_aggregation_indices_all_zero &= (idx == 0);
@@ -102,10 +108,10 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    const auto& aggregation_input = input_aggregation_object;
-    aggregation_state_ct previous_aggregation;
+    const auto& aggregation_input = input_points_accumulator;
+    PairingPoints previous_aggregation;
 
-    // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
+    // If we have previously recursively verified proofs, `is_points_accumulator_nonzero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
     bool inner_aggregation_indices_all_zero = true;
     for (const auto& idx : aggregation_input) {
@@ -160,13 +166,13 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     vkey->program_width = noir_recursive_settings::program_width;
 
     Transcript_ct transcript(&builder, manifest, proof_fields, input.public_inputs.size());
-    aggregation_state_ct result = stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
+    PairingPoints result = stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
         &builder, vkey, transcript, previous_aggregation);
 
     // Assign correct witness value to the verification key hash
     vkey->hash().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
 
-    return result.get_witness_indices();
+    return result.get_witness_indices_for_plonk();
 }
 
 /**
@@ -185,7 +191,7 @@ std::vector<fr> export_key_in_recursion_format(std::shared_ptr<verification_key>
     output.emplace_back(vkey->circuit_size);
     output.emplace_back(vkey->num_public_inputs);
     output.emplace_back(vkey->contains_pairing_point_accumulator);
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+    for (size_t i = 0; i < bb::PAIRING_POINTS_SIZE; ++i) {
         if (vkey->contains_pairing_point_accumulator) {
             output.emplace_back(vkey->pairing_point_accumulator_public_input_indices[i]);
         } else {
@@ -237,7 +243,7 @@ std::vector<fr> export_dummy_key_in_recursion_format(const PolynomialManifest& p
     output.emplace_back(1); // num public inputs
 
     output.emplace_back(contains_pairing_point_accumulator); // contains_pairing_point_accumulator
-    for (size_t i = 0; i < bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+    for (size_t i = 0; i < bb::PAIRING_POINTS_SIZE; ++i) {
         output.emplace_back(0); // pairing_point_accumulator_public_input_indices
     }
 
@@ -287,7 +293,7 @@ std::vector<fr> export_transcript_in_recursion_format(const transcript::Standard
                     fields.emplace_back(g1_as_fields.y_lo);
                     fields.emplace_back(g1_as_fields.y_hi);
                 } else {
-                    ASSERT(manifest_element.name == "public_inputs");
+                    BB_ASSERT_EQ(manifest_element.name, "public_inputs");
                     const auto public_inputs_vector = transcript.get_field_element_vector(manifest_element.name);
                     for (const auto& ele : public_inputs_vector) {
                         fields.emplace_back(ele);
@@ -332,7 +338,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                     fields.emplace_back(g1_as_fields.y_lo);
                     fields.emplace_back(g1_as_fields.y_hi);
                 } else {
-                    ASSERT(manifest_element.name == "public_inputs");
+                    BB_ASSERT_EQ(manifest_element.name, "public_inputs");
                     const size_t num_public_inputs = manifest_element.num_bytes / 32;
                     // If we have a recursive proofs the public inputs must describe an aggregation object that
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
@@ -341,7 +347,7 @@ std::vector<fr> export_dummy_transcript_in_recursion_format(const transcript::Ma
                         // When setting up the ACIR we emplace back the nested aggregation object
                         // fetched from the proof onto the public inputs. Thus, we can expect the
                         // nested aggregation object to always be at the end of the public inputs.
-                        for (size_t k = 0; k < num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++k) {
+                        for (size_t k = 0; k < num_public_inputs - bb::PAIRING_POINTS_SIZE; ++k) {
                             fields.emplace_back(0);
                         }
                         for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {

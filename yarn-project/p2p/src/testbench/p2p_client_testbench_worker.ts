@@ -10,22 +10,31 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { Tx, TxStatus } from '@aztec/stdlib/tx';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { Message, PeerId } from '@libp2p/interface';
+import { TopicValidatorResult } from '@libp2p/interface';
 
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
+import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import type { PeerDiscoveryService } from '../services/service.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
+import type { PubSubLibp2p } from '../util.js';
 
 // Simple mock implementation
 function mockTxPool(): TxPool {
   // Mock all methods
   return {
+    isEmpty: () => Promise.resolve(false),
     addTxs: () => Promise.resolve(),
     getTxByHash: () => Promise.resolve(undefined),
     getArchivedTxByHash: () => Promise.resolve(undefined),
@@ -37,11 +46,15 @@ function mockTxPool(): TxPool {
     getPendingTxHashes: () => Promise.resolve([]),
     getMinedTxHashes: () => Promise.resolve([]),
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
+    getTxsByHash: () => Promise.resolve([]),
+    hasTxs: () => Promise.resolve([]),
+    setMaxTxPoolSize: () => Promise.resolve(),
   };
 }
 
 function mockAttestationPool(): AttestationPool {
   return {
+    isEmpty: () => Promise.resolve(false),
     addAttestations: () => Promise.resolve(),
     deleteAttestations: () => Promise.resolve(),
     deleteAttestationsOlderThan: () => Promise.resolve(),
@@ -69,6 +82,72 @@ function mockEpochCache(): EpochCacheInterface {
   };
 }
 
+class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
+  private disableTxValidation: boolean;
+  private gossipMessageCount: number = 0;
+
+  constructor(
+    clientType: T,
+    config: P2PConfig,
+    node: PubSubLibp2p,
+    peerDiscoveryService: PeerDiscoveryService,
+    mempools: MemPools<T>,
+    archiver: L2BlockSource & ContractDataSource,
+    epochCache: EpochCacheInterface,
+    proofVerifier: ClientProtocolCircuitVerifier,
+    worldStateSynchronizer: WorldStateSynchronizer,
+    telemetry: TelemetryClient,
+    logger = createLogger('p2p:test:libp2p_service'),
+    disableTxValidation = true,
+  ) {
+    super(
+      clientType,
+      config,
+      node,
+      peerDiscoveryService,
+      mempools,
+      archiver,
+      epochCache,
+      proofVerifier,
+      worldStateSynchronizer,
+      telemetry,
+      logger,
+    );
+    this.disableTxValidation = disableTxValidation;
+  }
+
+  public getGossipMessageCount(): number {
+    return this.gossipMessageCount;
+  }
+
+  public setDisableTxValidation(disable: boolean): void {
+    this.disableTxValidation = disable;
+  }
+
+  protected override async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
+    if (this.disableTxValidation) {
+      const tx = Tx.fromBuffer(Buffer.from(msg.data));
+      this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Accept);
+
+      const txHash = await tx.getTxHash();
+      const txHashString = txHash.toString();
+      this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
+      await this.mempools.txPool.addTxs([tx]);
+    } else {
+      await super.handleGossipedTx(msg, msgId, source);
+    }
+  }
+
+  protected override async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
+    this.gossipMessageCount++;
+    process.send!({
+      type: 'GOSSIP_RECEIVED',
+      count: this.gossipMessageCount,
+    });
+    await super.handleNewGossipMessage(msg, msgId, source);
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const { type, config, clientIndex } = msg as { type: string; config: P2PConfig; clientIndex: number };
@@ -80,11 +159,11 @@ process.on('message', async msg => {
       const epochCache = mockEpochCache();
       const worldState = {} as WorldStateSynchronizer;
       const l2BlockSource = new MockL2BlockSource();
-      await l2BlockSource.createBlocks(100);
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
       const kvStore = await openTmpStore(`test-${clientIndex}`);
       const logger = createLogger(`p2p:${clientIndex}`);
+      const telemetry = getTelemetryClient();
 
       const deps = {
         txPool,
@@ -100,23 +179,30 @@ process.on('message', async msg => {
         proofVerifier,
         worldState,
         epochCache,
-        undefined,
+        telemetry,
         deps,
       );
 
-      // Create spy for gossip messages
-      let gossipMessageCount = 0;
-      (client as any).p2pService.handleNewGossipMessage = (msg: Message, msgId: string, source: PeerId) => {
-        gossipMessageCount++;
-        process.send!({
-          type: 'GOSSIP_RECEIVED',
-          count: gossipMessageCount,
-        });
-        return (client as any).p2pService.constructor.prototype.handleNewGossipMessage.apply(
-          (client as any).p2pService,
-          [msg, msgId, source],
-        );
-      };
+      const _client = client as any;
+
+      // Create test service with validation disabled
+      const testService = new TestLibP2PService(
+        P2PClientType.Full,
+        config,
+        (client as any).p2pService.node,
+        (client as any).p2pService.peerDiscoveryService,
+        (client as any).p2pService.mempools,
+        (client as any).p2pService.archiver,
+        epochCache,
+        proofVerifier,
+        worldState,
+        telemetry,
+        logger,
+        true, // disable validation
+      );
+
+      // Replace the existing p2pService with our test version
+      (client as any).p2pService = testService;
 
       await client.start();
       // Wait until the client is ready

@@ -29,53 +29,55 @@ impl<T, let INITIAL_DELAY: u32> SharedMutableValues<T, INITIAL_DELAY> {
     pub fn new(svc: ScheduledValueChange<T>, sdc: ScheduledDelayChange<INITIAL_DELAY>) -> Self {
         SharedMutableValues { svc, sdc }
     }
+}
 
-    pub fn unpack_value_change<let N: u32>(packed: [Field; 2 * N + 1]) -> ScheduledValueChange<T>
-    where
-        T: Packable<N>,
-    {
-        let svc_pre_packed = arrays::subarray(packed, 1);
-        let svc_post_packed = arrays::subarray(packed, N + 1);
-        ScheduledValueChange::new(
-            T::unpack(svc_pre_packed),
-            T::unpack(svc_post_packed),
-            packed[0] as u32,
-        )
-    }
+pub fn unpack_value_change<T, let N: u32>(packed: [Field; 2 * N + 1]) -> ScheduledValueChange<T>
+where
+    T: Packable<N>,
+{
+    let svc_pre_packed = arrays::subarray(packed, 1);
+    let svc_post_packed = arrays::subarray(packed, N + 1);
+    ScheduledValueChange::new(
+        T::unpack(svc_pre_packed),
+        T::unpack(svc_post_packed),
+        packed[0] as u32,
+    )
+}
 
-    pub fn unpack_delay_change(packed: Field) -> ScheduledDelayChange<INITIAL_DELAY> {
-        // This function expects to be called with just the first field of the packed representation, which contains sdc
-        // and svc block_of_change. We'll discard the svc component.
-        let svc_block_of_change = packed as u32;
+pub fn unpack_delay_change<let INITIAL_DELAY: u32>(
+    packed: Field,
+) -> ScheduledDelayChange<INITIAL_DELAY> {
+    // This function expects to be called with just the first field of the packed representation, which contains sdc
+    // and svc block_of_change. We'll discard the svc component.
+    let svc_block_of_change = packed as u32;
 
-        let mut tmp = (packed - svc_block_of_change as Field) / TWO_POW_32;
-        let sdc_block_of_change = tmp as u32;
+    let mut tmp = (packed - svc_block_of_change as Field) / TWO_POW_32;
+    let sdc_block_of_change = tmp as u32;
 
-        tmp = (tmp - sdc_block_of_change as Field) / TWO_POW_32;
-        let sdc_post_is_some = tmp as bool;
+    tmp = (tmp - sdc_block_of_change as Field) / TWO_POW_32;
+    let sdc_post_is_some = tmp as bool;
 
-        tmp = (tmp - sdc_post_is_some as Field) / TWO_POW_8;
-        let sdc_post_inner = tmp as u32;
+    tmp = (tmp - sdc_post_is_some as Field) / TWO_POW_8;
+    let sdc_post_inner = tmp as u32;
 
-        tmp = (tmp - sdc_post_inner as Field) / TWO_POW_32;
-        let sdc_pre_is_some = tmp as bool;
+    tmp = (tmp - sdc_post_inner as Field) / TWO_POW_32;
+    let sdc_pre_is_some = tmp as bool;
 
-        tmp = (tmp - sdc_pre_is_some as Field) / TWO_POW_8;
-        let sdc_pre_inner = tmp as u32;
+    tmp = (tmp - sdc_pre_is_some as Field) / TWO_POW_8;
+    let sdc_pre_inner = tmp as u32;
 
-        ScheduledDelayChange {
-            pre: if sdc_pre_is_some {
-                Option::some(sdc_pre_inner)
-            } else {
-                Option::none()
-            },
-            post: if sdc_post_is_some {
-                Option::some(sdc_post_inner)
-            } else {
-                Option::none()
-            },
-            block_of_change: sdc_block_of_change,
-        }
+    ScheduledDelayChange {
+        pre: if sdc_pre_is_some {
+            Option::some(sdc_pre_inner)
+        } else {
+            Option::none()
+        },
+        post: if sdc_post_is_some {
+            Option::some(sdc_post_inner)
+        } else {
+            Option::none()
+        },
+        block_of_change: sdc_block_of_change,
     }
 }
 
@@ -111,8 +113,8 @@ where
     }
 
     fn unpack(fields: [Field; 2 * N + 1]) -> Self {
-        let svc = Self::unpack_value_change(fields);
-        let sdc = SharedMutableValues::<T, INITIAL_DELAY>::unpack_delay_change(fields[0]);
+        let svc = unpack_value_change::<T, N>(fields);
+        let sdc = unpack_delay_change::<INITIAL_DELAY>(fields[0]);
         Self::new(svc, sdc)
     }
 }

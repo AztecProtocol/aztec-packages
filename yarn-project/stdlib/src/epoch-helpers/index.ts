@@ -8,6 +8,7 @@ export type L1RollupConstants = {
   slotDuration: number;
   epochDuration: number;
   ethereumSlotDuration: number;
+  proofSubmissionWindow: number;
 };
 
 export const EmptyL1RollupConstants: L1RollupConstants = {
@@ -16,6 +17,7 @@ export const EmptyL1RollupConstants: L1RollupConstants = {
   epochDuration: 1, // Not 0 to pervent division by zero
   slotDuration: 1,
   ethereumSlotDuration: 1,
+  proofSubmissionWindow: 2,
 };
 
 export const L1RollupConstantsSchema = z.object({
@@ -24,6 +26,7 @@ export const L1RollupConstantsSchema = z.object({
   slotDuration: z.number(),
   epochDuration: z.number(),
   ethereumSlotDuration: z.number(),
+  proofSubmissionWindow: z.number(),
 }) satisfies ZodFor<L1RollupConstants>;
 
 /** Returns the timestamp for a given L2 slot. */
@@ -74,4 +77,20 @@ export function getTimestampRangeForEpoch(
       endSlot * BigInt(constants.slotDuration) +
       BigInt((ethereumSlotsPerL2Slot - 1) * constants.ethereumSlotDuration),
   ];
+}
+
+/**
+ * Returns the deadline timestamp (in seconds) for submitting a proof for a given epoch.
+ * Computed as the start of the given epoch plus the proof submission window.
+ */
+export function getProofSubmissionDeadlineTimestamp(
+  epochNumber: bigint,
+  constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'epochDuration' | 'proofSubmissionWindow'>,
+) {
+  // See l1-contracts/src/core/libraries/rollup/EpochProofLib.sol:
+  // Slot deadline = startEpoch.toSlots() + Slot.wrap(rollupStore.config.proofSubmissionWindow);
+  const [startSlot] = getSlotRangeForEpoch(epochNumber, constants);
+  const deadlineSlot = startSlot + BigInt(constants.proofSubmissionWindow);
+  const deadlineTimestamp = getTimestampForSlot(deadlineSlot, constants);
+  return deadlineTimestamp;
 }

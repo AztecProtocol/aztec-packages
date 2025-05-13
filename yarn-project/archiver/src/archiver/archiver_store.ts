@@ -1,18 +1,18 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { InboxLeaf } from '@aztec/stdlib/messaging';
-import { BlockHeader, type TxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
+import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import type { DataRetrieval } from './structs/data_retrieval.js';
 import type { PublishedL2Block } from './structs/published.js';
@@ -37,9 +37,11 @@ export interface ArchiverDataStore {
   /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
+   * @param opts - Options for the operation.
+   * @param opts.force - If true, the blocks will be added even if they have gaps.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[]): Promise<boolean>;
+  addBlocks(blocks: PublishedL2Block[], opts?: { force?: boolean }): Promise<boolean>;
 
   /**
    * Unwinds blocks from the database
@@ -51,12 +53,18 @@ export interface ArchiverDataStore {
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
 
   /**
-   * Gets up to `limit` amount of L2 blocks starting from `from`.
+   * Returns the block for the given number, or undefined if not exists.
+   * @param number - The block number to return.
+   */
+  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Gets up to `limit` amount of published L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: number, limit: number): Promise<PublishedL2Block[]>;
+  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]>;
 
   /**
    * Gets up to `limit` amount of L2 block headers starting from `from`.
@@ -68,10 +76,10 @@ export interface ArchiverDataStore {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found).
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -221,7 +229,7 @@ export interface ArchiverDataStore {
   addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    utilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean>;
 
   /**
@@ -243,11 +251,17 @@ export interface ArchiverDataStore {
   /**
    * Estimates the size of the store in bytes.
    */
-  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
+  estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }>;
 
   /** Backups the archiver db to the target folder. Returns the path to the db file. */
   backupTo(path: string): Promise<string>;
 
   /** Closes the underlying data store. */
   close(): Promise<void>;
+
+  /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
+  rollbackL1ToL2MessagesToL2Block(
+    targetBlockNumber: number | bigint,
+    currentBlockNumber: number | bigint,
+  ): Promise<void>;
 }

@@ -87,7 +87,6 @@ if [ "$sepolia_deployment" = "true" ]; then
   # set +x
   export ETHEREUM_HOST=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | cut -d',' -f1)
   ./prepare_sepolia_accounts.sh "$values_file" 1 "$mnemonic_file"
-  echo "mnemonic: $mnemonic_file"
   L1_ACCOUNTS_MNEMONIC="$(cat "$mnemonic_file")"
 
   # Escape the EXTERNAL_ETHEREUM_HOSTS value for Helm
@@ -110,6 +109,11 @@ if [ "$sepolia_deployment" = "true" ]; then
   # set -x
 else
   echo "Generating devnet config..."
+
+  # For each spartan run, we write genesis files into a different directory to prevent contention in ci
+  export GENESIS_PATH="out-$namespace"
+  helm_set_args+=(--set ethereum.genesisBasePath="$GENESIS_PATH")
+
   ./generate_devnet_config.sh "$values_file"
 fi
 

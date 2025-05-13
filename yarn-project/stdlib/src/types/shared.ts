@@ -26,6 +26,11 @@ export class Vector<T extends Bufferable> {
 export type UInt32 = number;
 
 /**
+ * A type alias for a 64-bit unsigned integer.
+ */
+export type UInt64 = bigint;
+
+/**
  * CircuitType replaces ComposerType for now. When using Plonk, CircuitType is equivalent to the information of the proving system that will be used
  * to construct a proof. In the future Aztec zk stack, more information must be specified (e.g., the curve over which circuits are  constructed;
  * Plonk vs Honk; zk-SNARK or just SNARK; etc).

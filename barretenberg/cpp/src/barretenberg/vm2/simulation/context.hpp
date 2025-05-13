@@ -30,8 +30,8 @@ class ContextInterface {
     virtual void set_next_pc(uint32_t new_next_pc) = 0;
     virtual bool halted() const = 0;
     virtual void halt() = 0;
-
     virtual uint32_t get_context_id() const = 0;
+    virtual uint32_t get_parent_id() const = 0;
 
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
@@ -115,11 +115,14 @@ class BaseContext : public ContextInterface {
     {
         MemoryInterface& child_memory = get_child_context().get_memory();
         auto get_returndata_size = child_memory.get(last_child_rd_size);
-        uint32_t returndata_size = static_cast<uint32_t>(get_returndata_size.value);
+        uint32_t returndata_size = get_returndata_size.as<uint32_t>();
         uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
 
-        std::vector<FF> retrieved_returndata =
-            child_memory.get_slice(get_last_rd_offset() + rd_offset, write_size).first;
+        std::vector<FF> retrieved_returndata;
+        retrieved_returndata.reserve(write_size);
+        for (uint32_t i = 0; i < write_size; i++) {
+            retrieved_returndata.push_back(child_memory.get(get_last_rd_offset() + i));
+        }
         retrieved_returndata.resize(rd_size);
 
         return retrieved_returndata;
@@ -161,19 +164,24 @@ class EnqueuedCallContext : public BaseContext {
         , calldata(calldata.begin(), calldata.end())
     {}
 
+    uint32_t get_parent_id() const override { return 0; } // No parent context for the top-level context.
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
-        return { .id = get_context_id(),
-                 .pc = get_pc(),
-                 .msg_sender = get_msg_sender(),
-                 .contract_addr = get_address(),
-                 .is_static = get_is_static(),
-                 .parent_cd_addr = 0,
-                 .parent_cd_size_addr = 0,
-                 .last_child_rd_addr = get_last_rd_offset(),
-                 .last_child_rd_size_addr = get_last_rd_size(),
-                 .last_child_success = get_last_success() };
+        return {
+            .id = get_context_id(),
+            .parent_id = 0,
+            .pc = get_pc(),
+            .next_pc = get_next_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = 0,
+            .parent_cd_size_addr = 0,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+        };
     };
 
     // Input / Output
@@ -215,27 +223,40 @@ class NestedContext : public BaseContext {
         , parent_context(parent_context)
     {}
 
+    uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
+
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
-        return { .id = get_context_id(),
-                 .pc = get_pc(),
-                 .msg_sender = get_msg_sender(),
-                 .contract_addr = get_address(),
-                 .is_static = get_is_static(),
-                 .parent_cd_addr = parent_cd_offset,
-                 .parent_cd_size_addr = parent_cd_size };
+        return {
+            .id = get_context_id(),
+            .parent_id = get_parent_id(),
+            .pc = get_pc(),
+            .next_pc = get_next_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = parent_cd_offset,
+            .parent_cd_size_addr = parent_cd_size,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+        };
     };
 
     // Input / Output
     std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const override
     {
-        ValueRefAndTag get_calldata_size = parent_context.get_memory().get(parent_cd_size);
+        auto get_calldata_size = parent_context.get_memory().get(parent_cd_size);
         // TODO(ilyas): error if tag != U32
-        auto calldata_size = static_cast<uint32_t>(get_calldata_size.value);
+        auto calldata_size = get_calldata_size.as<uint32_t>();
         uint32_t read_size = std::min(cd_offset + cd_size, calldata_size);
 
-        auto retrieved_calldata = parent_context.get_memory().get_slice(parent_cd_offset + cd_offset, read_size).first;
+        std::vector<FF> retrieved_calldata;
+        retrieved_calldata.reserve(read_size);
+        for (uint32_t i = 0; i < read_size; i++) {
+            retrieved_calldata.push_back(parent_context.get_memory().get(parent_cd_offset + i));
+        }
 
         // Pad the calldata
         retrieved_calldata.resize(cd_size, 0);

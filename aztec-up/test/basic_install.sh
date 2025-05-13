@@ -45,6 +45,7 @@ echo "LSP check passed."
 # aztec-wallet -V
 
 export LOG_LEVEL=silent
+export PXE_PROVER=none
 
 # Start sandbox and wait for port to open.
 aztec start --sandbox &

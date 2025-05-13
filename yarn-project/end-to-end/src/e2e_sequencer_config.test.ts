@@ -23,19 +23,6 @@ describe('e2e_sequencer_config', () => {
     jest.restoreAllMocks();
   });
 
-  describe('bad config', () => {
-    it('fails to create sequencer if maxL2BlockGas is less than manaTarget', async () => {
-      const manaTarget = 21e18;
-      await expect(
-        setup(1, {
-          manaTarget: BigInt(manaTarget),
-          // The max is defined as 2x the manaTarget
-          maxL2BlockGas: manaTarget * 3,
-        }),
-      ).rejects.toThrow(/provided maxL2BlockGas of \d+ is greater than the maximum allowed by the L1 \(\d+\)/);
-    });
-  });
-
   describe('Sequencer config', () => {
     const manaTarget = 21e18;
     beforeAll(async () => {

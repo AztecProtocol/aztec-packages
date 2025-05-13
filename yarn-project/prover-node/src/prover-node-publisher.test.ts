@@ -1,6 +1,4 @@
-import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
-import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
@@ -137,8 +135,8 @@ describe('prover-node-publisher', () => {
       // Return the requested block
       rollup.getBlock.mockImplementation((blockNumber: bigint) =>
         Promise.resolve({
-          blockHash: blocks[Number(blockNumber) - 1].endBlockHash.toString(),
           archive: blocks[Number(blockNumber) - 1].endArchive.root.toString(),
+          headerHash: '0x', // unused,
           slotNumber: 0n, // unused,
         }),
       );
@@ -146,13 +144,11 @@ describe('prover-node-publisher', () => {
       // We have built a rollup proof of the range fromBlock - toBlock
       // so we need to set our archives and hashes accordingly
       const ourPublicInputs = RootRollupPublicInputs.random();
-      ourPublicInputs.previousBlockHash = blocks[fromBlock - 2]?.endBlockHash ?? Fr.ZERO;
       ourPublicInputs.previousArchive = blocks[fromBlock - 2]?.endArchive ?? Fr.ZERO;
-      ourPublicInputs.endBlockHash = blocks[toBlock - 1]?.endBlockHash ?? Fr.ZERO;
       ourPublicInputs.endArchive = blocks[toBlock - 1]?.endArchive ?? Fr.ZERO;
 
       // Return our public inputs
-      const totalFields = ourPublicInputs.toFields().concat(times(AGGREGATION_OBJECT_LENGTH, Fr.zero));
+      const totalFields = ourPublicInputs.toFields();
       rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
 
       const result = await publisher

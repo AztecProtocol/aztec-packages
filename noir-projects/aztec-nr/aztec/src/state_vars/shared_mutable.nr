@@ -1,10 +1,15 @@
 use dep::protocol_types::{
-    shared_mutable::{ScheduledDelayChange, ScheduledValueChange, SharedMutableValues},
+    shared_mutable::{
+        ScheduledDelayChange,
+        ScheduledValueChange,
+        shared_mutable_values::{unpack_delay_change, unpack_value_change},
+        SharedMutableValues,
+    },
     traits::Packable,
 };
 
 use crate::{
-    context::{PrivateContext, PublicContext, UnconstrainedContext},
+    context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::storage::Storage,
     utils::with_hash::WithHash,
 };
@@ -130,7 +135,7 @@ where
         // We don't read ScheduledValueChange directly by having it implement Packable because ScheduledValueChange
         // and ScheduledDelayChange are packed together (sdc and svc.block_of_change are stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
-        SharedMutableValues::unpack_value_change(packed)
+        unpack_value_change::<T, N>(packed)
     }
 
     fn read_delay_change<let N: u32>(self) -> ScheduledDelayChange<INITIAL_DELAY>
@@ -145,7 +150,7 @@ where
         // ScheduledValueChange and ScheduledDelayChange are packed together (sdc and svc.block_of_change are
         // stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
-        SharedMutableValues::<T, INITIAL_DELAY>::unpack_delay_change(packed)
+        unpack_delay_change::<INITIAL_DELAY>(packed)
     }
 
     fn write<let N: u32>(
@@ -220,7 +225,7 @@ where
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext>
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UtilityContext>
 where
     T: Eq,
 {
@@ -229,7 +234,7 @@ where
         T: Packable<N>,
     {
         let smv: SharedMutableValues<T, INITIAL_DELAY> =
-            WithHash::unconstrained_public_storage_read(self.context, self.storage_slot);
+            WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
         let block_number = self.context.block_number() as u32;
         smv.svc.get_current_at(block_number)

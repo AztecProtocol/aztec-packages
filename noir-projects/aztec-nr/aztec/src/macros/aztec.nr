@@ -1,24 +1,23 @@
 use crate::{
-    discovery::private_notes::MAX_NOTE_PACKED_LEN,
     macros::{
         dispatch::generate_public_dispatch,
-        functions::{
-            stub_registry,
-            utils::{create_message_discovery_call, find_and_transform_top_level_unconstrained_fns},
-        },
+        functions::{stub_registry, utils::check_each_fn_macroified},
         notes::{generate_note_export, NOTES},
         storage::STORAGE_LAYOUT_NAME,
         utils::{get_trait_impl_method, module_has_storage},
     },
+    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `process_log` and `sync_notes` functions PXE requires in order to discover notes.
+/// the `sync_notes` utility function PXE requires in order to discover notes.
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
 
-    find_and_transform_top_level_unconstrained_fns(m);
+    // Functions that don't have #[private], #[public], #[utility], #[contract_library_method], or #[test] are not
+    // allowed in contracts.
+    check_each_fn_macroified(m);
 
     let contract_library_method_compute_note_hash_and_nullifier =
         generate_contract_library_method_compute_note_hash_and_nullifier();
@@ -104,7 +103,7 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 }
 
 /// Generates a contract library method called `_compute_note_hash_and_nullifier` which is used for note
-/// discovery (to create the `aztec::discovery::ComputeNoteHashAndNullifier` function) and to implement the
+/// discovery (to create the `aztec::messages::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
 comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
     let notes = NOTES.entries();
@@ -197,7 +196,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullify);
 
                         Option::some(
-                            aztec::discovery::NoteHashAndNullifier {
+                            aztec::messages::discovery::NoteHashAndNullifier {
                                 note_hash, inner_nullifier
                             }
                         )
@@ -213,19 +212,19 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash
             /// tree with `nonce`.
             ///
-            /// The signature of this function notably matches the `aztec::discovery::ComputeNoteHashAndNullifier` type,
+            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_messages`, 
             /// `do_process_log` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
-                packed_note: BoundedVec<Field, aztec::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
+                packed_note: BoundedVec<Field, aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
                 storage_slot: Field,
                 note_type_id: Field,
                 contract_address: aztec::protocol_types::address::AztecAddress,
                 nonce: Field,
-            ) -> Option<aztec::discovery::NoteHashAndNullifier> {
+            ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 $if_note_type_id_match_statements
                 else {
                     Option::none()
@@ -242,12 +241,12 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
             unconstrained fn _compute_note_hash_and_nullifier(
-                _packed_note: BoundedVec<Field, aztec::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
+                _packed_note: BoundedVec<Field, aztec::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN>,
                 _storage_slot: Field,
                 _note_type_id: Field,
                 _contract_address: aztec::protocol_types::address::AztecAddress,
                 _nonce: Field,
-            ) -> Option<aztec::discovery::NoteHashAndNullifier> {
+            ) -> Option<aztec::messages::discovery::NoteHashAndNullifier> {
                 panic(f"This contract does not use private notes")
             }
         }
@@ -266,15 +265,17 @@ comptime fn generate_note_exports() -> Quoted {
 }
 
 comptime fn generate_sync_notes() -> Quoted {
-    let message_discovery_call = create_message_discovery_call();
-    quote {
-        unconstrained fn sync_notes() {
-            // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
-            // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
-            // unconstrained execution context since it will not be available otherwise.
-            let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
+    // We obtain the `utility` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
+    let utility = crate::macros::functions::utility;
 
-            $message_discovery_call
+    // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
+    // need to do anything extra.
+    quote {
+        #[$utility]
+        unconstrained fn sync_notes() {
         }
     }
 }

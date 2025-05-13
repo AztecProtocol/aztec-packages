@@ -12,7 +12,6 @@ aztec:
 
 network:
   public: true
-  setupL2Contracts: false
   p2pBootstrapNodesAsFullPeers: false
 
 blobSink:

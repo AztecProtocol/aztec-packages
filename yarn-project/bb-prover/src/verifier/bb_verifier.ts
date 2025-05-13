@@ -12,10 +12,17 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-import { BB_RESULT, PROOF_FILENAME, VK_FILENAME, verifyClientIvcProof, verifyProof } from '../bb/execute.js';
+import {
+  BB_RESULT,
+  PROOF_FILENAME,
+  PUBLIC_INPUTS_FILENAME,
+  VK_FILENAME,
+  verifyClientIvcProof,
+  verifyProof,
+} from '../bb/execute.js';
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
-import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
+import { writeClientIVCProofToOutputDirectory } from '../prover/proof_utils.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,13 +49,16 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
 
   public async verifyProofForCircuit(circuit: ServerProtocolArtifact, proof: Proof) {
     const operation = async (bbWorkingDirectory: string) => {
+      const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
       const verificationKey = this.getVerificationKeyData(circuit);
 
       this.logger.debug(`${circuit} Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
 
-      await fs.writeFile(proofFileName, proof.buffer);
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
+      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
+      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
       const result = await verifyProof(
@@ -91,7 +101,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           this.logger.debug(`${circuit} BB out - ${message}`);
         };
 
-        await writeToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
+        await writeClientIVCProofToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
         const result = await verifyClientIvcProof(
           this.config.bbBinaryPath,
           bbWorkingDirectory.concat('/proof'),
@@ -100,7 +110,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         );
 
         if (result.status === BB_RESULT.FAILURE) {
-          const errorMessage = `Failed to verify ${circuit} proof!`;
+          const errorMessage = `Failed to verify ${circuit} proof for ${expectedCircuit}!`;
           throw new Error(errorMessage);
         }
 

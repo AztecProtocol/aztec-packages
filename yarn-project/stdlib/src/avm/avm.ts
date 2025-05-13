@@ -10,6 +10,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
+import { GlobalVariables, TreeSnapshots, type Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -158,7 +159,7 @@ type IndexedTreeLeafPreimagesClasses = typeof NullifierLeafPreimage | typeof Pub
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmGetLeafPreimageHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       // params (tree id will be implicit)
@@ -174,7 +175,7 @@ function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
           index: schemas.BigInt,
           leafPreimage: klass.schema,
         })
-        .transform(({ hintKey, index, leafPreimage }) => new AvmGetLeafPreimageHint(hintKey, index, leafPreimage));
+        .transform(({ hintKey, index, leafPreimage }) => new this(hintKey, index, leafPreimage));
     }
   };
 }
@@ -211,7 +212,7 @@ export class AvmGetLeafValueHint {
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmSequentialInsertHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       public readonly stateAfter: AppendOnlyTreeSnapshot,
@@ -251,7 +252,7 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
         })
         .transform(
           ({ hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData }) =>
-            new AvmSequentialInsertHint(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
+            new this(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
         );
     }
   };
@@ -260,6 +261,117 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
 // Note: only supported for PUBLIC_DATA_TREE and NULLIFIER_TREE.
 export class AvmSequentialInsertHintPublicDataTree extends AvmSequentialInsertHintFactory(PublicDataTreeLeafPreimage) {}
 export class AvmSequentialInsertHintNullifierTree extends AvmSequentialInsertHintFactory(NullifierLeafPreimage) {}
+
+// Hint for MerkleTreeDB.appendLeaves.
+// Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
+export class AvmAppendLeavesHint {
+  constructor(
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    public readonly stateAfter: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly leaves: Fr[],
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        stateAfter: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
+        leaves: schemas.Fr.array(),
+      })
+      .transform(
+        ({ hintKey, stateAfter, treeId, leaves }) => new AvmAppendLeavesHint(hintKey, stateAfter, treeId, leaves),
+      );
+  }
+}
+
+// Hint for checkpoint actions that don't change the state.
+class AvmCheckpointActionNoStateChangeHint {
+  constructor(
+    // key
+    public readonly actionCounter: number,
+    // current checkpoint evolution
+    public readonly oldCheckpointId: number,
+    public readonly newCheckpointId: number,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        actionCounter: z.number().int().nonnegative(),
+        oldCheckpointId: z.number().int().nonnegative(),
+        newCheckpointId: z.number().int().nonnegative(),
+      })
+      .transform(
+        ({ actionCounter, oldCheckpointId, newCheckpointId }) =>
+          new this(actionCounter, oldCheckpointId, newCheckpointId),
+      );
+  }
+}
+
+// Hint for MerkleTreeDB.createCheckpoint.
+export class AvmCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+
+// Hint for MerkleTreeDB.commitCheckpoint.
+export class AvmCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+
+// Hint for MerkleTreeDB.revertCheckpoint.
+export class AvmRevertCheckpointHint {
+  // We use explicit fields for MessagePack.
+  constructor(
+    // key
+    public readonly actionCounter: number,
+    // current checkpoint evolution
+    public readonly oldCheckpointId: number,
+    public readonly newCheckpointId: number,
+    // state evolution
+    public readonly stateBefore: TreeSnapshots,
+    public readonly stateAfter: TreeSnapshots,
+  ) {}
+
+  static create(
+    actionCounter: number,
+    oldCheckpointId: number,
+    newCheckpointId: number,
+    stateBefore: Record<MerkleTreeId, AppendOnlyTreeSnapshot>,
+    stateAfter: Record<MerkleTreeId, AppendOnlyTreeSnapshot>,
+  ): AvmRevertCheckpointHint {
+    return new AvmRevertCheckpointHint(
+      actionCounter,
+      oldCheckpointId,
+      newCheckpointId,
+      new TreeSnapshots(
+        stateBefore[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
+        stateBefore[MerkleTreeId.NOTE_HASH_TREE],
+        stateBefore[MerkleTreeId.NULLIFIER_TREE],
+        stateBefore[MerkleTreeId.PUBLIC_DATA_TREE],
+      ),
+      new TreeSnapshots(
+        stateAfter[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
+        stateAfter[MerkleTreeId.NOTE_HASH_TREE],
+        stateAfter[MerkleTreeId.NULLIFIER_TREE],
+        stateAfter[MerkleTreeId.PUBLIC_DATA_TREE],
+      ),
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        actionCounter: z.number().int().nonnegative(),
+        oldCheckpointId: z.number().int().nonnegative(),
+        newCheckpointId: z.number().int().nonnegative(),
+        stateBefore: TreeSnapshots.schema,
+        stateAfter: TreeSnapshots.schema,
+      })
+      .transform(
+        ({ actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter }) =>
+          new AvmRevertCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter),
+      );
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
@@ -287,14 +399,136 @@ export class AvmEnqueuedCallHint {
   }
 }
 
+export class AvmTxHint {
+  constructor(
+    public readonly hash: string,
+    public readonly globalVariables: GlobalVariables,
+    public readonly nonRevertibleAccumulatedData: {
+      noteHashes: Fr[];
+      nullifiers: Fr[];
+      // TODO: add as needed.
+    },
+    public readonly revertibleAccumulatedData: {
+      noteHashes: Fr[];
+      nullifiers: Fr[];
+      // TODO: add as needed.
+    },
+    public readonly setupEnqueuedCalls: AvmEnqueuedCallHint[],
+    public readonly appLogicEnqueuedCalls: AvmEnqueuedCallHint[],
+    // We need this to be null and not undefined because that's what
+    // MessagePack expects for an std::optional.
+    public readonly teardownEnqueuedCall: AvmEnqueuedCallHint | null,
+  ) {}
+
+  static async fromTx(tx: Tx): Promise<AvmTxHint> {
+    const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
+    const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
+    const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
+
+    // For informational purposes. Assumed quick because it should be cached.
+    const txHash = await tx.getTxHash();
+
+    return new AvmTxHint(
+      txHash.hash.toString(),
+      tx.data.constants.historicalHeader.globalVariables,
+      {
+        noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
+        nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+      },
+      {
+        noteHashes: tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
+        nullifiers: tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+      },
+      setupCallRequests.map(
+        call =>
+          new AvmEnqueuedCallHint(
+            call.request.msgSender,
+            call.request.contractAddress,
+            call.calldata,
+            call.request.isStaticCall,
+          ),
+      ),
+      appLogicCallRequests.map(
+        call =>
+          new AvmEnqueuedCallHint(
+            call.request.msgSender,
+            call.request.contractAddress,
+            call.calldata,
+            call.request.isStaticCall,
+          ),
+      ),
+      teardownCallRequest
+        ? new AvmEnqueuedCallHint(
+            teardownCallRequest.request.msgSender,
+            teardownCallRequest.request.contractAddress,
+            teardownCallRequest.calldata,
+            teardownCallRequest.request.isStaticCall,
+          )
+        : null,
+    );
+  }
+
+  static empty() {
+    return new AvmTxHint(
+      '',
+      GlobalVariables.empty(),
+      { noteHashes: [], nullifiers: [] },
+      { noteHashes: [], nullifiers: [] },
+      [],
+      [],
+      null,
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        hash: z.string(),
+        globalVariables: GlobalVariables.schema,
+        nonRevertibleAccumulatedData: z.object({
+          noteHashes: schemas.Fr.array(),
+          nullifiers: schemas.Fr.array(),
+        }),
+        revertibleAccumulatedData: z.object({
+          noteHashes: schemas.Fr.array(),
+          nullifiers: schemas.Fr.array(),
+        }),
+        setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+        appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+        teardownEnqueuedCall: AvmEnqueuedCallHint.schema.nullable(),
+      })
+      .transform(
+        ({
+          hash,
+          globalVariables,
+          nonRevertibleAccumulatedData,
+          revertibleAccumulatedData,
+          setupEnqueuedCalls,
+          appLogicEnqueuedCalls,
+          teardownEnqueuedCall,
+        }) =>
+          new AvmTxHint(
+            hash,
+            globalVariables,
+            nonRevertibleAccumulatedData,
+            revertibleAccumulatedData,
+            setupEnqueuedCalls,
+            appLogicEnqueuedCalls,
+            teardownEnqueuedCall,
+          ),
+      );
+  }
+}
+
 export class AvmExecutionHints {
   constructor(
-    public readonly enqueuedCalls: AvmEnqueuedCallHint[] = [],
+    public tx: AvmTxHint,
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     // Merkle DB hints.
+    public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
     public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
     public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
@@ -302,19 +536,24 @@ export class AvmExecutionHints {
     public readonly getLeafValueHints: AvmGetLeafValueHint[] = [],
     public readonly sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree[] = [],
     public readonly sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree[] = [],
+    public readonly appendLeavesHints: AvmAppendLeavesHint[] = [],
+    public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
+    public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
+    public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
   ) {}
 
   static empty() {
-    return new AvmExecutionHints();
+    return new AvmExecutionHints(AvmTxHint.empty());
   }
 
   static get schema() {
     return z
       .object({
-        enqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+        tx: AvmTxHint.schema,
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
+        startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
         getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
@@ -322,13 +561,18 @@ export class AvmExecutionHints {
         getLeafValueHints: AvmGetLeafValueHint.schema.array(),
         sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree.schema.array(),
         sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree.schema.array(),
+        appendLeavesHints: AvmAppendLeavesHint.schema.array(),
+        createCheckpointHints: AvmCreateCheckpointHint.schema.array(),
+        commitCheckpointHints: AvmCommitCheckpointHint.schema.array(),
+        revertCheckpointHints: AvmRevertCheckpointHint.schema.array(),
       })
       .transform(
         ({
-          enqueuedCalls,
+          tx,
           contractInstances,
           contractClasses,
           bytecodeCommitments,
+          startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
           getLeafPreimageHintsPublicDataTree,
@@ -336,12 +580,17 @@ export class AvmExecutionHints {
           getLeafValueHints,
           sequentialInsertHintsPublicDataTree,
           sequentialInsertHintsNullifierTree,
+          appendLeavesHints,
+          createCheckpointHints,
+          commitCheckpointHints,
+          revertCheckpointHints,
         }) =>
           new AvmExecutionHints(
-            enqueuedCalls,
+            tx,
             contractInstances,
             contractClasses,
             bytecodeCommitments,
+            startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,
             getLeafPreimageHintsPublicDataTree,
@@ -349,35 +598,29 @@ export class AvmExecutionHints {
             getLeafValueHints,
             sequentialInsertHintsPublicDataTree,
             sequentialInsertHintsNullifierTree,
+            appendLeavesHints,
+            createCheckpointHints,
+            commitCheckpointHints,
+            revertCheckpointHints,
           ),
       );
   }
 }
 
 export class AvmCircuitInputs {
-  constructor(
-    public readonly functionName: string, // only informational
-    public readonly calldata: Fr[],
-    public readonly hints: AvmExecutionHints,
-    public publicInputs: AvmCircuitPublicInputs,
-  ) {}
+  constructor(public readonly hints: AvmExecutionHints, public publicInputs: AvmCircuitPublicInputs) {}
 
   static empty() {
-    return new AvmCircuitInputs('', [], AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
+    return new AvmCircuitInputs(AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
   }
 
   static get schema() {
     return z
       .object({
-        functionName: z.string(),
-        calldata: schemas.Fr.array(),
         hints: AvmExecutionHints.schema,
         publicInputs: AvmCircuitPublicInputs.schema,
       })
-      .transform(
-        ({ functionName, calldata, hints, publicInputs }) =>
-          new AvmCircuitInputs(functionName, calldata, hints, publicInputs),
-      );
+      .transform(({ hints, publicInputs }) => new AvmCircuitInputs(hints, publicInputs));
   }
 
   public serializeWithMessagePack(): Buffer {

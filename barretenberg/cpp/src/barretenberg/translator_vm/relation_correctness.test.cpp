@@ -10,7 +10,7 @@ using namespace bb;
 
 class TranslatorRelationCorrectnessTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**
@@ -148,12 +148,12 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     // Create storage for polynomials
     ProverPolynomials prover_polynomials(mini_circuit_size);
     // Fill in lagrange even polynomial
-    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
-        prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
-        prover_polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+    for (size_t i = 2; i < mini_circuit_size - 1; i += 2) {
+        prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
-    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 6;
-    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 1, 2, 3, 4, 8 };
+    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 4;
+    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 3, 4, 8 };
 
     // Assign random opcode values
     for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
@@ -162,11 +162,11 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
 
     // Initialize used lagrange polynomials
-    prover_polynomials.lagrange_second.at(1) = 1;
-    prover_polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_size - 2) = 1;
+    prover_polynomials.lagrange_result_row.at(2) = 1;
+    prover_polynomials.lagrange_last_in_minicircuit.at(mini_circuit_size - 1) = 1;
 
     // Put random values in accumulator binary limbs (values should be preserved across even->next odd shift)
-    for (size_t i = 2; i < mini_circuit_size - 2; i += 2) {
+    for (size_t i = 3; i < mini_circuit_size - 1; i += 2) {
         prover_polynomials.accumulators_binary_limbs_0.at(i) = FF ::random_element();
         prover_polynomials.accumulators_binary_limbs_1.at(i) = FF ::random_element();
         prover_polynomials.accumulators_binary_limbs_2.at(i) = FF ::random_element();
@@ -178,10 +178,10 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     }
 
     // The values of accumulator binary limbs at index 1 should equal the accumulated result from relation parameters
-    prover_polynomials.accumulators_binary_limbs_0.at(1) = params.accumulated_result[0];
-    prover_polynomials.accumulators_binary_limbs_1.at(1) = params.accumulated_result[1];
-    prover_polynomials.accumulators_binary_limbs_2.at(1) = params.accumulated_result[2];
-    prover_polynomials.accumulators_binary_limbs_3.at(1) = params.accumulated_result[3];
+    prover_polynomials.accumulators_binary_limbs_0.at(2) = params.accumulated_result[0];
+    prover_polynomials.accumulators_binary_limbs_1.at(2) = params.accumulated_result[1];
+    prover_polynomials.accumulators_binary_limbs_2.at(2) = params.accumulated_result[2];
+    prover_polynomials.accumulators_binary_limbs_3.at(2) = params.accumulated_result[3];
 
     // Check that Opcode Constraint relation is satisfied across each row of the prover polynomials
     RelationChecker<Flavor>::check<TranslatorOpcodeConstraintRelation<FF>>(
@@ -558,7 +558,8 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
     // Generate random EccOpQueue actions
-    for (size_t i = 0; i < ((mini_circuit_size >> 1) - 1); i++) {
+
+    for (size_t i = 0; i < ((mini_circuit_size >> 1) - 2); i++) {
         switch (engine.get_random_uint8() & 3) {
         case 0:
             op_queue->empty_row_for_testing();
@@ -634,8 +635,9 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
 
     // Fill in lagrange odd polynomial
-    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
-        prover_polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
+    for (size_t i = 2; i < mini_circuit_size; i += 2) {
+        prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
 
     // Check that Non-Native Field relation is satisfied across each row of the prover polynomials
@@ -651,11 +653,12 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
 //     const size_t mini_circuit_size = 2048;
 //     auto& engine = numeric::get_debug_randomness();
-//     const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
+//     const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_DISABLED_ROWS_IN_SUMCHECK *
+//     Flavor::INTERLEAVING_GROUP_SIZE;
 
 //     TranslatorProvingKey key{ mini_circuit_size };
 //     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-//     const size_t real_circuit_size = full_circuit_size - full_masking_offset;
+//     const size_t real_circuit_size = full_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
 //     // Fill required relation parameters
 //     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
@@ -664,10 +667,10 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 //     and
 //     // evaluation
 //     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-//         for (size_t i = polynomial.start_index(); i < polynomial.end_index() - MASKING_OFFSET; i++) {
+//         for (size_t i = polynomial.start_index(); i < polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i++) {
 //             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
 //         }
-//         for (size_t i = polynomial.end_index() - MASKING_OFFSET; i < polynomial.end_index(); i++) {
+//         for (size_t i = polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < polynomial.end_index(); i++) {
 //             polynomial.at(i) = FF::random_element();
 //         }
 //     };
@@ -729,8 +732,9 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 //     TranslatorProvingKey key{ mini_circuit_size };
 //     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
-//     const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
-//     const size_t real_circuit_size = key.dyadic_circuit_size - full_masking_offset;
+//     const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_DISABLED_ROWS_IN_SUMCHECK *
+//     Flavor::INTERLEAVING_GROUP_SIZE; const size_t real_circuit_size = key.dyadic_circuit_size -
+//     full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
 //     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
 //     prover_polynomials.lagrange_first.at(0) = 0;

@@ -1,4 +1,4 @@
-import type { ViemPublicClient } from '@aztec/ethereum';
+import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -52,6 +52,28 @@ export class RollupCheatCodes {
       pending: res.pendingBlockNumber,
       proven: res.provenBlockNumber,
     };
+  }
+
+  /**
+   * Logs the current state of the rollup contract.
+   */
+  public async debugRollup() {
+    const rollup = new RollupContract(this.client, this.rollup.address);
+    const pendingNum = await rollup.getBlockNumber();
+    const provenNum = await rollup.getProvenBlockNumber();
+    const validators = await rollup.getAttesters();
+    const committee = await rollup.getCurrentEpochCommittee();
+    const archive = await rollup.archive();
+    const epochNum = await rollup.getEpochNumber();
+    const slot = await this.getSlot();
+
+    this.logger.info(`Pending block num: ${pendingNum}`);
+    this.logger.info(`Proven block num: ${provenNum}`);
+    this.logger.info(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
+    this.logger.info(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
+    this.logger.info(`Archive: ${archive}`);
+    this.logger.info(`Epoch num: ${epochNum}`);
+    this.logger.info(`Slot: ${slot}`);
   }
 
   /** Fetches the epoch and slot duration config from the rollup contract */

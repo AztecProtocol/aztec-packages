@@ -6,10 +6,10 @@ use crate::lookup_builder::{
 use crate::permutation_builder::{get_inverses_from_permutations, Permutation, PermutationBuilder};
 use crate::relation_builder::{get_shifted_polys, RelationBuilder};
 use crate::utils::{flatten, sanitize_name, snake_case, sort_cols};
+use powdr_ast::analyzed::{Analyzed, Symbol};
 
 use dialoguer::Confirm;
 use itertools::Itertools;
-use powdr_ast::analyzed::Analyzed;
 use powdr_number::FieldElement;
 
 /// All of the combinations of columns that are used in a bberg flavor file
@@ -127,27 +127,38 @@ fn get_all_col_names<F: FieldElement>(
     permutations: &[Permutation],
     lookups: &[Lookup],
 ) -> ColumnGroups {
+    // lambda to expand a symbol with length to symbol_0_, symbol_1_, ...
+    // this makes it match the naming used when indexing into arrays
+    let expand_symbol = |sym: &Symbol| {
+        if sym.length.is_some() {
+            (0..sym.length.unwrap())
+                .map(move |i| format!("{}_{}_", sym.absolute_name, i))
+                .collect_vec()
+        } else {
+            vec![sym.absolute_name.clone()]
+        }
+    };
     let constant = sort_cols(
         &analyzed
             .constant_polys_in_source_order()
             .iter()
-            .map(|(sym, _)| sym.absolute_name.clone())
-            .map(|n| sanitize_name(&n))
+            .flat_map(|(sym, _)| expand_symbol(sym))
+            .map(|name| sanitize_name(name.as_str()))
             .collect_vec(),
     );
     let committed = sort_cols(
         &analyzed
             .committed_polys_in_source_order()
             .iter()
-            .map(|(sym, _)| sym.absolute_name.clone())
-            .map(|n| sanitize_name(&n))
+            .flat_map(|(sym, _)| expand_symbol(sym))
+            .map(|name| sanitize_name(name.as_str()))
             .collect_vec(),
     );
     let public = analyzed
         .public_polys_in_source_order()
         .iter()
-        .map(|(sym, _)| sym.absolute_name.clone())
-        .map(|n| sanitize_name(&n))
+        .flat_map(|(sym, _)| expand_symbol(sym))
+        .map(|name| sanitize_name(name.as_str()))
         .collect_vec();
     let to_be_shifted = sort_cols(
         &get_shifted_polys(
@@ -158,12 +169,12 @@ fn get_all_col_names<F: FieldElement>(
                 .collect_vec(),
         )
         .iter()
-        .map(|n| sanitize_name(&n))
+        .map(|name| sanitize_name(name.as_str()))
         .collect_vec(),
     );
     let shifted = to_be_shifted
         .iter()
-        .map(|n| format!("{}_shift", n))
+        .map(|name| format!("{}_shift", name))
         .collect_vec();
 
     let inverses = flatten(&[

@@ -7,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -42,6 +43,7 @@ import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import { BlockHeader } from '../tx/block_header.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -247,7 +249,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('sendTx', async () => {
-    await context.client.sendTx(await Tx.random());
+    await context.client.sendTx(Tx.random());
   });
 
   it('getTxReceipt', async () => {
@@ -291,22 +293,71 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getValidatorsStats', async () => {
+    handler.validatorStats = {
+      stats: {
+        [EthAddress.random().toString()]: {
+          address: EthAddress.random(),
+          totalSlots: 10,
+          missedAttestations: {
+            currentStreak: 1,
+            count: 1,
+          },
+          missedProposals: {
+            currentStreak: 1,
+            rate: 1,
+            count: 1,
+          },
+          history: [{ slot: 1n, status: 'block-mined' }],
+        },
+      },
+      lastProcessedSlot: 20n,
+      initialSlot: 1n,
+      slotWindow: 10,
+    };
     const response = await context.client.getValidatorsStats();
-    expect(response).toBeDefined();
+    expect(response).toEqual(handler.validatorStats);
+  });
+
+  it('getValidatorsStats(empty)', async () => {
+    handler.validatorStats = {
+      stats: {},
+      initialSlot: 1n,
+      slotWindow: 10,
+    };
+    const response = await context.client.getValidatorsStats();
+    expect(response).toEqual(handler.validatorStats);
+  });
+
+  it('getValidatorsStats(noinitialslot)', async () => {
+    handler.validatorStats = {
+      stats: {},
+      slotWindow: 10,
+    };
+    const response = await context.client.getValidatorsStats();
+    expect(response).toEqual(handler.validatorStats);
+  });
+
+  it('getValidatorsStats(disabled)', async () => {
+    handler.validatorStats = {
+      stats: {},
+      slotWindow: 0,
+    };
+    const response = await context.client.getValidatorsStats();
+    expect(response).toEqual(handler.validatorStats);
   });
 
   it('simulatePublicCalls', async () => {
-    const response = await context.client.simulatePublicCalls(await Tx.random());
+    const response = await context.client.simulatePublicCalls(Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
   });
 
   it('isValidTx(valid)', async () => {
-    const response = await context.client.isValidTx(await Tx.random(), { isSimulation: true });
+    const response = await context.client.isValidTx(Tx.random(), { isSimulation: true });
     expect(response).toEqual({ result: 'valid' });
   });
 
   it('isValidTx(invalid)', async () => {
-    const response = await context.client.isValidTx(await Tx.random());
+    const response = await context.client.isValidTx(Tx.random());
     expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
@@ -315,7 +366,7 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getContractClass(Fr.random());
     expect(response).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
       privateFunctions: [],
     });
   });
@@ -346,6 +397,8 @@ describe('AztecNodeApiSchema', () => {
 });
 
 class MockAztecNode implements AztecNode {
+  public validatorStats: ValidatorsStats | undefined;
+
   constructor(private artifact: ContractArtifact) {}
 
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
@@ -537,12 +590,12 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
+    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
   }
-  async getPendingTxs(): Promise<Tx[]> {
-    return [await Tx.random()];
+  getPendingTxs(): Promise<Tx[]> {
+    return Promise.resolve([Tx.random()]);
   }
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(1);
@@ -551,9 +604,9 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(Tx.random());
   }
-  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
     expect(txHashes[0]).toBeInstanceOf(TxHash);
-    return [await Tx.random()];
+    return Promise.resolve([Tx.random()]);
   }
   getPublicStorageAt(_blockNumber: number | 'latest', contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);
@@ -564,12 +617,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(BlockHeader.empty());
   }
   getValidatorsStats(): Promise<ValidatorsStats> {
-    return Promise.resolve({
-      stats: {},
-      lastProcessedSlot: 20n,
-      initialSlot: 1n,
-      slotWindow: 10,
-    } satisfies ValidatorsStats);
+    return Promise.resolve(this.validatorStats!);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
@@ -586,7 +634,7 @@ class MockAztecNode implements AztecNode {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return { ...contractClass, unconstrainedFunctions: [], privateFunctions: [] };
+    return { ...contractClass, utilityFunctions: [], privateFunctions: [] };
   }
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);

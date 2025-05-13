@@ -1,11 +1,12 @@
 import type { Logger } from '@aztec/aztec.js';
-import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
+import { BBNativePrivateKernelProver } from '@aztec/bb-prover/client/native';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import { createLogger, logger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 
-import { decode } from '@msgpack/msgpack';
+import { Decoder } from 'msgpackr';
 import assert from 'node:assert';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -105,18 +106,18 @@ async function createProver(config: NativeProverConfig = {}, log: Logger) {
   }
 }
 
-function getMinimumTrace(logs: Log[], proverType: ProverType): StructuredTrace {
-  const minimumMessage = 'Minimum required block sizes for structured trace:';
+function getMinimumTrace(logs: Log[]): StructuredTrace {
+  const minimumMessage = 'Trace details:';
   const minimumMessageIndex = logs.findIndex(log => log.message.includes(minimumMessage));
   const candidateLogs = logs.slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex);
-  const traceLogs =
-    proverType === 'wasm'
-      ? candidateLogs.map(log => log.message)
-      : logs
-          .slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex)
-          .filter(log => GATE_TYPES.some(type => log.message.includes(`bb - ${type}`)))
-          .map(log => log.message.split('\n'))
-          .flat();
+
+  const traceLogs = candidateLogs
+    .filter(log => GATE_TYPES.some(type => log.message.includes(type)))
+    .map(log => log.message.split(/\t|\n/))
+    .flat()
+    .map(log => log.replace(/\(mem: .*\)/, '').trim())
+    .filter(Boolean);
+
   const traceSizes = traceLogs.map(log => {
     const [gateType, gateSizeStr] = log
       .replace(/\n.*\)$/, '')
@@ -127,6 +128,7 @@ function getMinimumTrace(logs: Log[], proverType: ProverType): StructuredTrace {
     assert(GATE_TYPES.includes(gateType as GateType), `Gate type ${gateType} is not recognized`);
     return { [gateType]: gateSize };
   });
+
   assert(traceSizes.length === GATE_TYPES.length, 'Decoded trace sizes do not match expected amount of gate types');
   return traceSizes.reduce((acc, curr) => ({ ...acc, ...curr }), {}) as StructuredTrace;
 }
@@ -149,26 +151,43 @@ async function main() {
 
   for (const flow of flows) {
     userLog.info(`Processing flow ${flow}`);
-    const bytecode = await readFile(join(ivcFolder, flow, 'acir.msgpack'));
-    const acirStack = decode(bytecode) as Buffer[];
+    const ivcInputs = await readFile(join(ivcFolder, flow, 'ivc-inputs.msgpack'));
+    const stepsFromFile: PrivateExecutionStep[] = new Decoder({ useRecords: false }).unpack(ivcInputs);
     const witnesses = await readFile(join(ivcFolder, flow, 'witnesses.json'));
+
     const witnessStack = JSON.parse(witnesses.toString()).map((witnessMap: Record<string, string>) => {
       return new Map<number, string>(Object.entries(witnessMap).map(([k, v]) => [Number(k), v]));
     });
-    const stepsFile = await readFile(join(ivcFolder, flow, 'steps.json'));
-    const executionSteps = JSON.parse(stepsFile.toString()) as { fnName: string; gateCount: number }[];
-    const privateExecutionSteps: PrivateExecutionStep[] = executionSteps.map((step, i) => ({
+    const profileFile = await readFile(join(ivcFolder, flow, 'profile.json'));
+    const profile = JSON.parse(profileFile.toString()) as {
+      syncTime: number;
+      steps: {
+        fnName: string;
+        gateCount: number;
+        timings: { witgen: number; gateCount: number };
+      }[];
+    };
+    const privateExecutionSteps: PrivateExecutionStep[] = profile.steps.map((step, i) => ({
       functionName: step.fnName,
       gateCount: step.gateCount,
-      bytecode: acirStack[i],
+      bytecode: stepsFromFile[i].bytecode,
+      // TODO(AD) do we still want to take this from witness.json?
       witness: witnessStack[i],
+      vk: stepsFromFile[i].vk,
+      timings: {
+        witgen: step.timings.witgen,
+        gateCount: step.timings.witgen,
+      },
     }));
     let stats: { duration: number; eventName: string; proofSize: number } | undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let error: any | undefined;
     let currentLogs: Log[] = [];
+    let provingTime;
     try {
+      const provingTimer = new Timer();
       await prover.createClientIvcProof(privateExecutionSteps);
+      provingTime = provingTimer.ms();
     } catch (e) {
       userLog.error(`Failed to generate client ivc proof for ${flow}`, e);
       error = (e as Error).message;
@@ -181,9 +200,9 @@ async function main() {
       stats = currentLogs[0].data as { duration: number; eventName: string; proofSize: number };
     }
 
-    const minimumTrace = getMinimumTrace(currentLogs, proverType);
+    const minimumTrace = getMinimumTrace(currentLogs);
 
-    const steps = executionSteps.reduce<Step[]>((acc, step, i) => {
+    const steps = profile.steps.reduce<Step[]>((acc, step, i) => {
       const previousAccGateCount = i === 0 ? 0 : acc[i - 1].accGateCount!;
       return [
         ...acc,
@@ -191,11 +210,16 @@ async function main() {
           fnName: step.fnName,
           gateCount: step.gateCount,
           accGateCount: previousAccGateCount + step.gateCount,
+          timings: {
+            witgen: step.timings.witgen,
+          },
         },
       ];
     }, []);
     const totalGateCount = steps[steps.length - 1].accGateCount;
     const benchmark = {
+      syncTime: profile.syncTime,
+      provingTime,
       proverType,
       minimumTrace: minimumTrace,
       totalGateCount,

@@ -7,7 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
-import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
@@ -38,14 +38,15 @@ import { NullifierMembershipWitness } from '../trees/nullifier_membership_witnes
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
   BlockHeader,
+  type IndexedTxEffect,
   PublicSimulationOutput,
   Tx,
   TxHash,
   TxReceipt,
   type TxValidationResult,
   TxValidationResultSchema,
+  indexedTxSchema,
 } from '../tx/index.js';
-import { TxEffect } from '../tx/tx_effect.js';
 import { ValidatorsStatsSchema } from '../validators/schemas.js';
 import type { ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
@@ -55,7 +56,6 @@ import {
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
 } from './get_logs_response.js';
-import type { ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
@@ -63,8 +63,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
 export interface AztecNode
-  extends ProverCoordination,
-    Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
+  extends Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
   /**
    * Returns the tips of the L2 chain.
    */
@@ -330,11 +329,11 @@ export interface AztecNode
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Method to retrieve pending txs.
@@ -516,7 +515,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
 
-  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
+  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
 
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
 
@@ -552,7 +551,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 export function createAztecNodeClient(
   url: string,
   versions: Partial<ComponentsVersions> = {},
-  fetch = defaultFetch,
+  fetch = makeFetch([1, 2, 3], false),
 ): AztecNode {
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
     namespaceMethods: 'node',

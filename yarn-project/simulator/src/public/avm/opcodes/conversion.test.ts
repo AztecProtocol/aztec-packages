@@ -32,8 +32,8 @@ describe('Conversion Opcodes', () => {
         /*dstOffset=*/ 0x5678,
       );
 
-      expect(ToRadixBE.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(ToRadixBE.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should decompose correctly to bytes - direct', async () => {
@@ -102,7 +102,7 @@ describe('Conversion Opcodes', () => {
 
     it('Should decompose correctly - indirect', async () => {
       const arg = new Field(Buffer.from('1234567890abcdef', 'hex'));
-      const indirect = new Addressing([
+      const indirect = Addressing.fromModes([
         /*srcOffset=*/ AddressingMode.INDIRECT,
         /*radixOffset*/ AddressingMode.INDIRECT,
         /*numLimbsOffset*/ AddressingMode.INDIRECT,

@@ -1,5 +1,4 @@
-import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
@@ -25,7 +24,7 @@ async function createPXEService(): Promise<PXE> {
   const kernelProver = new BBWASMBundlePrivateKernelProver(simulationProvider);
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const config: PXEServiceConfig = {
-    l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+    l2BlockBatchSize: 200,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts: { rollupAddress: EthAddress.random() },
@@ -74,7 +73,7 @@ describe('PXEService', () => {
     protocolContractsProvider = new BundledProtocolContractsProvider();
 
     config = {
-      l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+      l2BlockBatchSize: 200,
       proverEnabled: false,
       dataDirectory: undefined,
       dataStoreMapSizeKB: 1024 * 1024,
@@ -88,7 +87,10 @@ describe('PXEService', () => {
     const settledTx = await TxEffect.random();
     const duplicateTx = await mockTx();
 
-    node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));
+    node.getTxEffect.mockResolvedValue({
+      ...randomInBlock(settledTx),
+      txIndexInBlock: 0,
+    });
 
     const pxe = await PXEService.create(
       node,

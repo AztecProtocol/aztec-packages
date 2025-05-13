@@ -1,4 +1,4 @@
-import { Fr, computeSecretHash, createCompatibleClient, fileURLToPath } from '@aztec/aztec.js';
+import { Fr, ProtocolContractAddress, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
@@ -17,7 +17,7 @@ import { PXEWrapper } from '../utils/pxe_wrapper.js';
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('wallet');
 
-const { WALLET_DATA_DIRECTORY = join(homedir(), '.aztec/wallet'), PXE_PROVER = 'none' } = process.env;
+const { WALLET_DATA_DIRECTORY = join(homedir(), '.aztec/wallet') } = process.env;
 
 function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
   program
@@ -77,9 +77,14 @@ async function main() {
     .description('Aztec wallet')
     .version(walletVersion)
     .option('-d, --data-dir <string>', 'Storage directory for wallet data', WALLET_DATA_DIRECTORY)
-    .option('-p, --prover <string>', 'wasm|native|none', PXE_PROVER)
     .addOption(
-      new Option('--remote-pxe', 'Connect to an external PXE RPC server, instead of the local one')
+      new Option('-p, --prover <string>', 'The type of prover the wallet uses (only applies if not using a remote PXE)')
+        .choices(['wasm', 'native', 'none'])
+        .env('PXE_PROVER')
+        .default('native'),
+    )
+    .addOption(
+      new Option('--remote-pxe', 'Connect to an external PXE RPC server instead of the local one')
         .env('REMOTE_PXE')
         .default(false)
         .conflicts('rpc-url'),
@@ -90,7 +95,7 @@ async function main() {
         .default(`http://${LOCALHOST}:8080`),
     )
     .hook('preSubcommand', async command => {
-      const { dataDir, remotePxe, nodeUrl, prover, rpcUrl } = command.optsWithGlobals();
+      const { dataDir, remotePxe, nodeUrl, prover } = command.optsWithGlobals();
 
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');
@@ -110,19 +115,17 @@ async function main() {
           bbWorkingDirectory: prover === 'native' ? bbWorkingDirectory : undefined,
         };
 
-        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), overridePXEConfig);
+        pxeWrapper.prepare(nodeUrl, join(dataDir, 'pxe'), overridePXEConfig);
       }
       await db.init(await openStoreAt(dataDir));
       let protocolContractsRegistered;
       try {
-        protocolContractsRegistered = !!(await db.retrieveAlias('contracts:classRegisterer'));
+        protocolContractsRegistered = !!(await db.retrieveAlias('contracts:ContractClassRegisterer'));
         // eslint-disable-next-line no-empty
       } catch {}
       if (!protocolContractsRegistered) {
         userLog('Registering protocol contract aliases...');
-        const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-        const { protocolContractAddresses } = await client.getPXEInfo();
-        for (const [name, address] of Object.entries(protocolContractAddresses)) {
+        for (const [name, address] of Object.entries(ProtocolContractAddress)) {
           await db.storeAlias('contracts', name, Buffer.from(address.toString()), userLog);
           await db.storeAlias(
             'artifacts',

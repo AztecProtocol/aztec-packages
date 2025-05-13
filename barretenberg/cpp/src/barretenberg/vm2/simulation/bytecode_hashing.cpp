@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {

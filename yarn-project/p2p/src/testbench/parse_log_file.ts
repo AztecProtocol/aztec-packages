@@ -37,7 +37,7 @@ function getTimestamp(line: string): number | null {
 }
 
 /**
- * Parses a single log line. If the line contains an "rpc.from" event,
+ * Parses a single log line. If the line contains an "Received tx" event,
  * it extracts the timestamp and the peer ID.
  */
 function parseReceivedTx(line: string): LogEvent | null {
@@ -52,9 +52,9 @@ function parseReceivedTx(line: string): LogEvent | null {
     return null;
   }
 
-  // TODO: this is not correct - it is just the tx hash for now
-  // Extract the peer ID after "Received tx"
-  const peerIdMatch = line.match(/p2p:(\d+):/);
+  // Extract the peer ID from the log line
+  // Example format: "module":"p2p:1","msg":"Received tx 0x0feeafa65f25fd8d613fe4aca44fd65fe41c149ef1941e2019d40925c40748f9 from external peer 16Uiu2HAm8w4oxXF3TwDKoGL9U66thMXWqCgPnb2CgkYwmUqFCWbC."
+  const peerIdMatch = line.match(/"module":"p2p:(\d+)"/);
   if (!peerIdMatch) {
     logger.error('No peer Number found in received tx log');
     return null;

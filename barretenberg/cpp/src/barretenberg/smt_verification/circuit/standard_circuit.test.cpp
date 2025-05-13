@@ -15,7 +15,7 @@ using namespace bb;
 using namespace smt_circuit;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::get_randomness();
 }
 
 using field_t = stdlib::field_t<StandardCircuitBuilder>;
@@ -23,7 +23,7 @@ using witness_t = stdlib::witness_t<StandardCircuitBuilder>;
 using pub_witness_t = stdlib::public_witness_t<StandardCircuitBuilder>;
 using uint_ct = stdlib::uint32<StandardCircuitBuilder>;
 
-TEST(standard_circuit, assert_equal)
+TEST(Standard_circuit, assert_equal)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
 
@@ -62,7 +62,7 @@ TEST(standard_circuit, assert_equal)
     ASSERT_EQ(circuit[i.get_witness_index()].term, circuit[j.get_witness_index()].term);
 }
 
-TEST(standard_circuit, cached_subcircuits)
+TEST(Standard_circuit, cached_subcircuits)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     field_t a(witness_t(&builder, fr::zero()));
@@ -75,11 +75,11 @@ TEST(standard_circuit, cached_subcircuits)
     auto buf = builder.export_circuit();
     CircuitSchema circuit_info = unpack_from_buffer(buf);
     Solver s(circuit_info.modulus);
-    StandardCircuit circuit(circuit_info, &s, TermType::FFITerm);
+    StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
     s.print_assertions();
 }
 
-TEST(standard_circuit, range_relaxation_assertions)
+TEST(Standard_circuit, range_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     field_t a(witness_t(&builder, fr(120)));
@@ -100,7 +100,7 @@ TEST(standard_circuit, range_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(standard_circuit, range_relaxation)
+TEST(Standard_circuit, range_relaxation)
 {
     for (size_t i = 2; i < 256; i++) {
         StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -110,11 +110,11 @@ TEST(standard_circuit, range_relaxation)
         auto buf = builder.export_circuit();
         CircuitSchema circuit_info = unpack_from_buffer(buf);
         Solver s(circuit_info.modulus);
-        StandardCircuit circuit(circuit_info, &s, TermType::FFITerm);
+        StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
     }
 }
 
-TEST(standard_circuit, xor_relaxation_assertions)
+TEST(Standard_circuit, xor_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -132,7 +132,7 @@ TEST(standard_circuit, xor_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(standard_circuit, xor_relaxation)
+TEST(Standard_circuit, xor_relaxation)
 {
     for (size_t i = 2; i < 256; i += 2) {
         StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -147,7 +147,7 @@ TEST(standard_circuit, xor_relaxation)
     }
 }
 
-TEST(standard_circuit, and_relaxation_assertions)
+TEST(Standard_circuit, and_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -165,7 +165,7 @@ TEST(standard_circuit, and_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(standard_circuit, ror_relaxation_assertions)
+TEST(Standard_circuit, ror_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -181,7 +181,7 @@ TEST(standard_circuit, ror_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(standard_circuit, ror_relaxation)
+TEST(Standard_circuit, ror_relaxation)
 {
     for (size_t i = 1; i < 8; i++) {
         using uint_ct = stdlib::uint8<StandardCircuitBuilder>;
@@ -229,7 +229,7 @@ TEST(standard_circuit, ror_relaxation)
     }
 }
 
-TEST(standard_circuit, shl_relaxation_assertions)
+TEST(Standard_circuit, shl_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -245,7 +245,7 @@ TEST(standard_circuit, shl_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(standard_circuit, shl_relaxation)
+TEST(Standard_circuit, shl_relaxation)
 {
     for (size_t i = 1; i < 8; i++) {
         using uint_ct = stdlib::uint8<StandardCircuitBuilder>;
@@ -293,7 +293,7 @@ TEST(standard_circuit, shl_relaxation)
     }
 }
 
-TEST(standard_circuit, shr_relaxation_assertions)
+TEST(Standard_circuit, shr_relaxation_assertions)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
     uint_ct a(witness_t(&builder, static_cast<uint32_t>(fr(120))));
@@ -309,7 +309,7 @@ TEST(standard_circuit, shr_relaxation_assertions)
     s.print_assertions();
 }
 
-TEST(standard_circuit, shr_relaxation)
+TEST(Standard_circuit, shr_relaxation)
 {
     for (size_t i = 1; i < 8; i += 2) {
         using uint_ct = stdlib::uint8<StandardCircuitBuilder>;
@@ -357,7 +357,7 @@ TEST(standard_circuit, shr_relaxation)
     }
 }
 
-TEST(standard_circuit, check_double_xor_bug)
+TEST(Standard_circuit, check_double_xor_bug)
 {
     StandardCircuitBuilder builder;
     uint_ct a = witness_t(&builder, 10);
@@ -379,7 +379,7 @@ TEST(standard_circuit, check_double_xor_bug)
 
 // Check that witness provided by the solver is the same as builder's witness
 // Check that all the optimized out values are initialized and computed properly during post proccessing
-TEST(standard_circuit, optimized_range_witness)
+TEST(Standard_circuit, optimized_range_witness)
 {
     uint32_t rbit = engine.get_random_uint8() & 1;
     uint32_t num_bits = 32 + rbit;
@@ -398,7 +398,7 @@ TEST(standard_circuit, optimized_range_witness)
 
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
-    auto model_witness = default_model_single({ "a" }, circuit, "optimized_range_check.out");
+    auto model_witness = default_model_single({ "a" }, circuit, "tmp.out");
 
     ASSERT_EQ(model_witness.size(), builder.get_num_variables());
     for (size_t i = 0; i < model_witness.size(); i++) {
@@ -408,7 +408,7 @@ TEST(standard_circuit, optimized_range_witness)
 
 // Check that witness provided by the solver is the same as builder's witness
 // Check that all the optimized out values are initialized and computed properly during post proccessing
-TEST(standard_circuit, optimized_logic_witness)
+TEST(Standard_circuit, optimized_logic_witness)
 {
     StandardCircuitBuilder builder;
     uint_ct a = witness_t(&builder, engine.get_random_uint32());
@@ -429,7 +429,7 @@ TEST(standard_circuit, optimized_logic_witness)
 
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
-    auto model_witness = default_model_single({ "a", "b", "c", "d" }, circuit, "optimized_xor_check.out");
+    auto model_witness = default_model_single({ "a", "b", "c", "d" }, circuit, "tmp.out");
 
     ASSERT_EQ(model_witness.size(), builder.get_num_variables());
     for (size_t i = 0; i < model_witness.size(); i++) {
@@ -439,7 +439,7 @@ TEST(standard_circuit, optimized_logic_witness)
 
 // Check that witness provided by the solver is the same as builder's witness
 // Check that all the optimized out values are initialized and computed properly during post proccessing
-TEST(standard_circuit, optimized_shr_witness)
+TEST(Standard_circuit, optimized_shr_witness)
 {
     StandardCircuitBuilder builder;
     uint_ct a = witness_t(&builder, engine.get_random_uint32());
@@ -456,7 +456,7 @@ TEST(standard_circuit, optimized_shr_witness)
     circuit["a"] == a.get_value();
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
-    auto model_witness = default_model_single({ "a" }, circuit, "optimized_xor_check.out");
+    auto model_witness = default_model_single({ "a" }, circuit, "tmp.out");
 
     ASSERT_EQ(model_witness.size(), builder.get_num_variables());
     for (size_t i = 0; i < model_witness.size(); i++) {
@@ -466,7 +466,7 @@ TEST(standard_circuit, optimized_shr_witness)
 
 // Check that witness provided by the solver is the same as builder's witness
 // Check that all the optimized out values are initialized and computed properly during post proccessing
-TEST(standard_circuit, optimized_shl_witness)
+TEST(Standard_circuit, optimized_shl_witness)
 {
     StandardCircuitBuilder builder;
     uint_ct a = witness_t(&builder, engine.get_random_uint32());
@@ -483,7 +483,7 @@ TEST(standard_circuit, optimized_shl_witness)
     circuit[a.get_witness_index()] == a.get_value();
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
-    auto model_witness = default_model_single({ "a" }, circuit, "optimized_xor_check.out");
+    auto model_witness = default_model_single({ "a" }, circuit, "tmp.out");
 
     ASSERT_EQ(model_witness.size(), builder.get_num_variables());
     for (size_t i = 0; i < model_witness.size(); i++) {
@@ -493,7 +493,7 @@ TEST(standard_circuit, optimized_shl_witness)
 
 // Check that witness provided by the solver is the same as builder's witness
 // Check that all the optimized out values are initialized and computed properly during post proccessing
-TEST(standard_circuit, optimized_ror_witness)
+TEST(Standard_circuit, optimized_ror_witness)
 {
     StandardCircuitBuilder builder;
     uint_ct a = witness_t(&builder, engine.get_random_uint32());
@@ -510,7 +510,7 @@ TEST(standard_circuit, optimized_ror_witness)
     circuit[a.get_witness_index()] == a.get_value();
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
-    auto model_witness = default_model_single({ "a" }, circuit, "optimized_xor_check.out");
+    auto model_witness = default_model_single({ "a" }, circuit, "tmp.out");
 
     ASSERT_EQ(model_witness.size(), builder.get_num_variables());
     for (size_t i = 0; i < model_witness.size(); i++) {

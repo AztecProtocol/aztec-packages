@@ -6,12 +6,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import {
-  EPOCH_DURATION_IN_L2_SLOTS,
-  EpochsTestContext,
-  L1_BLOCK_TIME_IN_S,
-  WORLD_STATE_BLOCK_HISTORY,
-} from './epochs_test.js';
+import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -21,11 +16,13 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
 
+  let L1_BLOCK_TIME_IN_S: number;
+
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup();
-    ({ context, rollup, logger, monitor } = test);
+    ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 
   afterEach(async () => {
@@ -49,7 +46,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
 
   it('successfully proves multiple epochs', async () => {
     const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 3;
-    const targetProvenBlockNumber = targetProvenEpochs * EPOCH_DURATION_IN_L2_SLOTS;
+    const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
 
     let provenBlockNumber = 0;
     let epochNumber = 0;

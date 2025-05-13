@@ -21,28 +21,47 @@ shift # remove the compile arg so we can inject --show-artifact-paths
 
 # Forward all arguments to nargo, tee output to console.
 # Nargo should be outputting errors to stderr, but it doesn't. Use tee to duplicate stdout to stderr to display errors.
-artifacts_to_process=$($NARGO compile --inliner-aggressiveness 0 --show-artifact-paths $@ | tee >(cat >&2) | grep -oP 'Saved contract artifact to: \K.*')
+artifacts_to_process=$($NARGO compile --pedantic-solving --inliner-aggressiveness 0 --show-artifact-paths $@ | tee >(cat >&2) | grep -oP 'Saved contract artifact to: \K.*')
 
 # Postprocess each artifact
 # `$artifacts_to_process` needs to be unquoted here, otherwise it will break if there are multiple artifacts
 for artifact in $artifacts_to_process; do
-  # transpiler input and output files are the same (modify in-place)
+  # Transpile in-place
   $TRANSPILER "$artifact" "$artifact"
   artifact_name=$(basename "$artifact")
   echo "Generating verification keys for functions in $artifact_name"
-  # See contract_artifact.ts (getFunctionType) for reference
-  private_fn_indices=$(jq -r '.functions | to_entries | map(select((.value.custom_attributes | contains(["public"]) | not) and (.value.is_unconstrained == false))) | map(.key) | join(" ")' $artifact)
-  for fn_index in $private_fn_indices; do
-    fn_name=$(jq -r ".functions[$fn_index].name" $artifact)
-    fn_artifact=$(jq -r ".functions[$fn_index]" $artifact)
-    fn_artifact_path="$artifact.function_artifact_$fn_index.json"
-    echo $fn_artifact > $fn_artifact_path
 
-    echo "Generating verification key for function $fn_name"
-    # BB outputs the verification key to stdout as raw bytes, however, we need to base64 encode it before storing it in the artifact
-    verification_key=$($BB write_vk --scheme client_ivc --verifier_type standalone -b ${fn_artifact_path} -o - | base64)
-    rm $fn_artifact_path
-    jq ".functions[$fn_index].verification_key = \"$verification_key\"" $artifact > $artifact.tmp
-    mv $artifact.tmp $artifact
+  # See contract_artifact.ts (getFunctionType) for reference
+  private_fn_indices=$(jq -r '.functions | to_entries | map(select((.value.custom_attributes | contains(["public"]) | not) and (.value.is_unconstrained == false))) | map(.key) | join(" ")' "$artifact")
+
+  # Build a list of BB verification key generation commands
+  job_commands=()
+  for fn_index in $private_fn_indices; do
+    fn_name=$(jq -r ".functions[$fn_index].name" "$artifact")
+    fn_artifact=$(jq -r ".functions[$fn_index]" "$artifact")
+    fn_artifact_path="$artifact.function_artifact_$fn_index.json"
+    echo "$fn_artifact" > "$fn_artifact_path"
+
+    # Temporary file to capture the base64 encoded verification key.
+    vk_tmp="$artifact.verification_key_$fn_index.tmp"
+
+    # Construct the command:
+    # The BB call is wrapped by GNU parallel's memsuspend (active memory-based suspension)
+    # This command will generate the verification key, base64 encode it, and save it to vk_tmp.
+    job_commands+=("echo \"Generating verification key for function $fn_name\"; $BB write_vk --scheme client_ivc --verifier_type standalone -b \"$fn_artifact_path\" -o - | base64 > \"$vk_tmp\"; rm \"$fn_artifact_path\"")
+  done
+
+  # Run the commands in parallel, limiting to available cores and using memsuspend to actively suspend jobs if memory usage exceeds 2G.
+  # GNU parallel will suspend a job if free memory drops below 1G.
+  printf "%s\n" "${job_commands[@]}" | parallel --jobs "$(nproc)" --memsuspend 1G
+
+  # Now, update the artifact sequentially with each generated verification key.
+  for fn_index in $private_fn_indices; do
+    vk_tmp="$artifact.verification_key_$fn_index.tmp"
+    verification_key=$(cat "$vk_tmp")
+    # Update the artifact with the new verification key.
+    jq ".functions[$fn_index].verification_key = \"$verification_key\"" "$artifact" > "$artifact.tmp"
+    mv "$artifact.tmp" "$artifact"
+    rm "$vk_tmp"
   done
 done

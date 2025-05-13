@@ -68,7 +68,7 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
     Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
         .indirect = 3,
-        .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
+        .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
@@ -95,13 +95,13 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
     Instruction ecadd_instruction = {
         .opcode = WireOpCode::ECADD,
         .indirect = 0x1f1f,
-        .operands = { Operand::u16(0x1279),
-                      Operand::u16(0x127a),
-                      Operand::u16(0x127b),
-                      Operand::u16(0x127c),
-                      Operand::u16(0x127d),
-                      Operand::u16(0x127e),
-                      Operand::u16(0x127f) },
+        .operands = { Operand::from<uint16_t>(0x1279),
+                      Operand::from<uint16_t>(0x127a),
+                      Operand::from<uint16_t>(0x127b),
+                      Operand::from<uint16_t>(0x127c),
+                      Operand::from<uint16_t>(0x127d),
+                      Operand::from<uint16_t>(0x127e),
+                      Operand::from<uint16_t>(0x127f) },
     };
 
     std::vector<uint8_t> bytecode = ecadd_instruction.serialize();
@@ -378,7 +378,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
     Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
         .indirect = 3,
-        .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
+        .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
@@ -413,9 +413,9 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
     Instruction set_ff_instruction = {
         .opcode = WireOpCode::SET_FF,
         .indirect = 0x01,
-        .operands = { Operand::u16(0x1279),
-                      Operand::u8(static_cast<uint8_t>(MemoryTag::FF)),
-                      Operand::ff(FF::modulus_minus_two) },
+        .operands = { Operand::from<uint16_t>(0x1279),
+                      Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::FF)),
+                      Operand::from<FF>(FF::modulus_minus_two) },
     };
 
     std::vector<uint8_t> bytecode = set_ff_instruction.serialize();
@@ -447,7 +447,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionPcOutOfRange)
     Instruction add_8_instruction = {
         .opcode = WireOpCode::SUB_8,
         .indirect = 3,
-        .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
+        .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
@@ -487,9 +487,9 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
     Instruction set_128_instruction = {
         .opcode = WireOpCode::SET_128,
         .indirect = 0,
-        .operands = { Operand::u16(0x1234),
-                      Operand::u8(static_cast<uint8_t>(MemoryTag::U128)),
-                      Operand::u128(static_cast<uint128_t>(0xFF) << 120) },
+        .operands = { Operand::from<uint16_t>(0x1234),
+                      Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U128)),
+                      Operand::from<uint128_t>(static_cast<uint128_t>(0xFF) << 120) },
     };
 
     std::vector<uint8_t> bytecode = set_128_instruction.serialize();
@@ -528,7 +528,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
     Instruction set_16_instruction = {
         .opcode = WireOpCode::SET_16,
         .indirect = 0,
-        .operands = { Operand::u16(0x1234), Operand::u8(12), Operand::u16(0x5678) },
+        .operands = { Operand::from<uint16_t>(0x1234), Operand::from<uint8_t>(12), Operand::from<uint16_t>(0x5678) },
     };
 
     std::vector<uint8_t> bytecode = set_16_instruction.serialize();
@@ -590,7 +590,6 @@ TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongWireInstructionSpecInt
             C::instr_fetching_sel_op_dc_8,    C::instr_fetching_sel_op_dc_9,  C::instr_fetching_sel_op_dc_10,
             C::instr_fetching_sel_op_dc_11,   C::instr_fetching_sel_op_dc_12, C::instr_fetching_sel_op_dc_13,
             C::instr_fetching_sel_op_dc_14,   C::instr_fetching_sel_op_dc_15, C::instr_fetching_sel_op_dc_16,
-            C::instr_fetching_sel_op_dc_17,
         };
 
         // Mutate execution opcode

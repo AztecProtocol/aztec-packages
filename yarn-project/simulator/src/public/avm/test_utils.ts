@@ -38,8 +38,8 @@ export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: Fr, 
   });
 }
 
-export function mockGetNullifierIndex(worldStateDB: PublicTreesDB, leafIndex: Fr, _ignoredValue?: Fr) {
-  (worldStateDB as jest.Mocked<PublicTreesDB>).getNullifierIndex.mockResolvedValue(leafIndex.toBigInt());
+export function mockCheckNullifierExists(worldStateDB: PublicTreesDB, exists: boolean, _ignoredValue?: Fr) {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).checkNullifierExists.mockResolvedValue(exists);
 }
 
 export function mockL1ToL2MessageExists(

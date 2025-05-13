@@ -9,10 +9,10 @@ import {
   createPXEClient,
   makeFetch,
 } from '@aztec/aztec.js';
-import { CounterContract } from '@aztec/noir-contracts.js/Counter';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
+import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
 
 import { DeployTest } from './deploy_test.js';
@@ -93,24 +93,24 @@ describe('e2e_deploy_contract deploy method', () => {
     const opts = { skipClassRegistration: true, skipPublicDeployment: true };
     const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    await contract.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
-    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(11n);
+    await contract.methods.increment_twice(wallet.getAddress(), wallet.getAddress()).send().wait();
+    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(12n);
   });
 
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
-    const contract = await DocsExampleContract.deploy(wallet).send().deployed();
+    const contract = await NoConstructorContract.deploy(wallet).send().deployed();
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_public(arbitraryValue).send().wait();
     const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.log[0]).toEqual(new Fr(arbitraryValue));
+    expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryValue)]);
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipPublicDeployment: true, skipClassRegistration: true };
-    await expect(DocsExampleContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
+    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
   });
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {
@@ -145,12 +145,10 @@ describe('e2e_deploy_contract deploy method', () => {
     // First send the deploy transaction
     // Pay priority fee to ensure the deployment transaction gets processed first.
     const maxPriorityFeesPerGas = new GasFees(1n, 0n);
-    const deployTxPromise = deployTx
-      .send({ skipPublicSimulation: true, fee: { gasSettings: { maxPriorityFeesPerGas } } })
-      .wait({ timeout: 600 });
+    const deployTxPromise = deployTx.send({ fee: { gasSettings: { maxPriorityFeesPerGas } } }).wait({ timeout: 600 });
 
     // Then send the public call transaction
-    const publicCallTxPromise = publicCall.send({ skipPublicSimulation: true }).wait({ timeout: 600 });
+    const publicCallTxPromise = publicCall.send().wait({ timeout: 600 });
 
     logger.debug('Deploying a contract and calling a public function in the same block');
     const [deployTxReceipt, publicCallTxReceipt] = await Promise.all([deployTxPromise, publicCallTxPromise]);

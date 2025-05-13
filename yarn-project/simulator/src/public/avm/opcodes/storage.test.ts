@@ -34,8 +34,8 @@ describe('Storage Instructions', () => {
       ]);
       const inst = new SStore(/*indirect=*/ 0x01, /*srcOffset=*/ 0x1234, /*slotOffset=*/ 0x3456);
 
-      expect(SStore.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SStore.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Sstore should Write into storage', async () => {
@@ -77,8 +77,8 @@ describe('Storage Instructions', () => {
       ]);
       const inst = new SLoad(/*indirect=*/ 0x01, /*slotOffset=*/ 0x1234, /*dstOffset=*/ 0x3456);
 
-      expect(SLoad.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SLoad.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Sload should Read into storage', async () => {

@@ -9,7 +9,7 @@ import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
-import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
@@ -25,7 +25,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 contract Governance is IGovernance {
   using SafeERC20 for IERC20;
   using ProposalLib for DataStructures.Proposal;
-  using UserLib for DataStructures.User;
+  using UserLib for User;
   using ConfigurationLib for DataStructures.Configuration;
 
   IERC20 public immutable ASSET;
@@ -34,11 +34,11 @@ contract Governance is IGovernance {
 
   mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
   mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
-  mapping(address => DataStructures.User) internal users;
+  mapping(address => User) internal users;
   mapping(uint256 withdrawalId => DataStructures.Withdrawal) internal withdrawals;
 
   DataStructures.Configuration internal configuration;
-  DataStructures.User internal total;
+  User internal total;
   uint256 public proposalCount;
   uint256 public withdrawalCount;
 
@@ -48,13 +48,13 @@ contract Governance is IGovernance {
 
     configuration = DataStructures.Configuration({
       proposeConfig: DataStructures.ProposeConfiguration({
-        lockDelay: Timestamp.wrap(60),
-        lockAmount: 1000e18
+        lockDelay: Timestamp.wrap(60 * 60 * 24 * 30),
+        lockAmount: 1e24
       }),
       votingDelay: Timestamp.wrap(60),
-      votingDuration: Timestamp.wrap(60),
+      votingDuration: Timestamp.wrap(60 * 60),
       executionDelay: Timestamp.wrap(60),
-      gracePeriod: Timestamp.wrap(60),
+      gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
       voteDifferential: 0.04e18,
       minimumVotes: 1000e18

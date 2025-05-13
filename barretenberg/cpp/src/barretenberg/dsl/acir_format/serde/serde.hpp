@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 // Copyright (c) Facebook, Inc. and its affiliates
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
@@ -351,6 +357,14 @@ template <class... Types> struct Serializable<std::variant<Types...>> {
     }
 };
 
+// Shared pointers
+template <class Type> struct Serializable<std::shared_ptr<Type>> {
+    template <typename Serializer> static void serialize(const std::shared_ptr<Type>& value, Serializer& serializer)
+    {
+        Serializable<Type>::serialize(*value, serializer);
+    }
+};
+
 // --- Implementation of Deserializable for base types ---
 
 // string
@@ -508,10 +522,10 @@ template <typename T> struct Deserializable<std::optional<T>> {
 template <typename T, typename Allocator> struct Deserializable<std::vector<T, Allocator>> {
     template <typename Deserializer> static std::vector<T> deserialize(Deserializer& deserializer)
     {
-        std::vector<T> result;
         size_t len = deserializer.deserialize_len();
+        std::vector<T> result(len);
         for (size_t i = 0; i < len; i++) {
-            result.push_back(Deserializable<T>::deserialize(deserializer));
+            result[i] = Deserializable<T>::deserialize(deserializer);
         }
         return result;
     }
@@ -592,6 +606,14 @@ template <class... Types> struct Deserializable<std::variant<Types...>> {
             throw_or_abort("Unknown variant index for enum");
         }
         return cases.at(index)(deserializer);
+    }
+};
+
+// Shared pointers
+template <class Type> struct Deserializable<std::shared_ptr<Type>> {
+    template <typename Deserializer> static std::shared_ptr<Type> deserialize(Deserializer& serializer)
+    {
+        return std::make_shared<Type>(Deserializable<Type>::deserialize(serializer));
     }
 };
 

@@ -6,9 +6,9 @@ In this section, we'll write the logic in our app that will interact with the co
 
 ## Showing user balance
 
-Let's start by showing our user's private balance for the token across their accounts. To do this, we can leverage the `balance_of_private` unconstrained view function of the token contract:
+Let's start by showing our user's private balance for the token across their accounts. To do this, we can leverage the `balance_of_private` utility function of the token contract:
 
-#include_code balance_of_private noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code balance_of_private noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 :::info
 Note that this function will only return a valid response for accounts registered in the Private eXecution Environment (PXE), since it requires access to the [user's private state](../../../../../aztec/concepts/wallets/index.md#private-state). In other words, you cannot query the private balance of another user for the token contract.
@@ -64,7 +64,7 @@ Balance of 0x0e1f60e8566e2c6d32378bdcadb7c63696e853281be798c107266b8c3a88ea9b: 0
 
 Now that we can see the balance for each user, let's transfer tokens from one account to another. To do this, we will first need access to a `Wallet` object. This wraps access to an PXE and also provides an interface to craft and sign transactions on behalf of one of the user accounts.
 
-For ease of use, `@aztec/accounts` also ships with a helper `getInitialTestAccountsWallets` method that returns a wallet for each of the pre-initialized accounts in the Sandbox, so you can send transactions as any of them.
+For ease of use, `@aztec/accounts` also ships with a helper `getInitialTestAccountsWallets` method that returns a wallet for each of the pre-initialized accounts in the Sandbox, so you can send transactions as any of them. Import it in `index.mjs`.
 
 ```js
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";

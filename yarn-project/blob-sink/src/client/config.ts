@@ -30,6 +30,11 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
    * List of header names for the corresponding L1 consensus client API keys, if needed. Added as "<api-key-header>: <api-key>"
    */
   l1ConsensusHostApiKeyHeaders?: string[];
+
+  /**
+   * The map size to be provided to LMDB for each blob sink DB, optional, will inherit from the general dataStoreMapSizeKB if not specified
+   */
+  blobSinkMapSizeKb?: number;
 }
 
 export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
@@ -59,6 +64,11 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
       'List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "<api-key-header>: <api-key>"',
     parseEnv: (val: string) => val.split(',').map(url => url.trim()),
   },
+  blobSinkMapSizeKb: {
+    env: 'BLOB_SINK_MAP_SIZE_KB',
+    description: 'The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+  },
   ...blobSinkArchiveApiConfigMappings,
 };
 
@@ -68,4 +78,11 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
  */
 export function getBlobSinkConfigFromEnv(): BlobSinkConfig {
   return getConfigFromMappings<BlobSinkConfig>(blobSinkConfigMapping);
+}
+
+/**
+ * Returns whether the given blob sink config has any remote sources defined.
+ */
+export function hasRemoteBlobSinkSources(config: BlobSinkConfig = {}): boolean {
+  return !!(config.blobSinkUrl || config.l1ConsensusHostUrls?.length || config.archiveApiUrl);
 }

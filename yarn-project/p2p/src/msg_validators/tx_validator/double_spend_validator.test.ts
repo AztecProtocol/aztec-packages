@@ -1,5 +1,5 @@
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import type { AnyTx } from '@aztec/stdlib/tx';
+import { type AnyTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX, TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -29,7 +29,7 @@ describe('DoubleSpendTxValidator', () => {
     });
     badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] =
       badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
-    await expectInvalid(badTx, 'Duplicate nullifier in tx');
+    await expectInvalid(badTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX);
   });
 
   it('rejects duplicates in revertible data', async () => {
@@ -40,7 +40,7 @@ describe('DoubleSpendTxValidator', () => {
     });
     badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] =
       badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[0];
-    await expectInvalid(badTx, 'Duplicate nullifier in tx');
+    await expectInvalid(badTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX);
   });
 
   it('rejects duplicates against history', async () => {
@@ -49,7 +49,7 @@ describe('DoubleSpendTxValidator', () => {
       numberOfRevertiblePublicCallRequests: 0,
     });
     nullifierSource.nullifiersExist.mockResolvedValue([true]);
-    await expectInvalid(badTx, 'Existing nullifier');
+    await expectInvalid(badTx, TX_ERROR_EXISTING_NULLIFIER);
   });
 
   it('accepts txs with no duplicates', async () => {

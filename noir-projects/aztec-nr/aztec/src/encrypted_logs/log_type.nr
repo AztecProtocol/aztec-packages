@@ -1,3 +1,0 @@
-pub global PRIVATE_NOTE_LOG_TYPE_ID: u64 = 0;
-pub global PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID: u64 = 1;
-pub global PRIVATE_EVENT_LOG_TYPE_ID: u64 = 2;

@@ -9,11 +9,7 @@ using namespace bb;
 
 class GoblinTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Builder = MegaCircuitBuilder;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
@@ -22,8 +18,8 @@ class GoblinTests : public ::testing::Test {
     static Builder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
     {
         Builder circuit{ op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
+        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
         return circuit;
     }
 };
@@ -35,24 +31,22 @@ class GoblinTests : public ::testing::Test {
  */
 TEST_F(GoblinTests, MultipleCircuits)
 {
-    GoblinProver goblin;
+    Goblin goblin;
 
     // Construct and accumulate multiple circuits
     size_t NUM_CIRCUITS = 3;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = construct_mock_circuit(goblin.op_queue);
-        goblin.prove_merge(circuit); // appends a recursive merge verifier if a merge proof exists
+        Builder builder{ goblin.op_queue };
+        GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
+
+        goblin.prove_merge();
     }
 
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
     GoblinProof proof = goblin.prove();
 
-    // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
-    // respective proving keys)
-    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    GoblinVerifier goblin_verifier{ eccvm_vkey, translator_vkey };
-    bool verified = goblin_verifier.verify(proof);
+    // Verify the goblin proof (eccvm, translator, merge)
+    bool verified = Goblin::verify(proof);
 
     EXPECT_TRUE(verified);
 }

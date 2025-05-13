@@ -9,15 +9,17 @@ import { AZTEC_ENR_KEY } from '../types/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { setAztecEnrKey } from '../versioning.js';
 
+export { ENR };
+
 export async function createBootnodeENRandPeerId(
   privateKey: string,
   p2pIp: string,
-  p2pPort: number,
+  p2pBroadcastPort: number,
   l1ChainId: number,
 ): Promise<{ enr: SignableENR; peerId: PeerId }> {
   const peerId = await createLibP2PPeerIdFromPrivateKey(privateKey);
   const enr = SignableENR.createFromPeerId(peerId);
-  const publicAddr = multiaddr(convertToMultiaddr(p2pIp, p2pPort, 'udp'));
+  const publicAddr = multiaddr(convertToMultiaddr(p2pIp, p2pBroadcastPort, 'udp'));
   enr.setLocationMultiaddr(publicAddr);
 
   const config: ChainConfig = {

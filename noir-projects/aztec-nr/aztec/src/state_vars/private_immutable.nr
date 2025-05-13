@@ -3,7 +3,7 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     lifecycle::create_note,
     note_emission::NoteEmission,
@@ -21,10 +21,10 @@ pub struct PrivateImmutable<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<N> for PrivateImmutable<T, Context>
-where
-    T: Packable<N>,
-{
+// Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
+// value spilling over multiple slots. For this reason PrivateImmutable (and all other private state variables) needs
+// just one slot to be reserved, regardless of what it stores.
+impl<T, Context> Storage<1> for PrivateImmutable<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
@@ -82,7 +82,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:get_note
 }
 
-impl<Note> PrivateImmutable<Note, UnconstrainedContext>
+impl<Note> PrivateImmutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

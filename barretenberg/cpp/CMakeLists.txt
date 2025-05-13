@@ -75,7 +75,7 @@ if(FUZZING)
     if(SHOW_INFORMATION)
         add_definitions(-DSHOW_INFORMATION=1)
     endif()
-        
+
     add_definitions(-DFUZZING=1)
 
     if(DISABLE_CUSTOM_MUTATORS)
@@ -101,7 +101,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-fbracket-depth=2048)
+    add_compile_options(-fbracket-depth=512)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")
         message(WARNING "Clang <14 is not supported")
     endif()
@@ -163,6 +163,7 @@ include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 include(cmake/lmdb.cmake)
+include(cmake/libdeflate.cmake)
 
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 if (NOT WASM)

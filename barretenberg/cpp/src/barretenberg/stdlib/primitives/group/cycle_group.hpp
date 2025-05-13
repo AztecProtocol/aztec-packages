@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -47,6 +53,9 @@ template <typename Builder> class cycle_group {
     static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
     static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
     inline static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
+
+    // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 2;
 
   private:
   public:
@@ -274,6 +283,31 @@ template <typename Builder> class cycle_group {
     OriginTag get_origin_tag() const
     {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
+    /**
+     * @brief Set the witness indices representing the cycle_group to public
+     *
+     * @return uint32_t Index into the public inputs array at which the representation is stored
+     */
+    uint32_t set_public()
+    {
+        uint32_t start_idx = x.set_public();
+        y.set_public();
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a cycle_group from limbs (generally stored in the public inputs)
+     * @details The base field of the cycle_group curve is the same as the circuit's native field so each coordinate is
+     * represented by a single "limb".
+     *
+     * @param limbs The coordinates of the cycle_group element
+     * @return cycle_group
+     */
+    static cycle_group reconstruct_from_public(const std::span<const field_t, 2>& limbs)
+    {
+        return cycle_group(limbs[0], limbs[1], false);
     }
 
     field_t x;

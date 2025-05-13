@@ -4,7 +4,7 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
-  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FIELDS_PER_BLOB,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -36,7 +36,7 @@ import {
   NUM_MSGS_PER_BASE_PARITY,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
@@ -55,11 +55,14 @@ import { ContractStorageRead } from '../avm/contract_storage_read.js';
 import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
+  AvmAppendLeavesHint,
   AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
+  AvmCommitCheckpointHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
+  AvmCreateCheckpointHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
@@ -67,8 +70,10 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
+  AvmRevertCheckpointHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
+  AvmTxHint,
   RevertCode,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
@@ -81,7 +86,7 @@ import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
+  type UtilityFunctionWithMembershipProof,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
@@ -103,7 +108,7 @@ import {
   PrivateToRollupAccumulatedData,
   mergeAccumulatedData,
 } from '../kernel/index.js';
-import { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
+import { CountedLogHash, LogHash, ScopedLogHash } from '../kernel/log_hash.js';
 import { NoteHash } from '../kernel/note_hash.js';
 import { Nullifier } from '../kernel/nullifier.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
@@ -112,7 +117,7 @@ import { PrivateLogData } from '../kernel/private_log_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { CountedPublicCallRequest, PublicCallRequest } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ContractClassLog } from '../logs/contract_class_log.js';
+import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
 import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -173,7 +178,11 @@ import { mockTx } from './mocks.js';
  * @returns A side effect object.
  */
 function makeLogHash(seed: number) {
-  return new LogHash(fr(seed), seed + 1, seed + 2);
+  return new LogHash(fr(seed), seed + 1);
+}
+
+function makeCountedLogHash(seed: number) {
+  return new CountedLogHash(makeLogHash(seed), seed + 0x10);
 }
 
 function makeScopedLogHash(seed: number) {
@@ -188,16 +197,8 @@ function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
 }
 
-function makeContractClassLog(seed: number) {
-  // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
-  return new ContractClassLog(
-    makeAztecAddress(seed),
-    makeTuple(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS * 1, fr, seed + 1),
-  );
-}
-
 function makePrivateLog(seed: number) {
-  return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, fr, seed));
+  return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, fr, seed), PRIVATE_LOG_SIZE_IN_FIELDS);
 }
 
 function makePrivateLogData(seed: number) {
@@ -205,7 +206,11 @@ function makePrivateLogData(seed: number) {
 }
 
 function makePublicLog(seed: number) {
-  return new PublicLog(makeAztecAddress(seed), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, fr, seed + 1));
+  return new PublicLog(
+    makeAztecAddress(seed),
+    makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, fr, seed + 1),
+    PUBLIC_LOG_SIZE_IN_FIELDS,
+  );
 }
 
 /**
@@ -572,7 +577,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
     l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
-    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeLogHash, seed + 0xa00),
+    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
@@ -708,11 +713,10 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
   return new BlockRootOrBlockMergePublicInputs(
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
-    fr(seed + 0x400),
-    fr(seed + 0x500),
-    globalVariables ?? makeGlobalVariables(seed + 0x501),
-    globalVariables ?? makeGlobalVariables(seed + 0x502),
+    globalVariables ?? makeGlobalVariables(seed + 0x400),
+    globalVariables ?? makeGlobalVariables(seed + 0x500),
     fr(seed + 0x600),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
     fr(seed + 0x801),
@@ -781,8 +785,9 @@ function makeBlockRootRollupData(seed = 0) {
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
-    makeHeader(seed + 0x2300),
-    fr(seed + 0x2400),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
+    makeHeader(seed + 0x2400),
+    fr(seed + 0x2500),
   );
 }
 
@@ -875,18 +880,19 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  */
 export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
+    makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
-    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    fr(seed + 0x300),
     fr(seed + 0x400),
     fr(seed + 0x500),
-    fr(seed + 0x600),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x600),
     fr(seed + 0x700),
-    fr(seed + 0x800),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
-    fr(seed + 0x100),
-    fr(seed + 0x101),
-    fr(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x300),
+    fr(seed + 0x701),
+    fr(seed + 0x702),
+    fr(seed + 0x703),
+    fr(seed + 0x704),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x800),
   );
 }
 
@@ -1075,6 +1081,10 @@ function makePrivateTubeData(seed = 1, kernelPublicInputs?: PrivateToRollupKerne
   );
 }
 
+function makeContractClassLogFields(seed = 1) {
+  return new ContractClassLogFields(makeArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, fr, seed));
+}
+
 function makePrivateBaseRollupHints(seed = 1) {
   const start = makePartialStateReference(seed + 0x100);
 
@@ -1084,7 +1094,11 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+  const contractClassLogsPreimages = makeTuple(
+    MAX_CONTRACT_CLASS_LOGS_PER_TX,
+    makeContractClassLogFields,
+    seed + 0x800,
+  );
 
   const constants = makeConstantRollupData(0x100);
 
@@ -1106,7 +1120,11 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+  const contractClassLogsPreimages = makeTuple(
+    MAX_CONTRACT_CLASS_LOGS_PER_TX,
+    makeContractClassLogFields,
+    seed + 0x800,
+  );
 
   const constants = makeConstantRollupData(0x100);
 
@@ -1168,12 +1186,12 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
     privateFunctionTreeLeafIndex: seed + 3,
     artifactMetadataHash: fr(seed + 4),
     functionMetadataHash: fr(seed + 5),
-    unconstrainedFunctionsArtifactTreeRoot: fr(seed + 6),
+    utilityFunctionsTreeRoot: fr(seed + 6),
     vkHash: fr(seed + 7),
   };
 }
 
-export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): UnconstrainedFunctionWithMembershipProof {
+export function makeUtilityFunctionWithMembershipProof(seed = 0): UtilityFunctionWithMembershipProof {
   return {
     selector: makeSelector(seed),
     bytecode: makeBytes(100, seed + 1),
@@ -1197,7 +1215,7 @@ export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer)
     packedBytecode,
     privateFunctionsRoot,
     privateFunctions: [],
-    unconstrainedFunctions: [],
+    utilityFunctions: [],
     version: 1,
   };
 }
@@ -1381,6 +1399,42 @@ export function makeAvmSequentialInsertHintNullifierTree(seed = 0): AvmSequentia
   );
 }
 
+export function makeAvmAppendLeavesHint(seed = 0): AvmAppendLeavesHint {
+  return new AvmAppendLeavesHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    // Use NOTE_HASH_TREE or L1_TO_L2_MESSAGE_TREE as mentioned in the comment on AvmAppendLeavesHint
+    seed % 2 === 0 ? MerkleTreeId.NOTE_HASH_TREE : MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    makeArray((seed % 5) + 1, i => new Fr(seed + i + 2), 0),
+  );
+}
+
+export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0): AvmCreateCheckpointHint {
+  return new AvmCreateCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0): AvmCommitCheckpointHint {
+  return new AvmCommitCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevertCheckpointHint {
+  return new AvmRevertCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+    /*beforeState=*/ makeTreeSnapshots(seed + 3),
+    /*afterState=*/ makeTreeSnapshots(seed + 7),
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1427,6 +1481,24 @@ export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   );
 }
 
+export function makeAvmTxHint(seed = 0): AvmTxHint {
+  return new AvmTxHint(
+    `txhash-${seed}`,
+    makeGlobalVariables(seed),
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
+    },
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x3000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x4000),
+    },
+    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x5000), // setupEnqueuedCalls
+    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
+    makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
+  );
+}
+
 /**
  * Creates arbitrary AvmExecutionHints.
  * @param seed - The seed to use for generating the hints.
@@ -1441,10 +1513,11 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
-    enqueuedCalls: makeArray(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
+    tx: makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
+    startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
     getLeafPreimageHintPublicDataTree: makeArray(
@@ -1464,14 +1537,19 @@ export async function makeAvmExecutionHints(
       makeAvmSequentialInsertHintNullifierTree,
       seed + 0x5700,
     ),
+    appendLeavesHints: makeArray(baseLength + 5, makeAvmAppendLeavesHint, seed + 0x5800),
+    createCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCreateCheckpointHint, seed + 0x5900),
+    commitCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCommitCheckpointHint, seed + 0x5b00),
+    revertCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionRevertCheckpointHint, seed + 0x5d00),
     ...overrides,
   };
 
   return new AvmExecutionHints(
-    fields.enqueuedCalls,
+    fields.tx,
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
+    fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
     fields.getLeafPreimageHintPublicDataTree,
@@ -1479,6 +1557,10 @@ export async function makeAvmExecutionHints(
     fields.getLeafValueHints,
     fields.sequentialInsertHintsPublicDataTree,
     fields.sequentialInsertHintsNullifierTree,
+    fields.appendLeavesHints,
+    fields.createCheckpointHints,
+    fields.commitCheckpointHints,
+    fields.revertCheckpointHints,
   );
 }
 
@@ -1492,14 +1574,12 @@ export async function makeAvmCircuitInputs(
   overrides: Partial<FieldsOf<AvmCircuitInputs>> = {},
 ): Promise<AvmCircuitInputs> {
   const fields = {
-    functionName: `function${seed}`,
-    calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
-    avmHints: await makeAvmExecutionHints(seed + 0x3000),
+    hints: await makeAvmExecutionHints(seed + 0x3000),
     publicInputs: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
   };
 
-  return new AvmCircuitInputs(fields.functionName, fields.calldata, fields.avmHints, fields.publicInputs);
+  return new AvmCircuitInputs(fields.hints, fields.publicInputs);
 }
 
 /**

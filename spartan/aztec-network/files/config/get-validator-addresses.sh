@@ -35,8 +35,4 @@ while [ $i -lt $((KEY_INDEX_START + NUMBER_OF_VALIDATORS)) ]; do
   i=$((i + 1))
 done
 
-cat <<EOF >./shared/config/validator-addresses
 export VALIDATOR_ADDRESSES=$VALIDATOR_ADDRESSES_LIST
-EOF
-
-cat ./shared/config/validator-addresses

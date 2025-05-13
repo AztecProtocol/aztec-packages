@@ -15,18 +15,20 @@ if [ -z "$key" ]; then
 
   # If this is github merge queue, just keep the queue name.
   if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
-    name=${BASH_REMATCH[1]}
+    name="${BASH_REMATCH[1]} (queue)"
   fi
 
   json=$(jq -c -j -n \
       --argjson timestamp "$key" \
+      --arg run_id "${RUN_ID:-}" \
+      --arg job_id "${JOB_ID:-}" \
       --arg status "$status" \
       --arg msg "$msg" \
       --arg name "$name" \
       --arg author "$author" \
       --arg arch "$(arch)" \
       --argjson spot "$spot" \
-      '{timestamp: $timestamp, status: $status, msg: $msg, name: $name, author: $author, arch: $arch, spot: $spot}')
+      '{timestamp: $timestamp, run_id: $run_id, job_id: $job_id, status: $status, msg: $msg, name: $name, author: $author, arch: $arch, spot: $spot}')
   # echo "$json" >&2
   redis_cli ZADD ci-run $key "$json" &>/dev/null
   redis_cli SETEX hb-$key 60 1 &>/dev/null

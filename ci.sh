@@ -49,7 +49,7 @@ instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${a
 function get_ip_for_instance {
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" \
+    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
     --query "Reservations[].Instances[0].PublicIpAddress" \
     --output text)
 }
@@ -71,24 +71,24 @@ function tail_live_instance {
 case "$cmd" in
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
-    export USE_TEST_CACHE=1
-    bootstrap_ec2
+    export USE_TEST_CACHE=${USE_TEST_CACHE:-1}
+    exec bootstrap_ec2
     ;;
   "ec2-no-cache")
     # Disable the build and test cache.
     export NO_CACHE=1
     export USE_TEST_CACHE=0
-    bootstrap_ec2
+    exec bootstrap_ec2
     ;;
   "ec2-test")
     # Can use the build cache, but don't use the test cache.
     export USE_TEST_CACHE=0
-    bootstrap_ec2
+    exec bootstrap_ec2
     ;;
   "ec2-shell")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
-    bootstrap_ec2 "false"
+    exec bootstrap_ec2 "false"
     ;;
   "ec2-grind")
     # Same as ec2-test but repeat it over arg1 instances.
@@ -250,6 +250,11 @@ case "$cmd" in
     git config --global user.name "AztecBot"
     # Run benchmark logic for github actions.
     bb_hash=$(barretenberg/bootstrap.sh hash)
+    # Protocol circuit benchmarks are published on each commit
+    npc_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+    # Simulator benchmarks are published on each commit
+    sim_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+    l1_hash=$(l1-contracts/bootstrap.sh hash)
     yp_hash=$(yarn-project/bootstrap.sh hash)
 
     if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
@@ -268,6 +273,13 @@ case "$cmd" in
     else
       cache_download barretenberg-bench-results-$bb_hash.tar.gz
     fi
+
+    # noir-protocol-circuits benchmarks.
+    cache_download noir-protocol-circuits-bench-results-$npc_hash.tar.gz
+    # aztec simulator benchmarks.
+    cache_download simulator-bench-results-$sim_hash.tar.gz
+    # L1 gas benchmark
+    cache_download l1-gas-bench-results-$l1_hash.tar.gz
 
     # yarn-project benchmarks.
     if [ "$yp_hash" == "$prev_yp_hash" ]; then

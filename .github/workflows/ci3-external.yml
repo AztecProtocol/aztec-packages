@@ -9,9 +9,10 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
-  # Only allow one run per <forked-repo>/<branch>.
+  # Only allow one run per <forked-repo>/<branch> and full concurrency on merge queue.
   group: |
-    ci3-external-${{format('{0}/{1}', github.event.pull_request.head.repo.full_name, github.head_ref)}}
+    ci3-external-${{ github.event_name == 'pull_request' && format('{0}/{1}', github.event.pull_request.head.repo.full_name, github.head_ref)
+                                                         || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -43,8 +44,10 @@ jobs:
             echo "Error: External PRs can't contain CI changes (forbidden files: $forbidden_changes)."
             exit 1
           fi
-          if [ ${{ github.event.pull_request.base.ref }} != "master" ]; then
-            echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}."
+          if [[ "${{ github.event.pull_request.base.ref }}" != "master" && \
+                "${{ github.event.pull_request.base.ref }}" != "alpha-testnet" && \
+                "${{ github.event.pull_request.base.ref }}" != "next" ]]; then
+            echo "Error: External PRs can only target master, alpha-testnet, or next. Targeted: ${{ github.event.pull_request.base.ref }}."
             exit 1
           fi
           labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once'}}"
@@ -83,6 +86,6 @@ jobs:
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
           # We only test on amd64.
           ARCH: amd64
-          LOG_ID: ${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           ./ci.sh ec2

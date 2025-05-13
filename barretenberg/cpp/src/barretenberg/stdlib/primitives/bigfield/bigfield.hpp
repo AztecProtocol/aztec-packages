@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "../byte_array/byte_array.hpp"
@@ -18,6 +24,10 @@ template <typename Builder, typename T> class bigfield {
     using CoefficientAccumulator = bigfield;
     using TParams = T;
     using native = bb::field<T>;
+    using field_ct = field_t<Builder>;
+
+    // Number of bb::fr field elements used to represent a bigfield element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
 
     struct Basis {
         uint512_t modulus;
@@ -480,6 +490,14 @@ template <typename Builder, typename T> class bigfield {
             ctx->set_public_input(limb.element.normalize().witness_index);
         }
         return start_index;
+    }
+
+    /**
+     * @brief Reconstruct a bigfield from limbs (generally stored in the public inputs)
+     */
+    static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
     }
 
     static constexpr uint512_t get_maximum_unreduced_value()

@@ -6,6 +6,7 @@
 #include <string>
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 
 namespace bb::avm2 {
 
@@ -20,5 +21,7 @@ std::string to_hex(T value)
     stream << std::setfill('0') << std::setw(padding) << std::hex << (value & mask);
     return stream.str();
 }
+
+std::string field_to_string(const FF& ff);
 
 } // namespace bb::avm2

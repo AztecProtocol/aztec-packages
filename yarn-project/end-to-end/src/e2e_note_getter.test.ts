@@ -1,6 +1,6 @@
-import { type AztecAddress, Comparator, Fr, type Wallet } from '@aztec/aztec.js';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { type AztecAddress, Comparator, type Wallet } from '@aztec/aztec.js';
+import { NoteGetterContract } from '@aztec/noir-test-contracts.js/NoteGetter';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 
@@ -13,9 +13,6 @@ function boundedVecToArray<T>(boundedVec: NoirBoundedVec<T>): T[] {
   return boundedVec.storage.slice(0, Number(boundedVec.len));
 }
 
-const sortFunc = (a: any, b: any) =>
-  a.points > b.points ? 1 : a.points < b.points ? -1 : a.randomness > b.randomness ? 1 : -1;
-
 describe('e2e_note_getter', () => {
   let wallet: Wallet;
   let teardown: () => Promise<void>;
@@ -27,125 +24,44 @@ describe('e2e_note_getter', () => {
   afterAll(() => teardown());
 
   describe('comparators', () => {
-    let contract: DocsExampleContract;
+    let contract: NoteGetterContract;
 
     beforeAll(async () => {
-      contract = await DocsExampleContract.deploy(wallet).send().deployed();
-      // sets card value to 1 and leader to sender.
-      await contract.methods.initialize_private(Fr.random(), 1).send().wait();
+      contract = await NoteGetterContract.deploy(wallet).send().deployed();
     });
 
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
-      // ISSUE #4243
-      // Calling this function does not work like this
-      // const numbers = [...Array(10).keys()];
-      // await Promise.all(numbers.map(number => contract.methods.insert_note(number).send().wait()));
-      // It causes a race condition complaining about root mismatch
+      await Promise.all(
+        Array(10)
+          .fill(0)
+          .map((_, i) => contract.methods.insert_note(i).send().wait()),
+      );
 
-      // Note: Separated the below into calls of 3 to avoid reaching logs per call limit
-      await contract.methods.insert_notes([0, 1, 2]).send().wait();
-      await contract.methods.insert_notes([3, 4, 5]).send().wait();
-      await contract.methods.insert_notes([6, 7, 8]).send().wait();
-      await contract.methods.insert_note(9, new Fr(1n)).send().wait();
-      await contract.methods.insert_note(5, Fr.ZERO).send().wait();
+      // We insert a note with value 5 twice to better test the comparators
+      await contract.methods.insert_note(5).send().wait();
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
-        contract.methods.read_note(Comparator.EQ, 5).simulate(),
-        contract.methods.read_note(Comparator.NEQ, 5).simulate(),
-        contract.methods.read_note(Comparator.LT, 5).simulate(),
-        contract.methods.read_note(Comparator.GT, 5).simulate(),
-        contract.methods.read_note(Comparator.LTE, 5).simulate(),
+        contract.methods.read_note_values(Comparator.EQ, 5).simulate(),
+        contract.methods.read_note_values(Comparator.NEQ, 5).simulate(),
+        contract.methods.read_note_values(Comparator.LT, 5).simulate(),
+        contract.methods.read_note_values(Comparator.GT, 5).simulate(),
+        contract.methods.read_note_values(Comparator.LTE, 5).simulate(),
         // docs:start:state_vars-NoteGetterOptionsComparatorExampleTs
-        contract.methods.read_note(Comparator.GTE, 5).simulate(),
+        contract.methods.read_note_values(Comparator.GTE, 5).simulate(),
         // docs:end:state_vars-NoteGetterOptionsComparatorExampleTs
       ]);
 
-      expect(
-        boundedVecToArray(returnEq)
-          .map(({ points, randomness }: any) => ({ points, randomness }))
-          .sort(sortFunc),
-      ).toStrictEqual(
-        [
-          { points: 5n, randomness: 1n },
-          { points: 5n, randomness: 0n },
-        ].sort(sortFunc),
-      );
+      expect(boundedVecToArray(returnEq).sort()).toStrictEqual([5n, 5n].sort());
 
-      expect(
-        boundedVecToArray(returnNeq)
-          .map(({ points, randomness }: any) => ({ points, randomness }))
-          .sort(sortFunc),
-      ).toStrictEqual(
-        [
-          { points: 0n, randomness: 1n },
-          { points: 1n, randomness: 1n },
-          { points: 7n, randomness: 1n },
-          { points: 9n, randomness: 1n },
-          { points: 2n, randomness: 1n },
-          { points: 6n, randomness: 1n },
-          { points: 8n, randomness: 1n },
-          { points: 4n, randomness: 1n },
-          { points: 3n, randomness: 1n },
-        ].sort(sortFunc),
-      );
+      expect(boundedVecToArray(returnNeq).sort()).toStrictEqual([0n, 1n, 2n, 3n, 4n, 6n, 7n, 8n, 9n].sort());
 
-      expect(
-        boundedVecToArray(returnLt)
-          .map(({ points, randomness }: any) => ({ points, randomness }))
-          .sort(sortFunc),
-      ).toStrictEqual(
-        [
-          { points: 0n, randomness: 1n },
-          { points: 1n, randomness: 1n },
-          { points: 2n, randomness: 1n },
-          { points: 4n, randomness: 1n },
-          { points: 3n, randomness: 1n },
-        ].sort(sortFunc),
-      );
+      expect(boundedVecToArray(returnLt).sort()).toStrictEqual([0n, 1n, 2n, 3n, 4n].sort());
 
-      expect(
-        boundedVecToArray(returnGt)
-          .map(({ points, randomness }: any) => ({ points, randomness }))
-          .sort(sortFunc),
-      ).toStrictEqual(
-        [
-          { points: 7n, randomness: 1n },
-          { points: 9n, randomness: 1n },
-          { points: 6n, randomness: 1n },
-          { points: 8n, randomness: 1n },
-        ].sort(sortFunc),
-      );
+      expect(boundedVecToArray(returnGt).sort()).toStrictEqual([6n, 7n, 8n, 9n].sort());
 
-      expect(
-        boundedVecToArray(returnLte)
-          .map(({ points, randomness }: any) => ({ points, randomness }))
-          .sort(sortFunc),
-      ).toStrictEqual(
-        [
-          { points: 5n, randomness: 1n },
-          { points: 5n, randomness: 0n },
-          { points: 0n, randomness: 1n },
-          { points: 1n, randomness: 1n },
-          { points: 2n, randomness: 1n },
-          { points: 4n, randomness: 1n },
-          { points: 3n, randomness: 1n },
-        ].sort(sortFunc),
-      );
+      expect(boundedVecToArray(returnLte).sort()).toStrictEqual([0n, 1n, 2n, 3n, 4n, 5n, 5n].sort());
 
-      expect(
-        boundedVecToArray(returnGte)
-          .map(({ points, randomness }: any) => ({ points, randomness }))
-          .sort(sortFunc),
-      ).toStrictEqual(
-        [
-          { points: 5n, randomness: 0n },
-          { points: 5n, randomness: 1n },
-          { points: 7n, randomness: 1n },
-          { points: 9n, randomness: 1n },
-          { points: 6n, randomness: 1n },
-          { points: 8n, randomness: 1n },
-        ].sort(sortFunc),
-      );
+      expect(boundedVecToArray(returnGte).sort()).toStrictEqual([5n, 5n, 6n, 7n, 8n, 9n].sort());
     });
   });
 
@@ -162,8 +78,9 @@ describe('e2e_note_getter', () => {
 
     const VALUE = 5;
 
-    // To prevent tests from interacting with one another, we'll have each use a different storage slot.
-    let storageSlot = TestContract.storage.example_set.slot.toNumber();
+    // To prevent tests from interacting with one another, we'll have each use a different storage slot. We start with
+    // a large storage slot to try to avoid collisions with other state variables as well.
+    let storageSlot = 1000;
 
     beforeEach(() => {
       storageSlot += 1;
@@ -178,11 +95,12 @@ describe('e2e_note_getter', () => {
     }
 
     async function assertNoReturnValue(storageSlot: number, activeOrNullified: boolean) {
+      const expectedError = 'Assertion failed: Attempted to read past end of BoundedVec';
       await expect(contract.methods.call_view_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
-        'index < self.len', // from BoundedVec::get
+        expectedError,
       );
-      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).prove()).rejects.toThrow(
-        `Assertion failed: Attempted to read past end of BoundedVec`,
+      await expect(contract.methods.call_get_notes(storageSlot, activeOrNullified).simulate()).rejects.toThrow(
+        expectedError,
       );
     }
 

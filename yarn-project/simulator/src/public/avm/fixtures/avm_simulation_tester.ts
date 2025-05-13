@@ -16,11 +16,11 @@ import {
   initExecutionEnvironment,
   resolveContractAssertionMessage,
 } from '../../avm/fixtures/index.js';
+import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
 import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
-import { SimpleContractDataSource } from './simple_contract_data_source.js';
 
 const TIMESTAMP = new Fr(99833);
 const DEFAULT_GAS_FEES = new GasFees(2, 3);

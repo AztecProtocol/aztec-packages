@@ -5,6 +5,7 @@ import { type ZodTypeAny, z } from 'zod';
 import { schemas } from '../schemas/index.js';
 import type { L2Block } from './l2_block.js';
 
+// Note: If you expand this type with indexInBlock, then delete `IndexedTxEffect` and use this type instead.
 export type InBlock<T> = {
   l2BlockNumber: number;
   l2BlockHash: string;

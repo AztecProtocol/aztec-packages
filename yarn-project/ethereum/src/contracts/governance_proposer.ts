@@ -5,14 +5,14 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { type GetContractReturnType, type Hex, type TransactionReceipt, encodeFunctionData, getContract } from 'viem';
 
 import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ViemPublicClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeVote } from './empire_base.js';
 import { extractProposalIdFromLogs } from './governance.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
-  private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemPublicClient>;
+  private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
 
-  constructor(public readonly client: ViemPublicClient, address: Hex) {
+  constructor(public readonly client: ViemClient, address: Hex) {
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 

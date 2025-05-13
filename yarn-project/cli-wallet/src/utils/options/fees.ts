@@ -77,7 +77,11 @@ function printOptionParams(params: OptionParams) {
       params[name].default ? `Default: ${params[name].default}` : '',
     ].join(' '),
   );
-  return descriptionList.length ? `\n   Parameters:\n${descriptionList.join('\n')}` : '';
+  return descriptionList.length
+    ? `\n   Parameters:\n${descriptionList.join('\n')}\nFormat: --payment ${Object.keys(params)
+        .slice(0, 3)
+        .map(name => `${name}=${params[name].type}`)} ${Object.keys(params).length > 3 ? '...' : ''}`
+    : '';
 }
 
 function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
@@ -122,11 +126,7 @@ function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
 
 function getPaymentMethodOption(allowCustomFeePayer: boolean) {
   const params = getFeePaymentMethodParams(allowCustomFeePayer);
-  const paramList = Object.keys(params).map(name => `${name}=${params[name].type}`);
-  return new Option(
-    `--payment <${paramList.join(',')}>`,
-    `Fee payment method and arguments.${printOptionParams(params)}`,
-  );
+  return new Option(`--payment <options>`, `Fee payment method and arguments.${printOptionParams(params)}`);
 }
 
 function getFeeOptions(allowCustomFeePayer: boolean) {
@@ -138,7 +138,7 @@ function getFeeOptions(allowCustomFeePayer: boolean) {
       '--max-priority-fees-per-gas <da=0,l2=0>',
       'Maximum priority fees per gas unit for DA and L2 computation.',
     ),
-    new Option('--no-estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
+    new Option('--estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
     new Option('--estimate-gas-only', 'Only report gas estimation for the tx, do not send it.'),
   ];
 }

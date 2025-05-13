@@ -1,4 +1,4 @@
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE,
     lifecycle::{create_note, destroy_note_unsafe},
@@ -16,6 +16,8 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
+mod test;
+
 // docs:start:struct
 pub struct PrivateSet<Note, Context> {
     pub context: Context,
@@ -23,10 +25,10 @@ pub struct PrivateSet<Note, Context> {
 }
 // docs:end:struct
 
-impl<T, Context, let N: u32> Storage<N> for PrivateSet<T, Context>
-where
-    T: Packable<N>,
-{
+// Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
+// value spilling over multiple slots. For this reason PrivateSet (and all other private state variables) needs just one
+// slot to be reserved, regardless of what it stores.
+impl<T, Context> Storage<1> for PrivateSet<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
@@ -104,7 +106,7 @@ where
     }
 }
 
-impl<Note> PrivateSet<Note, UnconstrainedContext>
+impl<Note> PrivateSet<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

@@ -4,7 +4,7 @@ pub(crate) mod initialization_utils;
 pub(crate) mod stub_registry;
 pub(crate) mod utils;
 
-use utils::{transform_private, transform_public};
+use utils::{transform_private, transform_public, transform_utility};
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
 // #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them tricky.
@@ -54,4 +54,11 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     } else {
         transform_public(f)
     }
+}
+
+/// Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
+/// They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to
+/// modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
+pub comptime fn utility(f: FunctionDefinition) -> Quoted {
+    transform_utility(f)
 }

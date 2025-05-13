@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/constants.hpp"
@@ -6,14 +12,12 @@
 
 namespace bb {
 /**
- * @brief Stores the evaluations from ECCVM, checked against the translator evaluations as a final step of translator.
+ * @brief Stores the evaluations of `op`, `Px`, `Py`, `z1`, and `z2` computed by the ECCVM Prover. These evaluations are
+ * batched and checked against the `accumulated_result`, which is computed and verified by Translator.
  *
  * @tparam BF The base field of BN254, translation evaluations are represented in the base field.
- * @tparam FF The scalar field of BN254, used in Goblin to help convert the proof into a buffer for ACIR. Note that this
- * struct is also used by ECCVMVerifiers, where the second template parameter is not required, hence we set it to `void`
- * by default.
  */
-template <typename BF, typename FF = void> struct TranslationEvaluations_ {
+template <typename BF> struct TranslationEvaluations_ {
     BF op, Px, Py, z1, z2;
     static size_t size() { return field_conversion::calc_num_bn254_frs<BF>() * NUM_TRANSLATION_EVALUATIONS; }
 
@@ -29,7 +33,7 @@ template <typename BF, typename FF = void> struct TranslationEvaluations_ {
 
 /**
  * @brief Efficiently compute \f$ \text{translation_masking_term_eval} \cdot x^{N}\f$, where \f$ N =
- * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{MASKING_OFFSET}  \f$.
+ * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{NUM_DISABLED_ROWS_IN_SUMCHECK}  \f$.
  * @details As described in \ref ECCVMProver::compute_translation_opening_claims(), Translator's
  * `accumulated_result` \f$ A \f$ satisfies \f{align}{ x\cdot A = \sum_i \widetilde{T}_i v^i - X^N \cdot
  * \text{translation_masking_term_eval}. \f} Therefore, before propagating the `translation_masking_term_eval`,
@@ -39,15 +43,22 @@ template <typename FF>
 static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x, FF& translation_masking_term_eval)
 {
     // This method is only invoked within Goblin, which runs ECCVM with a fixed size.
-    static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
+    static constexpr size_t LOG_MASKING_OFFSET = numeric::get_msb(NUM_DISABLED_ROWS_IN_SUMCHECK);
+    static_assert(1UL << LOG_MASKING_OFFSET == NUM_DISABLED_ROWS_IN_SUMCHECK, "MASKING_OFFSET must be a power of 2");
 
-    FF x_to_circuit_size = evaluation_challenge_x.pow(ECCVM_FIXED_SIZE);
+    FF x_to_num_disabled_rows = evaluation_challenge_x;
+    for (size_t idx = 0; idx < LOG_MASKING_OFFSET; idx++) {
+        x_to_num_disabled_rows = x_to_num_disabled_rows.sqr();
+    }
 
-    // Compute X^{MASKING_OFFSET}
-    const FF x_to_masking_offset = evaluation_challenge_x.pow(MASKING_OFFSET);
+    FF x_to_circuit_size = x_to_num_disabled_rows;
+
+    for (size_t idx = LOG_MASKING_OFFSET; idx < CONST_ECCVM_LOG_N; idx++) {
+        x_to_circuit_size = x_to_circuit_size.sqr();
+    }
 
     // Update `translation_masking_term_eval`
     translation_masking_term_eval *= x_to_circuit_size;
-    translation_masking_term_eval *= x_to_masking_offset.invert();
+    translation_masking_term_eval *= x_to_num_disabled_rows.invert();
 };
 } // namespace bb

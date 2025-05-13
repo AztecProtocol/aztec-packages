@@ -303,8 +303,14 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
-        small_n, mock_claims.claim_batcher, mle_opening_point, vk->get_g1_identity(), verifier_transcript);
+    std::array<Fr, small_log_n> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
+                                                                                    mock_claims.claim_batcher,
+                                                                                    mle_opening_point,
+                                                                                    vk->get_g1_identity(),
+                                                                                    verifier_transcript);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     // auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
@@ -355,7 +361,10 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // vectors corresponding to the "shifted" commitment
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(small_n,
+    std::array<Fr, small_log_n> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, Fr{ 1 });
+
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk->get_g1_identity(),

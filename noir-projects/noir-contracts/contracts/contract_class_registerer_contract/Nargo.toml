@@ -1,8 +1,0 @@
-[package]
-name = "contract_class_registerer_contract"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../aztec-nr/aztec" }

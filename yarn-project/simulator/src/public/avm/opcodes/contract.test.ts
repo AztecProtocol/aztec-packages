@@ -37,19 +37,17 @@ describe('Contract opcodes', () => {
         0x01, // indirect
         ...Buffer.from('1234', 'hex'), // addressOffset
         ...Buffer.from('a234', 'hex'), // dstOffset
-        ...Buffer.from('b234', 'hex'), // existsOffset
         0x02, // memberEnum (immediate)
       ]);
       const inst = new GetContractInstance(
         /*indirect=*/ 0x01,
         /*addressOffset=*/ 0x1234,
         /*dstOffset=*/ 0xa234,
-        /*existsOffset=*/ 0xb234,
         /*memberEnum=*/ 0x02,
       );
 
-      expect(GetContractInstance.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(GetContractInstance.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([
@@ -61,27 +59,25 @@ describe('Contract opcodes', () => {
         const value = valueGetter();
         persistableState.getContractInstance.mockResolvedValue(contractInstance);
 
+        const dstOffset = 1;
+        const existsOffset = dstOffset;
+        const memberValueOffset = dstOffset + 1;
+
         context.machineState.memory.set(0, new Field(address.toField()));
-        await new GetContractInstance(
-          /*indirect=*/ 0,
-          /*addressOffset=*/ 0,
-          /*dstOffset=*/ 1,
-          /*existsOffset=*/ 2,
-          memberEnum,
-        ).execute(context);
+        await new GetContractInstance(/*indirect=*/ 0, /*addressOffset=*/ 0, dstOffset, memberEnum).execute(context);
 
         expect(persistableState.getContractInstance).toHaveBeenCalledTimes(1);
         expect(persistableState.getContractInstance).toHaveBeenCalledWith(address);
 
-        // value should be right
-        expect(context.machineState.memory.getTag(1)).toBe(TypeTag.FIELD);
-        const actual = context.machineState.memory.get(1);
-        expect(actual).toEqual(new Field(value));
-
         // exists should be true
-        expect(context.machineState.memory.getTag(2)).toBe(TypeTag.UINT1);
-        const exists = context.machineState.memory.get(2);
+        expect(context.machineState.memory.getTag(existsOffset)).toBe(TypeTag.UINT1);
+        const exists = context.machineState.memory.get(existsOffset);
         expect(exists).toEqual(new Uint1(1));
+
+        // member value should be right
+        expect(context.machineState.memory.getTag(memberValueOffset)).toBe(TypeTag.FIELD);
+        const actual = context.machineState.memory.get(memberValueOffset);
+        expect(actual).toEqual(new Field(value));
       });
     });
 
@@ -95,24 +91,22 @@ describe('Contract opcodes', () => {
         it(`'${ContractInstanceMember[memberEnum]}' should be 0 when contract does not exist `, async () => {
           persistableState.getContractInstance.mockResolvedValue(undefined);
 
-          context.machineState.memory.set(0, new Field(address.toField()));
-          await new GetContractInstance(
-            /*indirect=*/ 0,
-            /*addressOffset=*/ 0,
-            /*dstOffset=*/ 1,
-            /*existsOffset=*/ 2,
-            memberEnum,
-          ).execute(context);
+          const dstOffset = 1;
+          const existsOffset = dstOffset;
+          const memberValueOffset = dstOffset + 1;
 
-          // value should be 0
-          expect(context.machineState.memory.getTag(1)).toBe(TypeTag.FIELD);
-          const actual = context.machineState.memory.get(1);
-          expect(actual).toEqual(new Field(0));
+          context.machineState.memory.set(0, new Field(address.toField()));
+          await new GetContractInstance(/*indirect=*/ 0, /*addressOffset=*/ 0, dstOffset, memberEnum).execute(context);
 
           // exists should be false
-          expect(context.machineState.memory.getTag(2)).toBe(TypeTag.UINT1);
-          const exists = context.machineState.memory.get(2);
+          expect(context.machineState.memory.getTag(existsOffset)).toBe(TypeTag.UINT1);
+          const exists = context.machineState.memory.get(existsOffset);
           expect(exists).toEqual(new Uint1(0));
+
+          // member value should be right
+          expect(context.machineState.memory.getTag(memberValueOffset)).toBe(TypeTag.FIELD);
+          const actual = context.machineState.memory.get(memberValueOffset);
+          expect(actual).toEqual(new Field(0));
         });
       },
     );
@@ -123,7 +117,6 @@ describe('Contract opcodes', () => {
         /*indirect=*/ 0,
         /*addressOffset=*/ 0,
         /*dstOffset=*/ 1,
-        /*existsOffset=*/ 2,
         /*memberEnum=*/ invalidEnum,
       );
       await expect(instruction.execute(context)).rejects.toThrow(

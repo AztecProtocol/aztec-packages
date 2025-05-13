@@ -1,4 +1,5 @@
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import type { L2Tips } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 /**
@@ -27,5 +28,15 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
 
   getBlockNumber(): Promise<number> {
     return Promise.resolve(this.blockNumber);
+  }
+
+  getL2Tips(): Promise<L2Tips> {
+    const number = this.blockNumber;
+    const tip = { number, hash: new Fr(number).toString() };
+    return Promise.resolve({
+      latest: tip,
+      proven: tip,
+      finalized: tip,
+    });
   }
 }

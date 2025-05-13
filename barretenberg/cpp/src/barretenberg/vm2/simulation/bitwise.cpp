@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/bitwise.hpp"
 
+#include <cassert>
 #include <cstdint>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -7,13 +8,15 @@
 
 namespace bb::avm2::simulation {
 
-uint128_t Bitwise::and_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
+MemoryValue Bitwise::and_op(const MemoryValue& a, const MemoryValue& b)
 {
-    const uint128_t c = a & b;
+    // Tag compatibility should be checked at the caller... should it?
+    assert(a.get_tag() == b.get_tag());
+
+    MemoryValue c = a & b;
 
     events.emit({
         .operation = BitwiseOperation::AND,
-        .tag = tag,
         .a = a,
         .b = b,
         .res = c,
@@ -22,13 +25,15 @@ uint128_t Bitwise::and_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
     return c;
 }
 
-uint128_t Bitwise::or_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
+MemoryValue Bitwise::or_op(const MemoryValue& a, const MemoryValue& b)
 {
-    const uint128_t c = a | b;
+    // Tag compatibility should be checked at the caller... should it?
+    assert(a.get_tag() == b.get_tag());
+
+    MemoryValue c = a | b;
 
     events.emit({
         .operation = BitwiseOperation::OR,
-        .tag = tag,
         .a = a,
         .b = b,
         .res = c,
@@ -37,13 +42,15 @@ uint128_t Bitwise::or_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
     return c;
 }
 
-uint128_t Bitwise::xor_op(MemoryTag tag, const uint128_t& a, const uint128_t& b)
+MemoryValue Bitwise::xor_op(const MemoryValue& a, const MemoryValue& b)
 {
-    const uint128_t c = a ^ b;
+    // Tag compatibility should be checked at the caller... should it?
+    assert(a.get_tag() == b.get_tag());
+
+    MemoryValue c = a ^ b;
 
     events.emit({
         .operation = BitwiseOperation::XOR,
-        .tag = tag,
         .a = a,
         .b = b,
         .res = c,

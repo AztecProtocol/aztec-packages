@@ -102,7 +102,7 @@ Contract functions marked with `#[private]` can only be called privately, and as
 
 Private functions from other contracts can be called either regularly or statically by using the `.call()` and `.static_call` functions. They will also be 'executed' (i.e. proved) in the user's device, and `static_call` will fail if any state changes are attempted (like the EVM's `STATICCALL`).
 
-#include_code private_call /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
+#include_code private_call /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 Unlike the EVM however, private execution doesn't revert in the traditional way: in case of error (e.g. a failed assertion, a state changing operation in a static context, etc.) the proof generation simply fails and no transaction request is generated, spending no network gas or user funds.
 
@@ -112,28 +112,28 @@ Since public execution can only be performed by the sequencer, public functions 
 
 Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted including state changes caused by the private part, such as new notes or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
 
-#include_code enqueue_public /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
+#include_code enqueue_public /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueueing /noir-projects/noir-contracts/contracts/router_contract/src/utils.nr rust
+#include_code enqueueing /noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr rust
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
 For this reason we've created a canonical router contract which implements some of the checks commonly performed: this conceals the calling contract, as the `context.msg_sender()` in the public function will be the router itself (since it is the router that enqueues the public call).
 
 An example of how a deadline can be checked using the router contract follows:
 
-#include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code call-check-deadline /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the router contract:
 
-#include_code helper_router_functions /noir-projects/noir-contracts/contracts/router_contract/src/utils.nr rust
+#include_code helper_router_functions /noir-projects/noir-contracts/contracts/protocol/router_contract/src/utils.nr rust
 
 This is what the implementation of the check timestamp functionality looks like:
 
-#include_code check_timestamp /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
+#include_code check_timestamp /noir-projects/noir-contracts/contracts/protocol/router_contract/src/main.nr rust
 
 :::note
 Note that the router contract is not currently part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
@@ -141,7 +141,7 @@ To add it as a dependency point to the aztec-packages repository instead:
 
 ```toml
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/router_contract/src" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/protocol/router_contract/src" }
 ```
 
 :::
@@ -158,19 +158,15 @@ Since private calls are always run in a user's device, it is not possible to per
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 
-#include_code public_call /noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
+#include_code public_call /noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 :::note
 This is the same function that was called by privately enqueuing a call to it! Public functions can be called either directly in a public context, or asynchronously by enqueuing in a private context.
 :::
 
-### Top-level Unconstrained
+### Utility
 
-Contract functions with the `unconstrained` Noir keyword are a special type of function still under development, and their semantics will likely change in the near future. They are used to perform state queries from an off-chain client (from both private and public state!), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls.
-
-Any programming language could be used to construct these queries, since all they do is perform arbitrary computation on data that is either publicly available from any node, or locally available from the PXE. Top-level unconstrained functions exist because they let developers utilize the rest of the contract code directly by being part of the same Noir contract, and e.g. use the same libraries, structs, etc. instead of having to rely on manual computation of storage slots, struct layout and padding, and so on.
-
-A reasonable mental model for them is that of a Solidity `view` function that can never be called in any transaction, and is only ever invoked via `eth_call`. Note that in these the caller assumes that the node is acting honestly by executing the true contract bytecode with correct blockchain state, the same way the Aztec version assumes the oracles are returning legitimate data.
+Contract functions marked with `#[utility]` cannot be called as part of a transaction, and are only invoked by applications that interact with contracts to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr). No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls. It is possible however to verify that the bytecode being executed is the correct one, since a contract's address includes a commitment to all of its utility functions.
 
 ### aztec.js
 
@@ -178,9 +174,9 @@ There are three different ways to execute an Aztec contract function using the `
 
 #### `simulate`
 
-This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [top-level unconstrained functions](#top-level-unconstrained).
+This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [utility functions](#utility).
 
-#include_code public_getter /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code public_getter /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 #include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
 
@@ -193,8 +189,6 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
-
-Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users should be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
 
 #### `send`
 

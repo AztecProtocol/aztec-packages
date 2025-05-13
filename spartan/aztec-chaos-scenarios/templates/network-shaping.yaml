@@ -18,6 +18,10 @@ spec:
   selector:
     namespaces:
       - {{ .Values.global.targetNamespace }}
+    {{- range .Values.networkShaping.appliedTo }}
+    labelSelectors:
+      app: {{ . }}
+    {{- end }}
   delay:
     {{- toYaml .Values.networkShaping.conditions.latency.delay | nindent 4 }}
   duration: 8760h  # 1 year
@@ -42,6 +46,10 @@ spec:
   selector:
     namespaces:
       - {{ .Values.global.targetNamespace }}
+    {{- range .Values.networkShaping.appliedTo }}
+    labelSelectors:
+      app: {{ . }}
+    {{- end }}
   bandwidth:
     rate: {{ .Values.networkShaping.conditions.bandwidth.rate }}
     limit: {{ .Values.networkShaping.conditions.bandwidth.limit }}
@@ -66,6 +74,10 @@ spec:
   selector:
     namespaces:
       - {{ .Values.global.targetNamespace }}
+    {{- range .Values.networkShaping.appliedTo }}
+    labelSelectors:
+      app: {{ . }}
+    {{- end }}
   loss:
     loss: {{ .Values.networkShaping.conditions.packetLoss.loss | quote }}
     correlation: {{ .Values.networkShaping.conditions.packetLoss.correlation | quote }}

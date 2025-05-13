@@ -67,7 +67,7 @@ export async function proveCircuit1(
   const backend = new UltraHonkBackend(bytecode, { threads: threads }, { recursive: true });
   try {
     logger(`proving...`);
-    const proverOutput = await backend.generateProofForRecursiveAggregation(witness);
+    const proverOutput = await backend.generateProof(witness);
     logger(`done generating recursive proof artifacts.`);
     return {
       proof: proverOutput.proof as FixedLengthArray<string, 459>,

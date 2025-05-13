@@ -82,13 +82,15 @@ done;
 status=${PIPESTATUS[0]}
 
 time="${SECONDS}s"
-[ -n "$publish_pid" ] && kill $publish_pid &>/dev/null || true
+[ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
 publish_log
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
-  echo -e "\nCommand exited with status $status. Dumping output:"
-  cat $outfile
+  if [ -t 1 ]; then
+    echo -e "\nCommand exited with status $status. Dumping output:"
+    cat $outfile
+  fi
   echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
 else
   echo -e ". ${green}done${reset} ($time)"

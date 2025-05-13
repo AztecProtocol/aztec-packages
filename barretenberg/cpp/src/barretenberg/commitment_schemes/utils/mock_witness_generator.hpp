@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -82,7 +88,7 @@ template <typename Curve> struct MockClaimGenerator {
 
     {
         const size_t total_num_to_be_shifted = num_to_be_shifted + num_to_be_right_shifted_by_k;
-        ASSERT(num_polynomials >= total_num_to_be_shifted);
+        BB_ASSERT_GTE(num_polynomials, total_num_to_be_shifted);
         const size_t num_not_to_be_shifted = num_polynomials - total_num_to_be_shifted;
 
         // Construct claim data for polynomials that are NOT to be shifted
@@ -150,6 +156,11 @@ template <typename Curve> struct MockClaimGenerator {
             unshifted.commitments.push_back(Commitment::infinity());
             unshifted.evals.push_back(Fr(0));
         }
+
+        polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
+
+        claim_batcher =
+            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) } };
     }
 
     InterleaveData generate_interleaving_inputs(const std::vector<Fr>& u_challenge,
@@ -211,8 +222,7 @@ template <typename Curve> struct MockClaimGenerator {
     }
 
     template <typename Flavor>
-    void compute_sumcheck_opening_data(const size_t n,
-                                       const size_t log_n,
+    void compute_sumcheck_opening_data(const size_t log_n,
                                        const size_t sumcheck_univariate_length,
                                        std::vector<Fr>& challenge,
                                        std::shared_ptr<CommitmentKey>& ck)
@@ -233,14 +243,6 @@ template <typename Curve> struct MockClaimGenerator {
 
             mock_sumcheck_polynomials.update_zk_sumcheck_data(challenge[idx], idx);
             round_univariates.push_back(round_univariate);
-        }
-
-        // Simulate the `const proof size` logic
-        auto round_univariate = bb::Polynomial<Fr>(n);
-        for (size_t idx = log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            round_univariates.push_back(round_univariate);
-            sumcheck_commitments.push_back(ck->commit(round_univariate));
-            sumcheck_evaluations.push_back({ Fr(0), Fr(0), Fr(0) });
         }
     }
 };

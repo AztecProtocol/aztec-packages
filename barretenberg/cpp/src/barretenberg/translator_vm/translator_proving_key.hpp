@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include <utility>
 
@@ -37,8 +43,7 @@ class TranslatorProvingKey {
     {
         PROFILE_THIS_NAME("TranslatorProvingKey(TranslatorCircuit&)");
 
-        // WORKTODO: the methods below just set the constant values TRANSLATOR_VM_FIXED_SIZE and
-        // TRANSLATOR_VM_FIXED_SIZE * INTERLEAVING_GROUP_SIZE
+        // WORKTODO: the methods below just set the constant values MINI_CIRCUIT_SIZE and 2^{CONST_TRANSLATOR_LOG_N}
         compute_mini_circuit_dyadic_size(circuit.num_gates);
         compute_dyadic_circuit_size();
 
@@ -49,13 +54,13 @@ class TranslatorProvingKey {
         for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
-            // WORKTODO: I think we should share memory here in the same way we do in the `DeciderProvingKey` class.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
             parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);
                     } else {
-                        ASSERT(wire[i] == 0);
+                        ASSERT(circuit.get_variable(wire[i]) == 0);
                     }
                 }
             });
@@ -95,10 +100,10 @@ class TranslatorProvingKey {
     {
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value 8192 corresponds
         // to 10 rounds of folding (i.e. 20 circuits)
-        if (num_gates > Flavor::TRANSLATOR_VM_FIXED_SIZE) {
+        if (num_gates > Flavor::MINI_CIRCUIT_SIZE) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
-        mini_circuit_dyadic_size = Flavor::TRANSLATOR_VM_FIXED_SIZE;
+        mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
     }
 
     void compute_lagrange_polynomials();

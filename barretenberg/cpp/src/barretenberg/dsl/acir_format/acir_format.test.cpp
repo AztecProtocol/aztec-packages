@@ -5,11 +5,10 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/common/streams.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/plonk/composer/standard_composer.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "ecdsa_secp256k1.hpp"
 
 using namespace bb;
@@ -20,7 +19,7 @@ using Composer = plonk::UltraComposer;
 
 class AcirFormatTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
 {

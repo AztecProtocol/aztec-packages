@@ -16,7 +16,7 @@ You will likely want to define your note in a new file and import it into your c
 
 A note type can be defined with the macro `#[note]` used on a struct:
 
-#include_code state_vars-CardNote noir-projects/noir-contracts/contracts/docs_example_contract/src/types/card_note.nr rust
+#include_code state_vars-CardNote noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr rust
 
 In this example, we are implementing a card note that holds a number of `points` as `u8`.
 

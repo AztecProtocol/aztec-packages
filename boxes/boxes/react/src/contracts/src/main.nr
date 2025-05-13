@@ -3,8 +3,8 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract BoxReact {
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
-        macros::{functions::{initializer, private}, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
+        macros::{functions::{initializer, private, utility}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable},
     };
     use dep::value_note::value_note::ValueNote;
@@ -39,7 +39,8 @@ contract BoxReact {
         ));
     }
 
-    unconstrained fn getNumber(owner: AztecAddress) -> pub ValueNote {
+    #[utility]
+    unconstrained fn getNumber(owner: AztecAddress) -> ValueNote {
         let numbers = storage.numbers;
         numbers.at(owner).view_note()
     }

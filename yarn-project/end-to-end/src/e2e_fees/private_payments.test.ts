@@ -9,6 +9,7 @@ import {
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
+import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -108,6 +109,7 @@ describe('e2e_fees private_payment', () => {
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
     const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();
+    const { sequencerBlockRewards } = await t.getBlockRewards();
 
     const tx = localTx.send();
     await tx.wait({ timeout: 300, interval: 10 });
@@ -120,7 +122,7 @@ describe('e2e_fees private_payment', () => {
     // epoch and thereby pays out fees at the same time (when proven).
     const expectedProverFee = await t.getProverFee(receipt.blockNumber!);
     await expect(t.getCoinbaseSequencerRewards()).resolves.toEqual(
-      sequencerRewardsBefore + receipt.transactionFee! - expectedProverFee,
+      sequencerRewardsBefore + sequencerBlockRewards + receipt.transactionFee! - expectedProverFee,
     );
     const feeAmount = receipt.transactionFee!;
 
@@ -305,22 +307,20 @@ describe('e2e_fees private_payment', () => {
       bananaCoin.methods
         .mint_to_private(from, aliceAddress, 10)
         .send({
-          // we need to skip public simulation otherwise the PXE refuses to accept the TX
-          skipPublicSimulation: true,
           fee: {
             gasSettings,
             paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet),
           },
         })
         .wait(),
-    ).rejects.toThrow('Tx dropped by P2P node.');
+    ).rejects.toThrow(TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 
   // TODO(#7694): Remove this test once the lacking feature in TXE is implemented.
   it('insufficient funded amount is correctly handled', async () => {
     // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
     await expect(
-      bananaCoin.methods.private_get_name().prove({
+      bananaCoin.methods.private_get_name().simulate({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(

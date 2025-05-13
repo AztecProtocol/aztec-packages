@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { PublicStateDBInterface } from '../../common/db_interfaces.js';
+import type { PublicStateDBInterface } from '../db_interfaces.js';
 
 type PublicStorageReadResult = {
   value: Fr;

@@ -27,7 +27,7 @@ compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-#include_code token_all noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code token_all noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### Helper files
 
@@ -35,7 +35,11 @@ Last, copy-paste the code from the `Token` contract into `contracts/token/main.n
 Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using TXE tests in this tutorial.
 :::
 
-The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
+The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
+
+Add this `balance_set.nr` file at `token/src/types/balance_set.nr`.
+
+#include_code balance_set noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr rust
 
 ## Compile your contract
 

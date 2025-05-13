@@ -37,6 +37,9 @@
       "path": "../noir-contracts.js"
     },
     {
+      "path": "../noir-test-contracts.js"
+    },
+    {
       "path": "../protocol-contracts"
     }
   ],

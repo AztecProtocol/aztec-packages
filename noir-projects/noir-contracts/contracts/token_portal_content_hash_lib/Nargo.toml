@@ -1,9 +1,0 @@
-[package]
-name = "token_portal_content_hash_lib"
-authors = ["aztec-labs"]
-compiler_version = ">=0.25.0"
-type = "lib"
-
-[dependencies]
-aztec = { path = "../../../aztec-nr/aztec" }
-keccak256 = { tag = "v0.1.0", git = "https://github.com/noir-lang/keccak256" }

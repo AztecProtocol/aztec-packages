@@ -16,6 +16,9 @@ jobs:
   release-please:
     name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      release-pr: ${{ steps.release.outputs.pr }}
+      release-version: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Run Release Please
         id: release
@@ -27,6 +30,8 @@ jobs:
 
   update-docs:
     name: Update docs
+    env:
+      GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
     needs: [release-please]
     if: ${{ needs.release-please.outputs.release-pr }}
     runs-on: ubuntu-latest
@@ -35,20 +40,50 @@ jobs:
       - name: Checkout release branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.BRANCH_NAME  }}
+          ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Cut a new version
-        working-directory: ./docs
-        run: yarn version ${{ env.BRANCH_NAME }}
+      - name: Run corepack enable
+        run: corepack enable
 
-      - name: Configure git
+      - name: Configure Git
         run: |
-          git config --global user.email "tech@aztecprotocol.com"
-          git config --global user.name "AztecBot"
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Build dependencies
+        run: |
+          for project in noir barretenberg l1-contracts yarn-project; do
+            CI=1 $project/bootstrap.sh
+          done
+
+      - name: Query new version
+        id: version
+        run: |
+          # Extract version from .release-please-manifest.json
+          AZTEC_VERSION=$(jq -r '."."' .release-please-manifest.json)
+
+          # Add v prefix
+          AZTEC_VERSION="v$AZTEC_VERSION"
+
+          echo "semver=$AZTEC_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Cut version
+        working-directory: ./docs
+        run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
+          echo "[]" > versions.json
+          yarn
+          COMMIT_TAG=$COMMIT_TAG yarn build
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
+
+      - name: Update versions.json with new version
+        working-directory: ./docs/scripts
+        run: |
+          ./update_versions.sh
 
       - name: Commit new documentation version
         run: |
           git add .
-          git commit -m "chore(docs): cut new docs version for tag ${{ env.BRANCH_NAME }}"
+          git commit -m "chore(docs): cut new docs version for tag ${{ steps.version.outputs.semver }}"
           git push

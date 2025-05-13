@@ -19,8 +19,6 @@
     "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsc -b",
     "build:keep-debug-symbols": "yarn clean && yarn generate && tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
     "generate": "./scripts/generate.sh",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
@@ -80,8 +78,6 @@
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",
-    "levelup": "^5.1.1",
-    "memdown": "^6.1.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },

@@ -195,10 +195,6 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     prover_transcript->template send_to_verifier("Gemini:FOLD_1", this->ck->commit(fold_1));
     prover_transcript->template send_to_verifier("Gemini:FOLD_2", this->ck->commit(fold_2));
 
-    for (size_t idx = log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        prover_transcript->template send_to_verifier("Gemini:FOLD_" + std::to_string(idx), Commitment::one());
-    }
-
     // Get Gemini evaluation challenge
     const Fr gemini_r = prover_transcript->template get_challenge<Fr>("Gemini:r");
 
@@ -214,13 +210,9 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     prover_transcript->template send_to_verifier("Gemini:a_1", fold_evals[0]);
     prover_transcript->template send_to_verifier("Gemini:a_2", fold_evals[1]);
     prover_transcript->template send_to_verifier("Gemini:a_3", fold_evals[2]);
-    for (size_t idx = log_n + 1; idx <= CONST_PROOF_SIZE_LOG_N; idx++) {
-        prover_transcript->template send_to_verifier("Gemini:a_" + std::to_string(idx), Fr{ 0 });
-    }
 
     // Compute the powers of r used by the verifier. It is an artifact of the const proof size logic.
-    const std::vector<Fr> gemini_eval_challenge_powers =
-        gemini::powers_of_evaluation_challenge(gemini_r, CONST_PROOF_SIZE_LOG_N);
+    const std::vector<Fr> gemini_eval_challenge_powers = gemini::powers_of_evaluation_challenge(gemini_r, log_n);
 
     std::vector<Claim> prover_opening_claims;
     prover_opening_claims.reserve(2 * log_n);

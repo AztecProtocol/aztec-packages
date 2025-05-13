@@ -1,6 +1,7 @@
 import type { RollupContract } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -38,12 +39,13 @@ describe('EpochCache', () => {
     jest.useFakeTimers();
 
     // Initialize with test constants
-    const testConstants = {
+    const testConstants: L1RollupConstants = {
       l1StartBlock: 0n,
       l1GenesisTime,
       slotDuration: SLOT_DURATION,
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
+      proofSubmissionWindow: EPOCH_DURATION * 2,
     };
 
     epochCache = new EpochCache(rollupContract, 0n, testCommittee, 0n, testConstants);
@@ -114,6 +116,29 @@ describe('EpochCache', () => {
     // Should request to update the validator set
     await epochCache.getProposerInCurrentOrNextSlot();
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('should compute the correct timestamp for a given slot', async () => {
+    const { l1GenesisTime, slotDuration, epochDuration } = (epochCache as any).l1constants as L1RollupConstants;
+
+    // generate a random slot greater than `epochDuration`
+    const targetSlot = BigInt(epochDuration) + BigInt(Math.floor(Math.random() * 1000));
+    const targetEpoch = targetSlot / BigInt(epochDuration);
+    const epochStartSlot = targetEpoch * BigInt(epochDuration);
+    const epochStartTimestamp = l1GenesisTime + epochStartSlot * BigInt(slotDuration);
+
+    const expectedCommittee = [EthAddress.fromString('0x000000000000000000000000000000000000BEEF')];
+    const expectedSeed = 999n;
+    rollupContract.getCommitteeAt.mockResolvedValue(expectedCommittee.map(v => v.toString()));
+    rollupContract.getSampleSeedAt.mockResolvedValue(expectedSeed);
+
+    await epochCache.getCommittee(targetSlot);
+
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
+
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(epochStartTimestamp);
   });
 
   it('should cache multiple epochs', async () => {
