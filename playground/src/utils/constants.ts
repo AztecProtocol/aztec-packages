@@ -23,7 +23,7 @@ export const ContractMethodDescriptions = {
         transfer_from_public_to_private: 'Reverse of the above. Take some of your public tokens and send them privately (hide the recipient) all in one transaction.',
         prepare_private_balance_increase: 'A two step version of the previous. Prepare to receive public tokens privately here. Later, another contract or user can finalize this by calling finalize_transfer_to_private or Finalize_mint_to_private',
         finalize_transfer_to_private: 'Second step of the previous function which finalizes the public to private transfer. Private functions are executed before public ones, so to get public tokens privately, you create a partial note in private while you wait for someone to finalize the partial note with the amount you wanted to receive',
-        finalize_mint_to_private: 'Same as above',
+        finalize_mint_to_private: 'Second step of the previous function which finalizes the private mint.',
         burn_private: 'Allows anyone to decrement the token supply by burning your token balance',
         mint_publicly: 'Mint tokens publicly like in other networks',
         public_transfer: 'Token transfer publicly, like in other networks',

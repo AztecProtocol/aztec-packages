@@ -12,5 +12,6 @@ name=$test
 
 cd ../$dir
 
+export LOG_LEVEL=${LOG_LEVEL:-info}
 exec node --no-warnings --experimental-vm-modules --loader @swc-node/register \
-  ../node_modules/.bin/jest --forceExit --runInBand $test $@
+  ../node_modules/.bin/jest --forceExit --runInBand $test "$@"

@@ -246,6 +246,7 @@ function bench {
   denoise "barretenberg/bootstrap.sh bench"
   denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
   denoise "yarn-project/simulator/bootstrap.sh bench"
+  denoise "l1-contracts/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }

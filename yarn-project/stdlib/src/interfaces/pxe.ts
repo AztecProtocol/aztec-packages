@@ -6,7 +6,6 @@ import { SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import { type AbiType, AbiTypeSchema, type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
-import type { AbiDecoded } from '../abi/decoder.js';
 import type { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import type { AztecAddress } from '../aztec-address/index.js';
@@ -38,7 +37,7 @@ import {
   TxSimulationResult,
   indexedTxSchema,
 } from '../tx/index.js';
-import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import {
   type GetContractClassLogsResponse,
@@ -139,12 +138,13 @@ export interface PXE {
    * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
-   * @param privateExecutionResult - The result of the private execution of the transaction
+   * @param privateExecutionResult - (optional) The result of the private execution of the transaction. The txRequest
+   * will be executed if not provided
    * @returns A result containing the proof and public inputs of the tail circuit.
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
+  proveTx(txRequest: TxExecutionRequest, privateExecutionResult?: PrivateExecutionResult): Promise<TxProvingResult>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.
@@ -188,6 +188,7 @@ export interface PXE {
   profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'gates' | 'execution-steps' | 'full',
+    skipProofGeneration?: boolean,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult>;
 
@@ -289,7 +290,7 @@ export interface PXE {
     authwits?: AuthWitness[],
     from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<AbiDecoded>;
+  ): Promise<UtilitySimulationResult>;
 
   /**
    * Gets public logs based on the provided filter.
@@ -455,12 +456,16 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(z.void()),
   updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
-  proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
+  proveTx: z
+    .function()
+    .args(TxExecutionRequest.schema, optional(PrivateExecutionResult.schema))
+    .returns(TxProvingResult.schema),
   profileTx: z
     .function()
     .args(
       TxExecutionRequest.schema,
       z.union([z.literal('gates'), z.literal('full'), z.literal('execution-steps')]),
+      optional(z.boolean()),
       optional(schemas.AztecAddress),
     )
     .returns(TxProfileResult.schema),
@@ -504,7 +509,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       optional(schemas.AztecAddress),
       optional(z.array(schemas.AztecAddress)),
     )
-    .returns(AbiDecodedSchema),
+    .returns(UtilitySimulationResult.schema),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
   getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
   getBlockNumber: z.function().returns(z.number()),

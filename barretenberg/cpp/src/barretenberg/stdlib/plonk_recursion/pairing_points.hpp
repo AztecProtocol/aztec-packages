@@ -61,6 +61,8 @@ template <typename Builder_> struct PairingPoints {
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
+        ASSERT(this->has_data && "Cannot aggregate when accumulator is not set.");
+        ASSERT(other.has_data && "Cannot aggregate with null pairing points.");
         transcript.send_to_verifier("Accumulator_P0", P0);
         transcript.send_to_verifier("Accumulator_P1", P1);
         transcript.send_to_verifier("Aggregated_P0", other.P0);
@@ -69,9 +71,9 @@ template <typename Builder_> struct PairingPoints {
             transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
         // If Mega Builder is in use, the EC operations are deferred via Goblin
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Can we improve efficiency here?
-            P0 += other.P0 * recursion_separator;
-            P1 += other.P1 * recursion_separator;
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1385): Can we improve efficiency here?
+            P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
+            P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
         } else {
             // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
             // recursion_separator} directly to avoid edge cases.
@@ -122,6 +124,7 @@ template <typename Builder_> struct PairingPoints {
     uint32_t set_public()
     {
         Builder* ctx = P0.get_context();
+        ASSERT(this->has_data && "Calling set_public on empty pairing points.");
         if (ctx->pairing_inputs_public_input_key.is_set()) {
             throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
         }

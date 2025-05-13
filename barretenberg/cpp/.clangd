@@ -81,6 +81,8 @@ Diagnostics:
       - cppcoreguidelines-macro-usage
       # Opinionated, we sometimes just want to use a default-derived constructor.
       - modernize-use-designated-initializers
+      # Often makes virtually no difference as exactly one copy happens regardless, just adds decision paralysis.
+      - modernize-pass-by-value
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench

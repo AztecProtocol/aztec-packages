@@ -23,6 +23,8 @@
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/srs/factories/native_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 
 namespace bb {
@@ -116,7 +118,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Some paths, with defaults, that may or may not be set by commands
     std::filesystem::path bytecode_path{ "./target/program.json" };
     std::filesystem::path witness_path{ "./target/witness.gz" };
-    std::filesystem::path ivc_inputs_path;
+    std::filesystem::path ivc_inputs_path{ "./ivc-inputs.msgpack" };
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
@@ -126,11 +128,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
     flags.output_format = "bytes";
-    flags.crs_path = []() {
-        char* home = std::getenv("HOME");
-        std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
-        return base / ".bb-crs";
-    }();
+    flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
         return subcommand->add_option("--output_path, -o",
@@ -292,14 +290,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     /***************************************************************************************************************
      * Subcommand: check
      ***************************************************************************************************************/
-    CLI::App* check =
-        app.add_subcommand("check",
-                           "A debugging tool to quickly check whether a witness satisfies a circuit The "
-                           "function constructs the execution trace and iterates through it row by row, applying the "
-                           "polynomial relations defining the gate types.");
+    CLI::App* check = app.add_subcommand(
+        "check",
+        "A debugging tool to quickly check whether a witness satisfies a circuit The "
+        "function constructs the execution trace and iterates through it row by row, applying the "
+        "polynomial relations defining the gate types. For client IVC, we check the VKs in the folding stack.");
 
+    add_scheme_option(check);
     add_bytecode_path_option(check);
     add_witness_path_option(check);
+    add_ivc_inputs_path_options(check);
 
     /***************************************************************************************************************
      * Subcommand: gates
@@ -687,6 +687,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
+    // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
+    // points; that is done on-demand.
+    srs::init_net_crs_factory(flags.crs_path);
+    if (prove->parsed() || verify->parsed() || write_vk->parsed()) {
+        // If writing to an output folder, make sure it exists.
+        std::filesystem::create_directories(output_path);
+    }
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
 
@@ -798,23 +805,33 @@ int parse_and_run_cli_command(int argc, char* argv[])
             }
         }
         // NEW STANDARD API
+        // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so
+        // different
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
-                if (ivc_inputs_path.empty()) {
-                    throw_or_abort("The prove commands for ClientIVC expect --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack>");
+                if (!std::filesystem::exists(ivc_inputs_path)) {
+                    throw_or_abort("The prove command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
             if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                if (ivc_inputs_path.empty()) {
-                    throw_or_abort("The write_vk command for --verifier_type ivc expects --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack>");
+                if (!std::filesystem::exists(ivc_inputs_path)) {
+                    throw_or_abort(
+                        "The write_vk command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.write_ivc_vk(ivc_inputs_path, output_path);
                 return 0;
+            }
+            if (check->parsed()) {
+                if (!std::filesystem::exists(ivc_inputs_path)) {
+                    throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                }
+                return api.check_precomputed_vks(ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {

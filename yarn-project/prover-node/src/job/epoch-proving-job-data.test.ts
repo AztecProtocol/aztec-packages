@@ -1,4 +1,4 @@
-import { timesAsync } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { L2Block } from '@aztec/stdlib/block';
 import { Tx } from '@aztec/stdlib/tx';
@@ -14,7 +14,7 @@ describe('EpochProvingJobData', () => {
     const jobData: EpochProvingJobData = {
       epochNumber: 3n,
       blocks: await timesAsync(4, i => L2Block.random(i + 1)),
-      txs: await timesAsync(8, () => Tx.random()),
+      txs: times(8, () => Tx.random()),
       l1ToL2Messages: {
         0: [Fr.random(), Fr.random()],
         1: [Fr.random()],

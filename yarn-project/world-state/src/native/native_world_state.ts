@@ -2,6 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES
 import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { tryRmDir } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
@@ -21,6 +22,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
@@ -47,7 +49,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
-    protected readonly instance: NativeWorldState,
+    protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log: Logger = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
@@ -56,7 +58,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async new(
     rollupAddress: EthAddress,
     dataDir: string,
-    dbMapSizeKb: number,
+    wsTreeMapSizes: WorldStateTreeMapSizes,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     log = createLogger('world-state:database'),
@@ -69,7 +71,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       rollupAddress,
       dataDirectory: worldStateDirectory,
       onOpen: (dir: string) => {
-        return Promise.resolve(new NativeWorldState(dir, dbMapSizeKb, prefilledPublicData, instrumentation));
+        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation));
       },
     });
 
@@ -94,7 +96,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
-    log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
+    const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
+      archiveTreeMapSizeKb: dbMapSizeKb,
+      nullifierTreeMapSizeKb: dbMapSizeKb,
+      noteHashTreeMapSizeKb: dbMapSizeKb,
+      messageTreeMapSizeKb: dbMapSizeKb,
+      publicDataTreeMapSizeKb: dbMapSizeKb,
+    };
+    log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
 
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
@@ -106,7 +115,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, prefilledPublicData, instrumentation, log, cleanup);
+    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, prefilledPublicData, instrumentation, log, cleanup);
   }
 
   protected async init() {
@@ -128,6 +137,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [await this.initialHeader.hash()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
+  }
+
+  public async clear() {
+    await this.instance.close();
+    this.cachedStatusSummary = undefined;
+    await tryRmDir(this.instance.getDataDir(), this.log);
+    this.instance = this.instance.clone();
   }
 
   public getCommitted(): MerkleTreeReadOperations {

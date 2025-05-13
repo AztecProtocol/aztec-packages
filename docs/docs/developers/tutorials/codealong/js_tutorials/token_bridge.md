@@ -7,6 +7,10 @@ This tutorial goes over how to create the contracts necessary to create a portal
 
 In this tutorial, we will go over the components of a token bridge and how to deploy them, as well as show how to bridge tokens publicly from L1 to L2 and back, using aztec.js.
 
+:::note
+The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
+:::
+
 The first half of this page reviews the process and contracts for bridging token from Ethereum (L1) to Aztec (L2). The second half the page (starting with [Running with Aztec.js](#running-with-aztecjs)) goes over writing your own Typescript script for:
 
 - deploying and initializing contracts to L1 and L2
@@ -15,6 +19,8 @@ The first half of this page reviews the process and contracts for bridging token
 - minting tokens on L2
 - sending tokens from L2 back to L1
 - withdrawing tokens from the L1 portal
+
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up #include_aztec_version`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Components
 
@@ -139,6 +145,8 @@ We call this pattern _designed caller_ which enables a new paradigm **where we c
 
 Let's run through the entire process of depositing, minting and withdrawing tokens in Typescript, so you can see how it works in practice.
 
+Make sure you are using version #include_aztec_version of the sandbox. Install with `aztec-up #include_version_without_prefix`.
+
 ### Prerequisites
 
 Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
@@ -152,7 +160,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix @aztec/l1-artifacts@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/ethereum@#include_version_without_prefix @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```

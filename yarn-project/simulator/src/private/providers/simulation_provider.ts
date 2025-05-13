@@ -46,25 +46,23 @@ export type DecodedError = ExecutionError & { decodedAssertionPayload?: any; noi
 // Payload parsing taken from noir/noir-repo/tooling/noir_js/src/witness_generation.ts.
 // TODO: import this in isolation without having to import noir_js in its entirety.
 export function enrichNoirError(artifact: NoirCompiledCircuit, originalError: ExecutionError): DecodedError {
-  const payload = originalError.rawAssertionPayload;
-  if (!payload) {
-    return originalError;
-  }
   const enrichedError = originalError as DecodedError;
 
-  try {
-    // Decode the payload
-    const decodedPayload = abiDecodeError(artifact.abi, payload);
+  if (originalError.rawAssertionPayload) {
+    try {
+      // Decode the payload
+      const decodedPayload = abiDecodeError(artifact.abi, originalError.rawAssertionPayload);
 
-    if (typeof decodedPayload === 'string') {
-      // If it's a string, just add it to the error message
-      enrichedError.message = `Circuit execution failed: ${decodedPayload}`;
-    } else {
-      // If not, attach the payload to the original error
-      enrichedError.decodedAssertionPayload = decodedPayload;
+      if (typeof decodedPayload === 'string') {
+        // If it's a string, just add it to the error message
+        enrichedError.message = `Circuit execution failed: ${decodedPayload}`;
+      } else {
+        // If not, attach the payload to the original error
+        enrichedError.decodedAssertionPayload = decodedPayload;
+      }
+    } catch (_errorDecoding) {
+      // Ignore errors decoding the payload
     }
-  } catch (_errorDecoding) {
-    // Ignore errors decoding the payload
   }
 
   try {

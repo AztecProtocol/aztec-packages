@@ -34,7 +34,7 @@ template <typename FF_> class instr_fetchingImpl {
         const auto instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR = in.get(C::instr_fetching_pc_out_of_range) +
                                                                    in.get(C::instr_fetching_opcode_out_of_range) +
                                                                    in.get(C::instr_fetching_instr_out_of_range);
-        const auto instr_fetching_SEL_OP_DC_18 =
+        const auto instr_fetching_SEL_OP_DC_17 =
             in.get(C::instr_fetching_sel_op_dc_2) + in.get(C::instr_fetching_sel_op_dc_6);
 
         {
@@ -118,7 +118,7 @@ template <typename FF_> class instr_fetchingImpl {
                         (FF(1) - instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR) *
                             (in.get(C::instr_fetching_sel_op_dc_0) *
                                  (in.get(C::instr_fetching_bd1) * FF(256) + in.get(C::instr_fetching_bd2) * FF(1)) +
-                             instr_fetching_SEL_OP_DC_18 * in.get(C::instr_fetching_bd1) * FF(1)));
+                             instr_fetching_SEL_OP_DC_17 * in.get(C::instr_fetching_bd1) * FF(1)));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
@@ -164,6 +164,7 @@ template <typename FF_> class instr_fetchingImpl {
                           (in.get(C::instr_fetching_bd7) * FF(256) + in.get(C::instr_fetching_bd8) * FF(1)) +
                       in.get(C::instr_fetching_sel_op_dc_4) *
                           (in.get(C::instr_fetching_bd6) * FF(256) + in.get(C::instr_fetching_bd7) * FF(1)) +
+                      in.get(C::instr_fetching_sel_op_dc_7) * in.get(C::instr_fetching_bd6) * FF(1) +
                       in.get(C::instr_fetching_sel_op_dc_9) *
                           (in.get(C::instr_fetching_bd5) * FF(uint256_t{ 0UL, 0UL, 0UL, 72057594037927936UL }) +
                            in.get(C::instr_fetching_bd6) * FF(uint256_t{ 0UL, 0UL, 0UL, 281474976710656UL }) +
@@ -222,8 +223,7 @@ template <typename FF_> class instr_fetchingImpl {
                            in.get(C::instr_fetching_bd7) * FF(256) + in.get(C::instr_fetching_bd8) * FF(1)) +
                       in.get(C::instr_fetching_sel_op_dc_13) *
                           (in.get(C::instr_fetching_bd5) * FF(256) + in.get(C::instr_fetching_bd6) * FF(1)) +
-                      in.get(C::instr_fetching_sel_op_dc_14) * in.get(C::instr_fetching_bd4) * FF(1) +
-                      in.get(C::instr_fetching_sel_op_dc_17) * in.get(C::instr_fetching_bd6) * FF(1)));
+                      in.get(C::instr_fetching_sel_op_dc_14) * in.get(C::instr_fetching_bd4) * FF(1)));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
@@ -234,8 +234,7 @@ template <typename FF_> class instr_fetchingImpl {
                             (in.get(C::instr_fetching_sel_op_dc_0) *
                                  (in.get(C::instr_fetching_bd9) * FF(256) + in.get(C::instr_fetching_bd10) * FF(1)) +
                              in.get(C::instr_fetching_sel_op_dc_5) *
-                                 (in.get(C::instr_fetching_bd8) * FF(256) + in.get(C::instr_fetching_bd9) * FF(1)) +
-                             in.get(C::instr_fetching_sel_op_dc_7) * in.get(C::instr_fetching_bd8) * FF(1)));
+                                 (in.get(C::instr_fetching_bd8) * FF(256) + in.get(C::instr_fetching_bd9) * FF(1))));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
