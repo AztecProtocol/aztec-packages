@@ -30,7 +30,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "22"
 
       - name: Enable Corepack
         run: corepack enable
@@ -39,6 +39,9 @@ jobs:
         run: |
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
+
+      - name: Pull submodules
+        run: git submodule update --init --recursive
 
       - name: Build dependencies
         run: |
