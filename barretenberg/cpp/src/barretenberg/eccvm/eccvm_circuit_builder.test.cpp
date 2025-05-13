@@ -31,7 +31,6 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->mul_accumulate(b, y);
     op_queue->add_accumulate(a);
     op_queue->mul_accumulate(b, x);
-    op_queue->no_op();
     op_queue->add_accumulate(b);
     op_queue->eq_and_reset();
     op_queue->add_accumulate(c);

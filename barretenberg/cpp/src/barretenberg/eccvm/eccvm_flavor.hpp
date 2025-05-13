@@ -612,17 +612,17 @@ class ECCVMFlavor {
             // TODO(@zac-williamson) if final opcode resets accumulator, all subsequent "is_accumulator_empty" row
             // values must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column
             // values that are all zero (issue #2217)
-            if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
-                for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
-                    transcript_accumulator_empty.set_if_valid_index(i, 1);
-                }
-            }
-            // in addition, unless the accumulator is reset, it contains the value from the previous row so this
-            // must be propagated
-            for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
-                transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
-                transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
-            }
+            // if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
+            //     for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
+            //         transcript_accumulator_empty.set_if_valid_index(i, 0);
+            //     }
+            // }
+            // // in addition, unless the accumulator is reset, it contains the value from the previous row so this
+            // // must be propagated
+            // for (size_t i = transcript_rows.size(); i < unmasked_witness_size; ++i) {
+            //     transcript_accumulator_x.set_if_valid_index(i, 0);
+            //     transcript_accumulator_y.set_if_valid_index(i, 0);
+            // }
 
             parallel_for_range(point_table_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {

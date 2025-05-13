@@ -77,10 +77,10 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto transcript_msm_y = View(in.transcript_msm_intermediate_y);
     auto transcript_Px = View(in.transcript_Px);
     auto transcript_Py = View(in.transcript_Py);
-    auto is_accumulator_empty = View(in.transcript_accumulator_empty);
+    auto is_accumulator_empty = -View(in.transcript_accumulator_empty) + 1;
     auto lagrange_first = View(in.lagrange_first);
     auto lagrange_last = View(in.lagrange_last);
-    auto is_accumulator_empty_shift = View(in.transcript_accumulator_empty_shift);
+    auto is_accumulator_empty_shift = -View(in.transcript_accumulator_empty_shift) + 1;
     auto q_reset_accumulator = View(in.transcript_reset_accumulator);
     auto lagrange_second = View(in.lagrange_second);
     auto transcript_Pinfinity = View(in.transcript_base_infinity);
@@ -321,7 +321,9 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
          * 1)
          *        3. Is equal to transcript_accumulator (no group operation, no reset)
          *        4. Is 0 (reset)
+         *        5. all opcode values are 0
          */
+        auto propagate_transcript_accumulator = (q_mul) * (-msm_transition + 1) + (q_eq * (-q_reset_accumulator + 1));
         {
             auto lambda_sqr = lambda * lambda;
             // add relation that validates result_infinity_from_operation * result_is_infinity = 0
@@ -338,17 +340,35 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
             y3 += result_is_rhs * (lhs_y + rhs_y);         // degree 4
             y3 += result_is_infinity * lhs_y;              // degree 4
 
-            auto propagate_transcript_accumulator = (-q_add - msm_transition - q_reset_accumulator + 1);
+            // we don't propagate if msm_transition = 0, q_reset = 0, q_add = 0
+            // add = no propagate
+            // mul but no msm transition= propagate
+            // eq = propagate
             auto add_point_x_relation = (x3 - out_x) * any_add_is_active; // degree 5
+            // std::cout << "add ptx 1 " << ((x3 - out_x) * any_add_is_active) << std::endl;
             add_point_x_relation +=
                 propagate_transcript_accumulator * is_not_last_row * (out_x - transcript_accumulator_x);
             // validate out_x = 0 if q_reset_accumulator = 1
+            // std::cout << "add ptx 2 "
+            //           << (propagate_transcript_accumulator * is_not_last_row * (out_x - transcript_accumulator_x))
+            //           << std::endl;
             add_point_x_relation += (out_x * q_reset_accumulator);
+            // std::cout << "add ptx 3" << ((out_x * q_reset_accumulator)) << std::endl;
             auto add_point_y_relation = (y3 - out_y) * any_add_is_active; // degree 5
             add_point_y_relation +=
                 propagate_transcript_accumulator * is_not_last_row * (out_y - transcript_accumulator_y);
             // validate out_y = 0 if q_reset_accumulator = 1
             add_point_y_relation += (out_y * q_reset_accumulator);
+            auto opcode_is_zero =
+                (is_not_first_row) * (-q_add + 1) * (-q_mul + 1) * (-q_reset_accumulator + 1) * (-q_eq + 1);
+            // std::cout << "add ptx4 " << ((out_x * opcode_is_zero)) << std::endl;
+            add_point_x_relation += (out_x * opcode_is_zero);
+            add_point_y_relation += (out_y * opcode_is_zero);
+
+            // std::cout << "out_x " << out_x << std::endl;
+            // std::cout << "out_y " << out_y << std::endl;
+            // std::cout << "opcode is zero " << opcode_is_zero << std::endl;
+            // std::cout << "is_not_first_row " << is_not_first_row << std::endl;
             std::get<15>(accumulator) += add_point_x_relation * scaling_factor; // degree 5
             std::get<16>(accumulator) += add_point_y_relation * scaling_factor; // degree 5
         }
@@ -399,13 +419,16 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
          * Resetting the accumulator produces a point at infinity
          * If we are not adding, performing an msm or resetting the accumulator, is_accumulator_empty should not update
          */
-        auto accumulator_infinity_preserve_flag = (-(q_add + msm_transition + q_reset_accumulator) + 1); // degree 1
+        auto accumulator_infinity_preserve_flag = propagate_transcript_accumulator; // degree 1
         auto accumulator_infinity_preserve = accumulator_infinity_preserve_flag *
                                              (is_accumulator_empty - is_accumulator_empty_shift) *
-                                             is_not_first_or_last_row;                               // degree 3
+                                             is_not_first_or_last_row; // degree 3
+        // std::cout << "t0 " << accumulator_infinity_preserve << std::endl;
         auto accumulator_infinity_q_reset = q_reset_accumulator * (-is_accumulator_empty_shift + 1); // degree 2
         auto accumulator_infinity_from_add =
             any_add_is_active * (result_is_infinity - is_accumulator_empty_shift); // degree 3
+        // std::cout << "t1 " << (accumulator_infinity_q_reset * is_not_first_row) << std::endl;
+        // std::cout << "t2 " << (accumulator_infinity_from_add * is_not_first_row) << std::endl;
         auto accumulator_infinity_relation =
             accumulator_infinity_preserve +
             (accumulator_infinity_q_reset + accumulator_infinity_from_add) * is_not_first_row; // degree 4
