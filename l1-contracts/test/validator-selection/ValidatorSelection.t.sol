@@ -33,8 +33,6 @@ import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 // solhint-disable comprehensive-interface
 
-import "forge-std/console.sol";
-
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
@@ -47,12 +45,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   struct TestFlags {
     bool provideEmptyAttestations;
     bool invalidProposer;
+    bool proposerNotProvided;
     bool invalidCommitteeCommitment;
   }
 
   TestFlags NO_FLAGS = TestFlags({
     provideEmptyAttestations: true,
     invalidProposer: false,
+    proposerNotProvided: false,
     invalidCommitteeCommitment: false
   });
 
@@ -174,6 +174,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       TestFlags({
         provideEmptyAttestations: true,
         invalidProposer: false,
+        proposerNotProvided: false,
         invalidCommitteeCommitment: false
       })
     );
@@ -232,6 +233,21 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       TestFlags({
         invalidProposer: true,
         provideEmptyAttestations: true,
+        proposerNotProvided: false,
+        invalidCommitteeCommitment: false
+      })
+    );
+  }
+
+  function testProposerNotProvided() public setup(4) progressEpoch {
+    _testBlock(
+      "mixed_block_1",
+      true,
+      3,
+      TestFlags({
+        invalidProposer: false,
+        provideEmptyAttestations: true,
+        proposerNotProvided: true,
         invalidCommitteeCommitment: false
       })
     );
@@ -245,12 +261,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       TestFlags({
         invalidProposer: false,
         provideEmptyAttestations: true,
+        proposerNotProvided: false,
         invalidCommitteeCommitment: true
       })
     );
   }
-
-  // TODO: make a test where the proposer signature is not also provided. The proposer must provide their own address in the correct index
 
   function _testBlock(
     string memory _name,
@@ -346,6 +361,19 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
           )
         );
         ree.shouldRevert = true;
+      }
+
+      // Set all attestations, including the propser's addr to 0
+      if (_flags.proposerNotProvided) {
+        for (uint256 i = 0; i < attestations.length; ++i) {
+          attestations[i].addr = address(0);
+        }
+
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            Errors.ValidatorSelection__InvalidProposer.selector, address(0), ree.proposer
+          )
+        );
       }
 
       if (_flags.invalidCommitteeCommitment) {
