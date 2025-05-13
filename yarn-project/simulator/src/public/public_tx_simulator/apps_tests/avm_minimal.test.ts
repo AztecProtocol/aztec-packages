@@ -18,7 +18,7 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
     const json = jsonStringify(inputs);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data
-    const path = 'yarn-project/simulator/src/public/fixtures/avm_minimal_inputs.json';
+    const path = 'yarn-project/simulator/artifacts/avm_minimal_inputs.json';
     writeTestData(path, Buffer.from(json), /*raw=*/ true);
 
     const expectedJson = readTestData(path);
