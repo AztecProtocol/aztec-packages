@@ -49,7 +49,6 @@ import {
   L1FeeData,
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
@@ -61,6 +60,7 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -186,9 +186,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       });
     }
 
-    asset.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    asset.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    rollup.cheat__InitialiseValidatorSet(initialValidators);
+    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+    asset.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+    multiAdder.addValidators(initialValidators);
     asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
 
     asset.transferOwnership(address(fakeCanonical));

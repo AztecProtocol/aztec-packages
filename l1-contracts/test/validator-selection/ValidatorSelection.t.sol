@@ -109,6 +109,37 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
+  function testStableCommittee(uint8 _timeToJump) public setup(4) progressEpoch {
+    Epoch epoch = rollup.getCurrentEpoch();
+
+    uint256 preSize = rollup.getActiveAttesterCount();
+
+    uint32 upper = uint32(
+      Timestamp.unwrap(rollup.getGenesisTime())
+        + rollup.getEpochDuration() * rollup.getSlotDuration() * (Epoch.unwrap(epoch) + 1) - 1
+    );
+
+    uint32 ts = uint32(block.timestamp);
+    uint32 ts2 = uint32(bound(_timeToJump, ts + 1, upper));
+
+    vm.warp(ts2);
+
+    // add a new validator
+    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE);
+    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE);
+    rollup.deposit(
+      address(0xdead), address(0xdead), address(0xdead), TestConstants.AZTEC_MINIMUM_STAKE
+    );
+
+    assertEq(rollup.getCurrentEpoch(), epoch);
+    address[] memory committee = rollup.getCurrentEpochCommittee();
+    assertEq(committee.length, preSize, "Invalid committee size");
+    assertEq(rollup.getActiveAttesterCount(), preSize + 1);
+    for (uint256 i = 0; i < committee.length; i++) {
+      assertNotEq(committee[i], address(0xdead));
+    }
+  }
+
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
     setup(100)
@@ -247,8 +278,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
-        emit log("We do be reverting?");
-
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(

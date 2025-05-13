@@ -56,7 +56,10 @@ where
 {
     |e: Event| {
         let encrypted_log = compute_log(e, recipient, sender);
-        context.emit_private_log(encrypted_log);
+        // Regardless of the original event size `N`, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_private_log(encrypted_log, length);
     }
 }
 
@@ -76,6 +79,9 @@ where
     |e: Event| {
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
         let encrypted_log = compute_log_unconstrained(e, recipient, sender);
-        context.emit_private_log(encrypted_log);
+        // Regardless of the original event size `N`, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_private_log(encrypted_log, length);
     }
 }

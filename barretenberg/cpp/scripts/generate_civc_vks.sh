@@ -13,8 +13,6 @@ cd ..
 echo_header "bb ivc write_vk build step"
 
 export HARDWARE_CONCURRENCY=16
-export IGNITION_CRS_PATH=./srs_db/ignition
-export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
 function write_vk {
   set -eu

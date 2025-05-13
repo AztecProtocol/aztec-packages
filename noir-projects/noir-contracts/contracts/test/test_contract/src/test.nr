@@ -104,8 +104,7 @@ unconstrained fn test_storage_slot_allocation() {
 
 global CONTRACT_DEPLOYED_AT: u32 = 3;
 
-// In env.deploy_self("Test").with_private_initializer(initializer); it first deploys the contract, then advances a block, then calls the initializer.
-global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
+global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT;
 
 pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -124,8 +123,6 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     let test_contract = env.deploy_self("Test").with_private_initializer(initializer);
     let contract_address = test_contract.to_address();
 
-    env.advance_block_by(1);
-
     (&mut env, contract_address, owner)
 }
 
@@ -135,7 +132,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 // In these tests we deploy a contract and can prove whether it has been deployed / initialized at specific blocks.
 #[test]
 unconstrained fn contract_historical_proofs_happy_path() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context_at_block_before_deployment = env.private_at(CONTRACT_DEPLOYED_AT - 1);
     let context_at_block_of_deployment = env.private_at(CONTRACT_DEPLOYED_AT);
@@ -162,7 +159,7 @@ unconstrained fn contract_historical_proofs_happy_path() {
 // of the deployment nullifier in state.
 #[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
 unconstrained fn proving_contract_deployment_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_DEPLOYED_AT - 1);
 
@@ -171,9 +168,9 @@ unconstrained fn proving_contract_deployment_fails() {
 
 // In this test, we fail to prove contract initialization at the block before it was deployed. This checks for inclusion
 // of the initialization nullifier in state.
-#[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
 unconstrained fn proving_contract_initialization_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_INITIALIZED_AT - 1);
 
@@ -183,7 +180,7 @@ unconstrained fn proving_contract_initialization_fails() {
 // In this test, we fail to prove contract non-deployment at the block of its deployment.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn proving_contract_non_deployment_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_DEPLOYED_AT);
 
@@ -193,7 +190,7 @@ unconstrained fn proving_contract_non_deployment_fails() {
 // In this test, we fail to prove contract non-initialization at the block of its deployment.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn proving_contract_non_initialization_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_INITIALIZED_AT);
 

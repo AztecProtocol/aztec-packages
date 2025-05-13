@@ -24,7 +24,7 @@ template <typename Flavor> class FlavorSerializationTests : public ::testing::Te
     using VerificationKey = typename Flavor::VerificationKey;
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 #if 1
