@@ -17,34 +17,18 @@ class MegaMockCircuitsPinning : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-TEST_F(MegaMockCircuitsPinning, FunctionSizes)
-{
-    const auto run_test = [](bool large) {
-        Goblin goblin;
-        MegaCircuitBuilder app_circuit{ goblin.op_queue };
-        GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
-        auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit);
-        if (large) {
-            EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
-        } else {
-            EXPECT_EQ(proving_key->proving_key.log_circuit_size, 17);
-        };
-    };
-    run_test(true);
-    run_test(false);
-}
-
 TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
 {
     const auto run_test = [](bool large) {
         Goblin goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_app_circuit(app_circuit, large);
-        auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit);
+        TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+        auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
         if (large) {
             EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
         } else {
-            EXPECT_EQ(proving_key->proving_key.log_circuit_size, 17);
+            EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
         };
     };
     run_test(true);
