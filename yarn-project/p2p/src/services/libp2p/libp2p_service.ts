@@ -560,7 +560,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   protected async handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId) {
     const validationFunc = async () => {
-      const tx = Tx.fromBuffer(Buffer.from(payloadData));
+      const tx = Tx.fromBuffer(payloadData);
       const result = await this.validatePropagatedTx(tx, source);
       return { result, obj: tx };
     };
@@ -583,7 +583,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    */
   private async processAttestationFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
     const validationFunc = async () => {
-      const attestation = BlockAttestation.fromBuffer(Buffer.from(payloadData));
+      const attestation = BlockAttestation.fromBuffer(payloadData);
       const result = await this.validateAttestation(source, attestation);
       this.logger.trace(`validatePropagatedAttestation: ${result}`, {
         [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
@@ -614,7 +614,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   private async processBlockFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
     const validationFunc = async () => {
-      const block = BlockProposal.fromBuffer(Buffer.from(payloadData));
+      const block = BlockProposal.fromBuffer(payloadData);
       const result = await this.validateBlockProposal(source, block);
       this.logger.trace(`validatePropagatedBlock: ${result}`, {
         [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
