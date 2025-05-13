@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester, createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -40,8 +40,14 @@ async function proveMockPublicBaseRollup(
   bbBinaryPath: string,
   clientIVCPublicInputs: KernelPublicInputs,
   tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>,
+  skipPublicInputsValidation: boolean = false,
 ) {
-  const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
+  const { vk, proof, publicInputs } = await proveAvm(
+    avmCircuitInputs,
+    bbWorkingDirectory,
+    logger,
+    skipPublicInputsValidation,
+  );
 
   const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
     tube_data: {
@@ -106,7 +112,7 @@ describe('AVM Integration', () => {
     );
   });
 
-  it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
+  it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = avmTestContractInstance;
@@ -137,6 +143,20 @@ describe('AVM Integration', () => {
       bbBinaryPath,
       clientIVCPublicInputs,
       tubeProof,
+    );
+  }, 240_000);
+
+  it('Should generate and verify an ultra honk proof from an AVM verification for the minimal TX with skipping public inputs validation', async () => {
+    const result = await createAvmMinimalPublicTx();
+    expect(result.revertCode.isOK()).toBe(true);
+
+    await proveMockPublicBaseRollup(
+      result.avmProvingRequest.inputs,
+      bbWorkingDirectory,
+      bbBinaryPath,
+      clientIVCPublicInputs,
+      tubeProof,
+      true,
     );
   }, 240_000);
 });
