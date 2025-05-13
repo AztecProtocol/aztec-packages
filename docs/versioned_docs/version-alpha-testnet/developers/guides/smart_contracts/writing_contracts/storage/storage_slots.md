@@ -34,13 +34,12 @@ sequenceDiagram
     Token->>BalanceMap: BalanceMap.at(to)
     BalanceMap->>BalanceMap: derived_slot = H(map_slot, to)
     BalanceMap->>BalanceSet: BalanceSet::new(to, derived_slot)
-    Token->>BalanceSet: to_bal.add(amount)
+    Token->>BalanceSet: to_bal.add(amounst)
     BalanceSet->>BalanceSet: note = UintNote::new(amount, to)
     BalanceSet->>Set: insert(note)
     Set->>LifeCycle: create_note(derived_slot, note)
     LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, note_hash_counter }
-    Utils->>UintNote: partial_note_commitment = note.compute_partial_note_commitment()
-    UintNote->>Utils: note_hash = partial_note_commitment.x
+    UintPartialNotePrivateContent->>UintNote: note_hash = compute_partial_commitment(storage_slot).x
     LifeCycle->>Context: push_note_hash(note_hash)
     end
     Context->>Kernel: unique_note_hash = H(nonce, note_hash)

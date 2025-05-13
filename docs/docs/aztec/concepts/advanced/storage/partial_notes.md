@@ -94,7 +94,7 @@ The trouble is that the FPC doesn't know if Alice is going to run public functio
 
 And we can't use the normal flow to create a transaction fee refund note for Alice, since that demands we have Alice's address in public.
 
-So we define a new type of note with its `compute_partial_note_commitment` defined as:
+So we define a new type of note with its `compute_partial_commitment` defined as:
 
 $$
 \text{amount}*G_{amount} + \text{address}*G_{address} + \text{randomness}*G_{randomness} + \text{slot}*G_{slot}
