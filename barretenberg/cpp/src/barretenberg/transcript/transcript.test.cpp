@@ -34,7 +34,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
     EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 0);
     Fr received_a = verifier_transcript.receive_from_prover<Fr>("a");
     // receiving is reading frs input and writing them to an internal proof_data buffer
-    EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 1, /*read*/ 1);
+    EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 1);
     EXPECT_EQ(received_a, elt_a);
 
     { // send grumpkin::fr
@@ -44,9 +44,9 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 3, /*written*/ 0, /*read*/ 0);
         // load proof is not an action by a prover or verifier, so it does not change read/write counts
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 1, /*read*/ 1);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 1);
         Fq received_b = verifier_transcript.receive_from_prover<Fq>("b");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 3, /*read*/ 3);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 3);
         EXPECT_EQ(received_b, elt_b);
     }
     { // send uint32_t
@@ -55,9 +55,9 @@ TEST(NativeTranscript, TwoProversTwoFields)
         EXPECT_STATE(prover_transcript, /*start*/ 3, /*written*/ 1, /*read*/ 0);
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 4, /*written*/ 0, /*read*/ 0);
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 3, /*read*/ 3);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 3);
         auto received_c = verifier_transcript.receive_from_prover<uint32_t>("c");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 4, /*read*/ 4);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 4);
         EXPECT_EQ(received_c, elt_c);
     }
     { // send curve::BN254::AffineElement
@@ -67,7 +67,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 8, /*written*/ 0, /*read*/ 0);
         auto received_d = verifier_transcript.receive_from_prover<curve::BN254::AffineElement>("d");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 8, /*read*/ 8);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 8);
         EXPECT_EQ(received_d, elt_d);
     }
     { // send std::array<bb::fr, 4>
@@ -77,7 +77,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 13, /*written*/ 0, /*read*/ 0);
         auto received_e = verifier_transcript.receive_from_prover<std::array<bb::fr, 5>>("e");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 13, /*read*/ 13);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 13);
         EXPECT_EQ(received_e, elt_e);
     }
     { // send std::array<grumpkin::fr>
@@ -87,7 +87,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 27, /*written*/ 0, /*read*/ 0);
         auto received_f = verifier_transcript.receive_from_prover<std::array<grumpkin::fr, 7>>("f");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 27, /*read*/ 27);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 27);
         EXPECT_EQ(received_f, elt_f);
     }
     { // send Univariate<bb::fr>
@@ -97,7 +97,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 31, /*written*/ 0, /*read*/ 0);
         auto received_g = verifier_transcript.receive_from_prover<bb::Univariate<bb::fr, 4>>("g");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 31, /*read*/ 31);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 31);
         EXPECT_EQ(received_g, elt_g);
     }
     { // send Univariate<grumpkin::fr>
@@ -107,7 +107,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 37, /*written*/ 0, /*read*/ 0);
         auto received_h = verifier_transcript.receive_from_prover<bb::Univariate<grumpkin::fr, 3>>("h");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 37, /*read*/ 37);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 37);
         EXPECT_EQ(received_h, elt_h);
     }
     { // send curve::Grumpkin::AffineElement
@@ -117,7 +117,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 39, /*written*/ 0, /*read*/ 0);
         auto received_i = verifier_transcript.receive_from_prover<curve::Grumpkin::AffineElement>("i");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 39, /*read*/ 39);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 39);
         EXPECT_EQ(received_i, elt_i);
     }
     { // send curve::Grumpkin::AffineElement point at infinity
@@ -128,7 +128,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 41, /*written*/ 0, /*read*/ 0);
         auto received_j = verifier_transcript.receive_from_prover<curve::Grumpkin::AffineElement>("j");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 41, /*read*/ 41);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 41);
         EXPECT_TRUE(received_j.is_point_at_infinity());
         EXPECT_EQ(received_j, elt_j);
     }
@@ -140,7 +140,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_STATE(prover_transcript, /*start*/ 45, /*written*/ 0, /*read*/ 0);
         auto received_k = verifier_transcript.receive_from_prover<curve::BN254::AffineElement>("k");
-        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 45, /*read*/ 45);
+        EXPECT_STATE(verifier_transcript, /*start*/ 0, /*written*/ 0, /*read*/ 45);
         EXPECT_TRUE(received_k.is_point_at_infinity());
         EXPECT_EQ(received_k, elt_k);
     }
@@ -164,16 +164,16 @@ TEST(NativeTranscript, ConsumeElement)
  * @brief Test the case when a transcript is shared by multiple provers using `add_to_hash_buffer()` method.
  *
  */
-TEST(NativeTranscript, MultipleProverWithAddToHashBuffer)
+TEST(NativeTranscript, MultipleProversWithAddToHashBuffer)
 {
 
     // Populate prover and verifier transcripts. Make sure that some elements are hashed without being placed into the
     // proof data, i.e. use `add_to_hash_buffer()` method.
-    auto simulate_transcript_interaction_with_multiple_provers = [](const size_t num_provers,
+    auto simulate_transcript_interaction_with_multiple_provers = [](const size_t num_proof_exports,
                                                                     Transcript& prover_transcript,
                                                                     Transcript& verifier_transcript,
                                                                     bool tampered_transcript = false) {
-        for (size_t prover_idx = 0; prover_idx < num_provers; prover_idx++) {
+        for (size_t idx = 0; idx < num_proof_exports; idx++) {
 
             // Mock current prover transcript actions.
             prover_transcript.add_to_hash_buffer("vk_field", Fr(1));
@@ -203,7 +203,7 @@ TEST(NativeTranscript, MultipleProverWithAddToHashBuffer)
             if (tampered_transcript) {
                 // The challenge produced in the first round does not depend on the integer value being sent. The
                 // subsequent challenges must differ.
-                EXPECT_EQ(prover_challenge == verifier_challenge, prover_idx == 0);
+                EXPECT_EQ(prover_challenge == verifier_challenge, idx == 0);
             } else {
                 EXPECT_TRUE(prover_challenge == verifier_challenge);
             }
@@ -211,15 +211,16 @@ TEST(NativeTranscript, MultipleProverWithAddToHashBuffer)
     };
 
     // Test valid transcript data
-    for (size_t num_provers = 2; num_provers < 5; num_provers++) {
+    for (size_t num_proof_exports = 2; num_proof_exports < 5; num_proof_exports++) {
         Transcript prover_transcript;
         Transcript verifier_transcript;
         simulate_transcript_interaction_with_multiple_provers(
-            /*num_provers=*/5, prover_transcript, verifier_transcript);
+            num_proof_exports, prover_transcript, verifier_transcript);
     }
 
     // Test tampered transcript data
     Transcript prover_transcript;
     Transcript verifier_transcript;
-    simulate_transcript_interaction_with_multiple_provers(2, prover_transcript, verifier_transcript, true);
+    simulate_transcript_interaction_with_multiple_provers(
+        /*num_proof_exports=*/2, prover_transcript, verifier_transcript, true);
 }

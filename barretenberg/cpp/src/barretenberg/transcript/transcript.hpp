@@ -217,9 +217,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param label of the element sent
      * @param element_frs serialized
      */
-    void add_element_frs_to_hash_buffer(const std::string& label,
-                                        std::span<const Fr> element_frs,
-                                        const bool& update_num_frs_written = true)
+    void add_element_frs_to_hash_buffer(const std::string& label, std::span<const Fr> element_frs)
     {
         if (use_manifest) {
             // Add an entry to the current round of the manifest
@@ -227,9 +225,6 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 
         current_round_data.insert(current_round_data.end(), element_frs.begin(), element_frs.end());
-        if (update_num_frs_written) {
-            num_frs_written += element_frs.size();
-        }
     }
 
     /**
@@ -383,9 +378,7 @@ template <typename TranscriptParams> class BaseTranscript {
             info("consumed:     ", label, ": ", element);
         }
 #endif
-        // As the element is not added to the proof, `num_frs_written` remains the same.
-        const bool update_num_frs_written = false;
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs, update_num_frs_written);
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
@@ -411,6 +404,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // convert element to field elements
         auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
+        num_frs_written += element_frs.size();
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
