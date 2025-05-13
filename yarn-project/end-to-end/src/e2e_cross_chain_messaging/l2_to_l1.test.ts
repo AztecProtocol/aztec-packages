@@ -1,4 +1,4 @@
-import { BatchCall, EthAddress, Fr, SiblingPath, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, EthAddress, Fr, SiblingPath, TxReceipt, type Wallet } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
@@ -137,6 +137,92 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     },
     60_000,
   );
+
+  // When the block contains a tx with no messages, it triggers a different code path in
+  // AztecNode.getL2ToL1MessageMembershipWitness. In this test we ensure the code path is correct.
+  it('can send an L2 -> L1 message in a block with a tx that has no messages', async () => {
+    const content = Fr.random();
+    const recipient = crossChainTestHarness.ethAccount;
+
+    // Send the 2 tx (with and without a message) and ensure they were included in the same block
+    let receiptOfTxWithTheMessage: TxReceipt;
+    {
+      // Configure the node to include the 2 transactions in the same block
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
+
+      const [noMessageReceipt, messageReceipt] = await Promise.all([
+        contract.methods.set_constant(Fr.random()).send().wait(),
+        contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait(),
+      ]);
+
+      expect(noMessageReceipt.blockNumber).toEqual(messageReceipt.blockNumber);
+      receiptOfTxWithTheMessage = messageReceipt;
+
+      // Reset the num txs per block to the default value
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    }
+
+    const l2ToL1Message = {
+      sender: { actor: contract.address.toString() as Hex, version: BigInt(version) },
+      recipient: {
+        actor: recipient.toString() as Hex,
+        chainId: BigInt(crossChainTestHarness.l1Client.chain.id),
+      },
+      content: content.toString() as Hex,
+    };
+
+    const leaf = sha256ToField([
+      contract.address,
+      new Fr(version),
+      recipient.toBuffer32(),
+      new Fr(crossChainTestHarness.l1Client.chain.id),
+      content,
+    ]);
+
+    const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      receiptOfTxWithTheMessage.blockNumber!,
+      leaf,
+    );
+
+    await t.assumeProven();
+
+    const l1TxHash = await outbox.write.consume(
+      [
+        l2ToL1Message,
+        BigInt(receiptOfTxWithTheMessage.blockNumber!),
+        BigInt(l2MessageIndex),
+        siblingPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
+      ],
+      {} as any,
+    );
+
+    const l1TxReceipt = await crossChainTestHarness.l1Client.waitForTransactionReceipt({
+      hash: l1TxHash,
+    });
+
+    // Exactly 1 event should be emitted in the transaction
+    expect(l1TxReceipt.logs.length).toBe(1);
+
+    // We decode the event log before checking it
+    const txLog = l1TxReceipt.logs[0];
+    const topics = decodeEventLog({
+      abi: OutboxAbi,
+      data: txLog.data,
+      topics: txLog.topics,
+    }) as {
+      eventName: 'MessageConsumed';
+      args: {
+        l2BlockNumber: bigint;
+        root: `0x${string}`;
+        messageHash: `0x${string}`;
+        leafIndex: bigint;
+      };
+    };
+
+    // We check that MessageConsumed event was emitted with the expected message hash and leaf index
+    expect(topics.args.messageHash).toStrictEqual(leaf.toString());
+    expect(topics.args.leafIndex).toStrictEqual(l2MessageIndex);
+  }, 60_000);
 
   it('Inserts a new transaction with two out messages, and verifies sibling paths of both the new messages', async () => {
     // recipient2 = msg.sender, so we can consume it later
