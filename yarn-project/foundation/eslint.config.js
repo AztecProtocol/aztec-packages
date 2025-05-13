@@ -4,11 +4,22 @@ import importPlugin from 'eslint-plugin-import';
 import jsdoc from 'eslint-plugin-jsdoc';
 import noOnlyTests from 'eslint-plugin-no-only-tests';
 import tsdoc from 'eslint-plugin-tsdoc';
+import { globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint
-  .config({
+export default [
+  globalIgnores([
+    'node_modules/*',
+    'dest/*',
+    'dist/*',
+    '*.js',
+    'scripts/*',
+    'eslint.config.js',
+    'eslint.config.*.js',
+    'src/jest/setup.mjs',
+  ]),
+  ...tseslint.config({
     extends: [
       js.configs.recommended,
       ...tseslint.configs.recommendedTypeChecked,
@@ -25,7 +36,6 @@ export default tseslint
     languageOptions: {
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname,
       },
       ecmaVersion: 2025,
       globals: {
@@ -93,29 +103,11 @@ export default tseslint
       // this unfortunately doesn't block `fit` and `fdescribe`
       'no-only-tests/no-only-tests': ['error'],
     },
-    ignores: [
-      'node_modules/*',
-      'dest/*',
-      'dist/*',
-      '*.js',
-      'scripts/*',
-      'eslint.config.js',
-      'eslint.config.*.js',
-      'src/jest/setup.mjs',
-    ],
-  })
-  .concat([
-    {
-      files: ['*.cts', '*.mts', '*.ts', '*.tsx'],
-      parserOptions: {
-        // hacky workaround for CI not having the same tsconfig setup
-        project: true,
-      },
+  }),
+  {
+    files: ['*.test.ts'],
+    rules: {
+      'jsdoc/require-jsdoc': 'off',
     },
-    {
-      files: ['*.test.ts'],
-      rules: {
-        'jsdoc/require-jsdoc': 'off',
-      },
-    },
-  ]);
+  },
+];

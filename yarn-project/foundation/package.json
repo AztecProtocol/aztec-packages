@@ -5,8 +5,8 @@
   "main": "./dest/index.js",
   "types": "./dest/index.d.ts",
   "exports": {
-    "./eslint": "./.eslintrc.cjs",
-    "./eslint.docs": "./.eslintrc.docs.cjs",
+    "./eslint": "./eslint.config.js",
+    "./eslint.docs": "./eslint.docs.config.js",
     "./prettier": "./.prettierrc.json",
     "./abi": "./dest/abi/index.js",
     "./async-map": "./dest/async-map/index.js",
