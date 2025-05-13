@@ -5,6 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
@@ -32,6 +33,39 @@ import type { KernelPublicInputs } from './types/index.js';
 jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:avm-integration');
+
+async function proveMockPublicBaseRollup(
+  avmCircuitInputs: AvmCircuitInputs,
+  bbWorkingDirectory: string,
+  bbBinaryPath: string,
+  clientIVCPublicInputs: KernelPublicInputs,
+  tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>,
+) {
+  const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
+
+  const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
+    tube_data: {
+      public_inputs: clientIVCPublicInputs,
+      proof: mapRecursiveProofToNoir(tubeProof.proof),
+      vk_data: mapVerificationKeyToNoir(
+        tubeProof.verificationKey.keyAsFields,
+        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+      ),
+    },
+    verification_key: mapAvmVerificationKeyToNoir(vk),
+    proof: mapAvmProofToNoir(proof),
+    public_inputs: mapAvmCircuitPublicInputsToNoir(publicInputs),
+  });
+
+  await proveRollupHonk(
+    'MockRollupBasePublicCircuit',
+    bbBinaryPath,
+    bbWorkingDirectory,
+    MockRollupBasePublicCircuit,
+    baseWitnessResult.witness,
+    logger,
+  );
+}
 
 describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
@@ -96,29 +130,13 @@ describe('AVM Integration', () => {
     );
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
 
-    const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
-      tube_data: {
-        public_inputs: clientIVCPublicInputs,
-        proof: mapRecursiveProofToNoir(tubeProof.proof),
-        vk_data: mapVerificationKeyToNoir(
-          tubeProof.verificationKey.keyAsFields,
-          ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        ),
-      },
-      verification_key: mapAvmVerificationKeyToNoir(vk),
-      proof: mapAvmProofToNoir(proof),
-      public_inputs: mapAvmCircuitPublicInputsToNoir(publicInputs),
-    });
-
-    await proveRollupHonk(
-      'MockRollupBasePublicCircuit',
-      bbBinaryPath,
+    await proveMockPublicBaseRollup(
+      avmCircuitInputs,
       bbWorkingDirectory,
-      MockRollupBasePublicCircuit,
-      baseWitnessResult.witness,
-      logger,
+      bbBinaryPath,
+      clientIVCPublicInputs,
+      tubeProof,
     );
   }, 240_000);
 });
