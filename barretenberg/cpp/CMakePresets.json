@@ -286,7 +286,7 @@
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang16",
+      "inherits": "clang16-asserts",
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
@@ -764,7 +764,7 @@
     },
     {
       "name": "fuzzing",
-      "inherits": "default",
+      "inherits": "clang16-asserts",
       "configurePreset": "fuzzing"
     },
     {
