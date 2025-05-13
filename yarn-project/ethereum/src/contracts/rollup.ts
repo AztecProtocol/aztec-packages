@@ -1,8 +1,6 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-// TODO: watch out for circular dependency - maybe into foundation
-// import type { ViemCommitteeAttestation } from '@aztec/stdlib/block';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
+import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
@@ -18,8 +16,7 @@ import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
-// TODO: watch out for circular dependency - maybe into foundation
-type ViemCommitteeAttestation = {
+export type ViemCommitteeAttestation = {
   addr: `0x${string}`;
   signature: ViemSignature;
 };

@@ -1,13 +1,9 @@
+import type { ViemCommitteeAttestation } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
-
-export type ViemCommitteeAttestation = {
-  addr: `0x${string}`;
-  signature: ViemSignature;
-};
 
 export class CommitteeAttestation {
   constructor(public readonly address: EthAddress, public readonly signature: Signature) {}
@@ -41,7 +37,7 @@ export class CommitteeAttestation {
   }
 
   static random(): CommitteeAttestation {
-    // TODO(md): note: will be invalid
+    // note: will be invalid
     return new CommitteeAttestation(EthAddress.random(), Signature.random());
   }
 

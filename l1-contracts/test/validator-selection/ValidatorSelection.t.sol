@@ -336,8 +336,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       if (_expectRevert) {
         ree.shouldRevert = true;
-        // @todo Handle SignatureLib__InvalidSignature case
-        // @todo Handle ValidatorSelection__InsufficientAttestations case
         if (_signatureCount < ree.needed) {
           vm.expectRevert(
             abi.encodeWithSelector(
