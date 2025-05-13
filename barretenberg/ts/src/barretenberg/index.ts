@@ -40,7 +40,11 @@ export type CircuitOptions = {
 export class Barretenberg extends BarretenbergApi {
   private options: BackendOptions;
 
-  private constructor(private worker: any, wasm: BarretenbergWasmMainWorker, options: BackendOptions) {
+  private constructor(
+    private worker: any,
+    wasm: BarretenbergWasmMainWorker,
+    options: BackendOptions,
+  ) {
     super(wasm);
     this.options = options;
   }
