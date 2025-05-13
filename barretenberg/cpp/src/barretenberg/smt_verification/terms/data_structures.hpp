@@ -48,6 +48,27 @@ class STuple {
     }
 
     /**
+     * Create an equality constraint between two symbolic tuples of the same type
+     *
+     */
+    void operator==(const STuple& other) const
+    {
+        cvc5::Term eq = this->solver->term_manager.mkTerm(cvc5::Kind::EQUAL, { this->term, other.term });
+        this->solver->assertFormula(eq);
+    }
+
+    /**
+     * Create an inequality constraint between two symbolic tuples of the same type
+     *
+     */
+    void operator!=(const STuple& other) const
+    {
+        cvc5::Term eq = this->solver->term_manager.mkTerm(cvc5::Kind::EQUAL, { this->term, other.term });
+        eq = this->solver->term_manager.mkTerm(cvc5::Kind::NOT, { eq });
+        this->solver->assertFormula(eq);
+    }
+
+    /**
      * @brief Get the obtained tuple sort
      *
      * @return cvc5::Sort

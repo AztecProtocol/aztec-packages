@@ -1,15 +1,10 @@
-#include <chrono>
-#include <fstream>
-#include <gtest/gtest.h>
-#include <iostream>
-#include <string>
-
-#include "barretenberg/serialize/msgpack_impl.hpp
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 
 #include "barretenberg/smt_verification/circuit/standard_circuit.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
+
+#include <gtest/gtest.h>
 
 using namespace bb;
 using namespace smt_circuit;

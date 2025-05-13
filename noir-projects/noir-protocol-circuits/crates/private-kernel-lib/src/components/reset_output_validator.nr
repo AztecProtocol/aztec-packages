@@ -10,7 +10,6 @@ use dep::types::{
         private_log::{PrivateLog, PrivateLogData},
         side_effect::{Ordered, OrderedValue, scoped::Scoped},
     },
-    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     hash::{
         compute_siloed_private_log_field, compute_unique_siloed_note_hash, silo_note_hash,
         silo_nullifier,
@@ -26,13 +25,16 @@ use dep::types::{
 // Without this check, an app could impersonate another by emitting a log identical to one from a different contract
 // or copying a tag from another contract while using entirely different content, potentially misleading the recipient.
 fn is_valid_siloed_private_log(out: PrivateLog, prev: Scoped<PrivateLogData>) -> bool {
-    let siloed_field =
-        compute_siloed_private_log_field(prev.contract_address, prev.inner.log.fields[0]);
-    let mut is_valid = (out.fields[0] == siloed_field) | prev.contract_address.is_zero();
-    for i in 1..PRIVATE_LOG_SIZE_IN_FIELDS {
+    let expected_first_field = if prev.contract_address.is_zero() {
+        prev.inner.log.fields[0]
+    } else {
+        compute_siloed_private_log_field(prev.contract_address, prev.inner.log.fields[0])
+    };
+    let mut is_valid = out.fields[0] == expected_first_field;
+    for i in 1..out.fields.len() {
         is_valid &= out.fields[i] == prev.inner.log.fields[i];
     }
-    is_valid
+    is_valid & (out.length == prev.inner.log.length)
 }
 
 pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32> {

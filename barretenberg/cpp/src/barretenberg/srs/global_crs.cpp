@@ -13,6 +13,10 @@ namespace bb::srs {
 
 std::filesystem::path bb_crs_path()
 {
+    char* crs_path = std::getenv("CRS_PATH");
+    if (crs_path != nullptr) {
+        return std::filesystem::path(crs_path);
+    }
     // Detect home directory for default CRS path
     char* home = std::getenv("HOME");
     std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
