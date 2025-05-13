@@ -24,7 +24,7 @@ class ECCVMTranscriptBuilder {
 
         // These fields are populated in the first loop
         bool transcript_msm_infinity = false;
-        bool accumulator_empty = false;
+        bool accumulator_not_empty = false;
         bool q_add = false;
         bool q_mul = false;
         bool q_eq = false;
@@ -312,7 +312,7 @@ class ECCVMTranscriptBuilder {
     {
         const bool base_point_infinity = entry.base_point.is_point_at_infinity();
 
-        row.accumulator_empty = !state.is_accumulator_empty;
+        row.accumulator_not_empty = !state.is_accumulator_empty;
         row.q_add = entry.op_code.add;
         row.q_mul = entry.op_code.mul;
         row.q_eq = entry.op_code.eq;
@@ -576,7 +576,7 @@ class ECCVMTranscriptBuilder {
             updated_state.accumulator.is_point_at_infinity() ? 0 : AffineElement(updated_state.accumulator).x;
         final_row.accumulator_y =
             updated_state.accumulator.is_point_at_infinity() ? 0 : AffineElement(updated_state.accumulator).y;
-        final_row.accumulator_empty = !updated_state.is_accumulator_empty;
+        final_row.accumulator_not_empty = !updated_state.is_accumulator_empty;
     }
 };
 } // namespace bb
