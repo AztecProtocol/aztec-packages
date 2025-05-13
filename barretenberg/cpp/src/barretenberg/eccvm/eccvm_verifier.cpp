@@ -26,16 +26,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    if (!transcript) {
-        transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
-    } else {
-        info("correct branch in eccvm native verifier");
-        transcript->load_proof(proof.pre_ipa_proof);
-    }
+    transcript->load_proof(proof.pre_ipa_proof);
 
     ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
-    // transcript->enable_manifest();
-    // ipa_transcript->enable_manifest();
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;

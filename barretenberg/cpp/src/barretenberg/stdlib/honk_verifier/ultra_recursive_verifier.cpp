@@ -22,9 +22,12 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
 {}
 
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey)
+UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
+                                                         const std::shared_ptr<VerificationKey>& vkey,
+                                                         const std::shared_ptr<Transcript>& transcript)
     : key(vkey)
     , builder(builder)
+    , transcript(transcript ? transcript : std::make_shared<Transcript>())
 {}
 
 /**
@@ -50,7 +53,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Curve = typename Flavor::Curve;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using PublicPairingPoints = PublicInputComponent<PairingPoints<Builder>>;
@@ -73,7 +75,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     } else {
         honk_proof = proof;
     }
-    transcript = std::make_shared<Transcript>(honk_proof);
+    transcript->load_proof(honk_proof);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
     // RecursiveDeciderVK here. Seems unnecessary.
     auto verification_key = std::make_shared<RecursiveDeciderVK>(builder, key);

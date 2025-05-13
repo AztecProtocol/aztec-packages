@@ -74,10 +74,6 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
-    // If Sumcheck did not verify, return false
-    if (!sumcheck_output.verified) {
-        return { /*sumcheck_verified=*/false, /*libra_evals_verified=*/false, PairingPoints{} };
-    }
     bool consistency_checked = true;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },

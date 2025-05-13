@@ -40,7 +40,9 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
-    explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
+    explicit UltraRecursiveVerifier_(Builder* builder,
+                                     const std::shared_ptr<VerificationKey>& vkey,
+                                     const std::shared_ptr<Transcript>& transcript = nullptr);
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(

@@ -74,13 +74,11 @@ GoblinProof Goblin::prove(MergeProof merge_proof_in)
         prove_translator();
         vinfo("finished translator proving.");
     }
-
     return goblin_proof;
 }
 
 bool Goblin::verify(const GoblinProof& proof)
 {
-    // goblin_transcript->enable_manifest();
     MergeVerifier merge_verifier(goblin_transcript);
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 

@@ -171,8 +171,6 @@ class ClientIVC {
 
     Goblin goblin;
 
-    std::shared_ptr<NativeTranscript> civc_prover_transcript;
-
     bool initialized = false; // Is the IVC accumulator initialized
 
     ClientIVC(TraceSettings trace_settings = {});

@@ -11,12 +11,7 @@
 namespace bb {
 
 MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& goblin_transcript)
-    : transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>())
-{
-    if (goblin_transcript) {
-        info("goblin transcript received");
-    };
-};
+    : transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>()){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -49,7 +44,6 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
     }
 
     FF kappa = transcript->template get_challenge<FF>("kappa");
-    info("verifier kappa ", kappa);
 
     // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
     std::array<FF, NUM_WIRES> t_evals;

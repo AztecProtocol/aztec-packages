@@ -267,7 +267,7 @@ void ECCVMProver::compute_translation_opening_claims()
 
     // Get another challenge to batch the evaluations of the transcript polynomials
     batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge_v");
-    info("P batching challenge ", batching_challenge_v);
+
     SmallIPA translation_masking_term_prover(
         translation_data, evaluation_challenge_x, batching_challenge_v, transcript, key->commitment_key);
     translation_masking_term_prover.prove();

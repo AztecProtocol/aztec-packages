@@ -19,7 +19,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
     const std::shared_ptr<Transcript>& goblin_transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
-    , transcript(goblin_transcript)
+    , transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>())
 {}
 
 /**
@@ -43,12 +43,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof.pre_ipa_proof);
     StdlibProof<Builder> stdlib_ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
 
-    if (!transcript) {
-        transcript = std::make_shared<Transcript>(stdlib_proof);
-    } else {
-        info("correct branch of eccvm rec?");
-        transcript->load_proof(stdlib_proof);
-    }
+    transcript->load_proof(stdlib_proof);
 
     ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
     transcript->enable_manifest();

@@ -120,19 +120,19 @@ TEST_F(ClientIVCTests, BasicFour)
 TEST_F(ClientIVCTests, BadProofFailure)
 {
     // Confirm that the IVC verifies if nothing is tampered with
-    // {
-    //     ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    {
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-    //     ClientIVCMockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
 
-    //     // Construct and accumulate a set of mocked private function execution circuits
-    //     size_t NUM_CIRCUITS = 4;
-    //     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-    //         auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-    //         ivc.accumulate(circuit);
-    //     }
-    //     EXPECT_TRUE(ivc.prove_and_verify());
-    // }
+        // Construct and accumulate a set of mocked private function execution circuits
+        size_t NUM_CIRCUITS = 4;
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+            ivc.accumulate(circuit);
+        }
+        EXPECT_TRUE(ivc.prove_and_verify());
+    }
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
     {
@@ -154,45 +154,45 @@ TEST_F(ClientIVCTests, BadProofFailure)
         EXPECT_FALSE(ivc.prove_and_verify());
     }
 
-    // // The IVC fails if the SECOND fold proof is tampered with
-    // {
-    //     ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    // The IVC fails if the SECOND fold proof is tampered with
+    {
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-    //     ClientIVCMockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
 
-    //     // Construct and accumulate a set of mocked private function execution circuits
-    //     size_t NUM_CIRCUITS = 4;
-    //     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-    //         auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-    //         ivc.accumulate(circuit);
+        // Construct and accumulate a set of mocked private function execution circuits
+        size_t NUM_CIRCUITS = 4;
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+            ivc.accumulate(circuit);
 
-    //         if (idx == 2) {
-    //             EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
-    //             tamper_with_proof(ivc.verification_queue[1].proof); // tamper with second proof
-    //         }
-    //     }
-    //     EXPECT_FALSE(ivc.prove_and_verify());
-    // }
+            if (idx == 2) {
+                EXPECT_EQ(ivc.verification_queue.size(), 2);        // two proofs after 3 calls to accumulation
+                tamper_with_proof(ivc.verification_queue[1].proof); // tamper with second proof
+            }
+        }
+        EXPECT_FALSE(ivc.prove_and_verify());
+    }
 
-    // // The IVC fails if the 3rd/FINAL fold proof is tampered with
-    // {
-    //     ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+    // The IVC fails if the 3rd/FINAL fold proof is tampered with
+    {
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
 
-    //     ClientIVCMockCircuitProducer circuit_producer;
+        ClientIVCMockCircuitProducer circuit_producer;
 
-    //     // Construct and accumulate a set of mocked private function execution circuits
-    //     size_t NUM_CIRCUITS = 4;
-    //     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-    //         auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
-    //         ivc.accumulate(circuit);
-    //     }
+        // Construct and accumulate a set of mocked private function execution circuits
+        size_t NUM_CIRCUITS = 4;
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+            ivc.accumulate(circuit);
+        }
 
-    //     // Only a single proof should be present in the queue when verification of the IVC is performed
-    //     EXPECT_EQ(ivc.verification_queue.size(), 1);
-    //     tamper_with_proof(ivc.verification_queue[0].proof); // tamper with the final fold proof
+        // Only a single proof should be present in the queue when verification of the IVC is performed
+        EXPECT_EQ(ivc.verification_queue.size(), 1);
+        tamper_with_proof(ivc.verification_queue[0].proof); // tamper with the final fold proof
 
-    //     EXPECT_FALSE(ivc.prove_and_verify());
-    // }
+        EXPECT_FALSE(ivc.prove_and_verify());
+    }
 
     EXPECT_TRUE(true);
 };
