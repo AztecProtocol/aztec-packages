@@ -721,7 +721,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const block = await this.blockSource.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
 
     if (block === undefined) {
-      throw new Error('Block is not defined');
+      throw new Error('Block not found in getL2ToL1MessageMembershipWitness');
     }
 
     const messagesPerTx = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
