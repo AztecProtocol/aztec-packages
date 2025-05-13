@@ -15,6 +15,7 @@ import {
   BlockProposal,
   type Gossipable,
   P2PClientType,
+  P2PMessage,
   PeerErrorSeverity,
   TopicType,
   createTopicString,
@@ -493,14 +494,19 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   /**
    * Publishes data to a topic.
    * @param topic - The topic to publish to.
-   * @param data - The data to publish.
+   * @param data - The message to publish.
    * @returns The number of recipients the data was sent to.
    */
-  private async publishToTopic(topic: string, data: Uint8Array) {
+  private async publishToTopic(topic: string, message: Gossipable) {
     if (!this.node.services.pubsub) {
       throw new Error('Pubsub service not available.');
     }
-    const result = await this.node.services.pubsub.publish(topic, data);
+    const p2pMessage = await P2PMessage.fromGossipable(message);
+    this.logger.debug(`Publishing message`, {
+      topic,
+      messageId: p2pMessage.id,
+    });
+    const result = await this.node.services.pubsub.publish(topic, p2pMessage.toMessageData());
 
     return result.recipients.length;
   }
@@ -511,14 +517,22 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param data - The message data
    */
   protected async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
+    const p2pMessage = P2PMessage.fromMessageData(Buffer.from(msg.data));
+    const currentTime = new Date();
+    const messageLatency = currentTime.getTime() - p2pMessage.publishTime.getTime();
+    this.logger.debug(`Received message`, {
+      topic: msg.topic,
+      messageId: p2pMessage.id,
+      messageLatency,
+    });
     if (msg.topic === this.topicStrings[TopicType.tx]) {
-      await this.handleGossipedTx(msg, msgId, source);
+      await this.handleGossipedTx(p2pMessage.payload, msgId, source);
     }
     if (msg.topic === this.topicStrings[TopicType.block_attestation] && this.clientType === P2PClientType.Full) {
-      await this.processAttestationFromPeer(msg, msgId, source);
+      await this.processAttestationFromPeer(p2pMessage.payload, msgId, source);
     }
     if (msg.topic === this.topicStrings[TopicType.block_proposal]) {
-      await this.processBlockFromPeer(msg, msgId, source);
+      await this.processBlockFromPeer(p2pMessage.payload, msgId, source);
     }
 
     return;
@@ -544,9 +558,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return resultAndObj;
   }
 
-  protected async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
+  protected async handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId) {
     const validationFunc = async () => {
-      const tx = Tx.fromBuffer(Buffer.from(msg.data));
+      const tx = Tx.fromBuffer(Buffer.from(payloadData));
       const result = await this.validatePropagatedTx(tx, source);
       return { result, obj: tx };
     };
@@ -567,9 +581,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    *
    * @param attestation - The attestation to process.
    */
-  private async processAttestationFromPeer(msg: Message, msgId: string, source: PeerId): Promise<void> {
+  private async processAttestationFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
     const validationFunc = async () => {
-      const attestation = BlockAttestation.fromBuffer(Buffer.from(msg.data));
+      const attestation = BlockAttestation.fromBuffer(Buffer.from(payloadData));
       const result = await this.validateAttestation(source, attestation);
       this.logger.trace(`validatePropagatedAttestation: ${result}`, {
         [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
@@ -598,9 +612,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     await this.mempools.attestationPool!.addAttestations([attestation]);
   }
 
-  private async processBlockFromPeer(msg: Message, msgId: string, source: PeerId): Promise<void> {
+  private async processBlockFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
     const validationFunc = async () => {
-      const block = BlockProposal.fromBuffer(Buffer.from(msg.data));
+      const block = BlockProposal.fromBuffer(Buffer.from(payloadData));
       const result = await this.validateBlockProposal(source, block);
       this.logger.trace(`validatePropagatedBlock: ${result}`, {
         [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
@@ -956,7 +970,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const identifier = await message.p2pMessageIdentifier().then(i => i.toString());
     this.logger.trace(`Sending message ${identifier}`, { p2pMessageIdentifier: identifier });
 
-    const recipientsNum = await this.publishToTopic(this.topicStrings[parent.p2pTopic], message.toBuffer());
+    const recipientsNum = await this.publishToTopic(this.topicStrings[parent.p2pTopic], message);
     this.logger.debug(`Sent message ${identifier} to ${recipientsNum} peers`, {
       p2pMessageIdentifier: identifier,
       sourcePeer: this.node.peerId.toString(),
