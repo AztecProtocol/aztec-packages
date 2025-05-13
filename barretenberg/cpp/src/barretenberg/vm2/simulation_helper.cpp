@@ -124,12 +124,13 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ExecutionComponentsProvider execution_components(
-        bytecode_manager, range_check, memory_emitter, instruction_info_db);
+    ExecutionComponentsProvider execution_components(instruction_info_db);
 
     Alu alu(alu_emitter);
-    Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
-    TxExecution tx_execution(execution, merkle_db);
+    ContextProvider context_provider(bytecode_manager, range_check, memory_emitter);
+    Execution execution(
+        alu, execution_components, context_provider, instruction_info_db, execution_emitter, context_stack_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db);
     Sha256 sha256(sha256_compression_emitter);
 
     tx_execution.simulate(hints.tx);
