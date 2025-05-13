@@ -54,7 +54,7 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
 
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z =
         1;
-    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.v =
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.blob_commitments_hash =
         2;
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.gamma =
         3;
@@ -64,7 +64,7 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
         .end_blob_accumulator;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z =
         4;
-    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.v =
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.blob_commitments_hash =
         5;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.gamma =
         6;

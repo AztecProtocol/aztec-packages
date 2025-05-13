@@ -64,8 +64,7 @@ pub(crate) mod tests {
     impl TestBuilder {
         pub fn new() -> Self {
             let inputs = RollupFixtureBuilder::new_for_block_root();
-            // TODO(MW): batching
-            inputs.mock_evaluate_blobs();
+            inputs.mock_evaluate_blobs_and_batch();
             TestBuilder { inputs }
         }
 
@@ -303,12 +302,13 @@ pub(crate) mod tests {
             .end_sponge_blob
             .eq(expected_sponge));
 
-        // v is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
-        let expected_v = 0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
+        // blob_commitments_hash is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
+        let expected_blob_commitments_hash =
+            0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
 
         assert_eq(final_acc.y.limbs, expected_y_limbs);
         assert_eq(final_acc.c, expected_c);
-        assert_eq(final_acc.v, expected_v);
+        assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
     }
 
     #[test(should_fail_with = "block's first blob sponge was not empty")]

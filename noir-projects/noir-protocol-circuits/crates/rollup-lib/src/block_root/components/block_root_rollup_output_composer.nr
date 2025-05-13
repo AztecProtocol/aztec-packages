@@ -240,8 +240,7 @@ impl BlockRootRollupOutputComposer {
             data.blobs_fields,
             data.blob_commitments,
             self.merged_rollup.end_sponge_blob,
-            self.data.final_blob_challenges.z,
-            self.data.final_blob_challenges.gamma,
+            self.data.final_blob_challenges,
             self.data.start_blob_accumulator,
         )
         // TODO(MW): Remove below once simulation of above is tested

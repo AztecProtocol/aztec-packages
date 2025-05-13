@@ -3,11 +3,8 @@ use crate::abis::{
     block_root_rollup_data::{BlockRootRollupBlobData, BlockRootRollupData},
     previous_rollup_data::PreviousRollupData,
 };
-use blob::{
-    blob_batching_public_inputs::{
-        BatchingBlobCommitment, BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
-    },
-    blob_public_inputs::BlockBlobPublicInputs,
+use blob::blob_batching_public_inputs::{
+    BatchingBlobCommitment, BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
 };
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use std::test::OracleMock;
@@ -26,7 +23,7 @@ use types::{
     merkle_tree::{MembershipWitness, MerkleTree},
     partial_state_reference::PartialStateReference,
     tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
-    traits::{Empty, Hash},
+    traits::{Empty, Hash, Serialize},
 };
 
 pub struct RollupFixtureBuilder {
@@ -291,11 +288,11 @@ impl RollupFixtureBuilder {
         }
     }
 
-    pub fn mock_evaluate_blobs(_self: Self) {
-        // TODO(MW): batching
+    pub fn mock_evaluate_blobs_and_batch(_self: Self) {
         // Safety: Mock the oracle call when the blob data is not relevant to the test.
         unsafe {
-            let _ = OracleMock::mock("evaluateBlobs").returns(BlockBlobPublicInputs::empty());
+            let _ = OracleMock::mock("evaluateBlobs").returns(BlobAccumulatorPublicInputs::empty()
+                .serialize());
         }
     }
 }

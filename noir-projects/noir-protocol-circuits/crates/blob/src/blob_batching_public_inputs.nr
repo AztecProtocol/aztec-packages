@@ -260,11 +260,13 @@ impl BlobAccumulatorPublicInputs {
             gamma == bigint::bignum::to_field(injected.gamma),
             "Final blob challenge gamma mismatch.",
         );
+        // TODO(MW): Refactor BlobBatchingCommitment once BlobCommitment can be safely deleted
+        let c = compress_to_blob_commitment(self.c).to_compressed_fields();
         FinalBlobAccumulatorPublicInputs {
             blob_commitments_hash: self.blob_commitments_hash,
             z: self.z,
             y: self.y,
-            c: self.c,
+            c,
         }
     }
 }
@@ -322,7 +324,7 @@ impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs
             gamma: reader.read(),
             gamma_pow: F { limbs: reader.read_array().map(|e| e as u128) },
         };
-        if (item.c.x.eq(Q::zero())) & (item.c.y.eq(Q::zero())) {
+        if (item.c.x.is_zero()) & (item.c.y.is_zero()) {
             item.c.is_infinity = true;
         }
         item
@@ -382,7 +384,7 @@ impl Deserialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
 /**
 * Final values of a batched blob. Output in the root rollup circuit and validated on L1.
 *
-* - v = sha256( ...sha256(sha256(C_0), C_1) ... C_n)
+* - blob_commitments_hash = sha256( ...sha256(sha256(C_0), C_1) ... C_n)
 * - z = poseidon2( ...poseidon2(poseidon2(z_0, z_1), z_2) ... z_n)
 * - y = y_0 + gamma * y_1 + gamma^2 * y_2 + ... + gamma^n * y_n
 * - c = C_0 + gamma * C_1 + gamma^2 * C_2 + ... + gamma^n * C_n
@@ -390,10 +392,10 @@ impl Deserialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
 * Gamma has served its purpose in the 'random' linear combination and is not required as a public input.
 */
 pub struct FinalBlobAccumulatorPublicInputs {
-    pub v: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
+    pub blob_commitments_hash: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
     pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub y: F, // Batched blob's evaluation y (BLS12Fr)
-    pub c: BLSPoint, // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
+    pub c: [Field; 2], // Batched blob's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq }) compressed to 48 bytes, stored in 2 fields
 }
 
 /**

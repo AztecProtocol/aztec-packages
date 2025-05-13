@@ -164,14 +164,14 @@ mod tests {
         };
         assert_eq(final_acc.y, expected_y);
 
+        let blob_commitment = compress_to_blob_commitment(kzg_commitments_in[0]);
+
         // Since i = 1, blob_commitments_hash is just the sha256 hash of the single (compressed) commitment
-        let expected_blob_commitments_hash = sha256_to_field(
-            compress_to_blob_commitment(kzg_commitments_in[0]).compressed,
-        );
+        let expected_blob_commitments_hash = sha256_to_field(blob_commitment.compressed);
         assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
 
         // Since i = 1, C = gamma^0 * C_0 = C_0
-        assert_eq(final_acc.c, kzg_commitments_in[0]);
+        assert_eq(final_acc.c, blob_commitment.to_compressed_fields());
     }
 
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
@@ -286,15 +286,14 @@ mod tests {
                 0xabfa449daf65201c2b24507b1058d8,
                 0x0af1e4,
             ],
-        )
-            .point;
+        );
 
         // blob_commitments_hash is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
         let expected_blob_commitments_hash =
             0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
 
         assert_eq(final_acc.y, expected_y);
-        assert_eq(final_acc.c, expected_c);
+        assert_eq(final_acc.c, expected_c.to_compressed_fields());
         assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
     }
 }
