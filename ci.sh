@@ -49,7 +49,7 @@ instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${a
 function get_ip_for_instance {
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" \
+    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
     --query "Reservations[].Instances[0].PublicIpAddress" \
     --output text)
 }
@@ -252,6 +252,9 @@ case "$cmd" in
     bb_hash=$(barretenberg/bootstrap.sh hash)
     # Protocol circuit benchmarks are published on each commit
     npc_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+    # Simulator benchmarks are published on each commit
+    sim_hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
+    l1_hash=$(l1-contracts/bootstrap.sh hash)
     yp_hash=$(yarn-project/bootstrap.sh hash)
 
     if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
@@ -273,6 +276,10 @@ case "$cmd" in
 
     # noir-protocol-circuits benchmarks.
     cache_download noir-protocol-circuits-bench-results-$npc_hash.tar.gz
+    # aztec simulator benchmarks.
+    cache_download simulator-bench-results-$sim_hash.tar.gz
+    # L1 gas benchmark
+    cache_download l1-gas-bench-results-$l1_hash.tar.gz
 
     # yarn-project benchmarks.
     if [ "$yp_hash" == "$prev_yp_hash" ]; then

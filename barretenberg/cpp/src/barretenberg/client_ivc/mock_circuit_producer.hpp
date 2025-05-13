@@ -200,7 +200,7 @@ class ClientIVCMockCircuitProducer {
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
         } else {
-            stdlib::recursion::aggregation_state<ClientCircuit>::add_default_pairing_points_to_public_inputs(circuit);
+            stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
         }
         is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
 

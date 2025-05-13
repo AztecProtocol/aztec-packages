@@ -12,7 +12,6 @@
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
 #include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <cstddef>

@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -17,11 +17,7 @@ using namespace bb;
 
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
@@ -60,13 +56,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
         manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
-        for (size_t i = 0; i < PAIRING_POINT_ACCUMULATOR_SIZE; i++) {
+        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
         }
         if constexpr (HasIPAAccumulator<Flavor>) {
             for (size_t i = 0; i < IPA_CLAIM_SIZE; i++) {
                 manifest_expected.add_entry(
-                    round, "public_input_" + std::to_string(1 + PAIRING_POINT_ACCUMULATOR_SIZE + i), frs_per_Fr);
+                    round, "public_input_" + std::to_string(1 + PAIRING_POINTS_SIZE + i), frs_per_Fr);
             }
         }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
@@ -162,7 +158,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         FF a = 1;
         builder.add_variable(a);
         builder.add_public_variable(a);
-        stdlib::recursion::aggregation_state<Builder>::add_default_pairing_points_to_public_inputs(builder);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);

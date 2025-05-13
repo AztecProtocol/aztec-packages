@@ -75,7 +75,7 @@ bb::fr verification_key_data::hash_native(const size_t hash_index) const
 
 verification_key::verification_key(const size_t num_gates,
                                    const size_t num_inputs,
-                                   std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& crs,
+                                   std::shared_ptr<bb::srs::factories::Crs<curve::BN254>> const& crs,
                                    CircuitType circuit_type_)
     : circuit_type(circuit_type_)
     , circuit_size(num_gates)
@@ -87,7 +87,7 @@ verification_key::verification_key(const size_t num_gates,
 {}
 
 verification_key::verification_key(verification_key_data&& data,
-                                   std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& crs)
+                                   std::shared_ptr<bb::srs::factories::Crs<curve::BN254>> const& crs)
     : circuit_type(static_cast<CircuitType>(data.circuit_type))
     , circuit_size(data.circuit_size)
     , log_circuit_size(numeric::get_msb(data.circuit_size))

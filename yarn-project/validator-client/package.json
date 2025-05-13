@@ -60,6 +60,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",

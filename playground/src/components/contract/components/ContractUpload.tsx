@@ -29,7 +29,7 @@ const uploadIcon = css({
 });
 
 export function ContractUpload() {
-  const { setCurrentContractArtifact } = useContext(AztecContext);
+  const { setCurrentContractArtifact, network } = useContext(AztecContext);
 
   const { getRootProps, getInputProps, } = useDropzone({
     onDrop: async files => {
@@ -73,7 +73,7 @@ export function ContractUpload() {
                 e.stopPropagation();
               }}
             >
-              1. Install Aztec CLI by running `aztec-up {VERSION}`
+              1. Install Aztec CLI by running `aztec-up {network.version || VERSION}`
               <br />
               2. Run `aztec-nargo compile` in your project directory
               <br />

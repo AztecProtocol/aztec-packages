@@ -19,7 +19,7 @@
 
 namespace bb {
 
-template <IsUltraFlavor Flavor> class DeciderProver_ {
+template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     using FF = typename Flavor::FF;
     using Curve = typename Flavor::Curve;
     using Commitment = typename Flavor::Commitment;

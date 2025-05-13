@@ -1,7 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
-import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
+import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
 import type { MetricsType } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
@@ -136,7 +136,7 @@ export async function sendTxs(
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
-  const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
+  const provenTxs = await Promise.all(calls.map(call => call.prove()));
   context.logger.info(`Sending ${txCount} txs`);
   return provenTxs.map(tx => tx.send());
 }

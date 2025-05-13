@@ -59,7 +59,7 @@ class Goblin {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge(MegaBuilder& circuit_builder);
+    MergeProof prove_merge();
 
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations

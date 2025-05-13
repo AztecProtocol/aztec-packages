@@ -97,10 +97,10 @@ library ProposeLib {
       BlobLib.validateBlobs(_blobInput, _checkBlob);
 
     Header memory header = HeaderLib.decode(_args.header);
-
     v.headerHash = HeaderLib.hash(_args.header);
 
-    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage());
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage(), currentEpoch);
 
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -135,7 +135,7 @@ library ProposeLib {
       _args.oracleInput.feeAssetPriceModifier,
       header.totalManaUsed,
       components.congestionCost,
-      components.provingCost
+      components.proverCost
     );
 
     rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;

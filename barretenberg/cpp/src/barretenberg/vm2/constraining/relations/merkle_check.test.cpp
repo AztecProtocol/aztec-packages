@@ -516,9 +516,9 @@ TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
-    auto rows = trace.as_rows();
+    uint32_t last_row = static_cast<uint32_t>(trace.get_num_rows() - 1);
     // Corrupt the last row
-    trace.set(C::merkle_check_path_len, static_cast<uint32_t>(rows.size() - 1), 66);
+    trace.set(C::merkle_check_path_len, last_row, 66);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
 }

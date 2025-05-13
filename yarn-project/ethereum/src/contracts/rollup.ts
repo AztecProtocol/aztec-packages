@@ -23,6 +23,7 @@ import { ReadOnlyL1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
+import { checkBlockTag } from './utils.js';
 
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
@@ -208,6 +209,14 @@ export class RollupContract {
     });
 
     return decodedResult;
+  }
+
+  getL1FeesAt(timestamp: bigint) {
+    return this.rollup.read.getL1FeesAt([timestamp]);
+  }
+
+  getFeeAssetPerEth() {
+    return this.rollup.read.getFeeAssetPerEth();
   }
 
   async getSampleSeedAt(timestamp: bigint) {
@@ -422,33 +431,21 @@ export class RollupContract {
       abi: RollupAbi,
       functionName: 'getManaBaseFee',
       data: result,
-    });
+    }) as bigint;
   }
 
   getSlotAt(timestamp: bigint) {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.status([blockNumber], options);
   }
 
   async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
-    const { result } = await this.l1TxUtils.simulate(
-      {
-        to: this.address,
-        data: encodeFunctionData({ abi: RollupAbi, functionName: 'canPrune' }),
-        blockNumber: options?.blockNumber,
-      },
-      {
-        time: timestamp,
-      },
-    );
-    return decodeFunctionResult({
-      abi: RollupAbi,
-      functionName: 'canPrune',
-      data: result,
-    });
+    await checkBlockTag(options?.blockNumber, this.client);
+    return this.rollup.read.canPruneAtTime([timestamp], options);
   }
 
   archive() {

@@ -11,132 +11,37 @@ import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Registry} from "@aztec/governance/Registry.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {
   ProposeArgs,
-  ProposePayload,
   OracleInput,
-  ProposeLib
+  ProposeLib,
+  ProposePayload
 } from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
-import {Slot, Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
-import {TimeCheater} from "../staking/TimeCheater.sol";
+import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 // solhint-disable comprehensive-interface
 
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
-contract ValidatorSelectionTest is DecoderBase {
+contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   using MessageHashUtils for bytes32;
   using EpochLib for Epoch;
 
-  struct StructToAvoidDeepStacks {
-    uint256 needed;
-    address proposer;
-    bool shouldRevert;
-  }
-
-  SlashFactory internal slashFactory;
-  Slasher internal slasher;
-  Inbox internal inbox;
-  Outbox internal outbox;
-  Rollup internal rollup;
-  MerkleTestUtil internal merkleTestUtil;
-  TestERC20 internal testERC20;
-  RewardDistributor internal rewardDistributor;
-  Signature internal emptySignature;
-  TimeCheater internal timeCheater;
-  mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
-  mapping(address proposer => uint256 privateKey) internal proposerPrivateKeys;
-  mapping(address proposer => address attester) internal proposerToAttester;
-  mapping(address => bool) internal _seenValidators;
-  mapping(address => bool) internal _seenCommittee;
-
-  /**
-   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
-   */
-  modifier setup(uint256 _validatorCount) {
-    string memory _name = "mixed_block_1";
-    {
-      DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime =
-        full.block.decodedHeader.timestamp - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
-
-      timeCheater = new TimeCheater(
-        address(rollup),
-        initialTime,
-        TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION
-      );
-      vm.warp(initialTime);
-    }
-
-    CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](_validatorCount);
-
-    for (uint256 i = 1; i < _validatorCount + 1; i++) {
-      uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", i)));
-      address attester = vm.addr(attesterPrivateKey);
-      attesterPrivateKeys[attester] = attesterPrivateKey;
-      uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", i)));
-      address proposer = vm.addr(proposerPrivateKey);
-      proposerPrivateKeys[proposer] = proposerPrivateKey;
-
-      proposerToAttester[proposer] = attester;
-
-      initialValidators[i - 1] = CheatDepositArgs({
-        attester: attester,
-        proposer: proposer,
-        withdrawer: address(this),
-        amount: TestConstants.AZTEC_MINIMUM_STAKE
-      });
-    }
-
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this), testERC20);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup({
-      _feeAsset: testERC20,
-      _rewardDistributor: rewardDistributor,
-      _stakingAsset: testERC20,
-      _governance: address(this),
-      _genesisState: TestConstants.getGenesisState(),
-      _config: TestConstants.getRollupConfigInput()
-    });
-    slasher = Slasher(rollup.getSlasher());
-    slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
-
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    rollup.cheat__InitialiseValidatorSet(initialValidators);
-
-    inbox = Inbox(address(rollup.getInbox()));
-    outbox = Outbox(address(rollup.getOutbox()));
-
-    merkleTestUtil = new MerkleTestUtil();
-
-    // Progress into the next epoch for changes to take effect
-    timeCheater.cheat__progressEpoch();
-    _;
-  }
-
-  function testInitialCommitteeMatch() public setup(4) {
+  function testInitialCommitteeMatch() public setup(4) progressEpoch {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 1);
@@ -159,7 +64,7 @@ contract ValidatorSelectionTest is DecoderBase {
     assertTrue(_seenCommittee[proposerToAttester[proposer]]);
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpoch {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -181,7 +86,7 @@ contract ValidatorSelectionTest is DecoderBase {
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpoch {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -195,11 +100,51 @@ contract ValidatorSelectionTest is DecoderBase {
     uint256 expectedSize =
       validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
 
-    assertEq(rollup.getEpochCommittee(pre).length, expectedSize, "Invalid committee size");
-    assertEq(rollup.getEpochCommittee(post).length, expectedSize, "Invalid committee size");
+    address[] memory preCommittee = rollup.getEpochCommittee(pre);
+    address[] memory postCommittee = rollup.getEpochCommittee(post);
+    assertEq(preCommittee.length, expectedSize, "Invalid committee size");
+    assertEq(postCommittee.length, expectedSize, "Invalid committee size");
+
+    // Elements in the committee should be the same
+    assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
-  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
+  function testStableCommittee(uint8 _timeToJump) public setup(4) progressEpoch {
+    Epoch epoch = rollup.getCurrentEpoch();
+
+    uint256 preSize = rollup.getActiveAttesterCount();
+
+    uint32 upper = uint32(
+      Timestamp.unwrap(rollup.getGenesisTime())
+        + rollup.getEpochDuration() * rollup.getSlotDuration() * (Epoch.unwrap(epoch) + 1) - 1
+    );
+
+    uint32 ts = uint32(block.timestamp);
+    uint32 ts2 = uint32(bound(_timeToJump, ts + 1, upper));
+
+    vm.warp(ts2);
+
+    // add a new validator
+    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE);
+    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE);
+    rollup.deposit(
+      address(0xdead), address(0xdead), address(0xdead), TestConstants.AZTEC_MINIMUM_STAKE
+    );
+
+    assertEq(rollup.getCurrentEpoch(), epoch);
+    address[] memory committee = rollup.getCurrentEpochCommittee();
+    assertEq(committee.length, preSize, "Invalid committee size");
+    assertEq(rollup.getActiveAttesterCount(), preSize + 1);
+    for (uint256 i = 0; i < committee.length; i++) {
+      assertNotEq(committee[i], address(0xdead));
+    }
+  }
+
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
+    public
+    setup(100)
+    progressEpoch
+  {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
@@ -212,12 +157,12 @@ contract ValidatorSelectionTest is DecoderBase {
     );
   }
 
-  function testHappyPath() public setup(4) {
+  function testHappyPath() public setup(4) progressEpoch {
     _testBlock("mixed_block_1", false, 3, false);
     _testBlock("mixed_block_2", false, 3, false);
   }
 
-  function testNukeFromOrbit() public setup(4) {
+  function testNukeFromOrbit() public setup(4) progressEpoch {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalised.
@@ -251,11 +196,11 @@ contract ValidatorSelectionTest is DecoderBase {
     }
   }
 
-  function testInvalidProposer() public setup(4) {
+  function testInvalidProposer() public setup(4) progressEpoch {
     _testBlock("mixed_block_1", true, 3, true);
   }
 
-  function testInsufficientSigs() public setup(4) {
+  function testInsufficientSigs() public setup(4) progressEpoch {
     _testBlock("mixed_block_1", true, 2, false);
   }
 
@@ -333,8 +278,6 @@ contract ValidatorSelectionTest is DecoderBase {
 
       skipBlobCheck(address(rollup));
       if (_expectRevert && _invalidProposer) {
-        emit log("We do be reverting?");
-
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(

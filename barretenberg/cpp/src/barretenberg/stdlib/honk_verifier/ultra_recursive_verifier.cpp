@@ -32,11 +32,10 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const
  * @return Output aggregation object
  */
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof,
-                                                                                      AggregationObject agg_obj)
+UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
-    return verify_proof(stdlib_proof, agg_obj);
+    return verify_proof(stdlib_proof);
 }
 
 /**
@@ -44,8 +43,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
  * @return Output aggregation object
  */
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const StdlibProof<Builder>& proof,
-                                                                                      AggregationObject agg_obj)
+UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const StdlibProof<Builder>& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -55,13 +53,15 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using PublicAggState = PublicInputComponent<aggregation_state<Builder>>;
+    using PublicPairingPoints = PublicInputComponent<PairingPoints<Builder>>;
+
+    const size_t num_public_inputs = static_cast<uint32_t>(key->num_public_inputs.get_value());
+    BB_ASSERT_EQ(proof.size(), Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs);
 
     Output output;
     StdlibProof<Builder> honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
         const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<uint32_t>(key->num_public_inputs.get_value());
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
         BB_ASSERT_EQ(proof.size(), HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
@@ -88,10 +88,9 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     }
 
     // Extract the aggregation object from the public inputs
-    AggregationObject nested_agg_obj =
-        PublicAggState::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
-    agg_obj.aggregate(nested_agg_obj);
-
+    PairingPoints nested_points_accumulator =
+        PublicPairingPoints::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
+    output.points_accumulator = nested_points_accumulator;
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
@@ -138,8 +137,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
-    agg_obj.aggregate(pairing_points);
-    output.agg_obj = std::move(agg_obj);
+    output.points_accumulator.aggregate(pairing_points);
 
     // Extract the IPA claim from the public inputs
     if constexpr (HasIPAAccumulator<Flavor>) {

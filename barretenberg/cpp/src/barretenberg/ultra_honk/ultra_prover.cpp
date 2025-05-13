@@ -10,7 +10,7 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
                                    const std::shared_ptr<CommitmentKey>& commitment_key)
     : proving_key(std::move(proving_key))
@@ -25,7 +25,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
  *
  * @tparam a type of UltraFlavor
  * */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
                                    const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::move(proving_key))
@@ -40,21 +40,21 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
  *
  * @tparam a type of UltraFlavor
  * */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : proving_key(std::make_shared<DeciderProvingKey>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
     : proving_key(std::make_shared<DeciderProvingKey>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
-template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
     // Add the IPA proof
@@ -65,7 +65,7 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
     }
     return proof;
 }
-template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
+template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
     std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -74,7 +74,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challen
     proving_key->gate_challenges = gate_challenges;
 }
 
-template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(proving_key, transcript);
     oink_prover.prove();
@@ -90,9 +90,9 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
-#ifdef STARTKNET_GARAGA_FLAVORS
-template class DeciderVerifier_<UltraStarknetFlavor>;
-template class DeciderVerifier_<UltraStarknetZKFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class UltraProver_<UltraStarknetFlavor>;
+template class UltraProver_<UltraStarknetZKFlavor>;
 #endif
 template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<UltraRollupFlavor>;

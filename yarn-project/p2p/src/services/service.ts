@@ -1,5 +1,6 @@
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
@@ -56,6 +57,9 @@ export interface P2PService {
   sendBatchRequest<Protocol extends ReqRespSubProtocol>(
     protocol: Protocol,
     requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
+    timeoutMs?: number,
+    maxPeers?: number,
+    maxRetryAttempts?: number,
   ): Promise<(InstanceType<SubProtocolMap[Protocol]['response']> | undefined)[]>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -64,6 +68,8 @@ export interface P2PService {
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];
+
+  validate(txs: Tx[]): Promise<void>;
 }
 
 /**

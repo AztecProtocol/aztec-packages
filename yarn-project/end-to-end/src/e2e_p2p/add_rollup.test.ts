@@ -13,6 +13,7 @@ import {
   defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
+  l1Artifacts,
 } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import {
@@ -22,12 +23,11 @@ import {
   RegisterNewRollupVersionPayloadAbi,
   RegisterNewRollupVersionPayloadBytecode,
   RegistryAbi,
-  RollupAbi,
   TestERC20Abi as StakingAssetAbi,
   TestERC20Abi,
 } from '@aztec/l1-artifacts';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -46,9 +46,7 @@ import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
-// Note: these ports must be distinct from the other e2e tests, else the tests will
-// interfere with each other.
-const BOOT_NODE_UDP_PORT = 45000;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-old-'));
 const DATA_DIR_NEW = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-new-'));
@@ -201,6 +199,13 @@ describe('e2e_p2p_add_rollup', () => {
 
       const stakeNeeded = attesterInfos.reduce((acc, curr) => acc + curr.amount, 0n);
 
+      const { address: multiAdderAddress } = await deployL1Contract(
+        t.ctx.deployL1ContractsValues.l1Client,
+        l1Artifacts.multiAdder.contractAbi,
+        l1Artifacts.multiAdder.contractBytecode,
+        [newRollup.address, t.ctx.deployL1ContractsValues.l1Client.account.address],
+      );
+
       // I **LOVE** wrapping things like this to avoid underpaying.
       await Promise.all([
         await l1TxUtils.sendAndMonitorTransaction({
@@ -208,25 +213,17 @@ describe('e2e_p2p_add_rollup', () => {
           data: encodeFunctionData({
             abi: TestERC20Abi,
             functionName: 'mint',
-            args: [emperor.address, stakeNeeded],
-          }),
-        }),
-        await l1TxUtils.sendAndMonitorTransaction({
-          to: stakingAsset.address,
-          data: encodeFunctionData({
-            abi: TestERC20Abi,
-            functionName: 'approve',
-            args: [newRollup.address, stakeNeeded],
+            args: [multiAdderAddress.toString(), stakeNeeded],
           }),
         }),
       ]);
 
       // Works fine because only 4 nodes.
       await l1TxUtils.sendAndMonitorTransaction({
-        to: newRollup.address,
+        to: multiAdderAddress.toString(),
         data: encodeFunctionData({
-          abi: RollupAbi,
-          functionName: 'cheat__InitialiseValidatorSet',
+          abi: l1Artifacts.multiAdder.contractAbi,
+          functionName: 'addValidators',
           args: [attesterInfos],
         }),
       });
