@@ -820,4 +820,8 @@ export class Sequencer {
   get maxL2BlockGas(): number | undefined {
     return this.config.maxL2BlockGas;
   }
+
+  public getSlasherClient(): SlasherClient {
+    return this.slasherClient;
+  }
 }

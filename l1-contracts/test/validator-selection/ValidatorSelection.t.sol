@@ -1,36 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable imports-order
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "../base/DecoderBase.sol";
-
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {IPayload} from "@aztec/core/slashing/Slasher.sol";
+
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
-import {NaiveMerkle} from "../merkle/Naive.sol";
-import {MerkleTestUtil} from "../merkle/TestUtil.sol";
-import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {
   ProposeArgs,
   OracleInput,
   ProposeLib,
   ProposePayload
 } from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+
+import {DecoderBase} from "../base/DecoderBase.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
-
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
-
+import {NaiveMerkle} from "../merkle/Naive.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
+
 // solhint-disable comprehensive-interface
 
 /**
@@ -173,16 +168,21 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
-
-    for (uint256 i = 0; i < attesters.length; i++) {
-      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
-      stakes[i] = info.stake;
-      assertTrue(info.status == Status.VALIDATING, "Invalid status");
-    }
+    uint256[] memory offenses = new uint256[](attesters.length);
+    uint256[] memory amounts = new uint256[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
     uint256 slashAmount = 10e18;
-    IPayload slashPayload = slashFactory.createSlashPayload(rollup.getCurrentEpoch(), slashAmount);
+    for (uint256 i = 0; i < attesters.length; i++) {
+      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
+      stakes[i] = info.stake;
+      offenses[i] = 0;
+      amounts[i] = slashAmount;
+
+      assertTrue(info.status == Status.VALIDATING, "Invalid status");
+    }
+
+    IPayload slashPayload = slashFactory.createSlashPayload(attesters, amounts, offenses);
     vm.prank(address(slasher.PROPOSER()));
     slasher.slash(slashPayload);
 

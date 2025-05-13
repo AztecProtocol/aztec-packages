@@ -8,6 +8,7 @@ import {
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
+  getSlotRangeForEpoch,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
@@ -143,6 +144,11 @@ export class EpochCache implements EpochCacheInterface {
       slot: getSlotAtTimestamp(ts, this.l1constants),
       ts,
     };
+  }
+
+  public getCommitteeForEpoch(epoch: bigint): Promise<EpochCommitteeInfo> {
+    const [startSlot] = getSlotRangeForEpoch(epoch, this.l1constants);
+    return this.getCommittee(startSlot);
   }
 
   /**

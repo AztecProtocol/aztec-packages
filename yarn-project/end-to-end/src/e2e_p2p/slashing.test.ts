@@ -3,6 +3,7 @@ import { sleep } from '@aztec/aztec.js';
 import { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
+import { Offence, OffenceToBigInt } from '@aztec/sequencer-client';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -184,8 +185,8 @@ describe('e2e_p2p_slashing', () => {
     if (!seqClient) {
       throw new Error('Sequencer not found');
     }
-    const sequencer = (seqClient as any).sequencer;
-    const slasher = (sequencer as any).slasherClient;
+    const sequencer = seqClient.getSequencer();
+    const slasher = sequencer.getSlasherClient();
     let slashEvents: any[] = [];
 
     await debugRollup();
@@ -206,7 +207,7 @@ describe('e2e_p2p_slashing', () => {
 
       // Create a clone of slasher.slashEvents to prevent race conditions
       // The validator client can remove elements from the original array
-      slashEvents = [...slasher.slashEvents];
+      slashEvents = [...slasher.getMonitoredPayloads()];
       t.logger.info(`Slash events: ${slashEvents.length}`);
       t.logger.info(`Slash events: ${jsonStringify(slashEvents)}`);
       if (slashEvents.length > 0) {
@@ -221,7 +222,7 @@ describe('e2e_p2p_slashing', () => {
     await waitUntilNextRound();
 
     // Get the round number where we expect to be seeing a bunch of votes.
-    const { roundNumber, slotNumber } = await getRoundAndSlotNumber();
+    const { roundNumber } = await getRoundAndSlotNumber();
     let sInfo = await slashingInfo(roundNumber);
 
     await debugRollup();
@@ -229,6 +230,7 @@ describe('e2e_p2p_slashing', () => {
     // For the next round we will try to cast votes.
     // Stop early if we have enough votes.
     t.logger.info(`Waiting for votes to be cast`);
+    let committee: readonly `0x${string}`[] = [];
     for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info(`Waiting for block number to change`);
       const slotNumber = await rollup.getSlotNumber();
@@ -241,7 +243,7 @@ describe('e2e_p2p_slashing', () => {
       if (sInfo.leaderVotes >= votesNeeded) {
         // We need there to be an actual committee to slash for this round
         const epoch = await rollup.getEpochNumberForSlotNumber(sInfo.slotNumber);
-        const committee = await rollup.getEpochCommittee(epoch);
+        committee = await rollup.getEpochCommittee(epoch);
         if (committee.length > 0) {
           t.logger.info(`We have sufficient votes, and a committee for epoch ${epoch}`);
           break;
@@ -250,6 +252,8 @@ describe('e2e_p2p_slashing', () => {
         }
       }
     }
+    const expectedSlashes = Array.from({ length: committee.length }, () => slashingAmount);
+    const expectedOffenses = Array.from({ length: committee.length }, () => OffenceToBigInt[Offence.EPOCH_PRUNE]);
 
     // Because of race-conditions when we start we cannot ACTUALLY rely on just the first slash event
     // of the first node, since the nodes might get online at different times and don't agree on this.
@@ -261,27 +265,24 @@ describe('e2e_p2p_slashing', () => {
 
     await debugRollup();
 
-    let targetEpoch = 0n;
-    for (let i = 0; i <= slotNumber; i++) {
-      const epoch = await rollup.getEpochNumberForSlotNumber(BigInt(i));
-      const [address, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([epoch, slashingAmount]);
-      if (address === targetAddress && !isDeployed) {
+    let targetEpoch: bigint | undefined;
+    for (let i = 0; i < 100; i++) {
+      const slotNumber = await rollup.getSlotNumber();
+      const epoch = await rollup.getEpochNumberForSlotNumber(BigInt(slotNumber));
+      const [address, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([
+        committee,
+        expectedSlashes,
+        expectedOffenses,
+      ]);
+      if (address === targetAddress && isDeployed) {
         targetEpoch = epoch;
         t.logger.info(`Target epoch found: ${targetEpoch}`);
         break;
       }
+      await sleep(1000);
     }
-
-    await debugRollup();
-
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: slashFactory.address,
-      data: encodeFunctionData({
-        abi: SlashFactoryAbi,
-        functionName: 'createSlashPayload',
-        args: [targetEpoch, slashingAmount],
-      }),
-    });
+    expect(targetEpoch).toBeDefined();
+    targetEpoch = targetEpoch!;
 
     await debugRollup();
 
@@ -367,7 +368,7 @@ describe('e2e_p2p_slashing', () => {
     await debugRollup();
 
     // Committee should only update in the next epoch
-    const committee = await rollup.getEpochCommittee(targetEpoch);
+    committee = await rollup.getEpochCommittee(targetEpoch);
     expect(attestersPre.length).toBe(committee.length);
     expect(attestersPost.length).toBe(0);
   }, 1_000_000);

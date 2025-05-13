@@ -214,6 +214,10 @@ export class SequencerClient {
     this.sequencer.restart();
   }
 
+  public getSequencer(): Sequencer {
+    return this.sequencer;
+  }
+
   get coinbase(): EthAddress {
     return this.sequencer.coinbase;
   }
