@@ -186,4 +186,12 @@ export class InMemoryTxPool implements TxPool {
   setMaxTxPoolSize(_maxSizeBytes: number | undefined): Promise<void> {
     return Promise.resolve();
   }
+
+  markTxsAsNonEvictable(_txHashes: TxHash[]): Promise<void> {
+    return Promise.resolve();
+  }
+
+  markTxsAsEvictable(_txHashes: TxHash[]): Promise<void> {
+    return Promise.resolve();
+  }
 }

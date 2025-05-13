@@ -332,6 +332,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       this.log.verbose(`Received block proposal with no transactions, skipping transaction availability check`);
       return [];
     }
+    this.p2pClient.markTxsAsNonEvictable(proposal.payload.txHashes);
     // Is this a new style proposal?
     if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length === proposal.payload.txHashes.length) {
       // Yes, any txs that we already have we should use
@@ -378,6 +379,7 @@ export class ValidatorClient extends WithTracer implements Validator {
         );
 
         await this.p2pClient.validate(txsToUse as Tx[]);
+        this.p2pClient.markTxsAsEvictable(hashesFromPayload);
         return txsToUse as Tx[];
       }
     }
@@ -410,10 +412,12 @@ export class ValidatorClient extends WithTracer implements Validator {
       })
       .filter(hash => hash !== undefined);
     if (missingTxs.length > 0) {
+      this.p2pClient.markTxsAsEvictable(txHashes);
       throw new TransactionsNotAvailableError(missingTxs as TxHash[]);
     }
 
     await this.p2pClient.validate(retrievedTxs as Tx[]);
+    this.p2pClient.markTxsAsEvictable(txHashes);
 
     return retrievedTxs as Tx[];
   }
