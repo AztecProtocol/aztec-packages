@@ -10,11 +10,11 @@ import tseslint from 'typescript-eslint';
 
 export default [
   globalIgnores([
-    'node_modules/*',
-    'dest/*',
-    'dist/*',
+    '**/node_modules/**',
+    '**/dest/**',
+    '**/dist/**',
     '*.js',
-    'scripts/*',
+    '**/scripts/**',
     'eslint.config.js',
     'eslint.config.*.js',
     'src/jest/setup.mjs',
