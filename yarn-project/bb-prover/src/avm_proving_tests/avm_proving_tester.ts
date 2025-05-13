@@ -148,6 +148,14 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     );
   }
 
+  public async proveVerifyV2(avmCircuitInputs: AvmCircuitInputs) {
+    const provingRes = await this.proveV2(avmCircuitInputs);
+    expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
+
+    const verificationRes = await this.verifyV2(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
+    expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
+  }
+
   public async simProveVerifyV2(
     sender: AztecAddress,
     setupCalls: TestEnqueuedCall[],
@@ -160,10 +168,6 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    const provingRes = await this.proveV2(avmCircuitInputs);
-    expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
-
-    const verificationRes = await this.verifyV2(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
-    expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
+    await this.proveVerifyV2(avmCircuitInputs);
   }
 }
