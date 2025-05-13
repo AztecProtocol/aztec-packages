@@ -1,0 +1,121 @@
+import js from '@eslint/js';
+import eslintConfigPrettier from 'eslint-config-prettier/flat';
+import importPlugin from 'eslint-plugin-import';
+import jsdoc from 'eslint-plugin-jsdoc';
+import noOnlyTests from 'eslint-plugin-no-only-tests';
+import tsdoc from 'eslint-plugin-tsdoc';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+
+export default tseslint
+  .config({
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommendedTypeChecked,
+      importPlugin.flatConfigs.recommended,
+      importPlugin.flatConfigs.typescript,
+      eslintConfigPrettier,
+    ],
+    settings: {
+      'import/resolver': {
+        typescript: true,
+        node: true,
+      },
+    },
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+      ecmaVersion: 2025,
+      globals: {
+        ...globals.node,
+      },
+    },
+    plugins: {
+      jsdoc,
+      tsdoc,
+      'no-only-tests': noOnlyTests,
+      importPlugin,
+    },
+    rules: {
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unused-expressions': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-unsafe-function-type': 'off',
+      '@typescript-eslint/prefer-promise-reject-errors': 'off',
+      '@typescript-eslint/no-import-type-side-effects': 'error',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-floating-promises': 2,
+      '@typescript-eslint/no-misused-promises': 2,
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'require-await': 2,
+      'no-console': 'error',
+      'no-constant-condition': 'off',
+      curly: ['error', 'all'],
+      camelcase: 2,
+      'import/no-relative-packages': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['dest'],
+              message: 'You should not be importing from a build directory. Did you accidentally do a relative import?',
+            },
+          ],
+        },
+      ],
+      'import/no-unresolved': [
+        'error',
+        {
+          ignore: [
+            // See https://github.com/import-js/eslint-plugin-import/issues/2703
+            '@libp2p/bootstrap',
+            // Seems like ignoring l1-artifacts in the eslint call messes up no-unresolved
+            '@aztec/l1-artifacts',
+          ],
+        },
+      ],
+      'import/no-extraneous-dependencies': 'error',
+      'import/no-cycle': 'warn',
+      // this unfortunately doesn't block `fit` and `fdescribe`
+      'no-only-tests/no-only-tests': ['error'],
+    },
+    ignores: [
+      'node_modules/*',
+      'dest/*',
+      'dist/*',
+      '*.js',
+      'scripts/*',
+      'eslint.config.js',
+      'eslint.config.*.js',
+      'src/jest/setup.mjs',
+    ],
+  })
+  .concat([
+    {
+      files: ['*.cts', '*.mts', '*.ts', '*.tsx'],
+      parserOptions: {
+        // hacky workaround for CI not having the same tsconfig setup
+        project: true,
+      },
+    },
+    {
+      files: ['*.test.ts'],
+      rules: {
+        'jsdoc/require-jsdoc': 'off',
+      },
+    },
+  ]);

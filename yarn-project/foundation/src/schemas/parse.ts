@@ -22,7 +22,7 @@ export function parseWithOptionals<T extends z.AnyZodTuple>(args: any[], schema:
 function isOptional(schema: z.ZodTypeAny) {
   try {
     return schema.isOptional();
-  } catch (err) {
+  } catch {
     // See https://github.com/colinhacks/zod/issues/1911
     return schema._def.typeName === 'ZodOptional';
   }

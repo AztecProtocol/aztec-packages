@@ -1,3 +1,5 @@
+import base from './eslint.config.js';
+
 // See https://typescript-eslint.io/play/#ts=5.1.6&showAST=es&fileType=.ts
 const contexts = [
   // All methods in an interface
@@ -34,12 +36,10 @@ const contexts = [
   'EnumExpression',
 ];
 
-const base = require('./.eslintrc.cjs');
 const JSDOC_RULES_LEVEL = 'error';
 
-module.exports = {
+export default {
   ...base,
-  plugins: [...base.plugins, 'jsdoc'],
   overrides: [...base.overrides, { files: '*.test.ts', rules: { 'jsdoc/require-jsdoc': 'off' } }],
   rules: {
     ...base.rules,

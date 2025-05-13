@@ -55,7 +55,7 @@ export function jsonStringify(obj: object, prettify?: boolean): string {
 export function tryJsonStringify(obj: any, prettify?: boolean): string | undefined {
   try {
     return jsonStringify(obj, prettify);
-  } catch (e) {
+  } catch {
     return undefined;
   }
 }

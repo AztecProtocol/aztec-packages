@@ -265,7 +265,10 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
   return async () => {
     try {
       const results = await Promise.all(
-        Object.entries(namedHandlers).map(([name, [, , healthCheck]]) => [name, healthCheck ? healthCheck() : true]),
+        Object.entries(namedHandlers).map(async ([name, [, , healthCheck]]) => [
+          name,
+          healthCheck ? await healthCheck() : true,
+        ]),
       );
       const failed = results.filter(([_, result]) => !result);
       if (failed.length > 0) {
@@ -326,7 +329,7 @@ export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = 
     let ok: boolean;
     try {
       ok = (await getCurrentStatus()) === true;
-    } catch (err) {
+    } catch {
       ok = false;
     }
 
