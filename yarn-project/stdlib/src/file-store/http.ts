@@ -19,6 +19,7 @@ export class HttpFileStore implements ReadOnlyFileStore {
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
         () => fetch(...args),
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         `Fetching ${args[0]}`,
         makeBackoff([1, 1, 3]),
         this.log,

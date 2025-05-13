@@ -150,7 +150,7 @@ export class FunctionSignatureDecoder {
       case 'struct':
         return `(${param.fields.map(field => `${this.decodeParameter(field)}`).join(this.separator)})`;
       default:
-        throw new Error(`Unsupported type: ${param}`);
+        throw new Error(`Unsupported type: ${param.kind}`);
     }
   }
 

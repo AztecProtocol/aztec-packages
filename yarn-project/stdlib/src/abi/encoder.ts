@@ -127,7 +127,7 @@ class ArgumentEncoder {
         }
         break;
       default:
-        throw new Error(`Unsupported type: ${abiType}`);
+        throw new Error(`Unsupported type: ${abiType.kind}`);
     }
   }
 

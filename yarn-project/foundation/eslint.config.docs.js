@@ -40,7 +40,6 @@ const JSDOC_RULES_LEVEL = 'error';
 
 export default {
   ...base,
-  overrides: [...base.overrides, { files: '*.test.ts', rules: { 'jsdoc/require-jsdoc': 'off' } }],
   rules: {
     ...base.rules,
     'tsdoc/syntax': JSDOC_RULES_LEVEL,

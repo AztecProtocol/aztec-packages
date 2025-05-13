@@ -6,7 +6,7 @@
   "types": "./dest/index.d.ts",
   "exports": {
     "./eslint": "./eslint.config.js",
-    "./eslint.docs": "./eslint.docs.config.js",
+    "./eslint.docs": "./eslint.config.docs.js",
     "./prettier": "./.prettierrc.json",
     "./abi": "./dest/abi/index.js",
     "./async-map": "./dest/async-map/index.js",

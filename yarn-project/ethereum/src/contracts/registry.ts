@@ -43,7 +43,7 @@ export class RegistryContract {
 
     try {
       return EthAddress.fromString(await this.registry.read.getRollup([version]));
-    } catch (e) {
+    } catch {
       this.log.warn(`Failed fetching rollup address for version ${version}. Retrying as index.`);
     }
 
@@ -51,7 +51,7 @@ export class RegistryContract {
       const actualVersion = await this.registry.read.getVersion([version]);
       const rollupAddress = await this.registry.read.getRollup([actualVersion]);
       return EthAddress.fromString(rollupAddress);
-    } catch (e) {
+    } catch {
       throw new Error('Rollup address is undefined');
     }
   }

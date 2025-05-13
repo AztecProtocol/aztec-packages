@@ -45,7 +45,7 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
-      throw new Error(`Unknown type ${type}`);
+      throw new Error(`Unknown type ${type.kind}`);
   }
 }
 

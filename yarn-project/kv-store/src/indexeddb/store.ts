@@ -38,7 +38,6 @@ export interface AztecIDBSchema extends DBSchema {
  */
 
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
-  #log: Logger;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
 
@@ -53,11 +52,9 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   constructor(
     rootDB: IDBPDatabase<AztecIDBSchema>,
     public readonly isEphemeral: boolean,
-    log: Logger,
     name: string,
   ) {
     this.#rootDB = rootDB;
-    this.#log = log;
     this.#name = name;
   }
   /**
@@ -87,7 +84,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
       },
     });
 
-    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, log, name);
+    const kvStore = new AztecIndexedDBStore(rootDB, ephemeral, name);
     return kvStore;
   }
 

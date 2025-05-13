@@ -88,7 +88,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
    * @returns Empty promise.
    * @remarks Use batchInsert method instead.
    */
-  override appendLeaves(_leaves: Buffer[]): Promise<void> {
+  override appendLeaves(_leaves: Buffer[]): void {
     throw new Error('Not implemented');
   }
 
