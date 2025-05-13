@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       values_file:
-        description: List of values files to use, e.g. 1-validators.yaml,gcloud.yaml. Note that 2nd file values will supersede the first one.
+        description: The values file to use, e.g. 1-validators.yaml
         required: true
         type: string
       aztec_docker_image:
