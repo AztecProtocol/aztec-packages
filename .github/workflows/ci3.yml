@@ -98,9 +98,9 @@ jobs:
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: "105%"
-          comment-on-alert: true
+          comment-on-alert: false
           fail-on-alert: false
-          max-items-in-chart: 50
+          max-items-in-chart: 100
 
       # - name: Store barretenberg benchmark result
       #   if: github.event_name == 'merge_group'
