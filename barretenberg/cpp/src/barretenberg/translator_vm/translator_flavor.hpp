@@ -57,11 +57,11 @@ class TranslatorFlavor {
     // How many mini_circuit_size polynomials are interleaved in one interleaved_*
     static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
 
-    // The fixed size of Translator circuit which also corresponds to the size of most polynomials (except the ones
-    // involved in the interleaving subprotocol)
+    // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
+    // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
     static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
 
-    // Determines the size of the polynomials initialised on the full domain
+    // Log of size of interleaved_* and ordered_* polynomials
     static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
 
     static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
