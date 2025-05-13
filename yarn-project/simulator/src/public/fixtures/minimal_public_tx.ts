@@ -4,12 +4,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { strict as assert } from 'assert';
 
+import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' assert { type: 'json' };
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Add, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import { Opcode } from '../avm/serialization/instruction_serialization.js';
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
-import avmMinimalCircuitInputsJson from './avm_minimal_inputs.json' assert { type: 'json' };
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
@@ -55,8 +55,6 @@ export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
     deployer,
     /*contractArtifact=*/ minimalContractArtifact,
   );
-
-  //const args = [1, 2].map(x => new Fr(x));
 
   return await simTester.simulateTx(
     /*sender=*/ deployer,

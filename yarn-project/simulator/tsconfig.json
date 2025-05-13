@@ -41,5 +41,5 @@
       "path": "../noir-test-contracts.js"
     }
   ],
-  "include": ["src", "src/public/fixtures/avm_minimal_inputs.json"]
+  "include": ["src"]
 }
