@@ -189,6 +189,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const proofAndVk = await this.createAvmProof(inputs);
     await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey, inputs.publicInputs);
+
+    // TODO(#14234): remove next lines and directly return proofAndVk
     const skipPublicInputsField = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
     proofAndVk.proof.proof = [skipPublicInputsField]
       .concat(proofAndVk.proof.proof)
