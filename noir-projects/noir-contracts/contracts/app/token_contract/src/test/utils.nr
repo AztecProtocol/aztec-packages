@@ -22,9 +22,6 @@ pub unconstrained fn setup(
         (owner, recipient)
     };
 
-    // Start the test in the account contract address
-    env.impersonate(owner);
-
     // Deploy token contract
     let initializer_call_interface = Token::interface().constructor(
         owner,
@@ -35,7 +32,7 @@ pub unconstrained fn setup(
     let token_contract =
         env.deploy_self("Token").with_public_void_initializer(owner, initializer_call_interface);
     let token_contract_address = token_contract.to_address();
-    env.advance_block_by(1);
+
     (&mut env, token_contract_address, owner, recipient)
 }
 
@@ -87,19 +84,15 @@ pub unconstrained fn mint_to_private(
 
 // docs:start:txe_test_read_public
 pub unconstrained fn check_public_balance(
+    env: &mut TestEnvironment,
     token_contract_address: AztecAddress,
     address: AztecAddress,
     address_amount: u128,
 ) {
-    let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(token_contract_address);
-    let block_number = get_block_number();
-
     let balances_slot = Token::storage_layout().public_balances.slot;
     let address_slot = derive_storage_slot_in_map(balances_slot, address);
-    let amount: u128 = storage_read(token_contract_address, address_slot, block_number);
+    let amount: u128 = env.storage_read(token_contract_address, address_slot);
     assert(amount == address_amount, "Public balance is not correct");
-    cheatcodes::set_contract_address(current_contract_address);
 }
 // docs:end:txe_test_read_public
 

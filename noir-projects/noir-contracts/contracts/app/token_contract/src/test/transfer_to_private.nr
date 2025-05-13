@@ -1,7 +1,6 @@
 use crate::{test::utils, Token};
 use dep::aztec::oracle::random::random;
 use dep::uint_note::uint_note::PartialUintNote;
-use std::test::OracleMock;
 
 /// Internal orchestration means that the calls to `prepare_private_balance_increase`
 /// and `finalize_transfer_to_private` are done by the TOKEN contract itself.
@@ -12,11 +11,13 @@ unconstrained fn transfer_to_private_internal_orchestration() {
     // The transfer to private is done in `utils::setup_and_mint_to_private` and for this reason
     // in this test we just call it and check the outcome.
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (_, token_contract_address, user, _, amount) =
+    let (env, token_contract_address, user, _, amount) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     // User's private balance should be equal to the amount
-    utils::check_private_balance(token_contract_address, user, amount);
+    let balance = env.simulate_utility(Token::at(token_contract_address)
+        ._experimental_balance_of_private(user));
+    assert_eq(balance, amount);
 }
 
 /// External orchestration means that the calls to prepare and finalize are not done by the Token contract. This flow
@@ -27,39 +28,39 @@ unconstrained fn transfer_to_private_external_orchestration() {
     let (env, token_contract_address, owner, recipient, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
-    let note_randomness = random();
-
-    // We mock the Oracle to return the note randomness such that later on we can manually add the note
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
-
     // We prepare the transfer
-    let partial_uint_note = Token::at(token_contract_address)
-        .prepare_private_balance_increase(recipient, owner)
-        .call(&mut env.private());
+    let partial_uint_note = env
+        .call_private(
+            owner,
+            Token::at(token_contract_address).prepare_private_balance_increase(recipient, owner),
+        )
+        .return_value;
 
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
-    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
-        &mut env.public(),
+    let _ = env.call_public_void(
+        owner,
+        Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
     );
 
-    env.advance_block_by(1);
-
     // Recipient's private balance should be equal to the amount
-    utils::check_private_balance(token_contract_address, recipient, amount);
+    let balance = env.simulate_utility(Token::at(token_contract_address)
+        ._experimental_balance_of_private(owner));
+    assert_eq(balance, amount);
 }
 
 #[test(should_fail_with = "Invalid partial note")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, _, _, amount) =
+    let (env, token_contract_address, owner, _, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // Transfer was not prepared so we can use random value for the partial note
     let partial_uint_note = PartialUintNote { commitment: random() };
 
     // Try finalizing the transfer without preparing it
-    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
-        &mut env.public(),
+    let _ = env.call_public_void(
+        owner,
+        Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
     );
 }
 
@@ -72,13 +73,16 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the token balance check is before we use the value but that would made the test less robust against changes
     // in the contract.)
-    let partial_uint_note = Token::at(token_contract_address)
-        .prepare_private_balance_increase(not_owner, owner)
-        .call(&mut env.private());
+    let partial_uint_note = env
+        .call_private(
+            owner,
+            Token::at(token_contract_address).prepare_private_balance_increase(not_owner, owner),
+        )
+        .return_value;
 
     // Try transferring someone else's token balance
-    env.impersonate(not_owner);
-    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
-        &mut env.public(),
+    let _ = env.call_public_void(
+        not_owner,
+        Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note),
     );
 }

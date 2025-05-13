@@ -1,6 +1,8 @@
 use crate::test::utils;
 use crate::Token;
-use aztec::protocol_types::traits::ToField;
+use dep::aztec::context::call_interfaces::PrivateVoidCallInterfaceNew;
+use aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+use aztec::protocol_types::traits::{FromField, ToField};
 
 #[test]
 unconstrained fn access_control() {
@@ -9,9 +11,22 @@ unconstrained fn access_control() {
         utils::setup(/* with_account_contracts */ false);
 
     // Set a new admin
-    Token::at(token_contract_address).set_admin(recipient).call(&mut env.public());
+    let _ = env.call_public_void(owner, Token::at(token_contract_address).set_admin(recipient));
     // Check it worked
-    let admin = Token::at(token_contract_address).get_admin().view(&mut env.public());
+    let admin = env.call_public_test(owner, Token::at(token_contract_address).get_admin());
+
+    let hello = PrivateVoidCallInterfaceNew {
+        target_contract: AztecAddress::from_field(1),
+        selector: FunctionSelector::from_field(1),
+        name: "abc",
+        args_hash: 1,
+        args: &[0; 2],
+        return_type: (),
+        is_static: true,
+    };
+
+    let hi = env.call_public_test(owner, hello);
+
     assert(admin == recipient.to_field());
     // Impersonate new admin
     env.impersonate(recipient);
