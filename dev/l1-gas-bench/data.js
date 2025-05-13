@@ -1,112 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747087161358,
+  "lastUpdate": 1747105556505,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "L1 Gas Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7d5bb11ce79ee8094e5f0b2fa489259c6f4d2514",
-          "message": "fix: yp run_test.sh arg passing (#14154)",
-          "timestamp": "2025-05-07T23:26:02Z",
-          "tree_id": "a1bf033efbdf28f51351adea4c65d46632766c0f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7d5bb11ce79ee8094e5f0b2fa489259c6f4d2514"
-        },
-        "date": 1746662329839,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "forward (100_validators)",
-            "value": 639564,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (100_validators) per l2 tx",
-            "value": 1776.57,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators)",
-            "value": 310600,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators) per l2 tx",
-            "value": 862.78,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead)",
-            "value": 328964,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead) per l2 tx",
-            "value": 913.79,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators)",
-            "value": 1583400,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators) per l2 tx",
-            "value": 137.45,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators)",
-            "value": 67061,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators) per l2 tx",
-            "value": 5.82,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead)",
-            "value": 1516339,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead) per l2 tx",
-            "value": 131.63,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators)",
-            "value": 894670,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators) per l2 tx",
-            "value": 77.66,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators)",
-            "value": 911770,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators) per l2 tx",
-            "value": 79.15,
-            "unit": "gas"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -5113,6 +5009,108 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/commit/55c4136cec17c1fc2e12a73073ed61ecfaa75e45"
         },
         "date": 1747087160553,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "forward (100_validators)",
+            "value": 639593,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (100_validators) per l2 tx",
+            "value": 1776.65,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators)",
+            "value": 312376,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators) per l2 tx",
+            "value": 867.71,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead)",
+            "value": 327217,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead) per l2 tx",
+            "value": 908.94,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators)",
+            "value": 1579031,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators) per l2 tx",
+            "value": 137.07,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators)",
+            "value": 67927,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators) per l2 tx",
+            "value": 5.9,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead)",
+            "value": 1511104,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead) per l2 tx",
+            "value": 131.17,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators)",
+            "value": 894670,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators) per l2 tx",
+            "value": 77.66,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators)",
+            "value": 911770,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators) per l2 tx",
+            "value": 79.15,
+            "unit": "gas"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "committer": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "distinct": true,
+          "id": "39f837c2cebc3739036dab6290c0017d1bd9f538",
+          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"e851b303b5\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"e851b303b5\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
+          "timestamp": "2025-05-13T02:32:36Z",
+          "tree_id": "6dbfcf796432382b5faddc9dd653905fda1314ed",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/39f837c2cebc3739036dab6290c0017d1bd9f538"
+        },
+        "date": 1747105555600,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
