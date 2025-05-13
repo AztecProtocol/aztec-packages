@@ -10,7 +10,6 @@ import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './e
 import { BlobDeserializationError } from './errors.js';
 import type { BlobJson } from './interface.js';
 
-/* eslint-disable import/no-named-as-default-member */
 const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
 
 // The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification

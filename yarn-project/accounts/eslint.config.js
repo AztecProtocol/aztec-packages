@@ -1,1 +1,3 @@
-module.exports = require('@aztec/foundation/eslint.docs');
+import config from '@aztec/foundation/eslint.docs';
+
+export default config;

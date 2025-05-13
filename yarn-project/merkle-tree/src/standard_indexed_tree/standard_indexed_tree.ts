@@ -319,7 +319,6 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     }
   }
 
-  /* eslint-disable jsdoc/require-description-complete-sentence */
   /* The following doc block messes up with complete-sentence, so we just disable it */
 
   /**

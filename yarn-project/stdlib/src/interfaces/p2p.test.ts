@@ -64,7 +64,7 @@ const peers: PeerInfo[] = [
 ];
 
 class MockP2P implements P2PApi {
-  getAttestationsForSlot(slot: bigint, proposalId?: string | undefined): Promise<BlockAttestation[]> {
+  getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {
     expect(slot).toEqual(1n);
     expect(proposalId).toEqual('proposalId');
     return Promise.resolve([BlockAttestation.empty()]);

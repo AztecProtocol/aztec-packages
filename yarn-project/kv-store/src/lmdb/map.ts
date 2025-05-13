@@ -113,7 +113,7 @@ export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K,
     }
   }
 
-  async *entriesAsync(range?: Range<K> | undefined): AsyncIterableIterator<[K, V]> {
+  async *entriesAsync(range?: Range<K>): AsyncIterableIterator<[K, V]> {
     for (const entry of this.entries(range)) {
       yield entry;
     }
