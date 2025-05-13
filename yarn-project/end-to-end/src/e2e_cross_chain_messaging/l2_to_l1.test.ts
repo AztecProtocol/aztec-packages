@@ -256,8 +256,6 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   });
 
   it('Inserts two transactions with total four out messages, and verifies sibling paths of two new messages', async () => {
-    console.log('Admin', aztecNodeAdmin);
-
     // Force txs to be in the same block
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
     const [[recipient1, content1], [recipient2, content2], [recipient3, content3], [recipient4, content4]] = [
