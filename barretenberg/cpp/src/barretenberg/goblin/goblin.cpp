@@ -14,10 +14,10 @@
 
 namespace bb {
 
-Goblin::Goblin(const std::shared_ptr<Transcript>& transcript,
+Goblin::Goblin(std::shared_ptr<Transcript> transcript,
                const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key)
     : commitment_key(bn254_commitment_key)
-    , goblin_transcript(transcript ? transcript : std::make_shared<Transcript>())
+    , goblin_transcript(transcript ? std::move(transcript) : std::make_shared<Transcript>())
 {}
 
 Goblin::MergeProof Goblin::prove_merge()
@@ -75,7 +75,6 @@ GoblinProof Goblin::prove(MergeProof merge_proof_in)
         vinfo("finished translator proving.");
     }
 
-    goblin_transcript->print();
     return goblin_proof;
 }
 
@@ -84,11 +83,9 @@ bool Goblin::verify(const GoblinProof& proof)
     // goblin_transcript->enable_manifest();
     MergeVerifier merge_verifier(goblin_transcript);
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
-    goblin_transcript->print();
 
     ECCVMVerifier eccvm_verifier(goblin_transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
-    goblin_transcript->print();
 
     TranslatorVerifier translator_verifier(goblin_transcript);
 

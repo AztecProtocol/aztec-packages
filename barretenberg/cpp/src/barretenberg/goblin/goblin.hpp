@@ -52,7 +52,7 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(const std::shared_ptr<Transcript>& transcript = nullptr,
+    Goblin(std::shared_ptr<Transcript> transcript = nullptr,
            const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr);
 
     /**

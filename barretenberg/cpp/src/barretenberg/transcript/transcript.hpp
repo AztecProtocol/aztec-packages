@@ -225,8 +225,6 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 
         current_round_data.insert(current_round_data.end(), element_frs.begin(), element_frs.end());
-
-        num_frs_written += element_frs.size();
     }
 
     /**
@@ -406,6 +404,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // convert element to field elements
         auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
+        num_frs_written += element_frs.size();
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {

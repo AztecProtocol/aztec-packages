@@ -365,16 +365,17 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
 
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
-    Goblin goblin_verifier(civc_verifier_transcript);
-    goblin_verifier.goblin_transcript->enable_manifest();
+    civc_verifier_transcript->enable_manifest();
 
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega, nullptr, goblin_verifier.goblin_transcript };
+    MegaZKVerifier verifer{ vk.mega, nullptr, civc_verifier_transcript };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
 
     info("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
+    Goblin goblin_verifier(civc_verifier_transcript);
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
+
     vinfo("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
 }

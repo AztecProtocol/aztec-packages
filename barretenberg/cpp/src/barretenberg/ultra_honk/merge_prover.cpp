@@ -20,12 +20,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     : op_queue(op_queue)
     , pcs_commitment_key(commitment_key ? commitment_key
                                         : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
-    , transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>())
-{
-    if (goblin_transcript) {
-        info("mergep rover, goblin transcript");
-    };
-};
+    , transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>()){};
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.

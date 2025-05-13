@@ -33,9 +33,6 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& goblin_transcrip
  */
 bool MergeVerifier::verify_proof(const HonkProof& proof)
 {
-    info("inside merge");
-
-    // transcript->print();
     transcript->load_proof(proof);
 
     uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
