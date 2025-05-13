@@ -8,8 +8,8 @@ import { TypeTag } from '../avm/avm_memory_types.js';
 import { Add, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import { Opcode } from '../avm/serialization/instruction_serialization.js';
-import avmMinimalCircuitInputsJson from '../public_tx_simulator/avm_minimal_inputs.json' assert { type: 'json' };
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
+import avmMinimalCircuitInputsJson from './avm_minimal_inputs.json' assert { type: 'json' };
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
