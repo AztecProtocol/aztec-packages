@@ -54,6 +54,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     this.#contractInstanceStore = new ContractInstanceStore(db);
   }
 
+  public transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+    return this.db.transactionAsync(callback);
+  }
+
   public getBlockNumber(): Promise<number> {
     return this.getSynchedL2BlockNumber();
   }
