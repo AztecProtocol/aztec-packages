@@ -18,7 +18,6 @@ type BlockStorage = {
   header: Buffer;
   archive: Buffer;
   l1: L1PublishedData;
-  // TODO(md): this is a serious breaking change?? No way to do a migration with this?
   attestations: Buffer[];
 };
 

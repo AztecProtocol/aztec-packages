@@ -157,7 +157,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   // NOTE: this must be run with --isolate as transient storage gets thrashed when working out the proposer.
   // This also changes the committee which is calculated within each call.
-  // TODO(md): clear out transient storage used by the sample lib - we cannot afford to have a malicious proposer
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14275): clear out transient storage used by the sample lib - we cannot afford to have a malicious proposer
   // change the committee committment to something unpredictable.
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
