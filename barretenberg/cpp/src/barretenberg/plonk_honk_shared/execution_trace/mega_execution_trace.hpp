@@ -222,6 +222,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
         info("overflow      :\t", this->overflow.size(), "/", this->overflow.get_fixed_size());
         info("");
+        info("Total structured size: ", get_structured_size());
     }
 
     // Get cumulative size of all blocks
@@ -234,12 +235,18 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
         return total_size;
     }
 
-    size_t get_structured_dyadic_size() const
+    size_t get_structured_size() const
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (const auto& block : this->get()) {
             total_size += block.get_fixed_size();
         }
+        return total_size;
+    }
+
+    size_t get_structured_dyadic_size() const
+    {
+        size_t total_size = get_structured_size();
 
         auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
         if ((1UL << log2_n) != (total_size)) {

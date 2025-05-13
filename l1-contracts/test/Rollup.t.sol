@@ -136,7 +136,7 @@ contract RollupTest is RollupBase {
   function testPrune() public setUpFor("mixed_block_1") {
     _proposeBlock("mixed_block_1", 1);
 
-    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
 
     // @note  Fetch the inbox root of block 2. This should be frozen when block 1 is proposed.
     //        Even if we end up reverting block 1, we should still see the same root in the inbox.
@@ -163,7 +163,7 @@ contract RollupTest is RollupBase {
     assertNotEq(minHeightMixed, 0, "Invalid min height");
 
     rollup.prune();
-    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
     assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
@@ -175,7 +175,7 @@ contract RollupTest is RollupBase {
     // @note  We prune the pending chain as part of the propose call.
     _proposeBlock("empty_block_1", prunableAt.unwrap());
 
-    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(inbox.getInProgress(), 3, "Invalid in progress");
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");

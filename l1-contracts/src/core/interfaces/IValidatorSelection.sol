@@ -15,6 +15,7 @@ struct ValidatorSelectionStorage {
 
 interface IValidatorSelectionCore {
   function setupEpoch() external;
+  function setupSeedSnapshotForNextEpoch() external;
 }
 
 interface IValidatorSelection is IValidatorSelectionCore {

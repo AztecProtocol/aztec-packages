@@ -14,7 +14,6 @@ import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
-import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -22,6 +21,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
@@ -99,11 +99,10 @@ contract ValidatorSelectionTestBase is DecoderBase {
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
-
     if (_validatorCount > 0) {
-      rollup.cheat__InitialiseValidatorSet(initialValidators);
+      MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+      testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+      multiAdder.addValidators(initialValidators);
     }
 
     inbox = Inbox(address(rollup.getInbox()));

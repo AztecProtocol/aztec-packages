@@ -58,7 +58,7 @@ library ValidatorSelectionLib {
 
     // Set the sample seed for the next epoch if required
     // function handles the case where it is already set
-    setSampleSeedForEpoch(_epochNumber + Epoch.wrap(1));
+    setSampleSeedForNextEpoch(_epochNumber);
 
     //################ Committee ################
     // If the committee is not set for this epoch, we need to sample it
@@ -270,6 +270,16 @@ library ValidatorSelectionLib {
   }
 
   /**
+   * @notice  Sets the sample seed for the next epoch
+   *
+   * @param _epoch - The epoch to set the sample seed for
+   */
+  function setSampleSeedForNextEpoch(Epoch _epoch) internal {
+    setSampleSeedForEpoch(_epoch + Epoch.wrap(1));
+  }
+
+  /**
+   * @notice  Sets the sample seed for an epoch
    *
    * @param _epoch - The epoch to set the sample seed for
    */

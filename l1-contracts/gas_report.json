@@ -2,8 +2,8 @@
   {
     "contract": "src/core/Rollup.sol:Rollup",
     "deployment": {
-      "gas": 8526735,
-      "size": 42093
+      "gas": 8581903,
+      "size": 42484
     },
     "functions": {
       "archive()": {
@@ -14,7 +14,7 @@
         "max": 4605
       },
       "getBlock(uint256)": {
-        "calls": 871,
+        "calls": 907,
         "min": 9230,
         "mean": 9230,
         "median": 9230,
@@ -148,10 +148,10 @@
       },
       "propose((bytes32,bytes,(int256),bytes,bytes32[]),(address,(uint8,bytes32,bytes32))[],bytes)": {
         "calls": 2327,
-        "min": 160901,
-        "mean": 329432,
-        "median": 332125,
-        "max": 361700
+        "min": 160930,
+        "mean": 325575,
+        "median": 328264,
+        "max": 357839
       },
       "prune()": {
         "calls": 6,
@@ -168,9 +168,9 @@
         "max": 28669
       },
       "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,uint256,bytes32,address),bytes32[],bytes,bytes))": {
-        "calls": 870,
+        "calls": 906,
         "min": 59223,
-        "mean": 418547,
+        "mean": 419125,
         "median": 415430,
         "max": 449529
       }
@@ -180,7 +180,7 @@
     "contract": "src/core/messagebridge/Inbox.sol:Inbox",
     "deployment": {
       "gas": 0,
-      "size": 6627
+      "size": 7350
     },
     "functions": {
       "getFeeAssetPortal()": {
@@ -190,26 +190,26 @@
         "median": 234,
         "max": 234
       },
+      "getInProgress()": {
+        "calls": 3,
+        "min": 2425,
+        "mean": 2425,
+        "median": 2425,
+        "max": 2425
+      },
       "getRoot(uint256)": {
         "calls": 2325,
-        "min": 4776,
-        "mean": 4784,
-        "median": 4776,
-        "max": 4802
-      },
-      "inProgress()": {
-        "calls": 3,
-        "min": 2282,
-        "mean": 2282,
-        "median": 2282,
-        "max": 2282
+        "min": 4809,
+        "mean": 4817,
+        "median": 4809,
+        "max": 4835
       },
       "sendL2Message((bytes32,uint256),bytes32,bytes32)": {
         "calls": 37168,
-        "min": 44565,
-        "mean": 54874,
-        "median": 47958,
-        "max": 95865
+        "min": 43418,
+        "mean": 53020,
+        "median": 46820,
+        "max": 77618
       }
     }
   },
@@ -244,7 +244,7 @@
         "max": 97461
       },
       "getCanonicalRollup()": {
-        "calls": 2598,
+        "calls": 2706,
         "min": 1016,
         "mean": 3016,
         "median": 1016,
@@ -274,7 +274,7 @@
         "max": 238
       },
       "canonicalRollup()": {
-        "calls": 866,
+        "calls": 902,
         "min": 10158,
         "mean": 10158,
         "median": 10158,
