@@ -283,6 +283,8 @@ describe('KV TX pool', () => {
 
     // We have now mined a block. Mark some tx hashes as mined and we should now evict tx1 again
     const newTx = await mockTx();
+    // We are marking a completely different tx as mined, but that fact that any block has been mined should
+    // clear the non-evictable status
     await txPool.markAsMined([await newTx.getTxHash()], 10);
 
     // if another tx is added after the tx pool size limit is reached, the lowest priority tx that is evictable (tx1) should be evicted

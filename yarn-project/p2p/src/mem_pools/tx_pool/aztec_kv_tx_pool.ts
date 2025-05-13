@@ -153,6 +153,9 @@ export class AztecKVTxPool implements TxPool {
       );
       this.#metrics.recordRemovedObjects(deletedPending + numTxsEvicted, 'pending');
     });
+    // We update this after the transaction above. This ensures that the non-evictable transactions are not evicted
+    // until any that have been mined are marked as such.
+    // The non-evictable set is not considered when evicting transactions that are invalid after a block is mined.
     this.#nonEvictableTxs.clear();
   }
 
