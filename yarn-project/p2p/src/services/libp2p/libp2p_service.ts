@@ -633,6 +633,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         block: block.blockNumber.toNumber(),
       },
     );
+    // Mark the txs in this proposal as non-evictable
+    await this.mempools.txPool.markTxsAsNonEvictable(block.payload.txHashes);
     const attestation = await this.blockReceivedCallback(block);
 
     // TODO: fix up this pattern - the abstraction is not nice

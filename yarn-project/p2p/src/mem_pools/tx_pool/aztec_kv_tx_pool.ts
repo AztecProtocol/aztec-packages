@@ -47,6 +47,9 @@ export class AztecKVTxPool implements TxPool {
   /** In-memory mapping of pending tx hashes to the hydrated pending tx in the pool. */
   #pendingTxs: Map<string, Tx>;
 
+  /** In-memory set of txs that should not be evicted from the pool. */
+  #nonEvictableTxs: Set<string>;
+
   /** KV store for archived txs. */
   #archive: AztecAsyncKVStore;
 
@@ -93,6 +96,7 @@ export class AztecKVTxPool implements TxPool {
     this.#pendingTxSize = store.openSingleton('pendingTxSize');
     this.#maxTxPoolSize = config.maxTxPoolSize;
     this.#pendingTxs = new Map<string, Tx>();
+    this.#nonEvictableTxs = new Set<string>();
 
     this.#archivedTxs = archive.openMap('archivedTxs');
     this.#archivedTxIndices = archive.openMap('archivedTxIndices');
@@ -112,7 +116,7 @@ export class AztecKVTxPool implements TxPool {
     return true;
   }
 
-  public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
+  public async markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
@@ -120,7 +124,8 @@ export class AztecKVTxPool implements TxPool {
     let deletedPending = 0;
     const minedNullifiers = new Set<string>();
     const minedFeePayers = new Set<string>();
-    return this.#store.transactionAsync(async () => {
+
+    await this.#store.transactionAsync(async () => {
       let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       for (const hash of txHashes) {
         const key = hash.toString();
@@ -148,6 +153,7 @@ export class AztecKVTxPool implements TxPool {
       );
       this.#metrics.recordRemovedObjects(deletedPending + numTxsEvicted, 'pending');
     });
+    this.#nonEvictableTxs.clear();
   }
 
   public markMinedAsPending(txHashes: TxHash[]): Promise<void> {
@@ -374,6 +380,11 @@ export class AztecKVTxPool implements TxPool {
     return Promise.resolve();
   }
 
+  public markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
+    txHashes.forEach(txHash => this.#nonEvictableTxs.add(txHash.toString()));
+    return Promise.resolve();
+  }
+
   /**
    * Creates a GasTxValidator instance.
    * @param db - DB for the validator to use
@@ -471,6 +482,9 @@ export class AztecKVTxPool implements TxPool {
     let pendingTxsSize = (await this.#pendingTxSize.getAsync()) ?? 0;
     if (pendingTxsSize > this.#maxTxPoolSize) {
       for await (const txHash of this.#pendingTxPriorityToHash.valuesAsync()) {
+        if (this.#nonEvictableTxs.has(txHash.toString())) {
+          continue;
+        }
         this.#log.verbose(`Evicting tx ${txHash} from pool due to low priority to satisfy max tx size limit`);
         txsToEvict.push(TxHash.fromString(txHash));
 
