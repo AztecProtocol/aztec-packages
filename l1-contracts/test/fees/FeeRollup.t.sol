@@ -293,7 +293,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       if (rollup.getCurrentSlot() == nextSlot) {
         TestPoint memory point = points[nextSlot.unwrap() - 1];
 
-        L1FeeData memory fees = rollup.getL1Fees();
+        L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
         uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
 
         ManaBaseFeeComponents memory components = rollup.getManaBaseFeeComponents(false);

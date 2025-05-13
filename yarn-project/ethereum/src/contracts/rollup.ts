@@ -427,11 +427,12 @@ export class RollupContract {
         time: timestamp,
       },
     );
+
     return decodeFunctionResult({
       abi: RollupAbi,
       functionName: 'getManaBaseFee',
       data: result,
-    }) as bigint;
+    });
   }
 
   getSlotAt(timestamp: bigint) {
@@ -445,7 +446,19 @@ export class RollupContract {
 
   async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
     await checkBlockTag(options?.blockNumber, this.client);
-    return this.rollup.read.canPruneAtTime([timestamp], options);
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'canPrune' }),
+      },
+      { time: timestamp + 1n },
+    );
+
+    return decodeFunctionResult({
+      abi: RollupAbi,
+      functionName: 'canPrune',
+      data: result,
+    });
   }
 
   archive() {

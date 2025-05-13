@@ -136,11 +136,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Get the committee for a given timestamp
    *
+   * @param _ts - The timestamp to get the committee for
+   *
    * @return The committee for the given timestamp
    */
-  function getCurrentCommittee() external override(IValidatorSelection) returns (address[] memory) {
-    Timestamp ts = Timestamp.wrap(block.timestamp);
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(ts));
+  function getCommitteeAt(Timestamp _ts)
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
   }
 
   /**
@@ -389,6 +394,22 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice  Get the sample seed for a given timestamp
+   *
+   * @param _ts - The timestamp to get the sample seed for
+   *
+   * @return The sample seed for the given timestamp
+   */
+  function getSampleSeedAt(Timestamp _ts)
+    external
+    view
+    override(IValidatorSelection)
+    returns (uint256)
+  {
+    return ValidatorSelectionLib.getSampleSeed(getEpochAt(_ts));
+  }
+
+  /**
    * @notice  Get the sample seed for the current epoch
    *
    * @return The sample seed for the current epoch
@@ -559,9 +580,13 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().config.rewardDistributor;
   }
 
-  function getL1Fees() external view override(IRollup) returns (L1FeeData memory) {
-    Timestamp timestamp = Timestamp.wrap(block.timestamp);
-    return FeeLib.getL1FeesAt(timestamp);
+  function getL1FeesAt(Timestamp _timestamp)
+    external
+    view
+    override(IRollup)
+    returns (L1FeeData memory)
+  {
+    return FeeLib.getL1FeesAt(_timestamp);
   }
 
   function canPrune() external view override(IRollup) returns (bool) {
