@@ -430,13 +430,9 @@ export class PublicProcessor implements Traceable {
       this.globalVariables,
     );
 
-    const siloedContractClassLogs = await tx.filterContractClassLogs(
-      tx.data.getNonEmptyContractClassLogsHashes(),
-      true,
-    );
-
     this.metrics.recordClassRegistration(
-      ...siloedContractClassLogs
+      ...tx
+        .getContractClassLogs()
         .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
         .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
@@ -474,13 +470,11 @@ export class PublicProcessor implements Traceable {
       }
     });
 
-    const siloedContractClassLogs = await tx.filterContractClassLogs(
-      tx.data.getNonEmptyContractClassLogsHashes(),
-      true,
-    );
-
+    const contractClassLogs = revertCode.isOK()
+      ? tx.getContractClassLogs()
+      : tx.getSplitContractClassLogs(false /* revertible */);
     this.metrics.recordClassRegistration(
-      ...siloedContractClassLogs
+      ...contractClassLogs
         .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
         .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );

@@ -809,7 +809,7 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, p =>
+    contract_class_log_fields: mapTuple(inputs.hints.contractClassLogsFields, p =>
       mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
     ),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
@@ -846,7 +846,7 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, p =>
+    contract_class_log_fields: mapTuple(inputs.hints.contractClassLogsFields, p =>
       mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
     ),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
