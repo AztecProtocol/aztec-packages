@@ -167,12 +167,6 @@ tests:
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
-  - regex: "archiver/src/archiver/archiver.test.ts"
-    error_regex: "Anvil failed to stop in time"
-    owners:
-      - *palla
-
-      
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -233,7 +227,7 @@ tests:
   #     270 |
   #     271 |       const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
   #     272 |       const expectedTotalNumPublicLogs = 4 * (blockNumber + 1) * 2;
-  - regex: "archiver/src/archiver.test.ts"
+  - regex: "archiver/src/archiver/archiver.test.ts"
     error_regex: "Expected: 14"
     owners:
       - *leila
