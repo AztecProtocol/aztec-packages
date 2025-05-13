@@ -302,11 +302,14 @@
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang16-asserts",
+      "inherits": "clang16",
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -786,7 +789,7 @@
     },
     {
       "name": "fuzzing",
-      "inherits": "clang16-asserts",
+      "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
     {
