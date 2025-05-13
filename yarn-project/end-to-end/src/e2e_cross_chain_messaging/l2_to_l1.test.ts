@@ -1,18 +1,27 @@
-import { BatchCall, EthAddress, Fr, SiblingPath } from '@aztec/aztec.js';
+import { BatchCall, EthAddress, Fr, SiblingPath, type Wallet } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
 import { OutboxAbi } from '@aztec/l1-artifacts';
+import { SHA256 } from '@aztec/merkle-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { type Hex, decodeEventLog, getContract } from 'viem';
 
+import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging l2_to_l1', () => {
   const t = new CrossChainMessagingTest('l2_to_l1');
 
-  let { crossChainTestHarness, aztecNode, user1Wallet, outbox } = t;
+  const merkleSha256 = new SHA256();
+
+  let crossChainTestHarness: CrossChainTestHarness;
+  let aztecNode: AztecNode;
+  let aztecNodeAdmin: AztecNodeAdmin;
+  let user1Wallet: Wallet;
+  let outbox: any;
 
   let version: number = 1;
   let contract: TestContract;
@@ -20,10 +29,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
-    // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet } = t);
-
-    aztecNode = crossChainTestHarness.aztecNode;
+    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, user1Wallet } = t);
 
     outbox = getContract({
       address: crossChainTestHarness.l1ContractAddresses.outboxAddress.toString(),
@@ -250,6 +256,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   });
 
   it('Inserts two transactions with total four out messages, and verifies sibling paths of two new messages', async () => {
+    console.log('Admin', aztecNodeAdmin);
+
     // Force txs to be in the same block
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
     const [[recipient1, content1], [recipient2, content2], [recipient3, content3], [recipient4, content4]] = [

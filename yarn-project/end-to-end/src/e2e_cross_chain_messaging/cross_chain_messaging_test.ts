@@ -20,6 +20,7 @@ import {
 import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
 
@@ -43,6 +44,7 @@ export class CrossChainMessagingTest {
   aztecNode!: AztecNode;
   pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
+  aztecNodeAdmin!: AztecNodeAdmin;
 
   l1Client!: ExtendedViemWalletClient | undefined;
 
@@ -75,6 +77,8 @@ export class CrossChainMessagingTest {
     this.pxe = pxe;
     this.aztecNodeConfig = aztecNodeConfig;
     this.cheatCodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe);
+    this.deployL1ContractsValues = deployL1ContractsValues;
+    this.aztecNodeAdmin = aztecNode;
   }
 
   snapshot = <T>(
