@@ -2,8 +2,8 @@
   {
     "contract": "src/core/Rollup.sol:Rollup",
     "deployment": {
-      "gas": 8471673,
-      "size": 42045
+      "gas": 8526735,
+      "size": 42093
     },
     "functions": {
       "archive()": {
@@ -14,7 +14,7 @@
         "max": 4605
       },
       "getBlock(uint256)": {
-        "calls": 892,
+        "calls": 871,
         "min": 9230,
         "mean": 9230,
         "median": 9230,
@@ -33,6 +33,13 @@
         "mean": 2713,
         "median": 2713,
         "max": 2713
+      },
+      "getEpochDuration()": {
+        "calls": 2,
+        "min": 2400,
+        "mean": 2400,
+        "median": 2400,
+        "max": 2400
       },
       "getFeeAssetPerEth()": {
         "calls": 1,
@@ -55,12 +62,26 @@
         "median": 2476,
         "max": 2476
       },
+      "getL1FeesAt(uint256)": {
+        "calls": 2,
+        "min": 9434,
+        "mean": 9434,
+        "median": 9434,
+        "max": 9434
+      },
       "getManaBaseFeeAt(uint256,bool)": {
         "calls": 2325,
-        "min": 30738,
-        "mean": 32650,
-        "median": 30738,
-        "max": 36493
+        "min": 30582,
+        "mean": 32494,
+        "median": 30582,
+        "max": 36337
+      },
+      "getManaTarget()": {
+        "calls": 2,
+        "min": 2422,
+        "mean": 2422,
+        "median": 2422,
+        "max": 2422
       },
       "getOutbox()": {
         "calls": 3875,
@@ -78,10 +99,10 @@
       },
       "getProofSubmissionWindow()": {
         "calls": 4,
-        "min": 2404,
-        "mean": 2404,
-        "median": 2404,
-        "max": 2404
+        "min": 2426,
+        "mean": 2426,
+        "median": 2426,
+        "max": 2426
       },
       "getProvenBlockNumber()": {
         "calls": 6196,
@@ -112,7 +133,7 @@
         "max": 2655
       },
       "getTimestampForSlot(uint256)": {
-        "calls": 2430,
+        "calls": 2432,
         "min": 2780,
         "mean": 2780,
         "median": 2780,
@@ -125,12 +146,12 @@
         "median": 2493,
         "max": 2493
       },
-      "propose((bytes32,bytes,(int256),bytes,bytes32[]),(bool,uint8,bytes32,bytes32)[],bytes)": {
+      "propose((bytes32,bytes,(int256),bytes,bytes32[]),(address,(uint8,bytes32,bytes32))[],bytes)": {
         "calls": 2327,
-        "min": 154510,
-        "mean": 330348,
-        "median": 340137,
-        "max": 362766
+        "min": 160901,
+        "mean": 329432,
+        "median": 332125,
+        "max": 361700
       },
       "prune()": {
         "calls": 6,
@@ -147,11 +168,11 @@
         "max": 28669
       },
       "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,uint256,bytes32,address),bytes32[],bytes,bytes))": {
-        "calls": 891,
+        "calls": 870,
         "min": 59223,
-        "mean": 418697,
-        "median": 415419,
-        "max": 449518
+        "mean": 418547,
+        "median": 415430,
+        "max": 449529
       }
     }
   },
@@ -223,7 +244,7 @@
         "max": 97461
       },
       "getCanonicalRollup()": {
-        "calls": 2661,
+        "calls": 2598,
         "min": 1016,
         "mean": 3016,
         "median": 1016,
@@ -253,7 +274,7 @@
         "max": 238
       },
       "canonicalRollup()": {
-        "calls": 887,
+        "calls": 866,
         "min": 10158,
         "mean": 10158,
         "median": 10158,
