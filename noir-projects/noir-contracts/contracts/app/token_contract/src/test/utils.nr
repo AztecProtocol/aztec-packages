@@ -1,16 +1,11 @@
 use crate::Token;
 use dep::uint_note::uint_note::UintNote;
 use aztec::{
-    oracle::{
-        execution::{get_block_number, get_contract_address},
-        random::random,
-        storage::storage_read,
-    },
+    oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
     prelude::AztecAddress,
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
-use std::test::OracleMock;
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
@@ -82,9 +77,6 @@ pub unconstrained fn mint_to_private(
     recipient: AztecAddress,
     amount: u128,
 ) {
-    let note_randomness = random();
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
-
     let from = recipient; // we are setting from to recipient because we need to compute the tag
     Token::at(token_contract_address).mint_to_private(from, recipient, amount).call(
         &mut env.private(),
@@ -140,7 +132,7 @@ pub unconstrained fn check_total_supply(
     cheatcodes::set_contract_address(current_contract_address);
 }
 
-// docs:start:txe_test_call_unconstrained
+// docs:start:txe_test_call_utility
 pub unconstrained fn check_private_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
@@ -148,12 +140,12 @@ pub unconstrained fn check_private_balance(
 ) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
-    // Direct call to unconstrained
+    // Direct call to a utility function
     let balance_of_private = Token::balance_of_private(address);
     assert(balance_of_private == address_amount, "Private balance is not correct");
     cheatcodes::set_contract_address(current_contract_address);
 }
-// docs:end:txe_test_call_unconstrained
+// docs:end:txe_test_call_utility
 
 pub unconstrained fn get_private_balance(
     token_contract_address: AztecAddress,
@@ -161,7 +153,6 @@ pub unconstrained fn get_private_balance(
 ) -> u128 {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
-    // Direct call to unconstrained
     let amt = Token::balance_of_private(address);
     cheatcodes::set_contract_address(current_contract_address);
     amt

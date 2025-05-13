@@ -10,6 +10,7 @@
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
@@ -18,7 +19,7 @@ using FF = ECCVMFlavor::FF;
 using PK = ECCVMFlavor::ProvingKey;
 class ECCVMTests : public ::testing::Test {
   protected:
-    void SetUp() override { srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path()); };
+    void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -77,7 +78,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
-    const size_t unmasked_witness_size = pk->circuit_size - MASKING_OFFSET;
+    const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
         pk->polynomials, relation_parameters, unmasked_witness_size);
@@ -149,7 +150,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(CONST_ECCVM_LOG_N, verifier_transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
@@ -167,4 +168,36 @@ TEST_F(ECCVMTests, CommittedSumcheck)
                                          verifier_output.round_univariate_evaluations[0][1]);
 
     EXPECT_TRUE(verifier_output.verified);
+}
+
+/**
+ * @brief Test that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit.
+ * @note If this test fails, it may be because the constant ECCVM_FIXED_SIZE has changed and the fixed VK commitments in
+ * ECCVMFixedVKCommitments must be updated accordingly. Their values can be taken right from the output of this test.
+ *
+ */
+TEST_F(ECCVMTests, FixedVK)
+{
+    // Generate a circuit and its verification key (computed at runtime from the proving key)
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    ECCVMProver prover(builder);
+    ECCVMVerifier verifier(prover.key);
+
+    // Generate the default fixed VK
+    ECCVMFlavor::VerificationKey fixed_vk{};
+
+    // Set verifier PCS key to null in both the fixed VK and the generated VK
+    fixed_vk.pcs_verification_key = nullptr;
+    verifier.key->pcs_verification_key = nullptr;
+
+    auto labels = verifier.key->get_labels();
+    size_t index = 0;
+    for (auto [vk_commitment, fixed_commitment] : zip_view(verifier.key->get_all(), fixed_vk.get_all())) {
+        EXPECT_EQ(vk_commitment, fixed_commitment)
+            << "Mismatch between vk_commitment and fixed_commitment at label: " << labels[index];
+        ++index;
+    }
+
+    // Check that the fixed VK is equal to the generated VK
+    EXPECT_EQ(fixed_vk, *verifier.key.get());
 }

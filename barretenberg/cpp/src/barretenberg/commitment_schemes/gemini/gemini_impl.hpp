@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "gemini.hpp"
@@ -56,7 +62,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
     if (has_zk) {
-        Polynomial random_polynomial(n);
+        Polynomial random_polynomial = Polynomial::random(n);
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(random_polynomial));
         // In the provers, the size of multilinear_challenge is `virtual_log_n`, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables

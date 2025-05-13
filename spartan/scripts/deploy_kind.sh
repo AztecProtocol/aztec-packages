@@ -87,7 +87,6 @@ if [ "$sepolia_deployment" = "true" ]; then
   # set +x
   export ETHEREUM_HOST=$(echo "$EXTERNAL_ETHEREUM_HOSTS" | cut -d',' -f1)
   ./prepare_sepolia_accounts.sh "$values_file" 1 "$mnemonic_file"
-  echo "mnemonic: $mnemonic_file"
   L1_ACCOUNTS_MNEMONIC="$(cat "$mnemonic_file")"
 
   # Escape the EXTERNAL_ETHEREUM_HOSTS value for Helm

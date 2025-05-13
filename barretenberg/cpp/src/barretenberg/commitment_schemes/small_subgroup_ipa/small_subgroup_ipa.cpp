@@ -1,9 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -74,8 +81,9 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& z
 /**
  * @brief Construct SmallSubgroupIPAProver from a TranslationData object and two challenges. It is Grumkin-specific.
  *
- * @param translation_data Contains the witness polynomial \f$ G \f$ which is a concatenation of last MASKING_OFFSET
- * coefficients of NUM_TRANSLATION_EVALUATIONS polynomials fed to TranslationData constructor.
+ * @param translation_data Contains the witness polynomial \f$ G \f$ which is a concatenation of last
+ * NUM_DISABLED_ROWS_IN_SUMCHECK coefficients of NUM_TRANSLATION_EVALUATIONS polynomials fed to TranslationData
+ * constructor.
  * @param evaluation_challenge_x A challenge used to evaluate the univariates fed to TranslationData.
  * @param batching_challenge_v A challenge used to batch the evaluations at \f$ x \f$. Both challenges are required to
  * compute the challenge polynomial \f$ F \f$.
@@ -200,8 +208,8 @@ void SmallSubgroupIPAProver<Flavor>::compute_challenge_polynomial(const std::vec
  * @brief Compute a (public) challenge polynomial from the evaluation and batching challenges.
  * @details While proving the batched evaluation of the masking term used to blind the ECCVM Transcript wires, the
  * prover needs to compute the polynomial whose coefficients in the Lagrange basis over the small subgroup are given
- * by \f$ (1, x , \ldots, x^{\text{MASKING_OFFSET} - 1}, v, x \cdot v, \ldots, x^{\text{MASKING_OFFSET} - 1}\cdot
- * v^{\text{NUM_TRANSLATION_EVALUATIONS} - 1}, 0, \ldots, 0) \f$.
+ * by \f$ (1, x , \ldots, x^{\text{NUM_DISABLED_ROWS_IN_SUMCHECK} - 1}, v, x \cdot v, \ldots,
+ * x^{\text{NUM_DISABLED_ROWS_IN_SUMCHECK} - 1}\cdot v^{\text{NUM_TRANSLATION_EVALUATIONS} - 1}, 0, \ldots, 0) \f$.
  * @param evaluation_challenge_x
  * @param batching_challenge_v
  */
@@ -391,8 +399,8 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
 }
 
 /**
- * @brief For test purposes: compute the batched evaluation of the last MASKING_OFFSET rows of the ECCVM transcript
- * polynomials `Op`, `Px`, `Py`, `z1`, `z2`.
+ * @brief For test purposes: compute the batched evaluation of the last NUM_DISABLED_ROWS_IN_SUMCHECK rows of the ECCVM
+ * transcript polynomials `Op`, `Px`, `Py`, `z1`, `z2`.
  *
  * @param translation_data Contains concatenated ECCVM Transcript polynomials.
  * @param evaluation_challenge_x We evaluate the transcript polynomials at x as univariates.
@@ -440,6 +448,9 @@ template class SmallSubgroupIPAProver<TranslatorFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class SmallSubgroupIPAProver<UltraStarknetZKFlavor>;
+#endif
 
 // Instantiations used in tests
 template class SmallSubgroupIPAProver<BN254Settings>;

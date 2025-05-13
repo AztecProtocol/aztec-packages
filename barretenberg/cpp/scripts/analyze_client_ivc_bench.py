@@ -16,19 +16,22 @@ PREFIX = args.prefix
 # Single out an independent set of functions accounting for most of BENCHMARK's real_time
 to_keep = [
     "construct_circuits(t)",
+    "create_circuit(t)",
     "DeciderProvingKey(Circuit&)(t)",
     "ProtogalaxyProver::prove(t)",
     "Decider::construct_proof(t)",
     "ECCVMProver(CircuitBuilder&)(t)",
     "ECCVMProver::construct_proof(t)",
     "TranslatorProver::construct_proof(t)",
-    "Goblin::merge(t)"
+    "Goblin::merge(t)",
+    "parse(t)",
+    "load_and_decompress(t)"
 ]
 
 with open(PREFIX / IVC_BENCH_JSON, "r") as read_file:
     read_result = json.load(read_file)
     for _bench in read_result["benchmarks"]:
-        if _bench["name"] == BENCHMARK:
+        if _bench["name"] == BENCHMARK or BENCHMARK == "":
             bench = _bench
 
 bench_components = dict(filter(lambda x: x[0] in to_keep, bench.items()))
@@ -87,7 +90,7 @@ def print_contributions(prefix, ivc_bench_json, bench_name, components):
     try:
         with open(prefix / ivc_bench_json, "r") as read_file:
             read_result = json.load(read_file)
-            bench = next((_bench for _bench in read_result["benchmarks"] if _bench["name"] == bench_name), None)
+            bench = next((_bench for _bench in read_result["benchmarks"] if _bench["name"] == bench_name or bench_name == ""), None)
             if not bench:
                 raise ValueError(f"Benchmark '{bench_name}' not found in the JSON file.")
     except FileNotFoundError:

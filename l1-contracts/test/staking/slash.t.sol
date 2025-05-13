@@ -41,6 +41,9 @@ contract SlashTest is StakingBase {
       _withdrawer: WITHDRAWER,
       _amount: DEPOSIT_AMOUNT
     });
+
+    // Progress into the next epoch
+    staking.cheat__progressEpoch();
     _;
   }
 
@@ -170,6 +173,7 @@ contract SlashTest is StakingBase {
     info = staking.getInfo(ATTESTER);
     assertEq(info.stake, balance - slashingAmount);
     assertTrue(info.status == Status.LIVING);
+
     assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);
   }
 }

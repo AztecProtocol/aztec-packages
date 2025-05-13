@@ -10,7 +10,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
-import { TreeSnapshots, type Tx } from '../tx/index.js';
+import { GlobalVariables, TreeSnapshots, type Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -159,7 +159,7 @@ type IndexedTreeLeafPreimagesClasses = typeof NullifierLeafPreimage | typeof Pub
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmGetLeafPreimageHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       // params (tree id will be implicit)
@@ -175,7 +175,7 @@ function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
           index: schemas.BigInt,
           leafPreimage: klass.schema,
         })
-        .transform(({ hintKey, index, leafPreimage }) => new AvmGetLeafPreimageHint(hintKey, index, leafPreimage));
+        .transform(({ hintKey, index, leafPreimage }) => new this(hintKey, index, leafPreimage));
     }
   };
 }
@@ -212,7 +212,7 @@ export class AvmGetLeafValueHint {
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
 function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
-  return class AvmSequentialInsertHint {
+  return class {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       public readonly stateAfter: AppendOnlyTreeSnapshot,
@@ -252,7 +252,7 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
         })
         .transform(
           ({ hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData }) =>
-            new AvmSequentialInsertHint(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
+            new this(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
         );
     }
   };
@@ -306,7 +306,7 @@ class AvmCheckpointActionNoStateChangeHint {
       })
       .transform(
         ({ actionCounter, oldCheckpointId, newCheckpointId }) =>
-          new AvmCheckpointActionNoStateChangeHint(actionCounter, oldCheckpointId, newCheckpointId),
+          new this(actionCounter, oldCheckpointId, newCheckpointId),
       );
   }
 }
@@ -402,6 +402,7 @@ export class AvmEnqueuedCallHint {
 export class AvmTxHint {
   constructor(
     public readonly hash: string,
+    public readonly globalVariables: GlobalVariables,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -429,6 +430,7 @@ export class AvmTxHint {
 
     return new AvmTxHint(
       txHash.hash.toString(),
+      tx.data.constants.historicalHeader.globalVariables,
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -467,13 +469,22 @@ export class AvmTxHint {
   }
 
   static empty() {
-    return new AvmTxHint('', { noteHashes: [], nullifiers: [] }, { noteHashes: [], nullifiers: [] }, [], [], null);
+    return new AvmTxHint(
+      '',
+      GlobalVariables.empty(),
+      { noteHashes: [], nullifiers: [] },
+      { noteHashes: [], nullifiers: [] },
+      [],
+      [],
+      null,
+    );
   }
 
   static get schema() {
     return z
       .object({
         hash: z.string(),
+        globalVariables: GlobalVariables.schema,
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
@@ -489,6 +500,7 @@ export class AvmTxHint {
       .transform(
         ({
           hash,
+          globalVariables,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
@@ -497,6 +509,7 @@ export class AvmTxHint {
         }) =>
           new AvmTxHint(
             hash,
+            globalVariables,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,
@@ -515,6 +528,7 @@ export class AvmExecutionHints {
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     // Merkle DB hints.
+    public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
     public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
     public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
@@ -539,6 +553,7 @@ export class AvmExecutionHints {
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
+        startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
         getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
@@ -557,6 +572,7 @@ export class AvmExecutionHints {
           contractInstances,
           contractClasses,
           bytecodeCommitments,
+          startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
           getLeafPreimageHintsPublicDataTree,
@@ -574,6 +590,7 @@ export class AvmExecutionHints {
             contractInstances,
             contractClasses,
             bytecodeCommitments,
+            startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,
             getLeafPreimageHintsPublicDataTree,

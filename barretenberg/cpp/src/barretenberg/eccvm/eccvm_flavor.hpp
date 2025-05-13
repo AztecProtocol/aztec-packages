@@ -1,8 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/eccvm//eccvm_fixed_vk.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -45,6 +52,8 @@ class ECCVMFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
     // Fixed size of the ECCVM circuits used in ClientIVC
     // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
     // they become too small.
@@ -522,18 +531,17 @@ class ECCVMFlavor {
             const auto& msm_rows = std::get<0>(result);
             const auto& point_table_read_counts = std::get<1>(result);
 
-            const size_t num_rows =
-                std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
+            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
+                                    NUM_DISABLED_ROWS_IN_SUMCHECK;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
-
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
-
             if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
-                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound");
+                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
+                               std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
             }
 
             dyadic_num_rows = ECCVM_FIXED_SIZE;
-            size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
+            size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -746,19 +754,32 @@ class ECCVMFlavor {
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         bool operator==(const VerificationKey&) const = default;
-        VerificationKey() = default;
+
+        // IPA verification key requires one more point.
+        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key =
+            std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
+
+        // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
+        VerificationKey()
+            : VerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+
+            // Populate the commitments of the precomputed polynomials using the fixed VK data
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            // IPA verification key requires one more point.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
-            // how many points they need
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size + 1);
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
+            this->log_circuit_size = CONST_ECCVM_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
@@ -767,7 +788,8 @@ class ECCVMFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
@@ -904,7 +926,6 @@ class ECCVMFlavor {
      */
     class Transcript : public NativeTranscript {
       public:
-        uint32_t circuit_size;
         Commitment transcript_add_comm;
         Commitment transcript_mul_comm;
         Commitment transcript_eq_comm;
@@ -1034,8 +1055,7 @@ class ECCVMFlavor {
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
-            circuit_size = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
-                                                                                        num_frs_read);
+
             transcript_add_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
@@ -1281,8 +1301,6 @@ class ECCVMFlavor {
             size_t old_proof_length = NativeTranscript::proof_data.size();
 
             NativeTranscript::proof_data.clear();
-
-            NativeTranscript::template serialize_to_buffer(circuit_size, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);

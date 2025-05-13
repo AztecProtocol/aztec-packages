@@ -5,18 +5,21 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     app: {{- include "aztec-network.labels" . | nindent 4 }}
-  {{- if .Values.network.setupL2Contracts }}
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "10"
-    "helm.sh/hook-delete-policy": before-hook-creation
-  {{- end }}
 spec:
   replicas: {{ .Values.bot.replicas }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: bot
+  volumeClaimTemplates:
+    - metadata:
+        name: bot-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.bot.storageSize }}
   template:
     metadata:
       labels:
@@ -53,33 +56,13 @@ spec:
             defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
+        - name: bot-data
+          persistentVolumeClaim:
+            claimName: bot-data
       terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
-
-        - name: get-private-key
-          image: {{ .Values.images.foundry.image }}
-          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
-          command:
-            - "/bin/sh"
-            - "-c"
-            - |
-              source /scripts/get-private-key.sh
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-          env:
-            - name: KEY_INDEX_START
-              value: {{ .Values.aztec.botKeyIndexStart | quote }}
-            - name: MNEMONIC
-              value: {{ .Values.aztec.l1DeploymentMnemonic }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
 
         - name: wait-for-aztec-node
           image: "{{ .Values.images.curl.image }}"
@@ -111,9 +94,11 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
+              source /scripts/get-private-key.sh
+              source /shared/config/keys.env
+
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              source /shared/config/keys.env
               source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
@@ -123,6 +108,10 @@ spec:
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
 
               export BOT_ACCOUNT_SALT=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF+1}') # +1 so that salt is not 0
+
+              # set this to a folder in order to capture simulation recordings for later debug
+              # be sure to set it to a persistent volume
+              export CIRCUIT_RECORD_DIR=""
 
               # a crude way to avoid a race condition that could arise if more than one bot is started:
               # the bots need to register contract classes, if they all start at the same time (or close to it) then multiple of them might try to register the same class leading to failed txs due to duplicate nullifiers
@@ -148,6 +137,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.botKeyIndexStart | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
             - name: AZTEC_PORT
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
@@ -184,6 +177,8 @@ spec:
               value: "{{ .Values.ethereum.chainId }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.bot.dataDir }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}

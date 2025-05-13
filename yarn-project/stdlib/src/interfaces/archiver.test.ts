@@ -236,11 +236,18 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getL1Constants();
     expect(result).toEqual(EmptyL1RollupConstants);
   });
+
+  it('syncImmediate', async () => {
+    await context.client.syncImmediate();
+  });
 });
 
 class MockArchiver implements ArchiverApi {
   constructor(private artifact: ContractArtifact) {}
 
+  syncImmediate() {
+    return Promise.resolve();
+  }
   getRollupAddress(): Promise<EthAddress> {
     return Promise.resolve(EthAddress.random());
   }

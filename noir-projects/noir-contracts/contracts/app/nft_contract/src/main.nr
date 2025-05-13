@@ -14,12 +14,12 @@ pub contract NFT {
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
+        messages::logs::note::encode_and_encrypt_note,
         note::{constants::MAX_NOTES_PER_PAGE, note_interface::NoteProperties},
         prelude::{
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,

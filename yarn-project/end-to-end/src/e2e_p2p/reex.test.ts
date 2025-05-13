@@ -18,7 +18,7 @@ import { submitComplexTxsTo } from './shared.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
-const BASE_BOOT_NODE_UDP_PORT = 40000;
+const BASE_BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
 
 describe('e2e_p2p_reex', () => {
@@ -130,10 +130,9 @@ describe('e2e_p2p_reex', () => {
         // Abusing javascript to access the nodes signing key
         const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
         const newProposal = new BlockProposal(
+          proposal.blockNumber,
           proposal.payload,
-          await signer.signMessage(
-            await getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal),
-          ),
+          await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
         );
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
@@ -215,8 +214,8 @@ describe('e2e_p2p_reex', () => {
         }
 
         // Start a fresh slot and resume proposals
-        await t.ctx.cheatCodes.rollup.advanceToNextSlot();
-        await t.syncMockSystemTime();
+        const [ts] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+        t.ctx.dateProvider.setTime(Number(ts) * 1000);
 
         await resumeProposals();
 

@@ -10,6 +10,7 @@ import {
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
+  getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
@@ -29,7 +30,8 @@ export class Sentinel implements L2BlockStreamEventHandler {
 
   protected initialSlot: bigint | undefined;
   protected lastProcessedSlot: bigint | undefined;
-  protected slotNumberToArchive: Map<bigint, string> = new Map();
+  protected slotNumberToBlock: Map<bigint, { blockNumber: number; archive: string; attestors: EthAddress[] }> =
+    new Map();
 
   constructor(
     protected epochCache: EpochCache,
@@ -52,6 +54,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
   protected async init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
     const startingBlock = await this.archiver.getBlockNumber();
+    this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
   }
 
@@ -62,19 +65,23 @@ export class Sentinel implements L2BlockStreamEventHandler {
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
     if (event.type === 'blocks-added') {
-      // Store mapping from slot to archive
+      // Store mapping from slot to archive, block number, and attestors
       for (const block of event.blocks) {
-        this.slotNumberToArchive.set(block.block.header.getSlot(), block.block.archive.root.toString());
+        this.slotNumberToBlock.set(block.block.header.getSlot(), {
+          blockNumber: block.block.number,
+          archive: block.block.archive.root.toString(),
+          attestors: getAttestationsFromPublishedL2Block(block).map(att => att.getSender()),
+        });
       }
 
       // Prune the archive map to only keep at most N entries
       const historyLength = this.store.getHistoryLength();
-      if (this.slotNumberToArchive.size > historyLength) {
-        const toDelete = Array.from(this.slotNumberToArchive.keys())
+      if (this.slotNumberToBlock.size > historyLength) {
+        const toDelete = Array.from(this.slotNumberToBlock.keys())
           .sort((a, b) => Number(a - b))
-          .slice(0, this.slotNumberToArchive.size - historyLength);
+          .slice(0, this.slotNumberToBlock.size - historyLength);
         for (const key of toDelete) {
-          this.slotNumberToArchive.delete(key);
+          this.slotNumberToBlock.delete(key);
         }
       }
     }
@@ -122,7 +129,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     }
 
     if (targetSlot <= this.initialSlot) {
-      this.logger.debug(`Refusing to process slot ${targetSlot} given initial slot ${this.initialSlot}`);
+      this.logger.trace(`Refusing to process slot ${targetSlot} given initial slot ${this.initialSlot}`);
       return false;
     }
 
@@ -170,16 +177,21 @@ export class Sentinel implements L2BlockStreamEventHandler {
 
     // Here we get all attestations for the block mined at the given slot,
     // or all attestations for all proposals in the slot if no block was mined.
-    const archive = this.slotNumberToArchive.get(slot);
-    const attested = await this.p2p.getAttestationsForSlot(slot, archive);
-    const attestors = new Set(await Promise.all(attested.map(a => a.getSender().then(a => a.toString()))));
+    // We gather from both p2p (contains the ones seen on the p2p layer) and archiver
+    // (contains the ones synced from mined blocks, which we may have missed from p2p).
+    const block = this.slotNumberToBlock.get(slot);
+    const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.archive);
+    const attestors = new Set([
+      ...p2pAttested.map(a => a.getSender().toString()),
+      ...(block?.attestors.map(a => a.toString()) ?? []),
+    ]);
 
     // We assume that there was a block proposal if at least one of the validators attested to it.
     // It could be the case that every single validator failed, and we could differentiate it by having
     // this node re-execute every block proposal it sees and storing it in the attestation pool.
     // But we'll leave that corner case out to reduce pressure on the node.
-    const blockStatus = archive ? 'mined' : attestors.size > 0 ? 'proposed' : 'missed';
-    this.logger.debug(`Block for slot ${slot} was ${blockStatus}`, { archive, slot });
+    const blockStatus = block ? 'mined' : attestors.size > 0 ? 'proposed' : 'missed';
+    this.logger.debug(`Block for slot ${slot} was ${blockStatus}`, { ...block, slot });
 
     // Get attestors that failed their duties for this block, but only if there was a block proposed
     const missedAttestors = new Set(
@@ -191,7 +203,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     this.logger.debug(`Retrieved ${attestors.size} attestors out of ${committee.length} for slot ${slot}`, {
       blockStatus,
       proposer: proposer.toString(),
-      archive,
+      ...block,
       slot,
       attestors: [...attestors],
       missedAttestors: [...missedAttestors],
@@ -265,7 +277,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     const filteredHistory = relevantHistory.filter(h => h.status === filter);
     return {
       currentStreak: countWhile([...relevantHistory].reverse(), h => h.status === filter),
-      rate: filteredHistory.length / relevantHistory.length,
+      rate: relevantHistory.length === 0 ? undefined : filteredHistory.length / relevantHistory.length,
       count: filteredHistory.length,
     };
   }

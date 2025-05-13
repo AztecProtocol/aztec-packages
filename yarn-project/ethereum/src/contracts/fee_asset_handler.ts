@@ -16,7 +16,7 @@ export class FeeAssetHandlerContract {
     const contract = getContract({
       abi: FeeAssetHandlerAbi,
       address: this.address.toString(),
-      client: this.txUtils.publicClient,
+      client: this.txUtils.client,
     });
     return contract.read.mintAmount();
   }

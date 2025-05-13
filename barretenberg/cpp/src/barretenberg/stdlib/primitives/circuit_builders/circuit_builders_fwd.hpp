@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @brief Defines particular circuit builder types expected to be used for circuit
 construction in stdlib and contains macros for explicit instantiation.
@@ -13,6 +19,9 @@ namespace bb {
 class StandardFlavor;
 class UltraFlavor;
 class UltraKeccakFlavor;
+#ifdef STARKNET_GARAGA_FLAVORS
+class UltraStarknetFlavor;
+#endif
 
 class Bn254FrParams;
 class Bn254FqParams;
@@ -25,5 +34,4 @@ template <class ExecutionTrace> class UltraCircuitBuilder_;
 using UltraCircuitBuilder = UltraCircuitBuilder_<UltraExecutionTraceBlocks>;
 template <class FF> class MegaCircuitBuilder_;
 using MegaCircuitBuilder = MegaCircuitBuilder_<field<Bn254FrParams>>;
-class CircuitSimulatorBN254;
 } // namespace bb

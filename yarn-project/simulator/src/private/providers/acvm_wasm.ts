@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import initACVM, { type ExecutionError, type ForeignCallHandler, executeCircuit } from '@aztec/noir-acvm_js';
 import initAbi from '@aztec/noir-noirc_abi';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
@@ -6,6 +7,7 @@ import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
 import { type ACIRCallback, type ACIRExecutionResult, acvm } from '../acvm/acvm.js';
 import type { ACVMWitness } from '../acvm/acvm_types.js';
+import type { ACVMSuccess } from './acvm_native.js';
 import { type SimulationProvider, enrichNoirError } from './simulation_provider.js';
 
 export class WASMSimulator implements SimulationProvider {
@@ -25,7 +27,7 @@ export class WASMSimulator implements SimulationProvider {
     input: ACVMWitness,
     artifact: NoirCompiledCircuitWithName,
     callback: ForeignCallHandler,
-  ): Promise<ACVMWitness> {
+  ): Promise<ACVMSuccess> {
     this.log.debug('init', { hash: artifact.hash });
     await this.init();
 
@@ -34,13 +36,14 @@ export class WASMSimulator implements SimulationProvider {
     //
     // Execute the circuit
     try {
+      const timer = new Timer();
       const result = await executeCircuit(
         decodedBytecode,
         input,
         callback, // handle calls to debug_log
       );
       this.log.debug('execution successful', { hash: artifact.hash });
-      return result;
+      return { witness: result, duration: timer.ms() } as ACVMSuccess;
     } catch (err) {
       // Typescript types caught errors as unknown or any, so we need to narrow its type to check if it has raw
       // assertion payload.

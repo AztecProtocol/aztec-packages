@@ -99,4 +99,40 @@ export class MessageStore {
     }
     return messages;
   }
+
+  public async rollbackL1ToL2MessagesToL2Block(targetBlockNumber: bigint, currentBlock: bigint): Promise<void> {
+    if (currentBlock <= targetBlockNumber) {
+      this.#log.warn(
+        `Skipping rollback of L1 to L2 messages as current block ${currentBlock} is not greater than target block ${targetBlockNumber}`,
+      );
+      return;
+    }
+
+    // Since the key for l1ToL2Messages is a string instead of a number, we cannot properly iterate over them in
+    // order with a cursor, since eg message 4 would come in between messages 39 and 40. So we need to manually
+    // iterate over all the expect indices.
+    for (let i = targetBlockNumber + 1n; i <= currentBlock; i++) {
+      const startIndex = Number(InboxLeaf.smallestIndexFromL2Block(i));
+      for (let i = startIndex; i < startIndex + this.#l1ToL2MessagesSubtreeSize; i++) {
+        const key = `${i}`;
+        const msg = await this.#l1ToL2Messages.getAsync(key);
+        if (msg) {
+          this.#log.trace(`Deleting L1 to L2 message with index ${key} from the store`);
+          await this.#l1ToL2Messages.delete(key);
+          await this.#l1ToL2MessageIndices.delete(Fr.fromBuffer(msg).toString());
+        }
+      }
+    }
+    return;
+
+    // Should we eventually get to change the db schema to use numbers instead of strings, or at least pad them with zeroes,
+    // then we should drop the loop above and use the code below instead. That should also let us remove the currentBlock argument.
+    const startIndex = Number(InboxLeaf.smallestIndexFromL2Block(targetBlockNumber)) + this.#l1ToL2MessagesSubtreeSize;
+    this.#log.debug(`Deleting L1 to L2 messages from index ${startIndex}`);
+    for await (const [key, msg] of this.#l1ToL2Messages.entriesAsync({ start: `${startIndex}` })) {
+      this.#log.trace(`Deleting L1 to L2 message with index ${key} from the store`);
+      await this.#l1ToL2Messages.delete(key);
+      await this.#l1ToL2MessageIndices.delete(Fr.fromBuffer(msg).toString());
+    }
+  }
 }

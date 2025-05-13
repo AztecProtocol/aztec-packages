@@ -318,12 +318,12 @@ void fill_trace(State& state, TraceSettings settings)
 
 void fill_trace_client_ivc_bench(State& state)
 {
-    fill_trace(state, { CLIENT_IVC_BENCH_STRUCTURE });
+    fill_trace(state, { AZTEC_TRACE_STRUCTURE });
 }
 
 void fill_trace_e2e_full_test(State& state)
 {
-    fill_trace(state, { E2E_FULL_TEST_STRUCTURE });
+    fill_trace(state, { AZTEC_TRACE_STRUCTURE });
 }
 
 static void pk_mem(State& state, void (*test_circuit_function)(State&)) noexcept

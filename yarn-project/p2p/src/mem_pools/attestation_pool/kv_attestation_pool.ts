@@ -27,6 +27,13 @@ export class KvAttestationPool implements AttestationPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
+  public async isEmpty(): Promise<boolean> {
+    for await (const _ of this.attestations.entriesAsync()) {
+      return false;
+    }
+    return true;
+  }
+
   private getProposalKey(slot: number | bigint | Fr | string, proposalId: Fr | string | Buffer): string {
     const slotStr = typeof slot === 'string' ? slot : new Fr(slot).toString();
     const proposalIdStr =
@@ -46,9 +53,9 @@ export class KvAttestationPool implements AttestationPool {
   public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
-        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = (await attestation.getSender()).toString();
+        const address = attestation.getSender().toString();
 
         await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
 
@@ -158,9 +165,9 @@ export class KvAttestationPool implements AttestationPool {
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
       for (const attestation of attestations) {
-        const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+        const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = (await attestation.getSender()).toString();
+        const address = attestation.getSender().toString();
 
         await this.attestations.delete(this.getAttestationKey(slotNumber, proposalId, address));
         await this.attestationsForProposal.deleteValue(

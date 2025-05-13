@@ -13,8 +13,17 @@ describe('PendingTaggedLog', () => {
     const firstNullifier = new Fr(6n);
     const recipient = AztecAddress.fromField(new Fr(789n));
     const logIndexInTx = 10;
+    const txIndexInBlock = 11;
 
-    const pendingLog = new PendingTaggedLog(log, txHash, uniqueNoteHashes, firstNullifier, recipient, logIndexInTx);
+    const pendingLog = new PendingTaggedLog(
+      log,
+      txHash,
+      uniqueNoteHashes,
+      firstNullifier,
+      recipient,
+      logIndexInTx,
+      txIndexInBlock,
+    );
     const serialized = pendingLog.toFields();
 
     // Test against snapshot
@@ -108,13 +117,14 @@ describe('PendingTaggedLog', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000006",
         "0x0000000000000000000000000000000000000000000000000000000000000315",
         "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "0x000000000000000000000000000000000000000000000000000000000000000b",
       ]
     `);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     const fieldArrayStr = `[${serialized.map(f => f.toString()).join(',')}]`;
     updateInlineTestData(
-      'noir-projects/aztec-nr/aztec/src/discovery/pending_tagged_log.nr',
+      'noir-projects/aztec-nr/aztec/src/messages/discovery/pending_tagged_log.nr',
       'serialized_pending_tagged_log_from_typescript',
       fieldArrayStr,
     );

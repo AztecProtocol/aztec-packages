@@ -10,12 +10,13 @@
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
+#include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/simulation/update_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -23,7 +24,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -41,13 +42,14 @@ using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
 using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
+using simulation::MockNullifierTreeCheck;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::PublicDataTreeCheck;
+using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
-using simulation::PublicDataTreeReadEvent;
 using simulation::RangeCheck;
 using simulation::RangeCheckEvent;
 using simulation::UpdateCheck;
@@ -56,11 +58,7 @@ using simulation::UpdateCheckEvent;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using GetLowIndexedLeafResponse = crypto::merkle_tree::GetLowIndexedLeafResponse;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
+using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
 
 using update_hash_poseidon2 = lookup_update_check_update_hash_poseidon2_relation<FF>;
 using shared_mutable_slot_poseidon2 = lookup_update_check_shared_mutable_slot_poseidon2_relation<FF>;
@@ -93,14 +91,15 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     NiceMock<MockFieldGreaterThan> mock_field_gt;
     NiceMock<MockMerkleCheck> mock_merkle_check;
+    NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
 
-    EventEmitter<PublicDataTreeReadEvent> public_data_tree_read_event_emitter;
+    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_read_event_emitter);
+        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
-    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check);
+    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, update_check_event_emitter);
@@ -108,7 +107,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillOnce(Return(crypto::merkle_tree::fr_sibling_path{ 0 }));
+        .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillOnce(Return(PublicDataTreeLeafPreimage(PublicDataLeafValue(1, 0), 0, 0)));
     EXPECT_CALL(mock_low_level_merkle_db,
@@ -121,14 +120,14 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeReadTraceBuilder public_data_read_builder;
+    PublicDataTreeCheckTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
-    public_data_read_builder.process(public_data_tree_read_event_emitter.dump_events(), trace);
+    public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<update_hash_poseidon2::Settings>().process(trace);
@@ -164,14 +163,15 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     NiceMock<MockFieldGreaterThan> mock_field_gt;
     NiceMock<MockMerkleCheck> mock_merkle_check;
+    NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
 
-    EventEmitter<PublicDataTreeReadEvent> public_data_tree_read_event_emitter;
+    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_read_event_emitter);
+        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
-    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check);
+    MerkleDB merkle_db(mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, update_check_event_emitter);
@@ -190,7 +190,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillOnce(Return(crypto::merkle_tree::fr_sibling_path{ 0 }));
+        .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillRepeatedly([&](const uint64_t& index) {
             return PublicDataTreeLeafPreimage(
@@ -213,14 +213,14 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeReadTraceBuilder public_data_read_builder;
+    PublicDataTreeCheckTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
-    public_data_read_builder.process(public_data_tree_read_event_emitter.dump_events(), trace);
+    public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<update_hash_poseidon2::Settings>().process(trace);

@@ -181,7 +181,7 @@ template <typename FF> class Graph_ {
     void print_connected_components();
     void print_variables_gate_counts();
     void print_variables_edge_counts();
-    void print_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_builder);
+    void print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx);
     ~Graph_() = default;
 
   private:

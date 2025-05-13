@@ -18,9 +18,17 @@ static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
 static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 
-// The number of entries in ProverPolynomials reserved for randomness intended to mask witness commitments, witness
-// evaluation at the sumcheck challenge, and, if necessary, the evaluation of the corresponding shift
-static constexpr uint32_t MASKING_OFFSET = 4;
+// The number of last rows in ProverPolynomials that are randomized to mask
+// 1) witness commitments,
+// 2) multilinear evaluations of witness polynomials in Sumcheck
+// 3*) multilinear evaluations of shifts of witness polynomials in Sumcheck OR univariate evaluations required in ECCVM
+static constexpr uint32_t NUM_MASKED_ROWS = 3;
+
+// To account for the masked entries of witness polynomials in ZK-Sumcheck, we are disabling all relations in the last
+// `NUM_MASKED_ROWS + 1` rows, where `+1` is needed for the shifts. Namely, any relation involving a shift of a masked
+// polynomial w_shift, can't be satisfied on the row `N - (NUM_MASKED_ROWS + 1)`, as `w_shift.at(N - (NUM_MASKED_ROWS +
+// 1))` is equal to the random value `w.at(N - NUM_MASKED_ROWS)`.
+static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
 // For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
 static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;

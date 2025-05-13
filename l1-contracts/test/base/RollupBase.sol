@@ -59,8 +59,8 @@ contract RollupBase is DecoderBase {
     DecoderBase.Full memory startFull = load(string.concat(_name, Strings.toString(_start)));
     DecoderBase.Full memory endFull = load(string.concat(_name, Strings.toString(_end)));
 
-    uint256 startBlockNumber = uint256(startFull.block.decodedHeader.globalVariables.blockNumber);
-    uint256 endBlockNumber = uint256(endFull.block.decodedHeader.globalVariables.blockNumber);
+    uint256 startBlockNumber = uint256(startFull.block.blockNumber);
+    uint256 endBlockNumber = uint256(endFull.block.blockNumber);
 
     assertEq(startBlockNumber, _start, "Invalid start block number");
     assertEq(endBlockNumber, _end, "Invalid end block number");
@@ -71,8 +71,6 @@ contract RollupBase is DecoderBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: parentBlockLog.archive,
       endArchive: endFull.block.archive,
-      previousBlockHash: parentBlockLog.blockHash,
-      endBlockHash: endFull.block.blockHash,
       endTimestamp: Timestamp.wrap(0), // WHAT ?
       outHash: bytes32(0), // WHAT ?
       proverId: _prover
@@ -105,65 +103,9 @@ contract RollupBase is DecoderBase {
         args: args,
         fees: fees,
         blobPublicInputs: blobPublicInputs,
-        aggregationObject: "",
         proof: ""
       })
     );
-  }
-
-  function _updateHeaderVersion(bytes memory _header, uint256 _version)
-    internal
-    pure
-    returns (bytes memory)
-  {
-    assembly {
-      mstore(add(_header, add(0x20, 0x0154)), _version)
-    }
-    return _header;
-  }
-
-  function _updateHeaderBaseFee(bytes memory _header, uint256 _baseFee)
-    internal
-    pure
-    returns (bytes memory)
-  {
-    assembly {
-      mstore(add(_header, add(0x20, 0x0228)), _baseFee)
-    }
-    return _header;
-  }
-
-  function _updateHeaderManaUsed(bytes memory _header, uint256 _manaUsed)
-    internal
-    pure
-    returns (bytes memory)
-  {
-    assembly {
-      mstore(add(_header, add(0x20, 0x0268)), _manaUsed)
-    }
-    return _header;
-  }
-
-  function _updateHeaderInboxRoot(bytes memory _header, bytes32 _inboxRoot)
-    internal
-    pure
-    returns (bytes memory)
-  {
-    assembly {
-      mstore(add(_header, add(0x20, 0x0064)), _inboxRoot)
-    }
-    return _header;
-  }
-
-  function _updateHeaderTotalFees(bytes memory _header, uint256 _totalFees)
-    internal
-    pure
-    returns (bytes memory)
-  {
-    assembly {
-      mstore(add(_header, add(0x20, 0x0248)), _totalFees)
-    }
-    return _header;
   }
 
   function _proposeBlock(string memory _name, uint256 _slotNumber) public {
@@ -199,31 +141,26 @@ contract RollupBase is DecoderBase {
     if (slotNumber != Slot.wrap(0)) {
       Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-      full.block.decodedHeader.globalVariables.timestamp = Timestamp.unwrap(ts);
-      full.block.decodedHeader.globalVariables.slotNumber = Slot.unwrap(slotNumber);
-      assembly {
-        mstore(add(header, add(0x20, 0x0194)), slotNumber)
-        mstore(add(header, add(0x20, 0x01b4)), ts)
-      }
+      full.block.decodedHeader.timestamp = Timestamp.unwrap(ts);
+      full.block.decodedHeader.slotNumber = Slot.unwrap(slotNumber);
+
+      header = DecoderBase.updateHeaderTimestamp(header, ts);
+      header = DecoderBase.updateHeaderSlot(header, slotNumber);
     }
 
-    uint256 baseFee = rollup.getManaBaseFeeAt(
-      Timestamp.wrap(full.block.decodedHeader.globalVariables.timestamp), true
-    );
-    header = _updateHeaderVersion(header, rollup.getVersion());
-    header = _updateHeaderBaseFee(header, baseFee);
-    header = _updateHeaderManaUsed(header, _manaUsed);
-    header = _updateHeaderTotalFees(header, _manaUsed * baseFee);
+    uint256 baseFee =
+      rollup.getManaBaseFeeAt(Timestamp.wrap(full.block.decodedHeader.timestamp), true);
+    header = DecoderBase.updateHeaderBaseFee(header, baseFee);
+    header = DecoderBase.updateHeaderManaUsed(header, _manaUsed);
 
-    blockFees[full.block.decodedHeader.globalVariables.blockNumber] = _manaUsed * baseFee;
+    blockFees[full.block.blockNumber] = _manaUsed * baseFee;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
+    vm.warp(max(block.timestamp, full.block.decodedHeader.timestamp));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
-    header = _updateHeaderInboxRoot(
-      header, rollup.getInbox().getRoot(full.block.decodedHeader.globalVariables.blockNumber)
-    );
+    header =
+      DecoderBase.updateHeaderInboxRoot(header, rollup.getInbox().getRoot(full.block.blockNumber));
 
     {
       bytes32[] memory blobHashes = new bytes32[](1);
@@ -246,7 +183,7 @@ contract RollupBase is DecoderBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      blockHash: full.block.blockHash,
+      stateReference: new bytes(0),
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
@@ -291,10 +228,10 @@ contract RollupBase is DecoderBase {
     }
 
     outbox = Outbox(address(rollup.getOutbox()));
-    (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.getRootData(full.block.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.getProvenBlockNumber() >= full.block.decodedHeader.globalVariables.blockNumber) {
+    if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");

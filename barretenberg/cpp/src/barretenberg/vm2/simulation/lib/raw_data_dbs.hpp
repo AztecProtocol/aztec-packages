@@ -38,27 +38,24 @@ class HintedRawContractDB final : public ContractDBInterface {
 // This class interacts with the external world, without emiting any simulation events.
 class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
   public:
-    HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots);
+    HintedRawMerkleDB(const ExecutionHints& hints);
 
     const TreeSnapshots& get_tree_roots() const override { return tree_roots; }
 
     // Query methods.
-    crypto::merkle_tree::fr_sibling_path get_sibling_path(world_state::MerkleTreeId tree_id,
-                                                          crypto::merkle_tree::index_t leaf_index) const override;
-    crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
-                                                                        const FF& value) const override;
-    FF get_leaf_value(world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index) const override;
-    crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> get_leaf_preimage_public_data_tree(
-        crypto::merkle_tree::index_t leaf_index) const override;
-    crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> get_leaf_preimage_nullifier_tree(
-        crypto::merkle_tree::index_t leaf_index) const override;
+    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const override;
+    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const override;
+    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const override;
+    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const override;
+    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const override;
 
     // State modification methods.
-    world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
-    insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) override;
-    world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
-    insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) override;
-    void append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) override;
+    SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
+        const PublicDataLeafValue& leaf_value) override;
+    SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
+        const NullifierLeafValue& leaf_value) override;
+    std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
+    void pad_tree(MerkleTreeId tree_id, size_t num_leaves) override;
 
     void create_checkpoint() override;
     void commit_checkpoint() override;
@@ -72,37 +69,32 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     std::stack<uint32_t> checkpoint_stack{ { 0 } };
 
     // Query hints.
-    using GetSiblingPathKey =
-        std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
-    unordered_flat_map<GetSiblingPathKey, crypto::merkle_tree::fr_sibling_path> get_sibling_path_hints;
-    using GetPreviousValueIndexKey = std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, FF>;
-    unordered_flat_map<GetPreviousValueIndexKey, crypto::merkle_tree::GetLowIndexedLeafResponse>
-        get_previous_value_index_hints;
-    using GetLeafPreimageKey = std::tuple<AppendOnlyTreeSnapshot, crypto::merkle_tree::index_t>;
-    unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>
-        get_leaf_preimage_hints_public_data_tree;
-    unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>
-        get_leaf_preimage_hints_nullifier_tree;
-    using GetLeafValueKey = std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
+    using GetSiblingPathKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t>;
+    unordered_flat_map<GetSiblingPathKey, SiblingPath> get_sibling_path_hints;
+    using GetPreviousValueIndexKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, FF>;
+    unordered_flat_map<GetPreviousValueIndexKey, GetLowIndexedLeafResponse> get_previous_value_index_hints;
+    using GetLeafPreimageKey = std::tuple<AppendOnlyTreeSnapshot, index_t>;
+    unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<PublicDataLeafValue>> get_leaf_preimage_hints_public_data_tree;
+    unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<NullifierLeafValue>> get_leaf_preimage_hints_nullifier_tree;
+    using GetLeafValueKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t>;
     unordered_flat_map<GetLeafValueKey, FF> get_leaf_value_hints;
     // State modification hints.
-    using SequentialInsertHintPublicDataTreeKey =
-        std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::PublicDataLeafValue>;
-    unordered_flat_map<SequentialInsertHintPublicDataTreeKey,
-                       SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>>
+    using SequentialInsertHintPublicDataTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataLeafValue>;
+    unordered_flat_map<SequentialInsertHintPublicDataTreeKey, SequentialInsertHint<PublicDataLeafValue>>
         sequential_insert_hints_public_data_tree;
-    using SequentialInsertHintNullifierTreeKey =
-        std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::NullifierLeafValue>;
-    unordered_flat_map<SequentialInsertHintNullifierTreeKey,
-                       SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>>
+    using SequentialInsertHintNullifierTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, NullifierLeafValue>;
+    unordered_flat_map<SequentialInsertHintNullifierTreeKey, SequentialInsertHint<NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;
-    using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, std::vector<FF>>;
+    using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, std::vector<FF>>;
     unordered_flat_map<AppendLeavesHintKey, AppendOnlyTreeSnapshot> append_leaves_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
-    const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
+    // Private helper methods.
+    const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
+    AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id);
+    AppendLeafResult appendLeafInternal(MerkleTreeId tree_id, const FF& leaf);
 };
 
 } // namespace bb::avm2::simulation

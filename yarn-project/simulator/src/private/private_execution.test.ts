@@ -13,12 +13,12 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
-import { ChildContractArtifact } from '@aztec/noir-contracts.js/Child';
-import { ImportTestContractArtifact } from '@aztec/noir-contracts.js/ImportTest';
-import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
-import { PendingNoteHashesContractArtifact } from '@aztec/noir-contracts.js/PendingNoteHashes';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
+import { ImportTestContractArtifact } from '@aztec/noir-test-contracts.js/ImportTest';
+import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
+import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
+import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import {
   type ContractArtifact,
   type FunctionArtifact,
@@ -64,9 +64,9 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
+import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { WASMSimulator } from './providers/acvm_wasm.js';
 import { AcirSimulator } from './simulator.js';
 

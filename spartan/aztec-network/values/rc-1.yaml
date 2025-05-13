@@ -1,5 +1,6 @@
 network:
   public: true
+  mempoolLimitBytes: "10000000" # approx 10MB
 
 aztec:
   slotDuration: 36
@@ -31,7 +32,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 32
+  replicas: 8
   bb:
     hardwareConcurrency: 31
   gke:
@@ -42,7 +43,7 @@ proverAgent:
       cpu: "31"
 
 bot:
-  replicas: 8
+  replicas: 1
   ammTxs: true
   followChain: "PENDING"
   enabled: true

@@ -1,6 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include <optional>
 
 namespace bb {
@@ -76,12 +83,13 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param nu_challenge ν (shplonk batching challenge)
      * @param r_challenge r (gemini evaluation challenge)
      */
-    void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_pos,
-                                        const Fr& inverse_vanishing_eval_neg,
+    void compute_scalars_for_each_batch(std::span<const Fr> inverted_vanishing_evals,
                                         const Fr& nu_challenge,
-                                        const Fr& r_challenge,
-                                        const Fr& interleaving_vanishing_eval = { 0 })
+                                        const Fr& r_challenge)
     {
+        const Fr& inverse_vanishing_eval_pos = inverted_vanishing_evals[0];
+        const Fr& inverse_vanishing_eval_neg = inverted_vanishing_evals[1];
+
         if (unshifted) {
             // (1/(z−r) + ν/(z+r))
             unshifted->scalar = inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg;
@@ -98,13 +106,15 @@ template <typename Curve> struct ClaimBatcher_ {
         }
 
         if (interleaved) {
+            const size_t interleaving_denominator_index = 2 * numeric::get_msb(get_groups_to_be_interleaved_size());
+
             if (get_groups_to_be_interleaved_size() % 2 != 0) {
                 throw_or_abort("Interleaved groups size must be even");
             }
 
             Fr r_shift_pos = Fr(1);
             Fr r_shift_neg = Fr(1);
-            interleaved->shplonk_denominator = interleaving_vanishing_eval;
+            interleaved->shplonk_denominator = inverted_vanishing_evals[interleaving_denominator_index];
             for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                 interleaved->scalars_pos.push_back(r_shift_pos);
                 interleaved->scalars_neg.push_back(r_shift_neg);

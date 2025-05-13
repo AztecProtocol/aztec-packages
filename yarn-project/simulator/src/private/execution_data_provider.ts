@@ -1,3 +1,4 @@
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, Point } from '@aztec/foundation/fields';
 import type {
   EventSelector,
@@ -14,8 +15,8 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
-import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
+import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
  * Error thrown when a contract is not found in the database.
@@ -38,7 +39,7 @@ export class ContractClassNotFoundError extends Error {
 /**
  * The interface for the data layer required to perform private and utility execution.
  */
-export interface ExecutionDataProvider extends CommitmentsDBInterface {
+export interface ExecutionDataProvider {
   /**
    * Returns a contract instance associated with an address, if available.
    * @param address - Address.
@@ -116,6 +117,40 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
    */
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Gets the index of a nullifier in the nullifier tree.
+   * @param nullifier - The nullifier.
+   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
+   */
+  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
+
+  /**
+   * Returns a nullifier membership witness for the given nullifier or undefined if not found.
+   * REFACTOR: Same as getL1ToL2MembershipWitness, can be combined with aztec-node method that does almost the same thing.
+   * @param nullifier - Nullifier we're looking for.
+   */
+  getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
+
+  /**
+   * Fetches a message from the db, given its key.
+   * @param contractAddress - Address of a contract by which the message was emitted.
+   * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier.
+   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
+   */
+  getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+
+  /**
+   * @param leafIndex the leaf to look up
+   * @returns The l1 to l2 leaf message hash or undefined if not found.
+   */
+  getL1ToL2MessageHash(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
    * Retrieve the databases view of the Block Header object.
@@ -264,6 +299,13 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   ): Promise<void>;
 
   /**
+   * Gets note hash in the note hash tree at the given leaf index.
+   * @param leafIndex - the leaf to look up.
+   * @returns - The note hash at that index. Undefined if leaf index is not found.
+   */
+  getNoteHash(leafIndex: bigint): Promise<Fr | undefined>;
+
+  /**
    * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
    * Returns null if no such log exists, and throws if more than one exists.
    *
@@ -329,16 +371,18 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param contractAddress - The address of the contract that emitted the log.
    * @param recipient - The address of the recipient.
    * @param eventSelector - The event selector of the event.
-   * @param logContent - The content of the private event log.
+   * @param msgContent - The content of the private event message.
    * @param txHash - The hash of the transaction that emitted the log.
    * @param logIndexInTx - The index of the log within the transaction.
+   * @param txIndexInBlock - The index of the transaction in which the log was emitted in the block.
    */
   storePrivateEventLog(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    logContent: Fr[],
+    msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void>;
 }

@@ -1,4 +1,4 @@
-import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
@@ -28,6 +28,7 @@ export async function createPXEService(
   const configWithContracts = {
     ...config,
     l1Contracts,
+    l2BlockBatchSize: 200,
   } as PXEServiceConfig;
 
   const store = await createStore(

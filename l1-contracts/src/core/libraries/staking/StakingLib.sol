@@ -11,13 +11,16 @@ import {
   IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 library StakingLib {
   using SafeERC20 for IERC20;
-  using EnumerableSet for EnumerableSet.AddressSet;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -78,6 +81,7 @@ library StakingLib {
     // gas and cost edge cases around recipient, so lets just avoid that.
     if (validator.status == Status.VALIDATING && validator.stake < store.minimumStake) {
       require(store.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
+
       validator.status = Status.LIVING;
     }
 
@@ -95,13 +99,11 @@ library StakingLib {
     require(
       _amount >= store.minimumStake, Errors.Staking__InsufficientStake(_amount, store.minimumStake)
     );
-    store.stakingAsset.transferFrom(msg.sender, address(this), _amount);
     require(
       store.info[_attester].status == Status.NONE, Errors.Staking__AlreadyRegistered(_attester)
     );
+    store.stakingAsset.transferFrom(msg.sender, address(this), _amount);
     require(store.attesters.add(_attester), Errors.Staking__AlreadyActive(_attester));
-
-    // If BLS, need to check possession of private key to avoid attacks.
 
     store.info[_attester] = ValidatorInfo({
       stake: _amount,

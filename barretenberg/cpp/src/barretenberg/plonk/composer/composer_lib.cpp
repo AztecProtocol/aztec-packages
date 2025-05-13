@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file composer_lib.cpp
  * @brief Contains some functions that are shared between the various Plonk composers.
@@ -45,7 +51,7 @@ void compute_monomial_and_coset_selector_forms(plonk::proving_key* circuit_provi
 std::shared_ptr<plonk::verification_key> compute_verification_key_common(
     std::shared_ptr<plonk::proving_key> const& proving_key,
     // Here too
-    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& vrs)
+    std::shared_ptr<bb::srs::factories::Crs<curve::BN254>> const& vrs)
 {
     auto circuit_verification_key = std::make_shared<plonk::verification_key>(
         proving_key->circuit_size, proving_key->num_public_inputs, vrs, proving_key->circuit_type);

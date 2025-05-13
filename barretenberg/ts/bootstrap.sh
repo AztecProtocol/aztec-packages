@@ -31,7 +31,12 @@ function build {
 function test_cmds {
   cd dest/node
   for test in **/*.test.js; do
-    echo "$hash barretenberg/ts/scripts/run_test.sh $test"
+    local prefix=$hash
+    # Extra resource.
+    if [[ "$test" =~ ^examples/ ]]; then
+      prefix="$prefix:CPUS=16"
+    fi
+    echo "$prefix barretenberg/ts/scripts/run_test.sh $test"
   done
 }
 
@@ -41,7 +46,7 @@ function test {
 }
 
 function release {
-  deploy_npm $(dist_tag) ${REF_NAME#v}
+  retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
 case "$cmd" in

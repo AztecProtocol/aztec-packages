@@ -39,14 +39,18 @@ export function aliasedTxHashParser(txHash: string, db?: WalletDB) {
   }
 }
 
-export function aliasedAuthWitParser(witness: string, db?: WalletDB) {
-  try {
-    return AuthWitness.fromString(witness);
-  } catch (err) {
-    const prefixed = witness.includes(':') ? witness : `authwits:${witness}`;
-    const rawAuthWitness = db ? db.tryRetrieveAlias(prefixed) : witness;
-    return AuthWitness.fromString(rawAuthWitness);
-  }
+export function aliasedAuthWitParser(witnesses: string, db?: WalletDB) {
+  const parsedWitnesses = witnesses.split(',').map(witness => {
+    try {
+      return AuthWitness.fromString(witness);
+    } catch (err) {
+      const prefixed = witness.includes(':') ? witness : `authwits:${witness}`;
+      const rawAuthWitness = db ? db.tryRetrieveAlias(prefixed) : witness;
+      return AuthWitness.fromString(rawAuthWitness);
+    }
+  });
+
+  return parsedWitnesses;
 }
 
 export function aliasedAddressParser(defaultPrefix: AliasType, address: string, db?: WalletDB) {
@@ -80,7 +84,7 @@ export function createAccountOption(description: string, hide: boolean, db?: Wal
 }
 
 export function createAuthwitnessOption(description: string, hide: boolean, db?: WalletDB) {
-  return new Option('-aw, --auth-witness <string>', description)
+  return new Option('-aw, --auth-witness <string,...>', description)
     .hideHelp(hide)
     .argParser(witness => aliasedAuthWitParser(witness, db));
 }
@@ -114,6 +118,13 @@ export function createDebugExecutionStepsDirOption() {
     '--debug-execution-steps-dir <address>',
     'Directory to write execution step artifacts for bb profiling/debugging.',
   ).makeOptionMandatory(false);
+}
+
+export function createVerboseOption() {
+  return new Option(
+    '-v, --verbose',
+    'Provide timings on all executed operations (synching, simulating, proving)',
+  ).default(false);
 }
 
 export function artifactPathParser(filePath: string, db?: WalletDB) {
@@ -180,7 +191,6 @@ async function contractArtifactFromWorkspace(pkg?: string, contractName?: string
   return `${cwd}/${TARGET_DIR}/${bestMatch[0]}`;
 }
 
-export function cleanupAuthWitnesses(authWitnesses: AuthWitness | AuthWitness[]): AuthWitness[] {
-  const authWitnessArray = Array.isArray(authWitnesses) ? authWitnesses : [authWitnesses];
-  return authWitnessArray.filter(w => w !== undefined);
+export function cleanupAuthWitnesses(authWitnesses: AuthWitness[] | undefined): AuthWitness[] {
+  return authWitnesses?.filter(w => w !== undefined) ?? [];
 }

@@ -12,7 +12,7 @@ import {
   createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -73,7 +73,8 @@ export async function deployTestWalletWithTokens(
     fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), undefined, logger)),
   );
 
-  // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
+  // Progress by 3 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
+  await advanceL2Block(node);
   await advanceL2Block(node);
   await advanceL2Block(node);
 
@@ -104,10 +105,10 @@ async function bridgeL1FeeJuice(
 ) {
   const { l1ChainId } = await pxe.getNodeInfo();
   const chain = createEthereumChain(l1RpcUrls, l1ChainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
+  const l1Client = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
   // docs:start:bridge_fee_juice
-  const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
+  const portal = await L1FeeJuicePortalManager.new(pxe, l1Client, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
   // docs:end:bridge_fee_juice
 

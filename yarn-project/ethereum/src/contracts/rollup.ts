@@ -11,9 +11,10 @@ import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { ViemPublicClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
+import { checkBlockTag } from './utils.js';
 
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
@@ -30,15 +31,13 @@ export type L1RollupContractAddresses = Pick<
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
-  previousBlockHash: `0x${string}`;
-  endBlockHash: `0x${string}`;
   endTimestamp: bigint;
   outHash: `0x${string}`;
   proverId: `0x${string}`;
 };
 
 export class RollupContract {
-  private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -50,10 +49,10 @@ export class RollupContract {
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
     const {
-      publicClient,
+      l1Client,
       l1ContractAddresses: { rollupAddress },
     } = deployL1ContractsValues;
-    return new RollupContract(publicClient, rollupAddress.toString());
+    return new RollupContract(l1Client, rollupAddress.toString());
   }
 
   static getFromConfig(config: L1ReaderConfig) {
@@ -62,7 +61,7 @@ export class RollupContract {
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: ViemPublicClient, address: Hex | EthAddress) {
+  constructor(public readonly client: ViemClient, address: Hex | EthAddress) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
@@ -73,7 +72,7 @@ export class RollupContract {
     return this.rollup.address;
   }
 
-  getContract(): GetContractReturnType<typeof RollupAbi, ViemPublicClient> {
+  getContract(): GetContractReturnType<typeof RollupAbi, ViemClient> {
     return this.rollup;
   }
 
@@ -145,6 +144,12 @@ export class RollupContract {
     return this.rollup.read.getVersion();
   }
 
+  @memoize
+  async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
+    const block = await this.rollup.read.getBlock([0n]);
+    return block.archive;
+  }
+
   getSlasher() {
     return this.rollup.read.getSlasher();
   }
@@ -169,6 +174,14 @@ export class RollupContract {
 
   getSlotNumber() {
     return this.rollup.read.getCurrentSlot();
+  }
+
+  getL1FeesAt(timestamp: bigint) {
+    return this.rollup.read.getL1FeesAt([timestamp]);
+  }
+
+  getFeeAssetPerEth() {
+    return this.rollup.read.getFeeAssetPerEth();
   }
 
   async getCommitteeAt(timestamp: bigint) {
@@ -294,7 +307,7 @@ export class RollupContract {
   }
 
   getEpochProofPublicInputs(
-    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`, `0x${string}`],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }
@@ -377,11 +390,13 @@ export class RollupContract {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.status([blockNumber], options);
   }
 
-  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.canPruneAtTime([timestamp], options);
   }
 

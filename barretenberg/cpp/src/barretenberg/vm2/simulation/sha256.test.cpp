@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
@@ -18,8 +19,7 @@ using ::testing::StrictMock;
 
 TEST(Sha256CompressionSimulationTest, Sha256Compression)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 
@@ -30,13 +30,13 @@ TEST(Sha256CompressionSimulationTest, Sha256Compression)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
     }
     MemoryAddress dst_addr = 25;
 
@@ -47,7 +47,7 @@ TEST(Sha256CompressionSimulationTest, Sha256Compression)
     std::array<uint32_t, 8> result_from_memory;
     for (uint32_t i = 0; i < 8; ++i) {
         auto c = mem.get(dst_addr + i);
-        result_from_memory[i] = static_cast<uint32_t>(c.value);
+        result_from_memory[i] = c.as<uint32_t>();
     }
     EXPECT_EQ(result_from_memory, result);
 }

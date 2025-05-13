@@ -16,35 +16,45 @@ export async function enrichSimulationError(
   contractDataProvider: ContractDataProvider,
   logger: Logger,
 ) {
-  // Maps contract addresses to the set of function names that were in error.
+  // Maps contract addresses to the set of function selectors that were in error.
   // Map and Set do reference equality for their keys instead of value equality, so we store the string
   // representation to get e.g. different contract address objects with the same address value to match.
-  const mentionedFunctions: Map<string, Set<string>> = new Map();
+  const mentionedFunctions: Map<string, Set<FunctionSelector>> = new Map();
 
-  err.getCallStack().forEach(({ contractAddress, functionName }) => {
+  err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
     if (!mentionedFunctions.has(contractAddress.toString())) {
       mentionedFunctions.set(contractAddress.toString(), new Set());
     }
-    mentionedFunctions.get(contractAddress.toString())!.add(functionName?.toString() ?? '');
+    if (functionSelector) {
+      mentionedFunctions.get(contractAddress.toString())!.add(functionSelector);
+    }
   });
 
   await Promise.all(
-    [...mentionedFunctions.entries()].map(async ([contractAddress, fnNames]) => {
+    [...mentionedFunctions.entries()].map(async ([contractAddress, fnSelectors]) => {
       const parsedContractAddress = AztecAddress.fromString(contractAddress);
       const contract = await contractDataProvider.getContract(parsedContractAddress);
       if (contract) {
         err.enrichWithContractName(parsedContractAddress, contract.name);
-        for (const fnName of fnNames) {
-          const functionArtifact = contract.functions.find(f => fnName === f.name);
-          if (functionArtifact) {
+        // Map from function selector to function name. It uses a stringified key for the same reason as mentionedFunctions.
+        const selectorToNameMap: Map<string, string> = new Map();
+        await Promise.all(
+          contract.functions.map(async fn => {
+            const selector = await FunctionSelector.fromNameAndParameters(fn);
+            selectorToNameMap.set(selector.toString(), fn.name);
+          }),
+        );
+
+        for (const fnSelector of fnSelectors) {
+          if (selectorToNameMap.has(fnSelector.toString())) {
             err.enrichWithFunctionName(
               parsedContractAddress,
-              await FunctionSelector.fromNameAndParameters(functionArtifact),
-              functionArtifact.name,
+              fnSelector,
+              selectorToNameMap.get(fnSelector.toString())!,
             );
           } else {
             logger.warn(
-              `Could not find function artifact in contract ${contract.name} for function '${fnName}' when enriching error callstack`,
+              `Could not find function artifact in contract ${contract.name} for function '${fnSelector}' when enriching error callstack`,
             );
           }
         }
@@ -85,7 +95,7 @@ export async function enrichPublicSimulationError(
       try {
         // Public functions are simulated as a single Brillig entry point.
         // Thus, we can safely assume here that the Brillig function id is `0`.
-        const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
+        const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo.debugSymbols, debugInfo.files, 0);
         err.setNoirCallStack(parsedCallStack);
       } catch (err) {
         logger.warn(

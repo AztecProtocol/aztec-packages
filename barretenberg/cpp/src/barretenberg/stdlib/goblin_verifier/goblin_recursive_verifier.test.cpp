@@ -2,6 +2,8 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -10,31 +12,19 @@ namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifierTests : public testing::Test {
   public:
     using Builder = GoblinRecursiveVerifier::Builder;
-    using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
-    using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
+    using ECCVMVK = Goblin::ECCVMVerificationKey;
+    using TranslatorVK = Goblin::TranslatorVerificationKey;
 
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
-
-    static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
-    {
-        MegaCircuitBuilder circuit{ op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ProverOutput {
         GoblinProof proof;
-        GoblinVerifier::VerifierInput verfier_input;
+        Goblin::VerificationKey verfier_input;
     };
 
     /**
@@ -44,18 +34,17 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      */
     static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
-        GoblinProver goblin;
+        Goblin goblin;
 
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = construct_mock_circuit(goblin.op_queue);
-            goblin.prove_merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
+            goblin.prove_merge();
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin.prove(),
-                 { std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                   std::make_shared<TranslatorVK>(goblin.get_translator_proving_key()) } };
+        return { goblin.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
@@ -67,9 +56,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    GoblinVerifier verifier{ verifier_input };
-
-    EXPECT_TRUE(verifier.verify(proof));
+    EXPECT_TRUE(Goblin::verify(proof));
 }
 
 /**
@@ -82,7 +69,8 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+    output.points_accumulator.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates);
 
@@ -113,12 +101,12 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(proof);
+        GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+        output.points_accumulator.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates);
 
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
-
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         OuterProver prover(proving_key);
         auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
@@ -153,8 +141,8 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof);
 
-    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
-        bb::srs::get_grumpkin_crs_path(), 1 << CONST_ECCVM_LOG_N);
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    auto crs_factory = srs::get_grumpkin_crs_factory();
     auto grumpkin_verifier_commitment_key =
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
@@ -174,7 +162,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
     auto [proof, verifier_input] = create_goblin_prover_output();
     // Tamper with the Translator proof preamble
     {
-        auto tampered_proof = proof;
+        GoblinProof tampered_proof = proof;
         for (auto& val : tampered_proof.translator_proof) {
             if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
                 val += 1;
@@ -184,7 +172,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        EXPECT_ANY_THROW(verifier.verify(tampered_proof));
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
     {
@@ -201,7 +190,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        verifier.verify(tampered_proof);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -214,14 +203,39 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    // Tamper with one of the translation evaluations
-    proof.translation_evaluations.Px += 1;
+    // Tamper with the evaluation of `op` witness. The index is computed manually.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+    // Better recursion testing - create more flexible proof tampering tests.
+    const size_t op_limb_index = 593;
+    proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    verifier.verify(proof);
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief Ensure failure of the goblin recursive verification circuit for bad translation evaluations
+ *
+ */
+TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
+{
+
+    {
+        auto [proof, verifier_input] = create_goblin_prover_output();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+        // Better recursion testing - create more flexible proof tampering tests.
+        proof.translator_proof[0] += 1; // tamper with part of the limb of op commitment
+
+        Builder builder;
+        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/787)
+}
 } // namespace bb::stdlib::recursion::honk

@@ -43,28 +43,30 @@ export class CapsuleDataProvider implements DataProvider {
     await this.#capsules.delete(dbSlotToKey(contractAddress, slot));
   }
 
-  async copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
-    // In order to support overlapping source and destination regions, we need to check the relative positions of source
-    // and destination. If destination is ahead of source, then by the time we overwrite source elements using forward
-    // indexes we'll have already read those. On the contrary, if source is ahead of destination we need to use backward
-    // indexes to avoid reading elements that've been overwritten.
+  copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    return this.#store.transactionAsync(async () => {
+      // In order to support overlapping source and destination regions, we need to check the relative positions of source
+      // and destination. If destination is ahead of source, then by the time we overwrite source elements using forward
+      // indexes we'll have already read those. On the contrary, if source is ahead of destination we need to use backward
+      // indexes to avoid reading elements that've been overwritten.
 
-    const indexes = Array.from(Array(numEntries).keys());
-    if (srcSlot.lt(dstSlot)) {
-      indexes.reverse();
-    }
-
-    for (const i of indexes) {
-      const currentSrcSlot = dbSlotToKey(contractAddress, srcSlot.add(new Fr(i)));
-      const currentDstSlot = dbSlotToKey(contractAddress, dstSlot.add(new Fr(i)));
-
-      const toCopy = await this.#capsules.getAsync(currentSrcSlot);
-      if (!toCopy) {
-        throw new Error(`Attempted to copy empty slot ${currentSrcSlot} for contract ${contractAddress.toString()}`);
+      const indexes = Array.from(Array(numEntries).keys());
+      if (srcSlot.lt(dstSlot)) {
+        indexes.reverse();
       }
 
-      await this.#capsules.set(currentDstSlot, toCopy);
-    }
+      for (const i of indexes) {
+        const currentSrcSlot = dbSlotToKey(contractAddress, srcSlot.add(new Fr(i)));
+        const currentDstSlot = dbSlotToKey(contractAddress, dstSlot.add(new Fr(i)));
+
+        const toCopy = await this.#capsules.getAsync(currentSrcSlot);
+        if (!toCopy) {
+          throw new Error(`Attempted to copy empty slot ${currentSrcSlot} for contract ${contractAddress.toString()}`);
+        }
+
+        await this.#capsules.set(currentDstSlot, toCopy);
+      }
+    });
   }
 
   /**

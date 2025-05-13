@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file translator.fuzzer.hpp
  * @author Rumata888
@@ -19,17 +25,19 @@ using G1 = curve::BN254::AffineElement;
  *
  * @param data pointer to data
  * @param size size in bytes
- * @return std::vector<ECCOpQueue::ECCVMOperation>
+ * @return std::vector<ECCVMOperation>
  */
-std::vector<ECCOpQueue::ECCVMOperation> parse_operations(const unsigned char* data, size_t size)
+std::vector<ECCVMOperation> parse_operations(const unsigned char* data, size_t size)
 {
-    std::vector<ECCOpQueue::ECCVMOperation> eccvm_ops;
+    std::vector<ECCVMOperation> eccvm_ops;
 
     size_t size_left = size;
     // Just iterate and parse until there's no data left
-    while (size_left >= sizeof(ECCOpQueue::ECCVMOperation)) {
-        eccvm_ops.emplace_back((ECCOpQueue::ECCVMOperation*)(data + (size - size_left)));
-        size_left -= sizeof(ECCOpQueue::ECCVMOperation);
+    while (size_left >= sizeof(ECCVMOperation)) {
+        ECCVMOperation op;
+        std::memcpy(&op, data + (size - size_left), sizeof(ECCVMOperation));
+        eccvm_ops.emplace_back(op);
+        size_left -= sizeof(ECCVMOperation);
     }
     return eccvm_ops;
 }
@@ -44,7 +52,7 @@ std::vector<ECCOpQueue::ECCVMOperation> parse_operations(const unsigned char* da
 std::optional<std::tuple<Fq, Fq, std::shared_ptr<ECCOpQueue>>> parse_and_construct_opqueue(const unsigned char* data,
                                                                                            size_t size)
 {
-    std::vector<ECCOpQueue::ECCVMOperation> eccvm_ops;
+    std::vector<ECCVMOperation> eccvm_ops;
 
     // Try to parse batching challenge
     size_t size_left = size;

@@ -64,4 +64,13 @@ impl EthAddress {
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
     }
+
+    pub fn to_be_bytes(self) -> [u8; 20] {
+        let field_bytes: [u8; 32] = self.inner.to_be_bytes();
+        let mut bytes = [0; 20];
+        for i in 0..20 {
+            bytes[i] = field_bytes[i + 12];
+        }
+        bytes
+    }
 }

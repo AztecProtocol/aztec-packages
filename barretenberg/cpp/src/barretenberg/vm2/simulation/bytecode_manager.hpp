@@ -41,7 +41,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
     TxBytecodeManager(ContractDBInterface& contract_db,
                       HighLevelMerkleDBInterface& merkle_db,
-                      SiloingInterface& siloing,
+                      Poseidon2Interface& poseidon2,
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
                       UpdateCheckInterface& update_check,
@@ -51,7 +51,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
         : contract_db(contract_db)
         , merkle_db(merkle_db)
-        , siloing(siloing)
+        , poseidon2(poseidon2)
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
         , update_check(update_check)
@@ -67,7 +67,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
   private:
     ContractDBInterface& contract_db;
     HighLevelMerkleDBInterface& merkle_db;
-    SiloingInterface& siloing;
+    Poseidon2Interface& poseidon2;
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
     UpdateCheckInterface& update_check;

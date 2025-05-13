@@ -30,7 +30,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   const createAttestationsForSlot = (slotNumber: number) => {
     const archive = Fr.random();
-    return Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
+    return signers.map(signer => mockAttestation(signer, slotNumber, archive));
   };
 
   // We compare buffers as the objects can have cached values attached to them which are not serialised
@@ -45,9 +45,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('should add attestations to pool', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = await Promise.all(
-      signers.slice(0, -1).map(signer => mockAttestation(signer, slotNumber, archive)),
-    );
+    const attestations = signers.slice(0, -1).map(signer => mockAttestation(signer, slotNumber, archive));
 
     await ap.addAttestations(attestations);
 
@@ -63,7 +61,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     compareAttestations(retrievedAttestationsForSlot, attestations);
 
     // Add another one
-    const newAttestation = await mockAttestation(signers[NUMBER_OF_SIGNERS_PER_TEST - 1], slotNumber, archive);
+    const newAttestation = mockAttestation(signers[NUMBER_OF_SIGNERS_PER_TEST - 1], slotNumber, archive);
     await ap.addAttestations([newAttestation]);
     expect(metricsMock.recordAddedObjects).toHaveBeenCalledWith(1);
     const retrievedAttestationsAfterAdd = await ap.getAttestationsForSlotAndProposal(
@@ -96,7 +94,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     const attestations: BlockAttestation[] = [];
     const signer = signers[0];
     for (let i = 0; i < NUMBER_OF_SIGNERS_PER_TEST; i++) {
-      attestations.push(await mockAttestation(signer, slotNumber, archive, txs));
+      attestations.push(mockAttestation(signer, slotNumber, archive, txs));
     }
 
     // Add them to store and check we end up with only one
@@ -106,7 +104,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(retreivedAttestations.length).toBe(1);
     expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
     expect(retreivedAttestations[0].payload.txHashes).toEqual(txs);
-    expect((await retreivedAttestations[0].getSender()).toString()).toEqual(signer.address.toString());
+    expect(retreivedAttestations[0].getSender().toString()).toEqual(signer.address.toString());
 
     // Try adding them on another operation and check they are still not duplicated
     await ap.addAttestations([attestations[0]]);
@@ -115,45 +113,43 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
   it('should store attestations by differing slot', async () => {
     const slotNumbers = [1, 2, 3, 4];
-    const attestations = await Promise.all(signers.map((signer, i) => mockAttestation(signer, slotNumbers[i])));
+    const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i]));
 
     await ap.addAttestations(attestations);
 
     for (const attestation of attestations) {
-      const slot = attestation.payload.header.globalVariables.slotNumber;
+      const slot = attestation.payload.header.slotNumber;
       const archive = attestation.archive.toString();
 
       const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(slot.toBigInt(), archive);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
-      expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
+      expect(retreivedAttestations[0].payload.header.slotNumber).toEqual(slot);
     }
   });
 
   it('should store attestations by differing slot and archive', async () => {
     const slotNumbers = [1, 1, 2, 3];
     const archives = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
-    const attestations = await Promise.all(
-      signers.map((signer, i) => mockAttestation(signer, slotNumbers[i], archives[i])),
-    );
+    const attestations = signers.map((signer, i) => mockAttestation(signer, slotNumbers[i], archives[i]));
 
     await ap.addAttestations(attestations);
 
     for (const attestation of attestations) {
-      const slot = attestation.payload.header.globalVariables.slotNumber;
+      const slot = attestation.payload.header.slotNumber;
       const proposalId = attestation.archive.toString();
 
       const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(slot.toBigInt(), proposalId);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
-      expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
+      expect(retreivedAttestations[0].payload.header.slotNumber).toEqual(slot);
     }
   });
 
   it('should delete attestations', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
+    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
     const proposalId = attestations[0].archive.toString();
 
     await ap.addAttestations(attestations);
@@ -175,7 +171,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('should blanket delete attestations per slot', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
+    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
     const proposalId = attestations[0].archive.toString();
 
     await ap.addAttestations(attestations);
@@ -193,12 +189,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('should blanket delete attestations per slot and proposal', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
+    const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
     const proposalId = attestations[0].archive.toString();
 
     // Add another set of attestations with a different proposalId, yet the same slot
     const archive2 = Fr.random();
-    const attestations2 = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive2)));
+    const attestations2 = signers.map(signer => mockAttestation(signer, slotNumber, archive2));
     const proposalId2 = attestations2[0].archive.toString();
 
     await ap.addAttestations(attestations);

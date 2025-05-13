@@ -1,22 +1,21 @@
+// docs:start:empty-contract
 mod config;
 
-// docs:start:empty-contract
 use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Crowdfunding {
     // docs:end:empty-contract
-    use crate::config::Config;
-
     // docs:start:all-deps
+    use crate::config::Config;
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         event::event_interface::EventInterface,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
             storage::storage,
         },
+        messages::logs::note::encode_and_encrypt_note,
         prelude::{AztecAddress, PrivateSet, PublicImmutable},
         protocol_types::traits::{Serialize, ToField},
         unencrypted_logs::unencrypted_event_emission::encode_event,
@@ -28,13 +27,14 @@ pub contract Crowdfunding {
     use token::Token;
     // docs:end:all-deps
 
+    // docs:start:withdrawal-processed-event
     #[derive(Serialize)]
     #[event]
     struct WithdrawalProcessed {
         who: AztecAddress,
         amount: u128,
     }
-
+    // docs:end:withdrawal-processed-event
     // docs:start:storage
     #[storage]
     struct Storage<Context> {
@@ -106,11 +106,11 @@ pub contract Crowdfunding {
             ._publish_donation_receipts(amount, operator_address)
             .enqueue(&mut context);
     }
-    // docs:end:operator-withdrawals
 
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
         WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
     }
+    // docs:end:operator-withdrawals
 }

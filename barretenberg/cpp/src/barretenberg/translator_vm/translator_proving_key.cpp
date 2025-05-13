@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "translator_proving_key.hpp"
 namespace bb {
 /**
@@ -80,10 +86,10 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     constexpr size_t sort_step = Flavor::SORT_STEP;
     constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
 
-    const size_t full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
-    const size_t mini_masking_offset = masking ? MASKING_OFFSET : 0;
-    const size_t full_masking_offset = masking ? mini_masking_offset * Flavor::INTERLEAVING_GROUP_SIZE : 0;
-    const size_t real_circuit_size = full_circuit_size - full_masking_offset;
+    const size_t mini_NUM_DISABLED_ROWS_IN_SUMCHECK = masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK =
+        masking ? mini_NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE : 0;
+    const size_t real_circuit_size = dyadic_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     // The value we have to end polynomials with, 2¹⁴ - 1
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
@@ -129,9 +135,10 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * (mini_circuit_dyadic_size - mini_masking_offset);
+            auto current_offset = j * (mini_circuit_dyadic_size - mini_NUM_DISABLED_ROWS_IN_SUMCHECK);
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_masking_offset; k++) {
+            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_NUM_DISABLED_ROWS_IN_SUMCHECK;
+                 k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
@@ -187,12 +194,12 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
 
-    for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
-        proving_key->polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
+    for (size_t i = 2; i < mini_circuit_dyadic_size; i += 2) {
+        proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
-    proving_key->polynomials.lagrange_second.at(1) = 1;
-    proving_key->polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
+    proving_key->polynomials.lagrange_result_row.at(2) = 1;
+    proving_key->polynomials.lagrange_last_in_minicircuit.at(mini_circuit_dyadic_size - 1) = 1;
 }
 
 /**

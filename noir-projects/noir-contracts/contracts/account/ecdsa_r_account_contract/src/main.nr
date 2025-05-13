@@ -4,8 +4,8 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract EcdsaRAccount {
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
     };
     use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
 

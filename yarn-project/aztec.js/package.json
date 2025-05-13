@@ -38,8 +38,6 @@
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -87,7 +85,7 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "axios": "^1.7.2",
+    "axios": "^1.8.2",
     "tslib": "^2.4.0",
     "viem": "2.23.7"
   },
@@ -96,7 +94,7 @@
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",
     "buffer": "^6.0.3",
-    "crypto-browserify": "^3.12.0",
+    "crypto-browserify": "^3.12.1",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.3",
     "process": "^0.11.10",

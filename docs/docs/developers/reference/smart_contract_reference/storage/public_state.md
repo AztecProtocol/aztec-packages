@@ -71,7 +71,7 @@ We have a `write` method on the `PublicMutable` struct that takes the value to w
 
 ## `PublicImmutable`
 
-`PublicImmutable` is a type that is initialized from public once, typically during a contract deployment, but which can later be read from public, private and unconstrained execution contexts. This state variable is useful for stuff that you would usually have in `immutable` values in Solidity, e.g. this can be the name of a token or its number of decimals.
+`PublicImmutable` is a type that is initialized from public once, typically during a contract deployment, but which can later be read from public, private and utility execution contexts. This state variable is useful for stuff that you would usually have in `immutable` values in Solidity, e.g. this can be the name of a token or its number of decimals.
 
 Just like the `PublicMutable` it is generic over the variable type `T`. The type `MUST` implement the `Serialize` and `Deserialize` traits.
 
@@ -99,6 +99,6 @@ A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attemp
 
 ### `read`
 
-Returns the stored immutable value. This function is available in public, private and unconstrained contexts.
+Returns the stored immutable value. This function is available in public, private and utility contexts.
 
 #include_code read_public_immutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust

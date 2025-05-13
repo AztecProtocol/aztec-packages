@@ -53,7 +53,6 @@ export async function deployAztecContracts(
   salt: number | undefined,
   initialValidators: EthAddress[],
   genesisArchiveRoot: Fr,
-  genesisBlockHash: Fr,
   feeJuicePortalInitialBalance: bigint,
   acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
@@ -78,7 +77,6 @@ export async function deployAztecContracts(
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot,
-      genesisBlockHash,
       salt,
       initialValidators,
       acceleratedTestDeployments,
@@ -99,12 +97,11 @@ export async function deployNewRollupContracts(
   salt: number | undefined,
   initialValidators: EthAddress[],
   genesisArchiveRoot: Fr,
-  genesisBlockHash: Fr,
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
-  const { createEthereumChain, deployRollupForUpgrade, createL1Clients } = await import('@aztec/ethereum');
+  const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
@@ -112,23 +109,22 @@ export async function deployNewRollupContracts(
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
   const chain = createEthereumChain(rpcUrls, chainId);
-  const clients = createL1Clients(rpcUrls, account, chain.chainInfo, mnemonicIndex);
+  const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
   if (!initialValidators || initialValidators.length === 0) {
-    const registry = new RegistryContract(clients.publicClient, registryAddress);
-    const rollup = new RollupContract(clients.publicClient, await registry.getCanonicalAddress());
+    const registry = new RegistryContract(client, registryAddress);
+    const rollup = new RollupContract(client, await registry.getCanonicalAddress());
     initialValidators = (await rollup.getAttesters()).map(str => EthAddress.fromString(str));
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 
   const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
-    clients,
+    client,
     {
       salt,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot,
-      genesisBlockHash,
       initialValidators,
       feeJuicePortalInitialBalance,
       ...config,

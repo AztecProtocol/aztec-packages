@@ -27,6 +27,8 @@ contract InitiateWithdrawTest is StakingBase {
       _amount: MINIMUM_STAKE
     });
 
+    // Progress into the next epoch
+    staking.cheat__progressEpoch();
     _;
   }
 
@@ -117,6 +119,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(exit.recipient, RECIPIENT);
     info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.EXITING);
+
     assertEq(staking.getActiveAttesterCount(), 0);
   }
 
@@ -135,6 +138,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(exit.recipient, address(0));
     ValidatorInfo memory info = staking.getInfo(ATTESTER);
     assertTrue(info.status == Status.LIVING);
+
     assertEq(staking.getActiveAttesterCount(), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));

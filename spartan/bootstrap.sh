@@ -5,7 +5,11 @@ cmd=${1:-}
 
 hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootstrap.sh hash))
 
-flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
+dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
+
+function build {
+  denoise "helm lint ./aztec-network/"
+}
 
 function network_shaping {
   namespace="$1"
@@ -55,19 +59,18 @@ function test_cmds {
   fi
   # Note: commands that start with 'timeout ...' override the default timeout.
   # TODO figure out why these take long sometimes.
-  echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
-  if [ "$CI_FULL" -eq 1 ]; then
-    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
-    # TODO(#12791) re-enable
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
-    echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
-  fi
+  # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
-    echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
+    echo "$hash:TIMEOUT=20m ./spartan/bootstrap.sh test-kind-transfer"
+    # TODO(#12791) re-enable
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-proving"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-4epochs"
+    # echo "$hash:TIMEOUT=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-prod-deployment"
+    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-1tps"
+    # echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
   fi
 }
 
@@ -116,7 +119,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke)
+  test|test_cmds|gke|build)
     $cmd
     ;;
   "test-kind-smoke")
@@ -146,6 +149,11 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
+  "test-kind-1tps")
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
+    ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
@@ -155,7 +163,7 @@ case "$cmd" in
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
   "test-cli-upgrade")
-    OVERRIDES="telemetry.enabled=false,network.setupL2Contracts=false" \
+    OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;

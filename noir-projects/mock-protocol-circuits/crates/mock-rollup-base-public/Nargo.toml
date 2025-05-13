@@ -1,0 +1,9 @@
+[package]
+name = "mock_rollup_base_public"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.32.0"
+
+[dependencies]
+types = { path = "../../../noir-protocol-circuits/crates/types" }
+mock_types = { path = "../mock-types" }

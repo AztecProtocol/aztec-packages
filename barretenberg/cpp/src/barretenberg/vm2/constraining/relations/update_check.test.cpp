@@ -9,7 +9,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/generated/relations/update_check.hpp"
-#include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
+#include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
@@ -30,11 +30,6 @@ using tracegen::UpdateCheckTraceBuilder;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using GetLowIndexedLeafResponse = crypto::merkle_tree::GetLowIndexedLeafResponse;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
 
 using update_check_relation = bb::avm2::update_check<FF>;
 

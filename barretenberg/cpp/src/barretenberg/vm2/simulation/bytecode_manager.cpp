@@ -3,9 +3,10 @@
 #include <cassert>
 
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
@@ -20,8 +21,11 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // TODO: catch errors etc.
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
-    auto siloed_address = siloing.silo_nullifier(address, DEPLOYER_CONTRACT_ADDRESS);
-    // TODO: check nullifier in the merkle tree. Prove (non-)membership.
+    auto siloed_address = poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, DEPLOYER_CONTRACT_ADDRESS, address });
+
+    if (!merkle_db.nullifier_exists(siloed_address)) {
+        throw std::runtime_error("Contract " + field_to_string(address) + " is not deployed");
+    }
 
     auto& instance = maybe_instance.value();
     update_check.check_current_class_id(address, instance);

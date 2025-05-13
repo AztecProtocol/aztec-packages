@@ -48,20 +48,27 @@ std::optional<Column> unshift_column(ColumnAndShifts c)
     return it == unshifts.end() ? std::nullopt : std::make_optional(it->second);
 }
 
-AvmFullRow<FF> get_full_row(const TraceContainer& trace, uint32_t row)
+AvmFullRow get_full_row(const TraceContainer& trace, uint32_t row)
 {
-    AvmFullRow<FF> full_row;
+    AvmFullRow full_row;
     // Write unshifted columns.
     for (size_t col = 0; col < trace.num_columns(); ++col) {
-        full_row.get_column(static_cast<ColumnAndShifts>(col)) = trace.get(static_cast<Column>(col), row);
+        full_row.get(static_cast<ColumnAndShifts>(col)) = trace.get(static_cast<Column>(col), row);
     }
     // Write the shifted values.
     for (const auto& col : TO_BE_SHIFTED_COLUMNS_ARRAY) {
         auto value = trace.get(static_cast<Column>(col), row + 1);
         auto shifted = shift_column(col);
-        full_row.get_column(shifted.value()) = value;
+        full_row.get(shifted.value()) = value;
     }
     return full_row;
+}
+
+AvmFullRowConstRef get_full_row_ref(const TraceContainer& trace, uint32_t row)
+{
+    return [&]<size_t... Is>(std::index_sequence<Is...>) {
+        return AvmFullRowConstRef{ trace.get_column_or_shift(static_cast<ColumnAndShifts>(Is), row)... };
+    }(std::make_index_sequence<NUM_COLUMNS_WITH_SHIFTS>{});
 }
 
 } // namespace bb::avm2::tracegen

@@ -58,11 +58,11 @@ int main(int argc, char** argv)
     }
 
     const std::string plonk_flavor = args[1];
-    const std::string circuit_flavor = args[1];
-    const std::string srs_path = args[2];
-    const std::string string_input = args[3];
+    const std::string circuit_flavor = args[2];
+    const std::string srs_path = args[3];
+    const std::string string_input = args[4];
 
-    bb::srs::init_crs_factory(srs_path);
+    bb::srs::init_file_crs_factory(srs_path);
 
     // @todo dynamically allocate this
     uint256_t inputs[] = { 0, 0, 0, 0, 0, 0 };

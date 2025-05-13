@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/api/acir_format_getters.hpp"
-#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/constants.hpp"
 
 namespace bb {
@@ -20,12 +19,9 @@ void gate_count(const std::string& bytecode_path,
                 uint32_t honk_recursion,
                 bool include_gates_per_opcode)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Try to only do this when necessary.
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
     // All circuit reports will be built into the string below
     std::string functions_string = "{\"functions\": [\n  ";
-    auto constraint_systems = get_constraint_systems(bytecode_path, honk_recursion);
+    auto constraint_systems = get_constraint_systems(bytecode_path);
 
     const acir_format::ProgramMetadata metadata{ .recursive = recursive,
                                                  .honk_recursion = honk_recursion,

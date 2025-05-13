@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -582,25 +588,6 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         Utils::zero_elements(relation_evaluations);
     };
-    /**
-     * @brief Check that the round target sum is correct
-     * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
-     * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
-     * \f$
-     * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
-     *
-     */
-    bool check_sum(SumcheckRoundUnivariate& univariate)
-    {
-        FF total_sum = univariate.value_at(0) + univariate.value_at(1);
-        // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
-        // with a simulated builder.
-        bool sumcheck_round_failed(false);
-        sumcheck_round_failed = (target_total_sum != total_sum);
-
-        round_failed = round_failed || sumcheck_round_failed;
-        return !sumcheck_round_failed;
-    };
 
     /**
      * @brief Check that the round target sum is correct
@@ -610,44 +597,25 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
      *
      */
-    template <typename Builder>
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, stdlib::bool_t<Builder> dummy_round)
+    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, const FF& indicator)
     {
         FF total_sum =
-            FF::conditional_assign(dummy_round, target_total_sum, univariate.value_at(0) + univariate.value_at(1));
-        // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
-        // with a simulated builder.
+            (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
         bool sumcheck_round_failed(false);
-        // This bool is only needed for debugging
-        if (!dummy_round.get_value()) {
-            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-        }
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            // This bool is only needed for debugging
+            if (indicator.get_value() == FF{ 1 }.get_value()) {
+                sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
+            }
 
-        if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-            // https://github.com/AztecProtocol/barretenberg/issues/998): Avoids the scenario where the assert_equal
-            // below fails because we are comparing a constant against a non-constant value and the non-constant
-            // value is in relaxed form. This happens at the first round when target_total_sum is initially set to
-            // 0.
-            total_sum.self_reduce();
+            target_total_sum.assert_equal(total_sum);
+        } else {
+            sumcheck_round_failed = (target_total_sum != total_sum);
         }
-        target_total_sum.assert_equal(total_sum);
 
         round_failed = round_failed || sumcheck_round_failed;
         return !sumcheck_round_failed;
     };
-
-    /**
-     * @brief After checking that the univariate is good for this round, compute the next target sum given by the
-     * evaluation \f$\tilde{S}^i(u_i)\f$.
-     *
-     * @param univariate \f$ \tilde{S}^i(X) \f$, given by its evaluations over \f$ \{0,1,2,\ldots, D\}\f$.
-     * @param round_challenge \f$ u_i\f$
-     */
-    void compute_next_target_sum(SumcheckRoundUnivariate& univariate, FF& round_challenge)
-    {
-        // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
-        target_total_sum = univariate.evaluate(round_challenge);
-    }
 
     /**
      * @brief After checking that the univariate is good for this round, compute the next target sum given by the
@@ -657,13 +625,12 @@ template <typename Flavor> class SumcheckVerifierRound {
      * @param round_challenge \f$ u_i\f$
      *
      */
-    template <typename Builder>
     void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
                                  FF& round_challenge,
-                                 stdlib::bool_t<Builder> dummy_round)
+                                 const FF& indicator)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
-        target_total_sum = FF::conditional_assign(dummy_round, target_total_sum, univariate.evaluate(round_challenge));
+        target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
     }
 
     /**
@@ -698,22 +665,14 @@ template <typename Flavor> class SumcheckVerifierRound {
      */
     void pad_gate_challenges(std::vector<FF>& gate_challenges)
     {
-        // Needed to avoid redundant padding in Translator
-        static constexpr bool is_translator = IsAnyOf<Flavor,
-                                                      TranslatorFlavor,
-                                                      TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                                      TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                                      TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
-        if constexpr (!is_translator) {
-            if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
-                FF zero{ 0 };
-                if constexpr (IsRecursiveFlavor<Flavor>) {
-                    zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
-                }
-                for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-                    gate_challenges.emplace_back(zero);
-                }
+        if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
+            FF zero{ 0 };
+            if constexpr (IsRecursiveFlavor<Flavor>) {
+                zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
+            }
+            for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+                gate_challenges.emplace_back(zero);
             }
         }
     }
