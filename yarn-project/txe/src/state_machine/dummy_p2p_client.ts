@@ -159,4 +159,8 @@ export class DummyP2P implements P2P {
   public getSyncedLatestSlot(): Promise<bigint> {
     throw new Error('DummyP2P does not implement "getSyncedLatestSlot"');
   }
+
+  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "markTxsAsNonEvictable".');
+  }
 }
