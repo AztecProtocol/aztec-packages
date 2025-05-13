@@ -929,6 +929,69 @@ class TranslatorFlavor {
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     };
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    static bool print_debug(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                            const EdgeType edge_idx)
+    {
+        auto t0 = polynomials.ordered_range_constraints_0[edge_idx];
+        auto t1 = polynomials.ordered_range_constraints_1[edge_idx];
+        auto t2 = polynomials.ordered_range_constraints_2[edge_idx];
+        auto t3 = polynomials.ordered_range_constraints_3[edge_idx];
+        auto t4 = polynomials.ordered_range_constraints_4[edge_idx];
+        std::cout << "ordered " << std::endl;
+        std::cout << t0 << std::endl;
+        std::cout << t1 << std::endl;
+        std::cout << t2 << std::endl;
+        std::cout << t3 << std::endl;
+        std::cout << t4 << std::endl;
+        std::cout << "ordered +1" << std::endl;
+        auto r0 = polynomials.ordered_range_constraints_0[edge_idx + 1];
+        auto r1 = polynomials.ordered_range_constraints_1[edge_idx + 1];
+        auto r2 = polynomials.ordered_range_constraints_2[edge_idx + 1];
+        auto r3 = polynomials.ordered_range_constraints_3[edge_idx + 1];
+        auto r4 = polynomials.ordered_range_constraints_4[edge_idx + 1];
+        std::cout << r0 << std::endl;
+        std::cout << r1 << std::endl;
+        std::cout << r2 << std::endl;
+        std::cout << r3 << std::endl;
+        std::cout << r4 << std::endl;
+        std::cout << "ordered shift" << std::endl;
+        auto t5 = polynomials.ordered_range_constraints_0_shift[edge_idx];
+        auto t6 = polynomials.ordered_range_constraints_1_shift[edge_idx];
+        auto t7 = polynomials.ordered_range_constraints_2_shift[edge_idx];
+        auto t8 = polynomials.ordered_range_constraints_3_shift[edge_idx];
+        auto t9 = polynomials.ordered_range_constraints_4_shift[edge_idx];
+
+        std::cout << t5 << std::endl;
+        std::cout << t6 << std::endl;
+        std::cout << t7 << std::endl;
+        std::cout << t8 << std::endl;
+        std::cout << t9 << std::endl;
+        std::cout << "ordered shift+1" << std::endl;
+        auto r5 = polynomials.ordered_range_constraints_0_shift[edge_idx + 1];
+        auto r6 = polynomials.ordered_range_constraints_1_shift[edge_idx + 1];
+        auto r7 = polynomials.ordered_range_constraints_2_shift[edge_idx + 1];
+        auto r8 = polynomials.ordered_range_constraints_3_shift[edge_idx + 1];
+        auto r9 = polynomials.ordered_range_constraints_4_shift[edge_idx + 1];
+
+        std::cout << r5 << std::endl;
+        std::cout << r6 << std::endl;
+        std::cout << r7 << std::endl;
+        std::cout << r8 << std::endl;
+        std::cout << r9 << std::endl;
+        auto l0 = polynomials.lagrange_real_last[edge_idx];
+        auto l1 = polynomials.lagrange_real_last[edge_idx + 1];
+        auto m0 = polynomials.lagrange_masking[edge_idx];
+        auto m1 = polynomials.lagrange_masking[edge_idx + 1];
+
+        std::cout << "ll real last " << std::endl;
+        std::cout << l0 << std::endl;
+        std::cout << l1 << std::endl;
+        std::cout << "ll masking " << std::endl;
+        std::cout << m0 << std::endl;
+        std::cout << m1 << std::endl;
+        return true;
+    }
 
     /**
      * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
@@ -938,11 +1001,24 @@ class TranslatorFlavor {
      *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
      **/
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
-    static bool skip_entire_row(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                const EdgeType edge_idx)
+    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                [[maybe_unused]] const EdgeType edge_idx)
     {
-        return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
-               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]);
+        auto s0 = polynomials.ordered_range_constraints_0_shift[edge_idx];
+        auto s1 = polynomials.ordered_range_constraints_1_shift[edge_idx];
+        auto s2 = polynomials.ordered_range_constraints_2_shift[edge_idx];
+        auto s3 = polynomials.ordered_range_constraints_3_shift[edge_idx];
+        auto s4 = polynomials.ordered_range_constraints_4_shift[edge_idx];
+        auto s5 = polynomials.ordered_range_constraints_0_shift[edge_idx + 1];
+        auto s6 = polynomials.ordered_range_constraints_1_shift[edge_idx + 1];
+        auto s7 = polynomials.ordered_range_constraints_2_shift[edge_idx + 1];
+        auto s8 = polynomials.ordered_range_constraints_3_shift[edge_idx + 1];
+        auto s9 = polynomials.ordered_range_constraints_4_shift[edge_idx + 1];
+        auto shift_0 = (s0 == 0) && (s1 == 0) && (s2 == 0) && (s3 == 0) && (s4 == 0) && (s5 == 0) && (s6 == 0) &&
+                       (s7 == 0) && (s8 == 0) && (s9 == 0);
+        return shift_0 && (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
     }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 

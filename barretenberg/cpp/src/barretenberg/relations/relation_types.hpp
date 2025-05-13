@@ -148,6 +148,14 @@ concept isRowSkippable =
             Flavor::skip_entire_row(input, edge_idx)
         } -> std::same_as<bool>;
     };
+
+template <typename Flavor, typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+concept hasPrintDebug =
+    requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& input, const EdgeType edge_idx) {
+        {
+            Flavor::print_debug(input, edge_idx)
+        } -> std::same_as<bool>;
+    };
 /**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
  * contribution of a given relation to the corresponding accumulator.

@@ -1507,6 +1507,13 @@ class ECCVMFlavor {
         }
     };
 
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    static bool print_debug([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                            [[maybe_unused]] const EdgeType edge_idx)
+    {
+        std::cout << "meep" << std::endl;
+        return 0;
+    }
     /**
      * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
      *
@@ -1515,11 +1522,12 @@ class ECCVMFlavor {
      *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
      **/
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
-    static bool skip_entire_row(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
-                                const EdgeType edge_idx)
+    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                [[maybe_unused]] const EdgeType edge_idx)
     {
         return (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
-               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]);
+               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
     }
 };
 
