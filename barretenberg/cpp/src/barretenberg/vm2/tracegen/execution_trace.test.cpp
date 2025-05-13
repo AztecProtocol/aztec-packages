@@ -78,8 +78,7 @@ TEST(ExecutionTraceGenTest, Call)
 
     // Inputs
     ExecInstructionSpec call_spec = {
-        .num_addresses = 5,
-        .gas_cost = { .base_l2 = AVM_CALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_CALL_DYN_L2_GAS, .dyn_da = 0 }
+        .num_addresses = 5, .gas_cost = { .base_l2 = AVM_CALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 }
     };
     const auto call_instr = InstructionBuilder(WireOpCode::CALL)
                                 .operand<uint8_t>(2)

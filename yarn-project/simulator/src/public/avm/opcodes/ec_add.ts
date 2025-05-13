@@ -39,7 +39,7 @@ export class EcAdd extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [
       this.p1XOffset,

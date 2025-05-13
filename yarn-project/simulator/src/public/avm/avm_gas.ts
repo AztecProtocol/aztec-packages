@@ -2,7 +2,6 @@ import * as c from '@aztec/constants';
 
 import { TypeTag } from './avm_memory_types.js';
 import { InstructionExecutionError } from './errors.js';
-import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 
 /** Gas counters in L1, L2, and DA. */
@@ -128,16 +127,18 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
 };
 
 const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
-  [Opcode.CALLDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)],
-  [Opcode.RETURNDATACOPY, makeCost(c.AVM_RETURNDATACOPY_DYN_L2_GAS, 0)],
-  [Opcode.EMITUNENCRYPTEDLOG, makeCost(c.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)],
-  [Opcode.CALL, makeCost(c.AVM_CALL_DYN_L2_GAS, 0)],
-  [Opcode.STATICCALL, makeCost(c.AVM_STATICCALL_DYN_L2_GAS, 0)],
-  [Opcode.RETURN, makeCost(c.AVM_RETURN_DYN_L2_GAS, 0)],
-  [Opcode.REVERT_8, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
-  [Opcode.REVERT_16, makeCost(c.AVM_REVERT_DYN_L2_GAS, 0)],
-  [Opcode.DEBUGLOG, makeCost(c.AVM_DEBUGLOG_DYN_L2_GAS, 0)],
-  [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)],
+  [Opcode.CALLDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)], //y
+  [Opcode.RETURNDATACOPY, makeCost(c.AVM_RETURNDATACOPY_DYN_L2_GAS, 0)], //y
+  // TODO: Call and static call based on bytecode length
+  [Opcode.EMITUNENCRYPTEDLOG, makeCost(0, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)], //y
+  [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)], //y
+  // TODO: SSTORE
+  [Opcode.AND_8, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
+  [Opcode.AND_16, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
+  [Opcode.OR_8, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
+  [Opcode.OR_16, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
+  [Opcode.XOR_8, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
+  [Opcode.XOR_16, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
 ]);
 
 /** Returns the fixed base gas cost for a given opcode. */
@@ -149,31 +150,8 @@ export function getDynamicGasCost(opcode: Opcode): Gas {
   return DYNAMIC_GAS_COSTS.has(opcode) ? DYNAMIC_GAS_COSTS.get(opcode)! : makeCost(0, 0);
 }
 
-/** Returns the gas cost associated with the memory operations performed. */
-export function getMemoryGasCost(args: { reads?: number; writes?: number; indirect?: number }) {
-  const { reads, writes, indirect } = args;
-  const indirectCount = Addressing.fromWire(indirect ?? 0).count(AddressingMode.INDIRECT);
-  const l2MemoryGasCost =
-    (reads ?? 0) * GAS_COST_CONSTANTS.MEMORY_READ +
-    (writes ?? 0) * GAS_COST_CONSTANTS.MEMORY_WRITE +
-    indirectCount * GAS_COST_CONSTANTS.MEMORY_INDIRECT_READ_PENALTY;
-  return makeGas({ l2Gas: l2MemoryGasCost });
-}
-
-/** Constants used in base cost calculations. */
-export const GAS_COST_CONSTANTS = {
-  MEMORY_READ: 10,
-  MEMORY_INDIRECT_READ_PENALTY: 10,
-  MEMORY_WRITE: 100,
-};
-
-/** Returns gas cost for an operation on a given type tag based on the base cost per byte. */
-export function getGasCostForTypeTag(tag: TypeTag, baseCost: Gas) {
-  return mulGas(baseCost, getGasCostMultiplierFromTypeTag(tag));
-}
-
-/** Returns a multiplier based on the size of the type represented by the tag. Throws on uninitialized or invalid. */
-function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
+/** Returns a multiplier based on the byte size of the type represented by the tag. Throws on uninitialized or invalid. */
+export function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
   switch (tag) {
     case TypeTag.UINT1: // same as u8
       return 1;

@@ -687,8 +687,6 @@ pub global L2_GAS_PER_NULLIFIER_READ_REQUEST: u32 =
 pub global L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST: u32 =
     L1_TO_L2_MSG_TREE_HEIGHT * L2_GAS_PER_READ_MERKLE_HASH;
 
-// Gas for hashing and validating logs
-pub global L2_GAS_PER_LOG_BYTE: u32 = 4;
 // Zero gas because we don't have to hash and validate the private logs
 pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
 pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0;
@@ -739,7 +737,7 @@ pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NULLIFIER_READ
 pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NULLIFIER;
 pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST;
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NULLIFIER_READ_REQUEST; // does a nullifier check
-pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15;
+pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15; // TODO: Update this since we won't do dynamic l2 gas
 pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_L2_TO_L1_MSG;
 // On CALL, AVM performs nullifier checks for contract address & contract class ID
 pub global AVM_CALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
@@ -757,15 +755,8 @@ pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
 pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 3;
-// a single increment here corresponds to an entire additional field (hence x32 bytes per field)
-pub global AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS: u32 = 3 + (DA_BYTES_PER_FIELD * L2_GAS_PER_LOG_BYTE);
-pub global AVM_CALL_DYN_L2_GAS: u32 = 4;
-pub global AVM_STATICCALL_DYN_L2_GAS: u32 = 4;
-pub global AVM_RETURN_DYN_L2_GAS: u32 = 3;
-pub global AVM_REVERT_DYN_L2_GAS: u32 = 3;
-pub global AVM_DEBUGLOG_DYN_L2_GAS: u32 = 6;
-pub global AVM_MSM_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
+pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // TODO: Update this
 
 // Base DA Gas
 pub global AVM_SSTORE_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;

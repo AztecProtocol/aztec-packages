@@ -290,7 +290,6 @@ library Constants {
   uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 1440;
   uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 1440;
   uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 1404;
-  uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
   uint256 internal constant L2_GAS_PER_PRIVATE_LOG = 0;
   uint256 internal constant L2_GAS_PER_CONTRACT_CLASS_LOG = 0;
   uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;

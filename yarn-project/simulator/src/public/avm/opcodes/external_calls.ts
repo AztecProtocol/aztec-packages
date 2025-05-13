@@ -30,6 +30,8 @@ abstract class ExternalCall extends Instruction {
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory;
+    context.machineState.consumeGas(this.baseGasCost());
+
     const operands = [this.l2GasOffset, this.daGasOffset, this.addrOffset, this.argsSizeOffset, this.argsOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset] = addressing.resolve(operands, memory);
@@ -47,9 +49,7 @@ abstract class ExternalCall extends Instruction {
     // If we are already in a static call, we propagate the environment.
     const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
 
-    // First we consume the gas for this operation.
-    context.machineState.consumeGas(this.gasCost(calldataSize));
-    // Then we consume the gas allocated for the nested call. The excess will be refunded later.
+    // We consume the gas allocated for the nested call. The excess will be refunded later.
     // Gas allocation is capped by the amount of gas left in the current context.
     // We have to do some dancing here because the gas allocation is a field,
     // but in the machine state we track gas as a number.
@@ -169,6 +169,7 @@ export class Return extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.returnSizeOffset, this.returnOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -176,7 +177,6 @@ export class Return extends Instruction {
 
     memory.checkTag(TypeTag.UINT32, returnSizeOffset);
     const returnSize = memory.get(returnSizeOffset).toNumber();
-    context.machineState.consumeGas(this.gasCost(returnSize));
 
     const output = memory.getSlice(returnOffset, returnSize).map(word => word.toFr());
 
@@ -211,6 +211,7 @@ export class Revert extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.retSizeOffset, this.returnOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -218,7 +219,6 @@ export class Revert extends Instruction {
 
     memory.checkTag(TypeTag.UINT32, retSizeOffset);
     const retSize = memory.get(retSizeOffset).toNumber();
-    context.machineState.consumeGas(this.gasCost(retSize));
     const output = memory.getSlice(returnOffset, retSize).map(word => word.toFr());
 
     context.machineState.revert(output);

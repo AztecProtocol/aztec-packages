@@ -33,6 +33,8 @@ export class ToRadixBE extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    context.machineState.consumeGas(this.baseGasCost());
+
     const operands = [this.srcOffset, this.radixOffset, this.numLimbsOffset, this.outputBitsOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -44,7 +46,7 @@ export class ToRadixBE extends Instruction {
     memory.checkTag(TypeTag.UINT1, outputBitsOffset);
 
     const numLimbs = memory.get(numLimbsOffset).toNumber();
-    context.machineState.consumeGas(this.gasCost(numLimbs));
+    context.machineState.consumeGas(this.dynamicGasCost(numLimbs)); //TODO change this to num limbs + P limbs for the radix
     const outputBits = memory.get(outputBitsOffset).toNumber();
 
     let value: bigint = memory.get(srcOffset).toBigInt();

@@ -25,7 +25,7 @@ export class Poseidon2 extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.inputStateOffset, this.outputStateOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
@@ -62,10 +62,11 @@ export class KeccakF1600 extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const inputSize = 25;
     const memory = context.machineState.memory;
+    context.machineState.consumeGas(this.baseGasCost());
+
     const operands = [this.dstOffset, this.inputOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset, inputOffset] = addressing.resolve(operands, memory);
-    context.machineState.consumeGas(this.gasCost());
 
     const stateData = memory.getSlice(inputOffset, inputSize).map(word => word.toBigInt());
     memory.checkTagsRange(TypeTag.UINT64, inputOffset, inputSize);
@@ -104,12 +105,13 @@ export class Sha256Compression extends Instruction {
     const INPUTS_SIZE = 16;
 
     const memory = context.machineState.memory;
+    context.machineState.consumeGas(this.baseGasCost());
+
     const operands = [this.outputOffset, this.stateOffset, this.inputsOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [outputOffset, stateOffset, inputsOffset] = addressing.resolve(operands, memory);
 
     // Note: size of output is same as size of state
-    context.machineState.consumeGas(this.gasCost());
     const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
     const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
 

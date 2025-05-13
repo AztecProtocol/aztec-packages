@@ -67,7 +67,7 @@ export class GetEnvVar extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost());
 
     if (!(this.varEnum in EnvironmentVariable)) {
       throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);

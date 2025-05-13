@@ -34,7 +34,7 @@ export class GetContractInstance extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost());
 
     if (!(this.memberEnum in ContractInstanceMember)) {
       throw new InstructionExecutionError(`Invalid GETCONSTRACTINSTANCE member enum ${this.memberEnum}`);

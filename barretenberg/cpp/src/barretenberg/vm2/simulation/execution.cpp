@@ -18,6 +18,7 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     auto& memory = context.get_memory();
     MemoryValue a = memory.get(a_addr);
     MemoryValue b = memory.get(b_addr);
+
     MemoryValue c = alu.add(a, b);
     memory.set(dst_addr, c);
 
@@ -143,6 +144,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             // Resolve the operands.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
+
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 

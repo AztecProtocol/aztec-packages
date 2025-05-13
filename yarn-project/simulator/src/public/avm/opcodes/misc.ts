@@ -33,6 +33,8 @@ export class DebugLog extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    context.machineState.consumeGas(this.baseGasCost());
+
     const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
@@ -45,8 +47,6 @@ export class DebugLog extends Instruction {
 
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
     memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
-
-    context.machineState.consumeGas(this.gasCost(this.messageSize + fieldsSize));
 
     // Interpret str<N> = [u8; N] to string.
     const messageAsStr = rawMessage.map(field => String.fromCharCode(field.toNumber())).join('');

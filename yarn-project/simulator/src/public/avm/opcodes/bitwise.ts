@@ -1,4 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
+import { getGasCostMultiplierFromTypeTag } from '../avm_gas.js';
 import { type IntegralValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -8,12 +9,15 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
     this.checkTags(memory, aOffset, bOffset);
+
+    const multiplier = this.getDynamicMultiplier(memory.getTag(aOffset));
+    context.machineState.consumeGas(this.dynamicGasCost(multiplier));
 
     const a = memory.getAs<IntegralValue>(aOffset);
     const b = memory.getAs<IntegralValue>(bOffset);
@@ -27,6 +31,10 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
     TaggedMemory.checkIsIntegralTag(memory.getTag(aOffset));
     memory.checkTagsAreSame(aOffset, bOffset);
   }
+
+  protected getDynamicMultiplier(_lhsTag: TypeTag): number {
+    return 0;
+  }
 }
 
 export class And extends ThreeOperandBitwiseInstruction {
@@ -35,6 +43,10 @@ export class And extends ThreeOperandBitwiseInstruction {
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.and(b);
+  }
+
+  protected override getDynamicMultiplier(lhsTag: TypeTag): number {
+    return getGasCostMultiplierFromTypeTag(lhsTag);
   }
 }
 
@@ -45,6 +57,10 @@ export class Or extends ThreeOperandBitwiseInstruction {
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.or(b);
   }
+
+  protected override getDynamicMultiplier(lhsTag: TypeTag): number {
+    return getGasCostMultiplierFromTypeTag(lhsTag);
+  }
 }
 
 export class Xor extends ThreeOperandBitwiseInstruction {
@@ -53,6 +69,10 @@ export class Xor extends ThreeOperandBitwiseInstruction {
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.xor(b);
+  }
+
+  protected override getDynamicMultiplier(lhsTag: TypeTag): number {
+    return getGasCostMultiplierFromTypeTag(lhsTag);
   }
 }
 
@@ -95,7 +115,7 @@ export class Not extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.srcOffset, this.dstOffset];
     const addressing = Addressing.fromWire(this.indirect, operands.length);
