@@ -125,4 +125,17 @@ contract ValidatorSelectionTestBase is DecoderBase {
       amount: TestConstants.AZTEC_MINIMUM_STAKE
     });
   }
+
+  function createSignature(address _signer, bytes32 _digest)
+    internal
+    view
+    returns (Signature memory)
+  {
+    uint256 privateKey = attesterPrivateKeys[_signer];
+
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+    return Signature({isEmpty: false, v: v, r: r, s: s});
+  }
 }
