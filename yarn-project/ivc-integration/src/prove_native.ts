@@ -214,8 +214,7 @@ export async function proveAvm(
   const avmProofBuffer = await fs.readFile(avmProofPath!);
   const reader = BufferReader.asReader(avmProofBuffer);
 
-  // TODO(#14234): Replace next line with const proof: Fr[] = [];
-  const proof: Fr[] = skipPublicInputsValidation ? [new Fr(1)] : [new Fr(0)];
+  const proof: Fr[] = [];
   while (!reader.isEmpty()) {
     proof.push(Fr.fromBuffer(reader));
   }
@@ -246,15 +245,22 @@ export async function proveAvm(
     workingDirectory,
     proofRes.proofPath!,
     avmCircuitInputs.publicInputs,
-    proofRes.vkPath!,
+    path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
     logger,
   );
 
   if (verificationResult.status === BB_RESULT.FAILURE) {
     throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
   }
+
+  // TODO(#14234): Remove next lines and return proof instead of proofWithPublicInputsValidationFlag
+  const skipPublicInputsField = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
+  const proofWithPublicInputsValidationFlag: Fr[] = [skipPublicInputsField]
+    .concat(proof)
+    .slice(0, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+
   return {
-    proof,
+    proof: proofWithPublicInputsValidationFlag,
     vk,
     publicInputs: avmCircuitInputs.publicInputs,
   };
