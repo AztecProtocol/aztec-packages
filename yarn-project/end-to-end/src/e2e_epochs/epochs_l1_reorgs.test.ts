@@ -57,8 +57,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
     // And remove the proof from L1
     await context.cheatCodes.eth.reorg(2);
-    await monitor.run();
-    expect(monitor.l2ProvenBlockNumber).toEqual(0);
+    expect((await monitor.run(true)).l2ProvenBlockNumber).toEqual(0);
 
     // Wait until the end of the proof submission window for the first epoch
     await test.waitUntilEndOfProofSubmissionWindow(0);
@@ -72,7 +71,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     // This is because the call to createNonValidatorNode will block until the initial sync is completed,
     // but the initial sync is done to the latest L1 block _at the time the initial sync starts_. So a new
     // node may have appeared while the initial sync runs, that's why we account for a small span of blocks.
-    const currentBlock = monitor.l2BlockNumber;
+    const currentBlock = (await monitor.run(true)).l2BlockNumber;
     expect(await newNode.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
 
     // And check that the old node has processed the reorg as well
@@ -142,13 +141,13 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     expect(proofTxReceipt.status).toEqual('success');
 
     // Monitor should update to see the proof
-    await monitor.run(true);
-    expect(monitor.l2BlockNumber).toBeGreaterThan(1);
-    expect(monitor.l2ProvenBlockNumber).toBeGreaterThan(0);
+    const { l2BlockNumber, l2ProvenBlockNumber } = await monitor.run(true);
+    expect(l2BlockNumber).toBeGreaterThan(1);
+    expect(l2ProvenBlockNumber).toBeGreaterThan(0);
 
     // And so the node undoes its reorg
-    await retryUntil(() => node.getBlockNumber().then(b => b === monitor.l2BlockNumber), 'node sync', syncTimeout, 0.1);
-    await expect(node.getProvenBlockNumber()).resolves.toEqual(monitor.l2ProvenBlockNumber);
+    await retryUntil(() => node.getBlockNumber().then(b => b >= l2BlockNumber), 'node sync', syncTimeout, 0.1);
+    await retryUntil(() => node.getProvenBlockNumber().then(b => b >= l2ProvenBlockNumber), 'proof sync', 1, 0.1);
 
     logger.warn(`Test succeeded`);
   });

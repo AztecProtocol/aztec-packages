@@ -102,7 +102,7 @@ export class Sequencer {
     this.metrics = new SequencerMetrics(
       telemetry,
       () => this.state,
-      this._coinbase,
+      this.config.coinbase ?? this.publisher.getSenderAddress(),
       this.publisher.getRollupContract(),
       'Sequencer',
     );
@@ -154,6 +154,7 @@ export class Sequencer {
     }
     if (config.coinbase) {
       this._coinbase = config.coinbase;
+      this.metrics.setCoinbase(this._coinbase);
     }
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;

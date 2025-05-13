@@ -1,8 +1,8 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
-import { Fr } from '@aztec/aztec.js';
+import { EthAddress, Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, getAddressFromPrivateKey } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
@@ -140,6 +140,7 @@ export async function startNode(
       }
     }
     nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
+    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey));
   }
 
   if (nodeConfig.p2pEnabled) {

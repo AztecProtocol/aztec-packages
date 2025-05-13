@@ -642,6 +642,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
           blockNumber: block.block.number,
           txCount: block.block.body.txEffects.length,
           globalVariables: block.block.header.globalVariables.toInspect(),
+          archiveRoot: block.block.archive.root.toString(),
+          archiveNextLeafIndex: block.block.archive.nextAvailableLeafIndex,
         });
       }
       lastRetrievedBlock = publishedBlocks.at(-1) ?? lastRetrievedBlock;

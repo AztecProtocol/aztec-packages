@@ -120,6 +120,13 @@ export function createDebugExecutionStepsDirOption() {
   ).makeOptionMandatory(false);
 }
 
+export function createVerboseOption() {
+  return new Option(
+    '-v, --verbose',
+    'Provide timings on all executed operations (synching, simulating, proving)',
+  ).default(false);
+}
+
 export function artifactPathParser(filePath: string, db?: WalletDB) {
   if (filePath.includes('@')) {
     const [pkg, contractName] = filePath.split('@');
