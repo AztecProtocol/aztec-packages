@@ -31,6 +31,11 @@ class {{perm_name}}_settings {
         return (in.get(ColumnAndShifts::{{lhs_selector}}) == 1 || in.get(ColumnAndShifts::{{rhs_selector}}) == 1);
     }
 
+    template <typename ProverPolynomials> static inline auto inverse_polynomial_is_computed_at_row(const ProverPolynomials& in, const size_t row_index)
+    {
+        return (in.get(ColumnAndShifts::{{lhs_selector}})[row_index] == 1 || in.get(ColumnAndShifts::{{rhs_selector}})[row_index] == 1);
+    }
+
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
         return std::forward_as_tuple(

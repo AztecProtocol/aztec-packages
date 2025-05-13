@@ -391,6 +391,7 @@ template <typename Flavor> class SumcheckProverRound {
             ExtendedEdges extended_edges;
             for (size_t i = start_iterator; i < end_iterator; ++i) {
                 size_t edge_idx = edge_iterator.get_next_edge();
+
                 extend_edges(extended_edges, polynomials, edge_idx);
                 // Construct extended univariates containers; one per threade extend_edges(extended_edges, polynomials,
                 // edge_idx); Compute the \f$ \ell \f$-th edge's univariate contribution, scale it by the corresponding
