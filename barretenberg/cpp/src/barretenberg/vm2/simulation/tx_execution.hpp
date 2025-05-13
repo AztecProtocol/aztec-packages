@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
@@ -10,22 +11,19 @@ namespace bb::avm2::simulation {
 class TxExecution final {
   public:
     // FIXME: mekle db here should only be temporary, we should access via context.
-    TxExecution(ExecutionInterface& call_execution, HighLevelMerkleDBInterface& merkle_db)
+    TxExecution(ExecutionInterface& call_execution,
+                ContextProviderInterface& context_provider,
+                HighLevelMerkleDBInterface& merkle_db)
         : call_execution(call_execution)
+        , context_provider(context_provider)
         , merkle_db(merkle_db)
     {}
 
     void simulate(const Tx& tx);
 
-    std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
-                                                            AztecAddress msg_sender,
-                                                            std::span<const FF> calldata,
-                                                            bool is_static,
-                                                            Gas gas_limit,
-                                                            Gas gas_used);
-
   private:
     ExecutionInterface& call_execution;
+    ContextProviderInterface& context_provider;
     // More things need to be lifted into the tx execution??
     HighLevelMerkleDBInterface& merkle_db;
 

@@ -28,7 +28,7 @@ void TxExecution::simulate(const Tx& tx)
         // Setup.
         for (const auto& call : tx.setupEnqueuedCalls) {
             info("[SETUP] Executing enqueued call to ", call.contractAddress);
-            auto context = make_enqueued_context(
+            auto context = context_provider.make_enqueued_context(
                 call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
             ExecutionResult result = call_execution.execute(std::move(context));
             gas_used = result.gas_used;
@@ -43,7 +43,7 @@ void TxExecution::simulate(const Tx& tx)
             // App logic.
             for (const auto& call : tx.appLogicEnqueuedCalls) {
                 info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
-                auto context = make_enqueued_context(
+                auto context = context_provider.make_enqueued_context(
                     call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
                 ExecutionResult result = call_execution.execute(std::move(context));
                 gas_used = result.gas_used;
@@ -57,12 +57,12 @@ void TxExecution::simulate(const Tx& tx)
         if (tx.teardownEnqueuedCall) {
             try {
                 info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->contractAddress);
-                auto context = make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
-                                                     tx.teardownEnqueuedCall->msgSender,
-                                                     tx.teardownEnqueuedCall->calldata,
-                                                     tx.teardownEnqueuedCall->isStaticCall,
-                                                     tx.gasSettings.teardownGasLimits,
-                                                     Gas{ 0, 0 });
+                auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
+                                                                      tx.teardownEnqueuedCall->msgSender,
+                                                                      tx.teardownEnqueuedCall->calldata,
+                                                                      tx.teardownEnqueuedCall->isStaticCall,
+                                                                      tx.gasSettings.teardownGasLimits,
+                                                                      Gas{ 0, 0 });
                 call_execution.execute(std::move(context));
             } catch (const std::exception& e) {
                 info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
@@ -75,18 +75,6 @@ void TxExecution::simulate(const Tx& tx)
         info("Error while simulating tx ", tx.hash, ": ", e.what());
         throw e;
     }
-}
-
-// This is effectively just calling into the execution provider
-std::unique_ptr<ContextInterface> TxExecution::make_enqueued_context(AztecAddress address,
-                                                                     AztecAddress msg_sender,
-                                                                     std::span<const FF> calldata,
-                                                                     bool is_static,
-                                                                     Gas gas_limit,
-                                                                     Gas gas_used)
-{
-    auto& execution_provider = call_execution.get_provider();
-    return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static, gas_limit, gas_used);
 }
 
 void TxExecution::insert_non_revertibles(const Tx& tx)
