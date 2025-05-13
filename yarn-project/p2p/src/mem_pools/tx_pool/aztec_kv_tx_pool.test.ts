@@ -268,6 +268,7 @@ describe('KV TX pool', () => {
       await tx1.getTxHash(),
     ]);
 
+    // Mark tx 1 as non-evictable
     const tx1Hash = await tx1.getTxHash();
     await txPool.markTxsAsNonEvictable([tx1Hash]);
 
