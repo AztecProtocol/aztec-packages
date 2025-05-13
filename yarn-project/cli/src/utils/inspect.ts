@@ -170,9 +170,8 @@ async function getKnownNullifiers(pxe: PXE, artifactMap: ArtifactMap) {
     deployNullifiers[siloNullifier(deployerAddress, contract.toField()).toString()] = contract;
   }
   for (const artifact of Object.values(artifactMap)) {
-    classNullifiers[
-      siloNullifier(registererAddress, artifact.classId).toString()
-    ] = `${artifact.name}Class<${artifact.classId}>`;
+    classNullifiers[siloNullifier(registererAddress, artifact.classId).toString()] =
+      `${artifact.name}Class<${artifact.classId}>`;
   }
   return { initNullifiers, deployNullifiers, classNullifiers };
 }

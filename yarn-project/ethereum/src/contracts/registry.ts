@@ -16,7 +16,10 @@ export class RegistryContract {
   private readonly log = createLogger('ethereum:contracts:registry');
   private readonly registry: GetContractReturnType<typeof RegistryAbi, ViemClient>;
 
-  constructor(public readonly client: ViemClient, address: Hex | EthAddress) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex | EthAddress,
+  ) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }

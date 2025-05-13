@@ -10,7 +10,11 @@ import { PrivateLog } from '../logs/private_log.js';
 import type { UInt32 } from '../types/shared.js';
 
 export class PrivateLogData {
-  constructor(public log: PrivateLog, public noteHashCounter: UInt32, public counter: UInt32) {}
+  constructor(
+    public log: PrivateLog,
+    public noteHashCounter: UInt32,
+    public counter: UInt32,
+  ) {}
 
   static from(fields: FieldsOf<PrivateLogData>): PrivateLogData {
     return new PrivateLogData(...PrivateLogData.getFields(fields));
@@ -62,7 +66,10 @@ export class PrivateLogData {
 }
 
 export class ScopedPrivateLogData {
-  constructor(public inner: PrivateLogData, public contractAddress: AztecAddress) {}
+  constructor(
+    public inner: PrivateLogData,
+    public contractAddress: AztecAddress,
+  ) {}
 
   static from(fields: FieldsOf<ScopedPrivateLogData>): ScopedPrivateLogData {
     return new ScopedPrivateLogData(...ScopedPrivateLogData.getFields(fields));

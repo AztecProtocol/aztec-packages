@@ -12,7 +12,10 @@ import type { ReadOnlyFileStore } from './interface.js';
 export class HttpFileStore implements ReadOnlyFileStore {
   private readonly fetch: typeof fetch;
 
-  constructor(private readonly baseUrl: string, private readonly log: Logger = createLogger('stdlib:http-file-store')) {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly log: Logger = createLogger('stdlib:http-file-store'),
+  ) {
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
         () => fetch(...args),

@@ -50,7 +50,10 @@ export function extractProposalIdFromLogs(logs: Log[]): bigint {
 export class ReadOnlyGovernanceContract {
   protected readonly governanceContract: GetContractReturnType<typeof GovernanceAbi, ViemClient>;
 
-  constructor(address: Hex, public readonly client: ViemClient) {
+  constructor(
+    address: Hex,
+    public readonly client: ViemClient,
+  ) {
     this.governanceContract = getContract({ address, abi: GovernanceAbi, client: client });
   }
 
@@ -131,7 +134,10 @@ export class ReadOnlyGovernanceContract {
 export class GovernanceContract extends ReadOnlyGovernanceContract {
   protected override readonly governanceContract: GetContractReturnType<typeof GovernanceAbi, ExtendedViemWalletClient>;
 
-  constructor(address: Hex, public override readonly client: ExtendedViemWalletClient) {
+  constructor(
+    address: Hex,
+    public override readonly client: ExtendedViemWalletClient,
+  ) {
     super(address, client);
     if (!isExtendedClient(client)) {
       throw new Error('GovernanceContract has to be instantiated with a wallet client.');

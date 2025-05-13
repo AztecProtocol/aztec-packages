@@ -325,7 +325,7 @@ export class BlockStore {
       this.getSynchedL2BlockNumber(),
       this.#lastProvenL2Block.getAsync(),
     ]);
-    return (provenBlockNumber ?? 0) > latestBlockNumber ? latestBlockNumber : provenBlockNumber ?? 0;
+    return (provenBlockNumber ?? 0) > latestBlockNumber ? latestBlockNumber : (provenBlockNumber ?? 0);
   }
 
   setProvenL2BlockNumber(blockNumber: number) {

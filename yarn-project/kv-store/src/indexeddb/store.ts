@@ -50,7 +50,12 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
     | IndexedDBAztecSingleton<any>
   >();
 
-  constructor(rootDB: IDBPDatabase<AztecIDBSchema>, public readonly isEphemeral: boolean, log: Logger, name: string) {
+  constructor(
+    rootDB: IDBPDatabase<AztecIDBSchema>,
+    public readonly isEphemeral: boolean,
+    log: Logger,
+    name: string,
+  ) {
     this.#rootDB = rootDB;
     this.#log = log;
     this.#name = name;

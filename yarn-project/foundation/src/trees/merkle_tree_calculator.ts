@@ -7,7 +7,11 @@ import { MerkleTree } from './merkle_tree.js';
  * Merkle tree calculator.
  */
 export class MerkleTreeCalculator {
-  private constructor(private height: number, private zeroHashes: Buffer[], private hasher: AsyncHasher['hash']) {
+  private constructor(
+    private height: number,
+    private zeroHashes: Buffer[],
+    private hasher: AsyncHasher['hash'],
+  ) {
     this.hasher = hasher;
   }
 
