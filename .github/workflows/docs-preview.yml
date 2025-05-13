@@ -40,11 +40,9 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Pull submodules
-        run: git submodule update --init --recursive
-
       - name: Build dependencies
         run: |
+          export NOIR_HASH=$(./noir/bootstrap.sh hash)
           for project in noir barretenberg l1-contracts noir-projects yarn-project; do
             $project/bootstrap.sh
           done
