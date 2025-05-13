@@ -7,7 +7,7 @@ import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundati
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { BlockAttestation, BlockProposal, P2PMessage, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type MakeConsensusPayloadOptions, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -72,8 +72,9 @@ describe('p2p client integration', () => {
 
     // Mock the function to just call the old one
     const handleGossipedTxSpy = jest.fn(async (msg: Message, msgId: string, source: PeerId) => {
-      promise.resolve(Tx.fromBuffer(Buffer.from(msg.data)));
-      await oldTxHandler(msg, msgId, source);
+      const p2pMessage = P2PMessage.fromMessageData(Buffer.from(msg.data));
+      promise.resolve(Tx.fromBuffer(p2pMessage.payload));
+      await oldTxHandler(p2pMessage.payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
     p2pService.handleGossipedTx = handleGossipedTxSpy;
@@ -89,8 +90,9 @@ describe('p2p client integration', () => {
 
     // Mock the function to just call the old one
     const handleGossipedProposalSpy = jest.fn(async (msg: Message, msgId: string, source: PeerId) => {
-      promise.resolve(BlockProposal.fromBuffer(Buffer.from(msg.data)));
-      await oldProposalHandler(msg, msgId, source);
+      const p2pMessage = P2PMessage.fromMessageData(Buffer.from(msg.data));
+      promise.resolve(BlockProposal.fromBuffer(p2pMessage.payload));
+      await oldProposalHandler(p2pMessage.payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
     p2pService.processBlockFromPeer = handleGossipedProposalSpy;
@@ -106,8 +108,9 @@ describe('p2p client integration', () => {
 
     // Mock the function to just call the old one
     const handleGossipedAttestationSpy = jest.fn(async (msg: Message, msgId: string, source: PeerId) => {
-      promise.resolve(BlockAttestation.fromBuffer(Buffer.from(msg.data)));
-      await oldAttestationHandler(msg, msgId, source);
+      const p2pMessage = P2PMessage.fromMessageData(Buffer.from(msg.data));
+      promise.resolve(BlockAttestation.fromBuffer(p2pMessage.payload));
+      await oldAttestationHandler(p2pMessage.payload, msgId, source);
     });
     // @ts-expect-error - replace with our own handler
     p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
