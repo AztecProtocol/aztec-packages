@@ -28,7 +28,7 @@ export interface AsyncHasher {
    * @param rhs - The second array.
    * @returns The new 32-byte hash.
    */
-  hash(lhs: Uint8Array, rhs: Uint8Array): Promise<Buffer<ArrayBuffer>>;
+  hash(lhs: Uint8Array, rhs: Uint8Array): Promise<Buffer>;
 
   /**
    * Hashes an array of buffers.

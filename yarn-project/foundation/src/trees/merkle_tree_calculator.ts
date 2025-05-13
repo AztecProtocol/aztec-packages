@@ -18,7 +18,7 @@ export class MerkleTreeCalculator {
   ) {
     const zeroHashes = [zeroLeaf];
     for (let i = 0; i < height; i++) {
-      zeroHashes.push(await hasher(zeroHashes[i], zeroHashes[i]));
+      zeroHashes.push((await hasher(zeroHashes[i], zeroHashes[i])) as Buffer<ArrayBuffer>);
     }
     return new MerkleTreeCalculator(height, zeroHashes, hasher);
   }

@@ -28,7 +28,7 @@ export class IndexedMerkleTreeCalculator<T extends IndexedTreeLeafPreimage, N ex
   ) {
     const zeroHashes = [zeroLeaf];
     for (let i = 0; i < height; i++) {
-      zeroHashes.push(await hasher.hash(zeroHashes[i], zeroHashes[i]));
+      zeroHashes.push((await hasher.hash(zeroHashes[i], zeroHashes[i])) as Buffer<ArrayBuffer>);
     }
     return new IndexedMerkleTreeCalculator(height, zeroHashes, hasher, factory);
   }
