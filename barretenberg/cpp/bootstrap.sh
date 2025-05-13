@@ -44,6 +44,15 @@ function build_native {
   fi
 }
 
+# Selectively build components with address sanitizer
+function build_native {
+  set -eu
+  if ! cache_download barretenberg-asan-$hash.zst; then
+    build_preset asan -DDISABLE_AZTEC_VM=ON
+    cache_upload barretenberg-asan-$hash.zst build/bin
+  fi
+}
+
 function build_nodejs_module {
   set -eu
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
@@ -160,7 +169,7 @@ function build {
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  cd build
+  cd build-asan-fast
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
