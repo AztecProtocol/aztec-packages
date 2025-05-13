@@ -149,7 +149,7 @@ export interface ServerCircuitProver {
    */
   getAvmProof(
     inputs: AvmCircuitInputs,
-    skipPublicInputsValidation?: boolean,
+    skipPublicInputsValidation?: boolean, // TODO(#14234): Remove.
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
