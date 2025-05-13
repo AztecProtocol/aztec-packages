@@ -74,6 +74,6 @@
   ],
   "types": "./dest/types/index.d.ts",
   "engines": {
-    "node": ">=22"
+    "node": ">=18"
   }
 }

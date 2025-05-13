@@ -60,7 +60,7 @@
     "!*.test.*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=18"
   },
   "jest": {
     "extensionsToTreatAsEsm": [

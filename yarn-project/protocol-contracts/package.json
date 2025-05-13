@@ -96,6 +96,6 @@
     "!src/scripts/*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=18"
   }
 }
