@@ -12,6 +12,9 @@ module.exports = {
       node: true,
     },
   },
+  languageOptions: {
+    ecmaVersion: 2025,
+  },
   root: true,
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc', 'jsdoc', 'no-only-tests'],
