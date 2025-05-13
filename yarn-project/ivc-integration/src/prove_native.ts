@@ -214,6 +214,7 @@ export async function proveAvm(
   const avmProofBuffer = await fs.readFile(avmProofPath!);
   const reader = BufferReader.asReader(avmProofBuffer);
 
+  // TODO(#14234): Replace next line with const proof: Fr[] = [];
   const proof: Fr[] = skipPublicInputsValidation ? [new Fr(1)] : [new Fr(0)];
   while (!reader.isEmpty()) {
     proof.push(Fr.fromBuffer(reader));

@@ -85,6 +85,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     using ClaimBatch = ClaimBatcher::Batch;
     using stdlib::bool_t;
 
+    // TODO(#14234): Remove the next 3 lines
     StdlibProof<Builder> stdlib_proof_no_pi_validation_switch = stdlib_proof;
     bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof_no_pi_validation_switch.at(0));
     stdlib_proof_no_pi_validation_switch.erase(stdlib_proof_no_pi_validation_switch.begin());
@@ -93,6 +94,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
     }
 
+    // TODO(#14234): use stdlib_proof instead of stdlib_proof_no_pi_validation_switch
     transcript = std::make_shared<Transcript>(stdlib_proof_no_pi_validation_switch);
 
     RelationParams relation_parameters;
@@ -147,6 +149,8 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         output.claimed_evaluations.public_inputs_cols_3_,
     };
 
+    // TODO(#14234): Inside of loop, replace pi_validation.must_imply() by
+    // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
