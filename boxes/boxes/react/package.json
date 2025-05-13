@@ -67,7 +67,7 @@
     "jest": "^29.6.4",
     "postcss": "^8.4.29",
     "postcss-loader": "^7.3.3",
-    "prettier": "^3.1.1",
+    "prettier": "^3.5.3",
     "react-toastify": "^10.0.4",
     "resolve-typescript-plugin": "^2.0.1",
     "stream-browserify": "^3.0.0",

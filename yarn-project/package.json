@@ -74,7 +74,7 @@
     "eslint": "^9.26.0",
     "eslint-import-resolver-typescript": "^3.5.5",
     "eslint-plugin-import": "^2.27.5",
-    "prettier": "^2.8.8",
+    "prettier": "^3.5.3",
     "typedoc": "^0.24.8",
     "typescript": "^5.3.3"
   },

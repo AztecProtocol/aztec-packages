@@ -62,7 +62,7 @@ __metadata:
     jest: "npm:^29.6.4"
     postcss: "npm:^8.4.29"
     postcss-loader: "npm:^7.3.3"
-    prettier: "npm:^3.1.1"
+    prettier: "npm:^3.5.3"
     react: "npm:^18.2.0"
     react-dom: "npm:^18.2.0"
     react-toastify: "npm:^10.0.4"
@@ -9589,7 +9589,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.1.1":
+"prettier@npm:^3.5.3":
   version: 3.5.3
   resolution: "prettier@npm:3.5.3"
   bin:
