@@ -251,10 +251,13 @@ library ValidatorSelectionLib {
   {
     ValidatorSelectionStorage storage store = getStorage();
 
-    // If no committee has been stored, then we need to setup the epoch
-    committeeCommitment = computeCommitteeCommitment(
-      sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber))
-    );
+    committeeCommitment = store.committeeCommitments[_epochNumber];
+    if (committeeCommitment == 0) {
+      // If no committee has been stored, then we need to setup the epoch
+      committeeCommitment = computeCommitteeCommitment(
+        sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber))
+      );
+    }
 
     // We do not want to recalculate this each time
     uint32 ts = Timestamp.unwrap(_epochNumber.toTimestamp()).toUint32() - 1;

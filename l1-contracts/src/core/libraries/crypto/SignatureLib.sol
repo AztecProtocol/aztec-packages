@@ -11,9 +11,9 @@ struct Signature {
   bytes32 s;
 }
 
-// A committee attestation can be made up of a signature of an address.
-// Committee members that have attested will produce a siganture, and the addr field will be empty.
-// If the addr field is NOT empty, it is assumed that the committee member did not attest.
+// A committee attestation can be made up of a signature and an address.
+// Committee members that have attested will produce a siganture, and if they have not attested, the signature will be empty and
+// an address provided.
 struct CommitteeAttestation {
   address addr;
   Signature signature;
