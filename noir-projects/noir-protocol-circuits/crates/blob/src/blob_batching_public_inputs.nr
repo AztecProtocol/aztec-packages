@@ -173,7 +173,7 @@ impl Empty for BlobAccumulationInputs {
 * Where b (= kzg_to_versioned_hash(C)) and Q (= KZG proof) are computed outside the circuit. The other params are
 * calculated here across the rollup circuits (until root, when .finalize() is called).
 * Other notes:
-*  - We use v to validate the commitments injected here correspond to blobs published on L1.
+*  - We use blob_commitments_hash to validate the commitments injected here correspond to blobs published on L1.
 *  - We use gamma as the challenge for multi opening, so it can be discarded once the rollup is complete.
 *  - We already know that the elements in each blob correspond to validated data from the kernels from the use of
 *    the blob_sponge and validating blob_sponge.squeeze() vs H(input_elements).
@@ -183,7 +183,7 @@ impl Empty for BlobAccumulationInputs {
 * TODO(MW): Compress F and Q values to reduce number of public inputs (BLOB_ACCUMULATOR_PUBLIC_INPUTS)
 */
 pub struct BlobAccumulatorPublicInputs {
-    pub v: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
+    pub blob_commitments_hash: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
     pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
     pub y: F, // Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y (BLS12Fr)
     pub c: BLSPoint, // Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
@@ -195,6 +195,8 @@ impl BlobAccumulatorPublicInputs {
     /**
     * LHS Accumulator: Current state of param accumulation from blob 0 to i-1
     * RHS Accumulator: Outputs from evaluation of blob i
+    *
+    * NB: blob_commitments_hash is written as v below
     *
     * Each accumulation:
     * - v_acc := sha256(v_acc, C_i)
@@ -221,7 +223,10 @@ impl BlobAccumulatorPublicInputs {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
         let hashed_y_i = poseidon2_hash(other.y_i.limbs.map(|l| l as Field));
         Self {
-            v: sha256_to_field(self.v.to_be_bytes::<32>().concat(other.c_i.compressed)),
+            blob_commitments_hash: sha256_to_field(self
+                .blob_commitments_hash
+                .to_be_bytes::<32>()
+                .concat(other.c_i.compressed)),
             z: poseidon2_hash([self.z, other.z_i]),
             y: self.y.add(other.y_i.mul(self.gamma_pow)),
             c: self.c.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(self.gamma_pow))),
@@ -234,7 +239,7 @@ impl BlobAccumulatorPublicInputs {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
         let hashed_y_0 = poseidon2_hash(first_output.y_i.limbs.map(|l| l as Field));
         Self {
-            v: sha256_to_field(first_output.c_i.compressed),
+            blob_commitments_hash: sha256_to_field(first_output.c_i.compressed),
             z: first_output.z_i,
             y: first_output.y_i, // y_acc_0 = gamma^0 * y_0 = y_0
             c: first_output.c_i.point, // c_acc_0 = gamma^0 * c_0 = c_0
@@ -252,15 +257,22 @@ impl BlobAccumulatorPublicInputs {
             gamma == bigint::bignum::to_field(injected.gamma),
             "Final blob challenge gamma mismatch.",
         );
-        // TODO(MW): Return struct of just v, z, y, and C for final root PI
-        Self { v: self.v, z: self.z, y: self.y, c: self.c, gamma, gamma_pow: self.gamma_pow }
+        // TODO(MW): Return struct of just blob_commitments_hash, z, y, and C for final root PI
+        Self {
+            blob_commitments_hash: self.blob_commitments_hash,
+            z: self.z,
+            y: self.y,
+            c: self.c,
+            gamma,
+            gamma_pow: self.gamma_pow,
+        }
     }
 }
 
 impl Empty for BlobAccumulatorPublicInputs {
     fn empty() -> Self {
         Self {
-            v: 0,
+            blob_commitments_hash: 0,
             z: 0,
             y: F::zero(),
             c: BLSPoint::point_at_infinity(),
@@ -272,7 +284,7 @@ impl Empty for BlobAccumulatorPublicInputs {
 
 impl Eq for BlobAccumulatorPublicInputs {
     fn eq(self, other: Self) -> bool {
-        (self.v.eq(other.v))
+        (self.blob_commitments_hash.eq(other.blob_commitments_hash))
             & (self.z.eq(other.z))
             & (self.y.eq(other.y))
             & (self.c.eq(other.c))
@@ -284,7 +296,7 @@ impl Eq for BlobAccumulatorPublicInputs {
 impl Serialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
     fn serialize(self) -> [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS] {
         let mut fields: BoundedVec<Field, BLOB_ACCUMULATOR_PUBLIC_INPUTS> = BoundedVec::new();
-        fields.push(self.v);
+        fields.push(self.blob_commitments_hash);
         fields.push(self.z);
         fields.extend_from_array(self.y.limbs.map(|l| l as Field));
         fields.extend_from_array(self.c.x.limbs.map(|l| l as Field));
@@ -299,7 +311,7 @@ impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs
     fn deserialize(fields: [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS]) -> Self {
         let mut reader = Reader::new(fields);
         let mut item = Self {
-            v: reader.read(),
+            blob_commitments_hash: reader.read(),
             z: reader.read(),
             y: F { limbs: reader.read_array().map(|e| e as u128) },
             c: BLSPoint {
