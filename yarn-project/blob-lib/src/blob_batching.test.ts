@@ -82,7 +82,7 @@ describe('blob', () => {
     let batchedQ = BLS12Point.ZERO;
     let finalY = BLS12Fr.ZERO;
     let powGamma = new BLS12Fr(1n); // Since we start at gamma^0 = 1
-    let finalV: Buffer = Buffer.alloc(0);
+    let finalBlobCommitmentsHash: Buffer = Buffer.alloc(0);
     for (let i = 0; i < blobs.length; i++) {
       const cOperand = commitments[i].mul(powGamma);
       const yOperand = evalYs[i].mul(powGamma);
@@ -91,12 +91,12 @@ describe('blob', () => {
       batchedQ = batchedQ.add(qOperand);
       finalY = finalY.add(yOperand);
       powGamma = powGamma.mul(finalGamma);
-      finalV = sha256ToField([finalV, blobs[i].commitment]).toBuffer();
+      finalBlobCommitmentsHash = sha256ToField([finalBlobCommitmentsHash, blobs[i].commitment]).toBuffer();
     }
 
     expect(batchedC.equals(commitments[0])).toBeTruthy();
     expect(finalY.equals(evalYs[0])).toBeTruthy();
-    expect(finalV.equals(sha256ToField([blobs[0].commitment]).toBuffer())).toBeTruthy();
+    expect(finalBlobCommitmentsHash.equals(sha256ToField([blobs[0].commitment]).toBuffer())).toBeTruthy();
 
     const batchedBlob = await BatchedBlob.batch(blobs);
 
@@ -104,7 +104,7 @@ describe('blob', () => {
     expect(batchedQ.equals(batchedBlob.q)).toBeTruthy();
     expect(finalZ.equals(batchedBlob.z)).toBeTruthy();
     expect(finalY.equals(batchedBlob.y)).toBeTruthy();
-    expect(finalV.equals(batchedBlob.v.toBuffer())).toBeTruthy();
+    expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
     const isValid = verifyKzgProof(batchedC.compress(), finalZ.toBuffer(), finalY.toBuffer(), batchedQ.compress());
     expect(isValid).toBe(true);
@@ -145,7 +145,7 @@ describe('blob', () => {
     let batchedQ = BLS12Point.ZERO;
     let finalY = BLS12Fr.ZERO;
     let powGamma = new BLS12Fr(1n); // Since we start at gamma^0 = 1
-    let finalV: Buffer = Buffer.alloc(0);
+    let finalBlobCommitmentsHash: Buffer = Buffer.alloc(0);
     for (let i = 0; i < 3; i++) {
       const cOperand = commitments[i].mul(powGamma);
       const yOperand = evalYs[i].mul(powGamma);
@@ -154,7 +154,7 @@ describe('blob', () => {
       batchedQ = batchedQ.add(qOperand);
       finalY = finalY.add(yOperand);
       powGamma = powGamma.mul(finalGamma);
-      finalV = sha256ToField([finalV, blobs[i].commitment]).toBuffer();
+      finalBlobCommitmentsHash = sha256ToField([finalBlobCommitmentsHash, blobs[i].commitment]).toBuffer();
     }
 
     const batchedBlob = await BatchedBlob.batch(blobs);
@@ -163,7 +163,7 @@ describe('blob', () => {
     expect(batchedQ.equals(batchedBlob.q)).toBeTruthy();
     expect(finalZ.equals(batchedBlob.z)).toBeTruthy();
     expect(finalY.equals(batchedBlob.y)).toBeTruthy();
-    expect(finalV.equals(batchedBlob.v.toBuffer())).toBeTruthy();
+    expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
     const isValid = verifyKzgProof(batchedC.compress(), finalZ.toBuffer(), finalY.toBuffer(), batchedQ.compress());
     expect(isValid).toBe(true);
