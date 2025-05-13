@@ -16,7 +16,7 @@ const { computeKzgProof, verifyKzgProof } = cKzg;
 export class BatchedBlob {
   constructor(
     /** Hash of Cs (to link to L1 blob hashes). */
-    public readonly v: Fr,
+    public readonly blobCommitmentsHash: Fr,
     /** Challenge point z such that p_i(z) = y_i. */
     public readonly z: Fr,
     /** Evaluation y, linear combination of all evaluations y_i = p_i(z) with gamma. */
@@ -67,7 +67,7 @@ export class BatchedBlob {
       throw new Error(`KZG proof did not verify.`);
     }
 
-    return new BatchedBlob(acc.vAcc, acc.zAcc, acc.yAcc, acc.cAcc, acc.qAcc);
+    return new BatchedBlob(acc.blobCommitmentsHashAcc, acc.zAcc, acc.yAcc, acc.cAcc, acc.qAcc);
   }
 
   /**
@@ -143,7 +143,7 @@ export class BatchedBlob {
 export class BatchedBlobAccumulator {
   constructor(
     /** Hash of Cs (to link to L1 blob hashes). */
-    public readonly vAcc: Fr,
+    public readonly blobCommitmentsHashAcc: Fr,
     /** Challenge point z_acc. Final value used such that p_i(z) = y_i. */
     public readonly zAcc: Fr,
     /** Evaluation y_acc. Final value is is linear combination of all evaluations y_i = p_i(z) with gamma. */
@@ -176,7 +176,7 @@ export class BatchedBlobAccumulator {
     const firstY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
     // Here, i = 0, so:
     return new BatchedBlobAccumulator(
-      sha256ToField([blob.commitment]), // vAcc = sha256(C_0)
+      sha256ToField([blob.commitment]), // blobCommitmentsHashAcc = sha256(C_0)
       blob.challengeZ, // zAcc = z_0
       firstY, // yAcc = gamma^0 * y_0 = 1 * y_0
       BLS12Point.decompress(blob.commitment), // cAcc = gamma^0 * C_0 = 1 * C_0
@@ -200,7 +200,7 @@ export class BatchedBlobAccumulator {
 
     // Moving from i - 1 to i, so:
     return new BatchedBlobAccumulator(
-      sha256ToField([this.vAcc, blob.commitment]), // vAcc := sha256(vAcc, C_i)
+      sha256ToField([this.blobCommitmentsHashAcc, blob.commitment]), // blobCommitmentsHashAcc := sha256(blobCommitmentsHashAcc, C_i)
       await poseidon2Hash([this.zAcc, blob.challengeZ]), // zAcc := poseidon2(zAcc, z_i)
       this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
       this.cAcc.add(BLS12Point.decompress(blob.commitment).mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
