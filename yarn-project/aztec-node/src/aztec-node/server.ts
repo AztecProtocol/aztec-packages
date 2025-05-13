@@ -20,7 +20,6 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
-import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
@@ -772,7 +771,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const txSubtreeRoots = await Promise.all(
       messagesPerTx.map(async (messages, txIdx) => {
         // For a tx with no messages, we have to set an out hash of 0 to match what the circuit does.
-        if (messages.length === 0) return Fr.ZERO;
+        if (messages.length === 0) {
+          return Fr.ZERO;
+        }
 
         const txStore = openTmpStore(true);
         const txTreeHeight = messages.length <= 1 ? 1 : Math.ceil(Math.log2(messages.length));
