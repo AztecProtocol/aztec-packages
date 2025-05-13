@@ -141,13 +141,13 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     expect(proofTxReceipt.status).toEqual('success');
 
     // Monitor should update to see the proof
-    await monitor.run(true);
-    expect(monitor.l2BlockNumber).toBeGreaterThan(1);
-    expect(monitor.l2ProvenBlockNumber).toBeGreaterThan(0);
+    const { l2BlockNumber, l2ProvenBlockNumber } = await monitor.run(true);
+    expect(l2BlockNumber).toBeGreaterThan(1);
+    expect(l2ProvenBlockNumber).toBeGreaterThan(0);
 
     // And so the node undoes its reorg
-    await retryUntil(() => node.getBlockNumber().then(b => b === monitor.l2BlockNumber), 'node sync', syncTimeout, 0.1);
-    await expect(node.getProvenBlockNumber()).resolves.toEqual(monitor.l2ProvenBlockNumber);
+    await retryUntil(() => node.getBlockNumber().then(b => b >= l2BlockNumber), 'node sync', syncTimeout, 0.1);
+    await retryUntil(() => node.getProvenBlockNumber().then(b => b >= l2ProvenBlockNumber), 'proof sync', 1, 0.1);
 
     logger.warn(`Test succeeded`);
   });

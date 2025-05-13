@@ -64,7 +64,7 @@ function noir_content_hash {
   fi
 }
 
-if [ ! -v NOIR_HASH ]; then
+if [ ! -v NOIR_HASH ] && [ $cmd != "clean" ]; then
   noir_sync
   export NOIR_HASH=$(noir_content_hash)
 fi

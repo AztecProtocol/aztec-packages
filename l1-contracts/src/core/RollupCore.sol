@@ -6,7 +6,6 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
   IRollupCore,
   ITestRollup,
-  CheatDepositArgs,
   RollupStore,
   SubmitEpochRootProofArgs,
   RollupConfigInput
@@ -114,14 +113,6 @@ contract RollupCore is
   /*                          CHEAT CODES START HERE                            */
   /* -------------------------------------------------------------------------- */
 
-  function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args)
-    external
-    override(ITestRollup)
-    onlyOwner
-  {
-    CheatLib.cheat__InitialiseValidatorSet(_args);
-  }
-
   function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
     CheatLib.setEpochVerifier(_verifier);
   }
@@ -216,6 +207,10 @@ contract RollupCore is
 
   function setupEpoch() public override(IValidatorSelectionCore) {
     ExtRollupLib.setupEpoch();
+  }
+
+  function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
+    ExtRollupLib.setupSeedSnapshotForNextEpoch();
   }
 
   /**
