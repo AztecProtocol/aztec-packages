@@ -551,7 +551,6 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
     constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
     constexpr auto mini_circuit_size = TranslatorFlavor::MINI_CIRCUIT_SIZE;
-    ;
 
     auto& engine = numeric::get_debug_randomness();
 

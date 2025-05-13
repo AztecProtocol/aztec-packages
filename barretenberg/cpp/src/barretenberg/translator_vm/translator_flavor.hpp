@@ -62,7 +62,7 @@ class TranslatorFlavor {
     static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
 
     // Determines the size of the polynomials initialised on the full domain
-    static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
 
     static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 
@@ -639,7 +639,7 @@ class TranslatorFlavor {
                 }
             }
 
-            // // Initialize some one-off polys with special structure
+            // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
             lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
             lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
