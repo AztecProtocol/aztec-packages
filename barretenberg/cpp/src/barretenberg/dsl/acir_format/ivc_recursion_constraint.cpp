@@ -145,9 +145,9 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs
     std::vector<FF> proof;
 
     // Populate mock public inputs
-    FF MAGIC_PUBLIC_INPUT = 2; // arbitrary small non-zero value to avoid errors
+    FF SMALL_DUMMY_VALUE = 2; // arbitrary small non-zero value to avoid errors
     for (size_t i = 0; i < num_public_inputs; ++i) {
-        proof.emplace_back(MAGIC_PUBLIC_INPUT);
+        proof.emplace_back(SMALL_DUMMY_VALUE);
     }
 
     // Populate mock witness polynomial commitments
