@@ -12,6 +12,7 @@ use crate::context::{
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
 
+use crate::hash::hash_args_array;
 use crate::note::note_interface::{NoteHash, NoteType};
 use crate::oracle::{
     execution::{get_block_number, get_contract_address},
@@ -174,9 +175,9 @@ impl TestEnvironment {
         Deployer { path: "", name, secret }
     }
 
-    pub unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    pub unconstrained fn assert_public_call_fails<C, let M: u32, T>(_self: Self, call_interface: C)
     where
-        C: CallInterface<M>,
+        C: CallInterface<M, T>,
     {
         // Public functions are routed through the dispatch function.
         let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
@@ -189,9 +190,9 @@ impl TestEnvironment {
         );
     }
 
-    pub unconstrained fn assert_private_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    pub unconstrained fn assert_private_call_fails<C, let M: u32, T>(_self: Self, call_interface: C)
     where
-        C: CallInterface<M>,
+        C: CallInterface<M, T>,
     {
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
@@ -210,27 +211,54 @@ impl TestEnvironment {
     where
         T: Deserialize<M>,
     {
-        let args = call_interface.get_args();
+        let args = CallInterface::get_args(call_interface);
         let args_hash = hash_args(args);
 
         let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
             from,
-            call_interface.get_contract_address(),
-            call_interface.get_selector(),
+            CallInterface::get_contract_address(call_interface),
+            CallInterface::get_selector(call_interface),
             args,
             args_hash,
-            call_interface.get_is_static(),
+            CallInterface::get_is_static(call_interface),
         );
 
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
         CallResult { return_value: Option::some(returns), tx_hash }
     }
 
-    pub unconstrained fn call_private_void<let M: u32>(
+    pub unconstrained fn call_private_void<let M: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateVoidCallInterface<M>,
+        call_interface: PrivateVoidCallInterface<M, T>,
     ) -> CallResult<()> {
+        let args = CallInterface::get_args(call_interface);
+        let args_hash = hash_args(args);
+        execution_cache::store(args, args_hash);
+
+        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+            from,
+            CallInterface::get_contract_address(call_interface),
+            CallInterface::get_selector(call_interface),
+            args,
+            args_hash,
+            CallInterface::get_is_static(call_interface),
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
+
+        CallResult { return_value: Option::none(), tx_hash }
+    }
+
+    pub unconstrained fn call_private_test<let M: u32, let N: u32, T, X>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: X,
+    ) -> CallResult<T>
+    where
+        X: CallInterface<M, T>,
+        T: Deserialize<N>,
+    {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
@@ -244,9 +272,12 @@ impl TestEnvironment {
             call_interface.get_is_static(),
         );
 
-        ReturnsHash::new(returns_hash).assert_empty();
+        let preimage: [Field; N] = execution_cache::load(returns_hash);
+        assert_eq(returns_hash, hash_args_array(preimage));
 
-        CallResult { return_value: Option::none(), tx_hash }
+        let result = Deserialize::deserialize(preimage);
+
+        CallResult { return_value: Option::some(result), tx_hash }
     }
 
     pub unconstrained fn simulate_utility<T, let N: u32, let M: u32>(

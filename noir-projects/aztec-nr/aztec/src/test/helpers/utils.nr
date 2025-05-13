@@ -26,13 +26,13 @@ pub struct Deployer<let N: u32, let M: u32> {
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
-    pub unconstrained fn with_private_initializer<C, let P: u32>(
+    pub unconstrained fn with_private_initializer<C, let P: u32, T>(
         self,
         from: AztecAddress,
         call_interface: C,
     ) -> ContractInstance
     where
-        C: CallInterface<P>,
+        C: CallInterface<P, T>,
     {
         let instance = cheatcodes::deploy(
             self.path,
@@ -65,13 +65,13 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    pub unconstrained fn with_public_void_initializer<let P: u32, C>(
+    pub unconstrained fn with_public_void_initializer<let P: u32, C, T>(
         self,
         from: AztecAddress,
         call_interface: C,
     ) -> ContractInstance
     where
-        C: CallInterface<P>,
+        C: CallInterface<P, T>,
     {
         let instance = cheatcodes::deploy(
             self.path,
@@ -107,7 +107,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         call_interface: C,
     ) -> ContractInstance
     where
-        C: CallInterface<P>,
+        C: CallInterface<P, T>,
         T: Deserialize<_>,
     {
         let instance = cheatcodes::deploy(

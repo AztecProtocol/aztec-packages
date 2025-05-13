@@ -272,6 +272,12 @@ where
     }
 }
 
+impl<let N: u32> Deserialize<N> for () {
+    fn deserialize(_fields: [Field; N]) -> Self {
+        ()
+    }
+}
+
 // docs:start:deserialize
 /// Trait for deserializing Noir types from arrays of Fields.
 ///

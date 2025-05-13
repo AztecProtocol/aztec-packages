@@ -120,6 +120,11 @@ pub contract Counter {
         context.push_note_hash(n);
     }
 
+    #[private]
+    fn return_in_private(n: Field) -> Field {
+        n
+    }
+
     // docs:end:get_counter
     // docs:start:test_imports
     use crate::test;
@@ -155,7 +160,9 @@ pub contract Counter {
 
         // Increment the counter
         let _ =
-            env.call_private_void(owner, Counter::at(contract_address).increment(owner, sender));
+            env.call_private_test(owner, Counter::at(contract_address).increment(owner, sender));
+
+        let _ = env.call_private_test(owner, Counter::at(contract_address).return_in_private(1));
 
         let incremented_counter =
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));

@@ -140,7 +140,7 @@ comptime fn create_private_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateVoidCallInterface<$fn_name_len, ()> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateVoidCallInterface::new(
@@ -159,7 +159,7 @@ comptime fn create_private_static_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticVoidCallInterface<$fn_name_len, ()> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateStaticVoidCallInterface::new(
@@ -216,7 +216,7 @@ comptime fn create_public_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicVoidCallInterface<$fn_name_len, ()> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicVoidCallInterface::new(
@@ -235,7 +235,7 @@ comptime fn create_public_static_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticVoidCallInterface<$fn_name_len, ()> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicStaticVoidCallInterface::new(
