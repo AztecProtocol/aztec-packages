@@ -258,6 +258,16 @@ function build_bench {
 }
 export -f build_bench
 
+function bench_merge {
+  find . -path "*/bench-out/*.bench.json" -type f -print0 | \
+  xargs -0 -I{} bash -c '
+    dir=$1; \
+    dir=${dir#./}; \
+    dir=${dir%/bench-out*}; \
+    jq --arg prefix "$dir:" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
+  ' _ {} | jq -s add > bench-out/bench.json
+}
+
 function bench {
   # TODO bench for arm64.
   if [ $(arch) == arm64 ]; then
@@ -267,7 +277,7 @@ function bench {
   bench_cmds | STRICT_SCHEDULING=1 parallelise
   rm -rf bench-out
   mkdir -p bench-out
-  find . -path "*/bench-out/*.bench.json" -type f | xargs cat | jq -s add > bench-out/bench.json
+  bench_merge
   cache_upload bench-$COMMIT_HASH.tar.gz bench-out/bench.json
 }
 
@@ -401,7 +411,7 @@ case "$cmd" in
     build
     release
     ;;
-  test|test_cmds|build_bench|bench|bench_cmds|release|release_dryrun)
+  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
     $cmd "$@"
     ;;
   *)

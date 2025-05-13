@@ -229,6 +229,7 @@ function run {
       -e JOB_ID=${JOB_ID:-} \
       -e REF_NAME=${REF_NAME:-} \
       -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
+      -e NO_CACHE=${NO_CACHE:-} \
       -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
       -e SSH_CONNECTION=' ' \
       -e LOCAL_USER_ID=\$(id -u) \

@@ -99,12 +99,12 @@ function client_ivc_flow {
   cat > "$output/benchmarks.bench.json" <<EOF
 [
   {
-    "name": "bb/$flow-ivc-proof$runtime_suffix",
+    "name": "$flow-ivc-proof$runtime_suffix",
     "unit": "ms",
     "value": ${elapsed_ms}
   },
   {
-    "name": "bb/$flow-ivc-proof$runtime_suffix-memory",
+    "name": "$flow-ivc-proof$runtime_suffix-memory",
     "unit": "MB",
     "value": ${memory_taken_mb}
   }
