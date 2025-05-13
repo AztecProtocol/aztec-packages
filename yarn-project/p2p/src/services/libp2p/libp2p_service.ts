@@ -1,11 +1,9 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { Fr } from '@aztec/foundation/fields';
 import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -21,7 +19,7 @@ import {
   getTopicTypeForClientType,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
-import { DatabasePublicStateSource, MerkleTreeId } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
@@ -50,16 +48,8 @@ import type { P2PConfig } from '../../config.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import { AttestationValidator, BlockProposalValidator } from '../../msg_validators/index.js';
 import { getDefaultAllowedSetupFunctions } from '../../msg_validators/tx_validator/allowed_public_setup.js';
-import {
-  ArchiveCache,
-  BlockHeaderTxValidator,
-  DataTxValidator,
-  DoubleSpendTxValidator,
-  GasTxValidator,
-  MetadataTxValidator,
-  PhasesTxValidator,
-  TxProofValidator,
-} from '../../msg_validators/tx_validator/index.js';
+import { type MessageValidator, createTxMessageValidators } from '../../msg_validators/tx_validator/factory.js';
+import { DoubleSpendTxValidator, TxProofValidator } from '../../msg_validators/tx_validator/index.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
@@ -73,13 +63,6 @@ import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
-
-interface MessageValidator {
-  validator: {
-    validateTx(tx: Tx): Promise<TxValidationResult>;
-  };
-  severity: PeerErrorSeverity;
-}
 
 interface ValidationResult {
   name: string;
@@ -782,58 +765,20 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns The message validators.
    */
   private async createMessageValidators(blockNumber: number): Promise<Record<string, MessageValidator>[]> {
-    const merkleTree = this.worldStateSynchronizer.getCommitted();
     const gasFees = await this.getGasFees(blockNumber - 1);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
-    return [
-      {
-        dataValidator: {
-          validator: new DataTxValidator(),
-          severity: PeerErrorSeverity.HighToleranceError,
-        },
-        metadataValidator: {
-          validator: new MetadataTxValidator({
-            l1ChainId: new Fr(this.config.l1ChainId),
-            rollupVersion: new Fr(this.config.rollupVersion),
-            blockNumber: new Fr(blockNumber),
-            protocolContractTreeRoot,
-            vkTreeRoot: getVKTreeRoot(),
-          }),
-          severity: PeerErrorSeverity.HighToleranceError,
-        },
-        doubleSpendValidator: {
-          validator: new DoubleSpendTxValidator({
-            nullifiersExist: async (nullifiers: Buffer[]) => {
-              const merkleTree = this.worldStateSynchronizer.getCommitted();
-              const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-              return indices.map(index => index !== undefined);
-            },
-          }),
-          severity: PeerErrorSeverity.HighToleranceError,
-        },
-        gasValidator: {
-          validator: new GasTxValidator(
-            new DatabasePublicStateSource(merkleTree),
-            ProtocolContractAddress.FeeJuice,
-            gasFees,
-          ),
-          severity: PeerErrorSeverity.HighToleranceError,
-        },
-        phasesValidator: {
-          validator: new PhasesTxValidator(this.archiver, allowedInSetup, blockNumber),
-          severity: PeerErrorSeverity.MidToleranceError,
-        },
-        blockHeaderValidator: {
-          validator: new BlockHeaderTxValidator(new ArchiveCache(this.worldStateSynchronizer.getCommitted())),
-          severity: PeerErrorSeverity.HighToleranceError,
-        },
-        proofValidator: {
-          validator: new TxProofValidator(this.proofVerifier),
-          severity: PeerErrorSeverity.MidToleranceError,
-        },
-      },
-    ];
+    return createTxMessageValidators(
+      blockNumber,
+      this.worldStateSynchronizer,
+      gasFees,
+      this.config.l1ChainId,
+      this.config.rollupVersion,
+      protocolContractTreeRoot,
+      this.archiver,
+      this.proofVerifier,
+      allowedInSetup,
+    );
   }
 
   /**

@@ -754,7 +754,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       return [BigInt(indexOfMsgInSubtree), subtreePathOfL2ToL1Message];
     }
 
-    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
+    // For a tx with no messages, we have to set an out hash of 0 to match the circuit/contract behavior
+    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t =>
+      t.getNumLeaves(true) == 0n ? Fr.ZERO : Fr.fromBuffer(t.getRoot(true)),
+    );
     const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
     const outHashTree = new UnbalancedTree(new SHA256Trunc(), 'temp_outhash_sibling_path', maxTreeHeight, Fr);
