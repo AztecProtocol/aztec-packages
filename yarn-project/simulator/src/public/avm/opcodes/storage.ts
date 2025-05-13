@@ -33,10 +33,11 @@ export class SStore extends BaseStorageInstruction {
     }
 
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.aOffset, this.bOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, slotOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
     memory.checkTag(TypeTag.FIELD, srcOffset);
@@ -57,10 +58,11 @@ export class SLoad extends BaseStorageInstruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.aOffset, this.bOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [slotOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
 

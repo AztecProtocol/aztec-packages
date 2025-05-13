@@ -52,6 +52,85 @@ describe('ValidatorClient', () => {
     validatorClient = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
   });
 
+  it('Should throw error if an invalid private key is provided', () => {
+    config.validatorPrivateKey = '0x1234567890123456789';
+    expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
+      InvalidValidatorPrivateKeyError,
+    );
+  });
+
+  it('Should throw an error if re-execution is enabled but no block builder is provided', async () => {
+    config.validatorReexecute = true;
+    const fakeTx = await mockTx();
+    p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(fakeTx));
+    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
+    await expect(
+      val.reExecuteTransactions(makeBlockProposal({ txs: [fakeTx], txHashes: [await fakeTx.getTxHash()] }), [fakeTx]),
+    ).rejects.toThrow(BlockBuilderNotProvidedError);
+  });
+
+  it('Should create a valid block proposal', async () => {
+    const header = makeHeader();
+    const archive = Fr.random();
+    const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
+
+    const blockProposal = await validatorClient.createBlockProposal(
+      header.globalVariables.blockNumber,
+      header.toPropose(),
+      archive,
+      header.state,
+      txs,
+    );
+
+    expect(blockProposal).toBeDefined();
+
+    const validatorAddress = EthAddress.fromString(validatorAccount.address);
+    expect(blockProposal?.getSender()).toEqual(validatorAddress);
+  });
+
+  it('Should a timeout if we do not collect enough attestations in time', async () => {
+    const proposal = makeBlockProposal();
+
+    await expect(validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 100))).rejects.toThrow(
+      AttestationTimeoutError,
+    );
+  });
+
+  it('Should throw an error if the transactions are not available', async () => {
+    const proposal = makeBlockProposal();
+
+    // mock the p2pClient.getTxStatus to return undefined for all transactions
+    p2pClient.getTxStatus.mockResolvedValue(undefined);
+    p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
+    p2pClient.getTxsByHash.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => undefined)));
+    // Mock the p2pClient.requestTxs to return undefined for all transactions
+    p2pClient.requestTxsByHash.mockImplementation(() => Promise.resolve([undefined]));
+
+    await expect(validatorClient.ensureTransactionsAreAvailable(proposal)).rejects.toThrow(
+      TransactionsNotAvailableError,
+    );
+  });
+
+  it('Should not return an attestation if re-execution fails', () => {
+    const proposal = makeBlockProposal();
+
+    // mock the p2pClient.getTxStatus to return undefined for all transactions
+    p2pClient.getTxStatus.mockResolvedValue(undefined);
+    p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
+    epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
+      currentProposer: proposal.getSender(),
+      nextProposer: proposal.getSender(),
+      currentSlot: proposal.slotNumber.toBigInt(),
+      nextSlot: proposal.slotNumber.toBigInt() + 1n,
+    });
+    epochCache.isInCommittee.mockResolvedValue(true);
+
+    const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider);
+    val.registerBlockBuilder(() => {
+      throw new Error('Failed to build block');
+    });
+  });
+
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
       config.validatorPrivateKey = '0x1234567890123456789';
@@ -62,9 +141,13 @@ describe('ValidatorClient', () => {
 
     it('should throw an error if re-execution is enabled but no block builder is provided', async () => {
       config.validatorReexecute = true;
-      p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(mockTx()));
+      const tx = await mockTx();
+      const txHashes = await Promise.all([tx.getTxHash()]);
+      p2pClient.getTxByHash.mockImplementation(() => Promise.resolve(tx));
       const val = ValidatorClient.new(config, epochCache, p2pClient, blockSource);
-      await expect(val.reExecuteTransactions(makeBlockProposal())).rejects.toThrow(BlockBuilderNotProvidedError);
+      await expect(val.reExecuteTransactions(makeBlockProposal({ txs: [tx], txHashes }), [tx])).rejects.toThrow(
+        BlockBuilderNotProvidedError,
+      );
     });
   });
 
@@ -72,7 +155,7 @@ describe('ValidatorClient', () => {
     it('should create a valid block proposal', async () => {
       const header = makeHeader();
       const archive = Fr.random();
-      const txs = [1, 2, 3, 4, 5].map(() => TxHash.random());
+      const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
 
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
@@ -144,6 +227,13 @@ describe('ValidatorClient', () => {
       p2pClient.getTxByHash.mockImplementation((txHash: TxHash) =>
         Promise.resolve({ getTxHash: () => Promise.resolve(txHash) } as Tx),
       );
+      p2pClient.getTxsByHash.mockImplementation((txHashes: TxHash[]) =>
+        Promise.resolve(
+          txHashes.map(txHash => {
+            return { getTxHash: () => Promise.resolve(txHash) } as Tx;
+          }),
+        ),
+      );
 
       epochCache.isInCommittee.mockResolvedValue(true);
       epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
@@ -185,6 +275,7 @@ describe('ValidatorClient', () => {
     it('should throw an error if the transactions are not available', async () => {
       // Mock the p2pClient.getTxStatus to return undefined for all transactions
       p2pClient.getTxStatus.mockResolvedValue(undefined);
+      p2pClient.getTxsByHash.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => undefined)));
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
       // Mock the p2pClient.requestTxs to return undefined for all transactions
       p2pClient.requestTxsByHash.mockImplementation(() => Promise.resolve([undefined]));

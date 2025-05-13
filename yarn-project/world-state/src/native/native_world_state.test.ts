@@ -238,6 +238,24 @@ describe('NativeWorldState', () => {
         'World state trees are out of sync',
       );
     });
+
+    it('manually clears the database', async () => {
+      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      const initialStatus = await ws.getStatusSummary();
+      expect(initialStatus.unfinalisedBlockNumber).toBe(0n);
+
+      // Populate the db
+      const fork = await ws.fork();
+      ({ block, messages } = await mockBlock(1, 2, fork));
+      await fork.close();
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+      expect(status.summary.unfinalisedBlockNumber).toBe(1n);
+
+      // Clear it
+      await ws.clear();
+      const emptyStatus = await ws.getStatusSummary();
+      expect(emptyStatus.unfinalisedBlockNumber).toBe(0n);
+    });
   });
 
   describe('Forks', () => {

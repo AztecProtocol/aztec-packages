@@ -66,10 +66,11 @@ export class Set extends Instruction {
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
 
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
     memory.set(dstOffset, res);
   }
@@ -100,10 +101,11 @@ export class Cast extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.srcOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
 
     const a = memory.get(srcOffset);
@@ -138,10 +140,11 @@ export class Mov extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.srcOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
     const a = memory.get(srcOffset);
     memory.set(dstOffset, a);
@@ -171,10 +174,11 @@ export class CalldataCopy extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.copySizeOffset, this.cdStartOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [copySizeOffset, cdStartOffset, dstOffset] = addressing.resolve(operands, memory);
 
     memory.checkTags(TypeTag.UINT32, cdStartOffset, copySizeOffset);
@@ -203,10 +207,11 @@ export class ReturndataSize extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
 
     memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
@@ -236,10 +241,11 @@ export class ReturndataCopy extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.baseGasCost());
 
     const operands = [this.copySizeOffset, this.rdStartOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [copySizeOffset, rdStartOffset, dstOffset] = addressing.resolve(operands, memory);
 
     memory.checkTags(TypeTag.UINT32, rdStartOffset, copySizeOffset);

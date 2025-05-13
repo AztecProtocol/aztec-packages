@@ -103,6 +103,9 @@ export async function retrieveBlocksFromRollup(
   logger: Logger = createLogger('archiver'),
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
+
+  let rollupConstants: { chainId: Fr; version: Fr } | undefined;
+
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -126,11 +129,17 @@ export async function retrieveBlocksFromRollup(
       `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
+    if (rollupConstants === undefined) {
+      const [chainId, version] = await Promise.all([publicClient.getChainId(), rollup.read.getVersion()]);
+      rollupConstants = { chainId: new Fr(chainId), version: new Fr(version) };
+    }
+
     const newBlocks = await processL2BlockProposedLogs(
       rollup,
       publicClient,
       blobSinkClient,
       l2BlockProposedLogs,
+      rollupConstants,
       logger,
     );
     retrievedBlocks.push(...newBlocks);
@@ -153,6 +162,7 @@ async function processL2BlockProposedLogs(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
+  { chainId, version }: { chainId: Fr; version: Fr },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
@@ -179,10 +189,6 @@ async function processL2BlockProposedLogs(
         blockHash: log.blockHash,
         timestamp: await getL1BlockTime(publicClient, log.blockNumber),
       };
-
-      const chainId = new Fr(await publicClient.getChainId());
-
-      const version = new Fr(await rollup.read.getVersion({ blockNumber: log.blockNumber }));
 
       retrievedBlocks.push({ ...block, l1, chainId, version });
       logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {

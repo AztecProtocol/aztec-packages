@@ -265,20 +265,17 @@ comptime fn generate_note_exports() -> Quoted {
 }
 
 comptime fn generate_sync_notes() -> Quoted {
-    // TODO(https://github.com/noir-lang/noir/issues/7912): Doing the following unfortunately doesn't work. Once
-    // the issue is fixed uncomment the following and remove the workaround from TS (look for the issue link in the
-    // codebase).
-    // let utility: fn(FunctionDefinition) -> () = crate::macros::functions::utility;
-    // quote {
-    //     #[$utility]
-    //     unconstrained fn sync_notes() {
-    //     }
-    // }
+    // We obtain the `utility` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
+    let utility = crate::macros::functions::utility;
 
     // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
     // need to do anything extra.
     quote {
-        #[aztec::macros::functions::utility]
-        unconstrained fn sync_notes() { }
+        #[$utility]
+        unconstrained fn sync_notes() {
+        }
     }
 }

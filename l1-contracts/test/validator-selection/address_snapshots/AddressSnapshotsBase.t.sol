@@ -8,9 +8,10 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 
 import {Test} from "forge-std/Test.sol";
-import {TimeLib, TimeStorage, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {TimeLib, TimeStorage, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 contract AddressSetWrapper {
   using AddressSnapshotLib for SnapshottedAddressSet;
@@ -33,40 +34,46 @@ contract AddressSetWrapper {
     return validatorSet.at(_index);
   }
 
-  function getAddressFromIndexAtEpoch(uint256 _index, Epoch _epoch) public view returns (address) {
-    return validatorSet.getAddressFromIndexAtEpoch(_index, _epoch);
+  function getAddressFromIndexAtTimestamp(uint256 _index, uint32 _timestamp)
+    public
+    view
+    returns (address)
+  {
+    return validatorSet.getAddressFromIndexAtTimestamp(_index, _timestamp);
   }
 
   function length() public view returns (uint256) {
     return validatorSet.length();
   }
 
-  function lengthAtEpoch(Epoch _epoch) public view returns (uint256) {
-    return validatorSet.lengthAtEpoch(_epoch);
+  function lengthAtTimestamp(uint32 _timestamp) public view returns (uint256) {
+    return validatorSet.lengthAtTimestamp(_timestamp);
   }
 
   function values() public view returns (address[] memory) {
     return validatorSet.values();
   }
 
-  function valuesAtEpoch(Epoch _epoch) public view returns (address[] memory) {
-    return validatorSet.valuesAtEpoch(_epoch);
+  function valuesAtTimestamp(uint32 _timestamp) public view returns (address[] memory) {
+    return validatorSet.valuesAtTimestamp(_timestamp);
   }
 }
 
 contract AddressSnapshotsBase is Test {
   using AddressSnapshotLib for SnapshottedAddressSet;
+  using TimeLib for Epoch;
+  using SafeCast for uint256;
 
   uint256 private constant SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
   uint256 private constant EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
-  uint256 private immutable GENESIS_TIME = block.timestamp;
+  uint256 private GENESIS_TIME;
 
   AddressSetWrapper internal validatorSet;
   TimeCheater internal timeCheater;
 
   function boundUnique(address[] memory _addrs) internal pure returns (address[] memory) {
     // Ensure addresses within _addrSet1 are unique
-    vm.assume(_addrs.length > 0);
+    vm.assume(_addrs.length > 0 && _addrs.length < 16);
     for (uint256 i = 0; i < _addrs.length; i++) {
       for (uint256 j = 0; j < i; j++) {
         vm.assume(_addrs[i] != _addrs[j]);
@@ -76,6 +83,9 @@ contract AddressSnapshotsBase is Test {
   }
 
   function setUp() public {
+    vm.warp(block.timestamp + 1000);
+    GENESIS_TIME = block.timestamp;
+    TimeLib.initialize(GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
     validatorSet = new AddressSetWrapper();
     timeCheater =
       new TimeCheater(address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);

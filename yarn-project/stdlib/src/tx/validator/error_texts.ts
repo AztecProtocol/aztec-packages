@@ -25,7 +25,7 @@ export const TX_ERROR_INCORRECT_CALLDATA = 'Incorrect calldata for public call';
 export const TX_ERROR_CALLDATA_COUNT_MISMATCH = 'Wrong number of calldata for public calls';
 export const TX_ERROR_CALLDATA_COUNT_TOO_LARGE = 'Total calldata too large for enqueued public calls';
 export const TX_ERROR_CONTRACT_CLASS_LOG_COUNT = 'Mismatched number of contract class logs';
-export const TX_ERROR_CONTRACT_CLASS_LOG_LENGTH = 'Mismatched contract class logs length';
+export const TX_ERROR_CONTRACT_CLASS_LOG_LENGTH = 'Incorrect contract class logs length';
 export const TX_ERROR_CONTRACT_CLASS_LOGS = 'Mismatched contract class logs';
 export const TX_ERROR_CONTRACT_CLASS_LOG_SORTING = 'Incorrectly sorted contract class logs';
 

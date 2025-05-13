@@ -15,11 +15,7 @@ static constexpr size_t MAX_NUM_KERNELS = 15;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
@@ -392,8 +388,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
  */
 TEST(ClientIVCBenchValidation, Full6)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     size_t total_num_circuits{ 12 };
@@ -411,8 +406,7 @@ TEST(ClientIVCBenchValidation, Full6)
 TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
         ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
         size_t total_num_circuits{ 12 };
@@ -427,8 +421,7 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
 
 TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
@@ -442,8 +435,7 @@ TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 
 TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
