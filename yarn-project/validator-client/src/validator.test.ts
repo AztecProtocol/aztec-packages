@@ -88,8 +88,8 @@ describe('ValidatorClient', () => {
     const validatorAddress = EthAddress.fromString(validatorAccount.address);
     expect(blockProposal?.getSender()).toEqual(validatorAddress);
 
-    expect(blockProposal.txs).toBeDefined();
-    expect(blockProposal.txs).toBe(txs);
+    expect(blockProposal!.txs).toBeDefined();
+    expect(blockProposal!.txs).toBe(txs);
   });
 
   it('Should create a valid block proposal without txs', async () => {
@@ -111,7 +111,7 @@ describe('ValidatorClient', () => {
     const validatorAddress = EthAddress.fromString(validatorAccount.address);
     expect(blockProposal?.getSender()).toEqual(validatorAddress);
 
-    expect(blockProposal.txs).toBeUndefined();
+    expect(blockProposal!.txs).toBeUndefined();
   });
 
   it('Should a timeout if we do not collect enough attestations in time', async () => {
@@ -189,6 +189,7 @@ describe('ValidatorClient', () => {
         archive,
         header.state,
         txs,
+        { publishFullTxs: false },
       );
 
       expect(blockProposal).toBeDefined();
