@@ -6,15 +6,12 @@
 namespace bb::detail {
 template <> class PrecomputedGenerators<"biggroup table offset generator", g1::affine_element, 1, 0> {
   public:
-    static constexpr std::span<const g1::affine_element> get_generators()
-    {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        constexpr g1::affine_element generators[1] = {
-            { { 7762086984941950370ULL, 10684025356749256500ULL, 13748198196038680396ULL, 707780873284498417ULL },
-              { 1663243467983316955ULL, 16723259082508773207ULL, 9366176347284288152ULL, 650519917458561605ULL } }
-        };
-        return generators;
-    }
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    static constexpr g1::affine_element generators[1] = {
+        { { 7762086984941950370ULL, 10684025356749256500ULL, 13748198196038680396ULL, 707780873284498417ULL },
+          { 1663243467983316955ULL, 16723259082508773207ULL, 9366176347284288152ULL, 650519917458561605ULL } }
+    };
+    static constexpr std::span<const g1::affine_element> get_generators() { return generators; }
 };
 template <> class PrecomputedGenerators<"biggroup offset generator", g1::affine_element, 1, 0> {
   public:
