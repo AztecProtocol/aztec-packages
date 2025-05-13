@@ -166,11 +166,7 @@ interface IRollup is IRollupCore {
     BlockHeaderValidationFlags memory _flags
   ) external;
 
-  function canProposeAtTime(
-    Timestamp _ts,
-    bytes32 _archive,
-    CommitteeAttestation[] memory _attestations
-  ) external returns (Slot, uint256);
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
 
   function getTips() external view returns (ChainTips memory);
 

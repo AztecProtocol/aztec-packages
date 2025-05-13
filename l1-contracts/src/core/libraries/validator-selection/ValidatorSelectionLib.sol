@@ -28,6 +28,7 @@ library ValidatorSelectionLib {
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
   using TimeLib for Epoch;
+  using TimeLib for Slot;
   using AddressSnapshotLib for SnapshottedAddressSet;
   using Checkpoints for Checkpoints.Trace224;
   using SafeCast for *;
@@ -104,7 +105,11 @@ library ValidatorSelectionLib {
       computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), committeeSize);
 
     // TODO: add more checks here
-    // Read the attester from the signatures
+
+    // We determine who the proposer from indexing into the provided attestations array, we then recover their proposer
+    // address from storage
+    // The user controls this value, however, if a false value is provided, the recalculated committee commitment will
+    // be incorrect, and we will revert.
     address attester = _attestations[proposerIndex].addr;
     address proposer = _stakingStore.info[attester].proposer;
 
@@ -153,7 +158,7 @@ library ValidatorSelectionLib {
   }
 
   // Note: this resamples the validator set, Only call this from view functions
-  function getProposerAt(StakingStorage storage _stakingStore, Slot _slot, Epoch _epochNumber)
+  function getProposerAt(StakingStorage storage _stakingStore, Slot _slot)
     internal
     returns (address)
   {
@@ -162,18 +167,18 @@ library ValidatorSelectionLib {
     //       it can just return the proposer directly, but then we duplicate the code
     //       which we just don't have room for right now...
     ValidatorSelectionStorage storage store = getStorage();
+    Epoch epoch = _slot.epochFromSlot();
 
-    uint224 sampleSeed = getSampleSeed(_epochNumber);
-    bytes32 committeeCommitment = store.committeeCommitments[_epochNumber];
+    uint224 sampleSeed = getSampleSeed(epoch);
+    bytes32 committeeCommitment = store.committeeCommitments[epoch];
 
     address[] memory committee =
-      sampleValidators(_stakingStore, _epochNumber, sampleSeed, committeeCommitment);
+      sampleValidators(_stakingStore, epoch, sampleSeed, committeeCommitment);
     if (committee.length == 0) {
       return address(0);
     }
 
-    address attester =
-      committee[computeProposerIndex(_epochNumber, _slot, sampleSeed, committee.length)];
+    address attester = committee[computeProposerIndex(epoch, _slot, sampleSeed, committee.length)];
 
     return _stakingStore.info[attester].proposer;
   }
@@ -229,6 +234,7 @@ library ValidatorSelectionLib {
   /**
    * @notice  Get the committee for an epoch
    *
+   * @param _stakingStore - The internal staking store
    * @param _epochNumber - The epoch to get the committee for
    *
    * @return - The committee for the epoch
@@ -245,7 +251,13 @@ library ValidatorSelectionLib {
     return sampleValidators(_stakingStore, _epochNumber, seed, committeeCommitment);
   }
 
-  // TODO: make view function alternative to this to request the committee
+  /**
+   * @notice Get the committee commitment for an epoch
+   * @param _stakingStore - The internal staking store
+   * @param _epochNumber -
+   * @return committeeCommitment - The commitment to the current committee
+   * @return committeeSize - The size of the current committee
+   */
   function getCommitteeCommitmentAt(StakingStorage storage _stakingStore, Epoch _epochNumber)
     internal
     returns (bytes32 committeeCommitment, uint256 committeeSize)
@@ -258,11 +270,9 @@ library ValidatorSelectionLib {
       // This will set epoch.committee and the next sample seed in the store, meaning epoch.commitee on the line below will be set (storage reference)
       setupEpoch(_stakingStore, _epochNumber);
 
-      // TODO(md): move this into eariler pr? - optimise in earlier pr
       committeeCommitment = store.committeeCommitments[_epochNumber];
     }
 
-    // TODO(md): calcaulte and store the size alongside the commitment
     // We do not want to recalculate this each time
     uint32 ts = Timestamp.unwrap(_epochNumber.toTimestamp()).toUint32() - 1;
     committeeSize = _stakingStore.attesters.lengthAtTimestamp(ts);
@@ -274,7 +284,6 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice  Sets the sample seed for an epoch
    *
    * @param _epoch - The epoch to set the sample seed for
    */

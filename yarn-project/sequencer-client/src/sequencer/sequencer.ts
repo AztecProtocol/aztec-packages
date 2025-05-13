@@ -1,6 +1,6 @@
 import { type L2Block, retryUntil } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import type { ViemPublicClient } from '@aztec/ethereum';
+import { FormattedViemError, type ViemPublicClient } from '@aztec/ethereum';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -272,9 +272,15 @@ export class Sequencer {
     const { slot } = this.publisher.epochCache.getEpochAndSlotInNextSlot();
     this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
 
-    const getProposerInNextSlot = await this.publisher.epochCache.getProposerInNextSlot();
-    if (getProposerInNextSlot.equals(this.publisher.getSenderAddress())) {
-      this.log.debug(`Cannot propose block ${newBlockNumber}`);
+    const proposerInNextSlot = await this.publisher.epochCache.getProposerInNextSlot();
+
+    // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
+    // If we calculate a proposer in the next slot, and it is not us, then stop
+    if (proposerInNextSlot !== undefined && !proposerInNextSlot.equals(this.validatorClient!.getValidatorAddress())) {
+      this.log.debug(`Cannot propose block ${newBlockNumber}`, {
+        us: this.validatorClient!.getValidatorAddress(),
+        proposer: proposerInNextSlot,
+      });
       return;
     }
 
@@ -322,7 +328,12 @@ export class Sequencer {
       const pendingTxs = this.p2pClient.iteratePendingTxs();
 
       await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader, newGlobalVariables).catch(err => {
-        this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
+        if (err instanceof FormattedViemError) {
+          this.log.verbose(`Unable to build/enqueue block ${err.message}`);
+          return;
+        } else {
+          this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
+        }
       });
       finishedFlushing = true;
     } else {

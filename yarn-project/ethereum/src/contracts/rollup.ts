@@ -360,7 +360,6 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
-    committeeAttestations: ViemCommitteeAttestation[],
   ): Promise<[bigint, bigint]> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
@@ -374,7 +373,7 @@ export class RollupContract {
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, committeeAttestations],
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
         account,
       });
 

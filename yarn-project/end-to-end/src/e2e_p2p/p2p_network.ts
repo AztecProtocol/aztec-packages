@@ -176,6 +176,7 @@ export class P2PNetworkTest {
         [proposerEOA.address],
         proposerEOA.address,
       ).address;
+      console.log('attester.address', attester.address, 'proposer', forwarder);
       validators.push({
         attester: attester.address,
         proposer: forwarder,

@@ -263,20 +263,11 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public async canProposeAtNextEthBlock(tipArchive: Buffer, slot: bigint) {
+  public canProposeAtNextEthBlock(tipArchive: Buffer) {
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-    const committeeAttesations = (await this.epochCache.getCommittee(slot)).committee.map(address =>
-      CommitteeAttestation.fromAddress(address).toViem(),
-    );
-
     return this.rollupContract
-      .canProposeAtNextEthBlock(
-        tipArchive,
-        this.getForwarderAddress().toString(),
-        this.ethereumSlotDuration,
-        committeeAttesations,
-      )
+      .canProposeAtNextEthBlock(tipArchive, this.getForwarderAddress().toString(), this.ethereumSlotDuration)
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
           this.log.debug(err.message);

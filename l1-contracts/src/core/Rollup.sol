@@ -153,6 +153,22 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice Get the committee commitment a the given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee commitment for the given timestamp
+   * @return The committee size for the given timestamp
+   */
+  function getCommitteeCommitmentAt(Timestamp _ts)
+    external
+    override(IValidatorSelection)
+    returns (bytes32, uint256)
+  {
+    return ValidatorSelectionLib.getCommitteeCommitmentAt(StakingLib.getStorage(), getEpochAt(_ts));
+  }
+
+  /**
    * @notice  Get the proposer for the current slot
    *
    * @dev     Calls `getCurrentProposer(uint256)` with the current timestamp
@@ -168,16 +184,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @param _ts - The timestamp to check
    * @param _archive - The archive to check (should be the latest archive)
-   * @param _attestations - Empty attestations are sent in order to recalculate the committee committment + work out the correct proposer
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(
-    Timestamp _ts,
-    bytes32 _archive,
-    CommitteeAttestation[] memory _attestations
-  ) external override(IRollup) returns (Slot, uint256) {
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+    external
+    override(IRollup)
+    returns (Slot, uint256)
+  {
     Slot slot = _ts.slotFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -191,13 +206,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    ValidatorSelectionLib.verify(
-      StakingLib.getStorage(),
-      slot,
-      slot.epochFromSlot(),
-      _attestations,
-      _archive,
-      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
+    address proposer = ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot);
+    require(
+      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
 
     return (slot, pendingBlockNumber + 1);
@@ -623,8 +634,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
     Slot slot = _ts.slotFromTimestamp();
-    Epoch epochNumber = slot.epochFromSlot();
-    return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot, epochNumber);
+    return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot);
   }
 
   /**
