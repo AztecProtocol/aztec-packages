@@ -7,12 +7,12 @@ import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundati
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, BlockProposal, P2PMessage, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { BlockAttestation, BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type MakeConsensusPayloadOptions, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import type { Message, PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { P2PClient } from '../client/p2p_client.js';
