@@ -288,11 +288,7 @@ where
 
 // Helper function to check if an array is padded with a given value from a given index.
 // Different to padded_array_length in that it allows the elements before the given index to be the same as the padded value.
-pub fn array_padded_with<T, let N: u32, let M: u32>(
-    array: [T; N],
-    from_index: u32,
-    padded_with: T,
-) -> bool
+pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
 where
     T: Eq,
 {
