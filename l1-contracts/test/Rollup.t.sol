@@ -327,7 +327,7 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
-    uint256 expectedFee = rollup.getManaBaseFee(true);
+    uint256 expectedFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
 
     // When not canonical, we expect the fee to be 0
     vm.expectRevert(
@@ -433,7 +433,7 @@ contract RollupTest is RollupBase {
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
-      interim.baseFee = rollup.getManaBaseFee(true);
+      interim.baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
       header = DecoderBase.updateHeaderBaseFee(header, interim.baseFee);
       header = DecoderBase.updateHeaderManaUsed(header, interim.manaUsed);
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.

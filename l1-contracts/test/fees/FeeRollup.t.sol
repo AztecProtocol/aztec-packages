@@ -168,7 +168,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         + point.outputs.mana_base_fee_components_in_fee_asset.congestion_cost
     );
 
-    assertEq(rollup.getManaBaseFee(true), manaBaseFee, "mana base fee mismatch");
+    assertEq(
+      rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
+      manaBaseFee,
+      "mana base fee mismatch"
+    );
 
     uint256 manaSpent = point.block_header.mana_spent;
 
@@ -237,12 +241,13 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // trying to be foolproof, for I am a fool.
     uint256 currentTime = block.timestamp;
     uint256 timeOfPrune = block.timestamp;
-    while (!rollup.canPrune()) {
+    while (!rollup.canPruneAtTime(Timestamp.wrap(timeOfPrune))) {
       timeOfPrune += SLOT_DURATION;
       vm.warp(timeOfPrune);
     }
 
-    ManaBaseFeeComponents memory componentsPrune = rollup.getManaBaseFeeComponents(true);
+    ManaBaseFeeComponents memory componentsPrune =
+      rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
     vm.warp(currentTime);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
@@ -251,7 +256,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     );
 
     vm.warp(timeOfPrune);
-    ManaBaseFeeComponents memory componentsNoPrune = rollup.getManaBaseFeeComponents(true);
+    ManaBaseFeeComponents memory componentsNoPrune =
+      rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(currentTime), true);
     vm.warp(currentTime);
 
     // The congestion multipliers should be different, with the no-prune being higher
@@ -281,9 +287,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       // Predict what the fee will be
-      vm.warp(l1Metadata[i].timestamp);
-      uint256 baseFeePrediction = rollup.getManaBaseFee(true);
-      vm.warp(block.timestamp);
+      uint256 baseFeePrediction =
+        rollup.getManaBaseFeeAt(Timestamp.wrap(l1Metadata[i].timestamp), true);
 
       _loadL1Metadata(i);
 
@@ -296,8 +301,10 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
         uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
 
-        ManaBaseFeeComponents memory components = rollup.getManaBaseFeeComponents(false);
-        ManaBaseFeeComponents memory componentsFeeAsset = rollup.getManaBaseFeeComponents(true);
+        ManaBaseFeeComponents memory components =
+          rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
+        ManaBaseFeeComponents memory componentsFeeAsset =
+          rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
         FeeHeader memory parentFeeHeader = rollup.getFeeHeader(nextSlot.unwrap() - 1);
 
         Block memory b = getBlock();

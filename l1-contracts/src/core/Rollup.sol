@@ -97,7 +97,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
         header: HeaderLib.decode(_header),
         attestations: _signatures,
         digest: _digest,
-        manaBaseFee: getManaBaseFee(true),
+        manaBaseFee: getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       })
@@ -589,9 +589,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return FeeLib.getL1FeesAt(_timestamp);
   }
 
-  function canPrune() external view override(IRollup) returns (bool) {
-    Timestamp timestamp = Timestamp.wrap(block.timestamp);
-    return STFLib.canPruneAtTime(timestamp);
+  function canPruneAtTime(Timestamp _ts) external view override(IRollup) returns (bool) {
+    return STFLib.canPruneAtTime(_ts);
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
@@ -628,22 +627,28 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Gets the mana base fee
    *
+   * @param _timestamp - The timestamp to get the mana base fee for
+   *
    * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
    *
    * @return The mana base fee
    */
-  function getManaBaseFee(bool _inFeeAsset) public view override(IRollup) returns (uint256) {
-    return FeeLib.summedBaseFee(getManaBaseFeeComponents(_inFeeAsset));
+  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset)
+    public
+    view
+    override(IRollup)
+    returns (uint256)
+  {
+    return FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
   }
 
-  function getManaBaseFeeComponents(bool _inFeeAsset)
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     public
     view
     override(IRollup)
     returns (ManaBaseFeeComponents memory)
   {
-    Timestamp timestamp = Timestamp.wrap(block.timestamp);
-    return ProposeLib.getManaBaseFeeComponentsAt(timestamp, _inFeeAsset);
+    return ProposeLib.getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset);
   }
 
   /**

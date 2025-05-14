@@ -234,7 +234,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
-    uint256 manaBaseFee = rollup.getManaBaseFee(true);
+    uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
@@ -360,11 +360,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
           // we need the basefee, and we cannot just take it from the point. Because it is different
-          Timestamp currentTimestamp = Timestamp.wrap(block.timestamp);
           Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          vm.warp(Timestamp.unwrap(ts));
-          uint256 manaBaseFee = rollup.getManaBaseFee(true);
-          vm.warp(Timestamp.unwrap(currentTimestamp));
+          uint256 manaBaseFee = rollup.getManaBaseFeeAt(ts, true);
           uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaBaseFee;
 
           fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));

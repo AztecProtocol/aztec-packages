@@ -228,7 +228,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     bytes32[] memory txHashes = new bytes32[](0);
 
     {
-      uint256 manaBaseFee = rollup.getManaBaseFee(true);
+      uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
       bytes32 inHash = inbox.getRoot(full.block.blockNumber);
       header = DecoderBase.updateHeaderInboxRoot(header, inHash);
       header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);

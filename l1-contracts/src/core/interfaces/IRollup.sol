@@ -186,16 +186,16 @@ interface IRollup is IRollupCore {
     view
     returns (bytes32[] memory, bytes32, bytes32);
 
-  function getManaBaseFeeComponents(bool _inFeeAsset)
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
     external
     view
     returns (ManaBaseFeeComponents memory);
-  function getManaBaseFee(bool _inFeeAsset) external view returns (uint256);
+  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
   function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
   function getFeeAssetPerEth() external view returns (FeeAssetPerEthE9);
 
   function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
-  function canPrune() external view returns (bool);
+  function canPruneAtTime(Timestamp _ts) external view returns (bool);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
