@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747222034864,
+  "lastUpdate": 1747222118135,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5b2ead29cd6e82013019a6d288cadae6123a1700",
-          "message": "refactor: flat grumpkin CRS, use CDN, remove old srs_db  (#14097)\n\nA bunch of bn254/grumpkin CRS cleanup. The main motivation was to get\nrid of the extra srs_db download in CI, but it was tangled enough that\nit was best the code was refactored first.\n\nMain changes:\n- Rework the old file crs factory class to be a 'NativeCrsFactory',\nreflecting its use in native code (WASM still uses MemCrsFactory). This\nacts like a file-backed CRS that reads from ~/.bb-crs if allow_download\n= false, otherwise it reads from the network if not enough CRS points\nare found. Tested in crs_factory.test.cpp.\n- Remove the srs_db folder that redundantly downloads CRS. Rework all\nreferences to it to instead use the downloaded-on-demand version in\n~/.bb-crs\n- 'Flatten' grumpkin i.e. removing the header. This is for now called\ngrumpkin_g1.flat.dat but we can shortly move it to the original\ngrumpkin_g1.dat name. Remove the hacky grumpkin_size file as it is now\neasy to tell from the .dat file size itself.\n- Move to the new CDN-delivered CRS URL\n\nOther changes:\n- Remove the hacky up-front CRS initialization (except in WASM/bb.js,\nwhere it is still needed), fully embracing the originally intended\non-demand CRS loading.\n- no redundant verifier and prover CRS's, just make one CRS that does\nboth. We basically always want the verifier CRS around, and it's easy\nenough to represent a verifier as a 'prover' CRS with one point for\nbn254. For grumpkin, they were already identical.\n- Allow for short syntax `bb prove -s client_ivc` if\n`ivc-inputs.msgpack` is in the current working directory. The proof will\ngo in an 'out' folder that is created if it does not exist.\n- Refactor old tests that used very low level ways of reading CRS. This\nuncovered fundamental flaws in them, such as trying to read `2**20`\npoints from grumpkin (which has `2**18` max)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1163\nCloses https://github.com/AztecProtocol/barretenberg/issues/1180\n\n---------\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
-          "timestamp": "2025-05-08T22:41:16Z",
-          "tree_id": "0a5d30ae1ade27d9bed2dd10a5a65cb35cddd2c8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5b2ead29cd6e82013019a6d288cadae6123a1700"
-        },
-        "date": 1746747994364,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8703,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.249156418655537,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 150003,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 154361,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7155b6be42e27be3c6aeba20ded452574f82c808",
+          "message": "fix: Mark txs as non-evictable upon receipt of a block proposal (#14266)\n\nThis PR simply marks txs as non-evictable upon receipt of a block\nproposal. We do this to ensure that validators in particular do not\nevict transactions before needing them for re-execution.",
+          "timestamp": "2025-05-14T10:47:52Z",
+          "tree_id": "add389451440ab572b2c30560a05ff5e153eac35",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7155b6be42e27be3c6aeba20ded452574f82c808"
+        },
+        "date": 1747222116664,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8179,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23414910099623418,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 133476,
             "unit": "us"
           }
         ]
