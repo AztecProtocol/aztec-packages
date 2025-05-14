@@ -138,6 +138,7 @@ describe('aztec node', () => {
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
+      'test-aztec-node',
       new TestCircuitVerifier(),
     );
   });
