@@ -84,20 +84,60 @@ export function createSafeJsonRpcClient<T extends object>(
     log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length}`, {
       methods: rpcCalls.map(({ request }) => request.method),
     });
-    const { response, headers } = await fetch(
-      host,
-      rpcCalls.map(({ request }) => request),
-    );
-
-    if (config.onResponse) {
-      await config.onResponse({ response, headers });
-    }
-
-    if (!Array.isArray(response) || response.length !== rpcCalls.length) {
-      log.warn(
-        `Invalid response received from JSON-RPC server. Expected array of responses of length ${rpcCalls.length}`,
-        { response },
+    try {
+      const { response, headers } = await fetch(
+        host,
+        rpcCalls.map(({ request }) => request),
       );
+
+      if (config.onResponse) {
+        await config.onResponse({ response, headers });
+      }
+
+      if (!Array.isArray(response) || response.length !== rpcCalls.length) {
+        log.warn(
+          `Invalid response received from JSON-RPC server. Expected array of responses of length ${rpcCalls.length}`,
+          { response },
+        );
+        for (let i = 0; i < rpcCalls.length; i++) {
+          const { request, deferred } = rpcCalls[i];
+          deferred.resolve({
+            id: request.id,
+            jsonrpc: '2.0',
+            error: {
+              code: -32000,
+              data: response,
+              message: 'Failed request',
+            },
+          });
+        }
+      } else {
+        for (let i = 0; i < response.length; i++) {
+          const resp: JsonRpcResponse = response[i];
+          const { request, deferred } = rpcCalls[i];
+
+          if (resp.id !== request.id) {
+            log.warn(`Invalid response received at index ${i} from JSON-RPC server: id mismatch`, {
+              requestMethod: request.method,
+              requestId: request.id,
+              responseId: resp.id,
+            });
+            deferred.resolve({
+              id: request.id,
+              jsonrpc: '2.0',
+              error: {
+                code: -32001,
+                data: resp,
+                message: 'RPC id mismatch',
+              },
+            });
+          } else {
+            deferred.resolve(resp);
+          }
+        }
+      }
+    } catch (err) {
+      log.warn(`Failed to fetch from the remote server`, err);
       for (let i = 0; i < rpcCalls.length; i++) {
         const { request, deferred } = rpcCalls[i];
         deferred.resolve({
@@ -105,34 +145,9 @@ export function createSafeJsonRpcClient<T extends object>(
           jsonrpc: '2.0',
           error: {
             code: -32000,
-            data: response,
             message: 'Failed request',
           },
         });
-      }
-    } else {
-      for (let i = 0; i < response.length; i++) {
-        const resp: JsonRpcResponse = response[i];
-        const { request, deferred } = rpcCalls[i];
-
-        if (resp.id !== request.id) {
-          log.warn(`Invalid response received at index ${i} from JSON-RPC server: id mismatch`, {
-            requestMethod: request.method,
-            requestId: request.id,
-            responseId: resp.id,
-          });
-          deferred.resolve({
-            id: request.id,
-            jsonrpc: '2.0',
-            error: {
-              code: -32001,
-              data: resp,
-              message: 'RPC id mismatch',
-            },
-          });
-        } else {
-          deferred.resolve(resp);
-        }
       }
     }
   };

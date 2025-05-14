@@ -25,7 +25,7 @@ describe('SafeJsonRpcClient', () => {
   jest.setTimeout(5_000);
 
   let st: SuperTest<Test>;
-  let stFetch: JsonRpcFetch;
+  let stFetch: jest.Mock<JsonRpcFetch>;
   let handler: jest.Mock<(calls: Array<{ id: string; method: string; params: any[] }>) => any>;
 
   beforeEach(() => {
@@ -57,11 +57,11 @@ describe('SafeJsonRpcClient', () => {
     });
 
     st = request(app.callback());
-    stFetch = async (_host: string, body: any) => {
+    stFetch = jest.fn(async (_host: string, body: any) => {
       const response = await st.post('').set('content-type', 'application/json').send(JSON.stringify(body));
       const parsed = JSON.parse(response.text);
       return { response: parsed, headers: new Headers(response.headers) };
-    };
+    });
   });
 
   describe.each([0, 1, 10, 25, 100])('batching window %d', ms => {
@@ -129,6 +129,20 @@ describe('SafeJsonRpcClient', () => {
         },
         { status: 'fulfilled', value: expect.stringMatching(/^foo|1$/) },
         { status: 'rejected', reason: expect.objectContaining({ name: 'ZodError' }) },
+      ]);
+    });
+
+    it('handles fetch errors', async () => {
+      stFetch.mockRejectedValueOnce(new Error('test error'));
+      const p1 = client.setValue('1');
+      const p2 = client.getValue();
+      const p3 = client.badReturn();
+
+      const results = await Promise.allSettled([p1, p2, p3]);
+      expect(results).toEqual([
+        { status: 'rejected', reason: expect.objectContaining({ name: 'Error' }) },
+        { status: 'rejected', reason: expect.objectContaining({ name: 'Error' }) },
+        { status: 'rejected', reason: expect.objectContaining({ name: 'Error' }) },
       ]);
     });
   });
