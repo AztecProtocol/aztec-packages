@@ -152,7 +152,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
+export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
 
 function build {
   echo_header "bb cpp build"
@@ -163,8 +163,7 @@ function build {
     build_wasm_threads
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    # TODO figure out why this is failing on arm64 with ultra circuit builder string op overflow.
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
   fi
   if [ "$CI_FULL" -eq 1 ]; then
     builds+=(build_darwin)
@@ -194,12 +193,14 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  # Iterate asan_tests, creating a gtest invocation for each.
-  for bin_name in "${!asan_tests[@]}"; do
-    local filter=${asan_tests[$bin_name]}
-    local prefix="$hash:CPUS=4:MEM=8g"
-    echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
-  done
+  if [ "$CI" -eq 1 ]; then
+    # If in CI, iterate asan_tests, creating a gtest invocation for each.
+    for bin_name in "${!asan_tests[@]}"; do
+      local filter=${asan_tests[$bin_name]}
+      local prefix="$hash:CPUS=4:MEM=8g"
+      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+    done
+  fi
   echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
 
