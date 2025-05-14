@@ -107,10 +107,6 @@ export class UpdateChecker extends EventEmitter<EventMap> {
       );
       const body = await response.json();
       if (!response.ok) {
-        if (response.status === 404) {
-          // no-op
-          return;
-        }
         this.log.warn(`Unexpected HTTP response checking for updates`, {
           status: response.status,
           body: await response.text(),
