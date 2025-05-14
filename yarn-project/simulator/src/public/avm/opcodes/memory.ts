@@ -61,7 +61,7 @@ export class Set extends Instruction {
     super();
   }
 
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     // Constructor ensured that this.inTag is a valid tag
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
 
@@ -73,6 +73,7 @@ export class Set extends Instruction {
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
     memory.set(dstOffset, res);
+    return Promise.resolve();
   }
 }
 

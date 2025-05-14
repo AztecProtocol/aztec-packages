@@ -69,7 +69,7 @@ export class GetEnvVar extends Instruction {
     super();
   }
 
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -83,5 +83,6 @@ export class GetEnvVar extends Instruction {
     const [dstOffset] = addressing.resolve(operands, memory);
 
     memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));
+    return Promise.resolve();
   }
 }
