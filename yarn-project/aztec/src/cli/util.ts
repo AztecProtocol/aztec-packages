@@ -1,9 +1,12 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import type { AccountManager, Fr } from '@aztec/aztec.js';
+import type { AccountManager, EthAddress, Fr } from '@aztec/aztec.js';
+import type { RegistryContract, ViemClient } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { PXEService } from '@aztec/pxe/server';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
+import { UpdateChecker } from '@aztec/stdlib/update-checker';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
@@ -245,4 +248,47 @@ export async function preloadCrsDataForServerSideProving(
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
     await Promise.all([Crs.new(2 ** 25 + 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
   }
+}
+
+export async function setupUpdateMonitor(
+  autoUpdateMode: SharedNodeConfig['autoUpdate'],
+  updatesLocation: URL,
+  rollupVersion: number | 'canonical',
+  publicClient: ViemClient,
+  registryContractAddress: EthAddress,
+  updateNodeConfig?: (config: object) => Promise<void>,
+) {
+  const logger = createLogger('update-check');
+  const checker = await UpdateChecker.new({
+    rollupVersion,
+    baseURL: updatesLocation,
+    publicClient,
+    registryContractAddress,
+  });
+
+  checker.on('newRollup', ({ latestRollup, currentRollup }) => {
+    if (autoUpdateMode === 'enabled') {
+      logger.info(`New rollup detected. Restarting node`, { latestRollup, currentRollup });
+      process.exit(0);
+    } else if (autoUpdateMode === 'notify') {
+      logger.warn(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
+    }
+  });
+
+  checker.on('newVersion', ({ latestVersion, currentVersion }) => {
+    if (autoUpdateMode === 'enabled') {
+      logger.info(`New node version detected. Restarting node`, { latestVersion, currentVersion });
+      process.exit(0);
+    } else if (autoUpdateMode === 'notify') {
+      logger.info(`New node version detected. Please updae and restart the node`, { latestVersion, currentVersion });
+    }
+  });
+
+  checker.on('updateConfig', async config => {
+    if (autoUpdateMode === 'enabled' && updateNodeConfig) {
+      logger.info(`Config change detected. Updating node`);
+      await updateNodeConfig(config);
+    }
+    // don't notify on these config changes
+  });
 }

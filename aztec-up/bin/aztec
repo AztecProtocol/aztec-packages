@@ -42,6 +42,10 @@ while [ "$#" -gt 0 ]; do
       export PXE_PROVER_ENABLED=1
       shift 2
       ;;
+    --network)
+      NETWORK="$2"
+      shift 2
+      ;;
     --help)
       NO_PORT_FORWARDING=1
       shift 1
@@ -128,7 +132,7 @@ case ${1:-} in
 
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
       fi
-      
+
       if [ -n "${ADMIN_PORT:-}" ]; then
         export ADMIN_PORT
         ADMIN_MAPPING="$ADMIN_PORT:$ADMIN_PORT"
@@ -138,6 +142,11 @@ case ${1:-} in
       # unset PORTS_TO_EXPOSE if we're just running --help
       if [ ! -z "${NO_PORT_FORWARDING:-}" ]; then
         export PORTS_TO_EXPOSE=""
+      fi
+
+      if [ -n "${NETWORK:-}" ]; then
+        DOCKER_RESTART_POLICY="no"
+        DOCKER_PULL_POLICY="always"
       fi
 
       exec $(dirname $0)/.aztec-run aztec-start \

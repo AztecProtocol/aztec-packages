@@ -2,7 +2,7 @@ import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { EthAddress, Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { NULL_KEY, getAddressFromPrivateKey } from '@aztec/ethereum';
+import { NULL_KEY, RegistryContract, getAddressFromPrivateKey, getPublicClient } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
@@ -18,7 +18,12 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
 import { getL1Config } from '../get_l1_config.js';
-import { extractNamespacedOptions, extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
+import {
+  extractNamespacedOptions,
+  extractRelevantOptions,
+  preloadCrsDataForVerifying,
+  setupUpdateMonitor,
+} from '../util.js';
 
 export async function startNode(
   options: any,
@@ -58,6 +63,9 @@ export async function startNode(
   const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+
+  const followsCanonicalRollup =
+    typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
 
   // Deploy contracts if needed
   if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
@@ -175,6 +183,17 @@ export async function startNode(
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
     await addBot(options, signalHandlers, services, { pxe, node, telemetry });
+  }
+
+  if (nodeConfig.autoUpdate !== 'disabled' && nodeConfig.autoUpdateUrl) {
+    setupUpdateMonitor(
+      nodeConfig.autoUpdate,
+      new URL(nodeConfig.autoUpdateUrl),
+      followsCanonicalRollup ? 'canonical' : nodeConfig.rollupVersion,
+      getPublicClient(nodeConfig!),
+      nodeConfig.l1Contracts.registryAddress,
+      config => node.setConfig(config),
+    );
   }
 
   return { config: nodeConfig };
