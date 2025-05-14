@@ -168,7 +168,7 @@ describe('Private Execution test suite', () => {
     }
     const tree = trees[name];
 
-    await tree.appendLeaves(leaves);
+    tree.appendLeaves(leaves);
 
     // Create a new snapshot.
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));

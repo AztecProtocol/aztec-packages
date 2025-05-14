@@ -212,7 +212,7 @@ export class EmitUnencryptedLog extends Instruction {
     super();
   }
 
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     if (context.environment.isStaticCall) {
       throw new StaticCallAlterationError();
     }
@@ -231,6 +231,7 @@ export class EmitUnencryptedLog extends Instruction {
     context.machineState.consumeGas(this.gasCost(logSize));
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
     context.persistableState.writePublicLog(contractAddress, log);
+    return Promise.resolve();
   }
 }
 
@@ -248,7 +249,7 @@ export class SendL2ToL1Message extends Instruction {
     super();
   }
 
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     if (context.environment.isStaticCall) {
       throw new StaticCallAlterationError();
     }
@@ -265,5 +266,6 @@ export class SendL2ToL1Message extends Instruction {
     const recipient = memory.get(recipientOffset).toFr();
     const content = memory.get(contentOffset).toFr();
     context.persistableState.writeL2ToL1Message(context.environment.address, recipient, content);
+    return Promise.resolve();
   }
 }

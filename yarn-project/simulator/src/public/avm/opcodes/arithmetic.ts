@@ -12,7 +12,7 @@ import { Addressing } from './addressing_mode.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
 
 export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInstruction {
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -27,6 +27,7 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
 
     const dest = this.compute(a, b);
     memory.set(dstOffset, dest);
+    return Promise.resolve();
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;

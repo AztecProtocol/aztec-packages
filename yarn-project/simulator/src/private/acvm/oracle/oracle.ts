@@ -352,8 +352,10 @@ export class Oracle {
     return [];
   }
 
-  notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    this.typedOracle.notifySetMinRevertibleSideEffectCounter(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
+  async notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.notifySetMinRevertibleSideEffectCounter(
+      Fr.fromString(minRevertibleSideEffectCounter).toNumber(),
+    );
     return Promise.resolve([]);
   }
 

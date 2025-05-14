@@ -137,7 +137,7 @@ describe('e2e_p2p_network', () => {
     const cheatCodes = new EthCheatCodesWithState(t.ctx.aztecNodeConfig.l1RpcUrls);
     try {
       await cheatCodes.warp(Number(timestamp));
-    } catch (err) {
+    } catch {
       t.logger.debug('Warp failed, time already satisfied');
     }
 

@@ -6,7 +6,7 @@ import { Instruction } from './instruction.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
 
 abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -21,6 +21,7 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
 
     const res = this.compute(a, b);
     memory.set(dstOffset, res);
+    return Promise.resolve();
   }
 
   protected abstract compute(a: IntegralValue, b: IntegralValue): IntegralValue;
@@ -98,7 +99,7 @@ export class Not extends Instruction {
     super();
   }
 
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -111,5 +112,6 @@ export class Not extends Instruction {
 
     const res = value.not();
     memory.set(dstOffset, res);
+    return Promise.resolve();
   }
 }

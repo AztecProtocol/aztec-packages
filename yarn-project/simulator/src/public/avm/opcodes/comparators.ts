@@ -5,7 +5,7 @@ import { Addressing } from './addressing_mode.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
 
 abstract class ComparatorInstruction extends ThreeOperandInstruction {
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -20,6 +20,7 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
 
     const dest = new Uint1(this.compare(a, b) ? 1 : 0);
     memory.set(dstOffset, dest);
+    return Promise.resolve();
   }
 
   protected abstract compare(a: MemoryValue, b: MemoryValue): boolean;

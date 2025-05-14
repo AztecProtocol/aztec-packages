@@ -229,7 +229,7 @@ export class P2PNetworkTest {
         const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
         try {
           await cheatCodes.warp(Number(timestamp));
-        } catch (err) {
+        } catch {
           this.logger.debug('Warp failed, time already satisfied');
         }
 

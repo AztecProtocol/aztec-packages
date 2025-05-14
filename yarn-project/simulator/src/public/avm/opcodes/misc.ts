@@ -31,7 +31,7 @@ export class DebugLog extends Instruction {
     super();
   }
 
-  public async execute(context: AvmContext): Promise<void> {
+  public execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
@@ -64,5 +64,6 @@ export class DebugLog extends Instruction {
     // Despite having dynamic "size" operands, the gas cost is fixed because
     // this opcode is a no-op except during client-initiated simulation
     context.machineState.consumeGas(this.gasCost());
+    return Promise.resolve();
   }
 }

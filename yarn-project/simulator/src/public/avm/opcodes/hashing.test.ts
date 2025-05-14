@@ -10,7 +10,7 @@ import { KeccakF1600, Poseidon2, Sha256Compression } from './hashing.js';
 describe('Hashing Opcodes', () => {
   let context: AvmContext;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     context = initContext();
   });
 
