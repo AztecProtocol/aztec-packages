@@ -192,4 +192,8 @@
 
 [[redirects]]
     from = "/developers/tutorials/codealong/cli_wallet/faceid_wallet"
-    to = "/developers/tutorials/codealong/faceid_wallet"
+    to = "/developers/guides/local_env/faceid_wallet"
+
+[[redirects]]
+    from = "/developers/tutorials/codealong/faceid_wallet"
+    to = "/developers/guides/local_env/faceid_wallet"
