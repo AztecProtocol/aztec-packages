@@ -137,6 +137,13 @@ pub(crate) mod tests {
             0x0000000000000000000000000000000000000000000000000000000000000045,
         ];
 
+        let expected_blob_commitment_fields_fixture = [
+            0x008c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb98,
+            0x0000000000000000000000000000006aaa0680f21270e7d8de4e19da5164f95c,
+        ];
+        let expected_challenge_z_fixture =
+            0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3;
+
         // Blob commitment with value:
         // x: 0x0c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb986aaa0680f21270e7d8de4e19da5164f95c,
         // y: 0x07896936b96e9af0ecd6ef882c14dcc6e8d075ea61d11ae9df4bfab87396547b5e01b8a35d9a720733acdd92421f24e9,
@@ -188,7 +195,9 @@ pub(crate) mod tests {
 
         // We have a single blob, so the accumulated outputs are just those after a single evaluation:
         assert_eq(output.blob_public_inputs.end_blob_accumulator.z, expected_challenge_z);
+        assert_eq(output.blob_public_inputs.end_blob_accumulator.z, expected_challenge_z_fixture);
         assert_eq(output.blob_public_inputs.end_blob_accumulator.c, injected_blob_commitment.point);
+        assert_eq(injected_blob_commitment_fields, expected_blob_commitment_fields_fixture);
         assert_eq(output.blob_public_inputs.end_blob_accumulator.gamma, expected_gamma_acc);
     }
 
