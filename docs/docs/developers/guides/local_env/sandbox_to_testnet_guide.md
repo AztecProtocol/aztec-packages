@@ -5,7 +5,7 @@ tags: [sandbox, testnet]
 
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
-This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting starteds guide](./developers/getting_started.md).
+This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started guide](./developers/getting_started.md).
 
 ## Main differences
 
