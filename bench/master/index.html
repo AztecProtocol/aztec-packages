@@ -28,8 +28,7 @@
       }
       main {
         width: 100%;
-        display: flex;
-        flex-direction: column;
+        display: block;
       }
       a {
         color: #3273dc;
@@ -77,15 +76,26 @@
         text-align: center;
       }
       .benchmark-graphs {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-around;
-        align-items: center;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+        gap: 16px;
+        grid-auto-rows: minmax(300px,
+          auto
+        ); // added to prevent vertical overlapping
+      }
+        grid-auto-rows: minmax(
+          300px,
+          auto
+        ); // added to prevent vertical overlapping
+      }
+      .chart-container {
+        position: relative;
         width: 100%;
+        height: 300px; /* adjust height as needed */
       }
       .benchmark-chart {
-        max-width: 1000px;
+        width: 100%;
+        height: 100%;
       }
     </style>
     <title>Benchmarks</title>
@@ -184,9 +194,21 @@
 
         function renderAllChars(dataSets) {
           function renderGraph(parent, name, dataset) {
+            // Find or create grid container inside parent
+            let grid = parent.querySelector(".benchmark-graphs");
+            if (!grid) {
+              grid = document.createElement("div");
+              grid.className = "benchmark-graphs";
+              parent.appendChild(grid);
+            }
+            // Create container for responsive chart
+            const container = document.createElement("div");
+            container.className = "chart-container";
+            grid.appendChild(container);
+
             const canvas = document.createElement("canvas");
             canvas.className = "benchmark-chart";
-            parent.appendChild(canvas);
+            container.appendChild(canvas);
 
             const color =
               toolColors[dataset.length > 0 ? dataset[0].tool : "_"];
@@ -202,6 +224,7 @@
               ],
             };
             const options = {
+              responsive: true, // ensure the chart is responsive
               scales: {
                 xAxes: [
                   {
