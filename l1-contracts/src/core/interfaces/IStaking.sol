@@ -35,4 +35,5 @@ interface IStaking is IStakingCore {
   function getExitDelay() external view returns (Timestamp);
   function getGSE() external view returns (GSE);
   function getFullStatus(address _attester) external view returns (FullStatus memory);
+  function getStatus(address _attester) external view returns (Status);
 }

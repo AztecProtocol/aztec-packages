@@ -28,7 +28,7 @@ import {TestConstants} from "../harnesses/TestConstants.sol";
 import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
-import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {Status, FullStatus} from "@aztec/core/interfaces/IStaking.sol";
 
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 // solhint-disable comprehensive-interface
@@ -76,11 +76,9 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE);
-    rollup.deposit(
-      address(0xdead), address(0xdead), address(0xdead), TestConstants.AZTEC_MINIMUM_STAKE
-    );
+    testERC20.mint(address(this), rollup.getMinimumStake());
+    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
@@ -125,11 +123,9 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE);
-    rollup.deposit(
-      address(0xdead), address(0xdead), address(0xdead), TestConstants.AZTEC_MINIMUM_STAKE
-    );
+    testERC20.mint(address(this), rollup.getMinimumStake());
+    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
 
     assertEq(rollup.getCurrentEpoch(), epoch);
     address[] memory committee = rollup.getCurrentEpochCommittee();
@@ -175,8 +171,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256[] memory stakes = new uint256[](attesters.length);
 
     for (uint256 i = 0; i < attesters.length; i++) {
-      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
-      stakes[i] = info.stake;
+      FullStatus memory info = rollup.getFullStatus(attesters[i]);
+      stakes[i] = info.effectiveBalance;
       assertTrue(info.status == Status.VALIDATING, "Invalid status");
     }
 
@@ -189,10 +185,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // Make sure that the slash was successful,
     // Meaning that validators are now LIVING and have lost the slash amount
     for (uint256 i = 0; i < attesters.length; i++) {
-      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
-      uint256 stake = info.stake;
-      assertEq(stake, stakes[i] - slashAmount, "Invalid stake");
-      assertTrue(info.status == Status.LIVING, "Invalid status");
+      FullStatus memory info = rollup.getFullStatus(attesters[i]);
+      assertEq(info.effectiveBalance, 0);
+      assertEq(info.exit.amount, stakes[i] - slashAmount, "Invalid stake");
+      assertTrue(info.status == Status.LIVING, "Invalid status after");
     }
   }
 

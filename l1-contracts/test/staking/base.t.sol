@@ -16,7 +16,7 @@ contract StakingBase is TestBase {
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
-  uint256 internal MINIMUM_STAKE = 100e18;
+  uint256 internal MINIMUM_STAKE;
 
   address internal SLASHER;
 

@@ -2,16 +2,16 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct Info {
   address withdrawer;
@@ -22,10 +22,15 @@ struct InstanceStaking {
   SnapshottedAddressSet attesters;
   mapping(address attester => Info) infoOf;
   mapping(address attester => uint256) balanceOf;
+  uint256 supply;
   bool exists;
 }
 
 interface IGSE {
+  event Deposit(
+    address indexed instance, address indexed attester, address proposer, address withdrawer
+  );
+
   error GSE__AttesterNotFound(address instance, address attester);
   error GSE__AttesterAlreadyRegistered(address instance, address attester);
 
@@ -40,8 +45,10 @@ interface IGSE {
     view
     returns (address, bool, bool);
   function balanceOf(address _instance, address _attester) external view returns (uint256);
+  function supplyOf(address _instance) external view returns (uint256);
+  function totalSupply() external view returns (uint256);
   function getInfo(address _instance, address _attester) external view returns (Info memory);
-  function getAttesterCountAtTimestamp(address _instance, Timestamp _timestamp)
+  function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
     external
     view
     returns (uint256);
@@ -49,36 +56,42 @@ interface IGSE {
     external
     view
     returns (address, bool, bool);
-  function getAttestersFromIndicesAtTimestamp(
+  function getAttestersFromIndicesAtTime(
     address _instance,
     Timestamp _timestamp,
     uint256[] memory _indices
   ) external view returns (address[] memory);
-  function getAttestersAtTimestamp(address _instance, Timestamp _timestamp)
+  function getAttestersAtTime(address _instance, Timestamp _timestamp)
     external
     view
     returns (address[] memory);
-  function getAttesterFromIndexAtTimestamp(address _instance, uint256 _index, Timestamp _timestamp)
+  function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
     external
     view
     returns (address);
+
+  function getCanonical() external view returns (address);
+
+  function getCanonicalAt(Timestamp _timestamp) external view returns (address);
 }
 
-contract GSE is IGSE {
+contract GSE is IGSE, Ownable {
   using AddressSnapshotLib for SnapshottedAddressSet;
   using SafeCast for uint256;
+  using SafeCast for uint224;
+  using Checkpoints for Checkpoints.Trace224;
 
   uint256 public constant MINIMUM_DEPOSIT = 100e18;
-  uint256 public constant MINIMUM_BALANCE = 80e18;
+  // @todo https://github.com/AztecProtocol/aztec-packages/issues/14304
+  uint256 public constant MINIMUM_BALANCE = 100e18;
 
   address public constant CANONICAL_MAGIC_ADDRESS =
     address(uint160(uint256(keccak256("canonical"))));
 
-  IGovernance public immutable GOVERNANCE;
-  IRegistry public immutable REGISTRY;
   IERC20 public immutable STAKING_ASSET;
 
-  address public canonical;
+  uint256 public totalSupply;
+  Checkpoints.Trace224 internal canonical;
   mapping(address instance => InstanceStaking) internal instances;
 
   modifier onlyRollup() {
@@ -86,19 +99,16 @@ contract GSE is IGSE {
     _;
   }
 
-  constructor(IGovernance _governance, IRegistry _registry, IERC20 _stakingAsset) {
-    GOVERNANCE = _governance;
-    REGISTRY = _registry;
+  constructor(address __owner, IERC20 _stakingAsset) Ownable(__owner) {
     STAKING_ASSET = _stakingAsset;
     instances[CANONICAL_MAGIC_ADDRESS].exists = true;
   }
 
-  function addRollup(address _rollup) external override(IGSE) {
-    require(msg.sender == address(GOVERNANCE), "Not the registry");
+  function addRollup(address _rollup) external override(IGSE) onlyOwner {
     require(_rollup != address(0), "Rollup not found");
     require(!instances[_rollup].exists, "Rollup already not registered");
     instances[_rollup].exists = true;
-    canonical = _rollup;
+    canonical.push(block.timestamp.toUint32(), uint224(uint160(_rollup)));
   }
 
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
@@ -106,7 +116,7 @@ contract GSE is IGSE {
     override(IGSE)
     onlyRollup
   {
-    require(!_onCanonical || canonical == msg.sender, "Not the canonical rollup");
+    require(!_onCanonical || getCanonical() == msg.sender, "Not the canonical rollup");
 
     // Ensure that it is not already registered on the canonical or this rollup
     // We wish to avoid that such that are no ambiguity around who is the proposer and such.
@@ -123,8 +133,14 @@ contract GSE is IGSE {
     require(instanceStaking.attesters.add(_attester), "Validator already registered");
     instanceStaking.infoOf[_attester] = Info({withdrawer: _withdrawer, proposer: _proposer});
     instanceStaking.balanceOf[_attester] += MINIMUM_DEPOSIT;
+    instanceStaking.supply += MINIMUM_DEPOSIT;
+    totalSupply += MINIMUM_DEPOSIT;
 
     STAKING_ASSET.transferFrom(msg.sender, address(this), MINIMUM_DEPOSIT);
+
+    emit Deposit(
+      _onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender, _attester, _proposer, _withdrawer
+    );
   }
 
   /**
@@ -150,7 +166,7 @@ contract GSE is IGSE {
     require(attesterExists, "Attester not found");
 
     uint256 balance = instanceStaking.balanceOf[_attester];
-    require(balance >= _amount, "Insufficient balance");
+    require(balance >= _amount, Errors.Staking__InsufficientStake(balance, _amount));
 
     uint256 amountWithdrawn = _amount;
     bool removed = balance - _amount < MINIMUM_BALANCE;
@@ -163,6 +179,9 @@ contract GSE is IGSE {
     }
 
     instanceStaking.balanceOf[_attester] -= amountWithdrawn;
+    instanceStaking.supply -= amountWithdrawn;
+    totalSupply -= amountWithdrawn;
+
     STAKING_ASSET.transfer(msg.sender, amountWithdrawn);
 
     return (amountWithdrawn, removed);
@@ -229,7 +248,7 @@ contract GSE is IGSE {
   }
 
   function balanceOf(address _instance, address _attester)
-    public
+    external
     view
     override(IGSE)
     returns (uint256)
@@ -239,7 +258,26 @@ contract GSE is IGSE {
     return attesterExists ? store.balanceOf[_attester] : 0;
   }
 
-  function getAttesterCountAtTimestamp(address _instance, Timestamp _timestamp)
+  function supplyOf(address _instance) external view override(IGSE) returns (uint256) {
+    InstanceStaking storage store = instances[_instance];
+
+    uint256 supply = store.supply;
+    if (getCanonical() == _instance) {
+      supply += instances[CANONICAL_MAGIC_ADDRESS].supply;
+    }
+
+    return supply;
+  }
+
+  function getCanonical() public view override(IGSE) returns (address) {
+    return address(canonical.latest().toUint160());
+  }
+
+  function getCanonicalAt(Timestamp _timestamp) public view override(IGSE) returns (address) {
+    return address(canonical.upperLookup(Timestamp.unwrap(_timestamp).toUint32()).toUint160());
+  }
+
+  function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
     public
     view
     override(IGSE)
@@ -249,21 +287,21 @@ contract GSE is IGSE {
     uint32 timestamp = Timestamp.unwrap(_timestamp).toUint32();
 
     uint256 count = store.attesters.lengthAtTimestamp(timestamp);
-    if (canonical == _instance) {
+    if (getCanonicalAt(_timestamp) == _instance) {
       count += instances[CANONICAL_MAGIC_ADDRESS].attesters.lengthAtTimestamp(timestamp);
     }
 
     return count;
   }
 
-  function getAttestersAtTimestamp(address _instance, Timestamp _timestamp)
+  function getAttestersAtTime(address _instance, Timestamp _timestamp)
     public
     view
     override(IGSE)
     returns (address[] memory)
   {
     // @todo Throw me in jail for this crime against humanity
-    uint256 count = getAttesterCountAtTimestamp(_instance, _timestamp);
+    uint256 count = getAttesterCountAtTime(_instance, _timestamp);
     uint256[] memory indices = new uint256[](count);
     for (uint256 i = 0; i < count; i++) {
       indices[i] = i;
@@ -272,7 +310,7 @@ contract GSE is IGSE {
     return _getAddressFromIndecesAtTimestamp(_instance, indices, _timestamp);
   }
 
-  function getAttesterFromIndexAtTimestamp(address _instance, uint256 _index, Timestamp _timestamp)
+  function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
     public
     view
     override(IGSE)
@@ -283,7 +321,7 @@ contract GSE is IGSE {
     return _getAddressFromIndecesAtTimestamp(_instance, indices, _timestamp)[0];
   }
 
-  function getAttestersFromIndicesAtTimestamp(
+  function getAttestersFromIndicesAtTime(
     address _instance,
     Timestamp _timestamp,
     uint256[] memory _indices
@@ -302,7 +340,7 @@ contract GSE is IGSE {
 
     InstanceStaking storage store = instances[_instance];
     InstanceStaking storage canonicalStore = instances[CANONICAL_MAGIC_ADDRESS];
-    bool isCanonical = canonical == _instance;
+    bool isCanonical = getCanonicalAt(_timestamp) == _instance;
 
     uint32 ts = Timestamp.unwrap(_timestamp).toUint32();
 
@@ -335,7 +373,7 @@ contract GSE is IGSE {
     isCanonical = false;
 
     if (
-      !attesterExists && canonical == _instance
+      !attesterExists && getCanonical() == _instance
         && instances[CANONICAL_MAGIC_ADDRESS].attesters.contains(_attester)
     ) {
       store = instances[CANONICAL_MAGIC_ADDRESS];

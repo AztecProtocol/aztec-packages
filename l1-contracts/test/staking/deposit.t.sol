@@ -4,17 +4,16 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {IStakingCore, Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore, Status, FullStatus} from "@aztec/core/interfaces/IStaking.sol";
+import {IGSE} from "@aztec/core/staking/GSE.sol";
 
 contract DepositTest is StakingBase {
-  uint256 internal depositAmount;
-
-  function test_WhenAmountLtMinimumStake() external {
+  function test_GivenCallerHasInsufficientAllowance() external {
     // it reverts
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Staking__InsufficientStake.selector, depositAmount, MINIMUM_STAKE
+        IERC20Errors.ERC20InsufficientAllowance.selector, address(staking), 0, MINIMUM_STAKE
       )
     );
 
@@ -22,50 +21,21 @@ contract DepositTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: depositAmount
-    });
-  }
-
-  modifier whenAmountGtMinimumStake(uint256 _depositAmount) {
-    depositAmount = bound(_depositAmount, MINIMUM_STAKE, type(uint96).max);
-    _;
-  }
-
-  function test_GivenCallerHasInsufficientAllowance(uint256 _depositAmount)
-    external
-    whenAmountGtMinimumStake(_depositAmount)
-  {
-    // it reverts
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientAllowance.selector, address(staking), 0, depositAmount
-      )
-    );
-
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _amount: depositAmount
+      _onCanonical: true
     });
   }
 
   modifier givenCallerHasSufficientAllowance() {
-    stakingAsset.approve(address(staking), depositAmount);
+    stakingAsset.approve(address(staking), MINIMUM_STAKE);
     _;
   }
 
-  function test_GivenCallerHasInsufficientFunds(uint256 _depositAmount)
-    external
-    whenAmountGtMinimumStake(_depositAmount)
-    givenCallerHasSufficientAllowance
-  {
+  function test_GivenCallerHasInsufficientFunds() external givenCallerHasSufficientAllowance {
     // it reverts
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, depositAmount
+        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, MINIMUM_STAKE
       )
     );
 
@@ -73,18 +43,17 @@ contract DepositTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: depositAmount
+      _onCanonical: true
     });
   }
 
   modifier givenCallerHasSufficientFunds() {
-    stakingAsset.mint(address(this), depositAmount);
+    stakingAsset.mint(address(this), MINIMUM_STAKE);
     _;
   }
 
-  function test_GivenAttesterIsAlreadyRegistered(uint256 _depositAmount)
+  function test_GivenAttesterIsAlreadyRegistered()
     external
-    whenAmountGtMinimumStake(_depositAmount)
     givenCallerHasSufficientAllowance
     givenCallerHasSufficientFunds
   {
@@ -94,25 +63,25 @@ contract DepositTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: depositAmount
+      _onCanonical: true
     });
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyActive.selector, ATTESTER));
     staking.deposit({
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: depositAmount
+      _onCanonical: true
     });
 
     vm.prank(SLASHER);
-    staking.slash(ATTESTER, depositAmount / 2);
+    staking.slash(ATTESTER, MINIMUM_STAKE / 2);
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, ATTESTER));
     staking.deposit({
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: depositAmount
+      _onCanonical: true
     });
 
     vm.prank(WITHDRAWER);
@@ -122,7 +91,7 @@ contract DepositTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: depositAmount
+      _onCanonical: true
     });
   }
 
@@ -130,9 +99,8 @@ contract DepositTest is StakingBase {
     _;
   }
 
-  function test_GivenAttesterIsAlreadyActive(uint256 _depositAmount)
+  function test_GivenAttesterIsAlreadyActive()
     external
-    whenAmountGtMinimumStake(_depositAmount)
     givenCallerHasSufficientAllowance
     givenCallerHasSufficientFunds
     givenAttesterIsNotRegistered
@@ -143,9 +111,8 @@ contract DepositTest is StakingBase {
     // and to exit it must already have been removed from the active set.
   }
 
-  function test_GivenAttesterIsNotActive(uint256 _depositAmount)
+  function test_GivenAttesterIsNotActive()
     external
-    whenAmountGtMinimumStake(_depositAmount)
     givenCallerHasSufficientAllowance
     givenCallerHasSufficientFunds
     givenAttesterIsNotRegistered
@@ -157,22 +124,24 @@ contract DepositTest is StakingBase {
 
     assertEq(stakingAsset.balanceOf(address(staking)), 0);
 
-    vm.expectEmit(true, true, true, true, address(staking));
-    emit IStakingCore.Deposit(ATTESTER, PROPOSER, WITHDRAWER, depositAmount);
+    vm.expectEmit(true, true, true, true, address(staking.getGSE()));
+    emit IGSE.Deposit(
+      address(staking.getGSE().CANONICAL_MAGIC_ADDRESS()), ATTESTER, PROPOSER, WITHDRAWER
+    );
 
     staking.deposit({
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: depositAmount
+      _onCanonical: true
     });
 
-    assertEq(stakingAsset.balanceOf(address(staking)), depositAmount);
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
 
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    assertEq(info.stake, depositAmount);
-    assertEq(info.withdrawer, WITHDRAWER);
-    assertEq(info.proposer, PROPOSER);
+    FullStatus memory info = staking.getFullStatus(ATTESTER);
+    assertEq(info.effectiveBalance, MINIMUM_STAKE, "effective balance");
+    assertEq(info.info.withdrawer, WITHDRAWER);
+    assertEq(info.info.proposer, PROPOSER);
     assertTrue(info.status == Status.VALIDATING);
   }
 }

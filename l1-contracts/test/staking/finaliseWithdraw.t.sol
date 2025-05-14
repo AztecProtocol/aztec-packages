@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  Timestamp, Status, ValidatorInfo, Exit, IStakingCore
+  Timestamp, Status, FullStatus, Exit, IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract FinaliseWithdrawTest is StakingBase {
@@ -21,7 +21,7 @@ contract FinaliseWithdrawTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: MINIMUM_STAKE
+      _onCanonical: true
     });
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
@@ -44,7 +44,7 @@ contract FinaliseWithdrawTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: MINIMUM_STAKE
+      _onCanonical: true
     });
 
     vm.prank(WITHDRAWER);
@@ -72,26 +72,24 @@ contract FinaliseWithdrawTest is StakingBase {
     // it transfer funds to recipient
     // it emits a {WithdrawFinalised} event
 
-    Exit memory exit = staking.getExit(ATTESTER);
-    assertEq(exit.recipient, RECIPIENT);
-    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
+    FullStatus memory info = staking.getFullStatus(ATTESTER);
     assertTrue(info.status == Status.EXITING);
+    assertEq(info.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(info.exit.isRecipient, true);
+    assertEq(info.exit.recipientOrWithdrawer, RECIPIENT);
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
-    vm.warp(Timestamp.unwrap(exit.exitableAt));
+    vm.warp(Timestamp.unwrap(info.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.WithdrawFinalised(ATTESTER, RECIPIENT, MINIMUM_STAKE);
     staking.finaliseWithdraw(ATTESTER);
 
-    exit = staking.getExit(ATTESTER);
-    assertEq(exit.recipient, address(0));
-    assertEq(exit.exitableAt, Timestamp.wrap(0));
-
-    info = staking.getInfo(ATTESTER);
+    info = staking.getFullStatus(ATTESTER);
+    assertEq(info.exit.recipientOrWithdrawer, address(0));
+    assertEq(info.exit.exitableAt, Timestamp.wrap(0));
     assertTrue(info.status == Status.NONE);
 
     assertEq(stakingAsset.balanceOf(address(staking)), 0);

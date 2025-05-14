@@ -2,12 +2,13 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {GSE, Info} from "@aztec/core/staking/GSE.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -69,8 +70,8 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     // We load it into memory to cache it, as we will delete it before we use it.
     Exit memory exit = store.exits[_attester];
-    require(exit.exists);
-    require(exit.isRecipient);
+    require(exit.exists, Errors.Staking__NotExiting(_attester));
+    require(exit.isRecipient, Errors.Staking__NotExiting(_attester));
     require(
       exit.exitableAt <= Timestamp.wrap(block.timestamp),
       Errors.Staking__WithdrawalNotUnlockedYet(Timestamp.wrap(block.timestamp), exit.exitableAt)
@@ -102,7 +103,7 @@ library StakingLib {
       }
     } else {
       (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists);
+      require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
 
       (uint256 amountWithdrawn, bool removed) = store.gse.withdraw(_attester, _amount);
 
@@ -121,10 +122,6 @@ library StakingLib {
     emit IStakingCore.Slashed(_attester, _amount);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer) internal {
-    deposit(_attester, _proposer, _withdrawer, true);
-  }
-
   function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     internal
   {
@@ -133,10 +130,9 @@ library StakingLib {
       Errors.Staking__InvalidDeposit(_attester, _proposer)
     );
     StakingStorage storage store = getStorage();
-    require(!store.exits[_attester].exists);
+    require(!store.exits[_attester].exists, Errors.Staking__AlreadyRegistered(_attester));
     require(
-      !store.gse.isRegistered(address(this), _attester),
-      Errors.Staking__AlreadyRegistered(_attester)
+      !store.gse.isRegistered(address(this), _attester), Errors.Staking__AlreadyActive(_attester)
     );
     uint256 amount = store.gse.MINIMUM_DEPOSIT();
 
@@ -146,23 +142,26 @@ library StakingLib {
   }
 
   function initiateWithdraw(address _attester, address _recipient) internal returns (bool) {
-    require(_recipient != address(0));
+    require(_recipient != address(0), Errors.Staking__InvalidRecipient(_recipient));
     StakingStorage storage store = getStorage();
 
     if (store.exits[_attester].exists) {
-      // If there is already an exit, we either started, it and should revert
-      // or it is because of a slash and we should udpate the recipient
+      // If there is already an exit, we either started it and should revert
+      // or it is because of a slash and we should update the recipient
       // Still only if we are the withdrawer
       // We DO NOT update the exitableAt
-      require(!store.exits[_attester].isRecipient);
-      require(store.exits[_attester].recipientOrWithdrawer == msg.sender);
+      require(!store.exits[_attester].isRecipient, Errors.Staking__NothingToExit(_attester));
+      require(
+        store.exits[_attester].recipientOrWithdrawer == msg.sender,
+        Errors.Staking__NotWithdrawer(store.exits[_attester].recipientOrWithdrawer, msg.sender)
+      );
       store.exits[_attester].recipientOrWithdrawer = _recipient;
       store.exits[_attester].isRecipient = true;
 
       emit IStakingCore.WithdrawInitiated(_attester, _recipient, store.exits[_attester].amount);
     } else {
       (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists);
+      require(attesterExists, Errors.Staking__NothingToExit(_attester));
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
       uint256 amount = store.gse.balanceOf(address(this), _attester);
@@ -182,54 +181,53 @@ library StakingLib {
     return true;
   }
 
-  function getAttesterCountAtTimestamp(Timestamp _timestamp) internal view returns (uint256) {
-    StakingStorage storage store = getStorage();
-    return store.gse.getAttesterCountAtTimestamp(address(this), _timestamp);
+  function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {
+    return getStorage().gse.getAttesterCountAtTime(address(this), _timestamp);
   }
 
-  function getAttestersAtTimestamp(Timestamp _timestamp) internal view returns (address[] memory) {
-    StakingStorage storage store = getStorage();
-    return store.gse.getAttestersAtTimestamp(address(this), _timestamp);
+  function getAttestersAtTime(Timestamp _timestamp) internal view returns (address[] memory) {
+    return getStorage().gse.getAttestersAtTime(address(this), _timestamp);
   }
 
   function getAttesterAtIndex(uint256 _index) internal view returns (address) {
-    StakingStorage storage store = getStorage();
-    return store.gse.getAttesterFromIndexAtTimestamp(
+    return getStorage().gse.getAttesterFromIndexAtTime(
       address(this), _index, Timestamp.wrap(block.timestamp)
     );
   }
 
   function getProposerForAttester(address _attester) internal view returns (address) {
-    StakingStorage storage store = getStorage();
-    (address proposer,,) = store.gse.getProposer(address(this), _attester);
+    (address proposer,,) = getStorage().gse.getProposer(address(this), _attester);
     return proposer;
   }
 
-  function getAttestersFromIndicesAtTimestamp(Timestamp _timestamp, uint256[] memory _indices)
+  function getAttestersFromIndicesAtTime(Timestamp _timestamp, uint256[] memory _indices)
     internal
     view
     returns (address[] memory)
   {
-    StakingStorage storage store = getStorage();
-    return store.gse.getAttestersFromIndicesAtTimestamp(address(this), _timestamp, _indices);
+    return getStorage().gse.getAttestersFromIndicesAtTime(address(this), _timestamp, _indices);
   }
 
   function getExit(address _attester) internal view returns (Exit memory) {
-    StakingStorage storage store = getStorage();
-    return store.exits[_attester];
+    return getStorage().exits[_attester];
   }
 
   function getInfo(address _attester) internal view returns (Info memory) {
-    StakingStorage storage store = getStorage();
-    return store.gse.getInfo(address(this), _attester);
+    return getStorage().gse.getInfo(address(this), _attester);
   }
 
   function getFullStatus(address _attester) internal view returns (FullStatus memory) {
-    StakingStorage storage store = getStorage();
+    return FullStatus({
+      status: getStatus(_attester),
+      effectiveBalance: getStorage().gse.balanceOf(address(this), _attester),
+      exit: getExit(_attester),
+      info: getInfo(_attester)
+    });
+  }
 
+  function getStatus(address _attester) internal view returns (Status) {
     Exit memory exit = getExit(_attester);
-    Info memory info = getInfo(_attester);
-    uint256 effectiveBalance = store.gse.balanceOf(address(this), _attester);
+    uint256 effectiveBalance = getStorage().gse.balanceOf(address(this), _attester);
 
     Status status;
     if (exit.exists) {
@@ -238,7 +236,7 @@ library StakingLib {
       status = effectiveBalance > 0 ? Status.VALIDATING : Status.NONE;
     }
 
-    return FullStatus({status: status, effectiveBalance: effectiveBalance, exit: exit, info: info});
+    return status;
   }
 
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {

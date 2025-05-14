@@ -49,7 +49,7 @@ import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelecti
  * We have to look a bit into the `RollupCore.sol` to make sure that we are not missing anything.
  */
 contract RollupShouldBeGetters is ValidatorSelectionTestBase {
-  function test_getEpochCommittee(uint16 _epochToGet, bool _setup) external setup(4) {
+  function test_getEpochCommitteeSmall(uint16 _epochToGet, bool _setup) external setup(4) {
     uint256 expectedSize = _epochToGet == 0 ? 0 : 4;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
