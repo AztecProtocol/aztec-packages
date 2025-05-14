@@ -85,6 +85,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
+    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -184,4 +185,36 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
     return is_value_reconstructed;
 }
 
+/**
+ * @brief Checks that translator and merge protocol operate on the same EccOpQueue data.
+ *
+ * @details The final merge verifier receives commitments to 4 polynomials whose coefficients are the values of the full
+ * op queue (referred to as the ultra ops table in the merge protocol). These have to match the EccOpQueue commitments
+ * received by the translator verifier, representing 4 wires in its circuit, to ensure the two Goblin components,
+ * both operating on the UltraOp version of the op queue, actually use the same data.
+ */
+bool TranslatorVerifier::verify_consistency_with_final_merge(const std::array<Commitment, 4> merge_commitments)
+{
+    if (op_queue_commitments[0] != merge_commitments[0]) {
+        info("Consistency check failed: op commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[1] != merge_commitments[1]) {
+        info("Consistency check failed: x_lo_y_hi commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[2] != merge_commitments[2]) {
+        info("Consistency check failed: x_hi_z_1 commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[3] != merge_commitments[3]) {
+        info("Consistency check failed: y_lo_z_2 commitment mismatch");
+        return false;
+    }
+
+    return true;
+}
 } // namespace bb

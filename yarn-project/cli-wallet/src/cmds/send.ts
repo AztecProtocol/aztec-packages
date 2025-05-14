@@ -11,6 +11,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { printProfileResult } from '../utils/profiling.js';
 
 export async function send(
   wallet: AccountWalletWithSecretKey,
@@ -22,6 +23,7 @@ export async function send(
   cancellable: boolean,
   feeOpts: IFeeOpts,
   authWitnesses: AuthWitness[],
+  verbose: boolean,
   log: LogFn,
 ) {
   const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
@@ -45,7 +47,12 @@ export async function send(
     return;
   }
 
-  const tx = call.send(sendOptions);
+  const provenTx = await call.prove(sendOptions);
+  if (verbose) {
+    printProfileResult(provenTx.timings!, log);
+  }
+
+  const tx = provenTx.send();
   const txHash = await tx.getTxHash();
   log(`\nTransaction hash: ${txHash.toString()}`);
   if (wait) {

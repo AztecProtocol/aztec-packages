@@ -49,7 +49,7 @@ export class BlockProposal extends Gossipable {
     super();
   }
 
-  override p2pMessageIdentifier(): Promise<Buffer32> {
+  override generateP2PMessageIdentifier(): Promise<Buffer32> {
     return Promise.resolve(new BlockProposalHash(keccak256(this.signature.toBuffer())));
   }
 
