@@ -35,7 +35,7 @@ describe('e2e_p2p_reqresp_tx', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG,
         listenAddress: '127.0.0.1',
         aztecEpochDuration: 64, // stable committee
-        aztecProofSubmissionWindow: 64 * 2, // and no reorgs
+        aztecProofSubmissionWindow: 64 * 10, // and no reorgs
       },
     });
     await t.setupAccount();
@@ -161,6 +161,13 @@ describe('e2e_p2p_reqresp_tx', () => {
     }
     // Get the indexes of the nodes that are responsible for the next two slots
     const proposerIndexes = proposers.map(proposer => mappedProposers.indexOf(proposer as `0x${string}`));
+
+    if (proposerIndexes.some(i => i === -1)) {
+      throw new Error(
+        `Proposer index not found for proposer ` +
+          `(proposers=${proposers.join(',')}, indices=${proposerIndexes.join(',')})`,
+      );
+    }
 
     const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
       i => !proposerIndexes.includes(i),
