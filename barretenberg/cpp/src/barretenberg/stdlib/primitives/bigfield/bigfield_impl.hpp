@@ -362,6 +362,20 @@ bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Build
     return result;
 }
 
+/**
+ * @brief Adds two bigfield elements. Inputs are reduced to the modulus if necessary. Requires 4 gates if both elements
+ * are witnesses.
+ *
+ * @details Naive addition of two bigfield elements would require 5 gates: 4 gates to add the binary basis limbs and 1
+ * gate to add the prime basis limbs. However, if both elements are witnesses, we can use an optimised addition trick
+ * that uses 4 gates instead of 5. In this case, we add the prime basis limbs and one of the binary basis limbs in a
+ * single gate.
+ *
+ * @tparam Builder
+ * @tparam T
+ * @param other
+ * @return bigfield<Builder, T>
+ */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) const
 {
@@ -385,66 +399,83 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     result.binary_basis_limbs[3].maximum_value =
         binary_basis_limbs[3].maximum_value + other.binary_basis_limbs[3].maximum_value;
 
-    if constexpr (HasPlookup<Builder>) {
-        if (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1 &&
-            !is_constant() && !other.is_constant()) {
-            bool limbconst = binary_basis_limbs[0].element.is_constant();
-            limbconst = limbconst || binary_basis_limbs[1].element.is_constant();
-            limbconst = limbconst || binary_basis_limbs[2].element.is_constant();
-            limbconst = limbconst || binary_basis_limbs[3].element.is_constant();
-            limbconst = limbconst || prime_basis_limb.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[0].element.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[1].element.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
-            limbconst = limbconst || other.prime_basis_limb.is_constant();
-            limbconst =
-                limbconst || (prime_basis_limb.get_witness_index() ==
-                              other.prime_basis_limb
-                                  .get_witness_index()); // We are comparing if the bigfield elements are exactly the
-                                                         // same object, so we compare the unnormalized witness indices
-            if (!limbconst) {
-                std::pair<uint32_t, bb::fr> x0{ binary_basis_limbs[0].element.witness_index,
-                                                binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> x1{ binary_basis_limbs[1].element.witness_index,
-                                                binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> x2{ binary_basis_limbs[2].element.witness_index,
-                                                binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> x3{ binary_basis_limbs[3].element.witness_index,
-                                                binary_basis_limbs[3].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
-                                                other.binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
-                                                other.binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
-                                                other.binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
-                                                other.binary_basis_limbs[3].element.multiplicative_constant };
-                bb::fr c0(binary_basis_limbs[0].element.additive_constant +
-                          other.binary_basis_limbs[0].element.additive_constant);
-                bb::fr c1(binary_basis_limbs[1].element.additive_constant +
-                          other.binary_basis_limbs[1].element.additive_constant);
-                bb::fr c2(binary_basis_limbs[2].element.additive_constant +
-                          other.binary_basis_limbs[2].element.additive_constant);
-                bb::fr c3(binary_basis_limbs[3].element.additive_constant +
-                          other.binary_basis_limbs[3].element.additive_constant);
+    // If both the elements are witnesses, we use an optimised addition trick that uses 4 gates instead of 5.
+    //
+    // Naively, we would need 5 gates to add two bigfield elements: 4 gates to add the binary basis limbs and
+    // 1 gate to add the prime basis limbs.
+    //
+    // In the optimised version, we fit 15 witnesses into 4 gates (4 + 4 + 4 + 3 = 15), and we add the prime basis limbs
+    // and one of the binary basis limbs in the first gate.
+    // gate 1: z.limb_0 = x.limb_0 + y.limb_0  &&  z.prime_limb = x.prime_limb + y.prime_limb
+    // gate 2: z.limb_1 = x.limb_1 + y.limb_1
+    // gate 3: z.limb_2 = x.limb_2 + y.limb_2
+    // gate 4: z.limb_3 = x.limb_3 + y.limb_3
+    //
+    // TODO(suyash): does prime_basis_limb need a "normalize" check?
+    bool both_witness = !is_constant() && !other.is_constant();
+    bool both_prime_limb_multiplicative_constant_one =
+        (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
+    if (both_prime_limb_multiplicative_constant_one && both_witness) {
+        // TODO(suyash): add is_constant check for bigfield instead of checking each limb
+        bool limbconst = binary_basis_limbs[0].element.is_constant();
+        limbconst = limbconst || binary_basis_limbs[1].element.is_constant();
+        limbconst = limbconst || binary_basis_limbs[2].element.is_constant();
+        limbconst = limbconst || binary_basis_limbs[3].element.is_constant();
+        limbconst = limbconst || prime_basis_limb.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[0].element.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[1].element.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
+        limbconst = limbconst || other.prime_basis_limb.is_constant();
+        limbconst =
+            limbconst ||
+            (prime_basis_limb.get_witness_index() ==
+             other.prime_basis_limb.get_witness_index()); // We are comparing if the bigfield elements are exactly the
+                                                          // same object, so we compare the unnormalized witness indices
+        if (!limbconst) {
+            std::pair<uint32_t, bb::fr> x0{ binary_basis_limbs[0].element.witness_index,
+                                            binary_basis_limbs[0].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> x1{ binary_basis_limbs[1].element.witness_index,
+                                            binary_basis_limbs[1].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> x2{ binary_basis_limbs[2].element.witness_index,
+                                            binary_basis_limbs[2].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> x3{ binary_basis_limbs[3].element.witness_index,
+                                            binary_basis_limbs[3].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
+                                            other.binary_basis_limbs[0].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
+                                            other.binary_basis_limbs[1].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
+                                            other.binary_basis_limbs[2].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
+                                            other.binary_basis_limbs[3].element.multiplicative_constant };
+            bb::fr c0(binary_basis_limbs[0].element.additive_constant +
+                      other.binary_basis_limbs[0].element.additive_constant);
+            bb::fr c1(binary_basis_limbs[1].element.additive_constant +
+                      other.binary_basis_limbs[1].element.additive_constant);
+            bb::fr c2(binary_basis_limbs[2].element.additive_constant +
+                      other.binary_basis_limbs[2].element.additive_constant);
+            bb::fr c3(binary_basis_limbs[3].element.additive_constant +
+                      other.binary_basis_limbs[3].element.additive_constant);
 
-                uint32_t xp(prime_basis_limb.witness_index);
-                uint32_t yp(other.prime_basis_limb.witness_index);
-                bb::fr cp(prime_basis_limb.additive_constant + other.prime_basis_limb.additive_constant);
-                const auto output_witnesses = ctx->evaluate_non_native_field_addition(
-                    { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
-                result.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[0]);
-                result.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[1]);
-                result.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[2]);
-                result.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[3]);
-                result.prime_basis_limb = field_t<Builder>::from_witness_index(ctx, output_witnesses[4]);
-                result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-                return result;
-            }
+            uint32_t xp(prime_basis_limb.witness_index);
+            uint32_t yp(other.prime_basis_limb.witness_index);
+            bb::fr cp(prime_basis_limb.additive_constant + other.prime_basis_limb.additive_constant);
+            const auto output_witnesses = ctx->evaluate_non_native_field_addition(
+                { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
+            result.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[0]);
+            result.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[1]);
+            result.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[2]);
+            result.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[3]);
+            result.prime_basis_limb = field_t<Builder>::from_witness_index(ctx, output_witnesses[4]);
+            result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+            return result;
         }
     }
 
+    // If one of the elements is a constant or its prime limb does not have a multiplicative constant of 1, we
+    // use the standard addition method. This will not use additional gates because field addition with one constant
+    // does not require any additional gates.
     result.binary_basis_limbs[0].element = binary_basis_limbs[0].element + other.binary_basis_limbs[0].element;
     result.binary_basis_limbs[1].element = binary_basis_limbs[1].element + other.binary_basis_limbs[1].element;
     result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + other.binary_basis_limbs[2].element;
