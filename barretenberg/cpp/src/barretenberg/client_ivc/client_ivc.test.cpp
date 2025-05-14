@@ -402,7 +402,7 @@ TEST(ClientIVCBenchValidation, Full6)
 }
 
 /**
- * @brief Test that running the benchmark suite with movked verification keys will not error out.
+ * @brief Test that running the benchmark suite with mocked verification keys will not error out.
  */
 TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {

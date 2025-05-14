@@ -8,6 +8,13 @@ export native_preset=${NATIVE_PRESET:-clang16-assert}
 export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
+# Mostly arbitrary set that touches lots of the code.
+declare -A asan_tests=(
+  ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+  ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
+  ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+  ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+)
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -44,12 +51,13 @@ function build_native {
   fi
 }
 
-# Selectively build components with address sanitizer
-function build_native {
+# Selectively build components with address sanitizer (with optimizations)
+function build_asan_fast {
   set -eu
-  if ! cache_download barretenberg-asan-$hash.zst; then
-    build_preset asan -DDISABLE_AZTEC_VM=ON
-    cache_upload barretenberg-asan-$hash.zst build/bin
+  if ! cache_download barretenberg-asan-fast-$hash.zst; then
+    # Pass the keys from asan_tests to the build_preset function.
+    build_preset asan-fast --target "${!asan_tests[@]}"
+    cache_upload barretenberg-asan-fast-$hash.zst build-fast-asan/bin
   fi
 }
 
@@ -169,7 +177,7 @@ function build {
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  cd build-asan-fast
+  cd build
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
@@ -186,7 +194,13 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  # echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
+  # Iterate asan_tests, creating a gtest invocation for each.
+  for bin_name in "${!asan_tests[@]}"; do
+    local filter=${asan_tests[$bin_name]}
+    local prefix="$hash:CPUS=4:MEM=8g"
+    echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+  done
+  echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.
@@ -325,7 +339,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|release|build_native|build_nodejs_module|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
     $cmd "$@"
     ;;
   *)
