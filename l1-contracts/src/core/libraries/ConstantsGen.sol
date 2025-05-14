@@ -191,7 +191,7 @@ library Constants {
   uint256 internal constant STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant TREE_SNAPSHOTS_LENGTH = 8;
   uint256 internal constant TX_CONTEXT_LENGTH = 10;
-  uint256 internal constant TX_REQUEST_LENGTH = 14;
+  uint256 internal constant TX_REQUEST_LENGTH = 15;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant TOTAL_MANA_USED_LENGTH = 1;
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
