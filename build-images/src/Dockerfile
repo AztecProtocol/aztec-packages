@@ -143,8 +143,6 @@ RUN apt update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN node --version
-
 # Install wasi-sdk.
 COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
 
