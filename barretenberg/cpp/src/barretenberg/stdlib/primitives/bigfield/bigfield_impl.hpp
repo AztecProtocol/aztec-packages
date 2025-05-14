@@ -2219,14 +2219,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
     ASSERT(maximum_quotient_bits <= NUM_LIMB_BITS);
     uint32_t quotient_limb_index = context->add_variable(bb::fr(quotient_value.lo));
     field_t<Builder> quotient_limb = field_t<Builder>::from_witness_index(context, quotient_limb_index);
-    if constexpr (HasPlookup<Builder>) {
-        context->decompose_into_default_range(quotient_limb.get_normalized_witness_index(),
-                                              static_cast<size_t>(maximum_quotient_bits));
-    } else {
-        context->decompose_into_base4_accumulators(quotient_limb.get_normalized_witness_index(),
-                                                   static_cast<size_t>(maximum_quotient_bits),
-                                                   "bigfield: quotient_limb too large.");
-    }
+    context->decompose_into_default_range(quotient_limb.get_normalized_witness_index(),
+                                          static_cast<size_t>(maximum_quotient_bits));
 
     ASSERT((uint1024_t(1) << maximum_quotient_bits) * uint1024_t(modulus_u512) + DEFAULT_MAXIMUM_REMAINDER <
            get_maximum_crt_product());
