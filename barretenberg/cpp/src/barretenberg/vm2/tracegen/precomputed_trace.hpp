@@ -24,6 +24,7 @@ class PrecomputedTraceBuilder final {
     void process_to_radix_p_decompositions(TraceContainer& trace);
     void process_memory_tag_range(TraceContainer& trace);
     void process_addressing_gas(TraceContainer& trace);
+    void process_phase_table(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen
