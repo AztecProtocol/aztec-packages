@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  IStakingCore, Status, ValidatorInfo, Exit, Timestamp
+  IStakingCore, Status, FullStatus, Exit, Timestamp
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract SlashTest is StakingBase {
@@ -13,7 +13,7 @@ contract SlashTest is StakingBase {
 
   function setUp() public override {
     super.setUp();
-    DEPOSIT_AMOUNT = MINIMUM_STAKE + 2;
+    DEPOSIT_AMOUNT = MINIMUM_STAKE;
   }
 
   function test_WhenCallerIsNotTheSlasher() external {
@@ -44,7 +44,7 @@ contract SlashTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: DEPOSIT_AMOUNT
+      _onCanonical: true
     });
     _;
   }
@@ -83,8 +83,9 @@ contract SlashTest is StakingBase {
     // it reduce stake by amount
     // it emits {Slashed} event
 
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    assertEq(info.stake, DEPOSIT_AMOUNT);
+    FullStatus memory info = staking.getFullStatus(ATTESTER);
+    assertEq(info.effectiveBalance, 0);
+    assertEq(info.exit.amount, DEPOSIT_AMOUNT, "Invalid exit amount");
     assertTrue(info.status == Status.EXITING);
 
     vm.expectEmit(true, true, true, true, address(staking));
@@ -92,8 +93,9 @@ contract SlashTest is StakingBase {
     vm.prank(SLASHER);
     staking.slash(ATTESTER, 1);
 
-    info = staking.getInfo(ATTESTER);
-    assertEq(info.stake, DEPOSIT_AMOUNT - 1);
+    info = staking.getFullStatus(ATTESTER);
+    assertEq(info.effectiveBalance, 0);
+    assertEq(info.exit.amount, DEPOSIT_AMOUNT - 1, "Invalid exit amount 2");
     assertTrue(info.status == Status.EXITING);
   }
 
@@ -102,29 +104,36 @@ contract SlashTest is StakingBase {
     // it emits {Slashed} event
 
     for (uint256 i = 0; i < 2; i++) {
+      bool isValidating = i == 0;
+
       // Prepare the status and state
-      ValidatorInfo memory info = staking.getInfo(ATTESTER);
-      assertTrue(info.status == Status.VALIDATING, "Invalid status");
-      assertEq(staking.getActiveAttesterCount(), 1, "Invalid active attester count");
-      uint256 balance = info.stake;
+      FullStatus memory info = staking.getFullStatus(ATTESTER);
+      assertTrue(
+        info.status == (isValidating ? Status.VALIDATING : Status.LIVING), "Invalid status"
+      );
+      assertEq(
+        staking.getActiveAttesterCount(), isValidating ? 1 : 0, "Invalid active attester count"
+      );
+      uint256 balance = isValidating ? info.effectiveBalance : info.exit.amount;
 
       vm.expectEmit(true, true, true, true, address(staking));
       emit IStakingCore.Slashed(ATTESTER, 2);
       vm.prank(SLASHER);
       staking.slash(ATTESTER, 2);
 
-      info = staking.getInfo(ATTESTER);
-      assertEq(info.stake, balance - 2, "Invalid stake");
-      assertTrue(
-        info.status == (i == 0 ? Status.VALIDATING : Status.LIVING), "Invalid status after slash"
-      );
-      assertEq(staking.getActiveAttesterCount(), i == 0 ? 1 : 0, "Invalid active attester count");
+      info = staking.getFullStatus(ATTESTER);
+
+      assertEq(info.effectiveBalance, 0, "Invalid effective balance");
+      assertEq(info.exit.amount, balance - 2, "Invalid exit amount");
+
+      assertTrue(info.status == Status.LIVING, "Invalid status after slash");
+      assertEq(staking.getActiveAttesterCount(), 0, "Invalid active attester count");
     }
   }
 
   modifier whenAttesterIsValidatingAndStakeIsBelowMinimumStake() {
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    slashingAmount = info.stake - MINIMUM_STAKE + 1;
+    FullStatus memory info = staking.getFullStatus(ATTESTER);
+    slashingAmount = info.effectiveBalance - MINIMUM_STAKE + 1;
     _;
   }
 
@@ -151,18 +160,19 @@ contract SlashTest is StakingBase {
     // it set status to living
     // it emits {Slashed} event
 
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
+    FullStatus memory info = staking.getFullStatus(ATTESTER);
     assertTrue(info.status == Status.VALIDATING);
     uint256 activeAttesterCount = staking.getActiveAttesterCount();
-    uint256 balance = info.stake;
+    uint256 balance = info.effectiveBalance;
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, slashingAmount);
     vm.prank(SLASHER);
     staking.slash(ATTESTER, slashingAmount);
 
-    info = staking.getInfo(ATTESTER);
-    assertEq(info.stake, balance - slashingAmount);
+    info = staking.getFullStatus(ATTESTER);
+    assertEq(info.effectiveBalance, 0);
+    assertEq(info.exit.amount, balance - slashingAmount);
     assertTrue(info.status == Status.LIVING);
 
     assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);

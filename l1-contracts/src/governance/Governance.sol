@@ -295,8 +295,8 @@ contract Governance is IGovernance {
       return self.state;
     }
 
-    // If the governanceProposer have changed we mark is as dropped unless it is proposed using the lock.
-    if (governanceProposer != self.governanceProposer && address(this) != self.governanceProposer) {
+    // If the governanceProposer have changed we mark is as dropped unless it was proposed using the lock.
+    if (governanceProposer != self.proposer && address(this) != self.proposer) {
       return DataStructures.ProposalState.Dropped;
     }
 
@@ -355,7 +355,7 @@ contract Governance is IGovernance {
       config: configuration,
       state: DataStructures.ProposalState.Pending,
       payload: _proposal,
-      governanceProposer: _proposer,
+      proposer: _proposer,
       creation: Timestamp.wrap(block.timestamp),
       summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
     });

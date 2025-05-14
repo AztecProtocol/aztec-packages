@@ -8,12 +8,16 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
+import {GSE} from "@aztec/core/staking/GSE.sol";
+
+import {Test} from "forge-std/Test.sol";
 
 struct Config {
   address deployer;
   TestERC20 testERC20;
   Registry registry;
   Rollup rollup;
+  GSE gse;
   RewardDistributor rewardDistributor;
   GenesisState genesisState;
   RollupConfigInput rollupConfigInput;
@@ -26,7 +30,7 @@ struct Config {
  *          Using a lot of default values and trying to make it simpler to deal with when we are updating
  *          the constructor and configuration options.
  */
-contract RollupBuilder {
+contract RollupBuilder is Test {
   Config public config;
 
   constructor(address _deployer) {
@@ -43,6 +47,11 @@ contract RollupBuilder {
 
   function setRegistry(address _registry) public returns (RollupBuilder) {
     config.registry = Registry(_registry);
+    return this;
+  }
+
+  function setGSE(address _gse) public returns (RollupBuilder) {
+    config.gse = GSE(_gse);
     return this;
   }
 
@@ -122,6 +131,10 @@ contract RollupBuilder {
       config.testERC20 = new TestERC20("test", "TEST", address(this));
     }
 
+    if (address(config.gse) == address(0)) {
+      config.gse = new GSE(address(this), config.testERC20);
+    }
+
     if (address(config.registry) == address(0)) {
       config.registry = new Registry(address(this), config.testERC20);
     }
@@ -135,6 +148,7 @@ contract RollupBuilder {
         config.testERC20,
         config.rewardDistributor,
         config.testERC20,
+        config.gse,
         address(this),
         config.genesisState,
         config.rollupConfigInput
@@ -142,6 +156,8 @@ contract RollupBuilder {
     }
 
     config.registry.addRollup(config.rollup);
+
+    config.gse.addRollup(address(config.rollup));
 
     config.testERC20.mint(
       address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
@@ -151,6 +167,13 @@ contract RollupBuilder {
     config.testERC20.transferOwnership(address(config.deployer));
     config.registry.transferOwnership(address(config.deployer));
     config.rollup.transferOwnership(address(config.deployer));
+    config.gse.transferOwnership(address(config.deployer));
+
+    vm.label(address(config.rollup), "Rollup");
+    vm.label(address(config.registry), "Registry");
+    vm.label(address(config.gse), "GSE");
+    vm.label(address(config.rewardDistributor), "RewardDistributor");
+    vm.label(address(config.testERC20), "TestERC20");
   }
 
   function getConfig() public view returns (Config memory) {

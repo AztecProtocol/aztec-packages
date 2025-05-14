@@ -2,7 +2,6 @@
 pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
-import {OperatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 contract GettersTest is StakingBase {
   function setUp() public override {
@@ -14,7 +13,7 @@ contract GettersTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: MINIMUM_STAKE
+      _onCanonical: true
     });
   }
 

@@ -95,14 +95,14 @@ contract GovernanceBase is TestBase {
     assertTrue(governance.getProposalState(proposalId) == DataStructures.ProposalState.Active);
   }
 
-  function _stateDropped(bytes32 _proposalName, address _governanceProposer) internal {
+  function _stateDropped(bytes32 _proposalName, address _proposer) internal {
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 
-    vm.assume(_governanceProposer != proposal.governanceProposer);
+    vm.assume(_proposer != proposal.proposer);
 
     vm.prank(address(governance));
-    governance.updateGovernanceProposer(_governanceProposer);
+    governance.updateGovernanceProposer(_proposer);
   }
 
   function _stateRejected(bytes32 _proposalName) internal {

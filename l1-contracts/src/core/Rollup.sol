@@ -15,7 +15,7 @@ import {
   FeeHeader,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
-import {IStaking, Info, Exit} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking, Info, Exit, FullStatus, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
@@ -25,7 +25,8 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-
+import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {GSE} from "@aztec/core/staking/GSE.sol";
 import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
@@ -48,8 +49,6 @@ import {
   IInbox,
   IOutbox
 } from "./RollupCore.sol";
-import {StakingLib, FullStatus} from "@aztec/core/libraries/staking/StakingLib.sol";
-import {GSE} from "@aztec/core/staking/GSE.sol";
 
 /**
  * @title Rollup
@@ -235,7 +234,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
-    return StakingLib.getAttesterCountAtTimestamp(Timestamp.wrap(block.timestamp));
+    return StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
@@ -366,6 +365,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getExit(_attester);
   }
 
+  function getStatus(address _attester) external view override(IStaking) returns (Status) {
+    return StakingLib.getStatus(_attester);
+  }
+
   function getFullStatus(address _attester)
     external
     view
@@ -408,7 +411,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The validator set
    */
   function getAttesters() external view override(IValidatorSelection) returns (address[] memory) {
-    return StakingLib.getAttestersAtTimestamp(Timestamp.wrap(block.timestamp));
+    return StakingLib.getAttestersAtTime(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -593,7 +596,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IValidatorSelection)
     returns (address[] memory)
   {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), _epoch);
+    return ValidatorSelectionLib.getCommitteeAt(_epoch);
   }
 
   /**

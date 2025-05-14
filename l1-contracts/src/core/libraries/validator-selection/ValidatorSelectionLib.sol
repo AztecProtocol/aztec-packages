@@ -174,9 +174,10 @@ library ValidatorSelectionLib {
     // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
     // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
     // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
-    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
-      - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
-    uint256 validatorSetSize = _stakingStore.attesters.lengthAtTimestamp(ts);
+    Timestamp ts = Timestamp.wrap(
+      Timestamp.unwrap(_epoch.toTimestamp()) - TimeLib.getEpochDurationInSeconds() - 1
+    );
+    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(ts);
 
     if (validatorSetSize == 0) {
       return new address[](0);
@@ -186,13 +187,13 @@ library ValidatorSelectionLib {
 
     // If we have less validators than the target committee size, we just return the full set
     if (validatorSetSize <= targetCommitteeSize) {
-      return StakingLib.getAttestersAtTimestamp(ts);
+      return StakingLib.getAttestersAtTime(ts);
     }
 
     uint256[] memory indices =
       SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
 
-    return StakingLib.getAttestersFromIndicesAtTimestamp(ts, indices);
+    return StakingLib.getAttestersFromIndicesAtTime(ts, indices);
   }
 
   /**
