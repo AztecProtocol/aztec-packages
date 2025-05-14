@@ -1,6 +1,6 @@
-import { sleep } from '@aztec/aztec.js';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { sleep } from '@aztec/foundation/sleep';
 import { type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@aztec/stdlib/block';
 
 import { jest } from '@jest/globals';
@@ -39,6 +39,9 @@ describe('EpochPruneWatcher', () => {
 
     l2BlockSource.emit(L2BlockSourceEvents.L2PruneDetected, {
       epochNumber: 1n,
+      blockNumber: 1n,
+      slotNumber: 1n,
+      type: L2BlockSourceEvents.L2PruneDetected,
     });
 
     // Just need to yield to the event loop to clear our synchronous promises

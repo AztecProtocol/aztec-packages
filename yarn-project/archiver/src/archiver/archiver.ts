@@ -16,7 +16,6 @@ import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/runni
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
-import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { CustomRange } from '@aztec/kv-store';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -31,10 +30,10 @@ import {
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ArchiverEmitter,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  type L2BlockSourceEvent,
   L2BlockSourceEvents,
   type L2Tips,
 } from '@aztec/stdlib/block';
@@ -86,10 +85,6 @@ import type { PublishedL2Block } from './structs/published.js';
 export type ArchiveSource = L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource;
 
 // Whenever we emit, it must conform.
-type ArchiverEmitter = TypedEventEmitter<{
-  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
-  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
-}>;
 
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
