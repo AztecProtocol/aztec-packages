@@ -86,7 +86,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: `--auto-update-url <value>`,
       description: 'Configure where to get updates from',
       envVar: 'AUTO_UPDATE_URL',
-      defaultValue: '',
+      defaultValue: undefined,
     },
   ],
   SANDBOX: [

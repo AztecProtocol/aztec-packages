@@ -1,6 +1,6 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import type { AccountManager, EthAddress, Fr } from '@aztec/aztec.js';
-import type { RegistryContract, ViemClient } from '@aztec/ethereum';
+import type { ViemClient } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
@@ -14,19 +14,12 @@ import type { Command } from 'commander';
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
-  const shutdown = async () => {
-    logFn('Shutting down...');
-    if (cb) {
-      await Promise.all(cb);
-    }
-    process.exit(0);
-  };
   process.removeAllListeners('SIGINT');
   process.removeAllListeners('SIGTERM');
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGINT', shutdown);
+  process.once('SIGINT', () => shutdown(logFn, cb));
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGTERM', shutdown);
+  process.once('SIGTERM', () => shutdown(logFn, cb));
 };
 
 /**
@@ -256,6 +249,7 @@ export async function setupUpdateMonitor(
   rollupVersion: number | 'canonical',
   publicClient: ViemClient,
   registryContractAddress: EthAddress,
+  signalHandlers: Array<() => Promise<void>>,
   updateNodeConfig?: (config: object) => Promise<void>,
 ) {
   const logger = createLogger('update-check');
@@ -269,7 +263,7 @@ export async function setupUpdateMonitor(
   checker.on('newRollup', ({ latestRollup, currentRollup }) => {
     if (autoUpdateMode === 'enabled') {
       logger.info(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
-      process.exit(0);
+      shutdown(logger.info, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
       logger.warn(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
     }
@@ -278,7 +272,7 @@ export async function setupUpdateMonitor(
   checker.on('newVersion', ({ latestVersion, currentVersion }) => {
     if (autoUpdateMode === 'enabled') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
-      process.exit(0);
+      shutdown(logger.info, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
     }
@@ -291,4 +285,12 @@ export async function setupUpdateMonitor(
     }
     // don't notify on these config changes
   });
+}
+
+export async function shutdown(logFn: LogFn, cb?: Array<() => Promise<void>>) {
+  logFn('Shutting down...');
+  if (cb) {
+    await Promise.all(cb);
+  }
+  process.exit(0);
 }

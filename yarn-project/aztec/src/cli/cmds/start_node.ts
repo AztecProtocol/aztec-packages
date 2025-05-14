@@ -192,6 +192,7 @@ export async function startNode(
       followsCanonicalRollup ? 'canonical' : nodeConfig.rollupVersion,
       getPublicClient(nodeConfig!),
       nodeConfig.l1Contracts.registryAddress,
+      signalHandlers,
       config => node.setConfig(config),
     );
   }

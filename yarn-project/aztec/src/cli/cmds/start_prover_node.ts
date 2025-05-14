@@ -128,6 +128,7 @@ export async function startProverNode(
       followsCanonicalRollup ? 'canonical' : proverConfig.rollupVersion,
       getPublicClient(proverConfig),
       proverConfig.l1Contracts.registryAddress,
+      signalHandlers,
     );
   }
   return { config: proverConfig };

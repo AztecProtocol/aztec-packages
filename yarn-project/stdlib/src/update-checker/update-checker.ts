@@ -37,7 +37,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
 
   constructor(
     private configBasePath: URL,
-    private nodeVersion: string,
+    private nodeVersion: string | undefined,
     private rollupVersion: number | 'canonical',
     private rollupAddressAtStart: EthAddress,
     private fetch: typeof globalThis.fetch,
@@ -119,7 +119,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
 
       const { version, config } = updateConfigSchema.parse(body);
 
-      if (version && version !== this.nodeVersion) {
+      if (this.nodeVersion !== undefined && version !== undefined && version !== this.nodeVersion) {
         this.emit('newVersion', { currentVersion: this.nodeVersion, latestVersion: version });
       }
 
@@ -136,7 +136,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
 /**
  * Returns package version.
  */
-export function getPackageVersion() {
+export function getPackageVersion(): string | undefined {
   if (process.env.BUILD_METADATA) {
     return process.env.BUILD_METADATA;
   }
@@ -149,6 +149,6 @@ export function getPackageVersion() {
     const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString());
     return version;
   } catch (err) {
-    return '0.0.0';
+    return undefined;
   }
 }
