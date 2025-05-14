@@ -151,35 +151,35 @@ template <typename Builder_> struct PairingPoints {
         Group P1 = Group::reconstruct_from_public(P1_limbs);
         return { P0, P1 };
     }
+
     /**
-     * @brief Constructs an arbitrary but valid aggregation state from a valid set of pairing inputs.
+     * @brief Adds default public inputs to the builder.
+     * @details This should cost exactly 20 gates because there's 4 bigfield elements and each have 5 total witnesses
+     * including the prime limb.
      *
      * @param builder
-     * @return PairingPoints<Builder>
      */
-    static PairingPoints<Builder> construct_default(typename Curve::Builder& builder)
-    {
-        using BaseField = typename Curve::BaseField;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
-        // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
-        uint256_t x0_val("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
-        uint256_t y0_val("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
-        uint256_t x1_val("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
-        uint256_t y1_val("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
-        BaseField x0 = BaseField::from_witness(&builder, x0_val);
-        BaseField y0 = BaseField::from_witness(&builder, y0_val);
-        BaseField x1 = BaseField::from_witness(&builder, x1_val);
-        BaseField y1 = BaseField::from_witness(&builder, y1_val);
-        // PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
-        return { Group(x0, y0), Group(x1, y1) };
-    }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
-    // necessary.
     static void add_default_to_public_inputs(Builder& builder)
     {
-        PairingPoints<Builder> points_accumulator = construct_default(builder);
-        points_accumulator.set_public();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted
+        // from a valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+        fq x0("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+        fq y0("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+        fq x1("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+        fq y1("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+
+        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
+        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
+        // them back to biggroup elements anyway to add them to the public inputs...
+        using BigGroup = element_default::
+            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
+        BigGroup P0(x0, y0);
+        BigGroup P1(x1, y1);
+        P0.convert_constant_to_fixed_witness(&builder);
+        P1.convert_constant_to_fixed_witness(&builder);
+        P0.set_public();
+        P1.set_public();
+        info("Num gates after set_public: ", builder.num_gates);
     }
 };
 
