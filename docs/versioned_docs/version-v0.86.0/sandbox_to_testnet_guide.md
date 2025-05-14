@@ -103,7 +103,7 @@ const receiptForBob = await bananaCoin
   .wait();
 ```
 
-To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/tutorials/codealong/first_fees.md).
+To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/guides/first_fees).
 
 ## Portals
 
