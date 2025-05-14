@@ -286,7 +286,7 @@ export async function setupUpdateMonitor(
 
   checker.on('updateConfig', async config => {
     if (autoUpdateMode === 'enabled' && updateNodeConfig) {
-      logger.info(`Config change detected. Updating node`);
+      logger.warn(`Config change detected. Updating node`, config);
       await updateNodeConfig(config);
     }
     // don't notify on these config changes
