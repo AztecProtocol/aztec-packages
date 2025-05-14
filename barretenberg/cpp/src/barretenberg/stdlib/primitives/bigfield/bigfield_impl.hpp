@@ -685,68 +685,65 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + bb::fr(to_add_2);
     result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + bb::fr(to_add_3);
 
-    if constexpr (HasPlookup<Builder>) {
-        if (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1 &&
-            !is_constant() && !other.is_constant()) {
-            bool limbconst = result.binary_basis_limbs[0].element.is_constant();
-            limbconst = limbconst || result.binary_basis_limbs[1].element.is_constant();
-            limbconst = limbconst || result.binary_basis_limbs[2].element.is_constant();
-            limbconst = limbconst || result.binary_basis_limbs[3].element.is_constant();
-            limbconst = limbconst || prime_basis_limb.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[0].element.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[1].element.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
-            limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
-            limbconst = limbconst || other.prime_basis_limb.is_constant();
-            limbconst =
-                limbconst ||
-                (prime_basis_limb.witness_index ==
-                 other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we
-                                                        // need to compare the actual indices, not normalized ones
-            if (!limbconst) {
-                std::pair<uint32_t, bb::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
-                                                binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> x1{ result.binary_basis_limbs[1].element.witness_index,
-                                                binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> x2{ result.binary_basis_limbs[2].element.witness_index,
-                                                binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> x3{ result.binary_basis_limbs[3].element.witness_index,
-                                                binary_basis_limbs[3].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
-                                                other.binary_basis_limbs[0].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
-                                                other.binary_basis_limbs[1].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
-                                                other.binary_basis_limbs[2].element.multiplicative_constant };
-                std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
-                                                other.binary_basis_limbs[3].element.multiplicative_constant };
-                bb::fr c0(result.binary_basis_limbs[0].element.additive_constant -
-                          other.binary_basis_limbs[0].element.additive_constant);
-                bb::fr c1(result.binary_basis_limbs[1].element.additive_constant -
-                          other.binary_basis_limbs[1].element.additive_constant);
-                bb::fr c2(result.binary_basis_limbs[2].element.additive_constant -
-                          other.binary_basis_limbs[2].element.additive_constant);
-                bb::fr c3(result.binary_basis_limbs[3].element.additive_constant -
-                          other.binary_basis_limbs[3].element.additive_constant);
+    if (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1 &&
+        !is_constant() && !other.is_constant()) {
+        bool limbconst = result.binary_basis_limbs[0].element.is_constant();
+        limbconst = limbconst || result.binary_basis_limbs[1].element.is_constant();
+        limbconst = limbconst || result.binary_basis_limbs[2].element.is_constant();
+        limbconst = limbconst || result.binary_basis_limbs[3].element.is_constant();
+        limbconst = limbconst || prime_basis_limb.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[0].element.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[1].element.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
+        limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
+        limbconst = limbconst || other.prime_basis_limb.is_constant();
+        limbconst = limbconst ||
+                    (prime_basis_limb.witness_index ==
+                     other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we
+                                                            // need to compare the actual indices, not normalized ones
+        if (!limbconst) {
+            std::pair<uint32_t, bb::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
+                                            binary_basis_limbs[0].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> x1{ result.binary_basis_limbs[1].element.witness_index,
+                                            binary_basis_limbs[1].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> x2{ result.binary_basis_limbs[2].element.witness_index,
+                                            binary_basis_limbs[2].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> x3{ result.binary_basis_limbs[3].element.witness_index,
+                                            binary_basis_limbs[3].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
+                                            other.binary_basis_limbs[0].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
+                                            other.binary_basis_limbs[1].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
+                                            other.binary_basis_limbs[2].element.multiplicative_constant };
+            std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
+                                            other.binary_basis_limbs[3].element.multiplicative_constant };
+            bb::fr c0(result.binary_basis_limbs[0].element.additive_constant -
+                      other.binary_basis_limbs[0].element.additive_constant);
+            bb::fr c1(result.binary_basis_limbs[1].element.additive_constant -
+                      other.binary_basis_limbs[1].element.additive_constant);
+            bb::fr c2(result.binary_basis_limbs[2].element.additive_constant -
+                      other.binary_basis_limbs[2].element.additive_constant);
+            bb::fr c3(result.binary_basis_limbs[3].element.additive_constant -
+                      other.binary_basis_limbs[3].element.additive_constant);
 
-                uint32_t xp(prime_basis_limb.witness_index);
-                uint32_t yp(other.prime_basis_limb.witness_index);
-                bb::fr cp(prime_basis_limb.additive_constant - other.prime_basis_limb.additive_constant);
-                uint512_t constant_to_add_mod_p = (constant_to_add) % prime_basis.modulus;
-                cp += bb::fr(constant_to_add_mod_p.lo);
+            uint32_t xp(prime_basis_limb.witness_index);
+            uint32_t yp(other.prime_basis_limb.witness_index);
+            bb::fr cp(prime_basis_limb.additive_constant - other.prime_basis_limb.additive_constant);
+            uint512_t constant_to_add_mod_p = (constant_to_add) % prime_basis.modulus;
+            cp += bb::fr(constant_to_add_mod_p.lo);
 
-                const auto output_witnesses = ctx->evaluate_non_native_field_subtraction(
-                    { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
+            const auto output_witnesses = ctx->evaluate_non_native_field_subtraction(
+                { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
 
-                result.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[0]);
-                result.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[1]);
-                result.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[2]);
-                result.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[3]);
-                result.prime_basis_limb = field_t<Builder>::from_witness_index(ctx, output_witnesses[4]);
+            result.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[0]);
+            result.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[1]);
+            result.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[2]);
+            result.binary_basis_limbs[3].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[3]);
+            result.prime_basis_limb = field_t<Builder>::from_witness_index(ctx, output_witnesses[4]);
 
-                result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-                return result;
-            }
+            result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+            return result;
         }
     }
 
