@@ -73,16 +73,13 @@ function client_ivc_flow {
   local flow="$(basename $flow_folder)"
   local start=$(date +%s%N)
 
-  local output="bench-out/ivc-$flow-$runtime"
+  local name_path="app-proving/$flow/$runtime"
+  local output="bench-out/$name_path"
   rm -rf "$output"
   mkdir -p "$output"
-  export MEMUSAGE_OUT="$output/peak-memory-$runtime-mb.txt"
+  export MEMUSAGE_OUT="$output/peak-memory-mb.txt"
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc"
-
-  #if [ -f "$output/op-counts.json" ] && [ "$runtime" != wasm ]; then
-  #  python3 scripts/analyze_client_ivc_bench.py --prefix . --json $output/op-counts.json --benchmark ""
-  #fi
 
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
@@ -93,18 +90,15 @@ function client_ivc_flow {
   dump_fail "verify_ivc_flow $flow $output/proof"
   echo "$flow ($runtime) has verified."
 
-  local runtime_suffix=""
-  [[ "$runtime" == "wasm" ]] && runtime_suffix="-wasm"
-
   cat > "$output/benchmarks.bench.json" <<EOF
 [
   {
-    "name": "$flow-ivc-proof$runtime_suffix",
+    "name": "$name_path/seconds",
     "unit": "ms",
     "value": ${elapsed_ms}
   },
   {
-    "name": "$flow-ivc-proof$runtime_suffix-memory",
+    "name": "$name_path/memory",
     "unit": "MB",
     "value": ${memory_taken_mb}
   }

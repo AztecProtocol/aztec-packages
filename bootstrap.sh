@@ -264,7 +264,7 @@ function bench_merge {
     dir=$1; \
     dir=${dir#./}; \
     dir=${dir%/bench-out*}; \
-    jq --arg prefix "$dir:" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
+    jq --arg prefix "$dir/" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
   ' _ {} | jq -s add > bench-out/bench.json
 }
 
@@ -274,6 +274,7 @@ function bench {
     return
   fi
   echo_header "bench all"
+  find . -type d -iname bench-out | xargs rm -rf
   bench_cmds | STRICT_SCHEDULING=1 parallelise
   rm -rf bench-out
   mkdir -p bench-out

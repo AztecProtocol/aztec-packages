@@ -14,7 +14,7 @@ filter=$4
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
 
-mkdir -p bench-out
+mkdir -p bench-out/$(dirname $name)
 
 case $arch in
   native)
@@ -25,4 +25,4 @@ case $arch in
     ;;
 esac
 
-jq '[{name: .benchmarks[0].name, value: .benchmarks[0].real_time, unit: .benchmarks[0].time_unit}]' ./bench-out/$name.json > ./bench-out/$name.bench.json
+jq --arg name $name '[{name: $name, value: .benchmarks[0].real_time, unit: .benchmarks[0].time_unit}]' ./bench-out/$name.json > ./bench-out/$name.bench.json

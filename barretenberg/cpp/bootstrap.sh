@@ -201,26 +201,23 @@ function build_bench {
 
 function bench_cmds {
   prefix="$hash:CPUS=16"
-  # name bin filter
+  # arch name bin filter
   benches=(
-    "native ultra_honk_release build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "native client_ivc_17_in_20_release build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
-    "native client_ivc_release build/bin/client_ivc_bench ClientIVCBench/Full/6$"
-    "wasm ultra_honk_wasm build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "wasm client_ivc_wasm build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
+    "native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+    "native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
+    "native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
+    "wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+    "wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
   )
   for args in "${benches[@]}"; do
     echo "$prefix barretenberg/cpp/scripts/run_bench.sh $args"
   done
 }
 
-
 # Runs benchmarks sharded over machine cores.
 function bench {
   echo_header "bb bench"
-
   rm -rf bench-out && mkdir -p bench-out
-
   bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
