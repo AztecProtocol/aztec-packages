@@ -85,7 +85,10 @@ export type UserFeeOptions = {
   gasSettings?: Partial<FieldsOf<GasSettings>>;
   /** Percentage to pad the base fee by, if empty, defaults to 0.5 */
   baseFeePadding?: number;
-  /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings. */
+  /**
+   * Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings.
+   * When false, default (high) gas limits are used (DEFAULT_GAS_LIMIT and DEFAULT_TEARDOWN_GAS_LIMIT constants).
+   */
   estimateGas?: boolean;
   /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
   estimatedGasPadding?: number;

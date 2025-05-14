@@ -142,6 +142,7 @@ export abstract class BaseContractInteraction {
     const maxPriorityFeesPerGas = defaultFeeOptions.gasSettings.maxPriorityFeesPerGas;
 
     let gasSettings = defaultFeeOptions.gasSettings;
+    // If estimateGas is true, we run a simulation to get "tighter" gas limits than the default ones.
     if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
       const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options);
