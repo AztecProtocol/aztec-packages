@@ -12,7 +12,7 @@ import EventEmitter from 'events';
 import type { P2PConfig } from '../../config.js';
 import { AZTEC_ENR_KEY, Discv5Event, PeerEvent } from '../../types/index.js';
 import { convertToMultiaddr } from '../../util.js';
-import { setAztecEnrKey } from '../../versioning.js';
+import { setAztecClientVersionEnrKey, setAztecEnrKey } from '../../versioning.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
 
 const delayBeforeStart = 2000; // 2sec
@@ -47,6 +47,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   constructor(
     private peerId: PeerId,
     private config: P2PConfig,
+    private readonly packageVersion: string,
     telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
     configOverrides: Partial<IDiscv5CreateOptions> = {},
@@ -61,6 +62,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
     this.versions = setAztecEnrKey(this.enr, config);
+    // Add aztec client version to ENR
+    setAztecClientVersionEnrKey(this.enr, this.packageVersion);
 
     // If no overridden broadcast port is provided, use the p2p port as the broadcast port
     if (!p2pBroadcastPort) {
