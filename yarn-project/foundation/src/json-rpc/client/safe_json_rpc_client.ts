@@ -171,7 +171,7 @@ export function createSafeJsonRpcClient<T extends object>(
     log.debug(format(`result`, method, response));
 
     if ('error' in response) {
-      throw response.error;
+      throw new Error(response.error.message, { cause: response.error });
     }
     // TODO(palla/schemas): Find a better way to handle null responses (JSON.stringify(null) is string "null").
     if ([null, undefined, 'null', 'undefined'].includes(response.result)) {
