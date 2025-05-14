@@ -121,8 +121,11 @@ template <typename Curve> struct ClaimBatcher_ {
             for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                 interleaved->scalars_pos.push_back(r_shift_pos);
                 interleaved->scalars_neg.push_back(r_shift_neg);
-                r_shift_pos *= r_challenge;
-                r_shift_neg *= (-r_challenge);
+                if (i < get_groups_to_be_interleaved_size() - 1) {
+                    // to avoid unnecessary multiplication gates in a circuit
+                    r_shift_pos *= r_challenge;
+                    r_shift_neg *= (-r_challenge);
+                }
             }
         }
     }
