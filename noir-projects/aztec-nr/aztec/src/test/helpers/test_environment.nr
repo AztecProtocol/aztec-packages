@@ -202,13 +202,13 @@ impl TestEnvironment {
         );
     }
 
-    pub unconstrained fn call_private<T, let M: u32>(
+    pub unconstrained fn call_private<T, let N: u32, let M: u32>(
         _self: Self,
         from: AztecAddress,
         call_interface: PrivateCallInterface<M, T>,
     ) -> CallResult<T>
     where
-        T: Deserialize<M>,
+        T: Deserialize<N>,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);

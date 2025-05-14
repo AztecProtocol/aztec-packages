@@ -787,4 +787,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public validate(txs: Tx[]): Promise<void> {
     return this.p2pService.validate(txs);
   }
+
+  /**
+   * Marks transactions as non-evictable in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   */
+  public markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
+    return this.txPool.markTxsAsNonEvictable(txHashes);
+  }
 }
