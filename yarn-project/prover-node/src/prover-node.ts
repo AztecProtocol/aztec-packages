@@ -69,11 +69,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   constructor(
     protected readonly prover: EpochProverManager,
     protected readonly publisher: ProverNodePublisher,
-    protected readonly l2BlockSource: L2BlockSource & Service,
+    protected readonly l2BlockSource: L2BlockSource & Partial<Service>,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
-    protected readonly coordination: ProverCoordination & Service,
+    protected readonly coordination: ProverCoordination & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),

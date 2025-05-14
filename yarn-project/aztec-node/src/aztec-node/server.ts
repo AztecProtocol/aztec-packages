@@ -114,7 +114,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
-    protected readonly blockSource: L2BlockSource & Service,
+    protected readonly blockSource: L2BlockSource & Partial<Service>,
     protected readonly logsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
