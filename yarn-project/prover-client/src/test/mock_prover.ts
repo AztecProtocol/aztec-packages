@@ -98,7 +98,7 @@ export class MockProver implements ServerCircuitProver {
 
   getAvmProof(
     _inputs: AvmCircuitInputs,
-    _skipPublicInputsValidation?: boolean, // TODO(#14234): Remove.
+    _skipPublicInputsValidation?: boolean, // TODO(#14234)[Unconditional PIs validation]: Remove.
     _signal?: AbortSignal,
     _epochNumber?: number,
   ) {
