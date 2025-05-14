@@ -1,112 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747217577962,
+  "lastUpdate": 1747218042153,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "L1 Gas Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "073bc7d4bb65324458febb9ccaf7a92449194542",
-          "message": "fix: Handle \"zero\" as key on LMDBv2 map (#14183)\n\nFixes #14182",
-          "timestamp": "2025-05-09T14:02:59Z",
-          "tree_id": "4f3c518d97a1ae4650a236e2c05456ce79f4173d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/073bc7d4bb65324458febb9ccaf7a92449194542"
-        },
-        "date": 1746801776741,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "forward (100_validators)",
-            "value": 639564,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (100_validators) per l2 tx",
-            "value": 1776.57,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators)",
-            "value": 312318,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators) per l2 tx",
-            "value": 867.55,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead)",
-            "value": 327246,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead) per l2 tx",
-            "value": 909.02,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators)",
-            "value": 1579024,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators) per l2 tx",
-            "value": 137.07,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators)",
-            "value": 67920,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators) per l2 tx",
-            "value": 5.9,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead)",
-            "value": 1511104,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead) per l2 tx",
-            "value": 131.17,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators)",
-            "value": 894670,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators) per l2 tx",
-            "value": 77.66,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators)",
-            "value": 911770,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators) per l2 tx",
-            "value": 79.15,
-            "unit": "gas"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -5113,6 +5009,110 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/commit/67ec8e8992aa2f0b5976f7358b7690a847709b6d"
         },
         "date": 1747217577080,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "forward (100_validators)",
+            "value": 639639,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (100_validators) per l2 tx",
+            "value": 1776.78,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators)",
+            "value": 310672,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators) per l2 tx",
+            "value": 862.98,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead)",
+            "value": 328967,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead) per l2 tx",
+            "value": 913.8,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators)",
+            "value": 1579031,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators) per l2 tx",
+            "value": 137.07,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators)",
+            "value": 67927,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators) per l2 tx",
+            "value": 5.9,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead)",
+            "value": 1511104,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead) per l2 tx",
+            "value": 131.17,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators)",
+            "value": 904626,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators) per l2 tx",
+            "value": 78.53,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators)",
+            "value": 921726,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators) per l2 tx",
+            "value": 80.01,
+            "unit": "gas"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "49f15471f7965c98694e38caf1e344540dc39342",
+          "message": "test: making l2 to l1 test cute (#14250)\n\nRefactored the test to make it nicer. Namely reduced boilerplate by\nhaving better utils (and using them more).",
+          "timestamp": "2025-05-14T09:38:37Z",
+          "tree_id": "cd6fd599bb884a8504016cfac815f951aaa7517d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/49f15471f7965c98694e38caf1e344540dc39342"
+        },
+        "date": 1747218040846,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
