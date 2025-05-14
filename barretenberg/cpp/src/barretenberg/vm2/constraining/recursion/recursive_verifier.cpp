@@ -85,17 +85,17 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     using ClaimBatch = ClaimBatcher::Batch;
     using stdlib::bool_t;
 
-    // TODO(#14234): Remove the next 3 lines
-    StdlibProof<Builder> stdlib_proof_no_pi_validation_switch = stdlib_proof;
-    bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof_no_pi_validation_switch.at(0));
-    stdlib_proof_no_pi_validation_switch.erase(stdlib_proof_no_pi_validation_switch.begin());
+    // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
+    StdlibProof<Builder> stdlib_proof_stripped_pi_validation = stdlib_proof;
+    bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof_stripped_pi_validation.at(0));
+    stdlib_proof_stripped_pi_validation.erase(stdlib_proof_stripped_pi_validation.begin());
 
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
     }
 
-    // TODO(#14234): use stdlib_proof instead of stdlib_proof_no_pi_validation_switch
-    transcript = std::make_shared<Transcript>(stdlib_proof_no_pi_validation_switch);
+    // TODO(#14234)[Unconditional PIs validation]: use stdlib_proof instead of stdlib_proof_stripped_pi_validation
+    transcript = std::make_shared<Transcript>(stdlib_proof_stripped_pi_validation);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
@@ -149,7 +149,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         output.claimed_evaluations.public_inputs_cols_3_,
     };
 
-    // TODO(#14234): Inside of loop, replace pi_validation.must_imply() by
+    // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);

@@ -61,6 +61,7 @@ import {
   type RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
   type TubeInputs,
+  enhanceProofWithPiValidationFlag,
 } from '@aztec/stdlib/rollup';
 import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
@@ -190,11 +191,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const proofAndVk = await this.createAvmProof(inputs);
     await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey, inputs.publicInputs);
 
-    // TODO(#14234): remove next lines and directly return proofAndVk
-    const skipPublicInputsField = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
-    proofAndVk.proof.proof = [skipPublicInputsField]
-      .concat(proofAndVk.proof.proof)
-      .slice(0, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+    // TODO(#14234)[Unconditional PIs validation]: remove next lines and directly return proofAndVk
+    proofAndVk.proof.proof = enhanceProofWithPiValidationFlag(proofAndVk.proof.proof, skipPublicInputsValidation);
     return proofAndVk;
   }
 

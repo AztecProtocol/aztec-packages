@@ -5,12 +5,6 @@ import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { createAvmMinimalPublicTx, readAvmMinimalPublicTxInputsFromFile } from '../../fixtures/minimal_public_tx.js';
 
 describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
-  it('Minimal Tx avm inputs snapshot', async () => {
-    const result = await createAvmMinimalPublicTx();
-    expect(result.revertCode.isOK()).toBe(true);
-    expect(result.avmProvingRequest.inputs).toMatchSnapshot();
-  });
-
   it('Minimal Tx avm inputs snapshot stored in Json file', async () => {
     const result = await createAvmMinimalPublicTx();
     expect(result.revertCode.isOK()).toBe(true);
@@ -23,13 +17,13 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
 
     const expectedJson = readTestData(path);
     const expectedAvmInputs = await jsonParseWithSchema(expectedJson.toString(), AvmCircuitInputs.schema);
-    expect(expectedAvmInputs).toEqual(inputs);
+    expect(expectedAvmInputs).toStrictEqual(inputs);
   });
 
   it('Minimal Tx avm inputs snapshot loaded from json file', async () => {
     const result = await createAvmMinimalPublicTx();
     const inputs = result.avmProvingRequest.inputs;
     const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
-    expect(inputs).toEqual(avmInputsFromFile);
+    expect(inputs).toStrictEqual(avmInputsFromFile);
   });
 });

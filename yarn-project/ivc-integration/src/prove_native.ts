@@ -28,6 +28,7 @@ import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
+import { enhanceProofWithPiValidationFlag } from '@aztec/stdlib/rollup';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as fs from 'fs/promises';
@@ -253,11 +254,8 @@ export async function proveAvm(
     throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
   }
 
-  // TODO(#14234): Remove next lines and return proof instead of proofWithPublicInputsValidationFlag
-  const skipPublicInputsField = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
-  const proofWithPublicInputsValidationFlag: Fr[] = [skipPublicInputsField]
-    .concat(proof)
-    .slice(0, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+  // TODO(#14234)[Unconditional PIs validation]: Remove next lines and return proof instead of proofWithPublicInputsValidationFlag
+  const proofWithPublicInputsValidationFlag = enhanceProofWithPiValidationFlag(proof, skipPublicInputsValidation);
 
   return {
     proof: proofWithPublicInputsValidationFlag,
