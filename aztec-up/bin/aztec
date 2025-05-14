@@ -42,10 +42,6 @@ while [ "$#" -gt 0 ]; do
       export PXE_PROVER_ENABLED=1
       shift 2
       ;;
-    --network)
-      NETWORK="$2"
-      shift 2
-      ;;
     --help)
       NO_PORT_FORWARDING=1
       shift 1
@@ -144,10 +140,8 @@ case ${1:-} in
         export PORTS_TO_EXPOSE=""
       fi
 
-      if [ -n "${NETWORK:-}" ]; then
-        DOCKER_RESTART_POLICY="no"
-        DOCKER_PULL_POLICY="always"
-      fi
+      DOCKER_RESTART_POLICY="no"
+      DOCKER_PULL_POLICY="always"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
