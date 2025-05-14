@@ -23,3 +23,15 @@ export function unfreeze<T>(obj: T): Writeable<T> {
 
 /** Maybe exists, maybe not. */
 export type Maybe<T extends object> = T | unknown;
+
+// More flexible TypedEventEmitter definition
+// It expects an object where keys are event names (string or symbol)
+// and values are listener functions.
+// See Archiver for an example of how to use this.
+export interface TypedEventEmitter<TEventMap extends { [key in keyof TEventMap]: (...args: any[]) => void }> {
+  on<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  off<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  emit<K extends keyof TEventMap>(event: K, ...args: Parameters<TEventMap[K]>): boolean;
+  removeListener<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  // Can add other EventEmitter methods if needed, like once(), listenerCount(), etc.
+}

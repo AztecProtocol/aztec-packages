@@ -171,10 +171,11 @@ export const L2TipsSchema = z.object({
 
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
+  L2BlockProven = 'l2BlockProven',
 }
 
 export type L2BlockSourceEvent = {
-  type: 'l2PruneDetected';
+  type: 'l2PruneDetected' | 'l2BlockProven';
   blockNumber: bigint;
   slotNumber: bigint;
   epochNumber: bigint;

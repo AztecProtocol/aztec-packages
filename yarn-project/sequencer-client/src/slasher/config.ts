@@ -1,6 +1,7 @@
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { bigintConfigHelper, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 export enum Offence {
   UNKNOWN = 0,
@@ -38,18 +39,6 @@ export interface WantToSlashArgs {
 // Event map for specific, known events of a watcher
 export interface WatcherEventMap {
   [WANT_TO_SLASH_EVENT]: (args: WantToSlashArgs) => void;
-}
-
-// More flexible TypedEventEmitter definition
-// It expects an object where keys are event names (string or symbol)
-// and values are listener functions.
-// See EpochPruneWatcher for an example of how to use this.
-export interface TypedEventEmitter<TEventMap extends { [key in keyof TEventMap]: (...args: any[]) => void }> {
-  on<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
-  off<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
-  emit<K extends keyof TEventMap>(event: K, ...args: Parameters<TEventMap[K]>): boolean;
-  removeListener<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
-  // Can add other EventEmitter methods if needed, like once(), listenerCount(), etc.
 }
 
 export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;
