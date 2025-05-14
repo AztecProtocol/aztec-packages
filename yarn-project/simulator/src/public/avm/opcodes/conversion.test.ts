@@ -1,9 +1,11 @@
+import { Fr } from '@aztec/foundation/fields';
+
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint1, type Uint8, Uint32 } from '../avm_memory_types.js';
 import { InvalidToRadixInputsError } from '../errors.js';
 import { initContext } from '../fixtures/index.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
-import { ToRadixBE } from './conversion.js';
+import { MODULUS_LIMBS_PER_RADIX, ToRadixBE } from './conversion.js';
 
 describe('Conversion Opcodes', () => {
   let context: AvmContext;
@@ -219,5 +221,25 @@ describe('Conversion Opcodes', () => {
         ).rejects.toThrow(InvalidToRadixInputsError);
       },
     );
+  });
+
+  function computeModulusLimbs(radix: bigint): number {
+    let maxValue = radix;
+    let limbs = 1;
+
+    while (maxValue < Fr.MODULUS) {
+      maxValue = maxValue * radix;
+      limbs++;
+    }
+
+    return limbs;
+  }
+
+  it.only('Should compute correctly the modulus limbs per radix', () => {
+    const modulusLimbsPerRadix = [0, 0];
+    for (let i = 2; i <= 256; i++) {
+      modulusLimbsPerRadix.push(computeModulusLimbs(BigInt(i)));
+    }
+    expect(modulusLimbsPerRadix).toEqual(MODULUS_LIMBS_PER_RADIX);
   });
 });

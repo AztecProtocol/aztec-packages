@@ -27,7 +27,9 @@ export class Poseidon2 extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.inputStateOffset, this.outputStateOffset];
 
@@ -66,7 +68,9 @@ export class KeccakF1600 extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.dstOffset, this.inputOffset];
     const [dstOffset, inputOffset] = addressing.resolve(operands, memory);
@@ -110,7 +114,9 @@ export class Sha256Compression extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.outputOffset, this.stateOffset, this.inputsOffset];
     const [outputOffset, stateOffset, inputsOffset] = addressing.resolve(operands, memory);

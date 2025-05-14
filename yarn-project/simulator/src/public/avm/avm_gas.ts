@@ -146,11 +146,18 @@ export function getBaseGasCost(opcode: Opcode): Gas {
   return BASE_GAS_COSTS[opcode];
 }
 
+export function computeAddressingCost(indirectOperandsCount: number, relativeOperandsCount: number): Gas {
+  return makeCost(
+    indirectOperandsCount * c.AVM_ADDRESSING_INDIRECT_L2_GAS + relativeOperandsCount * c.AVM_ADDRESSING_RELATIVE_L2_GAS,
+    0,
+  );
+}
+
 export function getDynamicGasCost(opcode: Opcode): Gas {
   return DYNAMIC_GAS_COSTS.has(opcode) ? DYNAMIC_GAS_COSTS.get(opcode)! : makeCost(0, 0);
 }
 
-/** Returns a multiplier based on the byte size of the type represented by the tag. Throws on uninitialized or invalid. */
+/** Returns a multiplier based on the byte size of the type represented by the integer tag. Throws on invalid. */
 export function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
   switch (tag) {
     case TypeTag.UINT1: // same as u8
@@ -166,7 +173,7 @@ export function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
     case TypeTag.UINT128:
       return 16;
     case TypeTag.FIELD:
-      return 32;
+      return 0;
     case TypeTag.INVALID:
       throw new InstructionExecutionError(`Invalid tag type for gas cost multiplier: ${TypeTag[tag]}`);
   }

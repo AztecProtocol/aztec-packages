@@ -3,7 +3,7 @@ import type { Bufferable } from '@aztec/foundation/serialize';
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
-import { type Gas, getBaseGasCost, getDynamicGasCost, mulGas } from '../avm_gas.js';
+import { type Gas, computeAddressingCost, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import type { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
 
@@ -95,8 +95,8 @@ export abstract class Instruction {
    * Returns the base gas cost for the instruction.
    * @returns The base gas cost.
    */
-  protected baseGasCost(): Gas {
-    return getBaseGasCost(this.opcode);
+  protected baseGasCost(indirectOperandsCount: number, relativeOperandsCount: number): Gas {
+    return sumGas(getBaseGasCost(this.opcode), computeAddressingCost(indirectOperandsCount, relativeOperandsCount));
   }
 
   /**

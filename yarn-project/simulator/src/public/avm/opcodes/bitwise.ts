@@ -11,7 +11,9 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -118,7 +120,9 @@ export class Not extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.srcOffset, this.dstOffset];
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);

@@ -850,6 +850,10 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 69;
 pub global AVM_MSM_BASE_L2_GAS: u32 = 36;
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
+// Addressing gas
+pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 1;
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 1;
+
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
 pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 3;

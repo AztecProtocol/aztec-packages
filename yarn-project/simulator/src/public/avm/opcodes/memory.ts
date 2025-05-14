@@ -68,7 +68,9 @@ export class Set extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
@@ -103,7 +105,9 @@ export class Cast extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.srcOffset, this.dstOffset];
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -142,7 +146,9 @@ export class Mov extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.srcOffset, this.dstOffset];
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -176,7 +182,9 @@ export class CalldataCopy extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.copySizeOffset, this.cdStartOffset, this.dstOffset];
     const [copySizeOffset, cdStartOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -209,7 +217,9 @@ export class ReturndataSize extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
@@ -243,7 +253,9 @@ export class ReturndataCopy extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.copySizeOffset, this.rdStartOffset, this.dstOffset];
     const [copySizeOffset, rdStartOffset, dstOffset] = addressing.resolve(operands, memory);

@@ -69,7 +69,9 @@ export class GetEnvVar extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     if (!(this.varEnum in EnvironmentVariable)) {
       throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);

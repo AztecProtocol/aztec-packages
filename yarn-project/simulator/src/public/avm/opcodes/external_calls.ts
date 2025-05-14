@@ -32,7 +32,9 @@ abstract class ExternalCall extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.l2GasOffset, this.daGasOffset, this.addrOffset, this.argsSizeOffset, this.argsOffset];
     const [l2GasOffset, daGasOffset, addrOffset, argsSizeOffset, argsOffset] = addressing.resolve(operands, memory);
@@ -172,7 +174,9 @@ export class Return extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.returnSizeOffset, this.returnOffset];
     const [returnSizeOffset, returnOffset] = addressing.resolve(operands, memory);
@@ -215,7 +219,9 @@ export class Revert extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.retSizeOffset, this.returnOffset];
     const [retSizeOffset, returnOffset] = addressing.resolve(operands, memory);

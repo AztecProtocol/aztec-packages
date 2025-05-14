@@ -35,7 +35,9 @@ export class DebugLog extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);

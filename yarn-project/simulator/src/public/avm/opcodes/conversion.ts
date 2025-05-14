@@ -35,7 +35,9 @@ export class ToRadixBE extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.baseGasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.srcOffset, this.radixOffset, this.numLimbsOffset, this.outputBitsOffset, this.dstOffset];
     const [srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -47,11 +49,11 @@ export class ToRadixBE extends Instruction {
     memory.checkTag(TypeTag.UINT1, outputBitsOffset);
 
     const numLimbs = memory.get(numLimbsOffset).toNumber();
-    context.machineState.consumeGas(this.dynamicGasCost(numLimbs)); //TODO change this to num limbs + P limbs for the radix
+    const radix: bigint = memory.get(radixOffset).toBigInt();
+    context.machineState.consumeGas(this.dynamicGasCost(Math.max(numLimbs, getModulusLimbs(radix)))); //TODO change this to num limbs + P limbs for the radix
     const outputBits = memory.get(outputBitsOffset).toNumber();
 
     let value: bigint = memory.get(srcOffset).toBigInt();
-    const radix: bigint = memory.get(radixOffset).toBigInt();
 
     if (radix < 2 || radix > 256) {
       throw new InvalidToRadixInputsError(`ToRadixBE instruction's radix should be in range [2,256] (was ${radix}).`);
@@ -81,3 +83,6 @@ export class ToRadixBE extends Instruction {
     memory.setSlice(dstOffset, res);
   }
 }
+
+// First two are for radix = 0 and 1, which are invalid, so we have 0 limbs for those cases.
+export const MODULUS_LIMBS_PER_RADIX = [0, 0, 254];
