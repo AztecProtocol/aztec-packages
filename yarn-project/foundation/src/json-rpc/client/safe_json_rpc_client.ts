@@ -46,7 +46,7 @@ const CLIENT_ID = Symbol('JsonRpcClient.clientId');
 
 let nextClientId = 1;
 // keep a reference to clients so that we can force send a batch
-let clients = new Map<number, WeakRef<{ [SEND_BATCH]: () => Promise<void> }>>();
+const clients = new Map<number, WeakRef<{ [SEND_BATCH]: () => Promise<void> }>>();
 
 /**
  * Creates a Proxy object that delegates over RPC and validates outputs against a given schema.
@@ -163,7 +163,7 @@ export function createSafeJsonRpcClient<T extends object>(
     queue.push({ request: body, deferred });
 
     if (sendBatchTimeoutHandle === undefined) {
-      sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
+      sendBatchTimeoutHandle = setTimeout(sendBatch as any, batchWindowMS);
     }
 
     log.debug(format(`request`, method, params));
