@@ -206,12 +206,12 @@ template <typename Builder> class field_t {
     /**
      * @brief Set the free witness flag for the field element's tag
      */
-    void set_free_witness() { tag.set_free_witness(); }
+    void set_free_witness_tag() { tag.set_free_witness(); }
 
     /**
      * @brief Unset the free witness flag for the field element's tag
      */
-    void unset_free_witness() { tag.unset_free_witness(); }
+    void unset_free_witness_tag() { tag.unset_free_witness(); }
 
     field_t conditional_negate(const bool_t<Builder>& predicate) const;
 
@@ -308,13 +308,13 @@ template <typename Builder> class field_t {
         context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
-        unset_free_witness();
+        unset_free_witness_tag();
     }
 
     static field_t from_witness(Builder* ctx, const bb::fr& input)
     {
         auto result = field_t(witness_t<Builder>(ctx, input));
-        result.set_free_witness();
+        result.set_free_witness_tag();
         return result;
     }
 
@@ -327,7 +327,7 @@ template <typename Builder> class field_t {
         auto context = get_context();
         ASSERT(context != nullptr);
         context->fix_witness(witness_index, get_value());
-        unset_free_witness();
+        unset_free_witness_tag();
     }
 
     /**

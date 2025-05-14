@@ -87,7 +87,7 @@ template <class Builder> class goblin_field {
         field_ct lo = field_ct::from_witness(ctx, lo_v);
         field_ct hi = field_ct::from_witness(ctx, hi_v);
         auto result = goblin_field(lo, hi);
-        result.set_free_witness();
+        result.set_free_witness_tag();
         return result;
     }
 
@@ -99,7 +99,7 @@ template <class Builder> class goblin_field {
         for (auto& limb : limbs) {
             limb.convert_constant_to_fixed_witness(builder);
         }
-        this->unset_free_witness();
+        this->unset_free_witness_tag();
     }
 
     static goblin_field conditional_assign(const bool_ct& predicate, const goblin_field& lhs, goblin_field& rhs)
@@ -146,20 +146,20 @@ template <class Builder> class goblin_field {
     /**
      * @brief Set the free witness flag for the goblin field's tags
      */
-    void set_free_witness()
+    void set_free_witness_tag()
     {
         for (auto& limb : limbs) {
-            limb.set_free_witness();
+            limb.set_free_witness_tag();
         }
     }
 
     /**
      * @brief Unset the free witness flag for the goblin field's tags
      */
-    void unset_free_witness()
+    void unset_free_witness_tag()
     {
         for (auto& limb : limbs) {
-            limb.unset_free_witness();
+            limb.unset_free_witness_tag();
         }
     }
     /**

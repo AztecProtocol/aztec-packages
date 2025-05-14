@@ -100,20 +100,20 @@ template <typename Builder> class byte_array {
     /**
      * @brief Set the free witness flag for the byte array
      */
-    void set_free_witness()
+    void set_free_witness_tag()
     {
         for (auto& value : values) {
-            value.set_free_witness();
+            value.set_free_witness_tag();
         }
     }
 
     /**
      * @brief Unset the free witness flag for the byte array
      */
-    void unset_free_witness()
+    void unset_free_witness_tag()
     {
         for (auto& value : values) {
-            value.unset_free_witness();
+            value.unset_free_witness_tag();
         }
     }
 

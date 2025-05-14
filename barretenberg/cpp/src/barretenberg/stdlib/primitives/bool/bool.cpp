@@ -38,7 +38,7 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value)
     context->create_bool_gate(witness_index);
     witness_bool = (value.witness == bb::fr::one());
     witness_inverted = false;
-    set_free_witness();
+    set_free_witness_tag();
 }
 
 template <typename Builder>
@@ -108,7 +108,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const wi
     witness_index = other.witness_index;
     witness_inverted = false;
     context->create_bool_gate(witness_index);
-    set_free_witness();
+    set_free_witness_tag();
     return *this;
 }
 

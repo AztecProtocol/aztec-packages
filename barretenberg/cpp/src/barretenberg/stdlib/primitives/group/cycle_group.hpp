@@ -136,18 +136,18 @@ template <typename Builder> class cycle_group {
         /**
          * @brief Set the free witness flag for the cycle scalar's tags
          */
-        void set_free_witness()
+        void set_free_witness_tag()
         {
-            lo.set_free_witness();
-            hi.set_free_witness();
+            lo.set_free_witness_tag();
+            hi.set_free_witness_tag();
         }
         /**
          * @brief Unset the free witness flag for the cycle scalar's tags
          */
-        void unset_free_witness()
+        void unset_free_witness_tag()
         {
-            lo.unset_free_witness();
-            hi.unset_free_witness();
+            lo.unset_free_witness_tag();
+            hi.unset_free_witness_tag();
         }
     };
 
@@ -304,21 +304,21 @@ template <typename Builder> class cycle_group {
     /**
      * @brief Set the free witness flag for the cycle_group's tags
      */
-    void set_free_witness()
+    void set_free_witness_tag()
     {
-        x.set_free_witness();
-        y.set_free_witness();
-        _is_infinity.set_free_witness();
+        x.set_free_witness_tag();
+        y.set_free_witness_tag();
+        _is_infinity.set_free_witness_tag();
     }
 
     /**
      * @brief Unset the free witness flag for the cycle_group's tags
      */
-    void unset_free_witness()
+    void unset_free_witness_tag()
     {
-        x.unset_free_witness();
-        y.unset_free_witness();
-        _is_infinity.unset_free_witness();
+        x.unset_free_witness_tag();
+        y.unset_free_witness_tag();
+        _is_infinity.unset_free_witness_tag();
     }
     /**
      * @brief Set the witness indices representing the cycle_group to public

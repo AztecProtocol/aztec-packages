@@ -129,21 +129,16 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1378): Stop automatically converting to witness
             // in verifiers,  so we can remove unset_free_witness calls
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
-            this->circuit_size.unset_free_witness();
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
-            this->log_circuit_size.unset_free_witness();
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->num_public_inputs.unset_free_witness();
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->pub_inputs_offset.unset_free_witness();
             this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
             this->databus_propagation_data = native_key->databus_propagation_data;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
-                commitment.unset_free_witness();
             }
         };
 

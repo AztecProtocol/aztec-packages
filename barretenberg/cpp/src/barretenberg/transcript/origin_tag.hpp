@@ -53,14 +53,16 @@
 namespace bb {
 
 void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
-
 #ifndef NDEBUG
 struct OriginTag {
+
     static constexpr size_t CONSTANT = static_cast<size_t>(-1);
     static constexpr size_t FREE_WITNESS = static_cast<size_t>(-2);
     // Parent tag is supposed to represent the index of a unique trancript object that generated the value. It uses
     // a concrete index, not bits for now, since we never expect two different indices to be used in the same
     // computation apart from equality assertion
+    // Parent tag is set to CONSTANT if the value is just a constant
+    // Parent tag is set to FREE_WITNESS if the value is a free witness (not a constant and not from the transcript)
     size_t parent_tag = CONSTANT;
 
     // Child tag specifies which submitted values and challenges have been used to generate this element
@@ -71,9 +73,6 @@ struct OriginTag {
 
     // Instant death is used for poisoning values we should never use in arithmetic
     bool instant_death = false;
-
-    // Free witness is used for witnesses that don't have an origin
-    bool free_witness = false;
 
     // Default Origin Tag has everything set to zero and can't cause any issues
     OriginTag() = default;
@@ -117,6 +116,7 @@ struct OriginTag {
         if (tag_a.instant_death || tag_b.instant_death) {
             throw_or_abort("Touched an element that should not have been touched");
         }
+        // If one of the tags is a constant, just use the other tag
         if (tag_a.parent_tag == CONSTANT) {
             *this = tag_b;
             return;

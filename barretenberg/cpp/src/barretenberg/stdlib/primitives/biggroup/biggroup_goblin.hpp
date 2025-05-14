@@ -87,7 +87,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
             out.y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
-        out.set_free_witness();
+        out.set_free_witness_tag();
         return out;
     }
 
@@ -98,7 +98,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     {
         this->x.convert_constant_to_fixed_witness(builder);
         this->y.convert_constant_to_fixed_witness(builder);
-        this->unset_free_witness();
+        this->unset_free_witness_tag();
     }
 
     void validate_on_curve() const
@@ -320,21 +320,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     /**
      * @brief Set the free witness flag for the goblin element's tags
      */
-    void set_free_witness()
+    void set_free_witness_tag()
     {
-        x.set_free_witness();
-        y.set_free_witness();
-        _is_infinity.set_free_witness();
+        x.set_free_witness_tag();
+        y.set_free_witness_tag();
+        _is_infinity.set_free_witness_tag();
     }
 
     /**
      * @brief Unset the free witness flag for the goblin element's tags
      */
-    void unset_free_witness()
+    void unset_free_witness_tag()
     {
-        x.unset_free_witness();
-        y.unset_free_witness();
-        _is_infinity.unset_free_witness();
+        x.unset_free_witness_tag();
+        y.unset_free_witness_tag();
+        _is_infinity.unset_free_witness_tag();
     }
     /**
      * @brief Set the witness indices representing the goblin element to public

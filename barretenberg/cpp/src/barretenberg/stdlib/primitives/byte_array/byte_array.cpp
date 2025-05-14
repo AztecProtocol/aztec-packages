@@ -49,7 +49,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
         value.create_range_constraint(8, "byte_array: vector entry larger than 1 byte.");
         values[i] = value;
     }
-    set_free_witness();
+    set_free_witness_tag();
 }
 
 /**
