@@ -29,7 +29,8 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerifica
 /**
  * @brief Verify a decider proof relative to a decider verification key (ϕ, \vec{β*}, e*).
  */
-template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
+template <typename Flavor>
+typename DeciderVerifier_<Flavor>::Output DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
     return verify();
@@ -39,7 +40,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const Dec
  * @brief Verify a decider proof that is assumed to be contained in the transcript
  *
  */
-template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
+template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVerifier_<Flavor>::verify()
 {
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
@@ -47,7 +48,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
@@ -76,8 +76,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
-        info("Sumcheck verification failed.");
-        return false;
+        return { /*sumcheck_verified=*/false, /*libra_evals_verified=*/false, PairingPoints{} };
     }
     bool consistency_checked = true;
     ClaimBatcher claim_batcher{
@@ -95,10 +94,10 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                &consistency_checked,
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
+
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-    VerifierCommitmentKey pcs_vkey{};
-    bool verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
-    return sumcheck_output.verified && verified && consistency_checked;
+
+    return Output{ sumcheck_output.verified, consistency_checked, { pairing_points[0], pairing_points[1] } };
 }
 
 template class DeciderVerifier_<UltraFlavor>;

@@ -130,7 +130,7 @@ export class L2Block {
       ),
       contractClassLogSize: this.body.txEffects.reduce(
         (totalLogSize, txEffect) =>
-          totalLogSize + txEffect.contractClassLogs.reduce((logSize, log) => logSize + log.getEmittedLength(), 0),
+          totalLogSize + txEffect.contractClassLogs.reduce((acc, log) => acc + log.emittedLength, 0),
         0,
       ),
     };

@@ -6,9 +6,8 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
-        private_log::PrivateLogData,
-        side_effect::{OrderedValue, scoped::Scoped},
+        log_hash::LogHash,
+        side_effect::{counted::Counted, OrderedValue, scoped::Scoped},
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::arrays::assert_exposed_sorted_transformed_value_array,
@@ -92,11 +91,14 @@ impl TailOutputValidator {
         }
 
         // private_logs
-        assert_eq(
-            self.previous_kernel.end.private_logs.map(|l: Scoped<PrivateLogData>| l.inner.log),
-            self.output.end.private_logs,
-            "mismatch private_logs",
-        );
+        let private_logs = self.previous_kernel.end.private_logs;
+        for i in 0..private_logs.len() {
+            assert_eq(
+                private_logs[i].expose_to_public(),
+                self.output.end.private_logs[i],
+                "mismatch private_logs",
+            );
+        }
     }
 
     fn validate_propagated_sorted_values(self) {
@@ -111,7 +113,7 @@ impl TailOutputValidator {
         assert_exposed_sorted_transformed_value_array(
             self.previous_kernel.end.contract_class_logs_hashes,
             self.output.end.contract_class_logs_hashes,
-            |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
+            |prev: Scoped<Counted<LogHash>>, out: Scoped<LogHash>| out == prev.expose_to_public(),
             self.hints.sorted_contract_class_log_hash_hints,
         );
     }

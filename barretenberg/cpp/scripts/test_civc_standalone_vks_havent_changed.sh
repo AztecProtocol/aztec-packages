@@ -1,9 +1,6 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-export IGNITION_CRS_PATH=./srs_db/ignition
-export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
-
 cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
@@ -11,7 +8,7 @@ cd ..
 # IF A VK CHANGE IS EXPECTED - we need to redo this:
 # - Generate inputs: $root/yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
 # - Upload the compressed results: aws s3 cp bb-civc-inputs-[version].tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[version].tar.gz
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v6.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-v7.tar.gz"
 
 export inputs_tmp_dir=$(mktemp -d)
 trap 'rm -rf "$inputs_tmp_dir"' EXIT SIGINT
