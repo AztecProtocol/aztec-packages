@@ -38,6 +38,6 @@ pub fn verify_rolluphonk_proof<let N: u32>(
         proof,
         public_inputs,
         key_hash,
-        ULTRA_HONK_IDENTIFIER,
+        ROLLUP_HONK_IDENTIFIER,
     );
 }
