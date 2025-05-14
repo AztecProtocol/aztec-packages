@@ -15,35 +15,25 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract DistributeFees is Test {
   using Hash for DataStructures.L1ToL2Msg;
 
   address internal constant OWNER = address(0x1);
-  Registry internal registry;
   TestERC20 internal token;
   FeeJuicePortal internal feeJuicePortal;
   Rollup internal rollup;
   RewardDistributor internal rewardDistributor;
 
   function setUp() public {
-    token = new TestERC20("test", "TEST", address(this));
-    registry = new Registry(OWNER, token);
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup(
-      token,
-      rewardDistributor,
-      token,
-      address(this),
-      TestConstants.getGenesisState(),
-      TestConstants.getRollupConfigInput()
-    );
+    rollup = builder.getConfig().rollup;
+    token = builder.getConfig().testERC20;
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-
-    vm.prank(OWNER);
-    registry.addRollup(IRollup(address(rollup)));
   }
 
   function test_RevertGiven_TheCallerIsNotTheCanonicalRollup() external {

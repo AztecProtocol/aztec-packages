@@ -236,7 +236,7 @@ export class MessageStore {
   }
 
   private indexToKey(index: bigint): number {
-    return Number(index); // Using zero as a key in the map breaks the kvstore.
+    return Number(index);
   }
 
   private leafToIndexKey(leaf: Fr): string {

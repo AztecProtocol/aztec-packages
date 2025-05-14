@@ -42,6 +42,7 @@ import {FeeLib, L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/Fe
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {RollupBuilder} from "./builder/RollupBuilder.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -78,33 +79,22 @@ contract RollupTest is RollupBase {
    */
   modifier setUpFor(string memory _name) {
     {
-      testERC20 = new TestERC20("test", "TEST", address(this));
-
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.slotNumber;
       uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this), IERC20(address(testERC20)));
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    testERC20.mint(address(rewardDistributor), 1e6 ether);
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    rollup = IInstance(
-      address(
-        new Rollup(
-          testERC20,
-          rewardDistributor,
-          testERC20,
-          address(this),
-          TestConstants.getGenesisState(),
-          TestConstants.getRollupConfigInput()
-        )
-      )
-    );
+    testERC20 = builder.getConfig().testERC20;
+    registry = builder.getConfig().registry;
+    rewardDistributor = builder.getConfig().rewardDistributor;
+    rollup = IInstance(address(builder.getConfig().rollup));
+
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
-    registry.addRollup(IRollup(address(rollup)));
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
 

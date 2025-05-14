@@ -1,4 +1,4 @@
-import { BatchCall, EthAddress, Fr, SiblingPath, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, EthAddress, Fr, SiblingPath, TxReceipt, type Wallet } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { truncateAndPad } from '@aztec/foundation/serialize';
@@ -74,33 +74,19 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
           .wait();
       }
 
-      const l2ToL1Message = {
-        sender: { actor: contract.address.toString() as Hex, version: BigInt(version) },
-        recipient: {
-          actor: recipient.toString() as Hex,
-          chainId: BigInt(crossChainTestHarness.l1Client.chain.id),
-        },
-        content: content.toString() as Hex,
-      };
-
-      const leaf = sha256ToField([
-        contract.address,
-        new Fr(version), // aztec version
-        recipient.toBuffer32(),
-        new Fr(crossChainTestHarness.l1Client.chain.id), // chain id
-        content,
-      ]);
+      const message = makeL2ToL1Message(recipient, content);
+      const messageLeaf = computeMessageLeaf(message);
 
       const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
         l2TxReceipt.blockNumber!,
-        leaf,
+        messageLeaf,
       );
 
       await t.assumeProven();
 
       const txHash = await outbox.write.consume(
         [
-          l2ToL1Message,
+          message,
           BigInt(l2TxReceipt.blockNumber!),
           BigInt(l2MessageIndex),
           siblingPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
@@ -132,11 +118,83 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       };
 
       // We check that MessageConsumed event was emitted with the expected message hash and leaf index
-      expect(topics.args.messageHash).toStrictEqual(leaf.toString());
+      expect(topics.args.messageHash).toStrictEqual(messageLeaf.toString());
       expect(topics.args.leafIndex).toStrictEqual(BigInt(0));
     },
     60_000,
   );
+
+  // When the block contains a tx with no messages, it triggers a different code path in
+  // AztecNode.getL2ToL1MessageMembershipWitness. In this test we ensure the code path is correct.
+  it('can send an L2 -> L1 message in a block with a tx that has no messages', async () => {
+    const content = Fr.random();
+    const recipient = crossChainTestHarness.ethAccount;
+
+    // Send the 2 tx (with and without a message) and ensure they were included in the same block
+    let receiptOfTxWithTheMessage: TxReceipt;
+    {
+      // Configure the node to include the 2 transactions in the same block
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
+
+      const [noMessageReceipt, messageReceipt] = await Promise.all([
+        contract.methods.set_constant(Fr.random()).send().wait(),
+        contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait(),
+      ]);
+
+      expect(noMessageReceipt.blockNumber).toEqual(messageReceipt.blockNumber);
+      receiptOfTxWithTheMessage = messageReceipt;
+
+      // Reset the num txs per block to the default value
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    }
+
+    const message = makeL2ToL1Message(recipient, content);
+    const messageLeaf = computeMessageLeaf(message);
+
+    const [l2MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      receiptOfTxWithTheMessage.blockNumber!,
+      messageLeaf,
+    );
+
+    await t.assumeProven();
+
+    const l1TxHash = await outbox.write.consume(
+      [
+        message,
+        BigInt(receiptOfTxWithTheMessage.blockNumber!),
+        BigInt(l2MessageIndex),
+        siblingPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
+      ],
+      {} as any,
+    );
+
+    const l1TxReceipt = await crossChainTestHarness.l1Client.waitForTransactionReceipt({
+      hash: l1TxHash,
+    });
+
+    // Exactly 1 event should be emitted in the transaction
+    expect(l1TxReceipt.logs.length).toBe(1);
+
+    // We decode the event log before checking it
+    const txLog = l1TxReceipt.logs[0];
+    const topics = decodeEventLog({
+      abi: OutboxAbi,
+      data: txLog.data,
+      topics: txLog.topics,
+    }) as {
+      eventName: 'MessageConsumed';
+      args: {
+        l2BlockNumber: bigint;
+        root: `0x${string}`;
+        messageHash: `0x${string}`;
+        leafIndex: bigint;
+      };
+    };
+
+    // We check that MessageConsumed event was emitted with the expected message hash and leaf index
+    expect(topics.args.messageHash).toStrictEqual(messageLeaf.toString());
+    expect(topics.args.leafIndex).toStrictEqual(l2MessageIndex);
+  }, 60_000);
 
   it('Inserts a new transaction with two out messages, and verifies sibling paths of both the new messages', async () => {
     // recipient2 = msg.sender, so we can consume it later
@@ -159,11 +217,10 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-    expect(l2ToL1Messages?.map(l2ToL1Message => l2ToL1Message.toString())).toStrictEqual(
-      [makeL2ToL1Message(recipient1, content1), makeL2ToL1Message(recipient2, content2)].map(expectedL2ToL1Message =>
-        expectedL2ToL1Message.toString(),
-      ),
-    );
+    expect(l2ToL1Messages).toStrictEqual([
+      computeMessageLeaf(makeL2ToL1Message(recipient1, content1)),
+      computeMessageLeaf(makeL2ToL1Message(recipient2, content2)),
+    ]);
 
     // For each individual message, we are using our node API to grab the index and sibling path. We expect
     // the index to match the order of the block we obtained earlier. We also then use this sibling path to hash up to the root,
@@ -199,15 +256,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
 
     // Consume msg 2
-    // Taken from l2_to_l1.test
-    const msg2 = {
-      sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
-      recipient: {
-        actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(t.deployL1ContractsValues.l1Client.chain.id),
-      },
-      content: content2.toString() as `0x${string}`,
-    };
+    const msg2 = makeL2ToL1Message(recipient2, content2);
 
     const txHash = await outbox.write.consume(
       [
@@ -255,9 +304,10 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await expect(consumeAgain).rejects.toThrow();
   });
 
-  it('Inserts two transactions with total four out messages, and verifies sibling paths of two new messages', async () => {
+  it('Inserts two transactions with total four out messages, and verifies sibling paths of both the new messages', async () => {
     // Force txs to be in the same block
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
+    // recipient2 = msg.sender, so we can consume it later
     const [[recipient1, content1], [recipient2, content2], [recipient3, content3], [recipient4, content4]] = [
       [EthAddress.random(), Fr.random()],
       [EthAddress.fromString(t.deployL1ContractsValues.l1Client.account.address), Fr.random()],
@@ -286,21 +336,21 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // the index to match the order of the block we obtained earlier. We also then use this sibling path to hash up to the root,
     // verifying that the expected root obtained through the message and the sibling path match the actual root
     // that was returned by the circuits in the header as out_hash.
-    const singleMessage = makeL2ToL1Message(recipient4, content4);
+    const singleMessageLeaf = computeMessageLeaf(makeL2ToL1Message(recipient4, content4));
     const [index, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
       l2TxReceipt0.blockNumber!,
-      singleMessage,
+      singleMessageLeaf,
     );
     // The solo message is the only one in the tx, so it only requires a subtree of height 1
     // +1 for being rolled up
     expect(siblingPath.pathSize).toBe(2);
-    const expectedRoot = calculateExpectedRoot(singleMessage, siblingPath as SiblingPath<2>, index);
+    const expectedRoot = calculateExpectedRoot(singleMessageLeaf, siblingPath as SiblingPath<2>, index);
     expect(expectedRoot.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
 
-    const messageToConsume = makeL2ToL1Message(recipient2, content2);
+    const leafOfMessageToConsume = computeMessageLeaf(makeL2ToL1Message(recipient2, content2));
     const [index2, siblingPath2] = await aztecNode.getL2ToL1MessageMembershipWitness(
       l2TxReceipt0.blockNumber!,
-      messageToConsume,
+      leafOfMessageToConsume,
     );
     // This message is in a group of 3, => it needs a subtree of height 2
     // +1 for being rolled up
@@ -318,15 +368,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
 
     // Consume msg 2
-    // Taken from l2_to_l1.test
-    const msg2 = {
-      sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
-      recipient: {
-        actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(t.deployL1ContractsValues.l1Client.chain.id),
-      },
-      content: content2.toString() as `0x${string}`,
-    };
+    const msg2 = makeL2ToL1Message(recipient2, content2);
 
     const txHash = await outbox.write.consume(
       [
@@ -358,7 +400,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       };
     };
     // Consumed the expected message
-    expect(topics.args.messageHash).toStrictEqual(messageToConsume.toString());
+    expect(topics.args.messageHash).toStrictEqual(leafOfMessageToConsume.toString());
     expect(topics.args.leafIndex).toStrictEqual(BigInt(index2));
 
     const consumeAgain = outbox.write.consume(
@@ -394,14 +436,13 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
     const messageToConsume = makeL2ToL1Message(recipient2, content2);
+    const leafOfMessageToConsume = computeMessageLeaf(messageToConsume);
 
     // We cannot guarantee the order of txs in blocks
-    expect(
-      l2ToL1Messages?.map(l2ToL1Message =>
-        l2ToL1Message.toString().includes(makeL2ToL1Message(recipient1, content1).toString()),
-      ),
+    expect(l2ToL1Messages?.some(msg => msg.equals(computeMessageLeaf(makeL2ToL1Message(recipient1, content1))))).toBe(
+      true,
     );
-    expect(l2ToL1Messages?.map(l2ToL1Message => l2ToL1Message.toString().includes(messageToConsume.toString())));
+    expect(l2ToL1Messages?.some(msg => msg.equals(leafOfMessageToConsume))).toBe(true);
 
     // For each individual message, we are using our node API to grab the index and sibling path. We expect
     // the index to match the order of the block we obtained earlier. We also then use this sibling path to hash up to the root,
@@ -435,21 +476,12 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
 
     // Consume msg 2
-    // Taken from l2_to_l1.test
-    const msg2 = {
-      sender: { actor: contract.address.toString() as `0x${string}`, version: BigInt(version) },
-      recipient: {
-        actor: recipient2.toString() as `0x${string}`,
-        chainId: BigInt(t.deployL1ContractsValues.l1Client.chain.id),
-      },
-      content: content2.toString() as `0x${string}`,
-    };
-    const [inputIndex, inputPath] = messageToConsume.equals(l2ToL1Messages![0])
+    const [inputIndex, inputPath] = leafOfMessageToConsume.equals(l2ToL1Messages![0])
       ? [index, siblingPath]
       : [index2, siblingPath2];
     const txHash = await outbox.write.consume(
       [
-        msg2,
+        messageToConsume,
         BigInt(l2TxReceipt0.blockNumber!),
         BigInt(inputIndex),
         inputPath.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
@@ -477,12 +509,12 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       };
     };
     // Consumed the expected message
-    expect(topics.args.messageHash).toStrictEqual(messageToConsume.toString());
+    expect(topics.args.messageHash).toStrictEqual(leafOfMessageToConsume.toString());
     expect(topics.args.leafIndex).toStrictEqual(BigInt(inputIndex));
 
     const consumeAgain = outbox.write.consume(
       [
-        msg2,
+        messageToConsume,
         BigInt(l2TxReceipt0.blockNumber!),
         BigInt(index2),
         siblingPath2.toBufferArray().map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
@@ -516,15 +548,24 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     return truncateAndPad(merkleSha256.hash(...secondLayerInput));
   }
 
-  function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO): Fr {
-    const leaf = sha256ToField([
-      contract.address,
-      new Fr(version),
-      recipient.toBuffer32(),
-      new Fr(t.deployL1ContractsValues.l1Client.chain.id), // chain id
-      content,
-    ]);
+  function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO) {
+    return {
+      sender: { actor: contract.address.toString() as Hex, version: BigInt(version) },
+      recipient: {
+        actor: recipient.toString() as Hex,
+        chainId: BigInt(crossChainTestHarness.l1Client.chain.id),
+      },
+      content: content.toString() as Hex,
+    };
+  }
 
-    return leaf;
+  function computeMessageLeaf(message: ReturnType<typeof makeL2ToL1Message>) {
+    return sha256ToField([
+      contract.address,
+      new Fr(message.sender.version),
+      EthAddress.fromString(message.recipient.actor).toBuffer32(),
+      new Fr(message.recipient.chainId),
+      Fr.fromString(message.content),
+    ]);
   }
 });
