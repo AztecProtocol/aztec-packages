@@ -74,6 +74,7 @@
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@google-cloud/storage": "^7.15.0",
     "axios": "^1.9.0",
+    "json-stringify-deterministic": "1.0.12",
     "lodash.chunk": "^4.2.0",
     "lodash.isequal": "^4.5.0",
     "lodash.omit": "^4.5.0",
