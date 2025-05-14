@@ -82,7 +82,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         {
             using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
             using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
-            using OuterPairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
             // Create an arbitrary inner circuit
             auto inner_circuit = create_inner_circuit();
@@ -101,7 +100,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             // Instantiate the recursive verifier using the native verification key
             stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
 
-            VerifierOutput output = verifier.verify_proof(inner_proof, OuterPairingPoints::construct_default(circuit));
+            VerifierOutput output = verifier.verify_proof(inner_proof);
             output.points_accumulator.set_public(); // useless for now but just checking if it breaks anything
         }
 
@@ -196,11 +195,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
   protected:
-    void SetUp() override
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    void SetUp() override { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**
@@ -510,7 +505,6 @@ TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
     EXPECT_TRUE(CircuitChecker::check(kernel));
     ivc->accumulate(kernel);
 
-    // Still expect this to be true since we don't aggregate pairing point objects correctly.
-    // If we fix aggregation, we should expect this test to fail.
-    EXPECT_TRUE(ivc->prove_and_verify());
+    // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
+    EXPECT_FALSE(ivc->prove_and_verify());
 }

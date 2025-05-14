@@ -135,6 +135,21 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq()
 }
 
 /**
+ * @brief Logic for a no-op operation.
+ *
+ * @return ecc_op_tuple with all its fields set to zero
+ */
+template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->no_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    return op_tuple;
+}
+
+/**
  * @brief Add goblin ecc op gates for a single operation
  *
  * @param ultra_op Operation data expressed in the ultra format

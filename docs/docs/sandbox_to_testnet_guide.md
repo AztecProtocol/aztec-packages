@@ -2,6 +2,7 @@
 title: Migrating from Sandbox to Testnet
 tags: [sandbox, testnet]
 ---
+
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This guide assumes you have an Aztec app on sandbox and you wish to deploy it onto testnet. If you have never worked with sandbox or testnet, you might want to check out the [getting started on testnet guide](./developers/getting_started.md).
@@ -15,7 +16,7 @@ This guide assumes you have an Aztec app on sandbox and you wish to deploy it on
 
 :::warning
 
-The testnet is version dependent. It is currently running version `0.85.0-alpha-testnet.5`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `alpha-testnet`. Maintain version consistency when interacting with the testnet to reduce errors.
 
 :::
 
@@ -24,13 +25,13 @@ The testnet is version dependent. It is currently running version `0.85.0-alpha-
 To connect a local PXE to testnet, install the testnet version of the sandbox.
 
 ```sh
-VERSION=0.85.0-alpha-testnet.5 aztec-up
+VERSION=alpha-testnet aztec-up
 ```
 
 When you run `aztec-wallet` commands, make sure to include a `node-url` option. An example:
 
 ```sh
-export NODE_URL=http://34.107.66.170
+export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 aztec-wallet create-account -a main --register-only --node-url $NODE_URL
 ```
 
@@ -105,6 +106,18 @@ const receiptForBob = await bananaCoin
 ```
 
 To learn more about using the faucet or the sponsored fee payment method, read the full fees guide [here](./developers/tutorials/codealong/first_fees.md).
+
+## Portals
+
+### L1 to L2 messages
+
+In the sandbox, an L1 to L2 message is available after two blocks have progressed on L2. This is often instigated by triggering two arbitrary transactions after the L1 transaction that creates the message.
+
+On testnet, waiting ~1.5-2 minutes should be enough to allow the message to be made available on L2.
+
+### L2 to L1 messages
+
+On testnet,L2 to L1 messages are only available to be consumed on L1 after a block has been finalized on L1. This typically takes ~30 minutes.
 
 ## Some things to note
 

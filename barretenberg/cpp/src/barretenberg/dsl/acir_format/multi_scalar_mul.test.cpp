@@ -14,7 +14,7 @@ using namespace bb;
 
 class MSMTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 using fr = field<Bn254FrParams>;
 

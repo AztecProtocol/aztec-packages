@@ -13,7 +13,7 @@ using namespace acir_format;
 
 class UltraPlonkRAM : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 class MegaHonk : public ::testing::Test {
@@ -37,7 +37,7 @@ class MegaHonk : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& witness_values)
 {

@@ -70,11 +70,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     };
 
   protected:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 #ifdef STARKNET_GARAGA_FLAVORS

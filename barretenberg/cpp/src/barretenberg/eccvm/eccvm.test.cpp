@@ -10,6 +10,7 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
@@ -18,7 +19,7 @@ using FF = ECCVMFlavor::FF;
 using PK = ECCVMFlavor::ProvingKey;
 class ECCVMTests : public ::testing::Test {
   protected:
-    void SetUp() override { srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path()); };
+    void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();

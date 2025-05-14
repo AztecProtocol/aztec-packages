@@ -1,7 +1,7 @@
 import React from "react";
 
 export const General = {
-  VersionLatestTestnet: () => <code>0.85.0-alpha-testnet.5</code>,
+  VersionLatestTestnet: () => <code>alpha-testnet</code>,
   VersionLatestSandbox: () => <code>0.86.0</code>,
   ViewTransactions: () => (
     <p>
@@ -15,9 +15,8 @@ export const General = {
       To use Aztec's suite of tools you'll need to:
       <ul>
         <li>
-          <a href="https://docs.docker.com/get-started/get-docker/">
-            Get docker
-          </a>
+          <a href="https://docs.docker.com/engine/install/">Get docker</a>{" "}
+          (engine or desktop)
         </li>
         <li>
           Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
@@ -58,11 +57,7 @@ export const General = {
     </p>
   ),
 
-  AztecTestnetVersion: () => (
-    <span>
-      0.85.0-alpha-testnet.5
-    </span>
-  ),
+  AztecTestnetVersion: () => <span>alpha-testnet</span>,
 
   AztecWalletCLI: () => (
     <p>

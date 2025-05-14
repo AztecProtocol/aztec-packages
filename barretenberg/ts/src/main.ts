@@ -247,6 +247,8 @@ export async function proveUltraHonk(
 
     const acirProveUltraHonk = options?.keccak
       ? api.acirProveUltraKeccakHonk.bind(api)
+      : options?.keccakZK
+      ? api.acirProveUltraKeccakZKHonk.bind(api)
       : options?.starknet
       ? api.acirProveUltraStarknetHonk.bind(api)
       : api.acirProveUltraHonk.bind(api);
@@ -277,6 +279,8 @@ export async function writeVkUltraHonk(
 
     const acirWriteVkUltraHonk = options?.keccak
       ? api.acirWriteVkUltraKeccakHonk.bind(api)
+      : options?.keccakZK
+      ? api.acirWriteVkUltraKeccakZKHonk.bind(api)
       : options?.starknet
       ? api.acirWriteVkUltraStarknetHonk.bind(api)
       : api.acirWriteVkUltraHonk.bind(api);
@@ -304,6 +308,8 @@ export async function verifyUltraHonk(
   try {
     const acirVerifyUltraHonk = options?.keccak
       ? api.acirVerifyUltraKeccakHonk.bind(api)
+      : options?.keccakZK
+      ? api.acirVerifyUltraKeccakZKHonk.bind(api)
       : options?.starknet
       ? api.acirVerifyUltraStarknetHonk.bind(api)
       : api.acirVerifyUltraHonk.bind(api);

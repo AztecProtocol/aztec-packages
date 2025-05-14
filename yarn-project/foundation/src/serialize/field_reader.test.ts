@@ -18,6 +18,22 @@ describe('field reader', () => {
     reader = new FieldReader(FIELDS);
   });
 
+  describe('constructor', () => {
+    it('can create from empty array', () => {
+      const reader = new FieldReader([]);
+      expect(reader.remainingFields()).toBe(0);
+    });
+
+    it('can create from non-empty array with nothing more to read', () => {
+      const reader = new FieldReader(FIELDS, FIELDS.length);
+      expect(reader.remainingFields()).toBe(0);
+    });
+
+    it('throws if offset is greater than the length of the array', () => {
+      expect(() => new FieldReader(FIELDS, FIELDS.length + 1)).toThrow('Offset out of bounds.');
+    });
+  });
+
   describe('readFr', () => {
     it('should read Fr', () => {
       FIELDS.forEach(fr => {

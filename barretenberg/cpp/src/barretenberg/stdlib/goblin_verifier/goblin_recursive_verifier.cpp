@@ -10,9 +10,7 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
- * // TODO(https://github.com/AztecProtocol/barretenberg/issues/1309): Implement correct pairing point aggregation.
- * Method needs to accept an input agg object, aggregate the pairing points from both translator and merge, then return
- * the updated agg object.
+ *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
@@ -24,26 +22,22 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
                                             eccvm_verifier.transcript };
-    [[maybe_unused]] auto translator_pairing_points = translator_verifier.verify_proof(
+    PairingPoints<Builder> translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
     // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
-    // In reality the Goblin Proof is going to already be a stdlib proof and this conversion is not going to happen here
-    // (see https://github.com/AztecProtocol/barretenberg/issues/991)
-    auto native_translation_evaluations = proof.translation_evaluations;
-    auto translation_evaluations =
-        TranslationEvaluations{ TranslatorBF::from_witness(builder, native_translation_evaluations.op),
-                                TranslatorBF::from_witness(builder, native_translation_evaluations.Px),
-                                TranslatorBF::from_witness(builder, native_translation_evaluations.Py),
-                                TranslatorBF::from_witness(builder, native_translation_evaluations.z1),
-                                TranslatorBF::from_witness(builder, native_translation_evaluations.z2)
-
-        };
-    translator_verifier.verify_translation(translation_evaluations, eccvm_verifier.translation_masking_term_eval);
+    translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
+                                           eccvm_verifier.translation_masking_term_eval);
 
     MergeVerifier merge_verifier{ builder };
     StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-    auto merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
-    return { merge_pairing_points, opening_claim, ipa_transcript };
+    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    translator_pairing_points.aggregate(merge_pairing_points);
+
+    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
+    // and final merge verifier
+    translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
+
+    return { translator_pairing_points, opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk

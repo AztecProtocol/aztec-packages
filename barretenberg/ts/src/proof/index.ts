@@ -1,5 +1,3 @@
-import { numToUInt32BE } from '../serialize/serialize.js';
-
 /**
  * @description
  * The representation of a proof

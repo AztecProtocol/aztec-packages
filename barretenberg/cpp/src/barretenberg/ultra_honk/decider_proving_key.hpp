@@ -214,7 +214,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
                                                          // [user-public-inputs][pairing-point-object][databus-comms]
                 if (proving_key.databus_propagation_data.is_kernel) {
-                    info(proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
 
                     BB_ASSERT_EQ(
                         proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,

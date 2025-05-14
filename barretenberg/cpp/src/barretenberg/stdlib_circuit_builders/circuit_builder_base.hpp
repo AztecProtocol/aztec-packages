@@ -252,6 +252,10 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    std::vector<std::vector<std::vector<uint32_t>>> rom_records;
+    std::vector<std::vector<std::array<uint32_t, 2>>> rom_states;
+    std::vector<std::vector<std::vector<uint32_t>>> ram_records;
+    std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
@@ -263,6 +267,10 @@ template <typename FF> struct CircuitSchemaInternal {
                    lookup_tables,
                    real_variable_tags,
                    range_tags,
+                   rom_records,
+                   rom_states,
+                   ram_records,
+                   ram_states,
                    circuit_finalized);
 };
 } // namespace bb

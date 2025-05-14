@@ -13,7 +13,7 @@ using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class Sha256Tests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 TEST_F(Sha256Tests, TestSha256Compression)

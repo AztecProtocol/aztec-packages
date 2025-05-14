@@ -121,9 +121,8 @@ describe('e2e_p2p_network', () => {
       });
     }
 
-    // Changes do not take effect until the next epoch
     const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
-    expect(attestersImmedatelyAfterAdding.length).toBe(0);
+    expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();

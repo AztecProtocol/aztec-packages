@@ -16,7 +16,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using FF = Flavor::FF;

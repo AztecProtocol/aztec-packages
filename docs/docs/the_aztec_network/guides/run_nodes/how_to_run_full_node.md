@@ -100,9 +100,9 @@ If you would like to run in a docker compose, you can use a configuration like t
 ```yml
 name: aztec-node
 services:
-  network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.85.0-alpha-testnet.5
+    network_mode: host # Optional, run with host networking
+    image: aztecprotocol/aztec:alpha-testnet
     environment:
       ETHEREUM_HOSTS: "" # update with L1 execution client URL
       L1_CONSENSUS_HOST_URLS: "" # update with L1 consensus client URL
@@ -116,6 +116,6 @@ services:
       - 40400:40400/udp
       - 8080:8080
 
-  volumes:
-    - /home/my-node/node:/data # Local directory
+    volumes:
+      - /home/my-node/node:/data # Local directory
 ```

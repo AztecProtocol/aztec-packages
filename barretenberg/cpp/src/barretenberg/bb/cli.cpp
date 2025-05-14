@@ -21,8 +21,10 @@
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/srs/factories/native_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/ultra_honk/types/aggregation_object_type.hpp"
 
 namespace bb {
 // This is updated in-place by bootstrap.sh during the release process. This prevents
@@ -115,7 +117,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Some paths, with defaults, that may or may not be set by commands
     std::filesystem::path bytecode_path{ "./target/program.json" };
     std::filesystem::path witness_path{ "./target/witness.gz" };
-    std::filesystem::path ivc_inputs_path;
+    std::filesystem::path ivc_inputs_path{ "./ivc-inputs.msgpack" };
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
@@ -125,11 +127,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
     flags.output_format = "bytes";
-    flags.crs_path = []() {
-        char* home = std::getenv("HOME");
-        std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
-        return base / ".bb-crs";
-    }();
+    flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
         return subcommand->add_option("--output_path, -o",
@@ -595,6 +593,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
 
     CLI11_PARSE(app, argc, argv);
+    // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
+    // points; that is done on-demand.
+    srs::init_net_crs_factory(flags.crs_path);
+    if (prove->parsed() || verify->parsed() || write_vk->parsed()) {
+        // If writing to an output folder, make sure it exists.
+        std::filesystem::create_directories(output_path);
+    }
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
 
@@ -691,25 +696,26 @@ int parse_and_run_cli_command(int argc, char* argv[])
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
-                if (ivc_inputs_path.empty()) {
-                    throw_or_abort("The prove commands for ClientIVC expect --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack>");
+                if (!std::filesystem::exists(ivc_inputs_path)) {
+                    throw_or_abort("The prove command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
             if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                if (ivc_inputs_path.empty()) {
-                    throw_or_abort("The write_vk command for --verifier_type ivc expects --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack>");
+                if (!std::filesystem::exists(ivc_inputs_path)) {
+                    throw_or_abort(
+                        "The write_vk command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.write_ivc_vk(ivc_inputs_path, output_path);
                 return 0;
             }
             if (check->parsed()) {
-                if (ivc_inputs_path.empty()) {
-                    throw_or_abort("The check command for --scheme client_ivc expects --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack>");
+                if (!std::filesystem::exists(ivc_inputs_path)) {
+                    throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(ivc_inputs_path) ? 0 : 1;
             }
