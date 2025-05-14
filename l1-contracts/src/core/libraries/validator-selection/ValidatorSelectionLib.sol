@@ -181,8 +181,8 @@ library ValidatorSelectionLib {
     // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
     // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
     // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
-    uint32 ts =
-      Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - uint32(TimeLib.getEpochDuration()) - 1;
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
+      - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
     uint256 validatorSetSize = _stakingStore.attesters.lengthAtTimestamp(ts);
 
     if (validatorSetSize == 0) {
