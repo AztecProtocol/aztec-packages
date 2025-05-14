@@ -428,21 +428,8 @@
           }
         }
 
-        // Add theme toggle listener to update charts when theme changes.
-        const themeToggle = document.getElementById("theme-toggle");
-        themeToggle.addEventListener("change", () => {
-          if (themeToggle.checked) {
-            document.body.classList.add("dark-theme");
-            document.documentElement.classList.add("dark-theme");
-            localStorage.setItem("theme", "dark");
-          } else {
-            document.body.classList.remove("dark-theme");
-            document.documentElement.classList.remove("dark-theme");
-            localStorage.setItem("theme", "light");
-          }
-          const isDark = document.body.classList.contains("dark-theme");
-          const textColor = isDark ? "#e0e0e0" : "#4a4a4a";
-          const gridColor = isDark ? "#555" : "#ccc";
+        // Reusable function to update chart colors
+        function updateCharts(textColor, gridColor) {
           window.chartInstances.forEach((chart) => {
             chart.options.scales.xAxes.forEach((axis) => {
               if (axis.scaleLabel) {
@@ -462,19 +449,40 @@
                 axis.gridLines.color = gridColor;
               }
             });
-            // Update legend labels if present
             if (chart.options.legend && chart.options.legend.labels) {
               chart.options.legend.labels.fontColor = textColor;
             }
-            // Update chart title if configured
             if (chart.options.title) {
               chart.options.title.fontColor = textColor;
             }
             chart.update();
           });
+        }
+
+        // Add theme toggle listener to update charts when theme changes.
+        const themeToggle = document.getElementById("theme-toggle");
+        themeToggle.addEventListener("change", () => {
+          if (themeToggle.checked) {
+            document.body.classList.add("dark-theme");
+            document.documentElement.classList.add("dark-theme");
+            localStorage.setItem("theme", "dark");
+          } else {
+            document.body.classList.remove("dark-theme");
+            document.documentElement.classList.remove("dark-theme");
+            localStorage.setItem("theme", "light");
+          }
+          const isDark = document.body.classList.contains("dark-theme");
+          const textColor = isDark ? "#e0e0e0" : "#4a4a4a";
+          const gridColor = isDark ? "#555" : "#ccc";
+          updateCharts(textColor, gridColor);
         });
 
         renderAllChars(init()); // Start
+
+        // Update chart colors on page load if dark theme is already enabled.
+        if (document.body.classList.contains("dark-theme")) {
+          updateCharts("#e0e0e0", "#555");
+        }
       })();
     </script>
   </body>
