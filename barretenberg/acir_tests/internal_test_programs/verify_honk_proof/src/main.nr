@@ -16,6 +16,5 @@ fn main(
         proof,
         public_inputs,
         key_hash,
-        HONK_IDENTIFIER,
     );
 }
