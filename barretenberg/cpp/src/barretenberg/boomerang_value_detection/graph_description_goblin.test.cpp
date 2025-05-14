@@ -1,10 +1,12 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
+
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -22,14 +24,6 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
-    {
-        MegaCircuitBuilder circuit{ op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
-
     struct ProverOutput {
         GoblinProof proof;
         Goblin::VerificationKey verfier_input;
@@ -46,7 +40,8 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
 
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = construct_mock_circuit(goblin.op_queue);
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
             goblin.prove_merge();
         }
 
@@ -62,23 +57,22 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
 TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
+
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    auto [translator_pairing_points, opening_claim, ipa_transcript] = verifier.verify(proof);
-    auto G_commitment = opening_claim.commitment;
-    G_commitment.x.fix_witness(); // need to check after full test run
-    G_commitment.y.fix_witness(); // need to check after full test run
-    EXPECT_EQ(builder.failed(), false) << builder.err();
-    /*     {
-            auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-            OuterProver prover(proving_key);
-            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
-            OuterVerifier verifier(verification_key);
-            auto proof = prover.construct_proof();
-            bool verified = verifier.verify_proof(proof);
+    GoblinRecursiveVerifierOutput output = verifier.verify(proof);
+    output.points_accumulator.set_public();
+    // Construct and verify a proof for the Goblin Recursive Verifier circuit
+    {
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
+        OuterProver prover(proving_key);
+        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        OuterVerifier verifier(verification_key);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
 
-            ASSERT(verified);
-        } */
+        ASSERT(verified);
+    }
     builder.finalize_circuit(false);
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::Graph(builder, false);
