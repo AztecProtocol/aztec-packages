@@ -930,8 +930,8 @@ export class ProvingOrchestrator implements EpochProver {
       async (signal: AbortSignal) => {
         const inputs = txProvingState.getAvmInputs();
         try {
-          // TODO(#14234): Remove the whole try-catch logic and just keep the next line
-          // but removing the second argument (false).
+          // TODO(#14234)[Unconditional PIs validation]: Remove the whole try-catch logic and
+          // just keep the next line but removing the second argument (false).
           return await this.prover.getAvmProof(inputs, false, signal, provingState.epochNumber);
         } catch (err) {
           if (process.env.AVM_PROVING_STRICT) {

@@ -2,8 +2,6 @@ import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { strict as assert } from 'assert';
-
 import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' assert { type: 'json' };
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Add, Return, Set } from '../avm/opcodes/index.js';

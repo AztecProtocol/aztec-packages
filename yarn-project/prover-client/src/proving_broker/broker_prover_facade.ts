@@ -390,7 +390,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
   getAvmProof(
     inputs: AvmCircuitInputs,
-    skipPublicInputsValidation?: boolean, // TODO(#14234): remove this argument
+    skipPublicInputsValidation?: boolean, // TODO(#14234)[Unconditional PIs validation]: remove this argument
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
@@ -403,7 +403,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       epochNumber,
       signal,
     ).then(result => {
-      // TODO(#14234): Remove ".then()".
+      // TODO(#14234)[Unconditional PIs validation]: Remove ".then()".
       // Override the default value of skipPublicInputsValidation potentially set in BBNativeRollupProver.getAvmProof().
       result.proof.proof[0] = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
       return result;
