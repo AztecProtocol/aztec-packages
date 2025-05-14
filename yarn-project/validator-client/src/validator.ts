@@ -60,7 +60,7 @@ export interface Validator {
     stateReference: StateReference,
     txs: Tx[],
   ): Promise<BlockProposal | undefined>;
-  attestToProposal(proposal: BlockProposal): void;
+  attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined>;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
@@ -499,7 +499,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 function validatePrivateKey(privateKey: string): Buffer32 {
   try {
     return Buffer32.fromString(privateKey);
-  } catch (error) {
+  } catch {
     throw new InvalidValidatorPrivateKeyError();
   }
 }

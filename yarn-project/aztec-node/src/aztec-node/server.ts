@@ -114,7 +114,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
-    protected readonly blockSource: L2BlockSource & Partial<Service>,
+    protected readonly blockSource: L2BlockSource & Service,
     protected readonly logsSource: L2LogsSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
@@ -732,16 +732,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const tempStores: AztecKVStore[] = [];
 
     // Construct message subtrees
-    const l2toL1Subtrees = await Promise.all(
-      l2ToL1Messages.map(async (msgs, i) => {
-        const store = openTmpStore(true);
-        tempStores.push(store);
-        const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
-        const tree = new StandardTree(store, new SHA256Trunc(), `temp_msgs_subtrees_${i}`, treeHeight, 0n, Fr);
-        await tree.appendLeaves(msgs);
-        return tree;
-      }),
-    );
+    const l2toL1Subtrees = l2ToL1Messages.map((msgs, i) => {
+      const store = openTmpStore(true);
+      tempStores.push(store);
+      const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
+      const tree = new StandardTree(store, new SHA256Trunc(), `temp_msgs_subtrees_${i}`, treeHeight, 0n, Fr);
+      tree.appendLeaves(msgs);
+      return tree;
+    });
 
     // path of the input msg from leaf -> first out hash calculated in base rolllup
     const subtreePathOfL2ToL1Message = await l2toL1Subtrees[indexOfMsgTx].getSiblingPath(

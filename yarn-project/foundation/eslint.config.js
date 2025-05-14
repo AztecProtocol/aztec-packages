@@ -63,6 +63,7 @@ export default [
       '@typescript-eslint/prefer-promise-reject-errors': 'off',
       '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-empty-function': 'off',
