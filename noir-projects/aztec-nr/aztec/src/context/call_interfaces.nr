@@ -9,12 +9,13 @@ use crate::context::{gas::GasOpts, private_context::PrivateContext, public_conte
 use crate::hash::{hash_args, hash_calldata};
 use crate::oracle::execution_cache;
 
-pub trait CallInterface<let N: u32> {
+pub trait CallInterface<let N: u32, T> {
     fn get_args(self) -> [Field];
     fn get_selector(self) -> FunctionSelector;
     fn get_name(self) -> str<N>;
     fn get_contract_address(self) -> AztecAddress;
     fn get_is_static(self) -> bool;
+    fn get_return_type(self) -> T;
 }
 
 // PrivateCallInterface
@@ -79,7 +80,7 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T> CallInterface<N> for PrivateCallInterface<N, T> {
+impl<let N: u32, T> CallInterface<N, T> for PrivateCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -99,21 +100,26 @@ impl<let N: u32, T> CallInterface<N> for PrivateCallInterface<N, T> {
     fn get_is_static(self) -> bool {
         self.is_static
     }
+
+    fn get_return_type(self) -> T {
+        self.return_type
+    }
 }
 
 // PrivateVoidCallInterface
 
-pub struct PrivateVoidCallInterface<let N: u32> {
+pub struct PrivateVoidCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args_hash: Field,
     args: [Field],
-    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    // It is T here but functionally is always the unit type. The unit type () indicates this interface is for functions that return nothing (void)
+    return_type: T,
     is_static: bool,
 }
 
-impl<let N: u32> PrivateVoidCallInterface<N> {
+impl<let N: u32> PrivateVoidCallInterface<N, ()> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -150,7 +156,7 @@ impl<let N: u32> PrivateVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {
+impl<let N: u32, T> CallInterface<N, T> for PrivateVoidCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -169,6 +175,10 @@ impl<let N: u32> CallInterface<N> for PrivateVoidCallInterface<N> {
 
     fn get_is_static(self) -> bool {
         self.is_static
+    }
+
+    fn get_return_type(self) -> T {
+        self.return_type
     }
 }
 
@@ -218,7 +228,7 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {
+impl<let N: u32, T> CallInterface<N, T> for PrivateStaticCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -238,21 +248,26 @@ impl<let N: u32, T> CallInterface<N> for PrivateStaticCallInterface<N, T> {
     fn get_is_static(self) -> bool {
         self.is_static
     }
+
+    fn get_return_type(self) -> T {
+        self.return_type
+    }
 }
 
 // PrivateStaticVoidCallInterface
 
-pub struct PrivateStaticVoidCallInterface<let N: u32> {
+pub struct PrivateStaticVoidCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args_hash: Field,
     args: [Field],
-    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    // Unit type () indicates this interface is for functions that return nothing (void)
+    return_type: T,
     is_static: bool,
 }
 
-impl<let N: u32> PrivateStaticVoidCallInterface<N> {
+impl<let N: u32> PrivateStaticVoidCallInterface<N, ()> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -276,7 +291,7 @@ impl<let N: u32> PrivateStaticVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {
+impl<let N: u32, T> CallInterface<N, T> for PrivateStaticVoidCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -295,6 +310,10 @@ impl<let N: u32> CallInterface<N> for PrivateStaticVoidCallInterface<N> {
 
     fn get_is_static(self) -> bool {
         self.is_static
+    }
+
+    fn get_return_type(self) -> T {
+        self.return_type
     }
 }
 
@@ -385,7 +404,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {
+impl<let N: u32, T> CallInterface<N, T> for PublicCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -405,21 +424,25 @@ impl<let N: u32, T> CallInterface<N> for PublicCallInterface<N, T> {
     fn get_is_static(self) -> bool {
         self.is_static
     }
+
+    fn get_return_type(self) -> T {
+        self.return_type
+    }
 }
 
 // PublicVoidCallInterface
 
-pub struct PublicVoidCallInterface<let N: u32> {
+pub struct PublicVoidCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    return_type: T, // Unit type () indicates this interface is for functions that return nothing (void)
     is_static: bool,
     gas_opts: GasOpts,
 }
 
-impl<let N: u32> PublicVoidCallInterface<N> {
+impl<let N: u32> PublicVoidCallInterface<N, ()> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -499,7 +522,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {
+impl<let N: u32, T> CallInterface<N, T> for PublicVoidCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -518,6 +541,10 @@ impl<let N: u32> CallInterface<N> for PublicVoidCallInterface<N> {
 
     fn get_is_static(self) -> bool {
         self.is_static
+    }
+
+    fn get_return_type(self) -> T {
+        self.return_type
     }
 }
 
@@ -582,7 +609,7 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
     }
 }
 
-impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {
+impl<let N: u32, T> CallInterface<N, T> for PublicStaticCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -602,21 +629,25 @@ impl<let N: u32, T> CallInterface<N> for PublicStaticCallInterface<N, T> {
     fn get_is_static(self) -> bool {
         self.is_static
     }
+
+    fn get_return_type(self) -> T {
+        self.return_type
+    }
 }
 
 // PublicStaticVoidCallInterface
 
-pub struct PublicStaticVoidCallInterface<let N: u32> {
+pub struct PublicStaticVoidCallInterface<let N: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    return_type: (), // Unit type () indicates this interface is for functions that return nothing (void)
+    return_type: T, // Unit type () indicates this interface is for functions that return nothing (void)
     is_static: bool,
     gas_opts: GasOpts,
 }
 
-impl<let N: u32> PublicStaticVoidCallInterface<N> {
+impl<let N: u32> PublicStaticVoidCallInterface<N, ()> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -662,7 +693,7 @@ impl<let N: u32> PublicStaticVoidCallInterface<N> {
     }
 }
 
-impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {
+impl<let N: u32, T> CallInterface<N, T> for PublicStaticVoidCallInterface<N, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -681,6 +712,10 @@ impl<let N: u32> CallInterface<N> for PublicStaticVoidCallInterface<N> {
 
     fn get_is_static(self) -> bool {
         self.is_static
+    }
+
+    fn get_return_type(self) -> T {
+        self.return_type
     }
 }
 

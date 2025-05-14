@@ -105,3 +105,38 @@ unconstrained fn new_calling_flow_increment_with_new_call_flow() {
     assert_eq(notes.len(), 2);
     assert_eq(current_value_for_owner, 3);
 }
+
+#[test]
+unconstrained fn call_interfaces() {
+    let mut env = TestEnvironment::new();
+    let owner = env.create_account(1);
+    let sender = env.create_account(2);
+
+    let initial_value: Field = 2;
+    let initializer = TXETest::interface().initialize(initial_value as u64, owner);
+    let counter_contract = env.deploy_self("TXETest").with_private_initializer(owner, initializer);
+    let contract_address = counter_contract.to_address();
+
+    let initial_value = 69;
+
+    // Private
+    let returned_value = env
+        .call_private_test(owner, TXETest::at(contract_address).private_(initial_value))
+        .return_value;
+    assert_eq(initial_value, returned_value);
+
+    // PrivateVoid
+    let _ = env
+        .call_private_test(owner, TXETest::at(contract_address).private_void(initial_value))
+        .return_value;
+
+    // PrivateStatic
+    let _ = env
+        .call_private_test(owner, TXETest::at(contract_address).private_static(initial_value))
+        .return_value;
+
+    // PrivateStaticVoid
+    let _ = env
+        .call_private_test(owner, TXETest::at(contract_address).private_static_void(initial_value))
+        .return_value;
+}

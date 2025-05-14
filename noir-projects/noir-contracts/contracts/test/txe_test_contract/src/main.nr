@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract TXETest {
-    use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
+    use aztec::macros::{functions::{initializer, private, public, utility, view}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
     use aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
@@ -108,5 +108,40 @@ pub contract TXETest {
     #[public]
     fn emit_in_public(n: Field) {
         context.push_note_hash(n);
+    }
+
+    #[private]
+    fn private_(n: Field) -> Field {
+        context.push_note_hash(1);
+        n
+    }
+
+    #[private]
+    fn private_void(n: Field) {
+        context.push_note_hash(1);
+    }
+
+    #[private]
+    #[view]
+    fn private_static(n: Field) -> Field {
+        n
+    }
+
+    #[private]
+    #[view]
+    fn private_static_void(n: Field) {
+        let _x = n;
+    }
+
+    #[public]
+    #[view]
+    fn public_static(n: Field) -> Field {
+        n
+    }
+
+    #[public]
+    #[view]
+    fn public_static_void(n: Field) {
+        let _x = n;
     }
 }
