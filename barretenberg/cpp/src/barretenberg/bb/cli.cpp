@@ -635,26 +635,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
-        // ULTRA PLONK
-        auto deprecated_plonk_commands = std::vector<CLI::App*>{ OLD_API_gates,
-                                                                 OLD_API_prove,
-                                                                 OLD_API_prove_output_all,
-                                                                 OLD_API_verify,
-                                                                 OLD_API_prove_and_verify,
-                                                                 OLD_API_contract,
-                                                                 OLD_API_write_vk,
-                                                                 OLD_API_write_pk,
-                                                                 OLD_API_proof_as_fields,
-                                                                 OLD_API_vk_as_fields };
-
-        for (auto* cmd : deprecated_plonk_commands) {
-            if (cmd->parsed()) {
-                std::cerr << "Error: UltraPlonk is now deprecated (see "
-                             "https://github.com/AztecProtocol/barretenberg/issues/1377). Use UltraHonk!"
-                          << std::endl;
-                std::exit(1);
-            }
-        }
         // TUBE
         if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.

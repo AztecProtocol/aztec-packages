@@ -4,6 +4,8 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include <benchmark/benchmark.h>
 

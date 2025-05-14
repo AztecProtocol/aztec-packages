@@ -216,7 +216,7 @@ TEST_F(MegaHonk, Databus)
     // Construct a bberg circuit from the acir representation
     auto circuit = create_circuit<Builder>(program);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }
 
 TEST_F(MegaHonk, DatabusReturn)
@@ -321,5 +321,5 @@ TEST_F(MegaHonk, DatabusReturn)
     // Construct a bberg circuit from the acir representation
     auto circuit = create_circuit<Builder>(program);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_TRUE(CircuitChecker::check(circuit));
 }

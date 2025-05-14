@@ -1,5 +1,7 @@
 
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <benchmark/benchmark.h>
 
 using namespace benchmark;
@@ -18,7 +20,7 @@ char get_random_char()
     return static_cast<char>(bb::fr::random_element().data[0] % 8);
 }
 
-void generate_test_plonk_circuit(Builder& builder, size_t num_bytes)
+void generate_test_circuit(Builder& builder, size_t num_bytes)
 {
     std::string in;
     in.resize(num_bytes);
@@ -40,7 +42,7 @@ void construct_witnesses_bench(State& state) noexcept
     for (auto _ : state) {
         size_t idx = (static_cast<size_t>((state.range(0))) - START_BYTES) / BYTES_PER_CHUNK;
         builders[idx] = (void*)new Builder();
-        generate_test_plonk_circuit(*(Builder*)builders[idx], static_cast<size_t>(state.range(0)));
+        generate_test_circuit(*(Builder*)builders[idx], static_cast<size_t>(state.range(0)));
     }
 }
 BENCHMARK(construct_witnesses_bench)->DenseRange(START_BYTES, MAX_BYTES, BYTES_PER_CHUNK);

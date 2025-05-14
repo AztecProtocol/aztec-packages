@@ -74,7 +74,7 @@ uint_native rotate(uint_native value, size_t rotation)
                     : value;
 }
 template <typename Builder> class stdlib_uint : public testing::Test {
-    using uint_ct = typename stdlib::uint_plookup<Builder, uint_native>::type;
+    using uint_ct = stdlib::uint_plookup<Builder, uint_native>;
     using bool_ct = stdlib::bool_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
     using byte_array_ct = stdlib::byte_array<Builder>;

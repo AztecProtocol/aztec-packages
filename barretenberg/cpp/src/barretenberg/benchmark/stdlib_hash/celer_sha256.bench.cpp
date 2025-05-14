@@ -8,6 +8,7 @@
  */
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <benchmark/benchmark.h>
 #include <bit>
 
@@ -28,7 +29,7 @@ constexpr size_t MAXIMUM_CHUNKS = 1024;
  * @param builder circuit builder
  * @param num_bytes Length of the array
  */
-void generate_test_plonk_circuit(Builder& builder, size_t num_bytes)
+void generate_test_circuit(Builder& builder, size_t num_bytes)
 {
     std::string in;
     in.resize(num_bytes);
@@ -55,7 +56,7 @@ void preprocess_and_construct_witnesses_bench(State& state) noexcept
         size_t num_chunks = static_cast<size_t>(state.range(0));
         size_t idx = static_cast<size_t>(std::countr_zero(num_chunks));
         builders[idx] = new Builder();
-        generate_test_plonk_circuit(*builders[idx], num_chunks * CHUNK_SIZE);
+        generate_test_circuit(*builders[idx], num_chunks * CHUNK_SIZE);
         provers[idx] = Prover(*builders[idx]);
 
         verifiers[idx] = (Verifier(provers[idx].proving_key->proving_key));
