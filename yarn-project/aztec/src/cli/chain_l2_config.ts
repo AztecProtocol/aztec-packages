@@ -57,7 +57,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashFactoryAddress: '0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be',
   feeAssetHandlerAddress: '0x80d848dc9f52df56789e2d62ce66f19555ff1019',
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 4,
+  seqMaxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
 };

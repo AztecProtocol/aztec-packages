@@ -122,6 +122,10 @@ tests:
     error_regex: "Expected: >= 2"
     owners:
       - *palla
+  - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "replacement transaction underpriced"
+    owners:
+      - *palla
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
@@ -167,6 +171,10 @@ tests:
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
+  - regex: "src/e2e_fees/gas_estimation.test.ts"
+    error_regex: "✕ estimates gas with public payment method"
+    owners:
+      - *jan
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
