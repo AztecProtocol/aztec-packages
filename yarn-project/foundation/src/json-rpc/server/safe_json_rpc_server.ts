@@ -167,7 +167,7 @@ export class SafeJsonRpcServer {
       } catch (err: any) {
         if (err && err instanceof ZodError) {
           const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
-          return { jsonrpc: '2.0', id: null, error: { code: -32701, message } };
+          return { jsonrpc: '2.0', id, error: { code: -32701, message } };
         } else if (err) {
           return {
             jsonrpc,
