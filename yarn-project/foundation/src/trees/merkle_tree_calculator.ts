@@ -18,7 +18,8 @@ export class MerkleTreeCalculator {
   static async create(
     height: number,
     zeroLeaf = Buffer.alloc(32),
-    hasher = async (left: Buffer, right: Buffer) => (await pedersenHash([left, right])).toBuffer(),
+    hasher = async (left: Buffer, right: Buffer) =>
+      (await pedersenHash([left, right])).toBuffer() as Buffer<ArrayBuffer>,
   ) {
     const zeroHashes = [zeroLeaf];
     for (let i = 0; i < height; i++) {
