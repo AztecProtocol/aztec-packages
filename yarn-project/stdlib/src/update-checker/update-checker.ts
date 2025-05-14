@@ -137,14 +137,17 @@ export class UpdateChecker extends EventEmitter<EventMap> {
  * Returns package version.
  */
 export function getPackageVersion() {
+  if (process.env.BUILD_METADATA) {
+    return process.env.BUILD_METADATA;
+  }
+
   try {
     const releasePleaseManifestPath = resolve(
       dirname(fileURLToPath(import.meta.url)),
       '../../../../.release-please-manifest.json',
     );
     const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString());
-    const buildMeta = process.env.BUILD_METADATA;
-    return buildMeta ? version['.'] + '-' + buildMeta : version['.'];
+    return version;
   } catch (err) {
     return '0.0.0';
   }
