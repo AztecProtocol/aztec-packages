@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -324,4 +325,163 @@ void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
     }
 }
 
+void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
+{
+    using C = Column;
+    // Aliases for readability
+    // Non Revertible Private inserts
+    uint32_t nr_note_hash_idx = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX;
+    uint32_t nr_note_hash_lengths_idx = 0; // TODO: Wait on changes to public inputs
+    uint32_t nr_nullifiers_idx = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX;
+    uint32_t nr_nullifiers_lengths_idx = 0; // TODO: Wait on changes to public inputs
+    uint32_t nr_l2_to_l1_msgs_idx = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
+    uint32_t nr_l2_to_l1_msgs_lengths_idx = 0; // TODO: Wait on changes to public inputs
+
+    // Revertible Private inserts
+    uint32_t r_note_hash_idx = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX;
+    uint32_t r_note_hash_lengths_idx = 0; // TODO: Wait on changes to public inputs
+    uint32_t r_nullifiers_idx = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX;
+    uint32_t r_nullifiers_lengths_idx = 0; // TODO: Wait on changes to public inputs
+    uint32_t r_l2_to_l1_msgs_idx = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
+    uint32_t r_l2_to_l1_msgs_lengths_idx = 0; // TODO: Wait on changes to public inputs
+
+    // Outputs
+    uint32_t note_hash_output_idx = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX;
+    uint32_t nullifiers_output_idx = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX;
+    uint32_t l2_to_l1_msgs_output_idx = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
+
+    // Non Revertible Note Hash
+    trace.set(0,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, 1 },
+                      { C::precomputed_is_tree_insertion_phase, 1 },
+                      { C::precomputed_is_revertible, 0 },
+
+                      { C::precomputed_sel_non_revertible_append_note_hash, 1 },
+                      { C::precomputed_read_public_input_offset, nr_note_hash_idx },
+                      { C::precomputed_read_public_input_length_offset, nr_note_hash_lengths_idx },
+                      { C::precomputed_write_public_input_offset, note_hash_output_idx },
+                  },
+              });
+    // Non Revertible Nullifiers
+    trace.set(1,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, 2 },
+                      { C::precomputed_is_tree_insertion_phase, 1 },
+                      { C::precomputed_is_revertible, 0 },
+
+                      { C::precomputed_sel_non_revertible_append_nullifier, 1 },
+                      { C::precomputed_read_public_input_offset, nr_nullifiers_idx },
+                      { C::precomputed_read_public_input_length_offset, nr_nullifiers_lengths_idx },
+                      { C::precomputed_write_public_input_offset, nullifiers_output_idx },
+                  },
+              });
+    // Non Revertible L2 to L1 Messages
+    trace.set(2,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, 3 },
+                      { C::precomputed_is_l2_l1_message_phase, 1 },
+                      { C::precomputed_is_revertible, 0 },
+
+                      { C::precomputed_read_public_input_offset, nr_l2_to_l1_msgs_idx },
+                      { C::precomputed_read_public_input_length_offset, nr_l2_to_l1_msgs_lengths_idx },
+                      { C::precomputed_write_public_input_offset, l2_to_l1_msgs_output_idx },
+                  },
+              });
+    // Setup
+    trace.set(3,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, 4 },
+                      { C::precomputed_is_public_call_request_phase, 1 },
+                      { C::precomputed_is_revertible, 0 },
+
+                      { C::precomputed_read_public_input_offset, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX },
+                      { C::precomputed_read_public_input_length_offset, 0 }, // TODO: Wait on changes to public inputs
+                      { C::precomputed_write_public_input_offset, 0 },
+                  },
+              });
+    // Revertible Note Hash
+    trace.set(4,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, 5 },
+                      { C::precomputed_is_tree_insertion_phase, 1 },
+                      { C::precomputed_is_revertible, 1 },
+
+                      { C::precomputed_sel_revertible_append_note_hash, 1 },
+                      { C::precomputed_read_public_input_offset, r_note_hash_idx },
+                      { C::precomputed_read_public_input_length_offset, r_note_hash_lengths_idx },
+                      { C::precomputed_write_public_input_offset, note_hash_output_idx },
+                  },
+              });
+    // Revertible Nullifiers
+    trace.set(5,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, 6 },
+                      { C::precomputed_is_tree_insertion_phase, 1 },
+                      { C::precomputed_is_revertible, 1 },
+
+                      { C::precomputed_sel_revertible_append_nullifier, 1 },
+                      { C::precomputed_read_public_input_offset, r_nullifiers_idx },
+                      { C::precomputed_read_public_input_length_offset, r_nullifiers_lengths_idx },
+                      { C::precomputed_write_public_input_offset, nullifiers_output_idx },
+                  },
+              });
+    // Revertible L2 to L1 Messages
+    trace.set(6,
+              {
+                  {
+                      { C::precomputed_phase_sel, 1 },
+                      { C::precomputed_phase_value, 7 },
+                      { C::precomputed_is_l2_l1_message_phase, 1 },
+                      { C::precomputed_is_revertible, 1 },
+
+                      { C::precomputed_read_public_input_offset, r_l2_to_l1_msgs_idx },
+                      { C::precomputed_read_public_input_length_offset, r_l2_to_l1_msgs_lengths_idx },
+                      { C::precomputed_write_public_input_offset, l2_to_l1_msgs_output_idx },
+                  },
+              });
+    // App Logic
+    trace.set(
+        7,
+        {
+            {
+                { C::precomputed_phase_sel, 1 },
+                { C::precomputed_phase_value, 8 },
+                { C::precomputed_is_public_call_request_phase, 1 },
+                { C::precomputed_is_revertible, 1 },
+
+                { C::precomputed_read_public_input_offset, AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX },
+                { C::precomputed_read_public_input_length_offset, 0 }, // TODO: Wait on changes to public inputs
+                { C::precomputed_write_public_input_offset, 0 },
+            },
+        });
+    // Teardown
+    trace.set(
+        8,
+        {
+            {
+                { C::precomputed_phase_sel, 1 },
+                { C::precomputed_phase_value, 9 },
+                { C::precomputed_is_public_call_request_phase, 1 },
+                { C::precomputed_is_revertible, 1 },
+
+                { C::precomputed_read_public_input_offset, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX },
+                { C::precomputed_read_public_input_length_offset, 0 }, // TODO: Wait on changes to public inputs
+                { C::precomputed_write_public_input_offset, 0 },
+            },
+        });
+    // TODO: PAY GAS and PAD TREES
+}
 } // namespace bb::avm2::tracegen

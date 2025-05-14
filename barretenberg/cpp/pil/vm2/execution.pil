@@ -27,6 +27,7 @@ include "update_check.pil";
 include "nullifier_check.pil";
 include "public_inputs.pil";
 include "gas.pil";
+include "tx.pil";
 
 namespace execution;
 
@@ -34,6 +35,10 @@ pol commit sel; // subtrace selector
 
 #[skippable_if]
 sel = 0;
+
+// This is a set of selectors for the tx trace, they are here for now
+pol commit enqueued_call_start;
+pol commit enqueued_call_end;
 
 // Subtrace operation id
 pol commit subtrace_operation_id;

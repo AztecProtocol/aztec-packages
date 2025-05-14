@@ -127,3 +127,21 @@ pol constant subtrace_operation_id;
 pol constant sel_addressing_gas;
 // Indirect is clk
 pol constant addressing_gas;
+
+// Phase Table for Tx Trace
+pol constant phase_sel; // Selector for phase table
+pol constant phase_value; // { NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN}
+pol constant is_public_call_request_phase;
+pol constant is_tree_insertion_phase;
+pol constant is_l2_l1_message_phase;
+pol constant is_revertible;
+pol constant next_phase_on_revert;
+pol constant read_public_input_offset;
+pol constant read_public_input_length_offset;
+pol constant write_public_input_offset;
+pol constant sel_dispatch_exec;
+pol constant sel_non_revertible_append_note_hash;
+pol constant sel_non_revertible_append_nullifier;
+pol constant sel_revertible_append_note_hash;
+pol constant sel_revertible_append_nullifier;
+pol constant sel_collect_fee;

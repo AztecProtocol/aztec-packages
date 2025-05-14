@@ -15,6 +15,19 @@ using AffinePoint = grumpkin::g1::affine_element;
 // it's represented as a field element for simplicity
 using EthAddress = FF;
 
+enum TransactionPhase {
+    NR_NOTE_INSERTION = 0,
+    NR_NULLIFIER_INSERTION = 1,
+    NR_L2_TO_L1_MESSAGE = 2,
+    SETUP = 3,
+    R_NOTE_INSERTION = 4,
+    R_NULLIFIER_INSERTION = 5,
+    R_L2_TO_L1_MESSAGE = 6,
+    APP_LOGIC = 7,
+    TEARDOWN = 8,
+    COLLECT_GAS_FEES = 9,
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////
@@ -250,6 +263,22 @@ struct TreeSnapshots {
     bool operator==(const TreeSnapshots& other) const = default;
 
     MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
+};
+
+struct TreeState {
+    AppendOnlyTreeSnapshot tree;
+    uint32_t counter;
+
+    bool operator==(const TreeState& other) const = default;
+};
+
+struct TreeStates {
+    TreeState noteHashTree;
+    TreeState nullifierTree;
+    TreeState l1ToL2MessageTree;
+    TreeState publicDataTree;
+
+    bool operator==(const TreeStates& other) const = default;
 };
 
 } // namespace bb::avm2
