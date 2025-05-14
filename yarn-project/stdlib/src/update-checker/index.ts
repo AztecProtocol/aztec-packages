@@ -1,1 +1,1 @@
-export * from './update-checker.js';
+export { UpdateChecker, getPackageVersion } from './update-checker.js';

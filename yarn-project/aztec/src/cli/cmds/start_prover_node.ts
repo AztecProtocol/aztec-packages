@@ -122,7 +122,7 @@ export async function startProverNode(
   await proverNode.start();
 
   if (proverConfig.autoUpdate !== 'disabled' && proverConfig.autoUpdateUrl) {
-    setupUpdateMonitor(
+    await setupUpdateMonitor(
       proverConfig.autoUpdate,
       new URL(proverConfig.autoUpdateUrl),
       followsCanonicalRollup ? 'canonical' : proverConfig.rollupVersion,

@@ -64,7 +64,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
     );
   }
 
-  public async start() {
+  public start(): void {
     if (this.runningPromise.isRunning()) {
       this.log.debug(`Can't start update checker again`);
       return;
@@ -73,15 +73,15 @@ export class UpdateChecker extends EventEmitter<EventMap> {
     this.runningPromise.start();
   }
 
-  public stop() {
+  public stop(): Promise<void> {
     if (!this.runningPromise.isRunning()) {
       this.log.debug(`Can't stop update checker because it is not running`);
-      return;
+      return Promise.resolve();
     }
     return this.runningPromise.stop();
   }
 
-  public trigger() {
+  public trigger(): Promise<void> {
     return this.runningPromise.trigger();
   }
 

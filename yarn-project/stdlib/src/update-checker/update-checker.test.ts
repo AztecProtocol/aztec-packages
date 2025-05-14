@@ -14,7 +14,7 @@ describe('UpdateChecker', () => {
     [K in keyof EventMap]: jest.Mock<(...args: EventMap[K]) => void>;
   };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     nodeVersionAtStart = '0.1.0';
     rollupAddressAtStart = EthAddress.random();
     fetch = jest.fn(() => Promise.resolve(new Response(JSON.stringify({ version: nodeVersionAtStart }))));

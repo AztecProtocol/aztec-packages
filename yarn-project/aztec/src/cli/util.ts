@@ -260,24 +260,27 @@ export async function setupUpdateMonitor(
     registryContractAddress,
   });
 
-  checker.on('newRollup', ({ latestRollup, currentRollup }) => {
+  // eslint-ignore-next-line @typescript-eslint/no-misused-promises
+  checker.on('newRollup', async ({ latestRollup, currentRollup }) => {
     if (autoUpdateMode === 'enabled') {
       logger.info(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
-      shutdown(logger.info, signalHandlers);
+      await shutdown(logger.info, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
       logger.warn(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
     }
   });
 
-  checker.on('newVersion', ({ latestVersion, currentVersion }) => {
+  // eslint-ignore-next-line @typescript-eslint/no-misused-promises
+  checker.on('newVersion', async ({ latestVersion, currentVersion }) => {
     if (autoUpdateMode === 'enabled') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
-      shutdown(logger.info, signalHandlers);
+      await shutdown(logger.info, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
     }
   });
 
+  // eslint-ignore-next-line @typescript-eslint/no-misused-promises
   checker.on('updateConfig', async config => {
     if (autoUpdateMode === 'enabled' && updateNodeConfig) {
       logger.warn(`Config change detected. Updating node`, config);
@@ -285,6 +288,8 @@ export async function setupUpdateMonitor(
     }
     // don't notify on these config changes
   });
+
+  checker.start();
 }
 
 export async function shutdown(logFn: LogFn, cb?: Array<() => Promise<void>>) {
