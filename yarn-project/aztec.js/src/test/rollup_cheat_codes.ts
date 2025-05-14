@@ -88,6 +88,22 @@ export class RollupCheatCodes {
     return { epochDuration, slotDuration };
   }
 
+  /**
+   * Advances time to the beginning of the given epoch
+   * @param epoch - The epoch to advance to
+   */
+  public async advanceToEpoch(epoch: bigint) {
+    const { epochDuration: slotsInEpoch } = await this.getConfig();
+    const timestamp = await this.rollup.read.getTimestampForSlot([slotsInEpoch]);
+    try {
+      await this.ethCheatCodes.warp(Number(timestamp));
+      this.logger.warn(`Warped to epoch ${epoch}`);
+    } catch (err) {
+      this.logger.debug('Warp failed, time already satisfied');
+    }
+    return timestamp;
+  }
+
   /** Warps time in L1 until the next epoch */
   public async advanceToNextEpoch() {
     const slot = await this.getSlot();

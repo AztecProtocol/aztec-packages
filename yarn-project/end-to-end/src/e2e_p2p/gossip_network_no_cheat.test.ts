@@ -2,7 +2,6 @@ import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
 import { addL1Validator } from '@aztec/cli/l1';
-import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -132,14 +131,8 @@ describe('e2e_p2p_network', () => {
       expect(info.withdrawer).toBe(withdrawer);
     }
 
-    const slotsInEpoch = await rollup.read.getEpochDuration();
-    const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-    const cheatCodes = new EthCheatCodesWithState(t.ctx.aztecNodeConfig.l1RpcUrls);
-    try {
-      await cheatCodes.warp(Number(timestamp));
-    } catch (err) {
-      t.logger.debug('Warp failed, time already satisfied');
-    }
+    // Wait for the validators to be added to the rollup
+    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(2n);
 
     // Changes have now taken effect
     const attesters = await rollup.read.getAttesters();

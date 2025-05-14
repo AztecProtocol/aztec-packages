@@ -59,6 +59,10 @@ library TimeLib {
     return Epoch.wrap(Slot.unwrap(_a) / getStorage().epochDuration);
   }
 
+  function getEpochDuration() internal view returns (uint256) {
+    return getStorage().epochDuration;
+  }
+
   function getStorage() internal pure returns (TimeStorage storage storageStruct) {
     bytes32 position = TIME_STORAGE_POSITION;
     assembly {

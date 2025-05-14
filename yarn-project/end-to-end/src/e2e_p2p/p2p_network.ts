@@ -11,7 +11,7 @@ import {
   getL1ContractsConfigEnvVars,
   l1Artifacts,
 } from '@aztec/ethereum';
-import { ChainMonitor, EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -194,7 +194,7 @@ export class P2PNetworkTest {
     await this.addBootstrapNode();
     await this.snapshotManager.snapshot(
       'add-validators',
-      async ({ deployL1ContractsValues, aztecNodeConfig, dateProvider }) => {
+      async ({ deployL1ContractsValues, dateProvider, cheatCodes }) => {
         const rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
           abi: RollupAbi,
@@ -236,14 +236,7 @@ export class P2PNetworkTest {
           hash: await multiAdder.write.addValidators([this.validators]),
         });
 
-        const slotsInEpoch = await rollup.read.getEpochDuration();
-        const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-        const cheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
-        try {
-          await cheatCodes.warp(Number(timestamp));
-        } catch (err) {
-          this.logger.debug('Warp failed, time already satisfied');
-        }
+        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n);
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         await this._sendDummyTx(deployL1ContractsValues.l1Client);
