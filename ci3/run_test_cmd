@@ -25,7 +25,7 @@ if [[ "$hash_part" == *:* ]]; then
 fi
 
 # Defaults, unless overridden above.
-TIMEOUT=${TIMEOUT:-6000s}
+TIMEOUT=${TIMEOUT:-600s}
 # The following are exported as they maybe used in the test command.
 # We can schedule on all CPUs by default.
 export CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
