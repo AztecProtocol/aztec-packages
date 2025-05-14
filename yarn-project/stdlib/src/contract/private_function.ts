@@ -42,7 +42,7 @@ async function getPrivateFunctionTreeCalculator(): Promise<MerkleTreeCalculator>
     privateFunctionTreeCalculator = await MerkleTreeCalculator.create(
       FUNCTION_TREE_HEIGHT,
       functionTreeZeroLeaf,
-      async (left, right) => (await poseidon2Hash([left, right])).toBuffer(),
+      async (left, right) => (await poseidon2Hash([left, right])).toBuffer() as Buffer<ArrayBuffer>,
     );
   }
   return privateFunctionTreeCalculator;
