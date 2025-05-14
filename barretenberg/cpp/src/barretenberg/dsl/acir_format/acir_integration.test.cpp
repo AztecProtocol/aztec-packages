@@ -6,7 +6,7 @@
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 
 #include <filesystem>
 #include <gtest/gtest.h>

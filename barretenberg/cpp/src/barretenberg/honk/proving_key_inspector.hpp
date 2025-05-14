@@ -9,7 +9,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb::proving_key_inspector {
