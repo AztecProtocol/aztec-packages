@@ -10,7 +10,7 @@ import { DateProvider, type Timer } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
-import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
+import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -59,6 +59,7 @@ export interface Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined>;
 
@@ -424,6 +425,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
@@ -436,6 +438,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       archive,
       stateReference,
       txs,
+      options,
     );
     this.previousProposal = newProposal;
     return newProposal;

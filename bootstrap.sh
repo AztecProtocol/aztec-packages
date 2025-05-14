@@ -16,7 +16,7 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [ ! -v NOIR_HASH ]; then
+if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   export NOIR_HASH=$(./noir/bootstrap.sh hash)
 fi
 
