@@ -1,312 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747243973262,
+  "lastUpdate": 1747244852987,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "Protocol Circuit Gate Counts": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "62df16a67e7b078b0e9d319517f8caff50c9afb6",
-          "message": "refactor: fetch chain id and version once for all blocks (#13909)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-05-12T10:14:08Z",
-          "tree_id": "0b5036b362830bfbd04b54d1fdebf9124e39893f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/62df16a67e7b078b0e9d319517f8caff50c9afb6"
-        },
-        "date": 1747047292677,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "parity_base",
-            "value": 30670,
-            "unit": "gates"
-          },
-          {
-            "name": "parity_root",
-            "value": 2875792,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_init",
-            "value": 41628,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_inner",
-            "value": 92664,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset",
-            "value": 625456,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_0_0_0_0_0_64_0_0_0",
-            "value": 56720,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_0_0_0_0_64_0_0_0_0",
-            "value": 101570,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_0_0_0_64_0_0_0_0_0",
-            "value": 274976,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_0_0_64_0_0_0_0_0_0",
-            "value": 42096,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_0_64_0_0_0_0_0_0_0",
-            "value": 263406,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_16_16_16_16_16_16_16_16_16",
-            "value": 207015,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_4_4_32",
-            "value": 194484,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_4_4_4",
-            "value": 189663,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_4_64_32",
-            "value": 200794,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_4_64_4",
-            "value": 195974,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_64_4_32",
-            "value": 210442,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_64_4_4",
-            "value": 205622,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_64_64_32",
-            "value": 216753,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_16_4_4_64_64_4",
-            "value": 211933,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_4_4_32",
-            "value": 150501,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_4_4_4",
-            "value": 145680,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_4_64_32",
-            "value": 156811,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_4_64_4",
-            "value": 151991,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_64_4_32",
-            "value": 166459,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_64_4_4",
-            "value": 161639,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_64_64_32",
-            "value": 172770,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_16_32_4_4_4_64_64_4",
-            "value": 167950,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_32_32_32_32_32_32_32_32",
-            "value": 348159,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_4_4_32",
-            "value": 152651,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_4_4_4",
-            "value": 147830,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_4_64_32",
-            "value": 158961,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_4_64_4",
-            "value": 154141,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_64_4_32",
-            "value": 168609,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_64_4_4",
-            "value": 163789,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_64_64_32",
-            "value": 174920,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_16_4_4_64_64_4",
-            "value": 170100,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_4_4_32",
-            "value": 108668,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_4_4_4",
-            "value": 103847,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_4_64_32",
-            "value": 114978,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_4_64_4",
-            "value": 110158,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_64_4_32",
-            "value": 124626,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_64_4_4",
-            "value": 119806,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_64_64_32",
-            "value": 130937,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_32_4_32_4_4_4_64_64_4",
-            "value": 126117,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_4_4_4_4_4_4_4_4_4",
-            "value": 101141,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_reset_64_0_0_0_0_0_0_0_0",
-            "value": 42096,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_tail",
-            "value": 33631,
-            "unit": "gates"
-          },
-          {
-            "name": "private_kernel_tail_to_public",
-            "value": 49245,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_base_private",
-            "value": 1902252,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_base_public",
-            "value": 1370102,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_block_merge",
-            "value": 1543781,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_block_root",
-            "value": 4690763,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_block_root_empty",
-            "value": 708555,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_block_root_single_tx",
-            "value": 3894191,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_merge",
-            "value": 1463977,
-            "unit": "gates"
-          },
-          {
-            "name": "rollup_root",
-            "value": 26799938,
-            "unit": "gates"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -14915,6 +14611,310 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/commit/13ea792bde4c0bae9aa7f6ac3b7e88ead55eecc3"
         },
         "date": 1747243963792,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "parity_base",
+            "value": 30646,
+            "unit": "gates"
+          },
+          {
+            "name": "parity_root",
+            "value": 2875768,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_init",
+            "value": 41231,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_inner",
+            "value": 92632,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset",
+            "value": 625446,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_0_0_0_0_0_64_0_0_0",
+            "value": 56710,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_0_0_0_0_64_0_0_0_0",
+            "value": 101560,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_0_0_0_64_0_0_0_0_0",
+            "value": 274966,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_0_0_64_0_0_0_0_0_0",
+            "value": 42086,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_0_64_0_0_0_0_0_0_0",
+            "value": 263396,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_16_16_16_16_16_16_16_16_16",
+            "value": 207005,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_4_4_32",
+            "value": 194474,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_4_4_4",
+            "value": 189653,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_4_64_32",
+            "value": 200784,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_4_64_4",
+            "value": 195964,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_64_4_32",
+            "value": 210432,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_64_4_4",
+            "value": 205612,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_64_64_32",
+            "value": 216743,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_16_4_4_64_64_4",
+            "value": 211923,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_4_4_32",
+            "value": 150491,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_4_4_4",
+            "value": 145670,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_4_64_32",
+            "value": 156801,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_4_64_4",
+            "value": 151981,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_64_4_32",
+            "value": 166449,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_64_4_4",
+            "value": 161629,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_64_64_32",
+            "value": 172760,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_16_32_4_4_4_64_64_4",
+            "value": 167940,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_32_32_32_32_32_32_32_32",
+            "value": 348149,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_4_4_32",
+            "value": 152641,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_4_4_4",
+            "value": 147820,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_4_64_32",
+            "value": 158951,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_4_64_4",
+            "value": 154131,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_64_4_32",
+            "value": 168599,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_64_4_4",
+            "value": 163779,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_64_64_32",
+            "value": 174910,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_16_4_4_64_64_4",
+            "value": 170090,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_4_4_32",
+            "value": 108658,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_4_4_4",
+            "value": 103837,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_4_64_32",
+            "value": 114968,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_4_64_4",
+            "value": 110148,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_64_4_32",
+            "value": 124616,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_64_4_4",
+            "value": 119796,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_64_64_32",
+            "value": 130927,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_32_4_32_4_4_4_64_64_4",
+            "value": 126107,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_4_4_4_4_4_4_4_4_4",
+            "value": 101131,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_reset_64_0_0_0_0_0_0_0_0",
+            "value": 42086,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_tail",
+            "value": 33621,
+            "unit": "gates"
+          },
+          {
+            "name": "private_kernel_tail_to_public",
+            "value": 49235,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_base_private",
+            "value": 1895806,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_base_public",
+            "value": 1363720,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_block_merge",
+            "value": 1543761,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_block_root",
+            "value": 4690695,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_block_root_empty",
+            "value": 708529,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_block_root_single_tx",
+            "value": 3894129,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_merge",
+            "value": 1463961,
+            "unit": "gates"
+          },
+          {
+            "name": "rollup_root",
+            "value": 26799918,
+            "unit": "gates"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "862545b50c0e6f63342b9a840fc63a95bf2e3782",
+          "message": "test: hack to see if gas estimation flake goes away (#14317)\n\nWe have a hypothesis that the `gas_estimation.test.ts` is flaky because\nthe base fee drops after the fee estimation is performed and when the tx\nis mined which results in the equality check between the estimation and\nreal tx fee to fail.\n\nThis could happen if PXE is too slow to sync.",
+          "timestamp": "2025-05-14T17:05:40Z",
+          "tree_id": "8e94c949f25f05d23e33656c8594b4ec11615245",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/862545b50c0e6f63342b9a840fc63a95bf2e3782"
+        },
+        "date": 1747244843172,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
