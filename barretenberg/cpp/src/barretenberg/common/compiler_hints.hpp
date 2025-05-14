@@ -20,7 +20,6 @@
 #ifdef __clang__
 #define BB_LIKELY(x) __builtin_expect(!!(x), 1)
 #define BB_UNLIKELY(x) __builtin_expect(!!(x), 0)
-#define BB_NO_ADDRESS_SANITIZE __attribute__((no_sanitize("address")))
 #else
 #define BB_LIKELY(x) x
 #define BB_UNLIKELY(x) x
