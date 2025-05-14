@@ -5,7 +5,7 @@ import { ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { multiaddr } from '@multiformats/multiaddr';
 
-import { AZTEC_ENR_KEY } from '../types/index.js';
+import { AZTEC_ENR_CLIENT_VERSION_KEY, AZTEC_ENR_KEY } from '../types/index.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 import { setAztecEnrKey } from '../versioning.js';
 
@@ -37,6 +37,10 @@ export async function printENR(enr: string, log: LogFn) {
   log(`IP: ${decoded.ip}`);
   log(`UDP: ${decoded.udp}`);
   log(`TCP: ${decoded.tcp}`);
+
   const aztec = decoded.kvs.get(AZTEC_ENR_KEY);
   log(`Aztec version: ${aztec?.toString()}`);
+
+  const aztecClientVersion = decoded.kvs.get(AZTEC_ENR_CLIENT_VERSION_KEY);
+  log(`Aztec client version ${aztecClientVersion ? aztecClientVersion!.toString() : 'N/A'}`);
 }

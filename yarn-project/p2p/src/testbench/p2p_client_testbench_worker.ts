@@ -180,6 +180,7 @@ process.on('message', async msg => {
         proofVerifier,
         worldState,
         epochCache,
+        'test-p2p-bench-worker',
         telemetry,
         deps,
       );
