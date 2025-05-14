@@ -20,11 +20,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
     {
@@ -51,7 +47,7 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
-            goblin.prove_merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+            goblin.prove_merge();
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
@@ -68,7 +64,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     auto [proof, verifier_input] = create_goblin_prover_output();
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    auto [opening_claim, ipa_transcript] = verifier.verify(proof);
+    auto [translator_pairing_points, opening_claim, ipa_transcript] = verifier.verify(proof);
     auto G_commitment = opening_claim.commitment;
     G_commitment.x.fix_witness(); // need to check after full test run
     G_commitment.y.fix_witness(); // need to check after full test run
@@ -90,7 +86,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     if (variables_in_one_gate.empty()) {
         info("variables in one gate is empty");
     } else {
-        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0];
+        auto first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[4];
         info("first var == ", first_var);
         graph.print_variable_in_one_gate(builder, first_var);
     }
