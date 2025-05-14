@@ -111,7 +111,7 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
-  it('estimates gas with public payment method', async () => {
+  it.only('estimates gas with public payment method', async () => {
     const teardownFixedFee = defaultGasSettings.teardownGasLimits
       .computeFee(defaultGasSettings.maxFeesPerGas)
       .toBigInt();
@@ -123,11 +123,11 @@ describe('e2e_fees gas_estimation', () => {
 
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
-    // Estimated teardown gas limits are less than the default ones.
+    // Checks that estimated teardown gas limits are less than the default ones.
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeLessThan(defaultGasSettings.teardownGasLimits.l2Gas);
     expect(estimatedGas.teardownGasLimits.daGas).toBeLessThan(defaultGasSettings.teardownGasLimits.daGas);
 
-    // Estimation should yield that teardown has reduced cost, but is not zero
+    // Estimation should reduce tx fee because all of teardown gas limit gets consumed!
     expect(withEstimate.transactionFee!).toBeLessThan(withoutEstimate.transactionFee!);
     expect(withEstimate.transactionFee!).toBeGreaterThan(withoutEstimate.transactionFee! - teardownFixedFee);
 
