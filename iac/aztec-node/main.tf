@@ -20,20 +20,20 @@ variable "ssh_public_key" {
   type        = string
 }
 
-variable "l1_private_key" {
-  description = "L1 private key for aztec"
-  type        = string
-}
-
-variable "coinbase" {
-  description = "Coinbase public address"
-  type        = string
-}
-
-variable "api_key" {
-  description = "Api key"
-  type        = string
-}
+#variable "l1_private_key" {
+#  description = "L1 private key for aztec"
+#  type        = string
+#}
+#
+#variable "coinbase" {
+#  description = "Coinbase public address"
+#  type        = string
+#}
+#
+#variable "api_key" {
+#  description = "Api key"
+#  type        = string
+#}
 
 provider "aws" {
   region = var.aws_region
@@ -130,7 +130,7 @@ resource "aws_security_group" "instance_sg" {
 }
 
 resource "aws_key_pair" "my_key" {
-  key_name   = "my_key"
+  key_name   = "aztec-node-key"
   public_key = var.ssh_public_key
 }
 
@@ -140,7 +140,8 @@ resource "aws_eip" "instance_eip" {
 
 resource "aws_instance" "my_instance" {
   ami                    = var.instance_arch == "arm" ? data.aws_ami.ubuntu_arm.id : data.aws_ami.ubuntu_x86.id
-  instance_type          = var.instance_arch == "arm" ? "m7g.large" : "m6a.large"
+  #ami                    = var.instance_arch == "arm" ? data.aws_ami.ubuntu_arm.id : "ami-0acd5a996a8c66e2c"
+  instance_type          = var.instance_arch == "arm" ? "m7g.large" : "m6a.2xlarge"
   subnet_id              = element(data.aws_subnets.default.ids, 0)
   vpc_security_group_ids = [aws_security_group.instance_sg.id]
   key_name               = aws_key_pair.my_key.key_name
@@ -167,33 +168,20 @@ apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docke
 usermod -aG docker ubuntu
 
 # Run the Aztec installer as the ubuntu user.
-su - ubuntu -c 'VERSION=0.84.0-alpha-testnet.3 NON_INTERACTIVE=1 bash -i <(curl -s https://install.aztec.network)'
+su - ubuntu -c 'VERSION=alpha-testnet NON_INTERACTIVE=1 bash -i <(curl -s https://install.aztec.network)'
 
-cat <<EOT > /etc/systemd/system/aztec.service
-[Unit]
-Description=Aztec Node Service
-After=network.target
-
-[Service]
-Environment="L1_PRIVATE_KEY=${var.l1_private_key}"
-Environment="COINBASE=${var.coinbase}"
-Environment="P2P_IP=$(curl -s https://api.ipify.org)"
-Environment="P2P_PORT=40400"
-Environment="BLOB_SINK_URL=http://34.82.117.158:5052"
-WorkingDirectory=/home/ubuntu
-ExecStart=bash -c "/home/ubuntu/.aztec/bin/aztec start --network alpha-testnet --l1-rpc-urls https://json-rpc.1idfjag395jr5mwkdusah7mhr.blockchainnodeengine.com?key=${var.api_key} --l1-consensus-host-urls https://beacon.5dfl92fynpz7pi2buskujxfug.blockchainnodeengine.com --l1-consensus-host-api-keys ${var.api_key} --l1-consensus-host-api-key-headers X-goog-api-key --sequencer.validatorPrivateKey \$L1_PRIVATE_KEY --archiver --node --sequencer"
-Restart=always
-User=ubuntu
-Group=ubuntu
-
-[Install]
-WantedBy=multi-user.target
+cat <<EOT > aztec.service.sh
+${file("${path.module}/aztec.service.sh")}
 EOT
 
-# Enable and start the service.
-systemctl daemon-reload
-systemctl enable aztec.service
-systemctl start aztec.service
+./aztec.service.sh
+
+cat <<'EOFF' > /home/ubuntu/.bash_profile
+# source .bashrc for interactive login shells
+if [ -n "$PS1" ] && [ -f "$HOME/.bashrc" ]; then
+  . "$HOME/.bashrc"
+fi
+EOFF
 EOF
 
   tags = {
