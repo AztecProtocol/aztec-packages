@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747223691221,
+  "lastUpdate": 1747225982617,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "saleel@aztecprotocol.com",
-            "name": "saleel",
-            "username": "saleel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "904ed3de53f7e334feb0888be7523579e55b147b",
-          "message": "chore(bb.js): remove plonk utils (#14180)",
-          "timestamp": "2025-05-09T17:55:38Z",
-          "tree_id": "daf4e975af34c393c1bbb1d6c314d7cd42c0fae4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/904ed3de53f7e334feb0888be7523579e55b147b"
-        },
-        "date": 1746818514102,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18135.053983000034,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14500.449171 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 4918378469,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 201041861,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25750.64859600002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 20013.101894 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 70139.79743600001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 70139799000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4298.323681000056,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3728.7703930000002 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 11534.304155,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 11534305000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2325.19",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -9640,6 +9568,222 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmschnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm-memory",
             "value": 1773,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a528ef5a48d0616eb1d4c16d9f63cffe47219758",
+          "message": "chore: Fix another flake in validator sentinel e2e (#14298)\n\nSample failed run [here](http://ci.aztec-labs.com/1908d2e1e79be275):\n\n```\n09:51:15  FAIL  src/e2e_p2p/validators_sentinel.test.ts\n09:51:15   ● e2e_p2p_validators_sentinel › with an offline validator › collects stats on offline validator\n09:51:15\n09:51:15     ContractFunctionExecutionError: Transaction creation failed.\n09:51:15\n09:51:15     URL: http://127.0.0.1:8545\n09:51:15     Request body: {\"method\":\"eth_sendRawTransaction\",\"params\":[\"0x02f90333827a69198455d4a8008465589b3d830cc89994322813fd9a801c5507c9de605d63cea4f2ce6c4480b902c42335d47e00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000005000000000000000000000000a1153393636750230f4db253300e59ca8bd3a9c0000000000000000000000000ad6855add35f78bc594102e0ac781527cdeb9c52000000000000000000000000a1153393636750230f4db253300e59ca8bd3a9c00000000000000000000000000000000000000000000000056bc75e2d63100000000000000000000000000000c223b10ef31d74b74ac4931da23c76dfd154e43f0000000000000000000000006c7810a6a724f0a3c5882e7149b90d23e8bf6e63000000000000000000000000c223b10ef31d74b74ac4931da23c76dfd154e43f0000000000000000000000000000000000000000000000056bc75e2d631000000000000000000000000000004af126598417209bfa57bab856963c42c2fee5db000000000000000000000000c6edfc31693e921df3c826b102a999db5cc1ca960000000000000000000000004af126598417209bfa57bab856963c42c2fee5db0000000000000000000000000000000000000000000000056bc75e2d63100000000000000000000000000000037bbe29c2766243a070a4b3cbf38917670973080000000000000000000000007d2cd31b604b34e289e02538d468948ec515b10c000000000000000000000000037bbe29c2766243a070a4b3cbf38917670973080000000000000000000000000000000000000000000000056bc75e2d6310000000000000000000000000000061b13c781397bdb68284f02961e16602b9ce8923000000000000000000000000b50043ea007490e0a0250aff54831d8443d1393f00000000000000000000000061b13c781397bdb68284f02961e16602b9ce89230000000000000000000000000000000000000000000000056bc75e2d63100000c001a008e84c0ff4a6160f63addfeb56108f608cd3912e605684616a151be96b5916f5a0100fcf130916031fcfe3aaef969ca8beac5781bbc1b37a29c4b33f36871f8570\"]}\n09:51:15\n09:51:15     Request Arguments:\n09:51:15       from:  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n09:51:15       to:    0x322813fd9a801c5507c9de605d63cea4f2ce6c44\n09:51:15       data:  0x2335d47e00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000005000000000000000000000000a1153393636750230f4db253300e59ca8bd3a9c0000000000000000000000000ad6855add35f78bc594102e0ac781527cdeb9c52000000000000000000000000a1153393636750230f4db253300e59ca8bd3a9c00000000000000000000000000000000000000000000000056bc75e2d63100000000000000000000000000000c223b10ef31d74b74ac4931da23c76dfd154e43f0000000000000000000000006c7810a6a724f0a3c5882e7149b90d23e8bf6e63000000000000000000000000c223b10ef31d74b74ac4931da23c76dfd154e43f0000000000000000000000000000000000000000000000056bc75e2d631000000000000000000000000000004af126598417209bfa57bab856963c42c2fee5db000000000000000000000000c6edfc31693e921df3c826b102a999db5cc1ca960000000000000000000000004af126598417209bfa57bab856963c42c2fee5db0000000000000000000000000000000000000000000000056bc75e2d63100000000000000000000000000000037bbe29c2766243a070a4b3cbf38917670973080000000000000000000000007d2cd31b604b34e289e02538d468948ec515b10c000000000000000000000000037bbe29c2766243a070a4b3cbf38917670973080000000000000000000000000000000000000000000000056bc75e2d6310000000000000000000000000000061b13c781397bdb68284f02961e16602b9ce8923000000000000000000000000b50043ea007490e0a0250aff54831d8443d1393f00000000000000000000000061b13c781397bdb68284f02961e16602b9ce89230000000000000000000000000000000000000000000000056bc75e2d63100000\n09:51:15\n09:51:15     Contract Call:\n09:51:15       address:   0x322813fd9a801c5507c9de605d63cea4f2ce6c44\n09:51:15       function:  addValidators((address attester, address proposer, address withdrawer, uint256 amount)[])\n09:51:15       args:                   ([{\"attester\":\"0xa1153393636750230f4dB253300E59Ca8bD3a9c0\",\"proposer\":\"0xad6855aDD35F78bc594102E0aC781527cDEb9c52\",\"withdrawer\":\"0xa1153393636750230f4dB253300E59Ca8bD3a9c0\",\"amount\":\"100000000000000000000\"},{\"attester\":\"0xC223B10ef31d74B74ac4931da23c76dfD154e43F\",\"proposer\":\"0x6C7810A6A724f0A3c5882e7149b90D23E8bF6e63\",\"withdrawer\":\"0xC223B10ef31d74B74ac4931da23c76dfD154e43F\",\"amount\":\"100000000000000000000\"},{\"attester\":\"0x4aF126598417209bFa57bab856963c42C2fee5Db\",\"proposer\":\"0xC6edFc31693E921DF3C826B102a999DB5cC1cA96\",\"withdrawer\":\"0x4aF126598417209bFa57bab856963c42C2fee5Db\",\"amount\":\"100000000000000000000\"},{\"attester\":\"0x037BBe29C2766243A070a4b3cbf3891767097308\",\"proposer\":\"0x7D2Cd31b604B34e289E02538D468948eC515b10C\",\"withdrawer\":\"0x037BBe29C2766243A070a4b3cbf3891767097308\",\"amount\":\"100000000000000000000\"},{\"attester\":\"0x61B13C781397Bdb68284F02961e16602B9ce8923\",\"proposer\":\"0xB50043ea007490e0a0250afF54831D8443D1393f\",\"withdrawer\":\"0x61B13C781397Bdb68284F02961e16602B9ce8923\",\"amount\":\"100000000000000000000\"}])\n09:51:15       sender:    0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\n09:51:15\n09:51:15     Docs: https://viem.sh/docs/contract/writeContract\n09:51:15     Details: replacement transaction underpriced\n09:51:15     Version: viem@2.23.7\n09:51:15\n09:51:15       234 |\n09:51:15       235 |         await deployL1ContractsValues.l1Client.waitForTransactionReceipt({\n09:51:15     > 236 |           hash: await multiAdder.write.addValidators([this.validators]),\n09:51:15           |                 ^\n09:51:15       237 |         });\n09:51:15       238 |\n09:51:15       239 |         const slotsInEpoch = await rollup.read.getEpochDuration();\n09:51:15\n09:51:15       at getContractError (../../node_modules/viem/utils/errors/getContractError.ts:78:10)\n09:51:15       at writeContract (../../node_modules/viem/actions/wallet/writeContract.ts:208:11)\n09:51:15       at e2e_p2p/p2p_network.ts:236:17\n09:51:15       at MockSnapshotManager.snapshot (fixtures/snapshot_manager.ts:132:26)\n09:51:15       at P2PNetworkTest.applyBaseSnapshots (e2e_p2p/p2p_network.ts:195:5)\n09:51:15       at Object.<anonymous> (e2e_p2p/validators_sentinel.test.ts:43:5)\n09:51:15\n09:51:15     Cause:\n09:51:15     TransactionExecutionError: Transaction creation failed.\n```",
+          "timestamp": "2025-05-14T11:52:23Z",
+          "tree_id": "ae6413c8b32112ed146a950a65be58d2ab49456f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a528ef5a48d0616eb1d4c16d9f63cffe47219758"
+        },
+        "date": 1747225981710,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 24444,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1769,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 79164,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 2272,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof",
+            "value": 20970,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-memory",
+            "value": 2324,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm",
+            "value": 68172,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 3049,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof",
+            "value": 14690,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-memory",
+            "value": 1082,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm",
+            "value": 49096,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1801,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof",
+            "value": 18017,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-memory",
+            "value": 1300,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm",
+            "value": 58491,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 1915,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof",
+            "value": 12634,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1032,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 42559,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1719,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof",
+            "value": 21637,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-memory",
+            "value": 1657,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm",
+            "value": 71696,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 2144,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 14298,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1086,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 48335,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1735,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "ivc-schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof",
+            "value": 13509,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-memory",
+            "value": 1063,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmschnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm",
+            "value": 44795,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmschnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1725,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
