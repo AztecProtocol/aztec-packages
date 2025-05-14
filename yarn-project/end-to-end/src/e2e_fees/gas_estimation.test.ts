@@ -134,6 +134,7 @@ describe('e2e_fees gas_estimation', () => {
     // Check that estimated gas for teardown are not zero since we're doing work there
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeGreaterThan(0);
 
+    // Tx fee in the tx with estimate should be the same as the estimated fee.
     const estimatedFee = estimatedGas.gasLimits.computeFee(defaultGasSettings.maxFeesPerGas).toBigInt();
     //     1556301460n           660349660n        estimated fee is ~2.3 times the actual fee
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
