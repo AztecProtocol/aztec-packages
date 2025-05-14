@@ -6,7 +6,7 @@ pub type UltraHonkProof = [Field; ULTRA_HONK_PROOF_SIZE];
 pub type UltraHonkVerificationKey = [Field; ULTRA_HONK_VK_SIZE];
 
 pub global ROLLUP_HONK_IDENTIFIER: u32 = 5;
-pub global ULTRA_HONK_PROOF_SIZE: u32 = 456;
+pub global ROLLUP_HONK_PROOF_SIZE: u32 = 456;
 pub global ROLLUP_HONK_VK_SIZE: u32 = 113;
 
 pub type RollupHonkProof = [Field; ROLLUP_HONK_PROOF_SIZE];

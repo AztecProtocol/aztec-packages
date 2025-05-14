@@ -13,8 +13,8 @@ fn main(
 ) {
     verify_rolluphonk_proof(
         verification_key,
-        public_inputs,
         proof,
+        public_inputs,
         key_hash,
     );
 }
