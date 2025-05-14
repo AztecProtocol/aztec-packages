@@ -107,7 +107,7 @@ export function createSafeJsonRpcClient<T extends object>(
             error: {
               code: -32000,
               data: response,
-              message: 'Failed request',
+              message: response.message ?? 'Failed request',
             },
           });
         }
@@ -145,7 +145,8 @@ export function createSafeJsonRpcClient<T extends object>(
           jsonrpc: '2.0',
           error: {
             code: -32000,
-            message: 'Failed request',
+            data: err,
+            message: (err as any).message ?? 'Failed request',
           },
         });
       }
