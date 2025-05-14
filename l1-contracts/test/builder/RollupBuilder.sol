@@ -22,6 +22,7 @@ struct Config {
   GenesisState genesisState;
   RollupConfigInput rollupConfigInput;
   uint256 mintFeeAmount;
+  bool makeCanonical;
 }
 
 /**
@@ -38,20 +39,22 @@ contract RollupBuilder is Test {
 
     config.genesisState = TestConstants.getGenesisState();
     config.rollupConfigInput = TestConstants.getRollupConfigInput();
+
+    config.makeCanonical = true;
   }
 
-  function setTestERC20(address _testERC20) public returns (RollupBuilder) {
-    config.testERC20 = TestERC20(_testERC20);
+  function setTestERC20(TestERC20 _testERC20) public returns (RollupBuilder) {
+    config.testERC20 = _testERC20;
     return this;
   }
 
-  function setRegistry(address _registry) public returns (RollupBuilder) {
-    config.registry = Registry(_registry);
+  function setRegistry(Registry _registry) public returns (RollupBuilder) {
+    config.registry = _registry;
     return this;
   }
 
-  function setGSE(address _gse) public returns (RollupBuilder) {
-    config.gse = GSE(_gse);
+  function setGSE(GSE _gse) public returns (RollupBuilder) {
+    config.gse = _gse;
     return this;
   }
 
@@ -68,13 +71,21 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setRewardDistributor(address _rewardDistributor) public returns (RollupBuilder) {
-    config.rewardDistributor = RewardDistributor(_rewardDistributor);
+  function setRewardDistributor(RewardDistributor _rewardDistributor)
+    public
+    returns (RollupBuilder)
+  {
+    config.rewardDistributor = _rewardDistributor;
     return this;
   }
 
   function setMintFeeAmount(uint256 _mintFeeAmount) public returns (RollupBuilder) {
     config.mintFeeAmount = _mintFeeAmount;
+    return this;
+  }
+
+  function setMakeCanonical(bool _makeCanonical) public returns (RollupBuilder) {
+    config.makeCanonical = _makeCanonical;
     return this;
   }
 
@@ -126,7 +137,7 @@ contract RollupBuilder is Test {
   /*                              Rollup config end                             */
   /* -------------------------------------------------------------------------- */
 
-  function deploy() public {
+  function deploy() public returns (RollupBuilder) {
     if (address(config.testERC20) == address(0)) {
       config.testERC20 = new TestERC20("test", "TEST", address(this));
     }
@@ -137,43 +148,58 @@ contract RollupBuilder is Test {
 
     if (address(config.registry) == address(0)) {
       config.registry = new Registry(address(this), config.testERC20);
-    }
-
-    if (address(config.rewardDistributor) == address(0)) {
       config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
-    }
-
-    if (address(config.rollup) == address(0)) {
-      config.rollup = new Rollup(
-        config.testERC20,
-        config.rewardDistributor,
-        config.testERC20,
-        config.gse,
-        address(this),
-        config.genesisState,
-        config.rollupConfigInput
+      config.testERC20.mint(
+        address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
       );
     }
 
-    config.registry.addRollup(config.rollup);
-
-    config.gse.addRollup(address(config.rollup));
-
-    config.testERC20.mint(
-      address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
+    config.rollup = new Rollup(
+      config.testERC20,
+      config.rewardDistributor,
+      config.testERC20,
+      config.gse,
+      address(this),
+      config.genesisState,
+      config.rollupConfigInput
     );
-    config.testERC20.mint(address(config.rollup.getFeeAssetPortal()), config.mintFeeAmount);
 
-    config.testERC20.transferOwnership(address(config.deployer));
-    config.registry.transferOwnership(address(config.deployer));
-    config.rollup.transferOwnership(address(config.deployer));
-    config.gse.transferOwnership(address(config.deployer));
+    if (config.makeCanonical) {
+      address feeAssetPortal = address(config.rollup.getFeeAssetPortal());
+
+      vm.prank(config.testERC20.owner());
+      config.testERC20.mint(feeAssetPortal, config.mintFeeAmount);
+
+      vm.prank(config.registry.owner());
+      config.registry.addRollup(config.rollup);
+
+      vm.prank(config.gse.owner());
+      config.gse.addRollup(address(config.rollup));
+    }
+
+    if (config.deployer != config.testERC20.owner()) {
+      config.testERC20.transferOwnership(config.deployer);
+    }
+
+    if (config.deployer != config.registry.owner()) {
+      config.registry.transferOwnership(config.deployer);
+    }
+
+    if (config.deployer != config.rollup.owner()) {
+      config.rollup.transferOwnership(config.deployer);
+    }
+
+    if (config.deployer != config.gse.owner()) {
+      config.gse.transferOwnership(config.deployer);
+    }
 
     vm.label(address(config.rollup), "Rollup");
     vm.label(address(config.registry), "Registry");
     vm.label(address(config.gse), "GSE");
     vm.label(address(config.rewardDistributor), "RewardDistributor");
     vm.label(address(config.testERC20), "TestERC20");
+
+    return this;
   }
 
   function getConfig() public view returns (Config memory) {

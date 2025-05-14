@@ -166,7 +166,7 @@ library StakingLib {
 
       uint256 amount = store.gse.balanceOf(address(this), _attester);
       (uint256 actualAmount, bool removed) = store.gse.withdraw(_attester, amount);
-      require(removed);
+      require(removed, Errors.Staking__WithdrawFailed(_attester));
 
       store.exits[_attester] = Exit({
         amount: actualAmount,

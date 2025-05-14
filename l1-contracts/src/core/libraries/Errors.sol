@@ -118,6 +118,7 @@ library Errors {
   error Staking__NotWithdrawer(address, address); // 0x8e668e5d
   error Staking__NothingToExit(address); // 0xd2aac9b6
   error Staking__WithdrawalNotUnlockedYet(Timestamp, Timestamp); // 0x88e1826c
+  error Staking__WithdrawFailed(address);
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
