@@ -33,6 +33,9 @@ export type ArchiverL1SynchPoint = {
  * (blocks, encrypted logs, aztec contract data extended contract data).
  */
 export interface ArchiverDataStore {
+  /** Opens a new transaction to the underlying store and runs all operations within it. */
+  transactionAsync<T>(callback: () => Promise<T>): Promise<T>;
+
   /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
