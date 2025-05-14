@@ -268,7 +268,7 @@ export async function setupUpdateMonitor(
 
   checker.on('newRollup', ({ latestRollup, currentRollup }) => {
     if (autoUpdateMode === 'enabled') {
-      logger.info(`New rollup detected. Restarting node`, { latestRollup, currentRollup });
+      logger.info(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
       process.exit(0);
     } else if (autoUpdateMode === 'notify') {
       logger.warn(`New rollup detected. Please restart the node`, { latestRollup, currentRollup });
@@ -277,10 +277,10 @@ export async function setupUpdateMonitor(
 
   checker.on('newVersion', ({ latestVersion, currentVersion }) => {
     if (autoUpdateMode === 'enabled') {
-      logger.info(`New node version detected. Restarting node`, { latestVersion, currentVersion });
+      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
       process.exit(0);
     } else if (autoUpdateMode === 'notify') {
-      logger.info(`New node version detected. Please updae and restart the node`, { latestVersion, currentVersion });
+      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
     }
   });
 
