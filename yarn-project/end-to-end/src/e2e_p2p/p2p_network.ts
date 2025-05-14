@@ -85,7 +85,7 @@ export class P2PNetworkTest {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
     // Set up the base account and node private keys for the initial network deployment
-    this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
+    this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
     this.proposerPrivateKeys = generatePrivateKeys(PROPOSER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
