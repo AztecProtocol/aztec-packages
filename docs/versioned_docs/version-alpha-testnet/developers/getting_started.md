@@ -89,7 +89,7 @@ Aztec uses account abstraction, which means:
 - Accounts only need deployment if they interact with public components
 - Private contract interactions don't require account deployment
 
-0. A little setup
+### 0. A little setup
 
 <Tabs>
   <TabItem value="sandbox" label="Local network" default>
@@ -109,7 +109,7 @@ Aztec uses account abstraction, which means:
 </Tabs>
 
 
-1. Create and deploy a new account:
+### 1. Create and deploy a new account
 
 <Tabs>
   <TabItem value="sandbox" label="Local network" default>
@@ -161,7 +161,7 @@ If you see an error like `Timeout awaiting isMined` please note this is not an a
 
 ## Step 2: Deploy and interact with a token contract
 
-1. Deploy a token contract:
+### 1. Deploy a token contract
 
 <Tabs>
   <TabItem value="sandbox" label="Local network" default>
@@ -188,7 +188,7 @@ aztec-wallet deploy \
 
 You should see confirmation that the token contract is stored in the database.
 
-2. Mint 10 private tokens to yourself:
+### 2. Mint 10 private tokens to yourself
 
 <Tabs>
   <TabItem value="sandbox" label="Local network" default>
@@ -214,7 +214,7 @@ aztec-wallet send mint_to_private \
 
 You should see confirmation that the tx hash is stored in the database.
 
-3. Send 25 private tokens to public:
+### 3. Make 25 of those tokens public
 
 <Tabs>
   <TabItem value="sandbox" label="Local network" default>
@@ -239,7 +239,7 @@ aztec-wallet send transfer_to_public \
 
 You should see confirmation that the tx hash is stored in the database.
 
-4. Check your balances
+### 4. Check your private and public balances
 
 <Tabs>
   <TabItem value="sandbox" label="Local network" default>
