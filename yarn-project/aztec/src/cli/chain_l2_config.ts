@@ -133,8 +133,13 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
 
-  enrichVar('AUTO_UPDATE', config.autoUpdate.toString());
-  enrichVar('AUTO_UPDATE_URL', config.autoUpdateUrl ?? '');
+  if (config.autoUpdate) {
+    enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
+  }
+
+  if (config.autoUpdateUrl) {
+    enrichVar('AUTO_UPDATE_URL', config.autoUpdateUrl);
+  }
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
