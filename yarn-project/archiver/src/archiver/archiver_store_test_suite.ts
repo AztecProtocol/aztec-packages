@@ -590,6 +590,52 @@ export function describeArchiverDataStore(
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
+
+      it('ignores updates for the wrong contract', async () => {
+        const otherClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: otherClassId,
+          originalContractClassId: otherClassId,
+        });
+        const otherContractInstance = {
+          ...randomInstance,
+          address: await AztecAddress.random(),
+        };
+        await store.addContractInstances([otherContractInstance], 1);
+
+        const fetchedInstance = await store.getContractInstance(otherContractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(otherClassId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(otherClassId);
+      });
+
+      it('bounds its search to the right contract if more than than one update exists', async () => {
+        const otherClassId = Fr.random();
+        const otherNextClassId = Fr.random();
+        const randomInstance = await SerializableContractInstance.random({
+          currentContractClassId: otherClassId,
+          originalContractClassId: otherNextClassId,
+        });
+        const otherContractInstance = {
+          ...randomInstance,
+          address: await AztecAddress.random(),
+        };
+        await store.addContractInstances([otherContractInstance], 1);
+        await store.addContractInstanceUpdates(
+          [
+            {
+              prevContractClassId: otherClassId,
+              newContractClassId: otherNextClassId,
+              blockOfChange,
+              address: otherContractInstance.address,
+            },
+          ],
+          blockOfChange - 1,
+        );
+
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        expect(fetchedInstance?.originalContractClassId).toEqual(classId);
+        expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
+      });
     });
 
     describe('contractClasses', () => {
