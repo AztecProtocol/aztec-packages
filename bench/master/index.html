@@ -97,6 +97,21 @@
         width: 100%;
         height: 100%;
       }
+      /* Dark theme overrides */
+      .dark-theme {
+        background-color: #242532;
+        color: #e0e0e0;
+      }
+      .dark-theme a {
+        color: #70a0ff;
+      }
+      .dark-theme button {
+        background-color: #3a3a5e;
+      }
+      /* Ensure chart titles use dark text color */
+      .dark-theme .benchmark-title {
+        color: #e0e0e0;
+      }
     </style>
     <title>Benchmarks</title>
   </head>
@@ -110,6 +125,13 @@
       <div class="header-item">
         <strong class="header-label">Repository:</strong>
         <a id="repository-link" rel="noopener"></a>
+      </div>
+      <!-- Added toggle switch for light/dark theme -->
+      <div class="header-item">
+        <label>
+          <input type="checkbox" id="theme-toggle" />
+          Dark Theme
+        </label>
       </div>
     </header>
     <main id="main"></main>
@@ -131,6 +153,16 @@
     <script id="main-script">
       "use strict";
       (function () {
+        // Read and apply saved theme from localStorage on load.
+        const savedTheme = localStorage.getItem("theme");
+        if (savedTheme === "dark") {
+          document.body.classList.add("dark-theme");
+          document.documentElement.classList.add("dark-theme");
+          document.getElementById("theme-toggle").checked = true;
+        }
+
+        // Global array to store chart instances.
+        window.chartInstances = [];
         // Colors from https://github.com/github/linguist/blob/master/lib/linguist/languages.yml
         const toolColors = {
           cargo: "#dea584",
@@ -194,6 +226,10 @@
 
         function renderAllChars(dataSets) {
           function renderGraph(parent, name, dataset) {
+            // Determine theme-specific text color.
+            const isDark = document.body.classList.contains("dark-theme");
+            const textColor = isDark ? "#e0e0e0" : "#4a4a4a";
+
             // Find or create grid container inside parent
             let grid = parent.querySelector(".benchmark-graphs");
             if (!grid) {
@@ -231,6 +267,10 @@
                     scaleLabel: {
                       display: true,
                       labelString: "commit",
+                      fontColor: textColor,
+                    },
+                    ticks: {
+                      fontColor: textColor,
                     },
                   },
                 ],
@@ -240,9 +280,11 @@
                       display: true,
                       labelString:
                         dataset.length > 0 ? dataset[0].bench.unit : "",
+                      fontColor: textColor,
                     },
                     ticks: {
                       beginAtZero: true,
+                      fontColor: textColor,
                     },
                   },
                 ],
@@ -288,11 +330,13 @@
               },
             };
 
-            new Chart(canvas, {
+            const chart = new Chart(canvas, {
               type: "line",
               data,
               options,
             });
+            // Save chart instance for dynamic theme updates.
+            window.chartInstances.push(chart);
           }
 
           function renderBenchSet(name, benchSet, main) {
@@ -395,6 +439,52 @@
             renderBenchSet(name, dataSet, main);
           }
         }
+
+        // Add theme toggle listener to update charts when theme changes.
+        const themeToggle = document.getElementById("theme-toggle");
+        themeToggle.addEventListener("change", () => {
+          if (themeToggle.checked) {
+            document.body.classList.add("dark-theme");
+            document.documentElement.classList.add("dark-theme");
+            localStorage.setItem("theme", "dark");
+          } else {
+            document.body.classList.remove("dark-theme");
+            document.documentElement.classList.remove("dark-theme");
+            localStorage.setItem("theme", "light");
+          }
+          const isDark = document.body.classList.contains("dark-theme");
+          const textColor = isDark ? "#e0e0e0" : "#4a4a4a";
+          const gridColor = isDark ? "#555" : "#ccc";
+          window.chartInstances.forEach((chart) => {
+            chart.options.scales.xAxes.forEach((axis) => {
+              if (axis.scaleLabel) {
+                axis.scaleLabel.fontColor = textColor;
+              }
+              axis.ticks.fontColor = textColor;
+              if (axis.gridLines) {
+                axis.gridLines.color = gridColor;
+              }
+            });
+            chart.options.scales.yAxes.forEach((axis) => {
+              if (axis.scaleLabel) {
+                axis.scaleLabel.fontColor = textColor;
+              }
+              axis.ticks.fontColor = textColor;
+              if (axis.gridLines) {
+                axis.gridLines.color = gridColor;
+              }
+            });
+            // Update legend labels if present
+            if (chart.options.legend && chart.options.legend.labels) {
+              chart.options.legend.labels.fontColor = textColor;
+            }
+            // Update chart title if configured
+            if (chart.options.title) {
+              chart.options.title.fontColor = textColor;
+            }
+            chart.update();
+          });
+        });
 
         renderAllChars(init()); // Start
       })();
