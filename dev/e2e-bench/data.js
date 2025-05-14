@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747238798017,
+  "lastUpdate": 1747244859353,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "073bc7d4bb65324458febb9ccaf7a92449194542",
-          "message": "fix: Handle \"zero\" as key on LMDBv2 map (#14183)\n\nFixes #14182",
-          "timestamp": "2025-05-09T14:02:59Z",
-          "tree_id": "4f3c518d97a1ae4650a236e2c05456ce79f4173d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/073bc7d4bb65324458febb9ccaf7a92449194542"
-        },
-        "date": 1746801770621,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8534,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2443208235370863,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 153086,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 131104,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "862545b50c0e6f63342b9a840fc63a95bf2e3782",
+          "message": "test: hack to see if gas estimation flake goes away (#14317)\n\nWe have a hypothesis that the `gas_estimation.test.ts` is flaky because\nthe base fee drops after the fee estimation is performed and when the tx\nis mined which results in the equality check between the estimation and\nreal tx fee to fail.\n\nThis could happen if PXE is too slow to sync.",
+          "timestamp": "2025-05-14T17:05:40Z",
+          "tree_id": "8e94c949f25f05d23e33656c8594b4ec11615245",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/862545b50c0e6f63342b9a840fc63a95bf2e3782"
+        },
+        "date": 1747244857947,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8290,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23733514404225894,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 151960,
             "unit": "us"
           }
         ]
