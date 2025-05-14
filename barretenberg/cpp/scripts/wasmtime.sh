@@ -6,8 +6,8 @@ set -eu
 exec wasmtime run \
   -Wthreads=y \
   -Sthreads=y \
-  --env HARDWARE_CONCURRENCY \
-  --env WASM_BACKTRACE_DETAILS=1 \
+  ${HARDWARE_CONCURRENCY:+--env HARDWARE_CONCURRENCY} \
+  --env WASMTIME_BACKTRACE_DETAILS=1 \
   --env HOME \
   ${MAIN_ARGS:+--env MAIN_ARGS} \
   --dir=$HOME/.bb-crs \
