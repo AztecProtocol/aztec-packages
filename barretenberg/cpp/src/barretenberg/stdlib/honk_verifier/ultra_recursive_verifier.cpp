@@ -19,6 +19,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
     Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
+    , transcript(std::make_shared<Transcript>())
 {}
 
 template <typename Flavor>

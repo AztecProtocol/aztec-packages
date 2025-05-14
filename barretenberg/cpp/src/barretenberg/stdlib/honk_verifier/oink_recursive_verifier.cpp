@@ -19,7 +19,7 @@ namespace bb::stdlib::recursion::honk {
 template <typename Flavor>
 OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
                                                        const std::shared_ptr<RecursiveDeciderVK>& verification_key,
-                                                       std::shared_ptr<Transcript> transcript,
+                                                       const std::shared_ptr<Transcript>& transcript,
                                                        std::string domain_separator)
     : verification_key(verification_key)
     , builder(builder)

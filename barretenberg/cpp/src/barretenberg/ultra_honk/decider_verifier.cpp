@@ -21,11 +21,6 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerifica
     , transcript(transcript)
 {}
 
-template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator)
-    : accumulator(accumulator)
-{}
-
 /**
  * @brief Verify a decider proof relative to a decider verification key (ϕ, \vec{β*}, e*).
  */

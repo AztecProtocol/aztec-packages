@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
@@ -151,24 +152,34 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
     static void test_recursive_verification_failure_tampered_proof()
     {
-        for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
+        for (size_t idx = 0; idx < 2; idx++) {
             InnerBuilder builder = generate_circuit(&engine);
             InnerProver prover(builder);
             ECCVMProof proof = prover.construct_proof();
 
             // Tamper with the proof to be verified
-            TamperType tamper_type = static_cast<TamperType>(idx);
-            tamper_with_proof<InnerProver, InnerFlavor>(prover, proof, tamper_type);
+            tamper_with_proof<InnerProver, InnerFlavor>(proof.pre_ipa_proof, static_cast<bool>(idx));
 
             auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            [[maybe_unused]] auto output = verifier.verify_proof(proof);
+            auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             // Check for a failure flag in the recursive verifier circuit
-            EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            if (idx == 0) {
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            } else {
+                auto native_pcs_vk =
+                    std::make_shared<VerifierCommitmentKey<typename InnerFlavor::Curve>>(1UL << CONST_ECCVM_LOG_N);
+                auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>>>(
+                    &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
+
+                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
+                EXPECT_FALSE(IPA<typename RecursiveFlavor::Curve>::full_verify_recursive(
+                    stdlib_pcs_vkey, opening_claim, ipa_transcript));
+            }
         }
     }
 
@@ -220,10 +231,10 @@ TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
     TestFixture::test_recursive_verification_failure();
 };
 
-// TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
-// {
-//     TestFixture::test_recursive_verification_failure_tampered_proof();
-// };
+TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
+{
+    TestFixture::test_recursive_verification_failure_tampered_proof();
+};
 
 TYPED_TEST(ECCVMRecursiveTests, IndependentVKHash)
 {

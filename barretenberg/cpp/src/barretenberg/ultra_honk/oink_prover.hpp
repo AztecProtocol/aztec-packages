@@ -53,7 +53,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     OinkProver(std::shared_ptr<DeciderPK> proving_key,
-               const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
+               const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                std::string domain_separator = "",
                const ExecutionTraceUsageTracker& trace_usage_tracker = ExecutionTraceUsageTracker{})
         : proving_key(proving_key)

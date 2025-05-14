@@ -65,7 +65,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Compute evaluations T_j(\kappa), T_{j,prev}(\kappa), t_j(\kappa), add to transcript. For each polynomial we add a
     // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
     const FF kappa = transcript->template get_challenge<FF>("kappa");
-    info("prover kappa ", kappa);
 
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
