@@ -38,28 +38,29 @@ const contexts = [
 
 const JSDOC_RULES_LEVEL = 'error';
 
-export default {
+export default [
   ...base,
-  rules: {
-    ...base.rules,
-    'tsdoc/syntax': JSDOC_RULES_LEVEL,
-    'jsdoc/require-jsdoc': [
-      JSDOC_RULES_LEVEL,
-      {
-        contexts,
-        checkConstructors: false,
-        checkGetters: true,
-        checkSetters: true,
-      },
-    ],
-    'jsdoc/require-description': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-hyphen-before-param-description': [JSDOC_RULES_LEVEL],
-    'jsdoc/require-param': [JSDOC_RULES_LEVEL, { contexts, checkDestructured: false }],
-    'jsdoc/require-param-description': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-param-name': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-property': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-property-description': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-property-name': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-returns': 'off',
+  {
+    rules: {
+      'tsdoc/syntax': JSDOC_RULES_LEVEL,
+      'jsdoc/require-jsdoc': [
+        JSDOC_RULES_LEVEL,
+        {
+          contexts,
+          checkConstructors: false,
+          checkGetters: true,
+          checkSetters: true,
+        },
+      ],
+      'jsdoc/require-description': [JSDOC_RULES_LEVEL, { contexts }],
+      'jsdoc/require-hyphen-before-param-description': [JSDOC_RULES_LEVEL],
+      'jsdoc/require-param': [JSDOC_RULES_LEVEL, { contexts, checkDestructured: false }],
+      'jsdoc/require-param-description': [JSDOC_RULES_LEVEL, { contexts }],
+      'jsdoc/require-param-name': [JSDOC_RULES_LEVEL, { contexts }],
+      'jsdoc/require-property': [JSDOC_RULES_LEVEL],
+      'jsdoc/require-property-description': [JSDOC_RULES_LEVEL],
+      'jsdoc/require-property-name': [JSDOC_RULES_LEVEL],
+      'jsdoc/require-returns': 'off',
+    },
   },
-};
+];
