@@ -13,7 +13,6 @@ import type { P2PConfig } from '../../config.js';
 import { createNodeENR } from '../../enr/generate-enr.js';
 import { AZTEC_ENR_KEY, Discv5Event, PeerEvent } from '../../types/index.js';
 import { convertToMultiaddr } from '../../util.js';
-import { setAztecClientVersionEnrKey, setAztecEnrKey } from '../../versioning.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
 
 const delayBeforeStart = 2000; // 2sec
