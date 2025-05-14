@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747180246044,
+  "lastUpdate": 1747213517081,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "Aztec Benchmarks": [
@@ -3289,6 +3289,1931 @@ window.BENCHMARK_DATA = {
           {
             "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/revertiblePrivateInsertionsUs",
             "value": 953.203999903053,
+            "unit": "us"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_64_4_opcodes",
+            "value": 40310,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_64_4_gates",
+            "value": 211923,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_tail_to_public_opcodes",
+            "value": 16628,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_tail_to_public_gates",
+            "value": 49235,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_64_32_opcodes",
+            "value": 37021,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_64_32_gates",
+            "value": 156801,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_4_4_4_4_4_4_4_4_4_opcodes",
+            "value": 27176,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_4_4_4_4_4_4_4_4_4_gates",
+            "value": 101131,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_base_public_opcodes",
+            "value": 209839,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_base_public_gates",
+            "value": 1369758,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_64_4_opcodes",
+            "value": 37207,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_64_4_gates",
+            "value": 170090,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_4_4_opcodes",
+            "value": 32050,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_4_4_gates",
+            "value": 119796,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_4_32_opcodes",
+            "value": 41042,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_4_32_gates",
+            "value": 210432,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_4_4_opcodes",
+            "value": 38513,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_4_4_gates",
+            "value": 205612,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_64_32_opcodes",
+            "value": 40381,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_64_32_gates",
+            "value": 200784,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_4_4_opcodes",
+            "value": 32695,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_4_4_gates",
+            "value": 145670,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_merge_opcodes",
+            "value": 8684,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_merge_gates",
+            "value": 1543761,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_4_32_opcodes",
+            "value": 35224,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_4_32_gates",
+            "value": 150491,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_root_opcodes",
+            "value": 8670,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_root_gates",
+            "value": 26799918,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_64_4_opcodes",
+            "value": 34492,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_4_64_4_gates",
+            "value": 151981,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_root_empty_opcodes",
+            "value": 6404,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_root_empty_gates",
+            "value": 708529,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_64_4_opcodes",
+            "value": 34749,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_64_4_gates",
+            "value": 154131,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_root_single_tx_opcodes",
+            "value": 876817,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_root_single_tx_gates",
+            "value": 3894138,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_32_32_32_32_32_32_32_32_opcodes",
+            "value": 52340,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_32_32_32_32_32_32_32_32_gates",
+            "value": 348149,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_4_4_opcodes",
+            "value": 36055,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_4_4_gates",
+            "value": 189653,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_64_32_opcodes",
+            "value": 37278,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_64_32_gates",
+            "value": 158951,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_64_0_0_0_0_0_0_opcodes",
+            "value": 12563,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_64_0_0_0_0_0_0_gates",
+            "value": 42086,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_64_0_0_0_0_0_0_0_0_opcodes",
+            "value": 12563,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_64_0_0_0_0_0_0_0_0_gates",
+            "value": 42086,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_init_opcodes",
+            "value": 14836,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_init_gates",
+            "value": 41231,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_4_4_opcodes",
+            "value": 32952,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_4_4_gates",
+            "value": 147820,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_16_16_16_16_16_16_16_16_16_opcodes",
+            "value": 37971,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_16_16_16_16_16_16_16_16_16_gates",
+            "value": 207005,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_4_32_opcodes",
+            "value": 32121,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_4_32_gates",
+            "value": 108658,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_4_4_opcodes",
+            "value": 29592,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_4_4_gates",
+            "value": 103837,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_64_4_opcodes",
+            "value": 33847,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_64_4_gates",
+            "value": 126107,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:parity_base_opcodes",
+            "value": 3509,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:parity_base_gates",
+            "value": 30646,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_base_private_opcodes",
+            "value": 271549,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_base_private_gates",
+            "value": 1901844,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_0_0_0_64_0_0_0_opcodes",
+            "value": 20822,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_0_0_0_64_0_0_0_gates",
+            "value": 56710,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_64_32_opcodes",
+            "value": 33918,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_64_32_gates",
+            "value": 114968,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_4_32_opcodes",
+            "value": 34579,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_4_32_gates",
+            "value": 124616,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_64_4_opcodes",
+            "value": 37852,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_64_4_gates",
+            "value": 195964,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_4_32_opcodes",
+            "value": 38584,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_4_4_32_gates",
+            "value": 194474,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_64_0_0_0_0_0_0_0_opcodes",
+            "value": 27091,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_64_0_0_0_0_0_0_0_gates",
+            "value": 263396,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_64_32_opcodes",
+            "value": 36376,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_64_64_32_gates",
+            "value": 130927,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_opcodes",
+            "value": 78051,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_gates",
+            "value": 625446,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_root_opcodes",
+            "value": 878262,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_block_root_gates",
+            "value": 4690704,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_4_4_opcodes",
+            "value": 35410,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_4_4_gates",
+            "value": 163779,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_64_4_opcodes",
+            "value": 36950,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_64_4_gates",
+            "value": 167940,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_64_32_opcodes",
+            "value": 39736,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_64_32_gates",
+            "value": 174910,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_4_32_opcodes",
+            "value": 37682,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_4_32_gates",
+            "value": 166449,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_64_4_opcodes",
+            "value": 31389,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_4_4_4_4_64_4_gates",
+            "value": 110148,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_4_32_opcodes",
+            "value": 35481,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_4_4_32_gates",
+            "value": 152641,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_tail_opcodes",
+            "value": 5105,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_tail_gates",
+            "value": 33621,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_0_64_0_0_0_0_0_opcodes",
+            "value": 28437,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_0_64_0_0_0_0_0_gates",
+            "value": 274966,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_merge_opcodes",
+            "value": 1727,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:rollup_merge_gates",
+            "value": 1463961,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_4_32_opcodes",
+            "value": 37939,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_4_32_16_4_4_64_4_32_gates",
+            "value": 168599,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_0_0_64_0_0_0_0_opcodes",
+            "value": 13896,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_0_0_0_0_64_0_0_0_0_gates",
+            "value": 101560,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:parity_root_opcodes",
+            "value": 4158,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:parity_root_gates",
+            "value": 2875768,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_inner_opcodes",
+            "value": 31612,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_inner_gates",
+            "value": 92632,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_4_4_opcodes",
+            "value": 35153,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_4_4_gates",
+            "value": 161629,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_64_32_opcodes",
+            "value": 39479,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_4_4_4_64_64_32_gates",
+            "value": 172760,
+            "unit": "gates"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_64_32_opcodes",
+            "value": 42839,
+            "unit": "opcodes"
+          },
+          {
+            "name": "noir-projects/noir-protocol-circuits:private_kernel_reset_32_16_32_16_4_4_64_64_32_gates",
+            "value": 216743,
+            "unit": "gates"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "a7b3fb497e5246e230c49927106fd1f45b5d71bc",
+          "message": "chore: Rework CI flows and benchmarks.",
+          "timestamp": "2025-05-13T22:39:34Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/14202/commits/a7b3fb497e5246e230c49927106fd1f45b5d71bc"
+        },
+        "date": 1747213507094,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof",
+            "value": 18638,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1027,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 38884,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1586,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm",
+            "value": 46288,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1064,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 55268,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1017,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm",
+            "value": 89194,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 1180,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 105947,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1934,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof",
+            "value": 19872,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-memory",
+            "value": 1067,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+private_fpc-ivc-proof",
+            "value": 28864,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_0_recursions+private_fpc-ivc-proof-memory",
+            "value": 1224,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ClientIVCBench/Full/6",
+            "value": 80816.050777,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:construct_proof_ultrahonk_power_of_2/20",
+            "value": 11884.588398999998,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:construct_proof_ultrahonk_power_of_2/20",
+            "value": 4017.531229000042,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+private_fpc-ivc-proof",
+            "value": 31736,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-memory",
+            "value": 1498,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof",
+            "value": 19688,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-memory",
+            "value": 1074,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm",
+            "value": 70807,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+token_bridge_claim_private+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1518,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof",
+            "value": 31672,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-memory",
+            "value": 2273,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ClientIVCBench/Full/6",
+            "value": 29515.768482000112,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof",
+            "value": 20112,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:schnorr+deploy_tokenContract_no_registration+sponsored_fpc-ivc-proof-memory",
+            "value": 1079,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm",
+            "value": 55342,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 1059,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ClientIVCBench/Ambient_17_in_20/6",
+            "value": 22754.816155000073,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm",
+            "value": 104224,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc-ivc-proof-wasm-memory",
+            "value": 2937,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm",
+            "value": 84725,
+            "unit": "ms"
+          },
+          {
+            "name": "barretenberg/cpp:ecdsar1+transfer_1_recursions+private_fpc-ivc-proof-wasm-memory",
+            "value": 1385,
+            "unit": "MB"
+          },
+          {
+            "name": "barretenberg/acir_tests:ultra_honk_rec_wasm_memory",
+            "value": 2253.19,
+            "unit": "MiB"
+          },
+          {
+            "name": "yarn-project/end-to-end:Sequencer/aztec.sequencer.block.build_duration",
+            "value": 8034,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/end-to-end:Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.22999857630881265,
+            "unit": "us/mana"
+          },
+          {
+            "name": "yarn-project/end-to-end:Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 116617,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/constructor/0/totalInstructionsExecuted",
+            "value": 17011,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/constructor/0/totalDurationMs",
+            "value": 432.5716239998583,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/constructor/0/manaUsed",
+            "value": 381879,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/constructor/0/txHashMs",
+            "value": 43.79527799994685,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
+            "value": 8386.408999795094,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
+            "value": 7069.904999807477,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/mint_to_public/1/totalInstructionsExecuted",
+            "value": 1461,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/mint_to_public/1/totalDurationMs",
+            "value": 115.89335700008087,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/mint_to_public/1/manaUsed",
+            "value": 42698,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/mint_to_public/1/txHashMs",
+            "value": 26.399424999952316,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/mint_to_public/1/nonRevertiblePrivateInsertionsUs",
+            "value": 4108.6730000097305,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/mint_to_public/1/revertiblePrivateInsertionsUs",
+            "value": 1594.6740000508726,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/2/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/2/totalDurationMs",
+            "value": 120.1524320000317,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/2/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/2/txHashMs",
+            "value": 43.36989800003357,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/2/nonRevertiblePrivateInsertionsUs",
+            "value": 5573.317999951541,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/2/revertiblePrivateInsertionsUs",
+            "value": 2567.294000182301,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/transfer_in_public/3/totalInstructionsExecuted",
+            "value": 1907,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/transfer_in_public/3/totalDurationMs",
+            "value": 94.54329199995846,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/transfer_in_public/3/manaUsed",
+            "value": 48632,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/transfer_in_public/3/txHashMs",
+            "value": 26.954295000061393,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/transfer_in_public/3/nonRevertiblePrivateInsertionsUs",
+            "value": 3961.502999998629,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/transfer_in_public/3/revertiblePrivateInsertionsUs",
+            "value": 1604.9450000282377,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/4/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/4/totalDurationMs",
+            "value": 58.71704399981536,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/4/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/4/txHashMs",
+            "value": 25.345750000094995,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/4/nonRevertiblePrivateInsertionsUs",
+            "value": 3222.3799999337643,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/4/revertiblePrivateInsertionsUs",
+            "value": 1205.9059999883175,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/5/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/5/totalDurationMs",
+            "value": 77.13667900022119,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/5/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/5/txHashMs",
+            "value": 38.18490700004622,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/5/nonRevertiblePrivateInsertionsUs",
+            "value": 3035.717000020668,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/5/revertiblePrivateInsertionsUs",
+            "value": 1016.6229999158531,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/6/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/6/totalDurationMs",
+            "value": 85.50008599995635,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/6/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/6/txHashMs",
+            "value": 38.88912700000219,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/6/nonRevertiblePrivateInsertionsUs",
+            "value": 3959.523000055924,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/6/revertiblePrivateInsertionsUs",
+            "value": 1526.2690000236034,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/burn_public/7/totalInstructionsExecuted",
+            "value": 1133,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/burn_public/7/totalDurationMs",
+            "value": 100.81120999995619,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/burn_public/7/manaUsed",
+            "value": 35852,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/burn_public/7/txHashMs",
+            "value": 39.000435000052676,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/burn_public/7/nonRevertiblePrivateInsertionsUs",
+            "value": 4227.121000178158,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/burn_public/7/revertiblePrivateInsertionsUs",
+            "value": 1585.452999919653,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/8/totalInstructionsExecuted",
+            "value": 612,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/8/totalDurationMs",
+            "value": 78.83877999987453,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/8/manaUsed",
+            "value": 12384,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/8/txHashMs",
+            "value": 36.48068600008264,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/8/nonRevertiblePrivateInsertionsUs",
+            "value": 3274.625000078231,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:Token contract tests/Token/balance_of_public/8/revertiblePrivateInsertionsUs",
+            "value": 1683.8599999900907,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/0/totalInstructionsExecuted",
+            "value": 17011,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/0/totalDurationMs",
+            "value": 237.93212300003506,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/0/manaUsed",
+            "value": 381879,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/0/txHashMs",
+            "value": 23.30949499993585,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/0/nonRevertiblePrivateInsertionsUs",
+            "value": 3049.987999955192,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/0/revertiblePrivateInsertionsUs",
+            "value": 1269.9110000394285,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/1/totalInstructionsExecuted",
+            "value": 17011,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/1/totalDurationMs",
+            "value": 266.46275099995546,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/1/manaUsed",
+            "value": 381879,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/1/txHashMs",
+            "value": 34.86097899987362,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/1/nonRevertiblePrivateInsertionsUs",
+            "value": 3849.174999864772,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/1/revertiblePrivateInsertionsUs",
+            "value": 1719.9430000036955,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/2/totalInstructionsExecuted",
+            "value": 17011,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/2/totalDurationMs",
+            "value": 219.4325419999659,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/2/manaUsed",
+            "value": 381879,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/2/txHashMs",
+            "value": 23.12966200010851,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/2/nonRevertiblePrivateInsertionsUs",
+            "value": 2811.920000007376,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/Token/constructor/2/revertiblePrivateInsertionsUs",
+            "value": 1088.7580001726747,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/constructor/3/totalInstructionsExecuted",
+            "value": 1735,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/constructor/3/totalDurationMs",
+            "value": 121.19255600008182,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/constructor/3/manaUsed",
+            "value": 72855,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/constructor/3/txHashMs",
+            "value": 33.665564000140876,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/constructor/3/nonRevertiblePrivateInsertionsUs",
+            "value": 3425.5750000011176,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/constructor/3/revertiblePrivateInsertionsUs",
+            "value": 1053.1150000169873,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/set_minter/4/totalInstructionsExecuted",
+            "value": 635,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/set_minter/4/totalDurationMs",
+            "value": 55.88071099994704,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/set_minter/4/manaUsed",
+            "value": 19579,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/set_minter/4/txHashMs",
+            "value": 23.174064999911934,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/set_minter/4/nonRevertiblePrivateInsertionsUs",
+            "value": 3420.564000029117,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/set_minter/4/revertiblePrivateInsertionsUs",
+            "value": 980.8100000955164,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/add_liquidity/5/totalInstructionsExecuted",
+            "value": 8882,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/add_liquidity/5/totalDurationMs",
+            "value": 250.4097039999906,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/add_liquidity/5/manaUsed",
+            "value": 245973,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/add_liquidity/5/txHashMs",
+            "value": 23.664430000120774,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/add_liquidity/5/nonRevertiblePrivateInsertionsUs",
+            "value": 2841.3830001372844,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/add_liquidity/5/revertiblePrivateInsertionsUs",
+            "value": 985.0810000207275,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalInstructionsExecuted",
+            "value": 5365,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/totalDurationMs",
+            "value": 157.6723809998948,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/manaUsed",
+            "value": 135369,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/txHashMs",
+            "value": 37.77418800001033,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/nonRevertiblePrivateInsertionsUs",
+            "value": 3891.2279999349266,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/swap_exact_tokens_for_tokens/6/revertiblePrivateInsertionsUs",
+            "value": 1424.961999990046,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/remove_liquidity/7/totalInstructionsExecuted",
+            "value": 9286,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/remove_liquidity/7/totalDurationMs",
+            "value": 298.2102989999112,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/remove_liquidity/7/manaUsed",
+            "value": 251537,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/remove_liquidity/7/txHashMs",
+            "value": 37.614265999989584,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/remove_liquidity/7/nonRevertiblePrivateInsertionsUs",
+            "value": 4089.3119999673218,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AMM contract tests/AMM/remove_liquidity/7/revertiblePrivateInsertionsUs",
+            "value": 1475.5659999791533,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmTest contract tests/AvmTest/bulk_testing/0/totalInstructionsExecuted",
+            "value": 27133,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmTest contract tests/AvmTest/bulk_testing/0/totalDurationMs",
+            "value": 419.33740000007674,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmTest contract tests/AvmTest/bulk_testing/0/manaUsed",
+            "value": 557410,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmTest contract tests/AvmTest/bulk_testing/0/txHashMs",
+            "value": 24.92446000012569,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmTest contract tests/AvmTest/bulk_testing/0/nonRevertiblePrivateInsertionsUs",
+            "value": 2991.704000160098,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmTest contract tests/AvmTest/bulk_testing/0/revertiblePrivateInsertionsUs",
+            "value": 1127.1299999207258,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalInstructionsExecuted",
+            "value": 5195,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/totalDurationMs",
+            "value": 172.98857500008307,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/manaUsed",
+            "value": 90720,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/txHashMs",
+            "value": 33.65667400020175,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/nonRevertiblePrivateInsertionsUs",
+            "value": 3372.6500000339,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_10/0/revertiblePrivateInsertionsUs",
+            "value": 1057.6249998994172,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalInstructionsExecuted",
+            "value": 6318,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/totalDurationMs",
+            "value": 127.93293699994683,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/manaUsed",
+            "value": 111162,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/txHashMs",
+            "value": 40.41612700000405,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/nonRevertiblePrivateInsertionsUs",
+            "value": 6207.444000057876,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_20/1/revertiblePrivateInsertionsUs",
+            "value": 1397.899999981746,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalInstructionsExecuted",
+            "value": 7669,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/totalDurationMs",
+            "value": 116.4501970000565,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/manaUsed",
+            "value": 135084,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/txHashMs",
+            "value": 40.46415099990554,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/nonRevertiblePrivateInsertionsUs",
+            "value": 3622.5489999633282,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_30/2/revertiblePrivateInsertionsUs",
+            "value": 1355.217000003904,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalInstructionsExecuted",
+            "value": 8874,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/totalDurationMs",
+            "value": 110.98115699994378,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/manaUsed",
+            "value": 156435,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/txHashMs",
+            "value": 33.26608500001021,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/nonRevertiblePrivateInsertionsUs",
+            "value": 3139.3939999397844,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_40/3/revertiblePrivateInsertionsUs",
+            "value": 1090.8079999499023,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalInstructionsExecuted",
+            "value": 10226,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/totalDurationMs",
+            "value": 112.54473800002597,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/manaUsed",
+            "value": 180366,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/txHashMs",
+            "value": 35.566110000014305,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/nonRevertiblePrivateInsertionsUs",
+            "value": 3539.6129998844117,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_50/4/revertiblePrivateInsertionsUs",
+            "value": 1425.3120000939816,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalInstructionsExecuted",
+            "value": 11744,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/totalDurationMs",
+            "value": 104.58020900003612,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/manaUsed",
+            "value": 206913,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/txHashMs",
+            "value": 32.37106200004928,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/nonRevertiblePrivateInsertionsUs",
+            "value": 3004.9650000873953,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_60/5/revertiblePrivateInsertionsUs",
+            "value": 945.6269999500364,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalInstructionsExecuted",
+            "value": 13560,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/totalDurationMs",
+            "value": 134.0995169999078,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/manaUsed",
+            "value": 239988,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/txHashMs",
+            "value": 33.01256800000556,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/nonRevertiblePrivateInsertionsUs",
+            "value": 2818.6109999660403,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_70/6/revertiblePrivateInsertionsUs",
+            "value": 904.7639998607337,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalInstructionsExecuted",
+            "value": 14790,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/totalDurationMs",
+            "value": 122.6629500000272,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/manaUsed",
+            "value": 261915,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/txHashMs",
+            "value": 26.982817000010982,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/nonRevertiblePrivateInsertionsUs",
+            "value": 2559.311999939382,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_80/7/revertiblePrivateInsertionsUs",
+            "value": 885.0529999472201,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalInstructionsExecuted",
+            "value": 16173,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/totalDurationMs",
+            "value": 148.10743799991906,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/manaUsed",
+            "value": 286554,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/txHashMs",
+            "value": 38.41164300008677,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/nonRevertiblePrivateInsertionsUs",
+            "value": 3437.0059999637306,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_90/8/revertiblePrivateInsertionsUs",
+            "value": 1343.445000005886,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalInstructionsExecuted",
+            "value": 17403,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/totalDurationMs",
+            "value": 134.54621900012717,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/manaUsed",
+            "value": 308481,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/txHashMs",
+            "value": 28.487914999946952,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/nonRevertiblePrivateInsertionsUs",
+            "value": 3013.9150000177324,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_100/9/revertiblePrivateInsertionsUs",
+            "value": 1279.7920000739396,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalInstructionsExecuted",
+            "value": 39046,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/totalDurationMs",
+            "value": 220.7182539999485,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/manaUsed",
+            "value": 693108,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/txHashMs",
+            "value": 31.792521000141278,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/nonRevertiblePrivateInsertionsUs",
+            "value": 3192.227999912575,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_255/10/revertiblePrivateInsertionsUs",
+            "value": 917.515000095591,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalInstructionsExecuted",
+            "value": 39204,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/totalDurationMs",
+            "value": 254.9125580000691,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/manaUsed",
+            "value": 696708,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/txHashMs",
+            "value": 23.172762000001967,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/nonRevertiblePrivateInsertionsUs",
+            "value": 3136.9890000205487,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_256/11/revertiblePrivateInsertionsUs",
+            "value": 1051.3510000891984,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalInstructionsExecuted",
+            "value": 74641,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/totalDurationMs",
+            "value": 482.57158500002697,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/manaUsed",
+            "value": 1326093,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/txHashMs",
+            "value": 40.68840600014664,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/nonRevertiblePrivateInsertionsUs",
+            "value": 3829.99200001359,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_511/12/revertiblePrivateInsertionsUs",
+            "value": 1445.4099999275059,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalInstructionsExecuted",
+            "value": 74700,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/totalDurationMs",
+            "value": 448.3949929999653,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/manaUsed",
+            "value": 1328580,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/txHashMs",
+            "value": 40.48074100003578,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/nonRevertiblePrivateInsertionsUs",
+            "value": 3970.5630000680685,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_512/13/revertiblePrivateInsertionsUs",
+            "value": 1447.8799998760223,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalInstructionsExecuted",
+            "value": 287680,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/totalDurationMs",
+            "value": 1276.5654380000196,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/manaUsed",
+            "value": 5120364,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/txHashMs",
+            "value": 32.47247099992819,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/nonRevertiblePrivateInsertionsUs",
+            "value": 3822.3010001238436,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/sha256_hash_2048/14/revertiblePrivateInsertionsUs",
+            "value": 1492.1440000180155,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalInstructionsExecuted",
+            "value": 9533,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/totalDurationMs",
+            "value": 78.35765300015919,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/manaUsed",
+            "value": 175263,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/txHashMs",
+            "value": 23.223117999965325,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/nonRevertiblePrivateInsertionsUs",
+            "value": 2536.7929998319596,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_hash/15/revertiblePrivateInsertionsUs",
+            "value": 872.9169999714941,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalInstructionsExecuted",
+            "value": 3054,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/totalDurationMs",
+            "value": 78.18806999991648,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/manaUsed",
+            "value": 53874,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/txHashMs",
+            "value": 34.717812000075355,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/nonRevertiblePrivateInsertionsUs",
+            "value": 3351.9250000827014,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/keccak_f1600/16/revertiblePrivateInsertionsUs",
+            "value": 1134.226000169292,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalInstructionsExecuted",
+            "value": 2092,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/totalDurationMs",
+            "value": 77.13847999996506,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/manaUsed",
+            "value": 35940,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/txHashMs",
+            "value": 37.25538500002585,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/nonRevertiblePrivateInsertionsUs",
+            "value": 3466.32399992086,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/poseidon2_hash/17/revertiblePrivateInsertionsUs",
+            "value": 1386.125999968499,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalInstructionsExecuted",
+            "value": 22786,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/totalDurationMs",
+            "value": 609.6691870000213,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/manaUsed",
+            "value": 599868,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/txHashMs",
+            "value": 22.990699999965727,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/nonRevertiblePrivateInsertionsUs",
+            "value": 3000.9589998517185,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash/18/revertiblePrivateInsertionsUs",
+            "value": 1328.6409999709576,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalInstructionsExecuted",
+            "value": 22820,
+            "unit": "#instructions"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/totalDurationMs",
+            "value": 568.7380520000588,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/manaUsed",
+            "value": 602127,
+            "unit": "mana"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/txHashMs",
+            "value": 39.22405400010757,
+            "unit": "ms"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/nonRevertiblePrivateInsertionsUs",
+            "value": 3864.3139998894185,
+            "unit": "us"
+          },
+          {
+            "name": "yarn-project/simulator:AvmGadgetsTest contract tests/AvmGadgetsTest/pedersen_hash_with_index/19/revertiblePrivateInsertionsUs",
+            "value": 1398.4459999483079,
             "unit": "us"
           },
           {
