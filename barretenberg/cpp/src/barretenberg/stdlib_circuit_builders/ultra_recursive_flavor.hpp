@@ -155,7 +155,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             size_t num_frs_read = 0;
 
             this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->circuit_size.unset_free_witness();
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. log_circuit_size must be a
             // witness to make the Recursive Verifier circuit constant. Seems that other members also need to be turned
             // into witnesses.

@@ -1022,6 +1022,10 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         // Step 3: instantiate both slices as witnesses and validate their sum equals limb1
         field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_v);
         field_t limb_1_hi = field_t::from_witness(ctx, limb_1_hi_v);
+
+        // We need to propagate the origin tag to the chunks of limb1
+        limb_1_lo.set_origin_tag(limb1.get_origin_tag());
+        limb_1_hi.set_origin_tag(limb1.get_origin_tag());
         limb1.assert_equal(limb_1_hi * limb_1_hi_multiplicand + limb_1_lo);
 
         // Step 4: apply range constraints to validate both slices represent the expected contributions to *this.lo and

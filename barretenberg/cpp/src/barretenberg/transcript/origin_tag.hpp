@@ -150,7 +150,9 @@ struct OriginTag {
             throw_or_abort("Tags from different transcripts were involved in the same computation");
         }
 
+#ifdef ENABLE_CHILD_TAG_CHECKS
         check_child_tags(tag_a.child_tag, tag_b.child_tag);
+#endif
         parent_tag = tag_a.parent_tag;
         child_tag = tag_a.child_tag | tag_b.child_tag;
     }
@@ -206,7 +208,9 @@ struct OriginTag {
                 throw_or_abort("Tags from different transcripts were involved in the same computation");
             }
 
+#ifdef ENABLE_CHILD_TAG_CHECKS
             check_child_tags(child_tag, next_tag.child_tag);
+#endif
             child_tag |= next_tag.child_tag;
         }
     }

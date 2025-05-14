@@ -1863,8 +1863,13 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
         static_cast<field_t<Builder>>(predicate).madd(other.prime_basis_limb - prime_basis_limb, prime_basis_limb);
 
     bigfield result(ctx);
-    round_index Limb(binary_limb_2,
-                     std::max(binary_basis_limbs[2].maximum_value, other.binary_basis_limbs[2].maximum_value));
+    // the maximum of the maximal values of elements is large enough
+    result.binary_basis_limbs[0] =
+        Limb(binary_limb_0, std::max(binary_basis_limbs[0].maximum_value, other.binary_basis_limbs[0].maximum_value));
+    result.binary_basis_limbs[1] =
+        Limb(binary_limb_1, std::max(binary_basis_limbs[1].maximum_value, other.binary_basis_limbs[1].maximum_value));
+    result.binary_basis_limbs[2] =
+        Limb(binary_limb_2, std::max(binary_basis_limbs[2].maximum_value, other.binary_basis_limbs[2].maximum_value));
     result.binary_basis_limbs[3] =
         Limb(binary_limb_3, std::max(binary_basis_limbs[3].maximum_value, other.binary_basis_limbs[3].maximum_value));
     result.prime_basis_limb = prime_limb;
@@ -2022,7 +2027,13 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     }
 
     ASSERT(upper_limit != 0);
-    round_indexalue_0 = strict_upper_limit.slice(0, NUM_LIMB_BITS);
+    // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1
+    // from the limit
+    uint256_t strict_upper_limit = upper_limit - uint256_t(1);
+    self_reduce(); // this method in particular enforces limb vals are <2^b - needed for logic described above
+    uint256_t value = get_value().lo;
+
+    const uint256_t upper_limit_value_0 = strict_upper_limit.slice(0, NUM_LIMB_BITS);
     const uint256_t upper_limit_value_1 = strict_upper_limit.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
     const uint256_t upper_limit_value_2 = strict_upper_limit.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
     const uint256_t upper_limit_value_3 = strict_upper_limit.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4);
@@ -2037,7 +2048,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     field_t<Builder> upper_limit_1(context, upper_limit_value_1);
     field_t<Builder> upper_limit_2(context, upper_limit_value_2);
     field_t<Builder> upper_limit_3(context, upper_limit_value_3);
-    bool_t<Builder> borrow_0(witneround_indexss_t<Builder>(context, borrow_0_value));
+    bool_t<Builder> borrow_0(witness_t<Builder>(context, borrow_0_value));
     bool_t<Builder> borrow_1(witness_t<Builder>(context, borrow_1_value));
     bool_t<Builder> borrow_2(witness_t<Builder>(context, borrow_2_value));
     // The way we use borrows here ensures that we are checking that upper_limit - binary_basis > 0.

@@ -118,7 +118,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     static goblin_element point_at_infinity(Builder* ctx)
     {
         Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
-        zero.unset_free_witness();
+        zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
         goblin_element result(x_fq, y_fq);

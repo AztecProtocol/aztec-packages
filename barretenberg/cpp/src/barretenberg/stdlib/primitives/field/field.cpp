@@ -375,6 +375,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         uint256_t value_bit = exponent_value & 1;
         bool_t<Builder> bit;
         bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
+        bit.set_origin_tag(exponent.tag);
         exponent_bits[31 - i] = (bit);
         exponent_value >>= 1;
     }
