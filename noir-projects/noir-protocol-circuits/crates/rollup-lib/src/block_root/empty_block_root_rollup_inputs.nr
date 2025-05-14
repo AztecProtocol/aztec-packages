@@ -58,7 +58,8 @@ mod tests {
             BlockRootOrBlockMergePublicInputs, FeeRecipient,
         },
         block_root::empty_block_root_rollup_inputs::{
-            EMPTY_EFFECT_BLOB_CHALLENGE_Z, EMPTY_EFFECT_BLOB_COMMITMENT, EmptyBlockRootRollupInputs,
+            EMPTY_EFFECT_BLOB_CHALLENGE_Z, EMPTY_EFFECT_BLOB_COMMITMENT, EMPTY_EFFECT_BLOBS_HASH,
+            EmptyBlockRootRollupInputs,
         },
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
@@ -102,14 +103,27 @@ mod tests {
             [FeeRecipient { recipient: builder.inputs.global_variables.coinbase, value: 0 }],
         );
 
-        let expected_blob_commitment_fields = EMPTY_EFFECT_BLOB_COMMITMENT.to_compressed_fields();
+        // The below values are generated from block_building_helper.test.ts.
+        let expected_empty_effect_blobs_hash =
+            0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9;
+        let expected_empty_effect_blob_commitment_fields =
+            [0x00c0000000000000000000000000000000000000000000000000000000000000, 0];
+        let expected_empty_effect_challenge_z =
+            0x0ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb;
+
+        assert_eq(expected_empty_effect_blobs_hash, EMPTY_EFFECT_BLOBS_HASH);
+        assert_eq(
+            expected_empty_effect_blob_commitment_fields,
+            EMPTY_EFFECT_BLOB_COMMITMENT.to_compressed_fields(),
+        );
+        assert_eq(expected_empty_effect_challenge_z, EMPTY_EFFECT_BLOB_CHALLENGE_Z);
 
         let mut expected_sponge = SpongeBlob::new(0);
         let hashed_tx_effects = expected_sponge.squeeze();
         let computed_z = poseidon2_hash([
             hashed_tx_effects,
-            expected_blob_commitment_fields[0],
-            expected_blob_commitment_fields[1],
+            expected_empty_effect_blob_commitment_fields[0],
+            expected_empty_effect_blob_commitment_fields[1],
         ]);
 
         assert_eq(computed_z, EMPTY_EFFECT_BLOB_CHALLENGE_Z);
