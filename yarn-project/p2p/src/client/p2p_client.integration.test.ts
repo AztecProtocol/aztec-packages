@@ -429,7 +429,7 @@ describe('p2p client integration', () => {
             txHashes: [TxHash.random()],
           };
           const blockProposal = makeBlockProposal(dummyPayload);
-          client1.client.broadcastProposal(blockProposal);
+          await client1.client.broadcastProposal(blockProposal);
 
           // client 1 sends an attestation
           const attestation = mockAttestation(
