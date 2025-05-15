@@ -62,7 +62,7 @@ export async function createProverNode(
 
   const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
   const chain = createEthereumChain(rpcUrls, chainId);
-  const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey, chain.chainInfo);
+  const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
 
   const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
 

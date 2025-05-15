@@ -3,6 +3,7 @@ import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from 
 import { EthAddress, Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY, getAddressFromPrivateKey } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
@@ -125,9 +126,12 @@ export async function startNode(
       ...extractNamespacedOptions(options, 'sequencer'),
     };
     let account;
-    if (!sequencerConfig.publisherPrivateKey || sequencerConfig.publisherPrivateKey === NULL_KEY) {
+    if (
+      !sequencerConfig.publisherPrivateKey.getValue() ||
+      sequencerConfig.publisherPrivateKey.getValue() === NULL_KEY
+    ) {
       if (sequencerConfig.validatorPrivateKey) {
-        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKey as `0x${string}`;
+        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKey;
       } else if (!options.l1Mnemonic) {
         userLog(
           '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
@@ -136,11 +140,11 @@ export async function startNode(
       } else {
         account = mnemonicToAccount(options.l1Mnemonic);
         const privKey = account.getHdKey().privateKey;
-        sequencerConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+        sequencerConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
       }
     }
     nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
-    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey));
+    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey.getValue()));
   }
 
   if (nodeConfig.p2pEnabled) {
