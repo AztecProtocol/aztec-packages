@@ -8,7 +8,15 @@ hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile
 function build_image {
   set -euo pipefail
   cd ..
-  docker build -f release-image/Dockerfile --build-arg REF_NAME=$REF_NAME -t aztecprotocol/aztec:$(git rev-parse HEAD) .
+  if semver check $REF_NAME; then
+    # We are on a release branch. Use the version from the tag.
+    # We strip leading 'v' so that this is a valid semver.
+    export VERSION=${REF_NAME#v}
+  else
+    # We are on a non-release branch. Use the version from the commit hash.
+    export VERSION=$(git rev-parse --short HEAD)
+  fi
+  docker build -f release-image/Dockerfile --build-arg VERSION=$VERSION -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
 
   # Remove all but the most recent image.
