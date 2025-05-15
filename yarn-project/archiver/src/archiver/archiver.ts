@@ -336,7 +336,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   /** Queries the rollup contract on whether a prune can be executed on the immediate next L1 block. */
   private async canPrune(currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
     const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
-    const result = await this.rollup.canPruneAtTime(time);
+    const result = await this.rollup.canPruneAtTime(time, { blockNumber: currentL1BlockNumber });
     if (result) {
       this.log.debug(`Rollup contract allows pruning at L1 block ${currentL1BlockNumber} time ${time}`, {
         currentL1Timestamp,

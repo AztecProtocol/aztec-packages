@@ -239,26 +239,21 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     // Find the point in time where we can prune. We can be smarter, but I'm not trying to be smart here
     // trying to be foolproof, for I am a fool.
-    uint256 currentTime = block.timestamp;
     uint256 timeOfPrune = block.timestamp;
     while (!rollup.canPruneAtTime(Timestamp.wrap(timeOfPrune))) {
       timeOfPrune += SLOT_DURATION;
-      vm.warp(timeOfPrune);
     }
 
     ManaBaseFeeComponents memory componentsPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
-    vm.warp(currentTime);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
     stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
       rollup.getPendingBlockNumber()
     );
 
-    vm.warp(timeOfPrune);
     ManaBaseFeeComponents memory componentsNoPrune =
-      rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(currentTime), true);
-    vm.warp(currentTime);
+      rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // The congestion multipliers should be different, with the no-prune being higher
     // as it is based on the accumulated excess mana.
