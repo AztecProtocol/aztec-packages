@@ -56,7 +56,7 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
-    proof = transcript->export_proof();
+    proof = transcript->proof_data;
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         // The extra calculation is for the IPA proof length.

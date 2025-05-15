@@ -52,7 +52,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
         auto goblin_transcript = std::make_shared<Goblin::Transcript>();
 
-        Goblin goblin_last(goblin_transcript);
+        Goblin goblin_last;
         goblin_last.op_queue = goblin.op_queue;
 
         auto circuit = construct_mock_circuit(goblin_last.op_queue);

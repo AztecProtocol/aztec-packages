@@ -29,7 +29,7 @@ Goblin::MergeProof Goblin::prove_merge()
 }
 
 /**
- * @brief The final merge prover shares the transcript with the other Goblin components.
+ * @brief The final merge prover shares the transcript with the other Goblin
  *
  * @return Goblin::MergeProof
  */

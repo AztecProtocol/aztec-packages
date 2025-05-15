@@ -25,11 +25,11 @@ template <typename Flavor> class UltraVerifier_ {
   public:
     explicit UltraVerifier_(
         const std::shared_ptr<VerificationKey>& verifier_key,
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-        const std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>>& ipa_verification_key = nullptr)
+        const std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>>& ipa_verification_key = nullptr,
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : verification_key(std::make_shared<DeciderVK>(verifier_key))
-        , transcript(transcript)
         , ipa_verification_key(ipa_verification_key)
+        , transcript(transcript)
     {}
 
     bool verify_proof(const HonkProof& proof, const HonkProof& ipa_proof = {});
