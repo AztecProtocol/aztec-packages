@@ -16,6 +16,7 @@ import {
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
 import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
+import { getEcdsaRSerialAccount } from '@thunkar/aztec-keychain-accounts/ecdsa';
 import { Fq, type AccountManager } from '@aztec/aztec.js';
 import { AztecContext } from '../../../aztecEnv';
 import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
@@ -132,6 +133,10 @@ export function AccountSelector() {
         accountManager = await getEcdsaKAccount(pxe, accountData.secretKey, accountData.signingKey, accountData.salt);
         break;
       }
+      case 'aztec-keychain': {
+        ({ manager: accountManager } = await getEcdsaRSerialAccount(pxe, accountData.signingKey[0]));
+        break;
+      }
       default: {
         throw new Error('Unknown account type');
       }
@@ -149,9 +154,11 @@ export function AccountSelector() {
   ) => {
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
-    if (accountWallet && publiclyDeploy) {
-      const txReceipt = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+    if (accountWallet) {
+      const txReceipt = publiclyDeploy
+        ? await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts)
+        : undefined;
+      if (!publiclyDeploy || txReceipt?.status === TxStatus.SUCCESS) {
         setAccounts([
           ...accounts,
           { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
@@ -237,7 +244,7 @@ export function AccountSelector() {
         <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
       )}
 
-      <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
+      { openCreateAccountDialog && <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />}
     </div>
   );
 }

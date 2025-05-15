@@ -159,6 +159,7 @@ const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
 export function ContractComponent() {
   const [currentContract, setCurrentContract] = useState<Contract | null>(null);
+  const [currentContractClassId, setCurrentContractClassId] = useState<string | null>(null);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
   const [filters, setFilters] = useState({
     searchTerm: '',
@@ -180,7 +181,6 @@ export function ContractComponent() {
     setCurrentContractArtifact,
     setCurrentContractAddress,
   } = useContext(AztecContext);
-
 
   useEffect(() => {
     const loadCurrentContract = async () => {
@@ -211,6 +211,17 @@ export function ContractComponent() {
   }, [currentContractArtifact, currentContractAddress, wallet]);
 
   useEffect(() => {
+    const updateContractClassId = async () => {
+      const contractClass = await getContractClassFromArtifact(currentContractArtifact);
+      setCurrentContractClassId(contractClass.id.toString());
+    };
+
+    if (currentContractArtifact) {
+      updateContractClassId();
+    }
+  }, [currentContractArtifact]);
+
+  useEffect(() => {
     if (!currentContractAddress) {
       setOpenCreateContractDialog(true);
     }
@@ -223,15 +234,12 @@ export function ContractComponent() {
     opts?: DeployOptions,
   ) => {
     setOpenCreateContractDialog(false);
-    if (contract && publiclyDeploy) {
-      const txReceipt = await sendTx(
-        `Deploy ${currentContractArtifact.name}`,
-        interaction,
-        contract.address,
-        opts,
-      );
+    if (contract) {
+      const txReceipt = publiclyDeploy
+        ? await sendTx(`Deploy ${currentContractArtifact.name}`, interaction, contract.address, opts)
+        : undefined;
       // Temporarily ignore undeployed contracts
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+      if (!publiclyDeploy || txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);
       }
     } else if (contract) {

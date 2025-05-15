@@ -1,4 +1,13 @@
-import { type ContractArtifact, AztecAddress, Fr, TxReceipt, type AuthWitness, type TxHash, Fq, TxStatus } from '@aztec/aztec.js';
+import {
+  type ContractArtifact,
+  AztecAddress,
+  Fr,
+  TxReceipt,
+  type AuthWitness,
+  type TxHash,
+  Fq,
+  TxStatus,
+} from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
@@ -15,7 +24,7 @@ export const Aliases = [
 ] as const;
 export type AliasType = (typeof Aliases)[number];
 
-export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
+export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1', 'aztec-keychain'] as const;
 export type AccountType = (typeof AccountTypes)[number];
 
 export class WalletDB {
@@ -90,8 +99,8 @@ export class WalletDB {
       signingKey,
     }: {
       type: AccountType;
-      secretKey: Fr;
-      salt: Fr;
+      secretKey: Fr | undefined;
+      salt: Fr | undefined;
       signingKey: Fq | Buffer;
       alias: string | undefined;
     },
@@ -101,8 +110,12 @@ export class WalletDB {
       await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
     }
     await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
-    await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
-    await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
+    if (secretKey) {
+      await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
+    }
+    if (salt) {
+      await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
+    }
     await this.#accounts.set(
       `${address.toString()}:signingKey`,
       'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
@@ -258,13 +271,15 @@ export class WalletDB {
   }
 
   async retrieveAccount(address: AztecAddress | string) {
-    const secretKeyBuffer = await this.#accounts.getAsync(`${address.toString()}:sk`);
-    if (!secretKeyBuffer) {
-      throw new Error(`Could not find ${address}:sk. Account "${address.toString}" does not exist on this wallet.`);
+    const typeBuffer = await this.#accounts.getAsync(`${address.toString()}:type`);
+    if (!typeBuffer) {
+      throw new Error(`Could not find ${address}:type. Account "${address.toString}" does not exist on this wallet.`);
     }
-    const secretKey = Fr.fromBuffer(secretKeyBuffer);
-    const salt = Fr.fromBuffer(await this.#accounts.getAsync(`${address.toString()}:salt`)!);
-    const type = (await this.#accounts.getAsync(`${address.toString()}:type`)!).toString('utf8') as AccountType;
+    const type = typeBuffer.toString('utf8') as AccountType;
+    const secretKeyBuffer = await this.#accounts.getAsync(`${address.toString()}:sk`);
+    const secretKey = Fr.fromBuffer(secretKeyBuffer!);
+    const saltBuffer = await this.#accounts.getAsync(`${address.toString()}:salt`);
+    const salt = Fr.fromBuffer(saltBuffer!);
     const signingKey = await this.#accounts.getAsync(`${address.toString()}:signingKey`)!;
     return { address, secretKey, salt, type, signingKey };
   }

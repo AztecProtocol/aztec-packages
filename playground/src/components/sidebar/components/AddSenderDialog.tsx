@@ -2,7 +2,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { AztecAddress } from '@aztec/aztec.js';
 import { Box, DialogActions, DialogContent, DialogContentText, FormGroup } from '@mui/material';
 import { dialogBody, form } from '../../../styles/common';
@@ -10,6 +10,11 @@ import { InfoText } from '../../common/InfoText';
 import { INFO_TEXT } from '../../../constants';
 import Typography from '@mui/material/Typography';
 import Label from '@mui/material/FormLabel';
+import { AztecContext, WebLogger } from '../../../aztecEnv';
+import { convertFromUTF8BufferAsString } from '../../../utils/conversion';
+import type { AccountType } from '../../../utils/storage';
+import { sendCommandAndParseResponse, CommandType } from '@thunkar/aztec-keychain-accounts/webserial';
+
 export function AddSendersDialog({
   open,
   onClose,
@@ -17,6 +22,21 @@ export function AddSendersDialog({
   open: boolean;
   onClose: (sender?: AztecAddress, alias?: string) => void;
 }) {
+  const { wallet, walletDB } = useContext(AztecContext);
+
+  const [walletType, setWalletType] = useState<AccountType>();
+
+  useEffect(() => {
+    const checkType = async () => {
+      const accountData = await walletDB.retrieveAccount(wallet.getAddress());
+      const type = convertFromUTF8BufferAsString(accountData.type);
+      setWalletType(type as AccountType);
+    };
+    if (wallet && walletDB) {
+      checkType();
+    }
+  }, [wallet, walletDB]);
+
   const [alias, setAlias] = useState('');
   const [sender, setSender] = useState('');
 
@@ -31,6 +51,19 @@ export function AddSendersDialog({
     }
   };
 
+  const importFromKeychain = async () => {
+    const response = await sendCommandAndParseResponse(
+      { type: CommandType.GET_SENDER_REQUEST, data: {} },
+      WebLogger.getInstance().createLogger('aztec-keychain'),
+    );
+    if (response.type === CommandType.GET_SENDER_RESPONSE) {
+      const { sender } = response.data;
+      setSender(sender);
+    } else {
+      setError('Invalid response from Aztec keychain');
+    }
+  };
+
   const handleClose = () => {
     onClose();
   };
@@ -40,7 +73,17 @@ export function AddSendersDialog({
       <DialogTitle>Add contact</DialogTitle>
       <DialogContent sx={dialogBody}>
         <DialogContentText>{INFO_TEXT.CONTACTS}</DialogContentText>
-
+        {walletType === 'aztec-keychain' && (
+          <Button
+            sx={{ marginTop: '1rem' }}
+            variant="contained"
+            onClick={() => {
+              importFromKeychain();
+            }}
+          >
+            Import from Keychain
+          </Button>
+        )}
         <FormGroup css={form} sx={{ marginTop: '2rem' }}>
           <Label htmlFor="contact">Contact Address</Label>
           <TextField

@@ -32,6 +32,7 @@
     "@mui/icons-material": "^6.3.1",
     "@mui/material": "^6.3.1",
     "@mui/styles": "^6.3.1",
+    "@thunkar/aztec-keychain-accounts": "0.2.0",
     "@toolpad/core": "^0.14.0",
     "@uidotdev/usehooks": "^2.4.1",
     "buffer-json": "^2.0.0",
@@ -60,5 +61,10 @@
     "vite-plugin-bundlesize": "^0.1.0",
     "vite-plugin-node-polyfills": "^0.23.0",
     "vite-plugin-static-copy": "^2.2.0"
+  },
+  "resolutions": {
+    "@thunkar/aztec-keychain-accounts/@aztec/accounts": "link:../yarn-project/accounts",
+    "@thunkar/aztec-keychain-accounts/@aztec/aztec.js": "link:../yarn-project/aztec.js",
+    "@thunkar/aztec-keychain-accounts/@aztec/stdlib": "link:../yarn-project/stdlib"
   }
 }
