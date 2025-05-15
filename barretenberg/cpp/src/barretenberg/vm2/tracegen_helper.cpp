@@ -29,6 +29,7 @@
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -72,6 +73,20 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_to_radix_p_decompositions(trace));
             AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
                            precomputed_builder.process_memory_tag_range(trace));
+        },
+    };
+}
+
+auto build_public_inputs_columns_jobs(TraceContainer& trace, const PublicInputs& public_inputs)
+{
+    return std::vector<std::function<void()>>{
+        [&]() {
+            PublicInputsTraceBuilder public_inputs_builder;
+            public_inputs_builder.process_public_inputs(trace, public_inputs);
+        },
+        [&]() {
+            PublicInputsTraceBuilder public_inputs_builder;
+            public_inputs_builder.process_public_inputs_aux_precomputed(trace);
         },
     };
 }
@@ -153,7 +168,7 @@ template <typename T> std::vector<T> concatenate_jobs(std::vector<T>&& first, au
 
 } // namespace
 
-TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
+TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const PublicInputs& public_inputs)
 {
     TraceContainer trace;
 
@@ -162,6 +177,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
         auto jobs = concatenate(
             // Precomputed column jobs.
             build_precomputed_columns_jobs(trace),
+            // Public inputs column jobs.
+            build_public_inputs_columns_jobs(trace, public_inputs),
             // Subtrace jobs.
             std::vector<std::function<void()>>{
                 [&]() {

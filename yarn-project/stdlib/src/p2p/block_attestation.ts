@@ -53,7 +53,7 @@ export class BlockAttestation extends Gossipable {
       .transform(obj => new BlockAttestation(obj.blockNumber, obj.payload, obj.signature));
   }
 
-  override p2pMessageIdentifier(): Promise<Buffer32> {
+  override generateP2PMessageIdentifier(): Promise<Buffer32> {
     return Promise.resolve(new BlockAttestationHash(keccak256(this.signature.toBuffer())));
   }
 

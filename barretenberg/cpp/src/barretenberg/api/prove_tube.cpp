@@ -1,6 +1,5 @@
 #include "prove_tube.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
@@ -19,10 +18,6 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using Builder = UltraCircuitBuilder;
 
     std::string proof_path = output_path + "/proof";
-
-    // Note: this could be decreased once we optimise the size of the ClientIVC recursive verifier
-    init_bn254_crs(1 << 25);
-    init_grumpkin_crs(1 << 18);
 
     // Read the proof  and verification data from given files
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);

@@ -26,11 +26,11 @@ export class PrivateFunctionBroadcastedEvent {
   ) {}
 
   static isPrivateFunctionBroadcastedEvent(log: ContractClassLog) {
-    return log.fields[0].equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG);
+    return log.fields.fields[0].equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG);
   }
 
   static fromLog(log: ContractClassLog) {
-    const reader = new FieldReader(log.fields.slice(1));
+    const reader = new FieldReader(log.fields.fields.slice(1));
     const event = PrivateFunctionBroadcastedEvent.fromFields(reader);
     while (!reader.isFinished()) {
       const field = reader.readField();

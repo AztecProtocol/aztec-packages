@@ -70,6 +70,7 @@ class ClientIVC {
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which

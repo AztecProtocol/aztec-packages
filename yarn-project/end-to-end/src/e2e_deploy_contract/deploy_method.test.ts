@@ -93,8 +93,8 @@ describe('e2e_deploy_contract deploy method', () => {
     const opts = { skipClassRegistration: true, skipPublicDeployment: true };
     const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    await contract.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait();
-    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(11n);
+    await contract.methods.increment_twice(wallet.getAddress(), wallet.getAddress()).send().wait();
+    expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(12n);
   });
 
   it('publicly deploys a contract with no constructor', async () => {
@@ -104,7 +104,7 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_public(arbitraryValue).send().wait();
     const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.log[0]).toEqual(new Fr(arbitraryValue));
+    expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryValue)]);
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {

@@ -41,11 +41,11 @@ export class TXEArchiver extends ArchiverStoreHelper {
   }
 
   /**
-   * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
+   * Gets a published l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  public async getBlock(number: number): Promise<L2Block | undefined> {
+  public override async getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
     // If the number provided is -ve, then return the latest block.
     if (number < 0) {
       number = await this.store.getSynchedL2BlockNumber();
@@ -54,7 +54,16 @@ export class TXEArchiver extends ArchiverStoreHelper {
       return undefined;
     }
     const blocks = await this.store.getPublishedBlocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0].block;
+    return blocks.length === 0 ? undefined : blocks[0];
+  }
+
+  /**
+   * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
+   * @param number - The block number to return (inclusive).
+   * @returns The requested L2 block.
+   */
+  public getBlock(number: number): Promise<L2Block | undefined> {
+    return this.getPublishedBlock(number).then(block => block?.block);
   }
 
   /**

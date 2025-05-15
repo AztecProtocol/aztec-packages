@@ -71,6 +71,7 @@ export class ContractInstanceStore {
     const queryResult = await this.#contractInstanceUpdates
       .valuesAsync({
         reverse: true,
+        start: this.getUpdateKey(address, 0), // Make sure we only look at updates for this contract
         end: this.getUpdateKey(address, blockNumber + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= blockNumber
         limit: 1,
       })
