@@ -9,7 +9,6 @@ use dep::types::{
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
     PrivateKernelCircuitPublicInputs,
-    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -34,9 +33,6 @@ impl PrivateKernelTailCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
-        if !std::runtime::is_unconstrained() {
-            self.previous_kernel.verify();
-        }
         // Generate output.
         // Safety: The output is validated below by TailOutputValidator.
         let output = unsafe { self.generate_output() };
