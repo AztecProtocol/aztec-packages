@@ -15,6 +15,7 @@
     "preprocess:dev": "nodemon --config nodemon.json ./src/preprocess/index.js  && nodemon --config nodemon.json src/preprocess/generate_aztecnr_reference.js",
     "preprocess:move": "sh scripts/move_processed.sh",
     "filter-versions": "node scripts/filterVersions.js",
+    "spellcheck": "yarn cspell ./docs ./versioned_docs ./internal_notes",
     "typedoc": "docusaurus generate-typedoc"
   },
   "dependencies": {
@@ -53,6 +54,7 @@
     "@types/prop-types": "^15",
     "@types/react": "^18.0.0",
     "concurrently": "^8.0.1",
+    "cspell": "^8.19.4",
     "docusaurus-plugin-typedoc": "^0.20.2",
     "dotenv": "^16.3.1",
     "netlify-cli": "^17.23.0",

@@ -40,6 +40,10 @@ function release_docs {
   yarn netlify deploy --site aztec-docs-dev --prod 2>&1
 }
 
+function test {
+  yarn spellcheck
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -51,6 +55,9 @@ case "$cmd" in
     echo "$hash"
     ;;
   "release-docs")
+    release_docs
+    ;;
+  "test")
     release_docs
     ;;
   *)
