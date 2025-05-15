@@ -220,6 +220,7 @@ pub comptime fn generate_deserialize_from_fields(
     (result, consumed_counter)
 }
 
+// TODO(benesjan): The main usecase of this function is gone (it's no longer used in derive_serialize). Should it be removed or simplified?
 /// Generates code that serializes a type into an array of fields. Also generates auxiliary variables if necessary
 /// for serialization. If `should_pack` is true, we check if the type implements the `Packable` trait and pack it
 /// if it does.
@@ -421,22 +422,46 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
 
 pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, false);
-    let aux_vars_for_serialization = if aux_vars.len() > 0 {
-        let joint = aux_vars.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
 
-    let field_serializations = fields.join(quote {,});
-    let serialized_len = fields.len();
+    // The following will give us [<type_of_struct_member_1 as Serialize>::N, <type_of_struct_member_2 as Serialize>::N, ...]
+    let components_of_definition_of_n = params.map(|(_, param_type): (Quoted, Type)| {
+        quote {
+            <$param_type as Serialize>::N
+        }
+    });
+
+    // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+    let right_hand_side_of_definition_of_n = components_of_definition_of_n.join(quote {+});
+
+    let array_of_quotes_serializing_each_struct_member = params
+        .map(|(param_name, param_type): (Quoted, Type)| {
+            quote {
+            let serialized_member = self.$param_name.serialize();
+            let serialized_member_len = <$param_type as Serialize>::N;
+            for i in 0..serialized_member_len {
+                result[i + offset] = serialized_member[i];
+            }
+            offset += serialized_member_len;
+        }
+        });
+
+    let serialization_of_struct_members =
+        array_of_quotes_serializing_each_struct_member.join(quote {});
+
     quote {
-        impl Serialize<$serialized_len> for $typ {
+        impl Serialize for $typ {
+            let N = $right_hand_side_of_definition_of_n;
+
             #[inline_always]
-            fn serialize(self) -> [Field; $serialized_len] {
-                $aux_vars_for_serialization
-                [ $field_serializations ]
+            fn serialize(self) -> [Field; Self::N] {
+                let mut result = [0; _];
+                let mut offset = 0;
+
+                $serialization_of_struct_members
+
+                result
             }
         }
     }
