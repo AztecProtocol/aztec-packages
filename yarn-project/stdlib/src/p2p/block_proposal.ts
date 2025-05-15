@@ -21,6 +21,10 @@ export class BlockProposalHash extends Buffer32 {
   }
 }
 
+export type BlockProposalOptions = {
+  publishFullTxs: boolean;
+};
+
 /**
  * BlockProposal
  *
@@ -49,7 +53,7 @@ export class BlockProposal extends Gossipable {
     super();
   }
 
-  override p2pMessageIdentifier(): Promise<Buffer32> {
+  override generateP2PMessageIdentifier(): Promise<Buffer32> {
     return Promise.resolve(new BlockProposalHash(keccak256(this.signature.toBuffer())));
   }
 
@@ -64,8 +68,8 @@ export class BlockProposal extends Gossipable {
   static async createProposalFromSigner(
     blockNumber: Fr,
     payload: ConsensusPayload,
-    // Note(md): Provided seperately to tx hashes such that this function can be optional
-    txs: Tx[],
+    // Note(md): Provided separately to tx hashes such that this function can be optional
+    txs: Tx[] | undefined,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
     const hashed = getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);

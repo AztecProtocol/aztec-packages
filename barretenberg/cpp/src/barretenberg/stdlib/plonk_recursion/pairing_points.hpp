@@ -72,9 +72,9 @@ template <typename Builder_> struct PairingPoints {
             transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
         // If Mega Builder is in use, the EC operations are deferred via Goblin
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Can we improve efficiency here?
-            P0 += other.P0 * recursion_separator;
-            P1 += other.P1 * recursion_separator;
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1385): Can we improve efficiency here?
+            P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
+            P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
         } else {
             // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
             // recursion_separator} directly to avoid edge cases.
