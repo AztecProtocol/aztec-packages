@@ -5,6 +5,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
+import type { SlasherClient } from '@aztec/slasher';
+import { Offence } from '@aztec/slasher';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -23,8 +25,6 @@ import type {
 
 import { isAddress } from 'viem';
 
-import { Offence } from '../slasher/index.js';
-import type { SlasherClient } from '../slasher/slasher_client.js';
 import { SentinelStore } from './store.js';
 
 export class Sentinel implements L2BlockStreamEventHandler {

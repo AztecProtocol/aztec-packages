@@ -3,7 +3,7 @@ import { sleep } from '@aztec/aztec.js';
 import { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
-import { Offence, OffenceToBigInt } from '@aztec/sequencer-client';
+import { Offence, OffenceToBigInt } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';

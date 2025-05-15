@@ -162,6 +162,7 @@ __metadata:
     "@aztec/prover-client": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
@@ -599,6 +600,7 @@ __metadata:
     "@aztec/pxe": "workspace:^"
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
@@ -1311,6 +1313,7 @@ __metadata:
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
@@ -1369,7 +1372,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/slasher@workspace:slasher":
+"@aztec/slasher@workspace:^, @aztec/slasher@workspace:slasher":
   version: 0.0.0-use.local
   resolution: "@aztec/slasher@workspace:slasher"
   dependencies:

@@ -16,6 +16,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -51,6 +52,7 @@ export class SequencerClient {
   public static async new(
     config: SequencerClientConfig,
     deps: {
+      slasherClient: SlasherClient;
       validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
@@ -168,6 +170,7 @@ export class SequencerClient {
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
+      deps.slasherClient,
       new LightweightBlockBuilderFactory(telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,

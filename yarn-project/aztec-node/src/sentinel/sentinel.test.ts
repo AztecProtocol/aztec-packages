@@ -4,6 +4,8 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
+import type { SlasherClient } from '@aztec/slasher';
+import { Offence } from '@aztec/slasher';
 import {
   type L2BlockSource,
   type L2BlockStream,
@@ -19,8 +21,6 @@ import type { ValidatorStats, ValidatorStatusHistory, ValidatorsStats } from '@a
 import { jest } from '@jest/globals';
 import { type DeepMockProxy, type MockProxy, mock, mockDeep } from 'jest-mock-extended';
 
-import { Offence } from '../slasher/config.js';
-import type { SlasherClient } from '../slasher/slasher_client.js';
 import { Sentinel } from './sentinel.js';
 import { SentinelStore } from './store.js';
 
