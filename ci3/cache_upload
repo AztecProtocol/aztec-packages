@@ -28,16 +28,17 @@ if [ -z ${S3_FORCE_UPLOAD:-} ] && \
     exit 0
 fi
 
-function create_tar {
-  if [[ "$name" == *.zst ]]; then
-    tar --use-compress-program="zstd -T0" -c "$@"
-  else
-    tar -czf - "$@"
-  fi
-}
+out_tar=$(mktemp)
+trap 'rm -f $out_tar' EXIT
+
+if [[ "$name" == *.zst ]]; then
+  tar --use-compress-program="zstd -T0" -cf $out_tar "$@"
+else
+  tar -czf $out_tar "$@"
+fi
 
 # Pipe tar directly to AWS S3 cp
-if create_tar "$@" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$name" >&2; then
+if aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp $out_tar "s3://aztec-ci-artifacts/build-cache/$name" >&2; then
   echo_stderr "Cache upload of $name complete in ${SECONDS}s."
 else
   echo_stderr "Cache upload of $name failed."

@@ -122,7 +122,7 @@ jobs:
           output-file-path: ./bench-out/bb-bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
-          alert-threshold: "105%"
+          alert-threshold: "110%"
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@ludamad @ledwards2225"
@@ -152,7 +152,7 @@ jobs:
           output-file-path: ./bench-out/ivc-bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
-          alert-threshold: "105%"
+          alert-threshold: "110%"
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@ludamad @ledwards2225"

@@ -55,6 +55,7 @@ function process_function {
   # Read the function json.
   func="$(cat)"
   name=$(echo "$func" | jq -r '.name')
+  echo_stderr "Processing function: $name..."
 
   # Check if the function is neither public nor unconstrained.
   # TODO: Why do we need to gen keys for functions that are not marked private?
@@ -75,7 +76,7 @@ function process_function {
     bytecode_b64=$(echo "$func" | jq -r '.bytecode')
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
 
-    if ! cache_download vk-$hash.tar.gz &> /dev/null; then
+    if ! cache_download vk-$hash.tar.gz >&2; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
 
@@ -90,6 +91,7 @@ function process_function {
     vk=$(cat $tmp_dir/$hash | base64 -w 0)
     echo "$func" | jq -c --arg vk "$vk" '. + {verification_key: $vk}'
   else
+    echo_stderr "Function $name is neither public nor unconstrained, skipping."
     # Not a private function. Return the original function json.
     echo "$func"
   fi
