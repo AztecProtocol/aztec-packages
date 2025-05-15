@@ -48,6 +48,7 @@ const simulationContainer = css({
   flexDirection: 'row',
   alignItems: 'center',
   textOverflow: 'ellipsis',
+  marginTop: '1rem',
 });
 
 const functionName = css({
@@ -93,9 +94,15 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     let result;
     try {
       const call = contract.methods[fnName](...parameters);
-
       result = await call.simulate({ skipFeeEnforcement: true });
-      setSimulationResults({ success: true, data: result });
+      const stringResult = JSON.stringify(result, (key, value) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      });
+
+      setSimulationResults({ success: true, data: stringResult });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
     }
@@ -133,9 +140,21 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
           const call = contract.methods[name](...parameters);
 
           const profileResult = await call.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
+
+          let biggest = profileResult.executionSteps[0];
+          let acc = 0;
+
+          const executionSteps = profileResult.executionSteps.map(step => {
+            if (step.gateCount! > biggest.gateCount!) {
+              biggest = step;
+            }
+            acc += step.gateCount!;
+            return { ...step, subtotal: acc };
+          });
+
           setProfileResults({
             ...profileResults,
-            ...{ [name]: { success: true, ...profileResult } },
+            ...{ [name]: { success: true, ...profileResult, executionSteps, biggest } },
           });
         } catch (e) {
           console.error(e);
@@ -151,6 +170,8 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
     }
   };
 
+  const parametersValid = parameters.every(param => param !== undefined);
+
   return (
     <Card
       key={fn.name}
@@ -162,10 +183,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
       }}
       sx={{
         backgroundColor: 'white',
-        margin: '0.5rem',
         border: 'none',
+        overflow: 'visible',
         marginBottom: '1rem',
-        overflow: 'hidden',
         ...(!isExpanded && {
           cursor: 'pointer',
         }),
@@ -207,7 +227,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                   sx={{
                     color: 'text.secondary',
                     fontSize: 14,
-                    marginTop: '1rem',
+                    margin: '1rem 0',
                   }}
                 >
                   Parameters
@@ -228,18 +248,20 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
             {!isWorking && simulationResults !== undefined && (
               <div css={simulationContainer}>
-                <Typography variant="body1" sx={{ fontWeight: 200 }}>
-                  Simulation results:&nbsp;
+                <Typography variant="body1" sx={{ fontWeight: 200, marginRight: '0.5rem' }}>
+                  Simulation results:
                 </Typography>
-                {simulationResults?.success ? (
-                  <Typography variant="body1">
-                    {simulationResults?.data.length === 0 ? '-' : simulationResults?.data.toString()}
-                  </Typography>
-                ) : (
-                  <Typography variant="body1" color="error">
-                    {simulationResults?.error}
-                  </Typography>
-                )}{' '}
+                <div css={{ backgroundColor: 'var(--mui-palette-grey-A100)', padding: '0.5rem', borderRadius: '6px' }}>
+                  {simulationResults?.success ? (
+                    <Typography variant="body1">
+                      {simulationResults?.data ?? 'No return value'}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body1" color="error">
+                      {simulationResults?.error}
+                    </Typography>
+                  )}
+                </div>
               </div>
             )}
 
@@ -247,36 +269,77 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
               <Box>
                 {profileResults[fn.name].success ? (
                   <>
-                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
-                      Sync time: {profileResults[fn.name].syncTime?.toFixed(2)}ms
-                    </Typography>
-                    <Typography variant="subtitle1" sx={{ margin: '0.5rem' }}>
-                      Proving time: {profileResults[fn.name].provingTime?.toFixed(2)}ms
-                    </Typography>
-                    <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
-                      <Table>
+                    <TableContainer
+                      component={Paper}
+                      sx={{ marginRight: '0.5rem', backgroundColor: 'var(--mui-palette-grey-A100)' }}
+                    >
+                      <Table size="small">
                         <TableHead>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                               Simulation time
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Gate Count
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                              Subtotal
                             </TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {profileResults[fn.name].executionSteps.map(row => (
-                            <TableRow key={row.functionName}>
+                          {profileResults[fn.name].executionSteps.map((row, i) => (
+                            <TableRow key={i}>
                               <TableCell component="th" scope="row">
                                 {row.functionName}
                               </TableCell>
-                              <TableCell>{Number(row.gateCount).toLocaleString()}</TableCell>
                               <TableCell align="right">{Number(row.timings?.witgen).toLocaleString()}ms</TableCell>
+                              <TableCell align="right">{Number(row.gateCount).toLocaleString()}</TableCell>
+                              <TableCell align="right">{row.subtotal}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
                     </TableContainer>
+                    <Box sx={{ margin: '0.5rem', display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="caption">
+                        Total gates: {profileResults[fn.name].executionSteps.slice(-1)[0].subtotal}
+                        <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.6rem', marginLeft: '0.5rem' }}>
+                          (Biggest circuit: {profileResults[fn.name].biggest.functionName} -{' '}
+                          {profileResults[fn.name].biggest.gateCount})
+                        </Typography>
+                      </Typography>
+                      <Typography variant="caption">
+                        Sync time: {profileResults[fn.name].timings.sync?.toFixed(2)}ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Total simulation time:{' '}
+                        {profileResults[fn.name].timings.perFunction
+                          .reduce((acc, { time }) => acc + time, 0)
+                          .toFixed(2)}
+                        ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Proving time: {profileResults[fn.name].timings.proving?.toFixed(2)}ms
+                      </Typography>
+                      <Typography variant="caption">
+                        Total time: {profileResults[fn.name].timings.total.toFixed(2)}ms
+                        <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.6rem', marginLeft: '0.5rem' }}>
+                          ({profileResults[fn.name].timings.unaccounted.toFixed(2)}ms unaccounted)
+                        </Typography>
+                      </Typography>
+                    </Box>
+                    <Box sx={{ margin: '0.5rem', fontSize: '0.8rem' }}>
+                      <Typography color="warning" variant="caption">
+                        Timing information does not account for gate # computation time, since the operation is not
+                        performed when doing real proving. For completeness, this profile operation spent{' '}
+                        {profileResults[fn.name].executionSteps
+                          .reduce((acc, { timings: { gateCount } }) => acc + gateCount, 0)
+                          .toFixed(2)}
+                        ms computing gate counts
+                      </Typography>
+                    </Box>
                   </>
                 ) : (
                   <Typography variant="body1" color="error">
@@ -294,11 +357,14 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
         <CardActions sx={{ flexWrap: 'wrap', gap: '0.5rem', padding: '12px' }}>
           <Tooltip title="Run a local simulation of function execution.">
             <Button
-              disabled={!wallet || !contract || isWorking}
+              disabled={!wallet || !contract || isWorking || !parametersValid}
               color="primary"
               variant="contained"
               size="small"
-              onClick={() => simulate(fn.name)}
+              onClick={() => {
+                trackButtonClick(`Simulate Transaction`, 'Contract Interaction');
+                simulate(fn.name);
+              }}
               endIcon={<PsychologyIcon />}
               css={actionButton}
             >
@@ -308,7 +374,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Simulate and send the transaction to the Aztec network by creating a client side proof.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
               size="small"
               color="primary"
               variant="contained"
@@ -325,7 +391,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Authorization witnesses (AuthWits) work similarly to permit/approval on Ethereum. They allow execution of functions on behalf of other contracts or addresses.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
               size="small"
               color="primary"
               variant="contained"
@@ -339,7 +405,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Profile this method and get the number of gates used per step. Requires valid function arguments to be set as this runs a simulation internally.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType !== 'private'}
+              disabled={!wallet || !contract || isWorking || fn.functionType !== 'private' || !parametersValid}
               color="primary"
               variant="contained"
               size="small"

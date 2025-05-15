@@ -67,6 +67,8 @@ export class GetEnvVar extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     if (!(this.varEnum in EnvironmentVariable)) {
@@ -74,7 +76,6 @@ export class GetEnvVar extends Instruction {
     }
 
     const operands = [this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
 
     memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));

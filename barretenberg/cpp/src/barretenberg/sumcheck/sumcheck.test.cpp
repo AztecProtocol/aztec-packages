@@ -19,7 +19,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     using ZKData = ZKSumcheckData<Flavor>;
 
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     Polynomial<FF> random_poly(size_t size)
     {

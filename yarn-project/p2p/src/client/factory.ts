@@ -42,7 +42,7 @@ export const createP2PClient = async <T extends P2PClientType>(
 ) => {
   let config = { ..._config, dataStoreMapSizeKB: _config.p2pStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
   const logger = deps.logger ?? createLogger('p2p');
-  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 1, config, createLogger('p2p:lmdb-v2')));
+  const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, createLogger('p2p:lmdb-v2')));
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, createLogger('p2p-archive:lmdb-v2'));
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, createLogger('p2p-peer:lmdb-v2'));
 

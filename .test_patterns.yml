@@ -88,7 +88,12 @@ tests:
     owners:
       - *tom
 
-  # e2e tests
+  # e2e tests skipped
+  - regex: "src/e2e_sequencer/gov_proposal"
+    skip: true
+    owners:
+      - *lasse
+  # e2e tests flakes
   - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
@@ -114,8 +119,6 @@ tests:
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
-    # Too noisey, skipping.
-    skip: true
     error_regex: "Expected: >= 2"
     owners:
       - *palla
@@ -164,6 +167,10 @@ tests:
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
+  - regex: "src/e2e_fees/gas_estimation.test.ts"
+    error_regex: "✕ estimates gas with public payment method"
+    owners:
+      - *jan
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -217,6 +224,11 @@ tests:
     owners:
       - *grego
 
+  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
+    error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *esau
+
   # kind tests
   - regex: "spartan/bootstrap.sh"
     # Will skip all kind tests for now. Too unstable, blocking merge queue.
@@ -238,6 +250,10 @@ tests:
     error_regex: "Is the docker daemon running"
     owners:
       - *charlie
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "code: 124"
+    owners:
+      - *esau
 
   # Slack testing.
   - regex: "nonsense to match"
