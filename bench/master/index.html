@@ -100,6 +100,10 @@
       .dark-theme .benchmark-title {
         color: #e0e0e0;
       }
+      .benchmark-group {
+        margin-top: 8px;
+        margin-bottom: 8px;
+      }
     </style>
     <title>Benchmarks</title>
   </head>
@@ -324,42 +328,47 @@
             // Build flat list of items
             const items = [];
             for (const [benchKey, benches] of benchSet.entries()) {
+              // Use everything except the last path segment as group, last segment as chartName
+              const parts = benchKey.split("/");
               let group = "Ungrouped";
               let chartName = benchKey;
-              const idx = benchKey.indexOf(":");
-              if (idx !== -1) {
-                group = benchKey.substring(0, idx);
-                chartName = benchKey.substring(idx + 1);
+              if (parts.length > 1) {
+                group = parts.slice(0, -1).join("/");
+                chartName = parts[parts.length - 1];
               }
               items.push({ group, chartName, benches });
             }
 
+            console.log(items);
+
             // Build hierarchical tree from group paths.
-            const tree = {};
+            const tree = new Map();
             items.forEach((item) => {
               const parts = item.group.split("/");
               let current = tree;
               parts.forEach((part, idx) => {
-                if (!current[part]) {
-                  current[part] = { children: {}, charts: [] };
+                if (!current.has(part)) {
+                  current.set(part, { children: new Map(), charts: [] });
                 }
                 if (idx === parts.length - 1) {
-                  current[part].charts.push({
+                  current.get(part).charts.push({
                     chartName: item.chartName,
                     benches: item.benches,
                   });
                 }
-                current = current[part].children;
+                current = current.get(part).children;
               });
             });
 
+            console.log(tree);
+
             // Recursively render the tree.
             function renderTree(treeNode, container, level = 0) {
-              for (const key in treeNode) {
+              for (const [key, value] of treeNode.entries()) {
                 const groupContainer = document.createElement("div");
                 groupContainer.className = "benchmark-group";
-                // Increase indent slightly at each level.
-                groupContainer.style.marginLeft = level * 20 + "px";
+                // Use a fixed indent for all nested levels
+                groupContainer.style.marginLeft = (level > 0 ? 10 : 0) + "px";
 
                 const header = document.createElement("div");
                 header.className = "benchmark-group-header";
@@ -367,9 +376,11 @@
                 const toggleIcon = document.createElement("span");
                 // Start collapsed
                 toggleIcon.textContent = "[+] ";
+                toggleIcon.style.cursor = "pointer"; // indicate clickable
                 header.appendChild(toggleIcon);
                 const headerText = document.createElement("span");
                 headerText.textContent = key;
+                headerText.style.cursor = "pointer"; // indicate clickable
                 header.appendChild(headerText);
 
                 const groupContent = document.createElement("div");
@@ -377,7 +388,8 @@
                 // Initially collapse the group
                 groupContent.style.display = "none";
 
-                header.addEventListener("click", () => {
+                // Expand/collapse when clicking either the icon or the text
+                function toggleGroup() {
                   if (groupContent.style.display === "none") {
                     groupContent.style.display = "block";
                     toggleIcon.textContent = "[-] ";
@@ -385,18 +397,20 @@
                     groupContent.style.display = "none";
                     toggleIcon.textContent = "[+] ";
                   }
-                });
+                }
+                toggleIcon.addEventListener("click", toggleGroup);
+                headerText.addEventListener("click", toggleGroup);
 
                 groupContainer.appendChild(header);
                 groupContainer.appendChild(groupContent);
                 container.appendChild(groupContainer);
 
                 // Render charts for this node.
-                treeNode[key].charts.forEach((item) => {
+                value.charts.forEach((item) => {
                   renderGraph(groupContent, item.chartName, item.benches);
                 });
                 // Recursively render child groups with increased indentation.
-                renderTree(treeNode[key].children, groupContent, level + 1);
+                renderTree(value.children, groupContent, level + 1);
               }
             }
 
