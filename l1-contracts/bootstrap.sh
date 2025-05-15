@@ -248,7 +248,7 @@ function validator_costs {
   report="gas_benchmark.new.md"       # will be overwritten each run
 
   # keep ONLY these functions, in this order
-  wanted_funcs="forward setupEpoch submitEpochRootProof"
+  wanted_funcs="propose setupEpoch submitEpochRootProof"
 
   # one label per numeric column (use | to separate)
   labels='Min|Avg|Median|Max|# Calls'
@@ -310,7 +310,7 @@ function validator_costs {
   END{
       for (k = 1; k <= nf; k++) {
           fn = order[k]
-          div = (fn == "forward" ? 360 : 11520)   # change 11520→720 if desired
+          div = (fn == "propose" ? 360 : 11520)   # change 11520→720 if desired
 
           for (j = 1; j <= cols[fn]; j++) {
               idx    = j + 2

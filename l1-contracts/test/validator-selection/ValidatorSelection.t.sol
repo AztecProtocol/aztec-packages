@@ -61,7 +61,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // The proposer is not necessarily an attester, we have to map it back. We can do this here
     // because we created a 1:1 link. In practice, there could be multiple attesters for the same proposer
     address proposer = rollup.getCurrentProposer();
-    assertTrue(_seenCommittee[proposerToAttester[proposer]]);
+    assertTrue(_seenCommittee[proposer]);
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
@@ -78,7 +78,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // Add a validator which will also setup the epoch
     testERC20.mint(address(this), rollup.getMinimumStake());
     testERC20.approve(address(rollup), rollup.getMinimumStake());
-    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
+    rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
@@ -125,7 +125,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // add a new validator
     testERC20.mint(address(this), rollup.getMinimumStake());
     testERC20.approve(address(rollup), rollup.getMinimumStake());
-    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
+    rollup.deposit(address(0xdead), address(0xdead), true);
 
     assertEq(rollup.getCurrentEpoch(), epoch);
     address[] memory committee = rollup.getCurrentEpochCommittee();
@@ -192,8 +192,13 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
+  function testRelayedForProposer() public setup(4) progressEpochs(2) {
+    // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
+    _testBlock("mixed_block_1", false, 4, true);
+  }
+
   function testInvalidProposer() public setup(4) progressEpochs(2) {
-    _testBlock("mixed_block_1", true, 3, true);
+    _testBlock("mixed_block_1", true, 0, true);
   }
 
   function testInsufficientSigs() public setup(4) progressEpochs(2) {
@@ -238,11 +243,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       txHashes: txHashes
     });
 
-    if (_signatureCount > 0 && ree.proposer != address(0)) {
+    if (ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
-      Signature[] memory signatures = new Signature[](_signatureCount);
+      Signature[] memory signatures = new Signature[](validators.length);
 
       ProposePayload memory proposePayload = ProposePayload({
         archive: args.archive,
@@ -256,13 +261,23 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       for (uint256 i = 0; i < _signatureCount; i++) {
         signatures[i] = createSignature(validators[i], digest);
       }
+      for (uint256 i = _signatureCount; i < validators.length; i++) {
+        signatures[i].isEmpty = true;
+      }
+
+      skipBlobCheck(address(rollup));
 
       if (_expectRevert) {
         ree.shouldRevert = true;
-        if (_signatureCount < ree.needed) {
+
+        if (_invalidProposer) {
+          address realProposer = ree.proposer;
+          ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
+          vm.expectRevert(abi.encodeWithSelector(Errors.SignatureLib__CannotVerifyEmpty.selector));
+        } else if (_signatureCount < ree.needed) {
           vm.expectRevert(
             abi.encodeWithSelector(
-              Errors.ValidatorSelection__InsufficientAttestationsProvided.selector,
+              Errors.ValidatorSelection__InsufficientAttestations.selector,
               ree.needed,
               _signatureCount
             )
@@ -270,18 +285,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         }
         // @todo Handle SignatureLib__InvalidSignature case
         // @todo Handle ValidatorSelection__InsufficientAttestations case
-      }
-
-      skipBlobCheck(address(rollup));
-      if (_expectRevert && _invalidProposer) {
-        address realProposer = ree.proposer;
-        ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
-        vm.expectRevert(
-          abi.encodeWithSelector(
-            Errors.ValidatorSelection__InvalidProposer.selector, realProposer, ree.proposer
-          )
-        );
-        ree.shouldRevert = true;
       }
 
       emit log("Time to propose");

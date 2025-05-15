@@ -122,12 +122,10 @@ library StakingLib {
     emit IStakingCore.Slashed(_attester, _amount);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
-    internal
-  {
+  function deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
     require(
-      _attester != address(0) && _proposer != address(0),
-      Errors.Staking__InvalidDeposit(_attester, _proposer)
+      _attester != address(0) && _withdrawer != address(0),
+      Errors.Staking__InvalidDeposit(_attester, _withdrawer)
     );
     StakingStorage storage store = getStorage();
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyRegistered(_attester));
@@ -138,7 +136,7 @@ library StakingLib {
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
     store.stakingAsset.approve(address(store.gse), amount);
-    store.gse.deposit(_attester, _proposer, _withdrawer, _onCanonical);
+    store.gse.deposit(_attester, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient) internal returns (bool) {
@@ -193,11 +191,6 @@ library StakingLib {
     return getStorage().gse.getAttesterFromIndexAtTime(
       address(this), _index, Timestamp.wrap(block.timestamp)
     );
-  }
-
-  function getProposerForAttester(address _attester) internal view returns (address) {
-    (address proposer,,) = getStorage().gse.getProposer(address(this), _attester);
-    return proposer;
   }
 
   function getAttestersFromIndicesAtTime(Timestamp _timestamp, uint256[] memory _indices)

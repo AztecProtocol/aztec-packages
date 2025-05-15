@@ -355,10 +355,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().blobPublicInputsHashes[_blockNumber];
   }
 
-  function getProposerAtIndex(uint256 _index) external view override(IStaking) returns (address) {
-    return getProposerForAttester(getAttesterAtIndex(_index));
-  }
-
   function getConfig(address _attester)
     external
     view
@@ -631,22 +627,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     Slot slot = _ts.slotFromTimestamp();
     Epoch epochNumber = slot.epochFromSlot();
     return ValidatorSelectionLib.getProposerAt(slot, epochNumber);
-  }
-
-  /**
-   * @notice  Get the proposer for an attester
-   *
-   * @param _attester - The attester to get the proposer for
-   *
-   * @return The proposer for the attester
-   */
-  function getProposerForAttester(address _attester)
-    public
-    view
-    override(IStaking)
-    returns (address)
-  {
-    return StakingLib.getProposerForAttester(_attester);
   }
 
   /**
