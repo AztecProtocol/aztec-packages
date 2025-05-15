@@ -98,7 +98,7 @@ mod tests {
     };
     use crate::blob_batching_public_inputs::FinalBlobBatchingChallenges;
     use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as BLSPoint};
-    use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
+    use bigint::{BigNum, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
