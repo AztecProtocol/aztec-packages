@@ -93,7 +93,6 @@ describe('spartan_upgrade_rollup_version', () => {
           aztecEpochDuration: 4,
           aztecTargetCommitteeSize: 48,
           aztecProofSubmissionWindow: 8,
-          minimumStake: BigInt(100e18),
           slashingQuorum: 6,
           slashingRoundSize: 10,
           manaTarget: BigInt(100e6),
