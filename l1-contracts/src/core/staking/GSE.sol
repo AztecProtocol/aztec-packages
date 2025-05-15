@@ -15,7 +15,6 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct AttesterConfig {
   address withdrawer;
-  address proposer;
 }
 
 struct InstanceStaking {
@@ -27,16 +26,13 @@ struct InstanceStaking {
 }
 
 interface IGSE {
-  event Deposit(
-    address indexed instance, address indexed attester, address proposer, address withdrawer
-  );
+  event Deposit(address indexed instance, address indexed attester, address withdrawer);
 
   error GSE__AttesterNotFound(address instance, address attester);
   error GSE__AttesterAlreadyRegistered(address instance, address attester);
 
   function addRollup(address _rollup) external;
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
-    external;
+  function deposit(address _attester, address _withdrawer, bool _onCanonical) external;
   function withdraw(address _attester, uint256 _amount) external returns (uint256, bool);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
@@ -114,7 +110,7 @@ contract GSE is IGSE, Ownable {
     canonical.push(block.timestamp.toUint32(), uint224(uint160(_rollup)));
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
+  function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
     override(IGSE)
     onlyRollup
@@ -134,17 +130,14 @@ contract GSE is IGSE, Ownable {
     InstanceStaking storage instanceStaking =
       instances[_onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender];
     require(instanceStaking.attesters.add(_attester), "Validator already registered");
-    instanceStaking.configOf[_attester] =
-      AttesterConfig({withdrawer: _withdrawer, proposer: _proposer});
+    instanceStaking.configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
     instanceStaking.balanceOf[_attester] += MINIMUM_DEPOSIT;
     instanceStaking.supply += MINIMUM_DEPOSIT;
     totalSupply += MINIMUM_DEPOSIT;
 
     STAKING_ASSET.transferFrom(msg.sender, address(this), MINIMUM_DEPOSIT);
 
-    emit Deposit(
-      _onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender, _attester, _proposer, _withdrawer
-    );
+    emit Deposit(_onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender, _attester, _withdrawer);
   }
 
   /**
@@ -211,7 +204,7 @@ contract GSE is IGSE, Ownable {
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return AttesterConfig({withdrawer: address(0), proposer: address(0)});
+      return AttesterConfig({withdrawer: address(0)});
     }
 
     return instanceStaking.configOf[_attester];
@@ -248,7 +241,7 @@ contract GSE is IGSE, Ownable {
       return (address(0), false, false);
     }
 
-    return (instanceStaking.configOf[_attester].proposer, true, isCanonical);
+    return (_attester, true, isCanonical);
   }
 
   function balanceOf(address _instance, address _attester)
