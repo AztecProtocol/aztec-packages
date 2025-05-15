@@ -997,6 +997,14 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
             extract_db_stats(dbStats);
             return;
         }
+        if (blockNumber != committedMeta.oldestHistoricBlock) {
+            throw std::runtime_error(format("Unable to remove historical block: ",
+                                            blockNumber,
+                                            " oldestHistoricBlock: ",
+                                            committedMeta.oldestHistoricBlock,
+                                            ". Tree name: ",
+                                            forkConstantData_.name_));
+        }
         if (blockNumber >= committedMeta.finalisedBlockHeight) {
             throw std::runtime_error(format("Unable to remove historical block: ",
                                             blockNumber,
