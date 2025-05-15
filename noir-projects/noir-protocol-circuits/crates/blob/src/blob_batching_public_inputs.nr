@@ -3,7 +3,7 @@ use bigcurve::{
     curves::bls12_381::{BLS12_381, BLS12_381_SCALAR_SLICES, BLS12_381Scalar},
     ScalarFieldTrait,
 };
-use bigint::{BigNum, bignum::BigNumTrait, BLS12_381_Fq as Q, BLS12_381_Fr as F};
+use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
 use std::ops::{Add, Mul};
 use types::{
     constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOCK_BLOB_PUBLIC_INPUTS, BLS12_FR_LIMBS},
@@ -33,8 +33,8 @@ impl BatchingBlobCommitment {
 
     // Helper fn largely used in testing to simplify fixtures
     pub fn from_limbs(x_limbs: [u128; 4], y_limbs: [u128; 4]) -> Self {
-        let x = Q { limbs: x_limbs };
-        let y = Q { limbs: y_limbs };
+        let x = Q::from_limbs(x_limbs);
+        let y = Q::from_limbs(y_limbs);
         let point = BLSPoint { x, y, is_infinity: (x.is_zero()) & (y.is_zero()) };
         compress_to_blob_commitment(point)
     }
@@ -43,11 +43,7 @@ impl BatchingBlobCommitment {
     // NOT [0, 0, ..., 0] due to the is_compressed flag:
     pub fn empty_blob() -> Self {
         Self {
-            point: BLSPoint {
-                x: Q { limbs: [0, 0, 0, 0] },
-                y: Q { limbs: [0, 0, 0, 0] },
-                is_infinity: true,
-            },
+            point: BLSPoint { x: Q::zero(), y: Q::zero(), is_infinity: true },
             compressed: [
                 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -83,7 +79,7 @@ impl Empty for BatchingBlobCommitment {
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
     // TODO(#13609): use built in .to_be_bytes() in bignum 0.7.0
-    let mut compressed = bignum_limbs_to_be_bytes::<_, 381>(x.limbs);
+    let mut compressed = x.to_be_bytes();
     let most_sig_bits = byte_to_bits_be(compressed[0]);
     // TODO(MW): May not need to assert this since Bignum may check it's 381 bits?
     for i in 0..3 {
@@ -117,34 +113,10 @@ fn set_flags(flags: [bool; 3], byte: u8) -> u8 {
     // if (is_greater) { flip next most sig bit in u8 => byte |= 2**5 => byte |= 2 << 4 }
     for i in 0..3 {
         if flags[i] {
-            flip += 2 << (6 - i);
+            flip += 2 << (6 - (i as u8));
         }
     }
     byte | flip
-}
-
-// Will be included as .to_be_bytes() in bignum 0.7.0 TODO(#13609): remove when bumped
-fn bignum_limbs_to_be_bytes<let N: u32, let MOD_BITS: u32>(
-    val: [u128; N],
-) -> [u8; (MOD_BITS + 7) / 8] {
-    let mut result: [u8; (MOD_BITS + 7) / 8] = [0; (MOD_BITS + 7) / 8];
-    // the last limb will not have all the 15 bytes so we deal with the full limbs first
-    for i in 0..N - 1 {
-        let index = N - i - 2;
-        let limb_bytes: [u8; 15] = (val[index] as Field).to_be_bytes();
-        for j in 0..15 {
-            // we leave the space for the first byte empty, which would take (MOD_BITS+7)/8 - MOD_BITS/8 bytes
-            result[i * 15 + j + (MOD_BITS + 7) / 8 - (N - 1) * 15] = limb_bytes[j];
-        }
-    }
-    // now we deal with the last limb
-    let last_limb_bytes: [u8; ((MOD_BITS + 7) / 8 - (N - 1) * 15)] =
-        (val[N - 1] as Field).to_be_bytes();
-
-    for i in 0..((MOD_BITS + 7) / 8 - (N - 1) * 15) {
-        result[i] = last_limb_bytes[i];
-    }
-    result
 }
 
 /**
@@ -221,7 +193,7 @@ impl BlobAccumulatorPublicInputs {
     */
     pub fn accumulate(self, other: BlobAccumulationInputs, final_gamma: F) -> Self {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_i = poseidon2_hash(other.y_i.limbs.map(|l| l as Field));
+        let hashed_y_i = poseidon2_hash(other.y_i.get_limbs().map(|l| l as Field));
         Self {
             blob_commitments_hash: sha256_to_field(self
                 .blob_commitments_hash
@@ -237,7 +209,7 @@ impl BlobAccumulatorPublicInputs {
 
     pub fn init(first_output: BlobAccumulationInputs, final_gamma: F) -> Self {
         // TODO(#13608): use a BLS12 based hash? Is using BN based safe - since the output is smaller is there a skew?
-        let hashed_y_0 = poseidon2_hash(first_output.y_i.limbs.map(|l| l as Field));
+        let hashed_y_0 = poseidon2_hash(first_output.y_i.get_limbs().map(|l| l as Field));
         Self {
             blob_commitments_hash: sha256_to_field(first_output.c_i.compressed),
             z: first_output.z_i,
@@ -298,11 +270,11 @@ impl Serialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
         let mut fields: BoundedVec<Field, BLOB_ACCUMULATOR_PUBLIC_INPUTS> = BoundedVec::new();
         fields.push(self.blob_commitments_hash);
         fields.push(self.z);
-        fields.extend_from_array(self.y.limbs.map(|l| l as Field));
-        fields.extend_from_array(self.c.x.limbs.map(|l| l as Field));
-        fields.extend_from_array(self.c.y.limbs.map(|l| l as Field));
+        fields.extend_from_array(self.y.get_limbs().map(|l| l as Field));
+        fields.extend_from_array(self.c.x.get_limbs().map(|l| l as Field));
+        fields.extend_from_array(self.c.y.get_limbs().map(|l| l as Field));
         fields.push(self.gamma);
-        fields.extend_from_array(self.gamma_pow.limbs.map(|l| l as Field));
+        fields.extend_from_array(self.gamma_pow.get_limbs().map(|l| l as Field));
         fields.storage()
     }
 }
@@ -313,14 +285,14 @@ impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs
         let mut item = Self {
             blob_commitments_hash: reader.read(),
             z: reader.read(),
-            y: F { limbs: reader.read_array().map(|e| e as u128) },
+            y: F::from_limbs(reader.read_array().map(|e| e as u128)),
             c: BLSPoint {
-                x: Q { limbs: reader.read_array().map(|e| e as u128) },
-                y: Q { limbs: reader.read_array().map(|e| e as u128) },
+                x: Q::from_limbs(reader.read_array().map(|e| e as u128)),
+                y: Q::from_limbs(reader.read_array().map(|e| e as u128)),
                 is_infinity: false,
             },
             gamma: reader.read(),
-            gamma_pow: F { limbs: reader.read_array().map(|e| e as u128) },
+            gamma_pow: F::from_limbs(reader.read_array().map(|e| e as u128)),
         };
         if (item.c.x.eq(Q::zero())) & (item.c.y.eq(Q::zero())) {
             item.c.is_infinity = true;
@@ -365,7 +337,7 @@ impl Serialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
     fn serialize(self) -> [Field; BLS12_FR_LIMBS + 1] {
         let mut fields: BoundedVec<Field, BLS12_FR_LIMBS + 1> = BoundedVec::new();
         fields.push(self.z);
-        fields.extend_from_array(self.gamma.limbs.map(|l| l as Field));
+        fields.extend_from_array(self.gamma.get_limbs().map(|l| l as Field));
         fields.storage()
     }
 }
@@ -374,7 +346,7 @@ impl Deserialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
     fn deserialize(fields: [Field; BLS12_FR_LIMBS + 1]) -> Self {
         let mut reader = Reader::new(fields);
         let mut item =
-            Self { z: reader.read(), gamma: F { limbs: reader.read_array().map(|e| e as u128) } };
+            Self { z: reader.read(), gamma: F::from_limbs(reader.read_array().map(|e| e as u128)) };
         item
     }
 }
@@ -440,7 +412,7 @@ mod tests {
         CurveParamsTrait,
         curves::bls12_381::{BLS12_381 as Point, BLS12_381_Params},
     };
-    use bigint::{BigNumTrait, BLS12_381_Fq as Q};
+    use bigint::{BigNum, BLS12_381_Fq as Q};
     use std::ops::{Add, Mul};
     use types::traits::{Deserialize, Empty, Serialize};
 

@@ -9,7 +9,7 @@ use crate::{
     },
     blob_public_inputs::BlobCommitment,
 };
-use bigint::{BigNumTrait, BLS12_381_Fr as F};
+use bigint::{BigNum, BLS12_381_Fr as F};
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -95,7 +95,7 @@ mod tests {
     };
     use crate::blob_batching_public_inputs::FinalBlobBatchingChallenges;
     use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as BLSPoint};
-    use bigint::{BigNumTrait, BLS12_381_Fq as Q, BLS12_381_Fr as F};
+    use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -137,9 +137,11 @@ mod tests {
             // = z_0
             z: 0x135d767e8b86b949d264be7a6b71d257c538893f3cef60c95d76ba420df18c3c,
             // = H(y_0, z_0)
-            gamma: F {
-                limbs: [0xda0ebb0c577c62d5954852cf7a8863, 0xaac05db8dabf148f011d29f2d308e4, 0x0b28],
-            },
+            gamma: F::from_limbs([
+                0xda0ebb0c577c62d5954852cf7a8863,
+                0xaac05db8dabf148f011d29f2d308e4,
+                0x0b28,
+            ]),
         };
         // Evaluation
         let res = evaluate_blobs_and_batch(
@@ -158,9 +160,11 @@ mod tests {
         assert_eq(final_acc.gamma_pow, final_challenges.gamma);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-        let expected_y: F = F {
-            limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c],
-        };
+        let expected_y: F = F::from_limbs([
+            0xdde7b57ab99b51e4b06e7d827b6c4c,
+            0x4f0c0ee5e7dd037110686a4639d191,
+            0x212c,
+        ]);
         assert_eq(final_acc.y, expected_y);
 
         // Since i = 1, blob_commitments_hash is just the sha256 hash of the single (compressed) commitment
@@ -241,9 +245,11 @@ mod tests {
             // - The final z value is injected and checked for correctness in root (see below final_acc)
             z: 0x02d6a54e591ada73e5eea35188a02ac87779f4293ea3e7d675fa50ae7ff332ce,
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-            gamma: F {
-                limbs: [0x281287a8d44071d216177e06a02327, 0x16571aa3dcfef75c2447c705c6c68a, 0x16f2],
-            },
+            gamma: F::from_limbs([
+                0x281287a8d44071d216177e06a02327,
+                0x16571aa3dcfef75c2447c705c6c68a,
+                0x16f2,
+            ]),
         };
         // Init. the accumulator
         let start_acc = BlobAccumulatorPublicInputs::empty();
@@ -267,30 +273,28 @@ mod tests {
         );
 
         // y is a BLS Fr field with value 0x0cd2fd9a46ba70fd7f212d08ec7283024b0b1ff9446b1f78a482fb7443e49b57
-        let expected_y = F {
-            limbs: [0x0b1ff9446b1f78a482fb7443e49b57, 0xfd9a46ba70fd7f212d08ec7283024b, 0x0cd2],
-        };
+        let expected_y = F::from_limbs([
+            0x0b1ff9446b1f78a482fb7443e49b57,
+            0xfd9a46ba70fd7f212d08ec7283024b,
+            0x0cd2,
+        ]);
 
         // C is a BLS point with value:
         // x: 0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e,
         // y: 0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254,
         let expected_c = BLSPoint {
-            x: Q {
-                limbs: [
-                    0x2616100269935afcb1b98c85d5e93e,
-                    0x96a76064f68c0d4f659f25a046a6d4,
-                    0x62cc6c3ab4c1ac1abcb9da9677e127,
-                    0x0f2f5f,
-                ],
-            },
-            y: Q {
-                limbs: [
-                    0x7160da282e6c41bab917c868923254,
-                    0xea9bf82ff948a1d01912615c4a8e50,
-                    0xabfa449daf65201c2b24507b1058d8,
-                    0x0af1e4,
-                ],
-            },
+            x: Q::from_limbs([
+                0x2616100269935afcb1b98c85d5e93e,
+                0x96a76064f68c0d4f659f25a046a6d4,
+                0x62cc6c3ab4c1ac1abcb9da9677e127,
+                0x0f2f5f,
+            ]),
+            y: Q::from_limbs([
+                0x7160da282e6c41bab917c868923254,
+                0xea9bf82ff948a1d01912615c4a8e50,
+                0xabfa449daf65201c2b24507b1058d8,
+                0x0af1e4,
+            ]),
             is_infinity: false,
         };
 
