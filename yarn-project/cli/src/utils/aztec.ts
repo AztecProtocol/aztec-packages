@@ -9,7 +9,6 @@ import {
 import {
   type DeployL1ContractsReturnType,
   type L1ContractsConfig,
-  RegistryContract,
   RollupContract,
 } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
