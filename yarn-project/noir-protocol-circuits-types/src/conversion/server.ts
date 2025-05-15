@@ -10,7 +10,6 @@ import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
-  BLOBS_PER_BLOCK,
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
@@ -22,7 +21,7 @@ import {
   type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { type AvmAccumulatedData, type AvmCircuitPublicInputs, PublicDataHint, RevertCode } from '@aztec/stdlib/avm';
 import {
@@ -65,10 +64,11 @@ import type {
   AvmAccumulatedData as AvmAccumulatedDataNoir,
   AvmCircuitPublicInputs as AvmCircuitPublicInputsNoir,
   AvmProofData as AvmProofDataNoir,
+  BLS12_381_Fq as BLS12FqNoir,
+  BLS12_381_Fr as BLS12FrNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
   BigCurve,
-  BigNum,
   BlobAccumulatorPublicInputs as BlobAccumulatorPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
@@ -81,7 +81,6 @@ import type {
   FeeRecipient as FeeRecipientNoir,
   FinalBlobAccumulatorPublicInputs as FinalBlobAccumulatorPublicInputsNoir,
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
-  FixedLengthArray,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
@@ -157,11 +156,11 @@ import {
  * @param number - The BigNum representing the number.
  * @returns The number
  */
-export function mapBLS12FrFromNoir(bignum: BigNum<typeof BLS12_FR_LIMBS>): BLS12Fr {
+export function mapBLS12FrFromNoir(bignum: BLS12FrNoir): BLS12Fr {
   return BLS12Fr.fromNoirBigNum(bignum);
 }
 
-export function mapBLS12FrToNoir(number: BLS12Fr): BigNum<typeof BLS12_FR_LIMBS> {
+export function mapBLS12FrToNoir(number: BLS12Fr): BLS12FrNoir {
   return {
     limbs: assertLength(number.toNoirBigNum().limbs, BLS12_FR_LIMBS),
   };
@@ -171,11 +170,11 @@ export function mapBLS12FrToNoir(number: BLS12Fr): BigNum<typeof BLS12_FR_LIMBS>
  * @param number - The BigNum representing the number.
  * @returns The number
  */
-export function mapBLS12FqFromNoir(bignum: BigNum<typeof BLS12_FQ_LIMBS>): BLS12Fq {
+export function mapBLS12FqFromNoir(bignum: BLS12FqNoir): BLS12Fq {
   return BLS12Fq.fromNoirBigNum(bignum);
 }
 
-export function mapBLS12FqToNoir(number: BLS12Fq): BigNum<typeof BLS12_FQ_LIMBS> {
+export function mapBLS12FqToNoir(number: BLS12Fq): BLS12FqNoir {
   return {
     limbs: assertLength(number.toNoirBigNum().limbs, BLS12_FQ_LIMBS),
   };

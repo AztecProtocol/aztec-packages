@@ -143,14 +143,20 @@ library ProposeLib {
     );
 
     uint256 i = 0;
-    if (rollupStore.blobCommitmentsHash == bytes32(0) && v.blobCommitments.length != 0) {
+    bytes32 currentblobCommitmentsHash = rollupStore.blobCommitmentsHash[blockNumber - 1];
+    // If we are at the first block of an epoch, we reinitialise the blobCommitmentsHash.
+    // Blob commitments are collected and proven per root rollup proof => per epoch.
+    bool isFirstBlockOfEpoch =
+      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+    if (isFirstBlockOfEpoch && v.blobCommitments.length != 0) {
       // Initialise the blobAccumulatorHash
-      rollupStore.blobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(v.blobCommitments[i++]));
+      currentblobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(v.blobCommitments[i++]));
     }
     for (i; i < v.blobCommitments.length; i++) {
-      rollupStore.blobCommitmentsHash =
-        Hash.sha256ToField(abi.encodePacked(rollupStore.blobCommitmentsHash, v.blobCommitments[i]));
+      currentblobCommitmentsHash =
+        Hash.sha256ToField(abi.encodePacked(currentblobCommitmentsHash, v.blobCommitments[i]));
     }
+    rollupStore.blobCommitmentsHash[blockNumber] = currentblobCommitmentsHash;
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     v.inHash = rollupStore.config.inbox.consume(blockNumber);

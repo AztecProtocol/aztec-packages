@@ -102,7 +102,6 @@ impl BlockRootRollupOutputComposer {
         let end_blob_accumulator = if is_padding {
             self.data.start_blob_accumulator
         } else {
-            // TODO(MW): check this - we don't usually eval empty blobs, unsure why this specific empty path evalutes them (L1 checks?)
             if is_empty(self.data.start_blob_accumulator) {
                 BlobAccumulatorPublicInputs::init(
                     empty_effect_blob_accumulation_input,

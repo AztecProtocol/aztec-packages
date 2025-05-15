@@ -224,7 +224,7 @@ library EpochProofLib {
     // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in validateBatchedBlob().
 
     // blobCommitmentsHash
-    publicInputs[offset] = rollupStore.blobCommitmentsHash;
+    publicInputs[offset] = rollupStore.blobCommitmentsHash[_end];
     offset += 1;
 
     // z
@@ -236,9 +236,13 @@ library EpochProofLib {
       bytes32ToBigNum(bytes32(_blobPublicInputs[64:96]));
     offset += 3;
 
-    // c.x, c.y
-    publicInputs[offset] = bytes32(_blobPublicInputs[96:127]);
-    publicInputs[offset + 1] = bytes32(_blobPublicInputs[127:144]);
+    // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
+    // TODO: The below left pads, possibly inefficiently
+    // c[0]
+    publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
+    // c[1]
+    publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
     offset += 2;
 
     return publicInputs;
@@ -341,6 +345,8 @@ library EpochProofLib {
 
     bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.provenBlockNumber;
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
+
+    // TODO(MW): Should we assert end - start < AZTEC_MAX_EPOCH_DURATION here?
 
     return endEpoch;
   }

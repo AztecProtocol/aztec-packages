@@ -105,7 +105,9 @@ struct RollupStore {
   // to one another.
   mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
   RollupConfig config;
-  bytes32 blobCommitmentsHash; // = H(...H(H(commitment_0), commitment_1).... commitment_n - used to validate we are using the same blob commitments on L1 and in the rollup circuit
+  // TODO(MW): We only ever need to store AZTEC_MAX_EPOCH_DURATION values below => make fixed length and overwrite once we start a new epoch
+  // Requires us to clear values on successful proven epoch and check when a block starts a new epoch.
+  mapping(uint256 blockNumber => bytes32) blobCommitmentsHash; // = H(...H(H(commitment_0), commitment_1).... commitment_n - used to validate we are using the same blob commitments on L1 and in the rollup circuit
 }
 
 interface ITestRollup {
@@ -202,6 +204,7 @@ interface IRollup is IRollupCore {
   function getPendingBlockNumber() external view returns (uint256);
   function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
   function getFeeHeader(uint256 _blockNumber) external view returns (FeeHeader memory);
+  function getBlobCommitmentsHash(uint256 _blockNumber) external view returns (bytes32);
   function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
   function getSequencerRewards(address _sequencer) external view returns (uint256);

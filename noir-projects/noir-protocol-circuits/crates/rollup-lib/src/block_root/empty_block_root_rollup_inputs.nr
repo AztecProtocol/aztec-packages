@@ -11,9 +11,6 @@ use crate::{
 use blob::blob_batching_public_inputs::{BatchingBlobCommitment, BlobAccumulationInputs};
 use types::{abis::constant_rollup_data::ConstantRollupData, traits::Empty};
 
-// TODO(MW): Look more into this - the blob code should just skip empty effects and this shouldn't have
-// been needed in the first place?
-
 pub global EMPTY_EFFECT_BLOBS_HASH: Field =
     0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9;
 pub global EMPTY_EFFECT_BLOB_COMMITMENT: BatchingBlobCommitment =
