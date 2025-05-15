@@ -12,10 +12,15 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
   local binary=$1
-  local version=$(jq -r '."."' ../../.release-please-manifest.json)
+  if semver check "$REF_NAME"; then
+    local version=${REF_NAME#v}
+  else
+    # Otherwise, use the commit hash as the version.
+    local version=$(git rev-parse --short HEAD)
+  fi
   local placeholder='00000000.00000000.00000000'
   if [ ${#version} -gt ${#placeholder} ]; then
-    echo "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
+    echo_stderr "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
     exit 1
   fi
   local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
