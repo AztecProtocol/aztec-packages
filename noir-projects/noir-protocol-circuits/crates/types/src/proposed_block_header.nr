@@ -7,7 +7,9 @@ use crate::{
     traits::{Deserialize, Empty, FromField, Hash, Serialize, ToField},
     utils::reader::Reader,
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ProposedBlockHeader {
     pub last_archive_root: Field,
     pub content_commitment: ContentCommitment,
@@ -20,53 +22,6 @@ pub struct ProposedBlockHeader {
     pub gas_fees: GasFees,
 
     pub total_mana_used: Field,
-}
-
-impl Eq for ProposedBlockHeader {
-    fn eq(self, other: Self) -> bool {
-        self.last_archive_root.eq(other.last_archive_root)
-            & self.content_commitment.eq(other.content_commitment)
-            & (self.slot_number == 0)
-            & (self.timestamp == 0)
-            & (self.coinbase.is_zero())
-            & (self.fee_recipient.is_zero())
-            & (self.gas_fees.is_empty())
-            & self.total_mana_used.eq(other.total_mana_used)
-    }
-}
-
-impl Serialize<PROPOSED_BLOCK_HEADER_LENGTH> for ProposedBlockHeader {
-    fn serialize(self) -> [Field; PROPOSED_BLOCK_HEADER_LENGTH] {
-        let mut serialized: BoundedVec<Field, PROPOSED_BLOCK_HEADER_LENGTH> = BoundedVec::new();
-
-        serialized.push(self.last_archive_root);
-        serialized.extend_from_array(self.content_commitment.serialize());
-        serialized.push(self.slot_number);
-        serialized.push(self.timestamp as Field);
-        serialized.push(self.coinbase.to_field());
-        serialized.push(self.fee_recipient.to_field());
-        serialized.extend_from_array(self.gas_fees.serialize());
-        serialized.push(self.total_mana_used);
-
-        serialized.storage()
-    }
-}
-
-impl Deserialize<PROPOSED_BLOCK_HEADER_LENGTH> for ProposedBlockHeader {
-    fn deserialize(serialized: [Field; PROPOSED_BLOCK_HEADER_LENGTH]) -> Self {
-        let mut reader = Reader::new(serialized);
-
-        ProposedBlockHeader {
-            last_archive_root: reader.read(),
-            content_commitment: reader.read_struct(ContentCommitment::deserialize),
-            slot_number: reader.read(),
-            timestamp: reader.read() as u64,
-            coinbase: EthAddress::from_field(reader.read()),
-            fee_recipient: AztecAddress::from_field(reader.read()),
-            gas_fees: reader.read_struct(GasFees::deserialize),
-            total_mana_used: reader.read(),
-        }
-    }
 }
 
 impl Empty for ProposedBlockHeader {
