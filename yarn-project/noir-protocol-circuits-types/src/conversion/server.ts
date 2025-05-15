@@ -1,9 +1,17 @@
-import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
+import {
+  BlobAccumulatorPublicInputs,
+  BlockBlobPublicInputs,
+  FinalBlobAccumulatorPublicInputs,
+  FinalBlobBatchingChallenges,
+  Poseidon2Sponge,
+  SpongeBlob,
+} from '@aztec/blob-lib';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
-  BLOBS_PER_BLOCK,
+  BLS12_FQ_LIMBS,
+  BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -12,9 +20,8 @@ import {
   ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
-import { toHex } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
-import { type Tuple, mapTuple } from '@aztec/foundation/serialize';
+import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { type AvmAccumulatedData, type AvmCircuitPublicInputs, PublicDataHint, RevertCode } from '@aztec/stdlib/avm';
 import {
@@ -60,9 +67,9 @@ import type {
   AvmProofData as AvmProofDataNoir,
   BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
   BaseParityInputs as BaseParityInputsNoir,
-  BLS12_381_Fr as BigNum,
-  BlobCommitment as BlobCommitmentNoir,
-  BlobPublicInputs as BlobPublicInputsNoir,
+  BigCurve,
+  BigNum,
+  BlobAccumulatorPublicInputs as BlobAccumulatorPublicInputsNoir,
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
@@ -73,6 +80,8 @@ import type {
   ContractClassLog as ContractClassLogNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   FeeRecipient as FeeRecipientNoir,
+  FinalBlobAccumulatorPublicInputs as FinalBlobAccumulatorPublicInputsNoir,
+  FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
   FixedLengthArray,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
@@ -145,26 +154,46 @@ import {
 /* eslint-disable camelcase */
 
 /**
- * Maps a BigNum coming to/from noir.
- * TODO(): Is BigInt the best way to represent this?
  * @param number - The BigNum representing the number.
  * @returns The number
  */
-export function mapBLS12BigNumFromNoir(bignum: BigNum): bigint {
-  // TODO(Miranda): there's gotta be a better way to convert this
-  const paddedLimbs = [
-    `0x` + bignum.limbs[2].substring(2).padStart(4, '0'),
-    bignum.limbs[1].substring(2).padStart(30, '0'),
-    bignum.limbs[0].substring(2).padStart(30, '0'),
-  ];
-  return BigInt(paddedLimbs[0].concat(paddedLimbs[1], paddedLimbs[2]));
+export function mapBLS12FrFromNoir(bignum: BigNum<typeof BLS12_FR_LIMBS>): BLS12Fr {
+  return BLS12Fr.fromNoirBigNum(bignum);
 }
 
-// TODO(MW): Use BLS12Field's .toNoirBigNum()
-export function mapBLS12BigNumToNoir(number: bigint): BigNum {
-  const hex = toHex(number, true);
+export function mapBLS12FrToNoir(number: BLS12Fr): BigNum<typeof BLS12_FR_LIMBS> {
   return {
-    limbs: ['0x' + hex.substring(36), '0x' + hex.substring(6, 36), hex.substring(0, 6)],
+    limbs: assertLength(number.toNoirBigNum().limbs, BLS12_FR_LIMBS),
+  };
+}
+
+/**
+ * @param number - The BigNum representing the number.
+ * @returns The number
+ */
+export function mapBLS12FqFromNoir(bignum: BigNum<typeof BLS12_FQ_LIMBS>): BLS12Fq {
+  return BLS12Fq.fromNoirBigNum(bignum);
+}
+
+export function mapBLS12FqToNoir(number: BLS12Fq): BigNum<typeof BLS12_FQ_LIMBS> {
+  return {
+    limbs: assertLength(number.toNoirBigNum().limbs, BLS12_FQ_LIMBS),
+  };
+}
+
+/**
+ * @param number - The BigCurve representing the point.
+ * @returns The point
+ */
+export function mapBLS12PointFromNoir(bigcurve: BigCurve): BLS12Point {
+  return new BLS12Point(mapBLS12FqFromNoir(bigcurve.x), mapBLS12FqFromNoir(bigcurve.y), bigcurve.is_infinity);
+}
+
+export function mapBLS12PointToNoir(point: BLS12Point): BigCurve {
+  return {
+    x: mapBLS12FqToNoir(point.x),
+    y: mapBLS12FqToNoir(point.y),
+    is_infinity: point.isInfinite,
   };
 }
 
@@ -234,39 +263,85 @@ export function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
 }
 
 /**
- * Maps blob commitment to noir.
- * @param commitment - The stdlib commitment.
- * @returns The noir commitment.
+ * Maps blob challenges to noir.
+ * @param challenges - The stdlib challenges.
+ * @returns The noir challenges.
  */
-export function mapBlobCommitmentToNoir(commitment: [Fr, Fr]): BlobCommitmentNoir {
+export function mapFinalBlobBatchingChallengesToNoir(
+  challenges: FinalBlobBatchingChallenges,
+): FinalBlobBatchingChallengesNoir {
   return {
-    inner: mapTuple(commitment, mapFieldToNoir),
+    z: mapFieldToNoir(challenges.z),
+    gamma: mapBLS12FrToNoir(challenges.gamma),
   };
 }
 
 /**
- * Maps blob public inputs to noir.
- * @param blobPublicInputs - The stdlib blob public inputs.
- * @returns The noir blob public inputs.
+ * Maps blob challenges from noir.
+ * @param challenges - The noir challenges.
+ * @returns The stdlib challenges.
  */
-export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): BlobPublicInputsNoir {
+export function mapFinalBlobBatchingChallengesFromNoir(
+  challenges: FinalBlobBatchingChallengesNoir,
+): FinalBlobBatchingChallenges {
+  return new FinalBlobBatchingChallenges(mapFieldFromNoir(challenges.z), mapBLS12FrFromNoir(challenges.gamma));
+}
+
+/**
+ * Maps blob accumulator public inputs to noir.
+ * @param blobPublicInputs - The stdlib blob accumulator inputs.
+ * @returns The noir blob accumulator public inputs.
+ */
+export function mapBlobAccumulatorPublicInputsToNoir(
+  blobPublicInputs: BlobAccumulatorPublicInputs,
+): BlobAccumulatorPublicInputsNoir {
   return {
+    blob_commitments_hash: mapFieldToNoir(blobPublicInputs.blobCommitmentsHash),
     z: mapFieldToNoir(blobPublicInputs.z),
-    y: mapBLS12BigNumToNoir(blobPublicInputs.y),
-    kzg_commitment: mapBlobCommitmentToNoir(blobPublicInputs.kzgCommitment),
+    y: mapBLS12FrToNoir(blobPublicInputs.y),
+    c: mapBLS12PointToNoir(blobPublicInputs.c),
+    gamma: mapFieldToNoir(blobPublicInputs.gamma),
+    gamma_pow: mapBLS12FrToNoir(blobPublicInputs.gammaPow),
   };
 }
 
 /**
- * Maps blob public inputs from noir.
- * @param blobPublicInputs - The noir blob public inputs.
- * @returns The stdlib blob public inputs.
+ * Maps blob accumulator public inputs from noir.
+ * @param blobPublicInputs - The noir blob accumulator public inputs.
+ * @returns The stdlib blob accumulator inputs.
  */
-export function mapBlobPublicInputsFromNoir(blobPublicInputs: BlobPublicInputsNoir): BlobPublicInputs {
-  return new BlobPublicInputs(
+export function mapBlobAccumulatorPublicInputsFromNoir(
+  blobPublicInputs: BlobAccumulatorPublicInputsNoir,
+): BlobAccumulatorPublicInputs {
+  return new BlobAccumulatorPublicInputs(
+    mapFieldFromNoir(blobPublicInputs.blob_commitments_hash),
     mapFieldFromNoir(blobPublicInputs.z),
-    mapBLS12BigNumFromNoir(blobPublicInputs.y),
-    mapTupleFromNoir(blobPublicInputs.kzg_commitment.inner, 2, mapFieldFromNoir),
+    mapBLS12FrFromNoir(blobPublicInputs.y),
+    mapBLS12PointFromNoir(blobPublicInputs.c),
+    mapFieldFromNoir(blobPublicInputs.gamma),
+    mapBLS12FrFromNoir(blobPublicInputs.gamma_pow),
+  );
+}
+
+/**
+ * Maps final blob accumulator public inputs from noir.
+ * @param finalBlobPublicInputs - The noir blob accumulator public inputs.
+ * @returns The stdlib final blob accumulator inputs.
+ */
+export function mapFinalBlobAccumulatorPublicInputsFromNoir(
+  finalBlobPublicInputs: FinalBlobAccumulatorPublicInputsNoir,
+): FinalBlobAccumulatorPublicInputs {
+  return new FinalBlobAccumulatorPublicInputs(
+    mapFieldFromNoir(finalBlobPublicInputs.blob_commitments_hash),
+    mapFieldFromNoir(finalBlobPublicInputs.z),
+    mapBLS12FrFromNoir(finalBlobPublicInputs.y),
+    // TODO(MW): add conversion when public inputs final
+    BLS12Point.decompress(
+      Buffer.concat([
+        mapFieldFromNoir(finalBlobPublicInputs.c[0]).toBuffer().subarray(1),
+        mapFieldFromNoir(finalBlobPublicInputs.c[1]).toBuffer().subarray(-17),
+      ]),
+    ),
   );
 }
 
@@ -279,7 +354,9 @@ export function mapBlockBlobPublicInputsToNoir(
   blockBlobPublicInputs: BlockBlobPublicInputs,
 ): BlockBlobPublicInputsNoir {
   return {
-    inner: mapTuple(blockBlobPublicInputs.inner, mapBlobPublicInputsToNoir),
+    start_blob_accumulator: mapBlobAccumulatorPublicInputsToNoir(blockBlobPublicInputs.startBlobAccumulator),
+    end_blob_accumulator: mapBlobAccumulatorPublicInputsToNoir(blockBlobPublicInputs.endBlobAccumulator),
+    final_blob_challenges: mapFinalBlobBatchingChallengesToNoir(blockBlobPublicInputs.finalBlobChallenges),
   };
 }
 
@@ -292,7 +369,9 @@ export function mapBlockBlobPublicInputsFromNoir(
   blockBlobPublicInputs: BlockBlobPublicInputsNoir,
 ): BlockBlobPublicInputs {
   return new BlockBlobPublicInputs(
-    mapTupleFromNoir(blockBlobPublicInputs.inner, BLOBS_PER_BLOCK, mapBlobPublicInputsFromNoir),
+    mapBlobAccumulatorPublicInputsFromNoir(blockBlobPublicInputs.start_blob_accumulator),
+    mapBlobAccumulatorPublicInputsFromNoir(blockBlobPublicInputs.end_blob_accumulator),
+    mapFinalBlobBatchingChallengesFromNoir(blockBlobPublicInputs.final_blob_challenges),
   );
 }
 
@@ -391,7 +470,7 @@ export function mapBlockRootOrBlockMergePublicInputsToNoir(
     vk_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(blockRootOrBlockMergePublicInputs.protocolContractTreeRoot),
     prover_id: mapFieldToNoir(blockRootOrBlockMergePublicInputs.proverId),
-    blob_public_inputs: mapTuple(blockRootOrBlockMergePublicInputs.blobPublicInputs, mapBlockBlobPublicInputsToNoir),
+    blob_public_inputs: mapBlockBlobPublicInputsToNoir(blockRootOrBlockMergePublicInputs.blobPublicInputs),
   };
 }
 
@@ -441,11 +520,7 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.vk_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(rootRollupPublicInputs.prover_id),
-    mapTupleFromNoir(
-      rootRollupPublicInputs.blob_public_inputs,
-      AZTEC_MAX_EPOCH_DURATION,
-      mapBlockBlobPublicInputsFromNoir,
-    ),
+    mapFinalBlobAccumulatorPublicInputsFromNoir(rootRollupPublicInputs.blob_public_inputs),
   );
 }
 
@@ -609,11 +684,7 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.vk_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.protocol_contract_tree_root),
     mapFieldFromNoir(blockRootOrBlockMergePublicInputs.prover_id),
-    mapTupleFromNoir(
-      blockRootOrBlockMergePublicInputs.blob_public_inputs,
-      AZTEC_MAX_EPOCH_DURATION,
-      mapBlockBlobPublicInputsFromNoir,
-    ),
+    mapBlockBlobPublicInputsFromNoir(blockRootOrBlockMergePublicInputs.blob_public_inputs),
   );
 }
 
@@ -675,6 +746,8 @@ function mapBlockRootRollupDataToNoir(data: BlockRootRollupData): BlockRootRollu
     previous_archive_sibling_path: mapTuple(data.previousArchiveSiblingPath, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(data.newArchiveSiblingPath, mapFieldToNoir),
     previous_block_header: mapHeaderToNoir(data.previousBlockHeader),
+    start_blob_accumulator: mapBlobAccumulatorPublicInputsToNoir(data.startBlobAccumulator),
+    final_blob_challenges: mapFinalBlobBatchingChallengesToNoir(data.finalBlobChallenges),
     prover_id: mapFieldToNoir(data.proverId),
   };
 }
@@ -683,7 +756,7 @@ function mapBlockRootRollupBlobDataToNoir(data: BlockRootRollupBlobData): BlockR
   return {
     // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     blobs_fields: mapTuple(data.blobFields, mapFieldToNoir),
-    blob_commitments: mapTuple(data.blobCommitments, mapBlobCommitmentToNoir),
+    blob_commitments: mapTuple(data.blobCommitments, mapBLS12PointToNoir),
     blobs_hash: mapFieldToNoir(data.blobsHash),
   };
 }

@@ -17,6 +17,9 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
+// TODO(MW): prover-node does not use blob-lib, probably for a good reason, so not importing it for now
+import type { BatchedBlob } from '../../blob-lib/src/blob_batching.js';
+import { FinalBlobAccumulatorPublicInputs } from '../../blob-lib/src/blob_batching_public_inputs.js';
 import { ProverNodePublisherMetrics } from './metrics.js';
 
 /**
@@ -94,6 +97,7 @@ export class ProverNodePublisher {
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
@@ -146,8 +150,9 @@ export class ProverNodePublisher {
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }) {
-    const { fromBlock, toBlock, publicInputs } = args;
+    const { fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
@@ -176,8 +181,16 @@ export class ProverNodePublisher {
       );
     }
 
+    // Check the batched blob inputs from the root rollup against the batched blob computed in ts
+    // TODO(MW): There is probably a way to add the opening proof Q to publicInputs, but it's not needed in the circuit => may be confusing
+    if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))) {
+      throw new Error(`Batched blob mismatch: ${publicInputs.blobPublicInputs} !== ${batchedBlobInputs}`);
+    }
+
     // Compare the public inputs computed by the contract with the ones injected
-    const rollupPublicInputs = await this.rollupContract.getEpochProofPublicInputs(this.getSubmitEpochProofArgs(args));
+    const rollupPublicInputs = await this.rollupContract.getEpochProofPublicInputs(
+      this.getEpochProofPublicInputsArgs(args),
+    );
     const argsPublicInputs = [...publicInputs.toFields()];
 
     if (!areArraysEqual(rollupPublicInputs.map(Fr.fromHexString), argsPublicInputs, (a, b) => a.equals(b))) {
@@ -193,20 +206,9 @@ export class ProverNodePublisher {
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }): Promise<TransactionReceipt | undefined> {
-    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-    const argsArray = this.getSubmitEpochProofArgs(args);
-
-    const txArgs = [
-      {
-        start: argsArray[0],
-        end: argsArray[1],
-        args: argsArray[2],
-        fees: argsArray[3],
-        blobPublicInputs: argsArray[4],
-        proof: proofHex,
-      },
-    ] as const;
+    const txArgs = [this.getSubmitEpochProofArgs(args)] as const;
 
     this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
     const data = encodeFunctionData({
@@ -231,7 +233,7 @@ export class ProverNodePublisher {
           abi: RollupAbi,
           address: this.rollupContract.address,
         },
-        /*blobInputs*/ undefined,
+        /*blobInputs*/ undefined, // TODO(MW): shouldn't this be filled? wrong blob inputs can cause an error
         /*stateOverride*/ [],
       );
       this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
@@ -239,32 +241,50 @@ export class ProverNodePublisher {
     }
   }
 
-  private getSubmitEpochProofArgs(args: {
+  private getEpochProofPublicInputsArgs(args: {
     fromBlock: number;
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
-    proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }) {
+    // Returns arguments for EpochProofLib.sol -> getEpochProofPublicInputs()
     return [
-      BigInt(args.fromBlock),
-      BigInt(args.toBlock),
+      BigInt(args.fromBlock) /*_start*/,
+      BigInt(args.toBlock) /*_end*/,
       {
         previousArchive: args.publicInputs.previousArchive.root.toString(),
         endArchive: args.publicInputs.endArchive.root.toString(),
         endTimestamp: args.publicInputs.endTimestamp.toBigInt(),
         outHash: args.publicInputs.outHash.toString(),
         proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
-      },
+      } /*_args*/,
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()
           : args.publicInputs.fees[(i - 1) / 2].value.toString(),
-      ),
-      `0x${args.publicInputs.blobPublicInputs
-        .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
-        .map(b => b.toString())
-        .join(``)}`,
+      ) /*_fees*/,
+      args.batchedBlobInputs.getEthBlobEvaluationInputs() /*_blobPublicInputs*/,
     ] as const;
+  }
+
+  private getSubmitEpochProofArgs(args: {
+    fromBlock: number;
+    toBlock: number;
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+    batchedBlobInputs: BatchedBlob;
+  }) {
+    // Returns arguments for EpochProofLib.sol -> submitEpochRootProof()
+    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+    const argsArray = this.getEpochProofPublicInputsArgs(args);
+    return {
+      start: argsArray[0],
+      end: argsArray[1],
+      args: argsArray[2],
+      fees: argsArray[3],
+      blobInputs: argsArray[4],
+      proof: proofHex,
+    };
   }
 
   protected async sleepOrInterrupted() {

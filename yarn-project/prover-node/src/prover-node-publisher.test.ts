@@ -7,6 +7,8 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+// TODO(MW): prover-node does not use blob-lib, probably for a good reason, so not importing it for now
+import { BatchedBlob } from '../../blob-lib/src/blob_batching.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
 
 describe('prover-node-publisher', () => {
@@ -147,6 +149,14 @@ describe('prover-node-publisher', () => {
       ourPublicInputs.previousArchive = blocks[fromBlock - 2]?.endArchive ?? Fr.ZERO;
       ourPublicInputs.endArchive = blocks[toBlock - 1]?.endArchive ?? Fr.ZERO;
 
+      const ourBatchedBlob = new BatchedBlob(
+        ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+        ourPublicInputs.blobPublicInputs.z,
+        ourPublicInputs.blobPublicInputs.y,
+        ourPublicInputs.blobPublicInputs.c,
+        ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
+      );
+
       // Return our public inputs
       const totalFields = ourPublicInputs.toFields();
       rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
@@ -158,6 +168,7 @@ describe('prover-node-publisher', () => {
           toBlock,
           publicInputs: ourPublicInputs,
           proof: Proof.empty(),
+          batchedBlobInputs: ourBatchedBlob,
         })
         .then(() => 'Success')
         .catch(error => error.message);

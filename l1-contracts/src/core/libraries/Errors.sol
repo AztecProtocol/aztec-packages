@@ -57,9 +57,8 @@ library Errors {
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
-  error Rollup__InvalidBlobHash(bytes32 blobHash); // 0xc4a168c6
+  error Rollup__InvalidBlobHash(bytes32 expected, bytes32 actual); // 0x13031e6a
   error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
-  error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
   error Rollup__NoEpochToProve(); // 0xcbaa3951
   error Rollup__NonSequentialProving(); // 0x1e5be132
   error Rollup__NothingToPrune(); // 0x850defd3

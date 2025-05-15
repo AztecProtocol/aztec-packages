@@ -433,8 +433,8 @@ export class RollupContract {
     return this.rollup.read.getInfo([address]);
   }
 
-  getBlobPublicInputsHash(blockNumber: bigint) {
-    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  getCurrentBlobCommitmentsHash() {
+    return this.rollup.read.getCurrentBlobCommitmentsHash();
   }
 
   getStakingAsset() {

@@ -261,14 +261,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobCommitments);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobCommitments);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

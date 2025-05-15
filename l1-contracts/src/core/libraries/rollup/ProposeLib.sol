@@ -8,6 +8,7 @@ import {
   BlockLog,
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -44,7 +45,7 @@ struct ProposePayload {
 struct InterimProposeValues {
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
-  bytes32 blobPublicInputsHash;
+  bytes[] blobCommitments;
   bytes32 inHash;
   uint256 outboxMinsize;
   bytes32 headerHash;
@@ -95,7 +96,7 @@ library ProposeLib {
     InterimProposeValues memory v;
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (v.blobHashes, v.blobsHashesCommitment, v.blobPublicInputsHash) =
+    (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) =
       BlobLib.validateBlobs(_blobInput, _checkBlob);
 
     Header memory header = HeaderLib.decode(_args.header);
@@ -141,7 +142,15 @@ library ProposeLib {
       components.proverCost
     );
 
-    rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
+    uint256 i = 0;
+    if (rollupStore.blobCommitmentsHash == bytes32(0) && v.blobCommitments.length != 0) {
+      // Initialise the blobAccumulatorHash
+      rollupStore.blobCommitmentsHash = Hash.sha256ToField(abi.encodePacked(v.blobCommitments[i++]));
+    }
+    for (i; i < v.blobCommitments.length; i++) {
+      rollupStore.blobCommitmentsHash =
+        Hash.sha256ToField(abi.encodePacked(rollupStore.blobCommitmentsHash, v.blobCommitments[i]));
+    }
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
     v.inHash = rollupStore.config.inbox.consume(blockNumber);

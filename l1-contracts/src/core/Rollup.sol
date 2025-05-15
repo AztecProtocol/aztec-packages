@@ -306,7 +306,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     external
     view
     override(IRollup)
-    returns (bytes32[] memory, bytes32, bytes32)
+    returns (bytes32[] memory, bytes32, bytes[] memory)
   {
     return ExtRollupLib.validateBlobs(_blobsInput, checkBlob);
   }
@@ -347,13 +347,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return FeeHeaderLib.decompress(FeeLib.getStorage().feeHeaders[_blockNumber]);
   }
 
-  function getBlobPublicInputsHash(uint256 _blockNumber)
-    external
-    view
-    override(IRollup)
-    returns (bytes32)
-  {
-    return STFLib.getStorage().blobPublicInputsHashes[_blockNumber];
+  function getCurrentBlobCommitmentsHash() external view override(IRollup) returns (bytes32) {
+    return STFLib.getStorage().blobCommitmentsHash;
   }
 
   function getProposerForAttester(address _attester)
