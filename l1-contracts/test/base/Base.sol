@@ -4,7 +4,9 @@ pragma solidity >=0.8.27;
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
-import {FullStatus, Exit, Status, Info} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {
+  AttesterView, Exit, Status, AttesterConfig
+} from "@aztec/core/libraries/staking/StakingLib.sol";
 
 contract TestBase is Test {
   using SlotLib for Slot;
@@ -238,10 +240,10 @@ contract TestBase is Test {
     emit log_named_string("status", statusString);
   }
 
-  function logInfo(Info memory info) internal {
-    emit log("info");
-    emit log_named_address("\tproposer  ", info.proposer);
-    emit log_named_address("\twithdrawer", info.withdrawer);
+  function logAttesterConfig(AttesterConfig memory config) internal {
+    emit log("attester config");
+    emit log_named_address("\tproposer  ", config.proposer);
+    emit log_named_address("\twithdrawer", config.withdrawer);
   }
 
   function logExit(Exit memory exit) internal {
@@ -252,9 +254,9 @@ contract TestBase is Test {
     emit log_named_string("\tisRecipient", exit.isRecipient ? "true" : "false");
   }
 
-  function logFullStatus(FullStatus memory s) internal {
+  function logAttesterView(AttesterView memory s) internal {
     logStatus(s.status);
-    logInfo(s.info);
+    logAttesterConfig(s.config);
     if (s.exit.exists) {
       logExit(s.exit);
     }

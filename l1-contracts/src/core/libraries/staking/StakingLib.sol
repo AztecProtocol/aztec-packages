@@ -9,7 +9,7 @@ import {
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {GSE, Info} from "@aztec/core/staking/GSE.sol";
+import {GSE, AttesterConfig} from "@aztec/core/staking/GSE.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -34,11 +34,11 @@ enum Status {
   EXITING
 }
 
-struct FullStatus {
+struct AttesterView {
   Status status;
   uint256 effectiveBalance;
   Exit exit;
-  Info info;
+  AttesterConfig config;
 }
 
 struct StakingStorage {
@@ -212,16 +212,16 @@ library StakingLib {
     return getStorage().exits[_attester];
   }
 
-  function getInfo(address _attester) internal view returns (Info memory) {
-    return getStorage().gse.getInfo(address(this), _attester);
+  function getConfig(address _attester) internal view returns (AttesterConfig memory) {
+    return getStorage().gse.getConfig(address(this), _attester);
   }
 
-  function getFullStatus(address _attester) internal view returns (FullStatus memory) {
-    return FullStatus({
+  function getAttesterView(address _attester) internal view returns (AttesterView memory) {
+    return AttesterView({
       status: getStatus(_attester),
       effectiveBalance: getStorage().gse.balanceOf(address(this), _attester),
       exit: getExit(_attester),
-      info: getInfo(_attester)
+      config: getConfig(_attester)
     });
   }
 

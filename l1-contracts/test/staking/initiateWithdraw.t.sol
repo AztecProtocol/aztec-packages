@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  Timestamp, Status, FullStatus, Exit, IStakingCore
+  Timestamp, Status, AttesterView, Exit, IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract InitiateWithdrawTest is StakingBase {
@@ -91,13 +91,13 @@ contract InitiateWithdrawTest is StakingBase {
 
     assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
-    FullStatus memory info = staking.getFullStatus(ATTESTER);
-    assertTrue(info.status == Status.VALIDATING);
-    assertEq(info.exit.exitableAt, Timestamp.wrap(0));
-    assertEq(info.exit.exists, false);
-    assertEq(info.exit.isRecipient, false);
-    assertEq(info.exit.amount, 0);
-    assertEq(info.exit.recipientOrWithdrawer, address(0));
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.VALIDATING);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(0));
+    assertEq(attesterView.exit.exists, false);
+    assertEq(attesterView.exit.isRecipient, false);
+    assertEq(attesterView.exit.amount, 0);
+    assertEq(attesterView.exit.recipientOrWithdrawer, address(0));
 
     assertEq(staking.getActiveAttesterCount(), 1);
 
@@ -110,12 +110,12 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
-    info = staking.getFullStatus(ATTESTER);
-    assertEq(info.exit.exists, true);
-    assertEq(info.exit.isRecipient, true);
-    assertEq(info.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    assertEq(info.exit.recipientOrWithdrawer, RECIPIENT);
-    assertTrue(info.status == Status.EXITING);
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.exit.exists, true);
+    assertEq(attesterView.exit.isRecipient, true);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
+    assertTrue(attesterView.status == Status.EXITING);
 
     assertEq(staking.getActiveAttesterCount(), 0);
   }
@@ -133,13 +133,13 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
-    FullStatus memory info = staking.getFullStatus(ATTESTER);
-    assertTrue(info.status == Status.LIVING);
-    assertEq(info.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    assertEq(info.exit.exists, true);
-    assertEq(info.exit.isRecipient, false);
-    assertEq(info.exit.amount, MINIMUM_STAKE - MINIMUM_STAKE / 2);
-    assertEq(info.exit.recipientOrWithdrawer, WITHDRAWER);
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.LIVING);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.exists, true);
+    assertEq(attesterView.exit.isRecipient, false);
+    assertEq(attesterView.exit.amount, MINIMUM_STAKE - MINIMUM_STAKE / 2);
+    assertEq(attesterView.exit.recipientOrWithdrawer, WITHDRAWER);
 
     assertEq(staking.getActiveAttesterCount(), 0);
 
@@ -151,13 +151,13 @@ contract InitiateWithdrawTest is StakingBase {
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
-    info = staking.getFullStatus(ATTESTER);
-    assertEq(info.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    assertEq(info.exit.exists, true);
-    assertEq(info.exit.isRecipient, true);
-    assertEq(info.exit.amount, MINIMUM_STAKE - MINIMUM_STAKE / 2);
-    assertEq(info.exit.recipientOrWithdrawer, RECIPIENT);
-    assertTrue(info.status == Status.EXITING);
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.exists, true);
+    assertEq(attesterView.exit.isRecipient, true);
+    assertEq(attesterView.exit.amount, MINIMUM_STAKE - MINIMUM_STAKE / 2);
+    assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
+    assertTrue(attesterView.status == Status.EXITING);
     assertEq(staking.getActiveAttesterCount(), 0);
   }
 }

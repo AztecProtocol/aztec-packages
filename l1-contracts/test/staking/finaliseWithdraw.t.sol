@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  Timestamp, Status, FullStatus, Exit, IStakingCore
+  Timestamp, Status, AttesterView, Exit, IStakingCore
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract FinaliseWithdrawTest is StakingBase {
@@ -72,25 +72,25 @@ contract FinaliseWithdrawTest is StakingBase {
     // it transfer funds to recipient
     // it emits a {WithdrawFinalised} event
 
-    FullStatus memory info = staking.getFullStatus(ATTESTER);
-    assertTrue(info.status == Status.EXITING);
-    assertEq(info.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    assertEq(info.exit.isRecipient, true);
-    assertEq(info.exit.recipientOrWithdrawer, RECIPIENT);
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.EXITING);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.isRecipient, true);
+    assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
 
     assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
-    vm.warp(Timestamp.unwrap(info.exit.exitableAt));
+    vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.WithdrawFinalised(ATTESTER, RECIPIENT, MINIMUM_STAKE);
     staking.finaliseWithdraw(ATTESTER);
 
-    info = staking.getFullStatus(ATTESTER);
-    assertEq(info.exit.recipientOrWithdrawer, address(0));
-    assertEq(info.exit.exitableAt, Timestamp.wrap(0));
-    assertTrue(info.status == Status.NONE);
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.exit.recipientOrWithdrawer, address(0));
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(0));
+    assertTrue(attesterView.status == Status.NONE);
 
     assertEq(stakingAsset.balanceOf(address(staking)), 0);
     assertEq(stakingAsset.balanceOf(RECIPIENT), MINIMUM_STAKE);

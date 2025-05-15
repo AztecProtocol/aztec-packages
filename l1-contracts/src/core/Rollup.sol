@@ -15,7 +15,7 @@ import {
   FeeHeader,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
-import {IStaking, Info, Exit, FullStatus, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking, AttesterConfig, Exit, AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
@@ -357,8 +357,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return getProposerForAttester(getAttesterAtIndex(_index));
   }
 
-  function getInfo(address _attester) external view override(IStaking) returns (Info memory) {
-    return StakingLib.getInfo(_attester);
+  function getConfig(address _attester) external view override(IStaking) returns (AttesterConfig memory) {
+    return StakingLib.getConfig(_attester);
   }
 
   function getExit(address _attester) external view override(IStaking) returns (Exit memory) {
@@ -369,13 +369,13 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStatus(_attester);
   }
 
-  function getFullStatus(address _attester)
+  function getAttesterView(address _attester)
     external
     view
     override(IStaking)
-    returns (FullStatus memory)
+    returns (AttesterView memory)
   {
-    return StakingLib.getFullStatus(_attester);
+    return StakingLib.getAttesterView(_attester);
   }
 
   /**

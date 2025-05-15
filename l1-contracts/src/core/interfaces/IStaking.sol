@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Exit, Status, FullStatus} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {Exit, Status, AttesterView} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
-import {Info, GSE} from "@aztec/core/staking/GSE.sol";
+import {AttesterConfig, GSE} from "@aztec/core/staking/GSE.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 interface IStakingCore {
@@ -23,7 +23,7 @@ interface IStakingCore {
 }
 
 interface IStaking is IStakingCore {
-  function getInfo(address _attester) external view returns (Info memory);
+  function getConfig(address _attester) external view returns (AttesterConfig memory);
   function getExit(address _attester) external view returns (Exit memory);
   function getActiveAttesterCount() external view returns (uint256);
   function getAttesterAtIndex(uint256 _index) external view returns (address);
@@ -34,6 +34,6 @@ interface IStaking is IStakingCore {
   function getMinimumStake() external view returns (uint256);
   function getExitDelay() external view returns (Timestamp);
   function getGSE() external view returns (GSE);
-  function getFullStatus(address _attester) external view returns (FullStatus memory);
+  function getAttesterView(address _attester) external view returns (AttesterView memory);
   function getStatus(address _attester) external view returns (Status);
 }
