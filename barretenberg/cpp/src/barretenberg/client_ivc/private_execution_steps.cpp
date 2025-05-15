@@ -83,7 +83,8 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     precomputed_vks.resize(steps.size());
     function_names.resize(steps.size());
 
-    parallel_for(steps.size(), [&](size_t i) {
+    // https://github.com/AztecProtocol/barretenberg/issues/1395 multithread this once bincode is thread-safe
+    for (size_t i = 0; i < steps.size(); i++) {
         PrivateExecutionStepRaw step = std::move(steps[i]);
 
         // TODO(#7371) there is a lot of copying going on in bincode. We need the generated bincode code to
@@ -100,7 +101,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             precomputed_vks[i] = vk;
         }
         function_names[i] = step.function_name;
-    });
+    }
 }
 
 std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()

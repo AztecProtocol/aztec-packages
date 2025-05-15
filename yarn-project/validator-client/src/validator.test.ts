@@ -69,7 +69,7 @@ describe('ValidatorClient', () => {
     ).rejects.toThrow(BlockBuilderNotProvidedError);
   });
 
-  it('Should create a valid block proposal', async () => {
+  it('Should create a valid block proposal with txs', async () => {
     const header = makeHeader();
     const archive = Fr.random();
     const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
@@ -80,12 +80,38 @@ describe('ValidatorClient', () => {
       archive,
       header.state,
       txs,
+      { publishFullTxs: true },
     );
 
     expect(blockProposal).toBeDefined();
 
     const validatorAddress = EthAddress.fromString(validatorAccount.address);
     expect(blockProposal?.getSender()).toEqual(validatorAddress);
+
+    expect(blockProposal!.txs).toBeDefined();
+    expect(blockProposal!.txs).toBe(txs);
+  });
+
+  it('Should create a valid block proposal without txs', async () => {
+    const header = makeHeader();
+    const archive = Fr.random();
+    const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
+
+    const blockProposal = await validatorClient.createBlockProposal(
+      header.globalVariables.blockNumber,
+      header.toPropose(),
+      archive,
+      header.state,
+      txs,
+      { publishFullTxs: false },
+    );
+
+    expect(blockProposal).toBeDefined();
+
+    const validatorAddress = EthAddress.fromString(validatorAccount.address);
+    expect(blockProposal?.getSender()).toEqual(validatorAddress);
+
+    expect(blockProposal!.txs).toBeUndefined();
   });
 
   it('Should a timeout if we do not collect enough attestations in time', async () => {
@@ -163,6 +189,7 @@ describe('ValidatorClient', () => {
         archive,
         header.state,
         txs,
+        { publishFullTxs: false },
       );
 
       expect(blockProposal).toBeDefined();
