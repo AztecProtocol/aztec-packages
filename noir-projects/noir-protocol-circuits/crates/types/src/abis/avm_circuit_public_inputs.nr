@@ -480,117 +480,124 @@ mod test {
         traits::{Deserialize, Empty, Serialize},
     };
 
-#[test]
-fn flat_columns_of_empty_avm_circuit_public_inputs() {
-    let item = AvmCircuitPublicInputs::empty();
-    let flat = item.to_columns_flat();
-    // some assertion just to make sure it isn't optimized away
-    assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
-}
-
-#[test]
-fn flat_columns_of_avm_circuit_public_inputs() {
-    // Create a test instance with specific values
-    let mut item = AvmCircuitPublicInputs::empty();
-
-    // Set some values in different parts of the struct to test serialization
-    // Global variables - beginning of the struct
-    item.global_variables.chain_id = 123;
-    item.global_variables.block_number = 456;
-    item.global_variables.timestamp = 789;
-
-    // Fee payer - middle of the struct
-    item.fee_payer = AztecAddress::from_field(12345);
-
-    // revertible l2_to_l1_msgs from private
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient =
-        EthAddress::from_field(1234);
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 5678;
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.counter = 9012;
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address =
-        AztecAddress::from_field(3456);
-
-    // Test some array elements
-    // Add a note hash to accumulated data
-    item.accumulated_data.note_hashes[2] = 54321;
-
-    // Add a public log
-    item.accumulated_data.public_logs[0].contract_address = AztecAddress::from_field(11223);
-    // set some number of items in the log (less than max)
-    item.accumulated_data.public_logs[0].log.length = PUBLIC_LOG_SIZE_IN_FIELDS - 2;
-    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
-        item.accumulated_data.public_logs[0].log.fields[j] = 10000 + j as Field;
+    #[test]
+    fn flat_columns_of_empty_avm_circuit_public_inputs() {
+        let item = AvmCircuitPublicInputs::empty();
+        let flat = item.to_columns_flat();
+        // some assertion just to make sure it isn't optimized away
+        assert(flat.len() == AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH);
     }
 
-    // Add a public data write
-    item.accumulated_data.public_data_writes[1].leaf_slot = 5555;
-    item.accumulated_data.public_data_writes[1].value = 6666;
+    #[test]
+    fn flat_columns_of_avm_circuit_public_inputs() {
+        // Create a test instance with specific values
+        let mut item = AvmCircuitPublicInputs::empty();
 
-    // End gas used - toward the end of the struct
-    item.end_gas_used.da_gas = 5000;
-    item.end_gas_used.l2_gas = 7000;
+        // Set some values in different parts of the struct to test serialization
+        // Global variables - beginning of the struct
+        item.global_variables.chain_id = 123;
+        item.global_variables.block_number = 456;
+        item.global_variables.timestamp = 789;
 
-    // Transaction fee - at the end of the struct
-    item.transaction_fee = 9876;
-    item.reverted = true;
+        // Fee payer - middle of the struct
+        item.fee_payer = AztecAddress::from_field(12345);
 
-    // Serialize to columns
-    let flat = item.to_columns_flat();
+        // revertible l2_to_l1_msgs from private
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient =
+            EthAddress::from_field(1234);
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 5678;
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.counter = 9012;
+        item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address =
+            AztecAddress::from_field(3456);
 
-    // Verify length
-    // Define column offsets
-    let col0_offset = 0;
-    let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+        // Test some array elements
+        // Add a note hash to accumulated data
+        item.accumulated_data.note_hashes[2] = 54321;
 
-    // Verify serialized values are at the expected positions
+        // Add a public log
+        item.accumulated_data.public_logs[0].contract_address = AztecAddress::from_field(11223);
+        // set some number of items in the log (less than max)
+        item.accumulated_data.public_logs[0].log.length = PUBLIC_LOG_SIZE_IN_FIELDS - 2;
+        for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
+            item.accumulated_data.public_logs[0].log.fields[j] = 10000 + j as Field;
+        }
 
-    // Global variables
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX], 123);
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX], 456);
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX], 789);
+        // Add a public data write
+        item.accumulated_data.public_data_writes[1].leaf_slot = 5555;
+        item.accumulated_data.public_data_writes[1].value = 6666;
 
-    // Fee payer
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], 12345);
+        // End gas used - toward the end of the struct
+        item.end_gas_used.da_gas = 5000;
+        item.end_gas_used.l2_gas = 7000;
 
-    // test l2_to_l1_msgs which use up 4 columns
-    let l2_to_l1_msg_row =
-        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
-    assert_eq(flat[col0_offset + l2_to_l1_msg_row], 1234);
-    assert_eq(flat[col1_offset + l2_to_l1_msg_row], 5678);
-    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 9012);
-    assert_eq(flat[col3_offset + l2_to_l1_msg_row], 3456);
+        // Transaction fee - at the end of the struct
+        item.transaction_fee = 9876;
+        item.reverted = true;
 
-    // Array elements
-    // Note hash array
-    assert_eq(
-        flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
-        54321,
-    );
+        // Serialize to columns
+        let flat = item.to_columns_flat();
 
-    // Public logs
-    let public_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
-    assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
-    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
-        assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
+        // Verify length
+        // Define column offsets
+        let col0_offset = 0;
+        let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+        let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+        let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+
+        // Verify serialized values are at the expected positions
+
+        // Global variables
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX], 123);
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX], 456);
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX], 789);
+
+        // Fee payer
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX], 12345);
+
+        // test l2_to_l1_msgs which use up 4 columns
+        let l2_to_l1_msg_row =
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
+        assert_eq(flat[col0_offset + l2_to_l1_msg_row], 1234);
+        assert_eq(flat[col1_offset + l2_to_l1_msg_row], 5678);
+        assert_eq(flat[col2_offset + l2_to_l1_msg_row], 9012);
+        assert_eq(flat[col3_offset + l2_to_l1_msg_row], 3456);
+
+        // Array elements
+        // Note hash array
+        assert_eq(
+            flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
+            54321,
+        );
+
+        // Public logs
+        let public_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
+        assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
+        for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
+            assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
+        }
+
+        // Public data writes
+        let public_data_write_row =
+            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
+        assert_eq(flat[col0_offset + public_data_write_row], 5555);
+        assert_eq(flat[col1_offset + public_data_write_row], 6666);
+
+        // Pick a an unset/empty element and confirm that it is zero
+        assert_eq(
+            flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX],
+            0,
+        );
+        assert_eq(
+            flat[col1_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX],
+            0,
+        );
+
+        // End gas used
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 5000);
+        assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 7000);
+
+        // Transaction fee and reverted status
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX], 9876);
+        assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], 1);
     }
-
-    // Public data writes
-    let public_data_write_row =
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
-    assert_eq(flat[col0_offset + public_data_write_row], 5555);
-    assert_eq(flat[col1_offset + public_data_write_row], 6666);
-
-    // Pick a an unset/empty element and confirm that it is zero
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
-    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
-
-    // End gas used
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 5000);
-    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 7000);
-
-    // Transaction fee and reverted status
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX], 9876);
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX], 1);
 }

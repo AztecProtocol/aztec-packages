@@ -5,20 +5,13 @@ pub mod gas;
 pub mod gas_fees;
 pub mod gas_settings;
 pub mod global_variables;
-pub mod block_header;
 pub mod function_selector;
 pub mod public_call_request;
 
 pub mod function_data;
 
-pub mod tx_context;
-pub mod tx_request;
-
 pub mod log;
 pub mod private_log;
-pub mod note_hash;
-pub mod log_hash;
-pub mod nullifier;
 pub mod call_context;
 pub mod private_call_request;
 
@@ -42,14 +35,10 @@ pub mod tx_constant_data;
 pub mod combined_constant_data;
 pub mod constant_rollup_data;
 
-pub mod side_effect;
-pub mod read_request;
-pub mod public_log;
 pub mod contract_class_log;
 pub mod log_hash;
 pub mod note_hash;
 pub mod nullifier;
-pub mod public_data_write;
 
 pub mod validation_requests;
 
