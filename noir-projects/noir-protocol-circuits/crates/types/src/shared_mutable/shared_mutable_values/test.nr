@@ -72,7 +72,7 @@ unconstrained fn packed_shared_mutable_values_match_typescript() {
     let pre_value = MockStruct { a: 1, b: 2 };
     let post_value = MockStruct { a: 3, b: 4 };
 
-    let sdc = ScheduledDelayChange::new(Option::some(1), Option::some(50), 2);
+    let sdc = ScheduledDelayChange::<0>::new(Option::some(1), Option::some(50), 2);
     let svc = ScheduledValueChange::new(pre_value, post_value, 50);
     let smv = SharedMutableValues::new(svc, sdc);
 

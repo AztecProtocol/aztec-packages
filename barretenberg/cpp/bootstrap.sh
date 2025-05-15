@@ -12,10 +12,15 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
   local binary=$1
-  local version=$(jq -r '."."' ../../.release-please-manifest.json)
+  if semver check "$REF_NAME"; then
+    local version=${REF_NAME#v}
+  else
+    # Otherwise, use the commit hash as the version.
+    local version=$(git rev-parse --short HEAD)
+  fi
   local placeholder='00000000.00000000.00000000'
   if [ ${#version} -gt ${#placeholder} ]; then
-    echo "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
+    echo_stderr "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
     exit 1
   fi
   local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
@@ -117,15 +122,6 @@ function build_fuzzing_syntax_check_only {
   cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
 }
 
-# Download ignition transcripts. Only needed for tests.
-# The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
-# TODO: Use the flattened crs. These old transcripts are a pain. Delete this.
-function download_old_crs {
-  cd ./srs_db
-  retry "./download_ignition.sh 3"
-  retry ./download_grumpkin.sh
-}
-
 function build_release {
   local arch=$(arch)
   rm -rf build-release
@@ -144,7 +140,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only download_old_crs
+export -f build_preset build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
 
 function build {
   echo_header "bb cpp build"
@@ -153,7 +149,6 @@ function build {
     build_nodejs_module
     build_wasm
     build_wasm_threads
-    download_old_crs
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # TODO figure out why this is failing on arm64 with ultra circuit builder string op overflow.
@@ -216,8 +211,6 @@ function bench {
   build_benchmarks
 
   export HARDWARE_CONCURRENCY=16
-  export IGNITION_CRS_PATH=./srs_db/ignition
-  export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
   rm -rf bench-out && mkdir -p bench-out
 

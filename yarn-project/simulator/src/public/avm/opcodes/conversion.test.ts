@@ -102,7 +102,7 @@ describe('Conversion Opcodes', () => {
 
     it('Should decompose correctly - indirect', async () => {
       const arg = new Field(Buffer.from('1234567890abcdef', 'hex'));
-      const indirect = new Addressing([
+      const indirect = Addressing.fromModes([
         /*srcOffset=*/ AddressingMode.INDIRECT,
         /*radixOffset*/ AddressingMode.INDIRECT,
         /*numLimbsOffset*/ AddressingMode.INDIRECT,

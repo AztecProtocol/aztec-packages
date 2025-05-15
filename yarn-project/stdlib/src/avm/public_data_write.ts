@@ -56,6 +56,15 @@ export class PublicDataWrite {
     return fields;
   }
 
+  static fromBlobFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new PublicDataWrite(reader.readField(), reader.readField());
+  }
+
+  toBlobFields(): Fr[] {
+    return [this.leafSlot, this.value];
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicDataWrite(Fr.fromBuffer(reader), Fr.fromBuffer(reader));

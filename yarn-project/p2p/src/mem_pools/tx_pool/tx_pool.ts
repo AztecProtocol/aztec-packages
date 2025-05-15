@@ -96,4 +96,10 @@ export interface TxPool {
 
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;
+
+  /**
+   * Marks transactions as non-evictible in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictible.
+   */
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
 }

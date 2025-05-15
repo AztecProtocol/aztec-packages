@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cloud.google.com/health-check-port: "8080"
+    cloud.google.com/healthcheck-path: /status
+    kubernetes.io/ingress.allow-http: "false"
+    kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: alpha-testnet-full-node-ip
+    networking.gke.io/managed-certificates: alpha-nodes-cert
+  name: alpha-nodes-ingress
+  namespace: alpha-nodes
+spec:
+  rules:
+  - host: full-node.alpha-testnet.aztec.network
+    http:
+      paths:
+      - backend:
+          service:
+            name: alpha-new-node-svc
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix

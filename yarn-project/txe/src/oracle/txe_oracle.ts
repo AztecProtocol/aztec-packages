@@ -43,6 +43,7 @@ import {
   Oracle,
   PrivateExecutionOracle,
   type TypedOracle,
+  UtilityExecutionOracle,
   WASMSimulator,
   executePrivateFunction,
   extractCallStack,
@@ -66,6 +67,7 @@ import {
   EventSelector,
   type FunctionAbi,
   FunctionSelector,
+  FunctionType,
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/stdlib/abi';
@@ -79,6 +81,7 @@ import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computeUniqueNoteHash,
+  computeVarArgsHash,
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
@@ -408,9 +411,7 @@ export class TXE implements TypedOracle {
   addPublicLogs(logs: PublicLog[]) {
     logs.forEach(log => {
       try {
-        // The first elt stores lengths => tag is in fields[1]
-        const tag = log.log[1];
-
+        const tag = log.fields[0];
         this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
         this.publicLogs.push(log);
       } catch (err) {
@@ -834,6 +835,61 @@ export class TXE implements TypedOracle {
 
   notifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): Fr {
     throw new Error('Method not implemented.');
+  }
+
+  async simulateUtilityFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, argsHash: Fr) {
+    const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
+    if (!artifact) {
+      throw new Error(`Cannot call ${functionSelector} as there is artifact found at ${targetContractAddress}.`);
+    }
+
+    const call = {
+      name: artifact.name,
+      selector: functionSelector,
+      to: targetContractAddress,
+    };
+
+    const entryPointArtifact = await this.pxeOracleInterface.getFunctionArtifact(call.to, call.selector);
+
+    if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
+    }
+
+    const oracle = new UtilityExecutionOracle(call.to, [], [], this.pxeOracleInterface, undefined, undefined);
+
+    try {
+      this.logger.verbose(`Executing utility function ${entryPointArtifact.name}`, {
+        contract: call.to,
+        selector: call.selector,
+      });
+
+      const args = await this.loadFromExecutionCache(argsHash);
+      const initialWitness = toACVMWitness(0, args);
+      const acirExecutionResult = await this.simulationProvider
+        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle))
+        .catch((err: Error) => {
+          err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
+          throw new ExecutionError(
+            err.message,
+            {
+              contractAddress: call.to,
+              functionSelector: call.selector,
+            },
+            extractCallStack(err, entryPointArtifact.debug),
+            { cause: err },
+          );
+        });
+
+      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
+      this.logger.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
+
+      const returnHash = await computeVarArgsHash(returnWitness);
+
+      this.storeInExecutionCache(returnWitness, returnHash);
+      return returnHash;
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
   }
 
   async callPrivateFunction(
@@ -1431,7 +1487,7 @@ export class TXE implements TypedOracle {
       contractClassLogsHashes.push(
         ...execution.publicInputs.contractClassLogsHashes
           .filter(contractClassLogsHash => !contractClassLogsHash.isEmpty())
-          .map(message => message.scope(contractAddress)),
+          .map(message => message.logHash.scope(contractAddress)),
       );
       publicCallRequests.push(
         ...execution.publicInputs.publicCallRequests
@@ -1480,7 +1536,8 @@ export class TXE implements TypedOracle {
         padArrayEnd(l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
         padArrayEnd(taggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
         padArrayEnd(contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
-        padArrayEnd(publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
+        // We need to reverse the public call requests because the public processor expects the first one at the top of the array (the last element)
+        padArrayEnd(publicCallRequests.reverse(), PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       );
 
       inputsForPublic = new PartialPrivateTailPublicInputsForPublic(

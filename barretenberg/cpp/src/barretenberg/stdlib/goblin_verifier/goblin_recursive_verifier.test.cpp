@@ -2,8 +2,9 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -19,19 +20,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
-
-    static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
-    {
-        MegaCircuitBuilder circuit{ op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ProverOutput {
         GoblinProof proof;
@@ -49,7 +38,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto circuit = construct_mock_circuit(goblin.op_queue);
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            GoblinMockCircuits::construct_simple_circuit(builder, idx == NUM_CIRCUITS - 1);
             goblin.prove_merge();
         }
 
@@ -151,8 +141,8 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof);
 
-    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
-        bb::srs::get_grumpkin_crs_path(), 1 << CONST_ECCVM_LOG_N);
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    auto crs_factory = srs::get_grumpkin_crs_factory();
     auto grumpkin_verifier_commitment_key =
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
@@ -226,4 +216,26 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief Ensure failure of the goblin recursive verification circuit for bad translation evaluations
+ *
+ */
+TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
+{
+
+    {
+        auto [proof, verifier_input] = create_goblin_prover_output();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+        // Better recursion testing - create more flexible proof tampering tests.
+        proof.translator_proof[0] += 1; // tamper with part of the limb of op commitment
+
+        Builder builder;
+        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/787)
+}
 } // namespace bb::stdlib::recursion::honk

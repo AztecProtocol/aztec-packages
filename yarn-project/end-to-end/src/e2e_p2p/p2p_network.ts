@@ -6,8 +6,10 @@ import {
   type ExtendedViemWalletClient,
   L1TxUtils,
   RollupContract,
+  deployL1Contract,
   getExpectedAddress,
   getL1ContractsConfigEnvVars,
+  l1Artifacts,
 } from '@aztec/ethereum';
 import { ChainMonitor, EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -83,7 +85,7 @@ export class P2PNetworkTest {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
     // Set up the base account and node private keys for the initial network deployment
-    this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
+    this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
     this.proposerPrivateKeys = generatePrivateKeys(PROPOSER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
@@ -207,21 +209,31 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
+        const { address: multiAdderAddress } = await deployL1Contract(
+          deployL1ContractsValues.l1Client,
+          l1Artifacts.multiAdder.contractAbi,
+          l1Artifacts.multiAdder.contractBytecode,
+          [rollup.address, deployL1ContractsValues.l1Client.account.address],
+        );
+
+        const multiAdder = getContract({
+          address: multiAdderAddress.toString(),
+          abi: l1Artifacts.multiAdder.contractAbi,
+          client: deployL1ContractsValues.l1Client,
+        });
+
         const stakeNeeded = l1ContractsConfig.minimumStake * BigInt(this.numberOfNodes);
         await Promise.all(
-          [
-            await stakingAsset.write.mint([deployL1ContractsValues.l1Client.account.address, stakeNeeded], {} as any),
-            await stakingAsset.write.approve(
-              [deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(), stakeNeeded],
-              {} as any,
-            ),
-          ].map(txHash => deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash })),
+          [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
+            deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
+          ),
         );
 
         const { validators } = this.getValidators();
         this.validators = validators;
+
         await deployL1ContractsValues.l1Client.waitForTransactionReceipt({
-          hash: await rollup.write.cheat__InitialiseValidatorSet([this.validators]),
+          hash: await multiAdder.write.addValidators([this.validators]),
         });
 
         const slotsInEpoch = await rollup.read.getEpochDuration();

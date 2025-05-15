@@ -7,7 +7,7 @@ use dep::protocol_types::{
 
 use crate::context::{
     call_interfaces::CallInterface, PrivateCallInterface, PrivateContext, PrivateVoidCallInterface,
-    PublicContext, ReturnsHash, UtilityContext,
+    PublicContext, ReturnsHash, UtilityCallInterface, UtilityContext,
 };
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
@@ -22,13 +22,19 @@ use crate::oracle::{
 pub struct TestEnvironment {}
 
 pub struct CallResult<T> {
-    return_value: Option<T>,
-    tx_hash: Field,
+    pub return_value: T,
+    pub tx_hash: Field,
 }
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
         cheatcodes::reset();
+        Self {}
+    }
+
+    pub unconstrained fn _new() -> Self {
+        cheatcodes::reset();
+        cheatcodes::disable_oracles();
         Self {}
     }
 
@@ -196,13 +202,13 @@ impl TestEnvironment {
         );
     }
 
-    pub unconstrained fn call_private<T, let M: u32>(
+    pub unconstrained fn call_private<T, let N: u32, let M: u32>(
         _self: Self,
         from: AztecAddress,
         call_interface: PrivateCallInterface<M, T>,
     ) -> CallResult<T>
     where
-        T: Deserialize<M>,
+        T: Deserialize<N>,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -217,7 +223,7 @@ impl TestEnvironment {
         );
 
         let returns: T = ReturnsHash::new(returns_hash).get_preimage();
-        CallResult { return_value: Option::some(returns), tx_hash }
+        CallResult { return_value: returns, tx_hash }
     }
 
     pub unconstrained fn call_private_void<let M: u32>(
@@ -240,7 +246,45 @@ impl TestEnvironment {
 
         ReturnsHash::new(returns_hash).assert_empty();
 
-        CallResult { return_value: Option::none(), tx_hash }
+        CallResult { return_value: (), tx_hash }
+    }
+
+    pub unconstrained fn simulate_utility<T, let N: u32, let M: u32>(
+        _self: Self,
+        call_interface: UtilityCallInterface<M, T>,
+    ) -> T
+    where
+        T: Deserialize<N>,
+    {
+        let args = call_interface.get_args();
+        let args_hash = hash_args(args);
+        execution_cache::store(args, args_hash);
+
+        let returns_hash = crate::oracle::simulate_utility_function::simulate_utility_function(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            args_hash,
+        );
+
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        returns
+    }
+
+    pub unconstrained fn simulate_void_utility<T, let N: u32, let M: u32>(
+        _self: Self,
+        call_interface: UtilityCallInterface<M, T>,
+    ) {
+        let args = call_interface.get_args();
+        let args_hash = hash_args(args);
+        execution_cache::store(args, args_hash);
+
+        let returns_hash = crate::oracle::simulate_utility_function::simulate_utility_function(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            args_hash,
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note

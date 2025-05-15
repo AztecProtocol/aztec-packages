@@ -3,8 +3,6 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
-#include "barretenberg/srs/io.hpp"
 
 #include <cstddef>
 #include <vector>
