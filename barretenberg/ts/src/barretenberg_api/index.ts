@@ -183,18 +183,6 @@ export class BarretenbergApi {
     return;
   }
 
-  async examplesSimpleCreateAndVerifyProof(): Promise<boolean> {
-    const inArgs = [].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'examples_simple_create_and_verify_proof',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
   async testThreads(threads: number, iterations: number): Promise<number> {
     const inArgs = [threads, iterations].map(serializeBufferable);
     const outTypes: OutputType[] = [NumberDeserializer()];
@@ -809,18 +797,6 @@ export class BarretenbergApiSync {
     );
     const out = result.map((r, i) => outTypes[i].fromBuffer(r));
     return;
-  }
-
-  examplesSimpleCreateAndVerifyProof(): boolean {
-    const inArgs = [].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'examples_simple_create_and_verify_proof',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
   }
 
   testThreads(threads: number, iterations: number): number {
