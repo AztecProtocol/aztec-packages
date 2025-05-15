@@ -112,9 +112,8 @@ export async function deployNewRollupContracts(
   const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
   if (!initialValidators || initialValidators.length === 0) {
-    const registry = new RegistryContract(client, registryAddress);
-    const rollup = new RollupContract(client, await registry.getCanonicalAddress());
-    initialValidators = (await rollup.getAttesters()).map(str => EthAddress.fromString(str));
+    // initialize the new rollup with Amin's validator address.
+    initialValidators = [EthAddress.fromString("0x3b218d0F26d15B36C715cB06c949210a0d630637")];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 
