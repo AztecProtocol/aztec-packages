@@ -5,6 +5,8 @@ import {
   FeeJuicePaymentMethod,
   type FeePaymentMethod,
   PublicFeePaymentMethod,
+  retryUntil,
+  sleep,
 } from '@aztec/aztec.js';
 import type { Logger } from '@aztec/foundation/log';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
@@ -34,13 +36,14 @@ describe('e2e_fees gas_estimation', () => {
   });
 
   beforeEach(async () => {
+    await sleep(5000);
     // Load the gas fees at the start of each test, use those exactly as the max fees per gas
     const gasFees = await aliceWallet.getCurrentBaseFees();
     gasSettings = GasSettings.from({
       ...gasSettings,
       maxFeesPerGas: gasFees,
     });
-  });
+  }, 10000);
 
   afterAll(async () => {
     await t.teardown();
@@ -90,6 +93,8 @@ describe('e2e_fees gas_estimation', () => {
 
     const estimatedFee = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
+
+    await retryUntil(async () => (await t.pxe.getBlockNumber()) >= withEstimate.blockNumber!);
   });
 
   it('estimates gas with public payment method', async () => {

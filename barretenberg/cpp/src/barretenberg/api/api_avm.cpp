@@ -64,8 +64,6 @@ void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem:
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
-
-    // This is bigger than CIRCUIT_SUBGROUP_SIZE because of BB inefficiencies.
     auto [proof, vk] = avm.prove(inputs);
 
     // NOTE: As opposed to Avm1 and other proof systems, the public inputs are NOT part of the proof.
@@ -73,6 +71,16 @@ void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem:
     write_file(output_path / "vk", vk);
 
     print_avm_stats();
+
+    // NOTE: Temporarily we also verify after proving.
+    // The reasoning is that proving will always pass unless it crashes.
+    // We want to return an exit code != 0 if the proof is invalid so that the prover client saves the inputs.
+    info("verifying...");
+    bool res = avm.verify(proof, inputs.publicInputs, vk);
+    info("verification: ", res ? "success" : "failure");
+    if (!res) {
+        throw std::runtime_error("Generated proof is invalid!1!!1");
+    }
 }
 
 void avm2_check_circuit(const std::filesystem::path& inputs_path)
