@@ -137,9 +137,6 @@ function bench_cmds {
 
 function bench {
   rm -rf bench-out && mkdir -p bench-out
-  if cache_download l1-gas-bench-results-$hash.tar.gz; then
-    return
-  fi
 
   # Run the gas benchmark to generate the markdown file
   gas_benchmark
@@ -208,8 +205,6 @@ function bench {
   END {
     print "]";
   }' gas_benchmark.md > ./bench-out/l1-gas.bench.json
-
-  cache_upload l1-gas-bench-results-$hash.tar.gz ./bench-out/l1-gas-bench.json
 }
 
 function gas_benchmark {
