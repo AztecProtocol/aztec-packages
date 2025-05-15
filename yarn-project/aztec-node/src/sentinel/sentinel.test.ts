@@ -7,16 +7,19 @@ import type { P2PClient } from '@aztec/p2p';
 import {
   type L2BlockSource,
   type L2BlockStream,
+  type L2BlockStreamEvent,
   type PublishedL2Block,
   getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, randomPublishedL2Block } from '@aztec/stdlib/testing';
-import type { ValidatorStats, ValidatorStatusHistory } from '@aztec/stdlib/validators';
+import type { ValidatorStats, ValidatorStatusHistory, ValidatorsStats } from '@aztec/stdlib/validators';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { jest } from '@jest/globals';
+import { type DeepMockProxy, type MockProxy, mock, mockDeep } from 'jest-mock-extended';
 
+import type { InactivityWatcher } from '../slasher/inactivity_watcher.js';
 import { Sentinel } from './sentinel.js';
 import { SentinelStore } from './store.js';
 
@@ -35,6 +38,7 @@ describe('sentinel', () => {
   let epoch: bigint;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
+  let inactivityWatcher: DeepMockProxy<InactivityWatcher>;
 
   beforeEach(async () => {
     epochCache = mock<EpochCache>();
@@ -52,15 +56,16 @@ describe('sentinel', () => {
       l1StartBlock: 1n,
       l1GenesisTime: ts,
       slotDuration: 24,
-      epochDuration: 32,
+      epochDuration: 8,
       ethereumSlotDuration: 12,
-      proofSubmissionWindow: 64,
+      proofSubmissionWindow: 16,
     };
 
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
+    inactivityWatcher = mockDeep<InactivityWatcher>();
 
-    sentinel = new TestSentinel(epochCache, archiver, p2p, store, blockStream);
+    sentinel = new TestSentinel(epochCache, archiver, p2p, store, inactivityWatcher, blockStream);
   });
 
   afterEach(async () => {
@@ -209,6 +214,77 @@ describe('sentinel', () => {
       expect(stats.missedProposals.count).toEqual(5);
     });
   });
+
+  describe('handleChainProven', () => {
+    it('calls inactivity watcher with performance data', async () => {
+      const blockNumber = 15;
+      const blockHash = '0xblockhash';
+      const mockBlock = await randomPublishedL2Block(blockNumber);
+      const slot = mockBlock.block.header.getSlot();
+      const epochNumber = getEpochAtSlot(slot, l1Constants);
+
+      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts });
+      archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
+      archiver.getL1Constants.mockResolvedValue(l1Constants);
+
+      const headerSlots = [slot - 2n, slot - 1n, slot];
+      const mockHeaders = headerSlots.map(s => {
+        const header = mockDeep<PublishedL2Block['block']['header']>();
+        header.getSlot.mockReturnValue(s);
+        return header;
+      });
+      archiver.getBlockHeadersForEpoch.calledWith(epochNumber).mockResolvedValue(mockHeaders as any);
+
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
+      const statsResult = {
+        stats: {
+          [validator1.toString()]: {
+            address: validator1,
+            totalSlots: headerSlots.length,
+            missedProposals: { count: 0, currentStreak: 0, rate: 0 },
+            missedAttestations: { count: 1, currentStreak: 0, rate: 1 / 3 },
+            history: [
+              { slot: headerSlots[0], status: 'attestation-sent' },
+              { slot: headerSlots[1], status: 'attestation-missed' },
+              { slot: headerSlots[2], status: 'attestation-sent' },
+            ],
+          } as ValidatorStats,
+          [validator2.toString()]: {
+            address: validator2,
+            totalSlots: headerSlots.length,
+            missedProposals: { count: 0, currentStreak: 0, rate: 0 },
+            // We should only count the slots that are in the proven epoch (0, 1, 2)!!
+            missedAttestations: { count: 2, currentStreak: 1, rate: 2 / 3 },
+            history: [
+              { slot: headerSlots[0], status: 'attestation-missed' },
+              { slot: headerSlots[1], status: 'attestation-sent' },
+              { slot: headerSlots[2], status: 'attestation-missed' },
+            ],
+          } as ValidatorStats,
+          '0xNotAnAddress': {
+            address: EthAddress.ZERO, // Placeholder
+            totalSlots: 0,
+            missedProposals: { count: 0, currentStreak: 0, rate: undefined },
+            missedAttestations: { count: 0, currentStreak: 0, rate: undefined },
+            history: [],
+          } as ValidatorStats, // To test filtering
+        },
+        lastProcessedSlot: slot,
+        initialSlot: 0n,
+        slotWindow: 15,
+      } as ValidatorsStats;
+      const computeStatsSpy = jest.spyOn(sentinel, 'computeStats').mockResolvedValue(statsResult);
+
+      await sentinel.handleChainProven({ type: 'chain-proven', block: { number: blockNumber, hash: blockHash } });
+
+      expect(computeStatsSpy).toHaveBeenCalledWith({ fromSlot: headerSlots[0], toSlot: headerSlots[2] });
+      expect(inactivityWatcher.handleProvenPerformance).toHaveBeenCalledWith(epochNumber, {
+        [validator1.toString()]: { missed: 1, total: headerSlots.length },
+        [validator2.toString()]: { missed: 2, total: headerSlots.length },
+      });
+    });
+  });
 });
 
 class TestSentinel extends Sentinel {
@@ -217,9 +293,10 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
+    inactivityWatcher: InactivityWatcher | undefined,
     protected override blockStream: L2BlockStream,
   ) {
-    super(epochCache, archiver, p2p, store, undefined);
+    super(epochCache, archiver, p2p, store, inactivityWatcher);
   }
 
   public override init() {
@@ -237,5 +314,13 @@ class TestSentinel extends Sentinel {
     fromSlot?: bigint,
   ): ValidatorStats {
     return super.computeStatsForValidator(address, history, fromSlot);
+  }
+
+  public override handleChainProven(event: L2BlockStreamEvent) {
+    return super.handleChainProven(event);
+  }
+
+  public override computeStats(opts: { fromSlot?: bigint; toSlot?: bigint }) {
+    return super.computeStats(opts);
   }
 }

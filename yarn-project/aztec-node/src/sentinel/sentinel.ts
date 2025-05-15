@@ -93,7 +93,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     }
   }
 
-  private async handleChainProven(event: L2BlockStreamEvent) {
+  protected async handleChainProven(event: L2BlockStreamEvent) {
     if (!this.inactivityWatcher) {
       return;
     }
