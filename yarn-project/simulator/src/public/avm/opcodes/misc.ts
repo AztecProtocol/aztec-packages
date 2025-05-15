@@ -64,9 +64,5 @@ export class DebugLog extends Instruction {
 
       DebugLog.logger.verbose(formattedStr);
     }
-
-    // Despite having dynamic "size" operands, the gas cost is fixed because
-    // this opcode is a no-op except during client-initiated simulation
-    context.machineState.consumeGas(this.gasCost());
   }
 }

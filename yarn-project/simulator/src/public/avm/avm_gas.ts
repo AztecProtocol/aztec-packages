@@ -104,7 +104,7 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
   [Opcode.MOV_8]: makeCost(c.AVM_MOV_BASE_L2_GAS, 0),
   [Opcode.MOV_16]: makeCost(c.AVM_MOV_BASE_L2_GAS, 0),
   [Opcode.SLOAD]: makeCost(c.AVM_SLOAD_BASE_L2_GAS, 0),
-  [Opcode.SSTORE]: makeCost(c.AVM_SSTORE_BASE_L2_GAS, c.AVM_SSTORE_BASE_DA_GAS),
+  [Opcode.SSTORE]: makeCost(c.AVM_SSTORE_BASE_L2_GAS, 0), // DA gas is dynamic
   [Opcode.NOTEHASHEXISTS]: makeCost(c.AVM_NOTEHASHEXISTS_BASE_L2_GAS, 0),
   [Opcode.EMITNOTEHASH]: makeCost(c.AVM_EMITNOTEHASH_BASE_L2_GAS, c.AVM_EMITNOTEHASH_BASE_DA_GAS),
   [Opcode.NULLIFIEREXISTS]: makeCost(c.AVM_NULLIFIEREXISTS_BASE_L2_GAS, 0),
@@ -127,18 +127,18 @@ const BASE_GAS_COSTS: Record<Opcode, Gas> = {
 };
 
 const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
-  [Opcode.CALLDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)], //y
-  [Opcode.RETURNDATACOPY, makeCost(c.AVM_RETURNDATACOPY_DYN_L2_GAS, 0)], //y
+  [Opcode.CALLDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)],
+  [Opcode.RETURNDATACOPY, makeCost(c.AVM_RETURNDATACOPY_DYN_L2_GAS, 0)],
   // TODO: Call and static call based on bytecode length
-  [Opcode.EMITUNENCRYPTEDLOG, makeCost(0, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)], //y
-  [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)], //y
-  // TODO: SSTORE
+  [Opcode.EMITUNENCRYPTEDLOG, makeCost(c.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)],
+  [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)],
   [Opcode.AND_8, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
   [Opcode.AND_16, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
   [Opcode.OR_8, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
   [Opcode.OR_16, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
   [Opcode.XOR_8, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
   [Opcode.XOR_16, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
+  [Opcode.SSTORE, makeCost(0, c.AVM_SSTORE_DYN_DA_GAS)],
 ]);
 
 /** Returns the fixed base gas cost for a given opcode. */
