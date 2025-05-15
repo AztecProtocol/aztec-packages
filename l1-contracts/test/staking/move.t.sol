@@ -91,5 +91,46 @@ contract MoveTest is StakingBase {
         require(uint160(committee[i]) % 2 == 0, "wrong attester");
       }
     }
+
+    // Check that non-moved are still validating on the old and none on the new.
+    assertEq(uint256(Status.VALIDATING), uint256(oldRollup.getStatus(address(uint160(1001)))));
+    assertEq(uint256(Status.NONE), uint256(newRollup.getStatus(address(uint160(1001)))));
+
+    // Check that withdrawer of a moved attester can exit from the new rollup.
+    address attesterToExit = address(uint160(1000));
+
+    AttesterView memory attesterView = newRollup.getAttesterView(attesterToExit);
+    assertEq(uint256(attesterView.status), uint256(Status.VALIDATING), "wrong status");
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(0));
+    assertEq(attesterView.exit.exists, false);
+    assertEq(attesterView.exit.isRecipient, false);
+    assertEq(attesterView.exit.amount, 0);
+    assertEq(attesterView.exit.recipientOrWithdrawer, address(0));
+
+    vm.prank(WITHDRAWER);
+    newRollup.initiateWithdraw(attesterToExit, RECIPIENT);
+
+    attesterView = newRollup.getAttesterView(attesterToExit);
+    assertEq(attesterView.exit.exists, true);
+    assertEq(attesterView.exit.isRecipient, true);
+    assertEq(
+      attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + newRollup.getExitDelay()
+    );
+    assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
+    assertTrue(attesterView.status == Status.EXITING);
+
+    vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
+
+    vm.expectEmit(true, true, true, true, address(newRollup));
+    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, MINIMUM_STAKE);
+    newRollup.finaliseWithdraw(attesterToExit);
+
+    attesterView = newRollup.getAttesterView(attesterToExit);
+    assertEq(attesterView.exit.recipientOrWithdrawer, address(0));
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(0));
+    assertTrue(attesterView.status == Status.NONE);
+
+    assertEq(stakingAsset.balanceOf(address(newRollup)), 0);
+    assertEq(stakingAsset.balanceOf(RECIPIENT), MINIMUM_STAKE);
   }
 }
