@@ -10,7 +10,7 @@ import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndPrepareTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -32,10 +32,9 @@ describe('e2e_p2p_reqresp_tx', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG,
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         aztecEpochDuration: 64, // stable committee
-        aztecProofSubmissionWindow: 64 * 10, // and no reorgs
       },
     });
     await t.setupAccount();
