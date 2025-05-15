@@ -316,9 +316,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.attestationPool?.addAttestations([attestation]) ?? Promise.resolve();
   }
 
+  public addAttestations(attestations: BlockAttestation[]): Promise<void> {
+    return this.attestationPool?.addAttestations(attestations) ?? Promise.resolve();
+  }
+
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void {
+  public registerBlockProposalHandler(
+    handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>,
+  ): void {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 

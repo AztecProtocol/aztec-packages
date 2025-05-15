@@ -240,4 +240,10 @@ export class EpochCache implements EpochCacheInterface {
     const { committee } = await this.getCommittee();
     return committee.some(v => v.equals(validator));
   }
+
+  async filterInCommittee(validators: EthAddress[]): Promise<EthAddress[]> {
+    const { committee } = await this.getCommittee();
+    const committeeSet = new Set(committee.map(v => v.toString()));
+    return validators.filter(v => committeeSet.has(v.toString()));
+  }
 }

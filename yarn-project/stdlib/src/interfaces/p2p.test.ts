@@ -87,4 +87,9 @@ class MockP2P implements P2PApi {
     expect(attestation).toBeInstanceOf(BlockAttestation);
     return Promise.resolve();
   }
+
+  addAttestations(attestations: BlockAttestation[]): Promise<void> {
+    expect(attestations).toEqual([BlockAttestation.empty()]);
+    return Promise.resolve();
+  }
 }

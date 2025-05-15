@@ -414,7 +414,7 @@ export async function setup(
     }
 
     // Made as separate values such that keys can change, but for test they will be the same.
-    config.validatorPrivateKey = config.publisherPrivateKey;
+    config.validatorPrivateKeys = [config.publisherPrivateKey];
 
     if (PXE_URL) {
       // we are setting up against a remote environment, l1 contracts are assumed to already be deployed

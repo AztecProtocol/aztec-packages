@@ -44,7 +44,7 @@ describe('ValidatorClient', () => {
     validatorAccount = privateKeyToAccount(validatorPrivateKey);
 
     config = {
-      validatorPrivateKey: validatorPrivateKey,
+      validatorPrivateKeys: [validatorPrivateKey],
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       validatorReexecute: false,
@@ -53,7 +53,7 @@ describe('ValidatorClient', () => {
   });
 
   it('Should throw error if an invalid private key is provided', () => {
-    config.validatorPrivateKey = '0x1234567890123456789';
+    config.validatorPrivateKeys = ['0x1234567890123456789'];
     expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
       InvalidValidatorPrivateKeyError,
     );
@@ -133,7 +133,7 @@ describe('ValidatorClient', () => {
 
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
-      config.validatorPrivateKey = '0x1234567890123456789';
+      config.validatorPrivateKeys = ['0x1234567890123456789'];
       expect(() => ValidatorClient.new(config, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
         InvalidValidatorPrivateKeyError,
       );

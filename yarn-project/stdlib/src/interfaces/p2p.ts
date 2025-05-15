@@ -53,6 +53,9 @@ export interface P2PClient extends P2PApiWithoutAttestations {
 
   /** Manually adds an attestation to the p2p client attestation pool. */
   addAttestation(attestation: BlockAttestation): Promise<void>;
+
+  /** Manually adds attestations to the p2p client attestation pool. */
+  addAttestations(attestations: BlockAttestation[]): Promise<void>;
 }
 
 export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
@@ -68,4 +71,5 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
   addAttestation: z.function().args(BlockAttestation.schema).returns(z.void()),
+  addAttestations: z.function().args(z.array(BlockAttestation.schema)).returns(z.void()),
 };

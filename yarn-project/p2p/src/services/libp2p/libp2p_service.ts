@@ -117,7 +117,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param block - The block received from the peer.
    * @returns The attestation for the block, if any.
    */
-  private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
+  private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
 
@@ -171,7 +171,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
-    this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
+    this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation[] | undefined> => {
       this.logger.debug(
         `Handler not yet registered: Block received callback not set. Received block for slot ${block.slotNumber.toNumber()} from peer.`,
         { p2pMessageIdentifier: await block.p2pMessageIdentifier() },
@@ -474,7 +474,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return this.peerDiscoveryService.getEnr();
   }
 
-  public registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>) {
+  public registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>) {
     this.blockReceivedCallback = callback;
     this.logger.verbose('Block received callback registered');
   }
@@ -633,21 +633,23 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         block: block.blockNumber.toNumber(),
       },
     );
-    const attestation = await this.blockReceivedCallback(block);
+    const attestations = await this.blockReceivedCallback(block);
 
     // TODO: fix up this pattern - the abstraction is not nice
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
-    if (attestation != undefined) {
-      this.logger.verbose(
-        `Broadcasting attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()}`,
-        {
-          p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
-          slot: attestation.slotNumber.toNumber(),
-          archive: attestation.archive.toString(),
-          block: attestation.blockNumber.toNumber(),
-        },
-      );
-      await this.broadcastAttestation(attestation);
+    if (attestations?.length) {
+      for (const attestation of attestations) {
+        this.logger.verbose(
+          `Broadcasting attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()}`,
+          {
+            p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
+            slot: attestation.slotNumber.toNumber(),
+            archive: attestation.archive.toString(),
+            block: attestation.blockNumber.toNumber(),
+          },
+        );
+        await this.broadcastAttestation(attestation);
+      }
     }
   }
 

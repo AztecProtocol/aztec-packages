@@ -26,7 +26,7 @@ export class ValidationService {
     stateReference: StateReference,
     txs: Tx[],
   ): Promise<BlockProposal> {
-    const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
+    const payloadSigners = (payload: Buffer32) => this.keyStore.signMessage(payload);
     // TODO: check if this is calculated earlier / can not be recomputed
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
@@ -34,26 +34,24 @@ export class ValidationService {
       blockNumber,
       new ConsensusPayload(header, archive, stateReference, txHashes),
       txs,
-      payloadSigner,
+      payloadSigners,
     );
   }
 
   /**
-   * Attest to the given block proposal constructed by the current sequencer
+   * Attest with all validators to the given block proposal, constructed by the current sequencer
    *
    * NOTE: This is just a blind signing.
    *       We assume that the proposal is valid and DA guarantees have been checked previously.
    *
    * @param proposal - The proposal to attest to
-   * @returns attestation
+   * @returns attestations
    */
-  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
-
+  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation[]> {
     const buf = Buffer32.fromBuffer(
       keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );
-    const sig = await this.keyStore.signMessage(buf);
-    return new BlockAttestation(proposal.blockNumber, proposal.payload, sig);
+    const signatures = await this.keyStore.signMessage(buf);
+    return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
   }
 }
