@@ -377,11 +377,30 @@
                 // Start collapsed
                 toggleIcon.textContent = "[+] ";
                 toggleIcon.style.cursor = "pointer"; // indicate clickable
+                toggleIcon.style.fontWeight = "bold"; // make text bold
                 header.appendChild(toggleIcon);
                 const headerText = document.createElement("span");
                 headerText.textContent = key;
                 headerText.style.cursor = "pointer"; // indicate clickable
+                headerText.style.fontWeight = "bold"; // make text bold
                 header.appendChild(headerText);
+
+                // Add expand/collapse all buttons
+                const expandAllBtn = document.createElement("button");
+                expandAllBtn.textContent = "Expand all";
+                expandAllBtn.className = "expand-collapse-btn";
+                expandAllBtn.style.marginLeft = "8px";
+                expandAllBtn.style.fontSize = "0.8em";
+                expandAllBtn.style.padding = "0 6px";
+                header.appendChild(expandAllBtn);
+
+                const collapseAllBtn = document.createElement("button");
+                collapseAllBtn.textContent = "Collapse all";
+                collapseAllBtn.className = "expand-collapse-btn";
+                collapseAllBtn.style.marginLeft = "4px";
+                collapseAllBtn.style.fontSize = "0.8em";
+                collapseAllBtn.style.padding = "0 6px";
+                header.appendChild(collapseAllBtn);
 
                 const groupContent = document.createElement("div");
                 groupContent.className = "benchmark-group-content";
@@ -400,6 +419,37 @@
                 }
                 toggleIcon.addEventListener("click", toggleGroup);
                 headerText.addEventListener("click", toggleGroup);
+
+                // Recursive expand/collapse for subtree
+                function setSubtreeExpanded(node, expand) {
+                  // node: groupContainer
+                  const content = node.querySelector(
+                    ":scope > .benchmark-group-content"
+                  );
+                  const icon = node.querySelector(
+                    ":scope > .benchmark-group-header > span"
+                  );
+                  if (content && icon) {
+                    content.style.display = expand ? "block" : "none";
+                    icon.textContent = expand ? "[-] " : "[+] ";
+                  }
+                  // Recursively expand/collapse child groups
+                  const children = content
+                    ? content.querySelectorAll(":scope > .benchmark-group")
+                    : [];
+                  children.forEach((child) =>
+                    setSubtreeExpanded(child, expand)
+                  );
+                }
+
+                expandAllBtn.addEventListener("click", (e) => {
+                  e.stopPropagation();
+                  setSubtreeExpanded(groupContainer, true);
+                });
+                collapseAllBtn.addEventListener("click", (e) => {
+                  e.stopPropagation();
+                  setSubtreeExpanded(groupContainer, false);
+                });
 
                 groupContainer.appendChild(header);
                 groupContainer.appendChild(groupContent);
