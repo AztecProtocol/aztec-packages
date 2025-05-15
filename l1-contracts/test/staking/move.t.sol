@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {IStakingCore, Status, FullStatus} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {GSE} from "@aztec/core/staking/GSE.sol";
 import {Timestamp, Epoch, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";

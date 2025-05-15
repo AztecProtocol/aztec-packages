@@ -13,14 +13,14 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
-struct Info {
+struct AttesterConfig {
   address withdrawer;
   address proposer;
 }
 
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
-  mapping(address attester => Info) infoOf;
+  mapping(address attester => AttesterConfig) configOf;
   mapping(address attester => uint256) balanceOf;
   uint256 supply;
   bool exists;
@@ -47,7 +47,10 @@ interface IGSE {
   function balanceOf(address _instance, address _attester) external view returns (uint256);
   function supplyOf(address _instance) external view returns (uint256);
   function totalSupply() external view returns (uint256);
-  function getInfo(address _instance, address _attester) external view returns (Info memory);
+  function getConfig(address _instance, address _attester)
+    external
+    view
+    returns (AttesterConfig memory);
   function getAttesterCountAtTime(address _instance, Timestamp _timestamp)
     external
     view
@@ -131,7 +134,8 @@ contract GSE is IGSE, Ownable {
     InstanceStaking storage instanceStaking =
       instances[_onCanonical ? CANONICAL_MAGIC_ADDRESS : msg.sender];
     require(instanceStaking.attesters.add(_attester), "Validator already registered");
-    instanceStaking.infoOf[_attester] = Info({withdrawer: _withdrawer, proposer: _proposer});
+    instanceStaking.configOf[_attester] =
+      AttesterConfig({withdrawer: _withdrawer, proposer: _proposer});
     instanceStaking.balanceOf[_attester] += MINIMUM_DEPOSIT;
     instanceStaking.supply += MINIMUM_DEPOSIT;
     totalSupply += MINIMUM_DEPOSIT;
@@ -174,7 +178,7 @@ contract GSE is IGSE, Ownable {
     // By default, we will be removing, but in the case of slash, we might just reduce.
     if (removed) {
       require(instanceStaking.attesters.remove(_attester), "Failed to remove attester");
-      delete instanceStaking.infoOf[_attester];
+      delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
     }
 
@@ -197,20 +201,20 @@ contract GSE is IGSE, Ownable {
     return attesterExists;
   }
 
-  function getInfo(address _instance, address _attester)
+  function getConfig(address _instance, address _attester)
     external
     view
     override(IGSE)
-    returns (Info memory)
+    returns (AttesterConfig memory)
   {
     (InstanceStaking storage instanceStaking, bool attesterExists,) =
       _getInstanceStoreWithAttester(_instance, _attester);
 
     if (!attesterExists) {
-      return Info({withdrawer: address(0), proposer: address(0)});
+      return AttesterConfig({withdrawer: address(0), proposer: address(0)});
     }
 
-    return instanceStaking.infoOf[_attester];
+    return instanceStaking.configOf[_attester];
   }
 
   function getWithdrawer(address _instance, address _attester)
@@ -227,7 +231,7 @@ contract GSE is IGSE, Ownable {
       return (address(0), false, false);
     }
 
-    return (instanceStaking.infoOf[_attester].withdrawer, true, isCanonical);
+    return (instanceStaking.configOf[_attester].withdrawer, true, isCanonical);
   }
 
   function getProposer(address _instance, address _attester)
@@ -244,7 +248,7 @@ contract GSE is IGSE, Ownable {
       return (address(0), false, false);
     }
 
-    return (instanceStaking.infoOf[_attester].proposer, true, isCanonical);
+    return (instanceStaking.configOf[_attester].proposer, true, isCanonical);
   }
 
   function balanceOf(address _instance, address _attester)

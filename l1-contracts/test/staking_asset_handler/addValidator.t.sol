@@ -5,7 +5,7 @@ import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-import {FullStatus, Exit, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {AttesterView, Exit, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
@@ -46,11 +46,11 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.prank(unhinged);
     stakingAssetHandler.addValidator(_attester, _proposer);
 
-    FullStatus memory info = staking.getFullStatus(_attester);
-    assertEq(info.info.proposer, _proposer);
-    assertEq(info.info.withdrawer, WITHDRAWER);
-    assertEq(info.effectiveBalance, MINIMUM_STAKE);
-    assertTrue(info.status == Status.VALIDATING);
+    AttesterView memory attesterView = staking.getAttesterView(_attester);
+    assertEq(attesterView.config.proposer, _proposer);
+    assertEq(attesterView.config.withdrawer, WITHDRAWER);
+    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    assertTrue(attesterView.status == Status.VALIDATING);
   }
 
   modifier whenCallerIsNotUnhinged(address _caller) {
@@ -108,11 +108,11 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.prank(_caller);
     stakingAssetHandler.addValidator(_attester, _proposer);
 
-    FullStatus memory info = staking.getFullStatus(_attester);
-    assertEq(info.info.proposer, _proposer);
-    assertEq(info.info.withdrawer, WITHDRAWER);
-    assertEq(info.effectiveBalance, MINIMUM_STAKE);
-    assertTrue(info.status == Status.VALIDATING);
+    AttesterView memory attesterView = staking.getAttesterView(_attester);
+    assertEq(attesterView.config.proposer, _proposer);
+    assertEq(attesterView.config.withdrawer, WITHDRAWER);
+    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }
@@ -136,11 +136,11 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.prank(_caller);
     stakingAssetHandler.addValidator(_attester, _proposer);
 
-    FullStatus memory info = staking.getFullStatus(_attester);
-    assertEq(info.info.proposer, _proposer);
-    assertEq(info.info.withdrawer, WITHDRAWER);
-    assertEq(info.effectiveBalance, MINIMUM_STAKE);
-    assertTrue(info.status == Status.VALIDATING);
+    AttesterView memory attesterView = staking.getAttesterView(_attester);
+    assertEq(attesterView.config.proposer, _proposer);
+    assertEq(attesterView.config.withdrawer, WITHDRAWER);
+    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }

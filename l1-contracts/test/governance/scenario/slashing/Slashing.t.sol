@@ -15,7 +15,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Status, FullStatus} from "@aztec/core/interfaces/IStaking.sol";
+import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
@@ -97,9 +97,9 @@ contract SlashingTest is TestBase {
     uint256[] memory stakes = new uint256[](attesters.length);
 
     for (uint256 i = 0; i < attesters.length; i++) {
-      FullStatus memory info = rollup.getFullStatus(attesters[i]);
-      stakes[i] = info.effectiveBalance;
-      assertTrue(info.status == Status.VALIDATING, "Invalid status");
+      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
+      stakes[i] = attesterView.effectiveBalance;
+      assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 
     slashingProposer.executeProposal(round);
@@ -107,10 +107,10 @@ contract SlashingTest is TestBase {
     // Make sure that the slash was successful,
     // Meaning that validators are now LIVING and have lost the slash amount
     for (uint256 i = 0; i < attesters.length; i++) {
-      FullStatus memory info = rollup.getFullStatus(attesters[i]);
-      assertEq(info.effectiveBalance, 0);
-      assertEq(info.exit.amount, stakes[i] - slashAmount, "Invalid stake");
-      assertTrue(info.status == Status.LIVING, "Invalid status");
+      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
+      assertEq(attesterView.effectiveBalance, 0);
+      assertEq(attesterView.exit.amount, stakes[i] - slashAmount, "Invalid stake");
+      assertTrue(attesterView.status == Status.LIVING, "Invalid status");
     }
   }
 }

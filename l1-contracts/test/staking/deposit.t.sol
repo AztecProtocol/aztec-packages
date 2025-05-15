@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {IStakingCore, Status, FullStatus} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {IGSE} from "@aztec/core/staking/GSE.sol";
 
 contract DepositTest is StakingBase {
@@ -138,10 +138,10 @@ contract DepositTest is StakingBase {
 
     assertEq(stakingAsset.balanceOf(address(staking.getGSE())), MINIMUM_STAKE);
 
-    FullStatus memory info = staking.getFullStatus(ATTESTER);
-    assertEq(info.effectiveBalance, MINIMUM_STAKE, "effective balance");
-    assertEq(info.info.withdrawer, WITHDRAWER);
-    assertEq(info.info.proposer, PROPOSER);
-    assertTrue(info.status == Status.VALIDATING);
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE, "effective balance");
+    assertEq(attesterView.config.withdrawer, WITHDRAWER);
+    assertEq(attesterView.config.proposer, PROPOSER);
+    assertTrue(attesterView.status == Status.VALIDATING);
   }
 }
