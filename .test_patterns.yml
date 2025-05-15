@@ -122,10 +122,6 @@ tests:
     error_regex: "Expected: >= 2"
     owners:
       - *palla
-  - regex: "e2e_p2p/validators_sentinel"
-    error_regex: "replacement transaction underpriced"
-    owners:
-      - *palla
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
@@ -171,10 +167,6 @@ tests:
     error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
-  - regex: "src/e2e_fees/gas_estimation.test.ts"
-    error_regex: "✕ estimates gas with public payment method"
-    owners:
-      - *jan
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -221,24 +213,6 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
-  # ● Archiver › can start, sync and stop and handle l1 to l2 messages and logs
-  #
-  #   expect(received).toBe(expected) // Object.is equality
-  #
-  #   Expected: 14
-  #   Received: 0
-  #
-  #     267 |
-  #     268 |       const privateLogs = await archiver.getPrivateLogs(blockNumber, 1);
-  #   > 269 |       expect(privateLogs.length).toBe(getNumPrivateLogsForBlock(blockNumber));
-  #         |                                  ^
-  #     270 |
-  #     271 |       const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
-  #     272 |       const expectedTotalNumPublicLogs = 4 * (blockNumber + 1) * 2;
-  - regex: "archiver/src/archiver/archiver.test.ts"
-    error_regex: "Expected: 14"
-    owners:
-      - *leila
 
   # boxes
   - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"

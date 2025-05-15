@@ -317,7 +317,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
-    description: 'How many message cache windows to include when gossiping with other pears.',
+    description: 'How many message cache windows to include when gossiping with other peers.',
     ...numberConfigHelper(3),
   },
   gossipsubSeenTTL: {
