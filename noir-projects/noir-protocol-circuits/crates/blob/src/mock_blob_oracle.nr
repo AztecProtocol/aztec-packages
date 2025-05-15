@@ -1,12 +1,11 @@
 use crate::blob_batching_public_inputs::{
     BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
 };
-use super::blob_batching_public_inputs::Serialize;
 use bigint::BLS12_381_Fq as Q;
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
-    traits::Deserialize,
+    traits::{Deserialize, Serialize},
 };
 
 // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
