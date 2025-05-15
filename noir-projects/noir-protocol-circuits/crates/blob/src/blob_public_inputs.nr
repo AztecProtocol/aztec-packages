@@ -1,5 +1,6 @@
 use bigint::{BigNum, BLS12_381_Fr as F};
 use std::ops::Add;
+use std::meta::derive;
 use types::{
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK},
     traits::{Deserialize, Empty, Serialize},
@@ -9,14 +10,9 @@ use types::{
 // NB: This only exists because a nested array of [[Field; 2]; N] did not build with ci2.5, but was fine otherwise
 // For blobs, we use the compressed 48 byte BLS12 commitment to compute the challenge. We never need to operate on it,
 // so it's encoded as 2 fields. The first is the first 31 bytes, and the second is the next 17 bytes.
+#[derive(Eq)]
 pub struct BlobCommitment {
     pub inner: [Field; 2],
-}
-
-impl Eq for BlobCommitment {
-    fn eq(self, other: Self) -> bool {
-        self.inner.eq(other.inner)
-    }
 }
 
 impl Empty for BlobCommitment {

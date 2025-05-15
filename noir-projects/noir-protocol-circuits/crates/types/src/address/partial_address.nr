@@ -3,12 +3,12 @@ use crate::{
     constants::GENERATOR_INDEX__PARTIAL_ADDRESS,
     contract_class_id::ContractClassId,
     hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Serialize, ToField},
+    traits::{Deserialize, Empty, Serialize, ToField},
 };
-
-global PARTIAL_ADDRESS_LENGTH: u32 = 1;
+use std::meta::derive;
 
 // Partial address
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PartialAddress {
     pub inner: Field,
 }
@@ -19,15 +19,9 @@ impl ToField for PartialAddress {
     }
 }
 
-impl Serialize<PARTIAL_ADDRESS_LENGTH> for PartialAddress {
-    fn serialize(self: Self) -> [Field; PARTIAL_ADDRESS_LENGTH] {
-        [self.to_field()]
-    }
-}
-
-impl Deserialize<PARTIAL_ADDRESS_LENGTH> for PartialAddress {
-    fn deserialize(fields: [Field; PARTIAL_ADDRESS_LENGTH]) -> Self {
-        PartialAddress { inner: fields[0] }
+impl Empty for PartialAddress {
+    fn empty() -> Self {
+        Self { inner: 0 }
     }
 }
 
@@ -68,5 +62,17 @@ impl PartialAddress {
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
+    }
+}
+
+mod test {
+    use crate::{address::partial_address::PartialAddress, traits::{Deserialize, Empty, Serialize}};
+
+    #[test]
+    fn serialization_of_partial_address() {
+        let item = PartialAddress::from_field(1);
+        let serialized: [Field; 1] = item.serialize();
+        let deserialized = PartialAddress::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
 }
