@@ -271,39 +271,48 @@ pub contract Parent {
         let mut env = TestEnvironment::new();
         let owner = env.create_account(1);
         // Deploy parent contract
-        let parent_contract = env.deploy_self("Parent").without_initializer();
-        let parent_contract_address = parent_contract.to_address();
+        let parent_contract_address = env.deploy_self("Parent").without_initializer().to_address();
         // Deploy child contract
-        let child_contract = env.deploy("./@child_contract", "Child").without_initializer();
-        let child_contract_address = child_contract.to_address();
-        cheatcodes::advance_blocks_by(1);
+        let child_contract_address =
+            env.deploy("./@child_contract", "Child").without_initializer().to_address();
+
         // Set value in child through parent
         let value_to_set = 7;
-        let result = Parent::at(parent_contract_address)
-            .private_call(
-                child_contract_address,
-                comptime { FunctionSelector::from_signature("private_set_value(Field,(Field))") },
-                [value_to_set, owner.to_field()],
+        let result = env
+            .call_private(
+                owner,
+                Parent::at(parent_contract_address).private_call(
+                    child_contract_address,
+                    comptime {
+                        FunctionSelector::from_signature("private_set_value(Field,(Field))")
+                    },
+                    [value_to_set, owner.to_field()],
+                ),
             )
-            .call(&mut env.private());
+            .return_value;
         assert(result == value_to_set);
-        // Read the stored value in the note. We have to change the contract address to the child contract in order to read its notes
-        env.impersonate(child_contract_address);
-        let counter_slot = Child::storage_layout().a_map_with_private_values.slot;
-        let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
-        let note_value = notes.get(0).value;
-        assert(note_value == value_to_set);
-        assert(note_value == result);
-        // Get value from child through parent
-        let read_result = Parent::at(parent_contract_address)
-            .private_call(
-                child_contract_address,
-                comptime { FunctionSelector::from_signature("private_get_value(Field,(Field))") },
-                [7, owner.to_field()],
+
+        let note_value = env
+            .call_private(
+                owner,
+                Child::at(child_contract_address).private_get_value(value_to_set, owner),
             )
-            .call(&mut env.private());
-        assert(note_value == read_result);
+            .return_value;
+        assert(note_value == value_to_set);
+
+        // Get value from child through parent
+        let read_result = env
+            .call_private(
+                owner,
+                Parent::at(parent_contract_address).private_call(
+                    child_contract_address,
+                    comptime {
+                        FunctionSelector::from_signature("private_get_value(Field,(Field))")
+                    },
+                    [7, owner.to_field()],
+                ),
+            )
+            .return_value;
+        assert(read_result == value_to_set);
     }
 }
