@@ -42,11 +42,9 @@ jobs:
 
       - name: Install cast
         run: |
-          if ! command -v cast &>/dev/null; then
-            echo "Installing cast..."
-            curl -L https://foundry.paradigm.xyz | bash
-            $HOME/.foundry/bin/foundryup
-          fi
+          curl -L https://foundry.paradigm.xyz | bash
+          source /home/runner/.bashrc
+          foundryup
 
       - name: Build dependencies
         run: |
