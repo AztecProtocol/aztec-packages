@@ -10,7 +10,8 @@ export class SentinelStore {
   // a map from validator address to their ValidatorStatusHistory
   private readonly historyMap: AztecAsyncMap<`0x${string}`, Buffer>;
 
-  // a map from validator address to their proven epoch performance
+  // a map from validator address to their historical proven epoch performance
+  // e.g. { validator: [{ epoch: 1, missed: 1, total: 10 }, { epoch: 2, missed: 3, total: 7 }, ...] }
   private readonly provenMap: AztecAsyncMap<`0x${string}`, Buffer>;
 
   constructor(private store: AztecAsyncKVStore, private config: { historyLength: number }) {
@@ -36,6 +37,11 @@ export class SentinelStore {
     });
   }
 
+  public async getProvenPerformance(who: `0x${string}`): Promise<{ missed: number; total: number; epoch: bigint }[]> {
+    const currentPerformanceBuffer = await this.provenMap.getAsync(who);
+    return currentPerformanceBuffer ? this.deserializePerformance(currentPerformanceBuffer) : [];
+  }
+
   private async pushValidatorProvenPerformanceForEpoch({
     who,
     missed,
@@ -47,8 +53,7 @@ export class SentinelStore {
     total: number;
     epoch: bigint;
   }) {
-    const currentPerformanceBuffer = await this.provenMap.getAsync(who);
-    const currentPerformance = currentPerformanceBuffer ? this.deserializePerformance(currentPerformanceBuffer) : [];
+    const currentPerformance = await this.getProvenPerformance(who);
 
     currentPerformance.push({ missed, total, epoch });
     await this.provenMap.set(who, this.serializePerformance(currentPerformance));
@@ -98,9 +103,9 @@ export class SentinelStore {
     const performance: { missed: number; total: number; epoch: bigint }[] = [];
     while (!reader.isEmpty()) {
       performance.push({
+        epoch: BigInt(reader.readNumber()),
         missed: reader.readNumber(),
         total: reader.readNumber(),
-        epoch: BigInt(reader.readNumber()),
       });
     }
     return performance;

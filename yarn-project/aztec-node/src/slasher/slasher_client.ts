@@ -104,7 +104,7 @@ export class SlasherClient extends WithTracer {
   }
 
   constructor(
-    private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
+    public config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1TxUtils: L1TxUtils,
     private epochPruneWatcher: EpochPruneWatcher,
@@ -137,12 +137,12 @@ export class SlasherClient extends WithTracer {
     }
 
     this.watchSlashFactoryEvents();
-    this.epochPruneWatcher.on(WANT_TO_SLASH_EVENT, this.handleWantsToSlash.bind(this));
+    this.epochPruneWatcher.on(WANT_TO_SLASH_EVENT, this.wantToSlash.bind(this));
 
     this.epochPruneWatcher.start();
   }
 
-  private handleWantsToSlash(args: WantToSlashArgs) {
+  public wantToSlash(args: WantToSlashArgs) {
     this.log.info('Wants to slash', args);
     if (!this.slashFactoryContract) {
       this.log.error('No slash factory contract found, skipping slash');

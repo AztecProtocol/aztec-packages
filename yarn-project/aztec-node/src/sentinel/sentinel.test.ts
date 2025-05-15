@@ -19,7 +19,8 @@ import type { ValidatorStats, ValidatorStatusHistory, ValidatorsStats } from '@a
 import { jest } from '@jest/globals';
 import { type DeepMockProxy, type MockProxy, mock, mockDeep } from 'jest-mock-extended';
 
-import type { InactivityWatcher } from '../slasher/inactivity_watcher.js';
+import { Offence } from '../slasher/config.js';
+import type { SlasherClient } from '../slasher/slasher_client.js';
 import { Sentinel } from './sentinel.js';
 import { SentinelStore } from './store.js';
 
@@ -38,7 +39,7 @@ describe('sentinel', () => {
   let epoch: bigint;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
-  let inactivityWatcher: DeepMockProxy<InactivityWatcher>;
+  let slasher: DeepMockProxy<SlasherClient>;
 
   beforeEach(async () => {
     epochCache = mock<EpochCache>();
@@ -63,9 +64,12 @@ describe('sentinel', () => {
 
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
-    inactivityWatcher = mockDeep<InactivityWatcher>();
+    slasher = mockDeep<SlasherClient>();
+    slasher.config.slashInactivityCreatePenalty = 100n;
+    slasher.config.slashInactivityCreateTargetPercentage = 0.8;
+    slasher.config.slashInactivitySignalTargetPercentage = 0.6;
 
-    sentinel = new TestSentinel(epochCache, archiver, p2p, store, inactivityWatcher, blockStream);
+    sentinel = new TestSentinel(epochCache, archiver, p2p, store, slasher, blockStream);
   });
 
   afterEach(async () => {
@@ -227,7 +231,7 @@ describe('sentinel', () => {
       archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
 
-      const headerSlots = [slot - 2n, slot - 1n, slot];
+      const headerSlots = times(5, i => slot - BigInt(i));
       const mockHeaders = headerSlots.map(s => {
         const header = mockDeep<PublishedL2Block['block']['header']>();
         header.getSlot.mockReturnValue(s);
@@ -243,11 +247,13 @@ describe('sentinel', () => {
             address: validator1,
             totalSlots: headerSlots.length,
             missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-            missedAttestations: { count: 1, currentStreak: 0, rate: 1 / 3 },
+            missedAttestations: { count: 1, currentStreak: 0, rate: 1 / 5 },
             history: [
               { slot: headerSlots[0], status: 'attestation-sent' },
               { slot: headerSlots[1], status: 'attestation-missed' },
               { slot: headerSlots[2], status: 'attestation-sent' },
+              { slot: headerSlots[3], status: 'attestation-sent' },
+              { slot: headerSlots[4], status: 'attestation-sent' },
             ],
           } as ValidatorStats,
           [validator2.toString()]: {
@@ -255,11 +261,13 @@ describe('sentinel', () => {
             totalSlots: headerSlots.length,
             missedProposals: { count: 0, currentStreak: 0, rate: 0 },
             // We should only count the slots that are in the proven epoch (0, 1, 2)!!
-            missedAttestations: { count: 2, currentStreak: 1, rate: 2 / 3 },
+            missedAttestations: { count: 4, currentStreak: 3, rate: 4 / 5 },
             history: [
               { slot: headerSlots[0], status: 'attestation-missed' },
               { slot: headerSlots[1], status: 'attestation-sent' },
               { slot: headerSlots[2], status: 'attestation-missed' },
+              { slot: headerSlots[3], status: 'attestation-missed' },
+              { slot: headerSlots[4], status: 'attestation-missed' },
             ],
           } as ValidatorStats,
           '0xNotAnAddress': {
@@ -278,11 +286,44 @@ describe('sentinel', () => {
 
       await sentinel.handleChainProven({ type: 'chain-proven', block: { number: blockNumber, hash: blockHash } });
 
-      expect(computeStatsSpy).toHaveBeenCalledWith({ fromSlot: headerSlots[0], toSlot: headerSlots[2] });
-      expect(inactivityWatcher.handleProvenPerformance).toHaveBeenCalledWith(epochNumber, {
-        [validator1.toString()]: { missed: 1, total: headerSlots.length },
-        [validator2.toString()]: { missed: 2, total: headerSlots.length },
+      expect(computeStatsSpy).toHaveBeenCalledWith({
+        fromSlot: headerSlots[0],
+        toSlot: headerSlots[headerSlots.length - 1],
       });
+      expect(slasher.wantToSlash).toHaveBeenCalledWith({
+        validators: [validator2.toString()],
+        amounts: [slasher.config.slashInactivityCreatePenalty],
+        offenses: [Offence.INACTIVITY],
+      });
+    });
+
+    it('should agree with slash', async () => {
+      const performance = Object.fromEntries(
+        Array.from({ length: 10 }, (_, i) => [
+          `0x000000000000000000000000000000000000000${i}`,
+          {
+            missed: i * 10,
+            total: 100,
+          },
+        ]),
+      );
+
+      await sentinel.updateProvenPerformance(1n, performance);
+
+      sentinel.handleProvenPerformance(performance);
+      const penalty = slasher.config.slashInactivityCreatePenalty;
+
+      expect(slasher.wantToSlash).toHaveBeenCalledWith({
+        validators: [`0x0000000000000000000000000000000000000008`, `0x0000000000000000000000000000000000000009`],
+        amounts: [penalty, penalty],
+        offenses: [Offence.INACTIVITY, Offence.INACTIVITY],
+      });
+
+      for (let i = 0; i < 10; i++) {
+        const expectedAgree = i >= 6;
+        const actualAgree = await sentinel.agreeWithSlash([`0x000000000000000000000000000000000000000${i}`], [penalty]);
+        expect(actualAgree).toBe(expectedAgree);
+      }
     });
   });
 });
@@ -293,10 +334,10 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
-    inactivityWatcher: InactivityWatcher | undefined,
+    slasher: SlasherClient | undefined,
     protected override blockStream: L2BlockStream,
   ) {
-    super(epochCache, archiver, p2p, store, inactivityWatcher);
+    super(epochCache, archiver, p2p, store, slasher);
   }
 
   public override init() {
@@ -322,5 +363,16 @@ class TestSentinel extends Sentinel {
 
   public override computeStats(opts: { fromSlot?: bigint; toSlot?: bigint }) {
     return super.computeStats(opts);
+  }
+
+  public override handleProvenPerformance(performance: Record<`0x${string}`, { missed: number; total: number }>) {
+    return super.handleProvenPerformance(performance);
+  }
+
+  public override updateProvenPerformance(
+    epoch: bigint,
+    performance: Record<`0x${string}`, { missed: number; total: number }>,
+  ) {
+    return super.updateProvenPerformance(epoch, performance);
   }
 }

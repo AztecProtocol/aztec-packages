@@ -23,7 +23,8 @@ import type {
 
 import { isAddress } from 'viem';
 
-import type { InactivityWatcher } from '../slasher/inactivity_watcher.js';
+import { Offence } from '../slasher/index.js';
+import type { SlasherClient } from '../slasher/slasher_client.js';
 import { SentinelStore } from './store.js';
 
 export class Sentinel implements L2BlockStreamEventHandler {
@@ -41,7 +42,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
-    protected inactivityWatcher: InactivityWatcher | undefined,
+    protected slasher: SlasherClient | undefined,
     protected logger = createLogger('node:sentinel'),
   ) {
     this.l2TipsStore = new L2TipsMemoryStore();
@@ -94,19 +95,26 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   protected async handleChainProven(event: L2BlockStreamEvent) {
-    if (!this.inactivityWatcher) {
+    if (!this.slasher) {
       return;
     }
     if (event.type !== 'chain-proven') {
       return;
     }
-    const block = await this.archiver.getBlock(event.block.number);
+    const blockNumber = event.block.number;
+    const block = await this.archiver.getBlock(blockNumber);
     if (!block) {
-      this.logger.error(`Failed to get block ${event.block.number}`, { block: event.block });
+      this.logger.error(`Failed to get block ${blockNumber}`, { block });
       return;
     }
-
     const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
+    const performance = await this.computeProvenPerformance(epoch);
+
+    await this.updateProvenPerformance(epoch, performance);
+    this.handleProvenPerformance(performance);
+  }
+
+  protected async computeProvenPerformance(epoch: bigint) {
     const headers = await this.archiver.getBlockHeadersForEpoch(epoch);
     const provenSlots = headers.map(h => h.getSlot());
     const fromSlot = provenSlots[0];
@@ -126,9 +134,48 @@ export class Sentinel implements L2BlockStreamEventHandler {
       }
       performance[validator] = { missed, total: provenSlots.length };
     }
+    return performance;
+  }
 
-    // await this.store.updateProvenPerformance(epoch, performance);
-    this.inactivityWatcher.handleProvenPerformance(epoch, performance);
+  protected updateProvenPerformance(
+    epoch: bigint,
+    performance: Record<`0x${string}`, { missed: number; total: number }>,
+  ) {
+    return this.store.updateProvenPerformance(epoch, performance);
+  }
+
+  protected handleProvenPerformance(performance: Record<`0x${string}`, { missed: number; total: number }>) {
+    if (!this.slasher) {
+      return;
+    }
+    const criminals = Object.entries(performance)
+      .filter(([_, { missed, total }]) => {
+        return missed / total >= this.slasher!.config.slashInactivityCreateTargetPercentage;
+      })
+      .map(([address]) => address as `0x${string}`);
+
+    const amounts = Array(criminals.length).fill(this.slasher.config.slashInactivityCreatePenalty);
+    const offenses = Array(criminals.length).fill(Offence.INACTIVITY);
+
+    this.slasher.wantToSlash({ validators: criminals, amounts, offenses });
+  }
+
+  public async agreeWithSlash(validators: `0x${string}`[], _amounts: bigint[]): Promise<boolean> {
+    if (!this.slasher) {
+      return false;
+    }
+    const maxEpochAge = 3n;
+    const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
+    for (const validator of validators) {
+      const performance = await this.store.getProvenPerformance(validator);
+      const recentlyBad = performance
+        .filter(p => p.epoch >= currentEpoch - maxEpochAge)
+        .find(p => p.missed / p.total >= this.slasher!.config.slashInactivitySignalTargetPercentage);
+      if (!recentlyBad) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
