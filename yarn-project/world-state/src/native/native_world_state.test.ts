@@ -32,6 +32,7 @@ import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../te
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
+import type { NativeWorldState } from './native_world_state_instance.js';
 
 jest.setTimeout(60_000);
 
@@ -451,6 +452,7 @@ describe('NativeWorldState', () => {
     });
 
     const unsyncTrees = async (
+      ws: NativeWorldStateService,
       treeDirectories: string[],
       unsyncFunction: (ws: NativeWorldStateService) => Promise<void>,
     ) => {
@@ -470,6 +472,8 @@ describe('NativeWorldState', () => {
       };
 
       const tempDirectory = await mkdtemp(join(tmpdir(), randomBytes(8).toString('hex')));
+
+      // Close the world state before we run the un-sync operation
       await ws.close();
 
       for (let i = 0; i < treeDirectories.length; i++) {
@@ -481,11 +485,11 @@ describe('NativeWorldState', () => {
       }
 
       // Open up the world state again
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-      await unsyncFunction(ws);
+      const newWorldState = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await unsyncFunction(newWorldState);
 
       // Now, close down the world state and reinstate the nullifier and public data trees
-      await ws.close();
+      await newWorldState.close();
 
       for (let i = 0; i < treeDirectories.length; i++) {
         const dir = treeDirectories[i];
@@ -494,6 +498,7 @@ describe('NativeWorldState', () => {
         await copyFiles(destDirectory, sourceDirectory);
       }
       await rm(tempDirectory, { recursive: true, force: true });
+      return await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
     };
 
     it('handles historic block numbers being out of sync', async () => {
@@ -520,13 +525,12 @@ describe('NativeWorldState', () => {
         }
       }
 
-      await unsyncTrees(['PublicDataTree', 'NullifierTree'], async (ws: NativeWorldStateService) => {
+      ws = await unsyncTrees(ws, ['PublicDataTree', 'NullifierTree'], async (ws: NativeWorldStateService) => {
         await ws.removeHistoricalBlocks(5n);
       });
 
       // Open up the world state again and try removing the first 10 historical blocks
       // We should handle the fact that some trees are at historical block 5 and some are at 1
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const fullStatus = await ws.removeHistoricalBlocks(10n);
       expect(fullStatus.meta.archiveTreeMeta.oldestHistoricBlock).toEqual(10n);
       expect(fullStatus.meta.messageTreeMeta.oldestHistoricBlock).toEqual(10n);
