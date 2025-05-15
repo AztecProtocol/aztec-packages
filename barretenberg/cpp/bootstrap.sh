@@ -12,10 +12,14 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
   local binary=$1
-  local version=$(jq -r '."."' ../../.release-please-manifest.json)
+  local version=$REF_NAME
+  if ! semver check "$version"; then
+    echo_stderr "Error: REF_NAME ($version) is not a valid semver. Aborting."
+    exit 1
+  fi
   local placeholder='00000000.00000000.00000000'
   if [ ${#version} -gt ${#placeholder} ]; then
-    echo "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
+    echo_stderr "Error: version ($version) is longer than placeholder. Cannot update bb binaries."
     exit 1
   fi
   local offset=$(grep -aobF "$placeholder" $binary | head -n 1 | cut -d: -f1)
