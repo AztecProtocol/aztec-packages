@@ -317,11 +317,14 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         // try deserializing and serializing with no changes and check proof is still valid
         prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
         prover.transcript->serialize_full_transcript();
+
+        verifier.transcript = std::make_shared<typename Flavor::Transcript>();
         EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
         Commitment one_group_val = Commitment::one();
         FF rand_val = FF::random_element();
         prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
+        verifier.transcript = std::make_shared<typename Flavor::Transcript>();
         EXPECT_TRUE(verifier.verify_proof(
             prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
