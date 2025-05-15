@@ -18,7 +18,7 @@ namespace acir_format {
 // 2a. the points have not the same abssissa, OR
 // 2b. the points are identical (same witness index or same value)
 // If the points at infinity are known and constant, the function will work properly
-// If not, and if the points are not identical, the function will always return the point at infinity
+// If not, and if the points are not identical, it is an error.
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
@@ -72,12 +72,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
             }
         } else {
             // Some points could be at infinity, which is not supported by the function
-            // we simply returns the infinity point, as specified.
-            bb::stdlib::bool_t infinite(&builder);
-            infinite.witness_index = bb::stdlib::IS_CONSTANT;
-            infinite.witness_bool = true;
-            cycle_group_ct infinite_point(bb::fr::zero(), bb::fr::zero(), infinite);
-            result = infinite_point;
+            ASSERT(false, "Unsupported EC ADDITION UNSAFE; is_infinite status must be known at compile time");
         }
     }
 
