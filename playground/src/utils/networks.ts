@@ -17,7 +17,7 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'http://35.185.246.191:8080 ',
+    nodeURL: 'https://full-node.master-rc-1.aztec.network',
     name: 'Aztec Masternet',
     description: 'Latest and greatest',
     hasTestAccounts: false,
