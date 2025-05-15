@@ -515,6 +515,8 @@ describe('NativeWorldState', () => {
       await copyFiles(nullifierTreePathDest, nullifierTreePathSource);
       await copyFiles(publicTreePathDest, publicTreePathSource);
 
+      await rm(tempDirectory, { recursive: true, force: true });
+
       // Open up the world state again and try removing the first 10 historical blocks
       // We should handle the fact that some trees are at historical block 5 and some are at 1
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
