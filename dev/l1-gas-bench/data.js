@@ -1,112 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747248092544,
+  "lastUpdate": 1747278393859,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "L1 Gas Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "75146596+Sarkoxed@users.noreply.github.com",
-            "name": "Sarkoxed",
-            "username": "Sarkoxed"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "09fc599f3cf35e9821be67b58c94475e6b142b6b",
-          "message": "feat: RAM/ROM tables handler in SMT verification module (#14150)\n\nThis pr adds a mechanism to handle RAM/ROM tables in SMT Verification\nmodule\n\n# UltraCircuit\n\n- Fixed `bool_gate` handler\n- Added `fix_witness` gate handler\n- tables' sizes are now stored\n- Fixed an optimization issue: now all the entries of `XOR` and `AND`\nare properly bounded\n\n- `handle_aux_relation` - adds non native field arithmetic constraints\nto solver\n- `handle_rom_tables`, `handle_ram_tables` - adds memory constraints to\nsolver\n\n- Added tests to verify that all the new mechanisms work fine\n\n\n# Minor changes\n\n## CircuitBase\n\n- now all the ultra related stuff is not handled in the base class\n- public inputs are now  set for optimization and relaxation purposes\n\n## Circuit Schema && CircuitBuilder\n\n- Added RAM/ROM tables export\n\n## Solver\n\n- Fixed set representation",
-          "timestamp": "2025-05-12T12:49:58Z",
-          "tree_id": "d14a90125fcc5c6f5ca39d177941c818a582cd1f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/09fc599f3cf35e9821be67b58c94475e6b142b6b"
-        },
-        "date": 1747057961865,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "forward (100_validators)",
-            "value": 639564,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (100_validators) per l2 tx",
-            "value": 1776.57,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators)",
-            "value": 312318,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (no_validators) per l2 tx",
-            "value": 867.55,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead)",
-            "value": 327246,
-            "unit": "gas"
-          },
-          {
-            "name": "forward (overhead) per l2 tx",
-            "value": 909.02,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators)",
-            "value": 1579024,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (100_validators) per l2 tx",
-            "value": 137.07,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators)",
-            "value": 67920,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (no_validators) per l2 tx",
-            "value": 5.9,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead)",
-            "value": 1511104,
-            "unit": "gas"
-          },
-          {
-            "name": "setupEpoch (overhead) per l2 tx",
-            "value": 131.17,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators)",
-            "value": 894670,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (100_validators) per l2 tx",
-            "value": 77.66,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators)",
-            "value": 911770,
-            "unit": "gas"
-          },
-          {
-            "name": "submitEpochRootProof (no_validators) per l2 tx",
-            "value": 79.15,
-            "unit": "gas"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -5115,6 +5011,108 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/commit/845d2851f487294a67a82a5f34549ffde44cfb0a"
         },
         "date": 1747248091107,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "forward (100_validators)",
+            "value": 639639,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (100_validators) per l2 tx",
+            "value": 1776.78,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators)",
+            "value": 310672,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (no_validators) per l2 tx",
+            "value": 862.98,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead)",
+            "value": 328967,
+            "unit": "gas"
+          },
+          {
+            "name": "forward (overhead) per l2 tx",
+            "value": 913.8,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators)",
+            "value": 1579031,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (100_validators) per l2 tx",
+            "value": 137.07,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators)",
+            "value": 67927,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (no_validators) per l2 tx",
+            "value": 5.9,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead)",
+            "value": 1511104,
+            "unit": "gas"
+          },
+          {
+            "name": "setupEpoch (overhead) per l2 tx",
+            "value": 131.17,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators)",
+            "value": 904626,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (100_validators) per l2 tx",
+            "value": 78.53,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators)",
+            "value": 921726,
+            "unit": "gas"
+          },
+          {
+            "name": "submitEpochRootProof (no_validators) per l2 tx",
+            "value": 80.01,
+            "unit": "gas"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "committer": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "distinct": true,
+          "id": "a0a29dc37566ef91411a5d5349a7a1cf4d692c4e",
+          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"625815034d\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"625815034d\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
+          "timestamp": "2025-05-15T02:32:16Z",
+          "tree_id": "3d83d1a996bf8e642c16e1019c83d7cdb2f4ce6c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a0a29dc37566ef91411a5d5349a7a1cf4d692c4e"
+        },
+        "date": 1747278392874,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
