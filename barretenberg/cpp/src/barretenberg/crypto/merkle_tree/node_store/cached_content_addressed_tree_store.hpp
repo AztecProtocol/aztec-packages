@@ -991,13 +991,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
         ReadTransactionPtr tx = create_read_transaction();
         get_meta(uncommittedMeta);
         get_meta(committedMeta, *tx, false);
-        if (blockNumber != committedMeta.oldestHistoricBlock) {
-            throw std::runtime_error(format("Unable to remove historical block: ",
-                                            blockNumber,
-                                            " oldestHistoricBlock: ",
-                                            committedMeta.oldestHistoricBlock,
-                                            ". Tree name: ",
-                                            forkConstantData_.name_));
+        if (blockNumber < committedMeta.oldestHistoricBlock) {
+            // Nothing to do, the block was probably already removed
+            finalMeta = uncommittedMeta;
+            extract_db_stats(dbStats);
+            return;
         }
         if (blockNumber >= committedMeta.finalisedBlockHeight) {
             throw std::runtime_error(format("Unable to remove historical block: ",

@@ -10,6 +10,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { timesAsync } from '@aztec/foundation/collection';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { SiblingPath } from '@aztec/foundation/trees';
@@ -22,7 +23,7 @@ import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -343,9 +344,11 @@ describe('NativeWorldState', () => {
 
   describe('Pending and Proven chain', () => {
     let ws: NativeWorldStateService;
+    let rollupAddress!: EthAddress;
 
     beforeEach(async () => {
-      ws = await NativeWorldStateService.tmp();
+      rollupAddress = EthAddress.random();
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
     });
 
     afterEach(async () => {
@@ -445,6 +448,77 @@ describe('NativeWorldState', () => {
           )}, blocks not found. Current oldest block: ${highestPrunedBlockNumber + 1}`,
         );
       }
+    });
+
+    it('handles historic block numbers being out of sync', async () => {
+      const fork = await ws.fork();
+      const forks = [];
+      const provenBlockLag = 4;
+
+      for (let i = 0; i < 16; i++) {
+        const blockNumber = i + 1;
+        const provenBlock = blockNumber - provenBlockLag;
+        const { block, messages } = await mockBlock(blockNumber, 1, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+
+        expect(status.summary.unfinalisedBlockNumber).toBe(BigInt(blockNumber));
+
+        const blockFork = await ws.fork();
+        forks.push(blockFork);
+
+        if (provenBlock > 0) {
+          const provenStatus = await ws.setFinalised(BigInt(provenBlock));
+          expect(provenStatus.finalisedBlockNumber).toBe(BigInt(provenBlock));
+        } else {
+          expect(status.summary.finalisedBlockNumber).toBe(0n);
+        }
+      }
+
+      // We now copy the world state to another directory.
+      await ws.close();
+
+      const nullifierTreePathSource = join(dataDir, 'world_state', 'NullifierTree');
+      const publicTreePathSource = join(dataDir, 'world_state', 'PublicDataTree');
+      const tempDirectory = await mkdtemp(join(tmpdir(), randomBytes(8).toString('hex')));
+      const nullifierTreePathDest = join(tempDirectory, 'NullifierTree');
+      const publicTreePathDest = join(tempDirectory, 'PublicDataTree');
+      await mkdir(nullifierTreePathDest, { recursive: true });
+      await mkdir(publicTreePathDest, { recursive: true });
+
+      const copyFiles = async (source: string, dest: string) => {
+        const contents = await readdir(source);
+        const isFile = async (fileName: string) => {
+          return (await lstat(fileName)).isFile();
+        };
+        for (const file of contents) {
+          const fullSourceFile = join(source, file);
+          const isAFile = await isFile(fullSourceFile);
+          if (!isAFile) {
+            continue;
+          }
+          await copyFile(fullSourceFile, join(dest, file));
+        }
+      };
+
+      await copyFiles(nullifierTreePathSource, nullifierTreePathDest);
+      await copyFiles(publicTreePathSource, publicTreePathDest);
+
+      // Open up the world state again
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+
+      // Remove the first 5 historical blocks
+      await ws.removeHistoricalBlocks(5n);
+
+      // Now, close down the world state and reinstate the nullifier and public data trees
+      await ws.close();
+
+      await copyFiles(nullifierTreePathDest, nullifierTreePathSource);
+      await copyFiles(publicTreePathDest, publicTreePathSource);
+
+      // Open up the world state again and try removing the first 10 historical blocks
+      // We should handle the fact that some trees are at historical block 5 and some are at 1
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await ws.removeHistoricalBlocks(10n);
     });
 
     it.each([
