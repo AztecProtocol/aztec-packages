@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { Fr, DeployMethod, type DeployOptions, AccountWallet } from '@aztec/aztec.js';
+import { Fr, DeployMethod, type DeployOptions, AccountWallet, AccountManager, Fq } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
 import Button from '@mui/material/Button';
@@ -23,6 +23,7 @@ import { InfoText } from '../../common/InfoText';
 import { INFO_TEXT } from '../../../constants';
 import { Box, DialogContent } from '@mui/material';
 import { DialogActions } from '@mui/material';
+import { getEcdsaRSerialAccount } from '@thunkar/aztec-keychain-accounts/ecdsa';
 
 export function CreateAccountDialog({
   open,
@@ -50,23 +51,32 @@ export function CreateAccountDialog({
   const createAccount = async () => {
     setIsRegistering(true);
     try {
-      const salt = Fr.random();
-      let accountManager;
-      let signingKey;
+      let accountManager: AccountManager;
+      let secretKey: Fr | undefined;
+      let signingKey: Fq | Buffer | undefined;
       switch (type) {
         case 'schnorr': {
+          secretKey = Fr.random();
           signingKey = deriveSigningKey(secretKey);
-          accountManager = await getSchnorrAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await getSchnorrAccount(pxe, secretKey, signingKey);
           break;
         }
         case 'ecdsasecp256r1': {
+          secretKey = Fr.random();
           signingKey = randomBytes(32);
-          accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey);
           break;
         }
         case 'ecdsasecp256k1': {
+          secretKey = Fr.random();
           signingKey = randomBytes(32);
-          accountManager = await getEcdsaKAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await getEcdsaKAccount(pxe, secretKey, signingKey);
+          break;
+        }
+        case 'aztec-keychain': {
+          let index;
+          ({ manager: accountManager, index } = await getEcdsaRSerialAccount(pxe));
+          signingKey = Buffer.from([index]);
           break;
         }
         default: {
@@ -79,26 +89,33 @@ export function CreateAccountDialog({
         type,
         secretKey: accountWallet.getSecretKey(),
         alias,
-        salt,
+        salt: accountManager.getInstance().salt,
         signingKey,
       });
 
+      const { isContractInitialized } = await pxe.getContractMetadata(accountWallet.getAddress());
+
+      if (isContractInitialized) {
+        onClose(accountWallet, false);
+        return;
+      }
+
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
-      if (publiclyDeploy) {
-        deployMethod = await accountManager.getDeployMethod();
-        opts = {
-          contractAddressSalt: salt,
-          fee: {
-            paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
-          },
-          universalDeploy: true,
-          skipClassRegistration: true,
-          skipPublicDeployment: true,
-        };
-      }
-      onClose(accountWallet, publiclyDeploy, deployMethod, opts);
+      deployMethod = await accountManager.getDeployMethod();
+      opts = {
+        contractAddressSalt: accountManager.getInstance().salt,
+        fee: {
+          paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
+        },
+        universalDeploy: true,
+        skipClassRegistration: true,
+        skipPublicDeployment: true,
+      };
+
+      onClose(accountWallet, true, deployMethod, opts);
     } catch (e) {
+      console.error(e);
       setError(e.message);
     } finally {
       setIsRegistering(false);
@@ -127,6 +144,7 @@ export function CreateAccountDialog({
               <MenuItem value="schnorr">Schnorr</MenuItem>
               <MenuItem value="ecdsasecp256r1">ECDSA R1 - Recommended</MenuItem>
               <MenuItem value="ecdsasecp256k1">ECDSA K1</MenuItem>
+              <MenuItem value="aztec-keychain">Aztec Keychain</MenuItem>
             </Select>
             <InfoText>{INFO_TEXT.ACCOUNT_ABSTRACTION}</InfoText>
           </FormControl>
@@ -143,17 +161,7 @@ export function CreateAccountDialog({
             />
             <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
-          {/* Always deploy for now */}
-          {/* <FormControl>
-            <FormControlLabel
-              value={publiclyDeploy}
-              control={
-                <Checkbox checked={publiclyDeploy} onChange={event => setPubliclyDeploy(event.target.checked)} />
-              }
-              label="Deploy"
-            />
-          </FormControl> */}
-          {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
+          <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />
         </FormGroup>
 
         <Box sx={{ flexGrow: 1 }}></Box>
@@ -169,7 +177,7 @@ export function CreateAccountDialog({
               </div>
             ) : (
               <Button
-                disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}
+                disabled={alias === '' || !feePaymentMethod || isRegistering}
                 onClick={createAccount}
               >
                 {publiclyDeploy ? 'Create and deploy' : 'Create'}

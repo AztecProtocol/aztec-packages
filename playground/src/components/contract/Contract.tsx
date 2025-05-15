@@ -182,7 +182,6 @@ export function ContractComponent() {
     setCurrentContractAddress,
   } = useContext(AztecContext);
 
-
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
@@ -235,15 +234,12 @@ export function ContractComponent() {
     opts?: DeployOptions,
   ) => {
     setOpenCreateContractDialog(false);
-    if (contract && publiclyDeploy) {
-      const txReceipt = await sendTx(
-        `Deploy ${currentContractArtifact.name}`,
-        interaction,
-        contract.address,
-        opts,
-      );
+    if (contract) {
+      const txReceipt = publiclyDeploy
+        ? await sendTx(`Deploy ${currentContractArtifact.name}`, interaction, contract.address, opts)
+        : undefined;
       // Temporarily ignore undeployed contracts
-      if (txReceipt?.status === TxStatus.SUCCESS) {
+      if (!publiclyDeploy || txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);
       }
     } else if (contract) {
@@ -317,11 +313,7 @@ export function ContractComponent() {
               </Box>
 
               <Typography variant="caption" css={contractClassIdCss}>
-<<<<<<< HEAD
                 Contract Class ID: {currentContract?.instance?.currentContractClassId.toString()}
-=======
-                Contract Class ID: {currentContractClassId}
->>>>>>> 38ec44558c (feat(playground): handle struct types, display contractClassId, fix input types (#14176))
               </Typography>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (
