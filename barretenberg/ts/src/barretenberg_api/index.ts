@@ -223,58 +223,6 @@ export class BarretenbergApi {
     return out as any;
   }
 
-  async acirNewAcirComposer(sizeHint: number): Promise<Ptr> {
-    const inArgs = [sizeHint].map(serializeBufferable);
-    const outTypes: OutputType[] = [Ptr];
-    const result = await this.wasm.callWasmExport(
-      'acir_new_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async acirDeleteAcirComposer(acirComposerPtr: Ptr): Promise<void> {
-    const inArgs = [acirComposerPtr].map(serializeBufferable);
-    const outTypes: OutputType[] = [];
-    const result = await this.wasm.callWasmExport(
-      'acir_delete_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return;
-  }
-
-  async acirInitProvingKey(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, recursive: boolean): Promise<void> {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, recursive].map(serializeBufferable);
-    const outTypes: OutputType[] = [];
-    const result = await this.wasm.callWasmExport(
-      'acir_init_proving_key',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return;
-  }
-
-  async acirCreateProof(
-    acirComposerPtr: Ptr,
-    constraintSystemBuf: Uint8Array,
-    recursive: boolean,
-    witnessBuf: Uint8Array,
-  ): Promise<Uint8Array> {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_create_proof',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
 
   async acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
     const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
@@ -835,58 +783,6 @@ export class BarretenbergApiSync {
     return out as any;
   }
 
-  acirNewAcirComposer(sizeHint: number): Ptr {
-    const inArgs = [sizeHint].map(serializeBufferable);
-    const outTypes: OutputType[] = [Ptr];
-    const result = this.wasm.callWasmExport(
-      'acir_new_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  acirDeleteAcirComposer(acirComposerPtr: Ptr): void {
-    const inArgs = [acirComposerPtr].map(serializeBufferable);
-    const outTypes: OutputType[] = [];
-    const result = this.wasm.callWasmExport(
-      'acir_delete_acir_composer',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return;
-  }
-
-  acirInitProvingKey(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, recursive: boolean): void {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, recursive].map(serializeBufferable);
-    const outTypes: OutputType[] = [];
-    const result = this.wasm.callWasmExport(
-      'acir_init_proving_key',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return;
-  }
-
-  acirCreateProof(
-    acirComposerPtr: Ptr,
-    constraintSystemBuf: Uint8Array,
-    recursive: boolean,
-    witnessBuf: Uint8Array,
-  ): Uint8Array {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, recursive, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_create_proof',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
 
   acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
     const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);

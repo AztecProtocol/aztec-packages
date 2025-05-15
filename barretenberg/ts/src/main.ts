@@ -98,8 +98,7 @@ async function initLite(crsPath: string) {
   // Load CRS into wasm global CRS state.
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
 
-  const acirComposer = await api.acirNewAcirComposer(0);
-  return { api, acirComposer };
+  return { api };
 }
 
 export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
@@ -149,37 +148,6 @@ export async function gateCountUltra(bytecodePath: string, recursive: boolean, h
   }
 }
 
-export async function verify(proofPath: string, vkPath: string, crsPath: string) {
-  const { api, acirComposer } = await initLite(crsPath);
-  try {
-    await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
-    const verified = await api.acirVerifyProof(acirComposer, Uint8Array.from(readFileSync(proofPath)));
-    debug(`Verification ${verified ? 'successful' : 'failed'}`);
-    return verified;
-  } finally {
-    await api.destroy();
-  }
-}
-
-export async function contract(outputPath: string, vkPath: string, crsPath: string) {
-  const { api, acirComposer } = await initLite(crsPath);
-  try {
-    debug(`Creating verifier contract vk=${vkPath}`);
-    await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
-    const contract = await api.acirGetSolidityVerifier(acirComposer);
-
-    if (outputPath === '-') {
-      process.stdout.write(contract);
-      debug(`Solidity verifier contract written to stdout`);
-    } else {
-      writeFileSync(outputPath, contract);
-      debug(`Solidity verifier contract written to ${outputPath}`);
-    }
-  } finally {
-    await api.destroy();
-  }
-}
-
 export async function contractUltraHonk(bytecodePath: string, vkPath: string, crsPath: string, outputPath: string) {
   const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
@@ -194,53 +162,6 @@ export async function contractUltraHonk(bytecodePath: string, vkPath: string, cr
     } else {
       writeFileSync(outputPath, contract);
       debug(`Solidity verifier contract written to ${outputPath}`);
-    }
-  } finally {
-    await api.destroy();
-  }
-}
-
-export async function proofAsFields(proofPath: string, vkPath: string, outputPath: string, crsPath: string) {
-  const { api, acirComposer } = await initLite(crsPath);
-
-  try {
-    debug(`Serializing proof byte array into field elements proof=${proofPath} vk=${vkPath}`);
-    const numPublicInputs = readFileSync(vkPath).readUint32BE(8);
-    const proofAsFields = await api.acirSerializeProofIntoFields(
-      acirComposer,
-      Uint8Array.from(readFileSync(proofPath)),
-      numPublicInputs,
-    );
-    const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
-
-    if (outputPath === '-') {
-      process.stdout.write(jsonProofAsFields);
-      debug(`Proof as fields written to stdout`);
-    } else {
-      writeFileSync(outputPath, jsonProofAsFields);
-      debug(`Proof as fields written to ${outputPath}`);
-    }
-  } finally {
-    await api.destroy();
-  }
-}
-
-export async function vkAsFields(vkPath: string, vkeyOutputPath: string, crsPath: string) {
-  const { api, acirComposer } = await initLite(crsPath);
-
-  try {
-    debug(`Serializing vk byte array into field elements vk=${vkPath}`);
-    await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
-    const [vkAsFields, vkHash] = await api.acirSerializeVerificationKeyIntoFields(acirComposer);
-    const output = [vkHash, ...vkAsFields].map(f => f.toString());
-    const jsonVKAsFields = JSON.stringify(output);
-
-    if (vkeyOutputPath === '-') {
-      process.stdout.write(jsonVKAsFields);
-      debug(`Verification key as fields written to stdout`);
-    } else {
-      writeFileSync(vkeyOutputPath, jsonVKAsFields);
-      debug(`Verification key as fields written to ${vkeyOutputPath}`);
     }
   } finally {
     await api.destroy();
