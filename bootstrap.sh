@@ -18,6 +18,7 @@ cmd=${1:-}
 
 if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  [ -n "$NOIR_HASH" ]
 fi
 
 function encourage_dev_container {
@@ -211,31 +212,60 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  # These projects are dependant on each other and must be built linearly
-  dependent_projects=(
+  # These projects are dependent on each other and must be built linearly.
+  serial_projects=(
     noir
     barretenberg
     avm-transpiler
     noir-projects
-    # Relies on noir-projects for verifier solidity generation.
     l1-contracts
     yarn-project
   )
-  # These projects rely on the output of the dependant projects and can be built in parallel
-  non_dependent_projects=(
-    boxes
-    playground
-    docs
-    release-image
-    spartan
-    aztec-up
+  # These projects can be built in parallel.
+  parallel_cmds=(
+    boxes/bootstrap.sh
+    playground/bootstrap.sh
+    docs/bootstrap.sh
+    release-image/bootstrap.sh
+    spartan/bootstrap.sh
+    aztec-up/bootstrap.sh
+    build_bench
   )
 
-  for project in "${dependent_projects[@]}"; do
+  for project in "${serial_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
 
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}/bootstrap.sh ${1:-}'" ::: ${non_dependent_projects[@]}
+  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
+}
+
+function bench_cmds {
+  if [ "$#" -eq 0 ]; then
+    # Ordered with longest running first, to ensure they get scheduled earliest.
+    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
+  fi
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+}
+
+function build_bench {
+  # TODO bench for arm64.
+  if [ $(arch) == arm64 ]; then
+    return
+  fi
+  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
+    barretenberg/cpp \
+    yarn-project/end-to-end
+}
+export -f build_bench
+
+function bench_merge {
+  find . -path "*/bench-out/*.bench.json" -type f -print0 | \
+  xargs -0 -I{} bash -c '
+    dir=$1; \
+    dir=${dir#./}; \
+    dir=${dir%/bench-out*}; \
+    jq --arg prefix "$dir/" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
+  ' _ {} | jq -s add > bench-out/bench.json
 }
 
 function bench {
@@ -243,12 +273,13 @@ function bench {
   if [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/bootstrap.sh bench"
-  denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
-  denoise "yarn-project/simulator/bootstrap.sh bench"
-  denoise "l1-contracts/bootstrap.sh bench"
-  denoise "yarn-project/end-to-end/bootstrap.sh bench"
-  # denoise "yarn-project/p2p/bootstrap.sh bench"
+  echo_header "bench all"
+  find . -type d -iname bench-out | xargs rm -rf
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_merge
+  cache_upload bench-$COMMIT_HASH.tar.gz bench-out/bench.json
 }
 
 function release_github {
@@ -349,34 +380,43 @@ case "$cmd" in
   ;;
   ""|"fast"|"full")
     install_hooks
-    build $cmd
-  ;;
-  "ci")
     build
-    if ! semver check $REF_NAME; then
-      test
-      bench
-      echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
-    else
-      release
-      if [ "$CI_NIGHTLY" -eq 1 ]; then
-        echo_stderr -e "${yellow}Not benching $REF_NAME because it is a nightly release.${reset}"
-        test
-      else
-        echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
-      fi
-    fi
-
-    if [ "$REF_NAME" = "master" ]; then
-      docs/bootstrap.sh release-docs
-    fi
+  ;;
+  "ci-fast")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=0
+    build
+    test
     ;;
-  test|test_cmds|bench|release|release_dryrun)
+  "ci-full")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-nightly")
+    export CI=1
+    export CI_NIGHTLY=1
+    build
+    test
+    docs/bootstrap.sh release-docs
+    ;;
+  "ci-release")
+    export CI=1
+    if ! semver check $REF_NAME; then
+      exit 1
+    fi
+    build
+    release
+    ;;
+  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
     $cmd "$@"
     ;;
   *)
     echo "Unknown command: $cmd"
-    echo "usage: $0 <clean|check|fast|full|test_cmds|test|ci|release>"
     exit 1
   ;;
 esac
