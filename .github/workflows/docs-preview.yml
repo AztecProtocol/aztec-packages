@@ -45,7 +45,9 @@ jobs:
           curl -L https://foundry.paradigm.xyz | bash
           source /home/runner/.bashrc
 
-          ls /home/runner/.foundry/bin
+          cat /home/runner/.bashrc
+          ls -la /home/runner
+          ls -la $HOME
           foundryup
 
       - name: Build dependencies
