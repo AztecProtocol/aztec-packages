@@ -15,7 +15,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 
@@ -24,7 +24,7 @@ import {TimeCheater} from "../../../staking/TimeCheater.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../../builder/RollupBuilder.sol";
 
-contract SlashingScenario is TestBase {
+contract SlashingTest is TestBase {
   TestERC20 internal testERC20;
   RewardDistributor internal rewardDistributor;
   Rollup internal rollup;
@@ -44,12 +44,8 @@ contract SlashingScenario is TestBase {
       uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", i)));
       address proposer = vm.addr(proposerPrivateKey);
 
-      initialValidators[i - 1] = CheatDepositArgs({
-        attester: attester,
-        proposer: proposer,
-        withdrawer: address(this),
-        amount: TestConstants.AZTEC_MINIMUM_STAKE
-      });
+      initialValidators[i - 1] =
+        CheatDepositArgs({attester: attester, proposer: proposer, withdrawer: address(this)});
     }
 
     RollupBuilder builder = new RollupBuilder(address(this));
@@ -70,7 +66,7 @@ contract SlashingScenario is TestBase {
     );
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * validatorCount);
+    testERC20.mint(address(multiAdder), rollup.getMinimumStake() * validatorCount);
     multiAdder.addValidators(initialValidators);
 
     // Cast a bunch of votes
@@ -101,9 +97,9 @@ contract SlashingScenario is TestBase {
     uint256[] memory stakes = new uint256[](attesters.length);
 
     for (uint256 i = 0; i < attesters.length; i++) {
-      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
-      stakes[i] = info.stake;
-      assertTrue(info.status == Status.VALIDATING, "Invalid status");
+      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
+      stakes[i] = attesterView.effectiveBalance;
+      assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 
     slashingProposer.executeProposal(round);
@@ -111,10 +107,10 @@ contract SlashingScenario is TestBase {
     // Make sure that the slash was successful,
     // Meaning that validators are now LIVING and have lost the slash amount
     for (uint256 i = 0; i < attesters.length; i++) {
-      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
-      uint256 stake = info.stake;
-      assertEq(stake, stakes[i] - slashAmount, "Invalid stake");
-      assertTrue(info.status == Status.LIVING, "Invalid status");
+      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
+      assertEq(attesterView.effectiveBalance, 0);
+      assertEq(attesterView.exit.amount, stakes[i] - slashAmount, "Invalid stake");
+      assertTrue(attesterView.status == Status.LIVING, "Invalid status");
     }
   }
 }

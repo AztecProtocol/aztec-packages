@@ -22,7 +22,13 @@ describe('e2e_l1_with_wall_time', () => {
 
   beforeEach(async () => {
     const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
-    const initialValidators = [EthAddress.fromString(account.address)];
+    const initialValidators = [
+      {
+        attester: EthAddress.fromString(account.address),
+        proposerEOA: EthAddress.fromString(account.address),
+        withdrawer: EthAddress.fromString(account.address),
+      },
+    ];
     const { ethereumSlotDuration } = getL1ContractsConfigEnvVars();
 
     ({ teardown, logger, wallet, pxe } = await setup(1, {

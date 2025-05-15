@@ -26,6 +26,7 @@ export type L1RollupContractAddresses = Pick<
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
   | 'slashFactoryAddress'
+  | 'gseAddress'
 >;
 
 export type EpochProofPublicInputArgs = {
@@ -276,6 +277,7 @@ export class RollupContract {
       rewardDistributorAddress,
       feeJuiceAddress,
       stakingAssetAddress,
+      gseAddress,
     ] = (
       await Promise.all([
         this.rollup.read.getInbox(),
@@ -284,6 +286,7 @@ export class RollupContract {
         this.rollup.read.getRewardDistributor(),
         this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
+        this.rollup.read.getGSE(),
       ] as const)
     ).map(EthAddress.fromString);
 
@@ -295,6 +298,7 @@ export class RollupContract {
       feeJuiceAddress,
       stakingAssetAddress,
       rewardDistributorAddress,
+      gseAddress,
     };
   }
 
@@ -426,11 +430,18 @@ export class RollupContract {
     return this.rollup.read.getAttesters();
   }
 
-  getInfo(address: Hex | EthAddress) {
+  getAttesterView(address: Hex | EthAddress) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
-    return this.rollup.read.getInfo([address]);
+    return this.rollup.read.getAttesterView([address]);
+  }
+
+  getStatus(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getStatus([address]);
   }
 
   getBlobPublicInputsHash(blockNumber: bigint) {

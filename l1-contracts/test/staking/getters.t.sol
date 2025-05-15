@@ -2,7 +2,6 @@
 pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
-import {OperatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 
 contract GettersTest is StakingBase {
   function setUp() public override {
@@ -14,7 +13,7 @@ contract GettersTest is StakingBase {
       _attester: ATTESTER,
       _proposer: PROPOSER,
       _withdrawer: WITHDRAWER,
-      _amount: MINIMUM_STAKE
+      _onCanonical: true
     });
   }
 
@@ -36,17 +35,6 @@ contract GettersTest is StakingBase {
   function test_getProposerOutOfBounds() external {
     vm.expectRevert();
     staking.getProposerAtIndex(1);
-  }
-
-  function test_getOperatorAtIndex() external view {
-    OperatorInfo memory operator = staking.getOperatorAtIndex(0);
-    assertEq(operator.attester, ATTESTER);
-    assertEq(operator.proposer, PROPOSER);
-  }
-
-  function test_getOperatorOutOfBounds() external {
-    vm.expectRevert();
-    staking.getOperatorAtIndex(1);
   }
 
   function test_getProposerForAttester() external view {

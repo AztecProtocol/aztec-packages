@@ -123,7 +123,7 @@ contract Governance is IGovernance {
       msg.sender == governanceProposer,
       Errors.Governance__CallerNotGovernanceProposer(msg.sender, governanceProposer)
     );
-    return _propose(_proposal);
+    return _propose(_proposal, governanceProposer);
   }
 
   /**
@@ -154,7 +154,7 @@ contract Governance is IGovernance {
     );
 
     _initiateWithdraw(_to, amount, configuration.proposeConfig.lockDelay);
-    return _propose(_proposal);
+    return _propose(_proposal, address(this));
   }
 
   function vote(uint256 _proposalId, uint256 _amount, bool _support)
@@ -295,8 +295,8 @@ contract Governance is IGovernance {
       return self.state;
     }
 
-    // If the governanceProposer have changed we mark is as dropped
-    if (governanceProposer != self.governanceProposer) {
+    // If the governanceProposer have changed we mark is as dropped unless it was proposed using the lock.
+    if (governanceProposer != self.proposer && address(this) != self.proposer) {
       return DataStructures.ProposalState.Dropped;
     }
 
@@ -348,14 +348,14 @@ contract Governance is IGovernance {
     return withdrawalId;
   }
 
-  function _propose(IPayload _proposal) internal returns (bool) {
+  function _propose(IPayload _proposal, address _proposer) internal returns (bool) {
     uint256 proposalId = proposalCount++;
 
     proposals[proposalId] = DataStructures.Proposal({
       config: configuration,
       state: DataStructures.ProposalState.Pending,
       payload: _proposal,
-      governanceProposer: governanceProposer,
+      proposer: _proposer,
       creation: Timestamp.wrap(block.timestamp),
       summedBallot: DataStructures.Ballot({yea: 0, nea: 0})
     });

@@ -12,7 +12,6 @@ library TestConstants {
   uint256 internal constant AZTEC_EPOCH_DURATION = 16;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_WINDOW = AZTEC_EPOCH_DURATION * 2 - 1;
-  uint256 internal constant AZTEC_MINIMUM_STAKE = 100e18;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
   uint256 internal constant AZTEC_MANA_TARGET = 100000000;
@@ -37,7 +36,6 @@ library TestConstants {
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
       aztecProofSubmissionWindow: AZTEC_PROOF_SUBMISSION_WINDOW,
-      minimumStake: AZTEC_MINIMUM_STAKE,
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       manaTarget: AZTEC_MANA_TARGET,

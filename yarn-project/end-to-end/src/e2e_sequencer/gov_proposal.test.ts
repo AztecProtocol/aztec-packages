@@ -29,7 +29,13 @@ describe('e2e_gov_proposal', () => {
   let cheatCodes: CheatCodes;
   beforeEach(async () => {
     const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
-    const initialValidators = [EthAddress.fromString(account.address)];
+    const initialValidators = [
+      {
+        attester: EthAddress.fromString(account.address),
+        proposerEOA: EthAddress.fromString(account.address),
+        withdrawer: EthAddress.fromString(account.address),
+      },
+    ];
     const { ethereumSlotDuration, aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
     aztecSlotDuration = _aztecSlotDuration;
 

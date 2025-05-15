@@ -28,6 +28,7 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
+import {GSE} from "@aztec/core/staking/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -67,6 +68,7 @@ contract RollupCore is
     IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
+    GSE _gse,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
@@ -75,7 +77,7 @@ contract RollupCore is
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
-    StakingLib.initialize(_stakingAsset, _config.minimumStake, exitDelay, address(slasher));
+    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher));
     ExtRollupLib.initializeValidatorSelection(_config.targetCommitteeSize);
 
     L1_BLOCK_AT_GENESIS = block.number;
@@ -162,11 +164,11 @@ contract RollupCore is
     return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
+  function deposit(address _attester, address _proposer, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)
   {
-    StakingLib.deposit(_attester, _proposer, _withdrawer, _amount);
+    StakingLib.deposit(_attester, _proposer, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient)
