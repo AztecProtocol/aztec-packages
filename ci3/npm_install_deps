@@ -20,7 +20,8 @@ content_paths=()
 content_paths+=($(realpath yarn.lock --relative-to=$REPO_PATH))
 content_paths+=($(realpath package.json --relative-to=$REPO_PATH))
 for path in "${@}"; do
-  content_paths+=($(realpath $path --relative-to=$REPO_PATH))
+  content_paths+=($(realpath $path/yarn.lock --relative-to=$REPO_PATH))
+  content_paths+=($(realpath $path/package.json --relative-to=$REPO_PATH))
 done
 
 # We only use the node module cache in CI.
