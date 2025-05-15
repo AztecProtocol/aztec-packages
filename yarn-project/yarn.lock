@@ -1369,6 +1369,30 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/slasher@workspace:slasher":
+  version: 0.0.0-use.local
+  resolution: "@aztec/slasher@workspace:slasher"
+  dependencies:
+    "@aztec/epoch-cache": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@jest/globals": "npm:^29.5.0"
+    "@types/jest": "npm:^29.5.0"
+    "@types/node": "npm:^18.7.23"
+    "@types/source-map-support": "npm:^0.5.10"
+    jest: "npm:^29.5.0"
+    jest-mock-extended: "npm:^3.0.3"
+    source-map-support: "npm:^0.5.21"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.0.4"
+    viem: "npm:2.23.7"
+    zod: "npm:^3.23.8"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/stdlib@workspace:*, @aztec/stdlib@workspace:^, @aztec/stdlib@workspace:stdlib":
   version: 0.0.0-use.local
   resolution: "@aztec/stdlib@workspace:stdlib"
