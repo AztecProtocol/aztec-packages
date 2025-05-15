@@ -131,6 +131,82 @@ function gas_report {
   mv gas_report.new.json gas_report.json
 }
 
+function bench {
+  rm -rf bench-out && mkdir -p bench-out
+  if cache_download l1-gas-bench-results-$hash.tar.gz; then
+    return
+  fi
+
+  # Run the gas benchmark to generate the markdown file
+  gas_benchmark
+
+  # Extract gas values from gas_benchmark.md and create JSON output
+  awk '
+  function trim(s) {
+    sub(/^[ \t]+/, "", s);
+    sub(/[ \t]+$/, "", s);
+    return s;
+  }
+  BEGIN {
+    print "[";
+    first = 1;
+  }
+  /^[a-zA-Z]/ {
+    if ($1 != "Function" && $1 != "-------------------------") {
+      # Split the line into columns and clean them
+      n = split($0, cols, "|");
+      for (i = 1; i <= n; i++) {
+        cols[i] = trim(cols[i]);
+      }
+
+      # Only process Max rows
+      if (cols[2] == "Max") {
+        # Get the function name
+        func_name = cols[1];
+
+        # Define our cases with their column numbers
+        cases["no_validators"] = 3;
+        cases["100_validators"] = 4;
+        cases["overhead"] = 5;
+
+        for (case_name in cases) {
+          col = cases[case_name];
+          if (match(cols[col], /([0-9]+)[ ]*\(([0-9.]+)\)/)) {
+            # Extract the raw gas value (first number)
+            match(cols[col], /[0-9]+/);
+            raw_gas = substr(cols[col], RSTART, RLENGTH);
+
+            # Extract the per tx value
+            match(cols[col], /\(([0-9.]+)\)/);
+            per_tx = substr(cols[col], RSTART+1, RLENGTH-2);
+
+            if (!first) print ",";
+            first = 0;
+
+            # Output raw gas value
+            print "  {";
+            print "    \"name\": \"" func_name " (" case_name ")\",";
+            print "    \"value\": " raw_gas ",";
+            print "    \"unit\": \"gas\"";
+            print "  },";
+
+            # Output per tx value
+            print "  {";
+            print "    \"name\": \"" func_name " (" case_name ") per l2 tx\",";
+            print "    \"value\": " per_tx ",";
+            print "    \"unit\": \"gas\"";
+            print "  }";
+          }
+        }
+      }
+    }
+  }
+  END {
+    print "]";
+  }' gas_benchmark.md > ./bench-out/l1-gas-bench.json
+
+  cache_upload l1-gas-bench-results-$hash.tar.gz ./bench-out/l1-gas-bench.json
+}
 
 function gas_benchmark {
   check=${1:-"no"}
@@ -369,6 +445,9 @@ case "$cmd" in
     ;;
   "hash")
     echo $hash
+    ;;
+  "bench")
+    bench
     ;;
   *)
     echo "Unknown command: $cmd"

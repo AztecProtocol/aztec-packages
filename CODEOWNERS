@@ -33,5 +33,5 @@
 # Notify fairies of changes to playground bundler config
 /playground/vite.config.ts @Thunkar
 
-# Notify turtles of painful changes to L1-contracts
-/l1-contracts/test/scream-and-shout.t.sol @LHerskind @Maddiaa0 @just-mitch
+# Notify turtles of changes to L1-contracts
+/l1-contracts/src @LHerskind @Maddiaa0 @just-mitch

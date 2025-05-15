@@ -28,12 +28,28 @@ export interface AztecNodeAdmin {
    * @param location - The location to upload the snapshot to.
    */
   startSnapshotUpload(location: string): Promise<void>;
+
+  /**
+   * Pauses syncing and rolls back the database to the target L2 block number.
+   * @param targetBlockNumber - The block number to roll back to.
+   * @param force - If true, clears the world state db and p2p dbs if rolling back to behind the finalized block.
+   */
+  rollbackTo(targetBlockNumber: number, force?: boolean): Promise<void>;
+
+  /** Pauses archiver and world state syncing. */
+  pauseSync(): Promise<void>;
+
+  /** Resumes archiver and world state syncing. */
+  resumeSync(): Promise<void>;
 }
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
   flushTxs: z.function().returns(z.void()),
   startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
+  rollbackTo: z.function().args(z.number()).returns(z.void()),
+  pauseSync: z.function().returns(z.void()),
+  resumeSync: z.function().returns(z.void()),
 };
 
 export function createAztecNodeAdminClient(

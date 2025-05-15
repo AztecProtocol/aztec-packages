@@ -84,12 +84,19 @@ bool Goblin::verify(const GoblinProof& proof)
     bool translation_verified = translator_verifier.verify_translation(eccvm_verifier.translation_evaluations,
                                                                        eccvm_verifier.translation_masking_term_eval);
 
+    // Verify the consistency between the commitments to polynomials representing the op queue received by translator
+    // and final merge verifier
+    bool op_queue_consistency_verified =
+        translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
+
     vinfo("merge verified?: ", merge_verified);
     vinfo("eccvm verified?: ", eccvm_verified);
     vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
     vinfo("translation verified?: ", translation_verified);
+    vinfo("consistency verified?: ", op_queue_consistency_verified);
 
-    return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
+    return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
+           op_queue_consistency_verified;
 }
 
 } // namespace bb
