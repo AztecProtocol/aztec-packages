@@ -34,7 +34,7 @@ sequenceDiagram
     Token->>BalanceMap: BalanceMap.at(to)
     BalanceMap->>BalanceMap: derived_slot = H(map_slot, to)
     BalanceMap->>BalanceSet: BalanceSet::new(to, derived_slot)
-    Token->>BalanceSet: to_bal.add(amounst)
+    Token->>BalanceSet: to_bal.add(amount)
     BalanceSet->>BalanceSet: note = UintNote::new(amount, to)
     BalanceSet->>Set: insert(note)
     Set->>LifeCycle: create_note(derived_slot, note)
