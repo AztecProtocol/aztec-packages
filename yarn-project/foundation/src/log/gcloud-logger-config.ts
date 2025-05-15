@@ -39,7 +39,7 @@ export const GoogleCloudLoggerConfig = {
       // Severity labels https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
       let severity: string;
 
-      switch (label as pino.Level | keyof typeof customLevels) {
+      switch (label as pino.Level | keyof CustomLevels) {
         case 'trace':
         case 'debug':
           severity = 'DEBUG';
@@ -68,4 +68,4 @@ export const GoogleCloudLoggerConfig = {
 } satisfies pino.LoggerOptions;
 
 // Define custom logging levels for pino. Duplicate from pino-logger.ts.
-const customLevels = { verbose: 25 };
+type CustomLevels = { verbose: 25 };

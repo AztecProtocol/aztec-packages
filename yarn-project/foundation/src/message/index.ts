@@ -31,7 +31,11 @@ interface TypedMessageLike {
 }
 
 export class TypedMessage<T, B> {
-  public constructor(public readonly msgType: T, public readonly header: MessageHeader, public readonly value: B) {}
+  public constructor(
+    public readonly msgType: T,
+    public readonly header: MessageHeader,
+    public readonly value: B,
+  ) {}
 
   static fromMessagePack<T, B>(data: TypedMessageLike): TypedMessage<T, B> {
     return new TypedMessage<T, B>(data['msgType'] as T, MessageHeader.fromMessagePack(data['header']), data['value']);

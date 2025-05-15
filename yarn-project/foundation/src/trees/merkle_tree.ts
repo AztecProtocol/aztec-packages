@@ -1,6 +1,9 @@
 /** A simple immutable Merkle tree container. Use a MerkleTreeCalculator to create a new instance from a set of leaves. */
 export class MerkleTree {
-  constructor(public readonly height: number, public readonly nodes: Buffer[]) {
+  constructor(
+    public readonly height: number,
+    public readonly nodes: Buffer[],
+  ) {
     const expectedNodeCount = 2 ** (height + 1) - 1;
     if (nodes.length !== expectedNodeCount) {
       throw new Error(`Invalid node count for Merkle tree: got ${nodes.length} but expected ${expectedNodeCount}`);

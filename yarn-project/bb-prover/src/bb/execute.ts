@@ -126,7 +126,7 @@ export async function executeBbClientIvcProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -217,7 +217,7 @@ export async function generateProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -295,7 +295,7 @@ export async function generateTubeProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -366,7 +366,7 @@ export async function generateAvmProofV2(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -446,7 +446,7 @@ export async function generateAvmProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -765,7 +765,7 @@ export async function computeGateCountForCircuit(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -857,7 +857,7 @@ async function fsCache<T>(
 
   try {
     await fs.writeFile(cacheFilePath, expectedCacheKey);
-  } catch (err) {
+  } catch {
     logger(`Couldn't write cache data to ${cacheFilePath}. Skipping cache...`);
     // ignore
   }

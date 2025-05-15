@@ -299,7 +299,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
   }))
-  public broadcastProposal(proposal: BlockProposal): void {
+  public broadcastProposal(proposal: BlockProposal): Promise<void> {
     this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber.toNumber()} to peers`);
     return this.p2pService.propagate(proposal);
   }
@@ -507,7 +507,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    **/
   public async sendTx(tx: Tx): Promise<void> {
     await this.addTxs([tx]);
-    this.p2pService.propagate(tx);
+    await this.p2pService.propagate(tx);
   }
 
   /**

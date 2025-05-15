@@ -32,7 +32,7 @@ export class NoopTracer implements Tracer {
     return new NoopSpan();
   }
 
-  startActiveSpan<F extends (...args: any[]) => any>(_name: string, ...args: (unknown | F)[]): ReturnType<F> {
+  startActiveSpan<F extends (...args: any[]) => any>(_name: string, ...args: unknown[]): ReturnType<F> {
     // there are three different signatures for startActiveSpan, grab the function, we don't care about the rest
     const fn = args.find(arg => typeof arg === 'function') as F;
     return fn(new NoopSpan());

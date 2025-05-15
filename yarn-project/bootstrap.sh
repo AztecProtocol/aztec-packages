@@ -34,7 +34,7 @@ function get_projects {
 function format {
   local arg=${1:-"-w"}
   find ./*/src -type f -regex '.*\.\(json\|js\|mjs\|cjs\|ts\)$' | \
-    parallel -N30 ./node_modules/.bin/prettier --loglevel warn "$arg"
+    parallel -N30 ./node_modules/.bin/prettier --log-level warn "$arg"
 }
 
 function lint {

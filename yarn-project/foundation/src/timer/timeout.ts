@@ -12,7 +12,11 @@ export class TimeoutTask<T> {
   private interrupt = () => {};
   private totalTime = 0;
 
-  constructor(private fn: () => Promise<T>, private timeout: number, errorFn: () => any) {
+  constructor(
+    private fn: () => Promise<T>,
+    private timeout: number,
+    errorFn: () => any,
+  ) {
     this.interruptPromise = new Promise<T>((_, reject) => {
       this.interrupt = () => reject(errorFn());
     });

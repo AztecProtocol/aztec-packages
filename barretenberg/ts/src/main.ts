@@ -400,10 +400,10 @@ export async function proveUltraHonk(
     const acirProveUltraHonk = options?.keccak
       ? api.acirProveUltraKeccakHonk.bind(api)
       : options?.keccakZK
-      ? api.acirProveUltraKeccakZKHonk.bind(api)
-      : options?.starknet
-      ? api.acirProveUltraStarknetHonk.bind(api)
-      : api.acirProveUltraHonk.bind(api);
+        ? api.acirProveUltraKeccakZKHonk.bind(api)
+        : options?.starknet
+          ? api.acirProveUltraStarknetHonk.bind(api)
+          : api.acirProveUltraHonk.bind(api);
     const proof = await acirProveUltraHonk(bytecode, witness);
 
     if (outputPath === '-') {
@@ -432,10 +432,10 @@ export async function writeVkUltraHonk(
     const acirWriteVkUltraHonk = options?.keccak
       ? api.acirWriteVkUltraKeccakHonk.bind(api)
       : options?.keccakZK
-      ? api.acirWriteVkUltraKeccakZKHonk.bind(api)
-      : options?.starknet
-      ? api.acirWriteVkUltraStarknetHonk.bind(api)
-      : api.acirWriteVkUltraHonk.bind(api);
+        ? api.acirWriteVkUltraKeccakZKHonk.bind(api)
+        : options?.starknet
+          ? api.acirWriteVkUltraStarknetHonk.bind(api)
+          : api.acirWriteVkUltraHonk.bind(api);
     const vk = await acirWriteVkUltraHonk(bytecode);
 
     if (outputPath === '-') {
@@ -461,10 +461,10 @@ export async function verifyUltraHonk(
     const acirVerifyUltraHonk = options?.keccak
       ? api.acirVerifyUltraKeccakHonk.bind(api)
       : options?.keccakZK
-      ? api.acirVerifyUltraKeccakZKHonk.bind(api)
-      : options?.starknet
-      ? api.acirVerifyUltraStarknetHonk.bind(api)
-      : api.acirVerifyUltraHonk.bind(api);
+        ? api.acirVerifyUltraKeccakZKHonk.bind(api)
+        : options?.starknet
+          ? api.acirVerifyUltraStarknetHonk.bind(api)
+          : api.acirVerifyUltraHonk.bind(api);
     const verified = await acirVerifyUltraHonk(
       Uint8Array.from(readFileSync(proofPath)),
       new RawBuffer(readFileSync(vkPath)),

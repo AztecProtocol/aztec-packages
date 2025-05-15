@@ -37,7 +37,10 @@ export abstract class BaseFullTreeSnapshotBuilder<T extends TreeBase<Bufferable>
   protected nodes: AztecMap<string, [Buffer, Buffer]>;
   protected snapshotMetadata: AztecMap<number, SnapshotMetadata>;
 
-  constructor(protected db: AztecKVStore, protected tree: T) {
+  constructor(
+    protected db: AztecKVStore,
+    protected tree: T,
+  ) {
     this.nodes = db.openMap(`full_snapshot:${tree.getName()}:node`);
     this.snapshotMetadata = db.openMap(`full_snapshot:${tree.getName()}:metadata`);
   }

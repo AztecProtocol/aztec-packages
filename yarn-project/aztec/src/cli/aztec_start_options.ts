@@ -27,7 +27,7 @@ import { DefaultMnemonic } from '../mnemonic.js';
 export interface AztecStartOption {
   flag: string;
   description: string;
-  defaultValue: any | undefined;
+  defaultValue: any;
   printDefault?: (val: any) => string;
   envVar: EnvVar | undefined;
   parseVal?: (val: string) => any;

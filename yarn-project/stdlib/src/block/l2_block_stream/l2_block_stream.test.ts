@@ -19,9 +19,9 @@ describe('L2BlockStream', () => {
 
   const makeHash = (number: number) => new Fr(number).toString();
 
-  const makeBlock = (number: number) => ({ block: { number } as L2Block } as PublishedL2Block);
+  const makeBlock = (number: number) => ({ block: { number } as L2Block }) as PublishedL2Block;
 
-  const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) } as BlockHeader);
+  const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) }) as BlockHeader;
 
   const makeBlockId = (number: number): L2BlockId => ({ number, hash: makeHash(number) });
 
@@ -269,7 +269,7 @@ class TestL2BlockStreamLocalDataProvider implements L2BlockStreamLocalDataProvid
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(
-      number > this.latest.number ? undefined : this.blockHashes[number] ?? new Fr(number).toString(),
+      number > this.latest.number ? undefined : (this.blockHashes[number] ?? new Fr(number).toString()),
     );
   }
 

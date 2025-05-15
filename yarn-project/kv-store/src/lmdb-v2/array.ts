@@ -13,7 +13,10 @@ export class LMDBArray<T extends Value> implements AztecAsyncArray<T> {
   private encoder = new Encoder();
   private prefix: string;
 
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.length = store.openSingleton(name + ':length');
     this.prefix = `array:${name}`;
   }

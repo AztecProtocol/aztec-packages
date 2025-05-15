@@ -153,7 +153,7 @@ describe('StandardIndexedTreeSpecific', () => {
     e20 = pedersen.hash(e10, level1ZeroHash);
     root = pedersen.hash(e20, level2ZeroHash);
 
-    await tree.appendLeaves([toBufferBE(30n, 32)]);
+    tree.appendLeaves([toBufferBE(30n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(2n);
@@ -181,7 +181,7 @@ describe('StandardIndexedTreeSpecific', () => {
     e20 = pedersen.hash(e10, e11);
     root = pedersen.hash(e20, level2ZeroHash);
 
-    await tree.appendLeaves([toBufferBE(10n, 32)]);
+    tree.appendLeaves([toBufferBE(10n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(3n);
@@ -213,7 +213,7 @@ describe('StandardIndexedTreeSpecific', () => {
     e20 = pedersen.hash(e10, e11);
     root = pedersen.hash(e20, level2ZeroHash);
 
-    await tree.appendLeaves([toBufferBE(20n, 32)]);
+    tree.appendLeaves([toBufferBE(20n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(4n);
@@ -246,7 +246,7 @@ describe('StandardIndexedTreeSpecific', () => {
     const e21 = pedersen.hash(e12, level1ZeroHash);
     root = pedersen.hash(e20, e21);
 
-    await tree.appendLeaves([toBufferBE(50n, 32)]);
+    tree.appendLeaves([toBufferBE(50n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(5n);
@@ -350,7 +350,7 @@ describe('StandardIndexedTreeSpecific', () => {
     e20 = pedersen.hash(e10, level1ZeroHash);
     root = pedersen.hash(e20, level2ZeroHash);
 
-    await tree.appendLeaves([toBufferBE(30n, 32)]);
+    tree.appendLeaves([toBufferBE(30n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(2n);
@@ -377,7 +377,7 @@ describe('StandardIndexedTreeSpecific', () => {
     e20 = pedersen.hash(e10, e11);
     root = pedersen.hash(e20, level2ZeroHash);
 
-    await tree.appendLeaves([toBufferBE(10n, 32)]);
+    tree.appendLeaves([toBufferBE(10n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(3n);
@@ -409,7 +409,7 @@ describe('StandardIndexedTreeSpecific', () => {
     e20 = pedersen.hash(e10, e11);
     root = pedersen.hash(e20, level2ZeroHash);
 
-    await tree.appendLeaves([toBufferBE(20n, 32)]);
+    tree.appendLeaves([toBufferBE(20n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(4n);
@@ -427,7 +427,7 @@ describe('StandardIndexedTreeSpecific', () => {
 
     // Add 2 empty values
     const emptyLeaves = [toBufferBE(0n, 32), toBufferBE(0n, 32)];
-    await tree.appendLeaves(emptyLeaves);
+    tree.appendLeaves(emptyLeaves);
 
     // The root should be the same but the size should have increased
     expect(tree.getRoot(true)).toEqual(root);
@@ -450,7 +450,7 @@ describe('StandardIndexedTreeSpecific', () => {
     const e21 = pedersen.hash(level1ZeroHash, e13);
     root = pedersen.hash(e20, e21);
 
-    await tree.appendLeaves([toBufferBE(50n, 32)]);
+    tree.appendLeaves([toBufferBE(50n, 32)]);
 
     expect(tree.getRoot(true)).toEqual(root);
     expect(tree.getNumLeaves(true)).toEqual(7n);
@@ -517,7 +517,7 @@ describe('StandardIndexedTreeSpecific', () => {
     const appendTree = await createDb(openTmpStore(), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
     const insertTree = await createDb(openTmpStore(), pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
 
-    await appendTree.appendLeaves(leaves);
+    appendTree.appendLeaves(leaves);
     await insertTree.batchInsert(leaves, SUBTREE_HEIGHT);
 
     const expectedRoot = appendTree.getRoot(true);
@@ -530,7 +530,7 @@ describe('StandardIndexedTreeSpecific', () => {
     const tree = await createDb(db, pedersen, 'test', 3);
     const values = [Buffer.alloc(32, 1), Buffer.alloc(32, 2)];
 
-    await tree.appendLeaves([values[0]]);
+    tree.appendLeaves([values[0]]);
 
     expect(tree.findLeafIndex(values[0], true)).toBeDefined();
     expect(tree.findLeafIndex(values[0], false)).toBe(undefined);
@@ -599,7 +599,7 @@ describe('StandardIndexedTreeSpecific', () => {
       e20 = pedersen.hash(e10, level1ZeroHash);
       root = pedersen.hash(e20, level2ZeroHash);
 
-      await tree.appendLeaves([createPublicDataTreeLeaf(30, 5).toBuffer()]);
+      tree.appendLeaves([createPublicDataTreeLeaf(30, 5).toBuffer()]);
 
       expect(tree.getRoot(true)).toEqual(root);
       expect(tree.getNumLeaves(true)).toEqual(2n);
@@ -625,7 +625,7 @@ describe('StandardIndexedTreeSpecific', () => {
       e20 = pedersen.hash(e10, level1ZeroHash);
       root = pedersen.hash(e20, level2ZeroHash);
 
-      await tree.appendLeaves([createPublicDataTreeLeaf(30, 10).toBuffer()]);
+      tree.appendLeaves([createPublicDataTreeLeaf(30, 10).toBuffer()]);
 
       expect(tree.getRoot(true)).toEqual(root);
       expect(tree.getNumLeaves(true)).toEqual(3n);
@@ -658,10 +658,10 @@ describe('StandardIndexedTreeSpecific', () => {
       const appendTree = await newTree(PublicDataTree, db, pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
       const insertTree = await newTree(PublicDataTree, db, pedersen, 'test', TREE_HEIGHT, INITIAL_TREE_SIZE);
 
-      await appendTree.appendLeaves(initialState.map(leaf => leaf.toBuffer()));
-      await insertTree.appendLeaves(initialState.map(leaf => leaf.toBuffer()));
+      appendTree.appendLeaves(initialState.map(leaf => leaf.toBuffer()));
+      insertTree.appendLeaves(initialState.map(leaf => leaf.toBuffer()));
 
-      await appendTree.appendLeaves(batch.map(leaf => leaf.toBuffer()));
+      appendTree.appendLeaves(batch.map(leaf => leaf.toBuffer()));
       await insertTree.batchInsert(
         batch.map(leaf => leaf.toBuffer()),
         SUBTREE_HEIGHT,

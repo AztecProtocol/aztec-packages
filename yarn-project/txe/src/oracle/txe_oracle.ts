@@ -647,7 +647,6 @@ export class TXE implements TypedOracle {
       counter,
     );
     this.sideEffectCounter = counter + 1;
-    return Promise.resolve();
   }
 
   async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {

@@ -48,7 +48,7 @@ describe('PeerManager', () => {
 
     // Capture the callback for discovered peers
     mockPeerDiscoveryService.on.mockImplementation((event: string, callback: any) => {
-      if (event === PeerEvent.DISCOVERED) {
+      if ((event as PeerEvent) === PeerEvent.DISCOVERED) {
         discoveredPeerCallback = callback;
       }
     });

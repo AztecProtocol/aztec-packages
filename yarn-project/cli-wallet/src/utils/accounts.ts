@@ -18,7 +18,7 @@ export async function createOrRetrieveAccount(
   secretKey?: Fr,
   type: AccountType = 'schnorr',
   salt?: Fr,
-  publicKey?: string | undefined,
+  publicKey?: string,
 ): Promise<AccountManager> {
   let account;
 

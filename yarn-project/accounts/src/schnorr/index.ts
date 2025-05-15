@@ -14,7 +14,7 @@ import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import SchnorrAccountContractJson from '../../artifacts/SchnorrAccount.json' assert { type: 'json' };
+import SchnorrAccountContractJson from '../../artifacts/SchnorrAccount.json' with { type: 'json' };
 import { SchnorrBaseAccountContract } from './account_contract.js';
 
 export const SchnorrAccountContractArtifact = loadContractArtifact(SchnorrAccountContractJson as NoirCompiledContract);

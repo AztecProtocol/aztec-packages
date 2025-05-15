@@ -8,7 +8,10 @@ import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from
 export class FeeJuiceContract {
   private readonly feeJuiceContract: GetContractReturnType<typeof FeeJuiceAbi, ViemClient>;
 
-  constructor(address: Hex, public readonly client: ViemClient) {
+  constructor(
+    address: Hex,
+    public readonly client: ViemClient,
+  ) {
     this.feeJuiceContract = getContract({ address, abi: FeeJuiceAbi, client });
   }
 

@@ -21,7 +21,7 @@ export -f lint
 
 parallel ::: \
   'yarn prepare:check' \
-  "$staged_files_cmd | grep -E '\.(json|js|mjs|cjs|ts)$' | parallel -N10 ./node_modules/.bin/prettier --loglevel error --write"
+  "$staged_files_cmd | grep -E '\.(json|js|mjs|cjs|ts)$' | parallel -N10 ./node_modules/.bin/prettier --log-level error --write"
   # TODO(ci3) find a way to ensure the yarn-project state is ready for linting
   # "lint"
 

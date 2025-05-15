@@ -9,8 +9,8 @@ export async function buildProtocolContractTree(
   contracts: { address: AztecAddress; leaf: Fr }[],
 ): Promise<IndexedMerkleTree<ProtocolContractLeafPreimage, typeof PROTOCOL_CONTRACT_TREE_HEIGHT>> {
   const hasher = {
-    hash: async (l: Buffer, r: Buffer) => (await poseidon2Hash([l, r])).toBuffer(),
-    hashInputs: async (i: Buffer[]) => (await poseidon2Hash(i)).toBuffer(),
+    hash: async (l: Buffer, r: Buffer) => (await poseidon2Hash([l, r])).toBuffer() as Buffer<ArrayBuffer>,
+    hashInputs: async (i: Buffer[]) => (await poseidon2Hash(i)).toBuffer() as Buffer<ArrayBuffer>,
   };
   const calculator = await IndexedMerkleTreeCalculator.create(
     PROTOCOL_CONTRACT_TREE_HEIGHT,

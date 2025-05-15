@@ -71,7 +71,7 @@ function generateArtifactImports(importTags: string[]) {
   return importTags
     .map(
       tag =>
-        `import PrivateKernelResetJson${tag} from '../artifacts/private_kernel_reset${tag}.json' assert { type: 'json' };`,
+        `import PrivateKernelResetJson${tag} from '../artifacts/private_kernel_reset${tag}.json' with { type: 'json' };`,
     )
     .join('\n');
 }
@@ -80,7 +80,7 @@ function generateSimulatedArtifactImports(importTags: string[]) {
   return importTags
     .map(
       tag =>
-        `import PrivateKernelResetSimulatedJson${tag} from '../artifacts/private_kernel_reset_simulated${tag}.json' assert { type: 'json' };`,
+        `import PrivateKernelResetSimulatedJson${tag} from '../artifacts/private_kernel_reset_simulated${tag}.json' with { type: 'json' };`,
     )
     .join('\n');
 }
@@ -89,7 +89,7 @@ function generateVksImports(importTags: string[]) {
   return importTags
     .map(
       tag =>
-        `import PrivateKernelResetVkJson${tag} from '../artifacts/keys/private_kernel_reset${tag}.vk.data.json' assert { type: 'json' };`,
+        `import PrivateKernelResetVkJson${tag} from '../artifacts/keys/private_kernel_reset${tag}.vk.data.json' with { type: 'json' };`,
     )
     .join('\n');
 }

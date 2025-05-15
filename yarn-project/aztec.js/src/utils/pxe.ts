@@ -9,7 +9,7 @@ export const waitForPXE = async (pxe: PXE, logger?: Logger) => {
       await pxe.getNodeInfo();
       logger?.verbose('Contacted PXE');
       return true;
-    } catch (error) {
+    } catch {
       logger?.verbose('Failed to contact PXE');
     }
     return undefined;

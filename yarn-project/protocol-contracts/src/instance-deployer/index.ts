@@ -1,7 +1,7 @@
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import ContractInstanceDeployerJson from '../../artifacts/ContractInstanceDeployer.json' assert { type: 'json' };
+import ContractInstanceDeployerJson from '../../artifacts/ContractInstanceDeployer.json' with { type: 'json' };
 import { makeProtocolContract } from '../make_protocol_contract.js';
 import type { ProtocolContract } from '../protocol_contract.js';
 

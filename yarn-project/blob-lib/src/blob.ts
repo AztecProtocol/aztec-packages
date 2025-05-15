@@ -10,7 +10,6 @@ import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './e
 import { BlobDeserializationError } from './errors.js';
 import type { BlobJson } from './interface.js';
 
-/* eslint-disable import/no-named-as-default-member */
 const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
 
 // The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
@@ -52,7 +51,7 @@ export class Blob {
     try {
       const fields: Fr[] = deserializeEncodedBlobToFields(blob);
       return Blob.fromFields(fields, multiBlobFieldsHash);
-    } catch (err) {
+    } catch {
       throw new BlobDeserializationError(
         `Failed to create Blob from encoded blob buffer, this blob was likely not created by us`,
       );
@@ -157,7 +156,7 @@ export class Blob {
   toEncodedFields(): Fr[] {
     try {
       return deserializeEncodedBlobToFields(this.data);
-    } catch (err) {
+    } catch {
       throw new BlobDeserializationError(
         `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
       );
@@ -174,7 +173,7 @@ export class Blob {
   static toEncodedFields(blobs: Blob[]): Fr[] {
     try {
       return deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => b.data)));
-    } catch (err) {
+    } catch {
       throw new BlobDeserializationError(
         `Failed to deserialize encoded blob fields, this blob was likely not created by us`,
       );

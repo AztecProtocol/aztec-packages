@@ -5,7 +5,11 @@ import { AztecAddress } from '../aztec-address/index.js';
 import type { Ordered } from './utils/interfaces.js';
 
 export class Nullifier implements Ordered {
-  constructor(public value: Fr, public counter: number, public noteHash: Fr) {}
+  constructor(
+    public value: Fr,
+    public counter: number,
+    public noteHash: Fr,
+  ) {}
 
   toFields(): Fr[] {
     return [this.value, new Fr(this.counter), this.noteHash];
@@ -43,7 +47,10 @@ export class Nullifier implements Ordered {
 }
 
 export class ScopedNullifier implements Ordered {
-  constructor(public nullifier: Nullifier, public contractAddress: AztecAddress) {}
+  constructor(
+    public nullifier: Nullifier,
+    public contractAddress: AztecAddress,
+  ) {}
 
   get counter() {
     return this.nullifier.counter;

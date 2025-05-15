@@ -5,7 +5,10 @@ export class Point {
   static SIZE_IN_BYTES = 64;
   static EMPTY = new Point(Fr.ZERO, Fr.ZERO);
 
-  constructor(public readonly x: Fr, public readonly y: Fr) {}
+  constructor(
+    public readonly x: Fr,
+    public readonly y: Fr,
+  ) {}
 
   static random() {
     // TODO: This is not a point on the curve!

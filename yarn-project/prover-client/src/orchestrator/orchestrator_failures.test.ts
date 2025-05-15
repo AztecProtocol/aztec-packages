@@ -46,7 +46,7 @@ describe('prover/orchestrator/failures', () => {
           let allTxsAdded = true;
           try {
             await orchestrator.addTxs(txs);
-          } catch (err) {
+          } catch {
             allTxsAdded = false;
             break;
           }
@@ -58,7 +58,7 @@ describe('prover/orchestrator/failures', () => {
           } else {
             await orchestrator.setBlockCompleted(block.number);
           }
-        } catch (err) {
+        } catch {
           break;
         }
       }

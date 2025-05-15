@@ -10,7 +10,10 @@ import { type IEmpireBase, encodeVote } from './empire_base.js';
 export class SlashingProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
-  constructor(public readonly client: ViemClient, address: Hex) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex,
+  ) {
     this.proposer = getContract({ address, abi: SlashingProposerAbi, client });
   }
 

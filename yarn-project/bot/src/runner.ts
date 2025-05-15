@@ -172,7 +172,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
     try {
       await this.run();
-    } catch (err) {
+    } catch {
       // Already logged in run()
       if (this.config.maxConsecutiveErrors > 0 && this.consecutiveErrors >= this.config.maxConsecutiveErrors) {
         this.log.error(`Too many errors bot is unhealthy`);

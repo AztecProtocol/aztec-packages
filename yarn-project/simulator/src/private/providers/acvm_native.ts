@@ -78,7 +78,7 @@ export async function executeNativeCircuit(
   try {
     // Check that the directory exists
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: ACVM_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -138,7 +138,11 @@ export async function executeNativeCircuit(
 }
 
 export class NativeACVMSimulator implements SimulationProvider {
-  constructor(private workingDirectory: string, private pathToAcvm: string, private witnessFilename?: string) {}
+  constructor(
+    private workingDirectory: string,
+    private pathToAcvm: string,
+    private witnessFilename?: string,
+  ) {}
 
   async executeProtocolCircuit(
     input: ACVMWitness,

@@ -7,7 +7,10 @@ import type { LogFn } from './log_fn.js';
  * which can be useful for controlling the format of the output or redirecting logs to a different destination.
  */
 class ConsoleLogger {
-  constructor(private prefix: string, private logger: (...args: any[]) => void = console.log) {}
+  constructor(
+    private prefix: string,
+    private logger: (...args: any[]) => void = console.log,
+  ) {}
 
   /**
    * Log messages with the specified prefix using the provided logger.

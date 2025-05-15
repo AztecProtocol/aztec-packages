@@ -4,7 +4,10 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 import { inspect } from 'util';
 
 export class TransientDataIndexHint {
-  constructor(public nullifierIndex: number, public noteHashIndex: number) {}
+  constructor(
+    public nullifierIndex: number,
+    public noteHashIndex: number,
+  ) {}
 
   toFields(): Fr[] {
     return [new Fr(this.nullifierIndex), new Fr(this.noteHashIndex)];

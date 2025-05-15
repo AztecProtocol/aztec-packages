@@ -113,5 +113,5 @@ function getLogger() {
 }
 
 export function getArtifactMerkleTreeHasher() {
-  return (l: Buffer, r: Buffer) => Promise.resolve(sha256Fr(Buffer.concat([l, r])).toBuffer());
+  return (l: Buffer, r: Buffer) => Promise.resolve(sha256Fr(Buffer.concat([l, r])).toBuffer() as Buffer<ArrayBuffer>);
 }

@@ -152,7 +152,7 @@ export class NetGrumpkinCrs {
       return new Response(new Uint8Array([]));
     }
 
-    const g1End = (this.numPoints * 64 - 1);
+    const g1End = this.numPoints * 64 - 1;
 
     return await fetch('https://crs.aztec.network/grumpkin_g1.dat', {
       headers: {

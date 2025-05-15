@@ -49,7 +49,10 @@ export const SimulationTimingsSchema = z.object({
 });
 
 export class TxProfileResult {
-  constructor(public executionSteps: PrivateExecutionStep[], public timings: ProvingTimings) {}
+  constructor(
+    public executionSteps: PrivateExecutionStep[],
+    public timings: ProvingTimings,
+  ) {}
 
   static get schema(): ZodFor<TxProfileResult> {
     return z
@@ -91,7 +94,10 @@ export class TxProfileResult {
 }
 
 export class UtilitySimulationResult {
-  constructor(public result: AbiDecoded, public timings?: SimulationTimings) {}
+  constructor(
+    public result: AbiDecoded,
+    public timings?: SimulationTimings,
+  ) {}
 
   static get schema(): ZodFor<UtilitySimulationResult> {
     return z

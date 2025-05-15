@@ -10,8 +10,10 @@ async function cleanupArtifacts(target: string) {
       continue;
     }
     const fileData = JSON.parse((await readFile(join(target, file), 'utf8')).toString());
+    /* eslint-disable camelcase */
     fileData.file_map = {};
     fileData.debug_symbols = '';
+    /* eslint-enable camelcase */
     await writeFile(join(target, file), JSON.stringify(fileData));
   }
 }

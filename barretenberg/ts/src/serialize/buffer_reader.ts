@@ -1,6 +1,9 @@
 export class BufferReader {
   private index: number;
-  constructor(private buffer: Uint8Array, offset = 0) {
+  constructor(
+    private buffer: Uint8Array,
+    offset = 0,
+  ) {
     this.index = offset;
   }
 

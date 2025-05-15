@@ -9,7 +9,10 @@ export enum ReadRequestState {
 }
 
 export class ReadRequestStatus {
-  constructor(public state: ReadRequestState, public hintIndex: number) {}
+  constructor(
+    public state: ReadRequestState,
+    public hintIndex: number,
+  ) {}
 
   static nada() {
     return new ReadRequestStatus(ReadRequestState.NADA, 0);
@@ -34,7 +37,10 @@ export class ReadRequestStatus {
 }
 
 export class PendingReadHint {
-  constructor(public readRequestIndex: number, public pendingValueIndex: number) {}
+  constructor(
+    public readRequestIndex: number,
+    public pendingValueIndex: number,
+  ) {}
 
   static nada(readRequestLen: number) {
     return new PendingReadHint(readRequestLen, 0);
@@ -154,7 +160,10 @@ export class ReadRequestResetHints<
 }
 
 export class ReadRequestResetStates<NUM_READS extends number> {
-  constructor(public states: Tuple<ReadRequestState, NUM_READS>, public pendingReadHints: PendingReadHint[]) {}
+  constructor(
+    public states: Tuple<ReadRequestState, NUM_READS>,
+    public pendingReadHints: PendingReadHint[],
+  ) {}
 
   static empty<NUM_READS extends number>(numReads: NUM_READS) {
     return new ReadRequestResetStates(

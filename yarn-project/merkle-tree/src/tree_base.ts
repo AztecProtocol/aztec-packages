@@ -92,7 +92,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @returns The root of the tree.
    */
   public getRoot(includeUncommitted: boolean): Buffer {
-    return !includeUncommitted ? this.root : this.cache[indexToKeyHash(this.name, 0, 0n)] ?? this.root;
+    return !includeUncommitted ? this.root : (this.cache[indexToKeyHash(this.name, 0, 0n)] ?? this.root);
   }
 
   /**
@@ -101,7 +101,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
    * @returns The number of leaves in the tree.
    */
   public getNumLeaves(includeUncommitted: boolean) {
-    return !includeUncommitted ? this.size : this.cachedSize ?? this.size;
+    return !includeUncommitted ? this.size : (this.cachedSize ?? this.size);
   }
 
   /**

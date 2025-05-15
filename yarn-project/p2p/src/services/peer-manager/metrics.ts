@@ -18,7 +18,10 @@ export class PeerManagerMetrics {
 
   public readonly tracer: Tracer;
 
-  constructor(public readonly telemetryClient: TelemetryClient = getTelemetryClient(), name = 'PeerManager') {
+  constructor(
+    public readonly telemetryClient: TelemetryClient = getTelemetryClient(),
+    name = 'PeerManager',
+  ) {
     this.tracer = telemetryClient.getTracer(name);
 
     const meter = telemetryClient.getMeter(name);
