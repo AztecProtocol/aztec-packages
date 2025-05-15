@@ -474,7 +474,7 @@ describe('NativeWorldState', () => {
         }
       }
 
-      // We now copy the world state to another directory.
+      // We now copy the nullifier and public data tress to a temp directory
       await ws.close();
 
       const nullifierTreePathSource = join(dataDir, 'world_state', 'NullifierTree');
