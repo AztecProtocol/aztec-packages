@@ -201,6 +201,8 @@ export class SlasherClient extends WithTracer {
     if (await this.doIAgreeWithPayload(payload)) {
       this.log.info('Adding monitored payload', payload);
       this.monitoredPayloads.push(payload);
+    } else {
+      this.log.info('Disagreeing with payload', payload);
     }
   }
 

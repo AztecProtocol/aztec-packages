@@ -42,6 +42,10 @@ export class SlashingProposerContract implements IEmpireBase {
     };
   }
 
+  public getProposalVotes(rollupAddress: Hex, round: bigint, proposal: Hex): Promise<bigint> {
+    return this.proposer.read.yeaCount([rollupAddress, round, proposal]);
+  }
+
   public createVoteRequest(payload: Hex): L1TxRequest {
     return {
       to: this.address.toString(),

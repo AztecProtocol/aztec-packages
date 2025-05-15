@@ -1,6 +1,8 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil, sleep } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
@@ -18,7 +20,9 @@ const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will 
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
 const EPOCH_DURATION = 5;
+const SLASHING_QUORUM = 6;
 const SLASHING_ROUND_SIZE = 10;
+const SLASH_AMOUNT = 1n;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -43,8 +47,8 @@ describe('e2e_p2p_validators_sentinel', () => {
         sentinelEnabled: true,
         slashingQuorum: 6,
         slashingRoundSize: SLASHING_ROUND_SIZE,
-        slashInactivityCreatePenalty: 1n,
-        slashInactivityCreateTargetPercentage: 0.1,
+        slashInactivityCreatePenalty: SLASH_AMOUNT,
+        slashInactivityCreateTargetPercentage: 0.6,
         slashInactivitySignalTargetPercentage: 0.5,
       },
     });
@@ -52,6 +56,16 @@ describe('e2e_p2p_validators_sentinel', () => {
     await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
+    nodes = await createNodes(
+      t.ctx.aztecNodeConfig,
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
+      BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
+
+      DATA_DIR,
+    );
     await t.removeInitialNode();
 
     t.logger.info(`Setup complete`, { validators: t.validators });
@@ -68,18 +82,6 @@ describe('e2e_p2p_validators_sentinel', () => {
   describe('with an offline validator', () => {
     let stats: ValidatorsStats;
     beforeAll(async () => {
-      t.logger.info('Creating nodes');
-      nodes = await createNodes(
-        t.ctx.aztecNodeConfig,
-        t.ctx.dateProvider,
-        t.bootstrapNodeEnr,
-        NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
-        BOOT_NODE_UDP_PORT,
-        t.prefilledPublicData,
-
-        DATA_DIR,
-      );
-
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * blockCount * 8;
@@ -126,28 +128,56 @@ describe('e2e_p2p_validators_sentinel', () => {
         1,
       );
 
-      const tip = await nodes[0].getL2Tips();
-      const round = Math.floor(tip.latest.number / SLASHING_ROUND_SIZE);
+      const rollup = new RollupContract(
+        t.ctx.deployL1ContractsValues.l1Client,
+        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      );
+      const slashingProposer = await rollup.getSlashingProposer();
 
       await retryUntil(
         async () => {
-          const tip = await nodes[0].getL2Tips();
-          return Math.floor(tip.latest.number / SLASHING_ROUND_SIZE) > round + 1;
+          const round = await slashingProposer.computeRound(await rollup.getCurrentSlot());
+          const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
+          const leaderVotes = await slashingProposer.getProposalVotes(rollup.address, round, roundInfo.leader);
+          return leaderVotes > BigInt(SLASHING_QUORUM);
         },
-        'slashing round',
+        'slashing quorum',
         SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * SLASHING_ROUND_SIZE * 2 + 1,
         1,
       );
+      const roundWithQuorum = await slashingProposer.computeRound(await rollup.getCurrentSlot());
+      await retryUntil(
+        async () => {
+          const round = await slashingProposer.computeRound(await rollup.getCurrentSlot());
+          return round > roundWithQuorum;
+        },
+        'slashing executable',
+        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * SLASHING_ROUND_SIZE,
+        1,
+      );
 
-      const rollup = getContract({
+      const slashingProposerRaw = getContract({
+        address: slashingProposer.address.toString(),
+        abi: SlashingProposerAbi,
+        client: t.ctx.deployL1ContractsValues.l1Client,
+      });
+
+      const receipt = await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+        hash: await slashingProposerRaw.write.executeProposal([roundWithQuorum]),
+      });
+      expect(receipt.status).toBe('success');
+
+      const rollupRaw = getContract({
         address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         abi: RollupAbi,
         client: t.ctx.deployL1ContractsValues.l1Client,
       });
 
-      const slashEvents = await rollup.getEvents.Slashed();
+      const slashEvents = await rollupRaw.getEvents.Slashed();
       expect(slashEvents.length).toBe(1);
-      console.log(slashEvents[0]);
+      const { attester, amount } = slashEvents[0].args;
+      expect(attester).toBe(t.validators.at(-1)!.attester.toLowerCase());
+      expect(amount).toBe(SLASH_AMOUNT);
     });
 
     it('collects stats on offline validator', () => {
