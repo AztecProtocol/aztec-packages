@@ -16,7 +16,7 @@ function inject_version {
     local version=${REF_NAME#v}
   else
     # Otherwise, use the commit hash as the version.
-    local version=$(git rev-parse HEAD)
+    local version=$(git rev-parse --short HEAD)
   fi
   local placeholder='00000000.00000000.00000000'
   if [ ${#version} -gt ${#placeholder} ]; then
