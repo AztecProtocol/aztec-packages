@@ -73,7 +73,12 @@ describe('ValidatorClient', () => {
     const header = makeHeader();
     const archive = Fr.random();
     const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
-
+    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+      currentProposer: EthAddress.fromString(validatorAccount.address),
+      nextProposer: EthAddress.fromString(validatorAccount.address),
+      currentSlot: header.globalVariables.slotNumber.toBigInt(),
+      nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
+    });
     const blockProposal = await validatorClient.createBlockProposal(
       header.globalVariables.blockNumber,
       header.toPropose(),
@@ -96,7 +101,12 @@ describe('ValidatorClient', () => {
     const header = makeHeader();
     const archive = Fr.random();
     const txs = await Promise.all([Tx.random(), Tx.random(), Tx.random(), Tx.random(), Tx.random()]);
-
+    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+      currentProposer: EthAddress.fromString(validatorAccount.address),
+      nextProposer: EthAddress.fromString(validatorAccount.address),
+      currentSlot: header.globalVariables.slotNumber.toBigInt(),
+      nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
+    });
     const blockProposal = await validatorClient.createBlockProposal(
       header.globalVariables.blockNumber,
       header.toPropose(),
@@ -182,7 +192,12 @@ describe('ValidatorClient', () => {
       const header = makeHeader();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
-
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
+        currentProposer: EthAddress.fromString(validatorAccount.address),
+        nextProposer: EthAddress.fromString(validatorAccount.address),
+        currentSlot: header.globalVariables.slotNumber.toBigInt(),
+        nextSlot: header.globalVariables.slotNumber.toBigInt() + 1n,
+      });
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
         header.toPropose(),
@@ -269,6 +284,7 @@ describe('ValidatorClient', () => {
         currentSlot: proposal.slotNumber.toBigInt(),
         nextSlot: proposal.slotNumber.toBigInt() + 1n,
       });
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccount.address)]);
 
       blockSource.getBlock.mockResolvedValue({
         archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber.toNumber()),
@@ -326,7 +342,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not return an attestation if the validator is not in the committee', async () => {
-      epochCache.isInCommittee.mockImplementation(() => Promise.resolve(false));
+      epochCache.filterInCommittee.mockResolvedValueOnce([]);
 
       const attestation = await validatorClient.attestToProposal(proposal);
       expect(attestation).toBeUndefined();

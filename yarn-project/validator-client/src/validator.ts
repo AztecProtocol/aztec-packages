@@ -446,8 +446,9 @@ export class ValidatorClient extends WithTracer implements Validator {
       return Promise.resolve(undefined);
     }
 
-    const { currentProposer: proposerAttesterAddress } =
-      await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    // const { currentProposer: proposerAttesterAddress } =
+    const result = await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+    const proposerAttesterAddress = result.currentProposer;
 
     const newProposal = await this.validationService.createBlockProposal(
       blockNumber,
