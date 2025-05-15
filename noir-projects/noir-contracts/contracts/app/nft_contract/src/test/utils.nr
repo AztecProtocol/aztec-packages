@@ -36,9 +36,9 @@ pub unconstrained fn setup(
         "TN00000000000000000000000000000",
     );
     let nft_contract =
-        env.deploy_self("NFT").with_public_void_initializer(initializer_call_interface);
+        env.deploy_self("NFT").with_public_void_initializer(owner, initializer_call_interface);
     let nft_contract_address = nft_contract.to_address();
-    env.advance_block_by(1);
+
     (&mut env, nft_contract_address, owner, recipient)
 }
 
@@ -67,11 +67,10 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
     let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We transfer the public NFT to private.
-    NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id).call(
-        &mut env.private(),
+    let _ = env.call_private_void(
+        owner,
+        NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id),
     );
-
-    env.advance_block_by(1);
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }

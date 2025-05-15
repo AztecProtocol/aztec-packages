@@ -16,6 +16,8 @@ export interface SequencerConfig {
   maxTxsPerBlock?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
+  /** Whether to publish txs with the block proposals */
+  publishTxsWithProposals?: boolean;
   /** The maximum L2 block gas. */
   maxL2BlockGas?: number;
   /** The maximum DA block gas. */
@@ -45,6 +47,7 @@ export const SequencerConfigSchema = z.object({
   maxTxsPerBlock: z.number().optional(),
   minTxsPerBlock: z.number().optional(),
   maxL2BlockGas: z.number().optional(),
+  publishTxsWithProposals: z.boolean().optional(),
   maxDABlockGas: z.number().optional(),
   coinbase: schemas.EthAddress.optional(),
   feeRecipient: schemas.AztecAddress.optional(),
