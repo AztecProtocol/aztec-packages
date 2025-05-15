@@ -44,7 +44,7 @@ Run:
      aztec start --sandbox
      ```
 
-    You will see the word `sandbox` a lot in the docs and when running a local network. The bundle of local network + Aztec toolbox + PXE is often called the Aztec Sandbox.
+    You will see the word `sandbox` a lot in the docs and when running a local network. The bundle of local network + Aztec toolbox + PXE is called the Aztec Sandbox.
 
      When your local network is ready to go, you should see something like this:
      ```bash
