@@ -193,8 +193,8 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  if [ "$CI" -eq 1 ]; then
-    # If in CI, iterate asan_tests, creating a gtest invocation for each.
+  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+    # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
     for bin_name in "${!asan_tests[@]}"; do
       local filter=${asan_tests[$bin_name]}
       local prefix="$hash:CPUS=4:MEM=8g"
