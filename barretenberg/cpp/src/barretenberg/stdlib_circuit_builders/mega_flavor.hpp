@@ -623,6 +623,17 @@ class MegaFlavor {
                        lagrange_last,
                        lagrange_ecc_op,
                        databus_id);
+
+        // Compute a hash of the full contents of the verification key
+        uint256_t hash() const
+        {
+            std::vector<uint8_t> buffer;
+            for (const FF& field : this->to_field_elements()) {
+                std::vector<uint8_t> field_bytes = field.to_buffer();
+                buffer.insert(buffer.end(), field_bytes.begin(), field_bytes.end());
+            }
+            return from_buffer<uint256_t>(crypto::sha256(buffer));
+        }
     };
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.

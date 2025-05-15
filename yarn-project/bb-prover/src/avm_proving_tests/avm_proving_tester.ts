@@ -3,10 +3,9 @@ import {
   SimpleContractDataSource,
   type TestEnqueuedCall,
 } from '@aztec/simulator/public/fixtures';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { type AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { makeAvmCircuitInputs } from '@aztec/stdlib/testing';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state';
@@ -137,15 +136,12 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     return proofRes as BBSuccess;
   }
 
-  async verifyV2(proofRes: BBSuccess): Promise<BBResult> {
-    // TODO: Placeholder for now. They get ignored in C++.
-    const inputs = await makeAvmCircuitInputs();
-
+  async verifyV2(proofRes: BBSuccess, publicInputs: AvmCircuitPublicInputs): Promise<BBResult> {
     return await verifyAvmProofV2(
       BB_PATH,
       this.bbWorkingDirectory,
       proofRes.proofPath!,
-      inputs.publicInputs,
+      publicInputs,
       proofRes.vkPath!,
       this.logger,
     );
@@ -166,7 +162,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     const provingRes = await this.proveV2(avmCircuitInputs);
     expect(provingRes.status).toEqual(BB_RESULT.SUCCESS);
 
-    const verificationRes = await this.verifyV2(provingRes as BBSuccess);
+    const verificationRes = await this.verifyV2(provingRes as BBSuccess, avmCircuitInputs.publicInputs);
     expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
   }
 }

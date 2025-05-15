@@ -37,6 +37,11 @@ library ExtRollupLib {
     ValidatorSelectionLib.setupEpoch(StakingLib.getStorage(), currentEpoch);
   }
 
+  function setupSeedSnapshotForNextEpoch() external {
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
+  }
+
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,

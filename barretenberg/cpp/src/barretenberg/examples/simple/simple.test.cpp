@@ -1,14 +1,13 @@
 #include "simple.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include <barretenberg/common/test.hpp>
-#include <barretenberg/srs/factories/file_crs_factory.hpp>
 #include <filesystem>
 
 namespace examples::simple {
 
 TEST(examples_simple, create_proof)
 {
-    auto srs_path = std::filesystem::absolute(bb::srs::get_ignition_crs_path());
-    srs::init_crs_factory(srs_path);
+    srs::init_file_crs_factory(srs::bb_crs_path());
     auto ptrs = create_builder_and_composer();
     auto proof = create_proof(ptrs);
     bool valid = verify_proof(ptrs, proof);

@@ -34,6 +34,8 @@ export class GetContractInstance extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     if (!(this.memberEnum in ContractInstanceMember)) {
@@ -41,7 +43,6 @@ export class GetContractInstance extends Instruction {
     }
 
     const operands = [this.addressOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [addressOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 

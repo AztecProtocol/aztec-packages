@@ -128,10 +128,11 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
 
-    PairingPoints nested_pairing_points = stdlib::PublicInputComponent<PairingPoints>::reconstruct(
+    // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
+    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
         decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
-
     pairing_points.aggregate(nested_pairing_points);
+
     return pairing_points;
 }
 
@@ -275,6 +276,12 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     fold_output.accumulator = nullptr;
 
     ClientCircuit builder{ goblin.op_queue };
+
+    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
+    // circuit are well formed to allow correctly representing shiftable polynomials (which are
+    // expected to start with 0).
+    builder.queue_ecc_no_op();
+
     hide_op_queue_accumulation_result(builder);
 
     // The last circuit being folded is a kernel circuit whose public inputs need to be passed to the base rollup
@@ -308,6 +315,12 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
 
+    // Extract and aggregate the pairing points from the pub inputs of the final accumulated circuit
+    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
+        recursive_verifier_accumulator->public_inputs,
+        recursive_verifier_accumulator->verification_key->pairing_inputs_public_input_key);
+    points_accumulator.aggregate(nested_pairing_points);
+
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
@@ -315,11 +328,10 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
 
     points_accumulator.set_public();
 
-    // Construct the last merge proof for the present circuit
-    MergeProof merge_proof = goblin.prove_merge();
-
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
+    // Construct the last merge proof for the present circuit
+    MergeProof merge_proof = goblin.prove_merge();
 
     return { decider_pk, merge_proof };
 }

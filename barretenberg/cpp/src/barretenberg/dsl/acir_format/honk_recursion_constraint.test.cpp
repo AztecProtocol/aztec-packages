@@ -216,11 +216,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
     }
 
   protected:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,

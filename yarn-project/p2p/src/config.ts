@@ -99,12 +99,6 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    */
   queryForIp: boolean;
 
-  /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
-  keepProvenTxsInPoolFor: number;
-
-  /** How many slots to keep attestations for. */
-  keepAttestationsInPoolFor: number;
-
   /**
    * The interval of the gossipsub heartbeat to perform maintenance tasks.
    */
@@ -144,6 +138,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * How many message cache windows to include when gossiping with other pears.
    */
   gossipsubMcacheGossip: number;
+
+  /**
+   * How long to keep message IDs in the seen cache (ms).
+   */
+  gossipsubSeenTTL: number;
 
   /**
    * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
@@ -281,17 +280,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.',
     ...booleanConfigHelper(),
   },
-  keepProvenTxsInPoolFor: {
-    env: 'P2P_TX_POOL_KEEP_PROVEN_FOR',
-    description:
-      'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
-    ...numberConfigHelper(0),
-  },
-  keepAttestationsInPoolFor: {
-    env: 'P2P_ATTESTATION_POOL_KEEP_FOR',
-    description: 'How many slots to keep attestations for.',
-    ...numberConfigHelper(96),
-  },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
     description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
@@ -329,8 +317,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
-    description: 'How many message cache windows to include when gossiping with other pears.',
+    description: 'How many message cache windows to include when gossiping with other peers.',
     ...numberConfigHelper(3),
+  },
+  gossipsubSeenTTL: {
+    env: 'P2P_GOSSIPSUB_SEEN_TTL',
+    description: 'How long to keep message IDs in the seen cache.',
+    ...numberConfigHelper(20 * 60 * 1000),
   },
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',

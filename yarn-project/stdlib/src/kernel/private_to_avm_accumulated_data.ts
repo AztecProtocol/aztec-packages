@@ -150,6 +150,10 @@ export class PrivateToAvmAccumulatedDataArrayLengths {
     return new this(reader.readU32(), reader.readU32(), reader.readU32());
   }
 
+  toFields() {
+    return [this.noteHashes, this.nullifiers, this.l2ToL1Msgs];
+  }
+
   static from(fields: FieldsOf<PrivateToAvmAccumulatedDataArrayLengths>) {
     return new PrivateToAvmAccumulatedDataArrayLengths(...PrivateToAvmAccumulatedDataArrayLengths.getFields(fields));
   }

@@ -14,8 +14,6 @@ benchmark_output="$2"
 echo_header "bb ivc flow bench"
 
 export HARDWARE_CONCURRENCY=16
-export IGNITION_CRS_PATH=./srs_db/ignition
-export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 export native_preset=${NATIVE_PRESET:-clang16-assert}
 export native_build_dir=$(scripts/cmake/preset-build-dir $native_preset)
 

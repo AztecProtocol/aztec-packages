@@ -89,13 +89,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     };
 
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-        }
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Construct a recursive verification circuit for the proof of an inner circuit then  check the number of
