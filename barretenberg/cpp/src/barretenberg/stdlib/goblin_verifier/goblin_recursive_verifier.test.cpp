@@ -2,9 +2,9 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -22,14 +22,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
-    {
-        MegaCircuitBuilder circuit{ op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, /*target_log2_dyadic_size=*/8);
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
-        return circuit;
-    }
-
     struct ProverOutput {
         GoblinProof proof;
         Goblin::VerificationKey verfier_input;
@@ -46,7 +38,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         Goblin goblin;
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS - 1; ++idx) {
-            auto circuit = construct_mock_circuit(goblin.op_queue);
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            GoblinMockCircuits::construct_simple_circuit(builder);
             goblin.prove_merge();
         }
 
@@ -54,8 +47,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
         Goblin goblin_last;
         goblin_last.op_queue = goblin.op_queue;
-
-        auto circuit = construct_mock_circuit(goblin_last.op_queue);
+        MegaCircuitBuilder builder{ goblin.op_queue };
+        builder.queue_ecc_no_op();
+        auto circuit = GoblinMockCircuits::construct_simple_circuit();
         auto merge_proof = goblin_last.prove_final_merge();
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
@@ -231,4 +225,26 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief Ensure failure of the goblin recursive verification circuit for bad translation evaluations
+ *
+ */
+TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
+{
+
+    {
+        auto [proof, verifier_input] = create_goblin_prover_output();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
+        // Better recursion testing - create more flexible proof tampering tests.
+        proof.translator_proof[0] += 1; // tamper with part of the limb of op commitment
+
+        Builder builder;
+        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/787)
+}
 } // namespace bb::stdlib::recursion::honk

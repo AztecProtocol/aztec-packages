@@ -55,7 +55,7 @@ library ValidatorSelectionLib {
 
     // Set the sample seed for the next epoch if required
     // function handles the case where it is already set
-    setSampleSeedForEpoch(_epochNumber + Epoch.wrap(1));
+    setSampleSeedForNextEpoch(_epochNumber);
 
     //################ Committee ################
     // If the committee is not set for this epoch, we need to sample it
@@ -217,13 +217,20 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     EpochData storage epoch = store.epochs[_epochNumber];
 
-    // If no committee has been stored, then we need to setup the epoch
-    uint256 committeeSize = epoch.committee.length;
-    if (committeeSize == 0) {
-      // This will set epoch.committee and the next sample seed in the store, meaning epoch.commitee on the line below will be set (storage reference)
-      setupEpoch(_stakingStore, _epochNumber);
+    // If the committe is already set, just return that, otherwise need to sample
+    if (epoch.committee.length > 0) {
+      return epoch.committee;
     }
-    return epoch.committee;
+    return sampleValidators(_stakingStore, _epochNumber, getSampleSeed(_epochNumber));
+  }
+
+  /**
+   * @notice  Sets the sample seed for the next epoch
+   *
+   * @param _epoch - The epoch to set the sample seed for
+   */
+  function setSampleSeedForNextEpoch(Epoch _epoch) internal {
+    setSampleSeedForEpoch(_epoch + Epoch.wrap(1));
   }
 
   /**

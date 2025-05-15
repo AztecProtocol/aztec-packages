@@ -275,6 +275,12 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     fold_output.accumulator = nullptr;
 
     ClientCircuit builder{ goblin.op_queue };
+
+    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
+    // circuit are well formed to allow correctly representing shiftable polynomials (which are
+    // expected to start with 0).
+    builder.queue_ecc_no_op();
+
     hide_op_queue_accumulation_result(builder);
 
     // The last circuit being folded is a kernel circuit whose public inputs need to be passed to the base rollup
@@ -323,6 +329,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
+    // Construct the last merge proof for the present circuit
+    MergeProof merge_proof = goblin.prove_merge();
 
     return decider_pk;
 }

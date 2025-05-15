@@ -164,7 +164,7 @@ template <typename TranscriptParams> class BaseTranscript {
     /**
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
      * @details This function computes a new challenge for the current round using the previous challenge
-     * and the current round data, if they are exist. It clears the current_round_data if nonempty after
+     * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
      * @return std::array<Fr, HASH_OUTPUT_SIZE>

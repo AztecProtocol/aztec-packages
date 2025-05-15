@@ -1536,7 +1536,8 @@ export class TXE implements TypedOracle {
         padArrayEnd(l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
         padArrayEnd(taggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
         padArrayEnd(contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
-        padArrayEnd(publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
+        // We need to reverse the public call requests because the public processor expects the first one at the top of the array (the last element)
+        padArrayEnd(publicCallRequests.reverse(), PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
       );
 
       inputsForPublic = new PartialPrivateTailPublicInputsForPublic(

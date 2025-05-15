@@ -7,6 +7,7 @@ import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
+import {MultiAdder} from "@aztec/mock/MultiAdder.sol";
 
 contract SetupEpochTest is ValidatorSelectionTestBase {
   using Checkpoints for Checkpoints.Trace224;
@@ -198,8 +199,8 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
       validators[i] = createDepositArgs(i + _saltStart);
     }
 
-    testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * validators.length);
-    testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * validators.length);
-    rollup.cheat__InitialiseValidatorSet(validators);
+    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
+    testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * validators.length);
+    multiAdder.addValidators(validators);
   }
 }
