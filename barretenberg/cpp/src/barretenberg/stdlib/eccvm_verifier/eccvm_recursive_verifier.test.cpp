@@ -167,16 +167,20 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
             auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
-            // Check for a failure flag in the recursive verifier circuit
             if (idx == 0) {
+                // In this case, we changed the first non-zero value in the proof. It leads to a circuit check failure.
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
+                // Changing the last commitment in the `pre_ipa_proof` would not result in a circuit check failure at
+                // this stage.
+                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
+
+                // However, IPA recursive verifier must fail, as one of the commitments is incorrect.
                 auto native_pcs_vk =
                     std::make_shared<VerifierCommitmentKey<typename InnerFlavor::Curve>>(1UL << CONST_ECCVM_LOG_N);
                 auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>>>(
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
-                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
                 EXPECT_FALSE(IPA<typename RecursiveFlavor::Curve>::full_verify_recursive(
                     stdlib_pcs_vkey, opening_claim, ipa_transcript));
             }

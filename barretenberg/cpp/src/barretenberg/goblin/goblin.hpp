@@ -42,9 +42,9 @@ class Goblin {
     MergeProof merge_proof;
     GoblinProof goblin_proof;
 
-    fq translation_batching_challenge_v;           // challenge for batching the translation polynomials
-    fq evaluation_challenge_x;                     // challenge for evaluating the translation polynomials
-    std::shared_ptr<Transcript> goblin_transcript; // shared between ECCVM and Translator
+    fq translation_batching_challenge_v;    // challenge for batching the translation polynomials
+    fq evaluation_challenge_x;              // challenge for evaluating the translation polynomials
+    std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -52,7 +52,7 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(std::shared_ptr<Transcript> transcript = nullptr,
+    Goblin(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
            const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr);
 
     /**
@@ -91,7 +91,8 @@ class Goblin {
      * @return true
      * @return false
      */
-    bool verify(const GoblinProof& proof);
+    static bool verify(const GoblinProof& proof,
+                       const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 };
 
 } // namespace bb

@@ -44,7 +44,7 @@ TEST_F(GoblinTests, MultipleCircuits)
     GoblinProof proof = goblin.prove();
 
     // Verify the goblin proof (eccvm, translator, merge)
-    bool verified = goblin.verify(proof);
+    bool verified = Goblin::verify(proof);
 
     EXPECT_TRUE(verified);
 }

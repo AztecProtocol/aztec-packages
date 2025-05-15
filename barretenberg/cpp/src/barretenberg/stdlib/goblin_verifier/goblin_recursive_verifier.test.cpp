@@ -69,13 +69,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
-
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    Goblin goblin;
-
-    EXPECT_TRUE(goblin.verify(proof));
-    goblin.goblin_transcript->print();
+    EXPECT_TRUE(Goblin::verify(proof));
 }
 
 /**

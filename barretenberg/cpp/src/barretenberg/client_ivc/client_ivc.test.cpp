@@ -44,6 +44,17 @@ class ClientIVCTests : public ::testing::Test {
             }
         }
     }
+
+    static std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> generate_ivc_proof(size_t num_circuits)
+    {
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+        ClientIVCMockCircuitProducer circuit_producer;
+        for (size_t j = 0; j < num_circuits; ++j) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+            ivc.accumulate(circuit);
+        }
+        return { ivc.prove(), ivc.get_vk() };
+    };
 };
 
 /**
@@ -287,6 +298,55 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief Ensure that the CIVC VK is independent of the number of circuits accumulated
+ *
+ */
+TEST_F(ClientIVCTests, WrongProofComponentFailure)
+{
+    auto [civc_proof_2, civc_2_vk] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_2, civc_2_vk));
+    }
+
+    auto [civc_proof_4, civc_4_vk] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_4, civc_4_vk));
+    }
+
+    {
+        ClientIVC::Proof tampered_proof = civc_proof_2;
+
+        tampered_proof.goblin_proof.merge_proof = civc_proof_4.goblin_proof.merge_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+    }
+
+    {
+        ClientIVC::Proof tampered_proof = civc_proof_2;
+
+        tampered_proof.mega_proof = civc_proof_4.mega_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+    }
+
+    {
+        ClientIVC::Proof tampered_proof = civc_proof_2;
+
+        tampered_proof.goblin_proof.eccvm_proof = civc_proof_4.goblin_proof.eccvm_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+    }
+
+    {
+        ClientIVC::Proof tampered_proof = civc_proof_2;
+
+        tampered_proof.goblin_proof.translator_proof = civc_proof_4.goblin_proof.translator_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_2_vk));
+    }
 };
 
 /**

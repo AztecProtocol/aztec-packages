@@ -29,7 +29,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                     const std::shared_ptr<Transcript>& goblin_transcript = nullptr);
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
         const StdlibProof<CircuitBuilder>& proof);

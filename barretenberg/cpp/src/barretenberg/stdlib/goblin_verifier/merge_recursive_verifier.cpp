@@ -10,9 +10,9 @@ namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                                                 const std::shared_ptr<Transcript>& goblin_transcript)
+                                                                 const std::shared_ptr<Transcript>& transcript)
     : builder(builder)
-    , transcript(goblin_transcript ? goblin_transcript : std::make_shared<Transcript>())
+    , transcript(transcript)
 {}
 
 /**

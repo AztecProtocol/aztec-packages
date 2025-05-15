@@ -43,10 +43,10 @@ class GoblinRecursiveVerifier {
 
     GoblinRecursiveVerifier(Builder* builder,
                             const VerificationKey& verification_keys,
-                            const std::shared_ptr<Transcript>& transcript = nullptr)
+                            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : builder(builder)
         , verification_keys(verification_keys)
-        , goblin_transcript(transcript ? transcript : std::make_shared<Transcript>()){};
+        , transcript(transcript){};
 
     /**
      * @brief Construct a Goblin recursive verifier circuit
@@ -60,7 +60,7 @@ class GoblinRecursiveVerifier {
   private:
     Builder* builder;
     VerificationKey verification_keys; // ECCVM and Translator verification keys
-    std::shared_ptr<Transcript> goblin_transcript;
+    std::shared_ptr<Transcript> transcript;
 };
 
 } // namespace bb::stdlib::recursion::honk

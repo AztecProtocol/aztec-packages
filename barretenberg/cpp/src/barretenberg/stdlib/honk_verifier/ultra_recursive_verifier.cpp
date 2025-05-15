@@ -28,7 +28,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
                                                          const std::shared_ptr<Transcript>& transcript)
     : key(vkey)
     , builder(builder)
-    , transcript(transcript ? transcript : std::make_shared<Transcript>())
+    , transcript(transcript)
 {}
 
 /**

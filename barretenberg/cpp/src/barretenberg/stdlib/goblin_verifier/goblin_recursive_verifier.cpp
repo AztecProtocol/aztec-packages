@@ -14,18 +14,17 @@ namespace bb::stdlib::recursion::honk {
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
-    MergeVerifier merge_verifier{ builder, goblin_transcript };
-
+    // Verify the final merge step
+    MergeVerifier merge_verifier{ builder, transcript };
     StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
-
     PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
 
     // Run the ECCVM recursive verifier
-    ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, goblin_transcript };
+    ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
     auto [opening_claim, ipa_transcript] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
-    TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, goblin_transcript };
+    TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
     PairingPoints<Builder> translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 

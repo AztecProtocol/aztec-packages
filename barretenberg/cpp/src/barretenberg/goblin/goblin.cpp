@@ -14,10 +14,10 @@
 
 namespace bb {
 
-Goblin::Goblin(std::shared_ptr<Transcript> transcript,
+Goblin::Goblin(const std::shared_ptr<Transcript>& transcript,
                const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key)
     : commitment_key(bn254_commitment_key)
-    , goblin_transcript(transcript ? std::move(transcript) : std::make_shared<Transcript>())
+    , transcript(transcript)
 {}
 
 Goblin::MergeProof Goblin::prove_merge()
@@ -28,10 +28,15 @@ Goblin::MergeProof Goblin::prove_merge()
     return merge_proof;
 }
 
+/**
+ * @brief The final merge prover shares the transcript with the other Goblin components.
+ *
+ * @return Goblin::MergeProof
+ */
 Goblin::MergeProof Goblin::prove_final_merge()
 {
     PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key, goblin_transcript };
+    MergeProver merge_prover{ op_queue, commitment_key, transcript };
     merge_proof = merge_prover.construct_proof();
     return merge_proof;
 }
@@ -39,7 +44,7 @@ Goblin::MergeProof Goblin::prove_final_merge()
 void Goblin::prove_eccvm()
 {
     ECCVMBuilder eccvm_builder(op_queue);
-    ECCVMProver eccvm_prover(eccvm_builder, goblin_transcript);
+    ECCVMProver eccvm_prover(eccvm_builder, transcript);
     goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
 
     translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
@@ -51,7 +56,7 @@ void Goblin::prove_translator()
     PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
     TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
     auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
-    TranslatorProver translator_prover(translator_key, goblin_transcript);
+    TranslatorProver translator_prover(translator_key, transcript);
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
@@ -77,15 +82,15 @@ GoblinProof Goblin::prove(MergeProof merge_proof_in)
     return goblin_proof;
 }
 
-bool Goblin::verify(const GoblinProof& proof)
+bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript)
 {
-    MergeVerifier merge_verifier(goblin_transcript);
+    MergeVerifier merge_verifier(transcript);
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
-    ECCVMVerifier eccvm_verifier(goblin_transcript);
+    ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
-    TranslatorVerifier translator_verifier(goblin_transcript);
+    TranslatorVerifier translator_verifier(transcript);
 
     bool accumulator_construction_verified = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);

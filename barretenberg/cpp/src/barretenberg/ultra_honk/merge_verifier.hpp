@@ -31,7 +31,7 @@ class MergeVerifier {
   public:
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeVerifier(const std::shared_ptr<Transcript>& goblin_transcript = nullptr);
+    explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     bool verify_proof(const HonkProof& proof);
 
   private:

@@ -335,11 +335,11 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
-    goblin.goblin_transcript = std::make_shared<Goblin::Transcript>();
-    goblin.goblin_transcript->enable_manifest();
+    goblin.transcript = std::make_shared<Goblin::Transcript>();
+    goblin.transcript->enable_manifest();
     auto decider_pk = construct_hiding_circuit_key();
     // FoldingRecursiveVerifier circuit is proven by a MegaZKProver
-    MegaZKProver prover(decider_pk, goblin.goblin_transcript);
+    MegaZKProver prover(decider_pk, goblin.transcript);
     HonkProof proof = prover.construct_proof();
 
     return { proof };
@@ -357,25 +357,20 @@ ClientIVC::Proof ClientIVC::prove()
     // Construct the last merge proof for the present circuit
     MergeProof merge_proof = goblin.prove_final_merge();
 
-    // ?? Delegate proving merge to goblin prover? More symmetry with the verifier
+    // Prove ECCVM and Translator
     return { mega_proof, goblin.prove(merge_proof) };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
-
+    // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
-    civc_verifier_transcript->enable_manifest();
-
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega, nullptr, civc_verifier_transcript };
+    MegaZKVerifier verifer{ vk.mega, civc_verifier_transcript };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
-
-    info("Mega verified: ", mega_verified);
+    vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
-    Goblin goblin_verifier(civc_verifier_transcript);
-    bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
-
+    bool goblin_verified = Goblin::verify(proof.goblin_proof, civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
 }
