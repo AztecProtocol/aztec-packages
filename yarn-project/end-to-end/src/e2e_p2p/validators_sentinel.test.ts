@@ -43,6 +43,9 @@ describe('e2e_p2p_validators_sentinel', () => {
         sentinelEnabled: true,
         slashingQuorum: 6,
         slashingRoundSize: SLASHING_ROUND_SIZE,
+        slashInactivityCreatePenalty: 1n,
+        slashInactivityCreateTargetPercentage: 0.1,
+        slashInactivitySignalTargetPercentage: 0.5,
       },
     });
 
@@ -109,6 +112,9 @@ describe('e2e_p2p_validators_sentinel', () => {
     });
 
     it.only("tries to slash the validator that didn't sign proven blocks", async () => {
+      // turn back on block building
+      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
+
       // wait until we're beyond the second epoch
       await retryUntil(
         async () => {
@@ -120,12 +126,17 @@ describe('e2e_p2p_validators_sentinel', () => {
         1,
       );
 
-      const blockNumber = t.monitor.l2BlockNumber;
+      const tip = await nodes[0].getL2Tips();
+      const round = Math.floor(tip.latest.number / SLASHING_ROUND_SIZE);
 
       await retryUntil(
-        () => t.monitor.l2BlockNumber > blockNumber + SLASHING_ROUND_SIZE,
+        async () => {
+          const tip = await nodes[0].getL2Tips();
+          return Math.floor(tip.latest.number / SLASHING_ROUND_SIZE) > round + 1;
+        },
         'slashing round',
-        SLASHING_ROUND_SIZE * SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration + 2,
+        SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * SLASHING_ROUND_SIZE * 2 + 1,
+        1,
       );
 
       const rollup = getContract({

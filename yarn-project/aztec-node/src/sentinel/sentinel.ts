@@ -109,8 +109,11 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       this.logger.error(`Failed to get block ${blockNumber}`, { block });
       return;
     }
+
     const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
+    this.logger.info(`Computing proven performance for epoch ${epoch}`);
     const performance = await this.computeProvenPerformance(epoch);
+    this.logger.info(`Proven performance for epoch ${epoch}`, performance);
 
     await this.updateProvenPerformance(epoch, performance);
     this.handleProvenPerformance(performance);
@@ -156,7 +159,11 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const amounts = Array(criminals.length).fill(this.config.slashInactivityCreatePenalty);
     const offenses = Array(criminals.length).fill(Offence.INACTIVITY);
 
-    this.emit(WANT_TO_SLASH_EVENT, { validators: criminals, amounts, offenses });
+    this.logger.info(`Criminals: ${criminals.length}`, { criminals, amounts, offenses });
+
+    if (criminals.length > 0) {
+      this.emit(WANT_TO_SLASH_EVENT, { validators: criminals, amounts, offenses });
+    }
   }
 
   public async shouldSlash(validator: `0x${string}`, _amount: bigint, _offense: Offence): Promise<boolean> {
