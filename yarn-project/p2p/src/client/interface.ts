@@ -140,6 +140,12 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   getPendingTxCount(): Promise<number>;
 
   /**
+   * Marks transactions as non-evictable in the pool.
+   * @param txHashes - Hashes of the transactions to mark as non-evictable.
+   */
+  markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+
+  /**
    * Starts the p2p client.
    * @returns A promise signalling the completion of the block sync.
    */
@@ -171,4 +177,10 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   isP2PClient(): true;
 
   updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
+
+  /** Validates a set of txs. */
+  validate(txs: Tx[]): Promise<void>;
+
+  /** Clears the db. */
+  clear(): Promise<void>;
 };

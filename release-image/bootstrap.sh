@@ -8,7 +8,13 @@ hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile
 function build_image {
   set -euo pipefail
   cd ..
-  docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) .
+
+  build_metadata=""
+  if semver check $REF_NAME; then
+    build_metadata=${REF_NAME#v}
+  fi
+
+  docker build -f release-image/Dockerfile --build-arg BUILD_METADATA=$build_metadata -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
 
   # Remove all but the most recent image.

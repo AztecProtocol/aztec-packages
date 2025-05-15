@@ -51,6 +51,7 @@ members = [
     "contracts/test/static_parent_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
+    "contracts/test/txe_test_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"
 ]

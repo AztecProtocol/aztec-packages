@@ -217,6 +217,61 @@ impl<let N: u32> Serialize<N> for str<N> {
     }
 }
 
+// T = type of item in BoundedVec
+// M = max length of BoundedVec
+// O = field length of T
+// O * M + 1 = total serialized length of BoundedVec<T, M> (the +1 is for length of the BoundedVec)
+impl<T, let M: u32, let O: u32> Deserialize<O * M + 1> for BoundedVec<T, M>
+where
+    T: Deserialize<O>,
+{
+    fn deserialize(fields: [Field; O * M + 1]) -> Self {
+        let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
+
+        let len = fields[0] as u32;
+        let mut index = 1;
+
+        for _ in 0..len {
+            let mut nested_fields = [0; O];
+            for j in 0..O {
+                nested_fields[j] = fields[index];
+                index += 1;
+            }
+
+            let item = T::deserialize(nested_fields);
+            new_bounded_vec.push(item);
+        }
+
+        new_bounded_vec
+    }
+}
+
+impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
+where
+    T: Serialize<O>,
+{
+    fn serialize(self) -> [Field; O * M + 1] {
+        let mut fields = [0; O * M + 1];
+
+        let len = self.len();
+        fields[0] = len as Field;
+
+        let mut index: u32 = 1;
+
+        for i in 0..len {
+            let item = self.get_unchecked(i);
+            let serialized_item = item.serialize();
+
+            for j in 0..O {
+                fields[index] = serialized_item[j];
+                index += 1;
+            }
+        }
+
+        fields
+    }
+}
+
 // docs:start:deserialize
 /// Trait for deserializing Noir types from arrays of Fields.
 ///
@@ -244,7 +299,7 @@ pub trait Deserialize<let N: u32> {
 
 impl<let N: u32> Deserialize<N> for str<N> {
     fn deserialize(fields: [Field; N]) -> Self {
-        str<N>::from(fields.map(|value| value as u8))
+        str::<N>::from(fields.map(|value| value as u8))
     }
 }
 

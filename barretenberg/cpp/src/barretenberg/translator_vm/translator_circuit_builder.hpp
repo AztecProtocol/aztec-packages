@@ -5,15 +5,6 @@
 // =====================
 
 #pragma once
-/**
- * @file translator_builder.hpp
- * @author @Rumata888
- * @brief Circuit Logic generation for Goblin Plonk translator (checks equivalence of Queues/Transcripts for ECCVM and
- * Recursive Circuits)
- *
- * @copyright Copyright (c) 2023
- *
- */
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -247,6 +238,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
+    // Index at which the evaluation result is stored in the circuit
+    static constexpr const size_t RESULT_ROW = 2;
+
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
 
@@ -330,14 +324,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_)
-    {
-        add_variable(Fr::zero());
-        for (auto& wire : wires) {
-            wire.emplace_back(0);
-        }
-        num_gates++;
-    };
+        , evaluation_input_x(evaluation_input_x_){};
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside
@@ -353,7 +340,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
     {
         PROFILE_THIS_NAME("TranslatorCircuitBuilder::constructor");
-        feed_ecc_op_queue_into_circuit(op_queue);
+        feed_ecc_op_queue_into_circuit(std::move(op_queue));
     }
 
     TranslatorCircuitBuilder() = default;

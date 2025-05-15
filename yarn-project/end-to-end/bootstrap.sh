@@ -18,15 +18,8 @@ function test_cmds {
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $run_test_script simple e2e_block_building"
 
   local tests=(
-    src/e2e_blacklist_token_contract/*.test.ts
-    src/e2e_cross_chain_messaging/*.test.ts
-    src/e2e_deploy_contract/*.test.ts
-    src/e2e_fees/*.test.ts
-    src/e2e_nested_contract/*.test.ts
-    src/e2e_p2p/*.test.ts
-    src/e2e_token_contract/*.test.ts
-    src/public-testnet/*.test.ts
-    # Block building has time extended above.
+    # List all standalone and nested tests, except for the ones listed above.
+    src/e2e_!(prover)/*.test.ts
     src/e2e_!(block_building).test.ts
   )
   for test in "${tests[@]}"; do

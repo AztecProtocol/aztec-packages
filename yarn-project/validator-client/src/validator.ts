@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -8,8 +9,8 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, type Timer } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import type { L2Block } from '@aztec/stdlib/block';
-import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -57,7 +58,8 @@ export interface Validator {
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
-    txs: TxHash[],
+    txs: Tx[],
+    options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal): void;
 
@@ -88,6 +90,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
     private p2pClient: P2P,
+    private blockSource: L2BlockSource,
     private config: ValidatorClientConfig,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
@@ -129,6 +132,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     config: ValidatorClientConfig,
     epochCache: EpochCache,
     p2pClient: P2P,
+    blockSource: L2BlockSource,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -139,7 +143,15 @@ export class ValidatorClient extends WithTracer implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, dateProvider, telemetry);
+    const validator = new ValidatorClient(
+      localKeyStore,
+      epochCache,
+      p2pClient,
+      blockSource,
+      config,
+      dateProvider,
+      telemetry,
+    );
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -185,9 +197,10 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     const slotNumber = proposal.slotNumber.toNumber();
+    const blockNumber = proposal.blockNumber.toNumber();
     const proposalInfo = {
       slotNumber,
-      blockNumber: proposal.blockNumber.toNumber(),
+      blockNumber,
       archive: proposal.payload.archive.toString(),
       txCount: proposal.payload.txHashes.length,
       txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
@@ -208,21 +221,40 @@ export class ValidatorClient extends WithTracer implements Validator {
       return undefined;
     }
 
+    // Check that the parent proposal is a block we know, otherwise reexecution would fail.
+    // Q: Should we move this to the block proposal validator? If there, then p2p would check it
+    // before re-broadcasting it. This means that proposals built on top of an L1-reorgd-out block
+    // would not be rebroadcasted. But it also means that nodes that have not fully synced would
+    // not rebroadcast the proposal.
+    if (blockNumber > INITIAL_L2_BLOCK_NUM) {
+      const parentBlock = await this.blockSource.getBlock(blockNumber - 1);
+      if (parentBlock === undefined) {
+        this.log.verbose(`Parent block for ${blockNumber} not found, skipping attestation`);
+        this.metrics.incFailedAttestations('parent_block_not_found');
+        return undefined;
+      }
+      if (!proposal.payload.header.lastArchiveRoot.equals(parentBlock.archive.root)) {
+        this.log.verbose(`Parent block archive root for proposal does not match, skipping attestation`, {
+          proposalLastArchiveRoot: proposal.payload.header.lastArchiveRoot.toString(),
+          parentBlockArchiveRoot: parentBlock.archive.root.toString(),
+          ...proposalInfo,
+        });
+        this.metrics.incFailedAttestations('parent_block_does_not_match');
+        return undefined;
+      }
+    }
+
     // Check that all of the transactions in the proposal are available in the tx pool before attesting
     this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
     try {
-      await this.ensureTransactionsAreAvailable(proposal);
+      const txs = await this.ensureTransactionsAreAvailable(proposal);
 
       if (this.config.validatorReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
-        await this.reExecuteTransactions(proposal);
+        await this.reExecuteTransactions(proposal, txs);
       }
     } catch (error: any) {
-      if (error instanceof Error) {
-        this.metrics.incFailedAttestations(error.name);
-      } else {
-        this.metrics.incFailedAttestations('unknown');
-      }
+      this.metrics.incFailedAttestations(error instanceof Error ? error.name : 'unknown');
 
       // If the transactions are not available, then we should not attempt to attest
       if (error instanceof TransactionsNotAvailableError) {
@@ -247,14 +279,10 @@ export class ValidatorClient extends WithTracer implements Validator {
    * Re-execute the transactions in the proposal and check that the state updates match the header state
    * @param proposal - The proposal to re-execute
    */
-  async reExecuteTransactions(proposal: BlockProposal) {
+  async reExecuteTransactions(proposal: BlockProposal, txs: Tx[]) {
     const { header, txHashes } = proposal.payload;
 
-    const txs = (await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)))).filter(
-      tx => tx !== undefined,
-    ) as Tx[];
-
-    // If we cannot request all of the transactions, then we should fail
+    // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
       const foundTxHashes = await Promise.all(txs.map(async tx => await tx.getTxHash()));
       const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.includes(txHash));
@@ -300,21 +328,95 @@ export class ValidatorClient extends WithTracer implements Validator {
    * 3. If we cannot retrieve them from the network, throw an error
    * @param proposal - The proposal to attest to
    */
-  async ensureTransactionsAreAvailable(proposal: BlockProposal) {
+  async ensureTransactionsAreAvailable(proposal: BlockProposal): Promise<Tx[]> {
+    if (proposal.payload.txHashes.length === 0) {
+      this.log.verbose(`Received block proposal with no transactions, skipping transaction availability check`);
+      return [];
+    }
+    // Is this a new style proposal?
+    if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length === proposal.payload.txHashes.length) {
+      // Yes, any txs that we already have we should use
+      this.log.info(`Using new style proposal with ${proposal.txs.length} transactions`);
+
+      // Request from the pool based on the signed hashes in the payload
+      const hashesFromPayload = proposal.payload.txHashes;
+      const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashesFromPayload);
+
+      const missingTxs = txsToUse.filter(tx => tx === undefined).length;
+      if (missingTxs > 0) {
+        this.log.verbose(
+          `Missing ${missingTxs}/${hashesFromPayload.length} transactions in the tx pool, will attempt to take from the proposal`,
+        );
+      }
+
+      let usedFromProposal = 0;
+
+      // Fill any holes with txs in the proposal, provided their hash matches the hash in the payload
+      for (let i = 0; i < txsToUse.length; i++) {
+        if (txsToUse[i] === undefined) {
+          // We don't have the transaction, take from the proposal, provided the hash is the same
+          const hashOfTxInProposal = await proposal.txs[i].getTxHash();
+          if (hashOfTxInProposal.equals(hashesFromPayload[i])) {
+            // Hash is equal, we can use the tx from the proposal
+            txsToUse[i] = proposal.txs[i];
+            usedFromProposal++;
+          } else {
+            this.log.warn(
+              `Unable to take tx: ${hashOfTxInProposal.toString()} from the proposal, it does not match payload hash: ${hashesFromPayload[
+                i
+              ].toString()}`,
+            );
+          }
+        }
+      }
+
+      // See if we still have any holes, if there are then we were not successful and will try the old method
+      if (txsToUse.some(tx => tx === undefined)) {
+        this.log.warn(`Failed to use transactions from proposal. Falling back to old proposal logic`);
+      } else {
+        this.log.info(
+          `Successfully used ${usedFromProposal}/${hashesFromPayload.length} transactions from the proposal`,
+        );
+
+        await this.p2pClient.validate(txsToUse as Tx[]);
+        return txsToUse as Tx[];
+      }
+    }
+
+    this.log.info(`Using old style proposal with ${proposal.payload.txHashes.length} transactions`);
+
+    // Old style proposal, we will perform a request by hash from pool
+    // This will request from network any txs that are missing
     const txHashes: TxHash[] = proposal.payload.txHashes;
+
+    // This part is just for logging that we are requesting from the network
     const availability = await this.p2pClient.hasTxsInPool(txHashes);
-    const missingTxs = txHashes.filter((_, index) => !availability[index]);
-
-    if (missingTxs.length === 0) {
-      return; // All transactions are available
+    const notAvailable = availability.filter(availability => availability === false);
+    if (notAvailable.length) {
+      this.log.verbose(
+        `Missing ${notAvailable.length} transactions in the tx pool, will need to request from the network`,
+      );
     }
 
-    this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
-
-    const requestedTxs = await this.p2pClient.requestTxsByHash(missingTxs);
-    if (requestedTxs.some(tx => tx === undefined)) {
-      throw new TransactionsNotAvailableError(missingTxs);
+    // This will request from the network any txs that are missing
+    const retrievedTxs = await this.p2pClient.getTxsByHash(txHashes);
+    const missingTxs = retrievedTxs
+      .map((tx, index) => {
+        // Return the hash of any that we did not get
+        if (tx === undefined) {
+          return txHashes[index];
+        } else {
+          return undefined;
+        }
+      })
+      .filter(hash => hash !== undefined);
+    if (missingTxs.length > 0) {
+      throw new TransactionsNotAvailableError(missingTxs as TxHash[]);
     }
+
+    await this.p2pClient.validate(retrievedTxs as Tx[]);
+
+    return retrievedTxs as Tx[];
   }
 
   async createBlockProposal(
@@ -322,7 +424,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
-    txs: TxHash[],
+    txs: Tx[],
+    options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
@@ -335,6 +438,7 @@ export class ValidatorClient extends WithTracer implements Validator {
       archive,
       stateReference,
       txs,
+      options,
     );
     this.previousProposal = newProposal;
     return newProposal;

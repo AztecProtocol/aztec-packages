@@ -1,21 +1,17 @@
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
-#include "barretenberg/vm2/tracegen/trace_container.hpp"
-#include "barretenberg/vm2/tracegen_helper.hpp"
 
 #include <gtest/gtest.h>
 
@@ -28,11 +24,7 @@ class AvmRecursiveTests : public ::testing::Test {
     using InnerVerifier = AvmVerifier;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Helper function to create and verify native proof
     struct NativeProofResult {

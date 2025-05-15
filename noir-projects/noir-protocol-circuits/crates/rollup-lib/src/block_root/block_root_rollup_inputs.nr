@@ -49,6 +49,7 @@ pub(crate) mod tests {
         block_root::block_root_rollup_inputs::BlockRootRollupInputs,
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
+    use bigint::{BigNum, BLS12_381_Fr as F};
     use blob::blob_batching_public_inputs::BatchingBlobCommitment;
     use types::{
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -190,7 +191,7 @@ pub(crate) mod tests {
             .blob_public_inputs
             .end_blob_accumulator
             .y
-            .limbs
+            .get_limbs()
             .map(|l| l as Field));
 
         // We have a single blob, so the accumulated outputs are just those after a single evaluation:
@@ -277,8 +278,11 @@ pub(crate) mod tests {
         builder.inputs.final_blob_challenges.z =
             0x02d6a54e591ada73e5eea35188a02ac87779f4293ea3e7d675fa50ae7ff332ce;
         // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-        builder.inputs.final_blob_challenges.gamma.limbs =
-            [0x281287a8d44071d216177e06a02327, 0x16571aa3dcfef75c2447c705c6c68a, 0x16f2];
+        builder.inputs.final_blob_challenges.gamma = F::from_limbs([
+            0x281287a8d44071d216177e06a02327,
+            0x16571aa3dcfef75c2447c705c6c68a,
+            0x16f2,
+        ]);
 
         let output = builder.execute();
         let final_acc = output.blob_public_inputs.end_blob_accumulator;
@@ -317,7 +321,7 @@ pub(crate) mod tests {
         let expected_blob_commitments_hash =
             0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
 
-        assert_eq(final_acc.y.limbs, expected_y_limbs);
+        assert_eq(final_acc.y.get_limbs(), expected_y_limbs);
         assert_eq(final_acc.c, expected_c);
         assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
     }

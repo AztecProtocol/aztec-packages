@@ -16,7 +16,7 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [ ! -v NOIR_HASH ]; then
+if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   export NOIR_HASH=$(./noir/bootstrap.sh hash)
 fi
 
@@ -246,6 +246,7 @@ function bench {
   denoise "barretenberg/bootstrap.sh bench"
   denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
   denoise "yarn-project/simulator/bootstrap.sh bench"
+  denoise "l1-contracts/bootstrap.sh bench"
   denoise "yarn-project/end-to-end/bootstrap.sh bench"
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }

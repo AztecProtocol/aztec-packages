@@ -108,20 +108,12 @@ struct RollupStore {
   bytes32 blobCommitmentsHash; // = H(...H(H(commitment_0), commitment_1).... commitment_n - used to validate we are using the same blob commitments on L1 and in the rollup circuit
 }
 
-struct CheatDepositArgs {
-  address attester;
-  address proposer;
-  address withdrawer;
-  uint256 amount;
-}
-
 interface ITestRollup {
   event ManaTargetUpdated(uint256 indexed manaTarget);
 
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
   function updateManaTarget(uint256 _manaTarget) external;
 }
 
