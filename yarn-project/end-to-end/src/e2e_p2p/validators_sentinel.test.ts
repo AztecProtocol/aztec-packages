@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil, sleep } from '@aztec/aztec.js';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
@@ -7,6 +8,7 @@ import fs from 'fs';
 import 'jest-extended';
 import os from 'os';
 import path from 'path';
+import { getContract } from 'viem';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
@@ -15,6 +17,8 @@ const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
+const EPOCH_DURATION = 5;
+const SLASHING_ROUND_SIZE = 10;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -26,16 +30,19 @@ describe('e2e_p2p_validators_sentinel', () => {
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_network',
+      testName: 'e2e_p2p_validators_sentinel',
       numberOfNodes: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
+      startProverNode: true,
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
-        aztecEpochDuration: 48,
+        aztecEpochDuration: EPOCH_DURATION,
         validatorReexecute: false,
         sentinelEnabled: true,
+        slashingQuorum: 6,
+        slashingRoundSize: SLASHING_ROUND_SIZE,
       },
     });
 
@@ -66,6 +73,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
         BOOT_NODE_UDP_PORT,
         t.prefilledPublicData,
+
         DATA_DIR,
       );
 
@@ -98,6 +106,37 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       stats = await nodes[0].getValidatorsStats();
       t.logger.info(`Collected validator stats at block ${t.monitor.l2BlockNumber}`, { stats });
+    });
+
+    it.only("tries to slash the validator that didn't sign proven blocks", async () => {
+      // wait until we're beyond the second epoch
+      await retryUntil(
+        async () => {
+          const tips = await nodes[0].getL2Tips();
+          return tips.proven.number > 1;
+        },
+        'proven blocks',
+        EPOCH_DURATION * SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * 2,
+        1,
+      );
+
+      const blockNumber = t.monitor.l2BlockNumber;
+
+      await retryUntil(
+        () => t.monitor.l2BlockNumber > blockNumber + SLASHING_ROUND_SIZE,
+        'slashing round',
+        SLASHING_ROUND_SIZE * SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration + 2,
+      );
+
+      const rollup = getContract({
+        address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        abi: RollupAbi,
+        client: t.ctx.deployL1ContractsValues.l1Client,
+      });
+
+      const slashEvents = await rollup.getEvents.Slashed();
+      expect(slashEvents.length).toBe(1);
+      console.log(slashEvents[0]);
     });
 
     it('collects stats on offline validator', () => {

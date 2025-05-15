@@ -81,6 +81,7 @@ export class P2PNetworkTest {
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
     private metricsPort?: number,
+    startProverNode?: boolean,
   ) {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
@@ -104,6 +105,7 @@ export class P2PNetworkTest {
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
+        startProverNode,
       },
       {
         ...initialValidatorConfig,
@@ -123,12 +125,14 @@ export class P2PNetworkTest {
     basePort,
     metricsPort,
     initialConfig,
+    startProverNode,
   }: {
     testName: string;
     numberOfNodes: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
+    startProverNode?: boolean;
   }) {
     const port = basePort || (await getPort());
 
@@ -140,7 +144,15 @@ export class P2PNetworkTest {
       bootstrapNodeEnr,
     );
 
-    return new P2PNetworkTest(testName, bootstrapNodeEnr, port, numberOfNodes, initialValidatorConfig, metricsPort);
+    return new P2PNetworkTest(
+      testName,
+      bootstrapNodeEnr,
+      port,
+      numberOfNodes,
+      initialValidatorConfig,
+      metricsPort,
+      startProverNode,
+    );
   }
 
   get fundedAccount() {

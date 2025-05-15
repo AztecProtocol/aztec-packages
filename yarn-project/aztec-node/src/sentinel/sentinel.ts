@@ -5,8 +5,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
-import type { SlasherClient } from '@aztec/slasher';
-import { Offence } from '@aztec/slasher';
+import type { SlasherConfig, WatcherEmitter } from '@aztec/slasher/config';
+import { Offence, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -23,11 +23,12 @@ import type {
   ValidatorsStats,
 } from '@aztec/stdlib/validators';
 
+import EventEmitter from 'node:events';
 import { isAddress } from 'viem';
 
 import { SentinelStore } from './store.js';
 
-export class Sentinel implements L2BlockStreamEventHandler {
+export class Sentinel extends (EventEmitter as new () => WatcherEmitter) implements L2BlockStreamEventHandler {
   protected runningPromise: RunningPromise;
   protected blockStream!: L2BlockStream;
   protected l2TipsStore: L2TipsStore;
@@ -42,9 +43,13 @@ export class Sentinel implements L2BlockStreamEventHandler {
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
-    protected slasher: SlasherClient | undefined,
+    protected config: Pick<
+      SlasherConfig,
+      'slashInactivityCreateTargetPercentage' | 'slashInactivityCreatePenalty' | 'slashInactivitySignalTargetPercentage'
+    >,
     protected logger = createLogger('node:sentinel'),
   ) {
+    super();
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
@@ -95,9 +100,6 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   protected async handleChainProven(event: L2BlockStreamEvent) {
-    if (!this.slasher) {
-      return;
-    }
     if (event.type !== 'chain-proven') {
       return;
     }
@@ -145,37 +147,27 @@ export class Sentinel implements L2BlockStreamEventHandler {
   }
 
   protected handleProvenPerformance(performance: Record<`0x${string}`, { missed: number; total: number }>) {
-    if (!this.slasher) {
-      return;
-    }
     const criminals = Object.entries(performance)
       .filter(([_, { missed, total }]) => {
-        return missed / total >= this.slasher!.config.slashInactivityCreateTargetPercentage;
+        return missed / total >= this.config.slashInactivityCreateTargetPercentage;
       })
       .map(([address]) => address as `0x${string}`);
 
-    const amounts = Array(criminals.length).fill(this.slasher.config.slashInactivityCreatePenalty);
+    const amounts = Array(criminals.length).fill(this.config.slashInactivityCreatePenalty);
     const offenses = Array(criminals.length).fill(Offence.INACTIVITY);
 
-    this.slasher.wantToSlash({ validators: criminals, amounts, offenses });
+    this.emit(WANT_TO_SLASH_EVENT, { validators: criminals, amounts, offenses });
   }
 
-  public async agreeWithSlash(validators: `0x${string}`[], _amounts: bigint[]): Promise<boolean> {
-    if (!this.slasher) {
-      return false;
-    }
+  public async shouldSlash(validator: `0x${string}`, _amount: bigint, _offense: Offence): Promise<boolean> {
     const maxEpochAge = 3n;
     const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
-    for (const validator of validators) {
-      const performance = await this.store.getProvenPerformance(validator);
-      const recentlyBad = performance
+    const performance = await this.store.getProvenPerformance(validator);
+    return (
+      performance
         .filter(p => p.epoch >= currentEpoch - maxEpochAge)
-        .find(p => p.missed / p.total >= this.slasher!.config.slashInactivitySignalTargetPercentage);
-      if (!recentlyBad) {
-        return false;
-      }
-    }
-    return true;
+        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1
+    );
   }
 
   /**

@@ -43,6 +43,12 @@ export interface WatcherEventMap {
 
 export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;
 
+export type CheckSlashFn = (validator: `0x${string}`, amount: bigint, offense: Offence) => Promise<boolean>;
+
+export type Watcher = WatcherEmitter & {
+  shouldSlash: CheckSlashFn;
+};
+
 export interface SlasherConfig {
   // New configurations based on design doc
   slashOverridePayload?: EthAddress;

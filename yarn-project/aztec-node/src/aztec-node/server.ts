@@ -39,7 +39,7 @@ import {
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { SlasherClient } from '@aztec/slasher';
+import { SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type {
@@ -254,7 +254,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const slasherClient = SlasherClient.new(config, epochCache, archiver, l1TxUtils, telemetry);
+    const watchers: Watcher[] = [];
+
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    await validatorsSentinel?.start();
+    if (validatorsSentinel) {
+      watchers.push(validatorsSentinel);
+    }
+
+    const slasherClient = SlasherClient.new(config, epochCache, archiver, l1TxUtils, watchers, telemetry);
     slasherClient.start();
 
     const validatorClient = createValidatorClient(config, {
@@ -264,9 +272,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochCache,
       blockSource: archiver,
     });
-
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    await validatorsSentinel?.start();
 
     log.verbose(`All Aztec Node subsystems synced`);
 

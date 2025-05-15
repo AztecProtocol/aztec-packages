@@ -4,8 +4,8 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
-import type { SlasherClient } from '@aztec/slasher';
-import { Offence } from '@aztec/slasher';
+import type { SlasherConfig } from '@aztec/slasher/config';
+import { Offence, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   type L2BlockStream,
@@ -19,7 +19,7 @@ import { makeBlockAttestation, randomPublishedL2Block } from '@aztec/stdlib/test
 import type { ValidatorStats, ValidatorStatusHistory, ValidatorsStats } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
-import { type DeepMockProxy, type MockProxy, mock, mockDeep } from 'jest-mock-extended';
+import { type MockProxy, mock, mockDeep } from 'jest-mock-extended';
 
 import { Sentinel } from './sentinel.js';
 import { SentinelStore } from './store.js';
@@ -39,7 +39,14 @@ describe('sentinel', () => {
   let epoch: bigint;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
-  let slasher: DeepMockProxy<SlasherClient>;
+  const config: Pick<
+    SlasherConfig,
+    'slashInactivityCreateTargetPercentage' | 'slashInactivityCreatePenalty' | 'slashInactivitySignalTargetPercentage'
+  > = {
+    slashInactivityCreatePenalty: 100n,
+    slashInactivityCreateTargetPercentage: 0.8,
+    slashInactivitySignalTargetPercentage: 0.6,
+  };
 
   beforeEach(async () => {
     epochCache = mock<EpochCache>();
@@ -64,12 +71,8 @@ describe('sentinel', () => {
 
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
-    slasher = mockDeep<SlasherClient>();
-    slasher.config.slashInactivityCreatePenalty = 100n;
-    slasher.config.slashInactivityCreateTargetPercentage = 0.8;
-    slasher.config.slashInactivitySignalTargetPercentage = 0.6;
 
-    sentinel = new TestSentinel(epochCache, archiver, p2p, store, slasher, blockStream);
+    sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
   });
 
   afterEach(async () => {
@@ -283,6 +286,7 @@ describe('sentinel', () => {
         slotWindow: 15,
       } as ValidatorsStats;
       const computeStatsSpy = jest.spyOn(sentinel, 'computeStats').mockResolvedValue(statsResult);
+      const emitSpy = jest.spyOn(sentinel, 'emit');
 
       await sentinel.handleChainProven({ type: 'chain-proven', block: { number: blockNumber, hash: blockHash } });
 
@@ -290,9 +294,9 @@ describe('sentinel', () => {
         fromSlot: headerSlots[0],
         toSlot: headerSlots[headerSlots.length - 1],
       });
-      expect(slasher.wantToSlash).toHaveBeenCalledWith({
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, {
         validators: [validator2.toString()],
-        amounts: [slasher.config.slashInactivityCreatePenalty],
+        amounts: [config.slashInactivityCreatePenalty],
         offenses: [Offence.INACTIVITY],
       });
     });
@@ -309,11 +313,12 @@ describe('sentinel', () => {
       );
 
       await sentinel.updateProvenPerformance(1n, performance);
+      const emitSpy = jest.spyOn(sentinel, 'emit');
 
       sentinel.handleProvenPerformance(performance);
-      const penalty = slasher.config.slashInactivityCreatePenalty;
+      const penalty = config.slashInactivityCreatePenalty;
 
-      expect(slasher.wantToSlash).toHaveBeenCalledWith({
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, {
         validators: [`0x0000000000000000000000000000000000000008`, `0x0000000000000000000000000000000000000009`],
         amounts: [penalty, penalty],
         offenses: [Offence.INACTIVITY, Offence.INACTIVITY],
@@ -321,7 +326,11 @@ describe('sentinel', () => {
 
       for (let i = 0; i < 10; i++) {
         const expectedAgree = i >= 6;
-        const actualAgree = await sentinel.agreeWithSlash([`0x000000000000000000000000000000000000000${i}`], [penalty]);
+        const actualAgree = await sentinel.shouldSlash(
+          `0x000000000000000000000000000000000000000${i}`,
+          penalty,
+          Offence.INACTIVITY,
+        );
         expect(actualAgree).toBe(expectedAgree);
       }
     });
@@ -334,10 +343,13 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
-    slasher: SlasherClient | undefined,
+    config: Pick<
+      SlasherConfig,
+      'slashInactivityCreateTargetPercentage' | 'slashInactivityCreatePenalty' | 'slashInactivitySignalTargetPercentage'
+    >,
     protected override blockStream: L2BlockStream,
   ) {
-    super(epochCache, archiver, p2p, store, slasher);
+    super(epochCache, archiver, p2p, store, config);
   }
 
   public override init() {

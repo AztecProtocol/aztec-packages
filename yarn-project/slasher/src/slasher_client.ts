@@ -14,8 +14,14 @@ import {
   getContract,
 } from 'viem';
 
-import { Offence, type SlasherConfig, WANT_TO_SLASH_EVENT, type WantToSlashArgs, bigIntToOffence } from './config.js';
-import { EpochPruneWatcher } from './epoch_prune_watcher.js';
+import {
+  Offence,
+  type SlasherConfig,
+  WANT_TO_SLASH_EVENT,
+  type WantToSlashArgs,
+  type Watcher,
+  bigIntToOffence,
+} from './config.js';
 
 /**
  * Enum defining the possible states of the Slasher client.
@@ -97,17 +103,19 @@ export class SlasherClient extends WithTracer {
     epochCache: EpochCache,
     l2BlockSource: L2BlockSourceEventEmitter,
     l1TxUtils: L1TxUtils,
+    watchers: Watcher[],
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    const epochPruneWatcher = new EpochPruneWatcher(l2BlockSource, epochCache, config.slashPrunePenalty);
-    return new SlasherClient(config, l2BlockSource, l1TxUtils, epochPruneWatcher, telemetry);
+    // const epochPruneWatcher = new EpochPruneWatcher(l2BlockSource, epochCache, config.slashPrunePenalty);
+    return new SlasherClient(config, l2BlockSource, l1TxUtils, watchers, telemetry);
   }
 
   constructor(
     public config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1TxUtils: L1TxUtils,
-    private epochPruneWatcher: EpochPruneWatcher,
+    // private epochPruneWatcher: EpochPruneWatcher,
+    private watchers: Watcher[],
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
   ) {
@@ -137,9 +145,7 @@ export class SlasherClient extends WithTracer {
     }
 
     this.watchSlashFactoryEvents();
-    this.epochPruneWatcher.on(WANT_TO_SLASH_EVENT, this.wantToSlash.bind(this));
-
-    this.epochPruneWatcher.start();
+    this.watchers.forEach(watcher => watcher.on(WANT_TO_SLASH_EVENT, this.wantToSlash.bind(this)));
   }
 
   public wantToSlash(args: WantToSlashArgs) {
@@ -191,8 +197,8 @@ export class SlasherClient extends WithTracer {
     this.monitoredPayloads.sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount));
   }
 
-  private addMonitoredPayload(payload: MonitoredSlashPayload) {
-    if (this.doIAgreeWithPayload(payload)) {
+  private async addMonitoredPayload(payload: MonitoredSlashPayload) {
+    if (await this.doIAgreeWithPayload(payload)) {
       this.log.info('Adding monitored payload', payload);
       this.monitoredPayloads.push(payload);
     }
@@ -217,7 +223,7 @@ export class SlasherClient extends WithTracer {
     if (this.unwatchSlashFactoryEvents) {
       this.unwatchSlashFactoryEvents();
     }
-    this.epochPruneWatcher.stop();
+    // this.epochPruneWatcher.stop();
     this.log.info('Slasher client stopped.');
   }
 
@@ -232,14 +238,16 @@ export class SlasherClient extends WithTracer {
       onLogs: logs => {
         for (const payload of this.factoryEventsToMonitoredPayloads(logs)) {
           this.log.info('Slash payload created', payload);
-          this.addMonitoredPayload(payload);
+          this.addMonitoredPayload(payload).catch(e => {
+            this.log.error('Error adding monitored payload', e);
+          });
         }
         this.sortMonitoredPayloads();
       },
     });
   }
 
-  private doIAgreeWithPayload(payload: MonitoredSlashPayload) {
+  private async doIAgreeWithPayload(payload: MonitoredSlashPayload) {
     // zip offenses and validators together
     const offensesAndValidators = payload.offenses.map((offense, index) => ({
       offense,
@@ -249,17 +257,18 @@ export class SlasherClient extends WithTracer {
 
     // check each offense
     for (const offenseAndValidator of offensesAndValidators) {
-      switch (offenseAndValidator.offense) {
-        case Offence.UNKNOWN:
-          continue;
-        case Offence.EPOCH_PRUNE:
-          if (!this.epochPruneWatcher.wantToSlash(offenseAndValidator.validator, offenseAndValidator.amount)) {
-            return false;
-          }
-          break;
-        case Offence.INACTIVITY:
-          // TODO: Implement inactivity slashing
-          continue;
+      const watcherResponses = await Promise.all(
+        this.watchers.map(watcher =>
+          watcher.shouldSlash(
+            offenseAndValidator.validator.toString(),
+            offenseAndValidator.amount,
+            offenseAndValidator.offense,
+          ),
+        ),
+      );
+      // if no watcher agrees, return false
+      if (watcherResponses.every(response => !response)) {
+        return false;
       }
     }
     return true;
