@@ -1,26 +1,10 @@
 use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct FunctionSelector {
     // 1st 4-bytes of abi-encoding of function.
     pub inner: u32,
-}
-
-impl Eq for FunctionSelector {
-    fn eq(self, function_selector: FunctionSelector) -> bool {
-        function_selector.inner == self.inner
-    }
-}
-
-impl Serialize<1> for FunctionSelector {
-    fn serialize(self: Self) -> [Field; 1] {
-        [self.inner as Field]
-    }
-}
-
-impl Deserialize<1> for FunctionSelector {
-    fn deserialize(fields: [Field; 1]) -> Self {
-        Self { inner: fields[0] as u32 }
-    }
 }
 
 impl FromField for FunctionSelector {

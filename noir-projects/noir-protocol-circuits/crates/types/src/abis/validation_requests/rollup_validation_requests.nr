@@ -1,12 +1,9 @@
-use crate::{
-    abis::max_block_number::MaxBlockNumber,
-    constants::ROLLUP_VALIDATION_REQUESTS_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
-};
+use crate::{abis::max_block_number::MaxBlockNumber, traits::{Deserialize, Empty, Serialize}};
+use std::meta::derive;
 
 // These are validation requests that cannot be fulfilled in the current context (private or public), and must be
 // instead forwarded to the rollup for it to take care of them.
+#[derive(Deserialize, Eq, Serialize)]
 pub struct RollupValidationRequests {
     pub max_block_number: MaxBlockNumber,
 }
@@ -17,31 +14,20 @@ impl Empty for RollupValidationRequests {
     }
 }
 
-impl Serialize<ROLLUP_VALIDATION_REQUESTS_LENGTH> for RollupValidationRequests {
-    fn serialize(self) -> [Field; ROLLUP_VALIDATION_REQUESTS_LENGTH] {
-        MaxBlockNumber::serialize(self.max_block_number)
-    }
-}
+mod test {
+    use crate::{
+        abis::validation_requests::rollup_validation_requests::RollupValidationRequests,
+        constants::ROLLUP_VALIDATION_REQUESTS_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-impl Deserialize<ROLLUP_VALIDATION_REQUESTS_LENGTH> for RollupValidationRequests {
-    fn deserialize(fields: [Field; ROLLUP_VALIDATION_REQUESTS_LENGTH]) -> RollupValidationRequests {
-        let mut reader = Reader::new(fields);
-        let item = Self { max_block_number: reader.read_struct(MaxBlockNumber::deserialize) };
-        reader.finish();
-        item
+    #[test]
+    fn serialization_of_empty_rollup_validation_requests() {
+        let item = RollupValidationRequests::empty();
+        // We use the ROLLUP_VALIDATION_REQUESTS_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; ROLLUP_VALIDATION_REQUESTS_LENGTH] = item.serialize();
+        let deserialized = RollupValidationRequests::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
-
-impl Eq for RollupValidationRequests {
-    fn eq(self, other: Self) -> bool {
-        self.max_block_number.eq(other.max_block_number)
-    }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = RollupValidationRequests::empty();
-    let serialized = item.serialize();
-    let deserialized = RollupValidationRequests::deserialize(serialized);
-    assert(item.eq(deserialized));
 }
