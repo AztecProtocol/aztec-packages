@@ -37,6 +37,7 @@ function print_usage {
   echo_cmd "draft"          "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"          "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"         "Print the URL of the current PR associated with the branch."
+  echo_cmd "last-run-url"   "Print the URL of the last GA run for the current branch PR."
   echo_cmd "help"           "Display this help message."
 }
 
@@ -233,6 +234,16 @@ case "$cmd" in
       exit 1
     fi
     echo "$pr_url"
+    ;;
+  "last-run-url")
+    # Print the URL of the last GA run for the current branch PR.
+    run_id=$(get_latest_run_id)
+    if [ -z "$run_id" ] || [ "$run_id" == "null" ]; then
+      echo "No recent GitHub Actions run found for branch '$BRANCH'."
+      exit 1
+    fi
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+    echo "https://github.com/$repo/actions/runs/$run_id"
     ;;
   "help"|"")
     print_usage
