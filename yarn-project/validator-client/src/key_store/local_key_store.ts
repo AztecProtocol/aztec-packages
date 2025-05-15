@@ -42,18 +42,27 @@ export class LocalKeyStore implements ValidatorKeyStore {
   }
 
   /**
-   * Sign a message with the keystore private key by index
-   * @param index - The index of the signer
-   * @param digest - The message buffer to sign
-   * @return signature
-   */
-  /**
    * Sign a message with all keystore private keys
    * @param digest - The message buffer to sign
    * @return signature
    */
   public sign(digest: Buffer32): Promise<Signature[]> {
     return Promise.all(this.signers.map(signer => signer.sign(digest)));
+  }
+
+  /**
+   * Sign a message with a specific address's private key
+   * @param address - The address of the signer to use
+   * @param digest - The message buffer to sign
+   * @returns signature for the specified address
+   * @throws Error if the address is not found in the keystore
+   */
+  public signWithAddress(address: EthAddress, digest: Buffer32): Promise<Signature> {
+    const signer = this.signersByAddress.get(address.toString());
+    if (!signer) {
+      throw new Error(`No signer found for address ${address.toString()}`);
+    }
+    return Promise.resolve(signer.sign(digest));
   }
 
   /**
@@ -64,5 +73,20 @@ export class LocalKeyStore implements ValidatorKeyStore {
    */
   public signMessage(message: Buffer32): Promise<Signature[]> {
     return Promise.all(this.signers.map(signer => signer.signMessage(message)));
+  }
+
+  /**
+   * Sign a message with a specific address's private key
+   * @param address - The address of the signer to use
+   * @param message - The message to sign
+   * @returns signature for the specified address
+   * @throws Error if the address is not found in the keystore
+   */
+  public signMessageWithAddress(address: EthAddress, message: Buffer32): Promise<Signature> {
+    const signer = this.signersByAddress.get(address.toString());
+    if (!signer) {
+      throw new Error(`No signer found for address ${address.toString()}`);
+    }
+    return Promise.resolve(signer.signMessage(message));
   }
 }

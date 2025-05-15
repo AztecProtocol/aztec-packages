@@ -1,5 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { BlockAttestation, BlockProposal, ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
 import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
@@ -25,8 +26,9 @@ export class ValidationService {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    proposerAttesterAddress: EthAddress,
   ): Promise<BlockProposal> {
-    const payloadSigners = (payload: Buffer32) => this.keyStore.signMessage(payload);
+    const payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(proposerAttesterAddress, payload);
     // TODO: check if this is calculated earlier / can not be recomputed
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
@@ -34,7 +36,7 @@ export class ValidationService {
       blockNumber,
       new ConsensusPayload(header, archive, stateReference, txHashes),
       txs,
-      payloadSigners,
+      payloadSigner,
     );
   }
 

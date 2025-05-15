@@ -117,7 +117,7 @@ describe('ValidatorClient', () => {
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockResolvedValue(undefined);
     p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
-    epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
+    epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
       currentProposer: proposal.getSender(),
       nextProposer: proposal.getSender(),
       currentSlot: proposal.slotNumber.toBigInt(),
@@ -236,7 +236,7 @@ describe('ValidatorClient', () => {
       );
 
       epochCache.isInCommittee.mockResolvedValue(true);
-      epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
         currentSlot: proposal.slotNumber.toBigInt(),
@@ -306,7 +306,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not return an attestation if the proposer is not the current proposer', async () => {
-      epochCache.getProposerInCurrentOrNextSlot.mockImplementation(() =>
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockImplementation(() =>
         Promise.resolve({
           currentProposer: EthAddress.random(),
           nextProposer: EthAddress.random(),
@@ -320,7 +320,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not return an attestation if the proposal is not for the current or next slot', async () => {
-      epochCache.getProposerInCurrentOrNextSlot.mockResolvedValue({
+      epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
         nextProposer: proposal.getSender(),
         currentSlot: proposal.slotNumber.toBigInt() + 20n,

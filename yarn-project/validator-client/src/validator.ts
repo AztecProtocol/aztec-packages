@@ -222,7 +222,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
     // if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
     if (inCommittee.length === 0) {
-      this.log.verbose(`Not in the committee, skipping attestation`);
+      this.log.verbose(`No validator in the committee, skipping attestation`);
       return undefined;
     }
 
@@ -444,12 +444,16 @@ export class ValidatorClient extends WithTracer implements Validator {
       return Promise.resolve(undefined);
     }
 
+    const { currentProposer: proposerAttesterAddress } =
+      await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+
     const newProposal = await this.validationService.createBlockProposal(
       blockNumber,
       header,
       archive,
       stateReference,
       txs,
+      proposerAttesterAddress,
     );
     this.previousProposal = newProposal;
     return newProposal;

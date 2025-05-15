@@ -23,6 +23,7 @@ export interface ValidatorKeyStore {
   getAddresses(): EthAddress[];
 
   sign(message: Buffer32): Promise<Signature[]>;
+  signWithAddress(address: EthAddress, message: Buffer32): Promise<Signature>;
   /**
    * Flavor of sign message that followed EIP-712 eth signed message prefix
    * Note: this is only required when we are using ecdsa signatures over secp256k1
@@ -31,4 +32,5 @@ export interface ValidatorKeyStore {
    * @returns The signatures.
    */
   signMessage(message: Buffer32): Promise<Signature[]>;
+  signMessageWithAddress(address: EthAddress, message: Buffer32): Promise<Signature>;
 }
