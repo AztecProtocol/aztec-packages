@@ -16,7 +16,7 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx } from '@aztec/stdlib/tx';
-import { VkWitnessData } from '@aztec/stdlib/vks';
+import { VkData } from '@aztec/stdlib/vks';
 
 /**
  * Helper class to manage the proving cycle of a transaction
@@ -128,12 +128,12 @@ export class TxProvingState {
     }
     const vkPath = getVKSiblingPath(vkIndex);
 
-    return new VkWitnessData(this.tube!.verificationKey, vkIndex, vkPath);
+    return new VkData(this.tube!.verificationKey, vkIndex, vkPath);
   }
 
   #getAvmVkData() {
     const vkIndex = AVM_VK_INDEX;
     const vkPath = getVKSiblingPath(vkIndex);
-    return new VkWitnessData(this.avm!.verificationKey, AVM_VK_INDEX, vkPath);
+    return new VkData(this.avm!.verificationKey, vkIndex, vkPath);
   }
 }

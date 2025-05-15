@@ -3,13 +3,13 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../proofs/recursive_proof.js';
-import { VkWitnessData } from '../vks/vk_witness_data.js';
+import { VkData } from '../vks/vk_data.js';
 
 export class AvmProofData {
   constructor(
     public publicInputs: AvmCircuitPublicInputs,
     public proof: RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>,
-    public vkData: VkWitnessData,
+    public vkData: VkData,
   ) {}
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -17,7 +17,7 @@ export class AvmProofData {
     return new AvmProofData(
       reader.readObject(AvmCircuitPublicInputs),
       RecursiveProof.fromBuffer(reader),
-      reader.readObject(VkWitnessData),
+      reader.readObject(VkData),
     );
   }
 
@@ -29,7 +29,7 @@ export class AvmProofData {
     return new AvmProofData(
       AvmCircuitPublicInputs.empty(),
       makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
-      VkWitnessData.empty(),
+      VkData.empty(),
     );
   }
 }
