@@ -2,13 +2,7 @@ import { Blob } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import {
-  DefaultL1ContractsConfig,
-  InboxContract,
-  L1TxUtils,
-  RollupContract,
-  type ViemPublicClient,
-} from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, InboxContract, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -90,7 +84,6 @@ describe('Archiver', () => {
   let publicClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
-  let l1TxUtils: MockProxy<L1TxUtils>;
   let archiverStore: ArchiverDataStore;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32 };
   let now: number;
@@ -626,10 +619,6 @@ describe('Archiver', () => {
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12631
   it('reports an epoch as complete due to timestamp only once all its blocks have been synced', async () => {
-    l1TxUtils.simulate.mockResolvedValue({
-      gasUsed: 1000n,
-      result: '0x0000000000000000000000000000000000000000000000000000000000000000', // false
-    });
     const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
     const l2Slot = 1;
     const l1BlockForL2Block = l1StartBlock + BigInt((l2Slot * slotDuration) / ethereumSlotDuration);
