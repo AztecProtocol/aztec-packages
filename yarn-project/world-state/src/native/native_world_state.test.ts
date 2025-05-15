@@ -450,6 +450,52 @@ describe('NativeWorldState', () => {
       }
     });
 
+    const unsyncTrees = async (
+      treeDirectories: string[],
+      unsyncFunction: (ws: NativeWorldStateService) => Promise<void>,
+    ) => {
+      const copyFiles = async (source: string, dest: string) => {
+        const contents = await readdir(source);
+        const isFile = async (fileName: string) => {
+          return (await lstat(fileName)).isFile();
+        };
+        for (const file of contents) {
+          const fullSourceFile = join(source, file);
+          const isAFile = await isFile(fullSourceFile);
+          if (!isAFile) {
+            continue;
+          }
+          await copyFile(fullSourceFile, join(dest, file));
+        }
+      };
+
+      const tempDirectory = await mkdtemp(join(tmpdir(), randomBytes(8).toString('hex')));
+      await ws.close();
+
+      for (let i = 0; i < treeDirectories.length; i++) {
+        const dir = treeDirectories[i];
+        const sourceDirectory = join(dataDir, 'world_state', dir);
+        const destDirectory = join(tempDirectory, dir);
+        await mkdir(destDirectory, { recursive: true });
+        await copyFiles(sourceDirectory, destDirectory);
+      }
+
+      // Open up the world state again
+      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await unsyncFunction(ws);
+
+      // Now, close down the world state and reinstate the nullifier and public data trees
+      await ws.close();
+
+      for (let i = 0; i < treeDirectories.length; i++) {
+        const dir = treeDirectories[i];
+        const sourceDirectory = join(dataDir, 'world_state', dir);
+        const destDirectory = join(tempDirectory, dir);
+        await copyFiles(destDirectory, sourceDirectory);
+      }
+      await rm(tempDirectory, { recursive: true, force: true });
+    };
+
     it('handles historic block numbers being out of sync', async () => {
       const fork = await ws.fork();
       const forks = [];
@@ -474,53 +520,19 @@ describe('NativeWorldState', () => {
         }
       }
 
-      // We now copy the nullifier and public data tress to a temp directory
-      await ws.close();
-
-      const nullifierTreePathSource = join(dataDir, 'world_state', 'NullifierTree');
-      const publicTreePathSource = join(dataDir, 'world_state', 'PublicDataTree');
-      const tempDirectory = await mkdtemp(join(tmpdir(), randomBytes(8).toString('hex')));
-      const nullifierTreePathDest = join(tempDirectory, 'NullifierTree');
-      const publicTreePathDest = join(tempDirectory, 'PublicDataTree');
-      await mkdir(nullifierTreePathDest, { recursive: true });
-      await mkdir(publicTreePathDest, { recursive: true });
-
-      const copyFiles = async (source: string, dest: string) => {
-        const contents = await readdir(source);
-        const isFile = async (fileName: string) => {
-          return (await lstat(fileName)).isFile();
-        };
-        for (const file of contents) {
-          const fullSourceFile = join(source, file);
-          const isAFile = await isFile(fullSourceFile);
-          if (!isAFile) {
-            continue;
-          }
-          await copyFile(fullSourceFile, join(dest, file));
-        }
-      };
-
-      await copyFiles(nullifierTreePathSource, nullifierTreePathDest);
-      await copyFiles(publicTreePathSource, publicTreePathDest);
-
-      // Open up the world state again
-      ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-
-      // Remove the first 5 historical blocks
-      await ws.removeHistoricalBlocks(5n);
-
-      // Now, close down the world state and reinstate the nullifier and public data trees
-      await ws.close();
-
-      await copyFiles(nullifierTreePathDest, nullifierTreePathSource);
-      await copyFiles(publicTreePathDest, publicTreePathSource);
-
-      await rm(tempDirectory, { recursive: true, force: true });
+      await unsyncTrees(['PublicDataTree', 'NullifierTree'], async (ws: NativeWorldStateService) => {
+        await ws.removeHistoricalBlocks(5n);
+      });
 
       // Open up the world state again and try removing the first 10 historical blocks
       // We should handle the fact that some trees are at historical block 5 and some are at 1
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-      await ws.removeHistoricalBlocks(10n);
+      const fullStatus = await ws.removeHistoricalBlocks(10n);
+      expect(fullStatus.meta.archiveTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.messageTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.noteHashTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.nullifierTreeMeta.oldestHistoricBlock).toEqual(10n);
+      expect(fullStatus.meta.publicDataTreeMeta.oldestHistoricBlock).toEqual(10n);
     });
 
     it.each([
