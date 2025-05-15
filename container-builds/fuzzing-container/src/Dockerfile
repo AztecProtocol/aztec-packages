@@ -23,4 +23,7 @@ RUN cmake --build --preset fuzzing
 RUN cmake --preset fuzzing-asan
 RUN cmake --build --preset fuzzing-asan
 
+RUN mv ./build-fuzzing ./build-fuzzing-asan /home/fuzzer
+WORKDIR /home/fuzzer
+
 COPY entrypoint.sh .

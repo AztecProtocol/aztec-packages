@@ -110,6 +110,7 @@ if [[ $verbosity == '1' ]]; then
         "$image_name"                                           \
         --verbose                                               \
         --fuzzer "$fuzzer"                                      \
+        --jobs "$cpus"                                          \
         --mode "$mode"                                          \
         --timeout "$timeout"                             
 else
@@ -122,6 +123,7 @@ else
         --entrypoint "./entrypoint.sh"                          \
         "$image_name"                                           \
         --fuzzer "$fuzzer"                                      \
+        --jobs "$cpus"                                          \
         --mode "$mode"                                          \
         --timeout "$timeout"                             
 fi

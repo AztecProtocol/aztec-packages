@@ -19,6 +19,8 @@ fuzzer=''
 verbosity='0'
 timeout='2592000' # 1 month
 mode='fuzzing'
+jobs=4
+workers=0
 
 show_fuzzers() {
     echo "The following fuzzers are available:"
@@ -37,6 +39,8 @@ show_help() {
     echo "  -v, --verbose               Enable fuzzer's verbose mode (default: $timeout)"
     echo "  -f, --fuzzer <fuzzer_name>  Specify the fuzzer to use"
     echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
+    echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs)"
+    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
     echo "  -m, --mode <mode>           Set the mode of operation (fuzzing or coverage) (default: $mode)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --show-fuzzers              Display the available fuzzers"
@@ -147,8 +151,8 @@ echo "End of regression"
 fuzz() {
     TMPOUT="$(mktemp -d)"
     [[ -d "$TMPOUT" ]] || mkdir "$TMPOUT"
-    echo "Start $fuzzer with: max_total_time: $timeout, 4 workers and 4 jobs"
-    "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -workers=4 -jobs=4 -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 &> "$TMPOUT/session.log";
+    echo "Start $fuzzer with: max_total_time: $timeout, $jobs jobs and $workers jobs"
+    "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -jobs="$jobs" -workers="$workers"  -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 &> "$TMPOUT/session.log";
     echo "Fuzzer stopped"
 
     files=("$TMPOUT"/crash-*)
