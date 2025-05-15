@@ -231,7 +231,7 @@ pub trait Serialize {
 }
 // docs:end:serialize
 
-impl Serialize for str<M> {
+impl<let M: u32> Serialize for str<M> {
     let N = M;
 
     #[inline_always]
@@ -275,13 +275,15 @@ where
     }
 }
 
-impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
+impl<T, let M: u32, let O: u32> Serialize for BoundedVec<T, M>
 where
-    T: Serialize<O>,
+    T: Serialize,
 {
+    let N = O * M + 1; // +1 for the length of the BoundedVec
+
     #[inline_always]
-    fn serialize(self) -> [Field; O * M + 1] {
-        let mut fields = [0; O * M + 1];
+    fn serialize(self) -> [Field; Self::N] {
+        let mut fields = [0; Self::N];
 
         let len = self.len();
         fields[0] = len as Field;

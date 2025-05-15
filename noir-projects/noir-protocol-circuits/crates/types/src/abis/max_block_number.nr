@@ -16,8 +16,10 @@ impl Eq for MaxBlockNumber {
     }
 }
 
-impl Serialize<MAX_BLOCK_NUMBER_LENGTH> for MaxBlockNumber {
-    fn serialize(self) -> [Field; MAX_BLOCK_NUMBER_LENGTH] {
+impl Serialize for MaxBlockNumber {
+    let N = MAX_BLOCK_NUMBER_LENGTH;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self._opt.is_some() as Field, self._opt.unwrap_unchecked() as Field]
     }
 }

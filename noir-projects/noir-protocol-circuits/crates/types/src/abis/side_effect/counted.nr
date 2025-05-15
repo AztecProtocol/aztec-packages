@@ -34,11 +34,13 @@ where
     }
 }
 
-impl<T, let N: u32> Serialize<N> for Counted<T>
+impl<T> Serialize for Counted<T>
 where
-    T: Serialize<N - 1>,
+    T: Serialize,
 {
-    fn serialize(self) -> [Field; N] {
+    let N = <T as Serialize>::N + 1;
+
+    fn serialize(self) -> [Field; Self::N] {
         array_concat(self.inner.serialize(), [self.counter as Field])
     }
 }

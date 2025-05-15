@@ -3,8 +3,10 @@ use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Packable, S
 
 pub global POINT_LENGTH: u32 = 3;
 
-impl Serialize<POINT_LENGTH> for Point {
-    fn serialize(self: Self) -> [Field; POINT_LENGTH] {
+impl Serialize for Point {
+    let N = POINT_LENGTH;
+
+    fn serialize(self: Self) -> [Field; Self::N] {
         [self.x, self.y, self.is_infinite as Field]
     }
 }

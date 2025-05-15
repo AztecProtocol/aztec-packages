@@ -82,7 +82,7 @@ impl Deserialize<U64_SERIALIZED_LEN> for u64 {
     }
 }
 
-impl Serialize<U128_SERIALIZED_LEN> for u128 {
+impl Serialize for u128 {
     let N = U128_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
@@ -166,17 +166,18 @@ impl Deserialize<I64_SERIALIZED_LEN> for i64 {
     }
 }
 
-impl<T, let N: u32, let M: u32> Serialize<N * M> for [T; N]
+impl<T, let N: u32> Serialize for [T; N]
 where
-    T: Serialize<M>,
+    T: Serialize,
 {
-    fn serialize(self) -> [Field; N * M] {
-        let mut result: [Field; N * M] = std::mem::zeroed();
-        let mut serialized: [Field; M] = std::mem::zeroed();
+    let N = <T as Serialize>::N * N;
+
+    fn serialize(self) -> [Field; Self::N] {
+        let mut result: [Field; _] = std::mem::zeroed();
         for i in 0..N {
-            serialized = self[i].serialize();
-            for j in 0..M {
-                result[i * M + j] = serialized[j];
+            let serialized_t = self[i].serialize();
+            for j in 0..<T as Serialize>::N {
+                result[i * <T as Serialize>::N + j] = serialized_t[j];
             }
         }
         result
